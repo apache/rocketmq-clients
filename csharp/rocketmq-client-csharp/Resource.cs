@@ -15,12 +15,19 @@
  * limitations under the License.
  */
 
+using System;
 using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
-    public class Resource
+    public class Resource : IEquatable<Resource>
     {
+        public Resource(string namespaceName, string name)
+        {
+            Namespace = namespaceName;
+            Name = name;
+        }
+
         public Resource(Proto.Resource resource)
         {
             Namespace = resource.ResourceNamespace;
@@ -33,7 +40,7 @@ namespace Org.Apache.Rocketmq
             Name = name;
         }
 
-        private string Namespace { get; }
+        public string Namespace { get; }
         public string Name { get; }
 
         public Proto.Resource ToProtobuf()
@@ -45,9 +52,46 @@ namespace Org.Apache.Rocketmq
             };
         }
 
+        public bool Equals(Resource other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return Name == other.Name && Namespace == other.Namespace;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            return obj.GetType() == GetType() && Equals((Resource)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Namespace, Name);
+        }
+
         public override string ToString()
         {
             return string.IsNullOrEmpty(Namespace) ? Name : $"{Namespace}.{Name}";
         }
+
+
     }
 }

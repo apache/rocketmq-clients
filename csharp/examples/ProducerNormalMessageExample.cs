@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+using System;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -26,18 +27,19 @@ namespace examples
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(ProducerNormalMessageExample).FullName);
 
+        private static readonly string AccessKey = Environment.GetEnvironmentVariable("ROCKETMQ_ACCESS_KEY");
+        private static readonly string SecretKey = Environment.GetEnvironmentVariable("ROCKETMQ_SECRET_KEY");
+        private static readonly string Endpoint = Environment.GetEnvironmentVariable("ROCKETMQ_ENDPOINT");
+
         internal static async Task QuickStart()
         {
             // Enable the switch if you use .NET Core 3.1 and want to disable TLS/SSL.
             // AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
-            const string accessKey = "yourAccessKey";
-            const string secretKey = "yourSecretKey";
 
             // Credential provider is optional for client configuration.
-            var credentialsProvider = new StaticSessionCredentialsProvider(accessKey, secretKey);
-            const string endpoints = "foobar.com:8080";
+            var credentialsProvider = new StaticSessionCredentialsProvider(AccessKey, SecretKey);
             var clientConfig = new ClientConfig.Builder()
-                .SetEndpoints(endpoints)
+                .SetEndpoints(Endpoint)
                 .SetCredentialsProvider(credentialsProvider)
                 .Build();
 

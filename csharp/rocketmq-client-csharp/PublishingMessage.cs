@@ -76,7 +76,7 @@ namespace Org.Apache.Rocketmq
             MessageType = MessageType.Transaction;
         }
 
-        public Proto::Message ToProtobuf(int queueId)
+        public Proto::Message ToProtobuf(string namespaceName, int queueId)
         {
             var systemProperties = new Proto.SystemProperties
             {
@@ -105,6 +105,7 @@ namespace Org.Apache.Rocketmq
 
             var topicResource = new Proto.Resource
             {
+                ResourceNamespace = namespaceName,
                 Name = Topic
             };
             return new Proto.Message

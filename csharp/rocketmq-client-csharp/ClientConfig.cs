@@ -22,12 +22,13 @@ namespace Org.Apache.Rocketmq
     public class ClientConfig
     {
         private ClientConfig(ISessionCredentialsProvider sessionCredentialsProvider, TimeSpan requestTimeout,
-            string endpoints, bool sslEnabled)
+            string endpoints, bool sslEnabled, string namespaceName)
         {
             SessionCredentialsProvider = sessionCredentialsProvider;
             RequestTimeout = requestTimeout;
             Endpoints = endpoints;
             SslEnabled = sslEnabled;
+            Namespace = namespaceName;
         }
 
         public ISessionCredentialsProvider SessionCredentialsProvider { get; }
@@ -38,12 +39,15 @@ namespace Org.Apache.Rocketmq
 
         public bool SslEnabled { get; }
 
+        public string Namespace { get; }
+
         public class Builder
         {
             private ISessionCredentialsProvider _sessionCredentialsProvider;
             private TimeSpan _requestTimeout = TimeSpan.FromSeconds(3);
             private string _endpoints;
             private bool _sslEnabled = true;
+            private string _namespace = "";
 
             public Builder SetCredentialsProvider(ISessionCredentialsProvider sessionCredentialsProvider)
             {
@@ -69,9 +73,15 @@ namespace Org.Apache.Rocketmq
                 return this;
             }
 
+            public Builder SetNamespace(string namespaceName)
+            {
+                _namespace = namespaceName;
+                return this;
+            }
+
             public ClientConfig Build()
             {
-                return new ClientConfig(_sessionCredentialsProvider, _requestTimeout, _endpoints, _sslEnabled);
+                return new ClientConfig(_sessionCredentialsProvider, _requestTimeout, _endpoints, _sslEnabled, _namespace);
             }
         }
     }

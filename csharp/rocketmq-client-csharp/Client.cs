@@ -21,10 +21,13 @@ using System.Threading.Tasks;
 using System.Threading;
 using System;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
 using grpcLib = Grpc.Core;
 
+[assembly: InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace Org.Apache.Rocketmq
 {
     public abstract class Client
@@ -49,7 +52,7 @@ namespace Org.Apache.Rocketmq
 
         protected readonly ClientConfig ClientConfig;
         protected readonly Endpoints Endpoints;
-        protected readonly IClientManager ClientManager;
+        protected IClientManager ClientManager;
         protected readonly string ClientId;
         protected readonly ClientMeterManager ClientMeterManager;
 
@@ -113,7 +116,7 @@ namespace Org.Apache.Rocketmq
             Logger.LogDebug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
         }
 
-        private (bool, Session) GetSession(Endpoints endpoints)
+        private protected (bool, Session) GetSession(Endpoints endpoints)
         {
             _sessionLock.EnterReadLock();
             try
@@ -151,11 +154,11 @@ namespace Org.Apache.Rocketmq
 
         protected abstract IEnumerable<string> GetTopics();
 
-        protected abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
+        internal abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
 
         protected abstract void OnTopicRouteDataUpdated0(string topic, TopicRouteData topicRouteData);
 
-        private async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
+        internal async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
         {
             var routeEndpoints = new HashSet<Endpoints>();
             foreach (var mq in topicRouteData.MessageQueues)
@@ -261,7 +264,7 @@ namespace Org.Apache.Rocketmq
                 $"AvailableCompletionPortThreads={availableIo}");
         }
 
-        private void ScheduleWithFixedDelay(Action action, TimeSpan delay, TimeSpan period, CancellationToken token)
+        private protected void ScheduleWithFixedDelay(Action action, TimeSpan delay, TimeSpan period, CancellationToken token)
         {
             Task.Run(async () =>
             {
@@ -313,6 +316,7 @@ namespace Org.Apache.Rocketmq
                 {
                     Topic = new Proto::Resource
                     {
+                        ResourceNamespace = ClientConfig.Namespace,
                         Name = topic
                     },
                     Endpoints = Endpoints.ToProtobuf()
@@ -397,7 +401,7 @@ namespace Org.Apache.Rocketmq
             return metadata;
         }
 
-        protected abstract Proto::NotifyClientTerminationRequest WrapNotifyClientTerminationRequest();
+        internal abstract Proto::NotifyClientTerminationRequest WrapNotifyClientTerminationRequest();
 
         private async void NotifyClientTermination()
         {
@@ -432,6 +436,17 @@ namespace Org.Apache.Rocketmq
             return ClientConfig;
         }
 
+        internal IClientManager GetClientManager()
+        {
+            return ClientManager;
+        }
+
+        // Only for testing
+        internal void SetClientManager(IClientManager clientManager)
+        {
+            ClientManager = clientManager;
+        }
+
         internal virtual void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
             Proto.RecoverOrphanedTransactionCommand command)
         {
@@ -439,7 +454,7 @@ namespace Org.Apache.Rocketmq
                               $"clientId={ClientId}, endpoints={endpoints}");
         }
 
-        internal async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
+        internal virtual async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
         {
             // Only push consumer support message consumption verification.
             Logger.LogWarning($"Ignore verify message command from remote, which is not expected, clientId={ClientId}, " +
@@ -489,7 +504,7 @@ namespace Org.Apache.Rocketmq
 
         internal void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
         {
-            var metric = new Metric(settings.Metric);
+            var metric = new Metric(settings.Metric ?? new Proto.Metric());
             ClientMeterManager.Reset(metric);
             GetSettings().Sync(settings);
         }
