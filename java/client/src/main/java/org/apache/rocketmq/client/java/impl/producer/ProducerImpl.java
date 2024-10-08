@@ -520,14 +520,6 @@ class ProducerImpl extends ClientImpl implements Producer {
                         maxAttempts, attempt, topic, messageIds, endpoints, clientId, t);
                     return;
                 }
-                // No need more attempts for transactional message.
-                if (MessageType.TRANSACTION.equals(messageType)) {
-                    future0.setException(t);
-                    log.error("Failed to send transactional message finally, maxAttempts=1, attempt={}, " +
-                            "topic={}, messageId(s)={}, endpoints={}, clientId={}", attempt, topic, messageIds,
-                        endpoints, clientId, t);
-                    return;
-                }
                 // Try to do more attempts.
                 int nextAttempt = 1 + attempt;
                 // Retry immediately if the request is not throttled.
