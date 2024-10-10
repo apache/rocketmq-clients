@@ -20,9 +20,11 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/url"
@@ -148,6 +150,23 @@ func GZIPDecode(in []byte) ([]byte, error) {
 	}
 	defer reader.Close()
 	return ioutil.ReadAll(reader)
+}
+
+func BytesGzipDecode(src []byte) ([]byte, error) {
+	// Create a zlib reader
+	byteArrayInputStream := bytes.NewReader(src)
+	inflatesInputStream, err := zlib.NewReader(byteArrayInputStream)
+	if err != nil {
+		return nil, err
+	}
+	defer inflatesInputStream.Close()
+	// Create a buffer to store decompressed data
+	var byteArrayOutputStream bytes.Buffer
+	_, err = io.Copy(&byteArrayOutputStream, inflatesInputStream)
+	if err != nil {
+		return nil, err
+	}
+	return byteArrayOutputStream.Bytes(), nil
 }
 
 var clientIdx int64 = 0
