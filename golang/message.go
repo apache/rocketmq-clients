@@ -231,7 +231,6 @@ func fromProtobuf_MessageView2(message *v2.Message, messageQueue *v2.MessageQueu
 	bodyEncoding := systemProperties.GetBodyEncoding()
 	switch bodyEncoding {
 	case v2.Encoding_GZIP:
-		//unCompressBody, err := utils.GZIPDecode(message.GetBody())
 		unCompressBody, err := utils.BytesGzipDecode(message.GetBody())
 		if err != nil {
 			sugarBaseLogger.Errorf("failed to uncompress message body, topic=%s, messageId=%s, err=%w", mv.topic, mv.messageId, err)
