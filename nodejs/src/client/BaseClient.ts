@@ -288,7 +288,7 @@ export abstract class BaseClient {
     // language of client
     // FIXME: java.lang.IllegalArgumentException: No enum constant org.apache.rocketmq.remoting.protocol.LanguageCode.nodejs
     // https://github.com/apache/rocketmq/blob/master/remoting/src/main/java/org/apache/rocketmq/remoting/protocol/LanguageCode.java
-    metadata.set('x-mq-language', 'HTTP');
+    metadata.set('x-mq-language', 'NODE_JS');
     // version of client
     metadata.set('x-mq-client-version', UserAgent.INSTANCE.version);
     if (this.namespace) {
