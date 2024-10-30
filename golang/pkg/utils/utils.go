@@ -19,11 +19,11 @@ package utils
 
 import (
 	"bytes"
-	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -141,13 +141,20 @@ func MatchMessageType(mq *v2.MessageQueue, messageType v2.MessageType) bool {
 }
 
 func GZIPDecode(in []byte) ([]byte, error) {
-	reader, err := gzip.NewReader(bytes.NewReader(in))
+	// Create a zlib reader
+	byteArrayInputStream := bytes.NewReader(in)
+	inflatesInputStream, err := zlib.NewReader(byteArrayInputStream)
 	if err != nil {
-		var out []byte
-		return out, err
+		return nil, err
 	}
-	defer reader.Close()
-	return ioutil.ReadAll(reader)
+	defer inflatesInputStream.Close()
+	// Create a buffer to store decompressed data
+	var byteArrayOutputStream bytes.Buffer
+	_, err = io.Copy(&byteArrayOutputStream, inflatesInputStream)
+	if err != nil {
+		return nil, err
+	}
+	return byteArrayOutputStream.Bytes(), nil
 }
 
 var clientIdx int64 = 0
