@@ -24,8 +24,8 @@
 | Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
 | Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
 | Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
-| Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   ✅   |   ✅    |    🚧    |   🚧   |
-| Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   ✅   |   ✅    |    🚧    |   🚧   |
+| Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
 
 ## 先决条件和构建
 
