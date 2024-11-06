@@ -17,8 +17,14 @@ import asyncio
 import threading
 import time
 from concurrent.futures import Future
+
 from grpc import ChannelConnectivity
-from rocketmq.grpc_protocol import AckMessageRequest, ChangeInvisibleDurationRequest, EndTransactionRequest, HeartbeatRequest, NotifyClientTerminationRequest, QueryRouteRequest, ReceiveMessageRequest, SendMessageRequest, TelemetryCommand
+from rocketmq.grpc_protocol import (AckMessageRequest,
+                                    ChangeInvisibleDurationRequest,
+                                    EndTransactionRequest, HeartbeatRequest,
+                                    NotifyClientTerminationRequest,
+                                    QueryRouteRequest, ReceiveMessageRequest,
+                                    SendMessageRequest, TelemetryCommand)
 from rocketmq.v5.client.connection import RpcChannel, RpcEndpoints
 from rocketmq.v5.log import logger
 from rocketmq.v5.util import ConcurrentMap

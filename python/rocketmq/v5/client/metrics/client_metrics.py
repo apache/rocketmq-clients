@@ -15,11 +15,14 @@
 
 import threading
 import time
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import \
+    OTLPMetricExporter
 from opentelemetry.metrics import Histogram
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
+from opentelemetry.sdk.metrics.view import (ExplicitBucketHistogramAggregation,
+                                            View)
 from opentelemetry.sdk.resources import Resource
 from rocketmq.grpc_protocol import Metric
 from rocketmq.v5.client.connection import RpcEndpoints

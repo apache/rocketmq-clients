@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from os import getpid
 import threading
+from datetime import datetime, timezone
+from os import getpid
 from time import time
 from uuid import getnode
-from datetime import datetime, timezone
-from rocketmq.v5.util.atomic import AtomicInteger
 
+from rocketmq.v5.util.atomic import AtomicInteger
 
 #
 #   The codec for the message-id.

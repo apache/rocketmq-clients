@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from binascii import hexlify
+from datetime import datetime
 from hashlib import sha1
 from hmac import new
 from uuid import uuid4
-from binascii import hexlify
-from datetime import datetime
+
 from rocketmq.v5.util import ClientId
 
 

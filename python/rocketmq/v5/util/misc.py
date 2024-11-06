@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from gzip import decompress
-from zlib import decompress, crc32
-from hashlib import md5, sha1
-from platform import version, system
-from re import compile
+import gzip
 import socket
+import zlib
+from hashlib import md5, sha1
+from platform import system, version
+from re import compile
+
 from rocketmq.grpc_protocol import Language
 from rocketmq.v5.log import logger
 
@@ -65,7 +66,7 @@ class Misc:
 
     @staticmethod
     def crc32_checksum(array):
-        crc32_value = crc32(array) & 0xffffffff
+        crc32_value = zlib.crc32(array) & 0xffffffff
         return format(crc32_value, '08X')
 
     @staticmethod
@@ -83,9 +84,9 @@ class Misc:
     @staticmethod
     def uncompress_bytes_gzip(body):
         if body and body[:2] == b'\x1f\x8b':
-            body = decompress(body)  # Standard Gzip format
+            body = gzip.decompress(body)  # Standard Gzip format
         else:
-            body = decompress(body)  # deflate zip
+            body = zlib.decompress(body)  # deflate zip
         return body
 
     @staticmethod
