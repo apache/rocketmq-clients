@@ -206,7 +206,7 @@ class Message:
     def message_group(self, message_group):
         if self.__delivery_timestamp is not None:
             raise IllegalArgumentException("deliveryTimestamp and messageGroup should not be set at same time")
-        if message_group is None:
+        if message_group is None or len(message_group) == 0:
             raise IllegalArgumentException("messageGroup should not be blank")
         self.__message_group = message_group
 
