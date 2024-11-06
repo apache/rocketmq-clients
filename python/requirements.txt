@@ -1,0 +1,7 @@
+grpcio>=1.5.0
+grpcio-tools>=1.5.0
+opentelemetry-api>=1.2.0
+opentelemetry-sdk>=1.2.0
+opentelemetry-exporter-otlp>=1.2.0
+protobuf
+setuptools
