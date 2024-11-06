@@ -15,15 +15,11 @@
 
 import asyncio
 import time
-
 import grpc
 from grpc import ChannelConnectivity, aio
 from grpc.aio import AioRpcError
-
-from rocketmq.grpc_protocol import (Address, AddressScheme, Code, Endpoints,
-                                    MessagingServiceStub)
-from rocketmq.v5.exception import (IllegalArgumentException,
-                                   UnsupportedException)
+from rocketmq.grpc_protocol import Address, AddressScheme, Code, Endpoints, MessagingServiceStub
+from rocketmq.v5.exception import IllegalArgumentException, UnsupportedException
 from rocketmq.v5.log import logger
 
 

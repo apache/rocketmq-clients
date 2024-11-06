@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import socket
-import time
+from os import getpid
+from socket import gethostname
+from time import time_ns
 from rocketmq.v5.util.atomic import AtomicInteger
 from rocketmq.v5.util.misc import Misc
 
@@ -26,11 +26,10 @@ class ClientId:
 
     def __init__(self):
         self.__client_index = ClientId.__client_index.get_and_increment()
-        host_name = socket.gethostname()
-        process_id = os.getpid()
-        base36_time = Misc.to_base36(time.time_ns())
-        self.__client_id = (host_name + ClientId.CLIENT_ID_SEPARATOR + str(process_id) + ClientId.CLIENT_ID_SEPARATOR
-                            + str(self.__client_index) + ClientId.CLIENT_ID_SEPARATOR + base36_time)
+        host_name = gethostname()
+        process_id = getpid()
+        base36_time = Misc.to_base36(time_ns())
+        self.__client_id = (host_name + ClientId.CLIENT_ID_SEPARATOR + str(process_id) + ClientId.CLIENT_ID_SEPARATOR + str(self.__client_index) + ClientId.CLIENT_ID_SEPARATOR + base36_time)
 
     @property
     def client_id(self):

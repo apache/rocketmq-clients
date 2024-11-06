@@ -42,8 +42,7 @@ class MessageQueue:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, MessageQueue):
             return False
-        ret = (self.__topic == other.__topic and self.__namespace == other.__namespace and self.__queue_id == other.__queue_id and self.__permission == other.__permission and self.__broker_name == other.__broker_name and self.__broker_id == other.__broker_id and
-               self.__broker_endpoints == other.__broker_endpoints and sorted(self.__accept_message_types) == sorted(other.__accept_message_types))
+        ret = (self.__topic == other.__topic and self.__namespace == other.__namespace and self.__queue_id == other.__queue_id and self.__permission == other.__permission and self.__broker_name == other.__broker_name and self.__broker_id == other.__broker_id and self.__broker_endpoints == other.__broker_endpoints and sorted(self.__accept_message_types) == sorted(other.__accept_message_types))
         return ret
 
     def __str__(self):

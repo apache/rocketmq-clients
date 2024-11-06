@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import hashlib
-import hmac
-import uuid
+from hashlib import sha1
+from hmac import new
+from uuid import uuid4
 from binascii import hexlify
 from datetime import datetime
 from rocketmq.v5.util import ClientId
@@ -27,7 +27,7 @@ class Signature:
     def metadata(config, client_id: ClientId):
         now = datetime.now()
         formatted_date_time = now.strftime("%Y%m%dT%H%M%SZ")
-        request_id = str(uuid.uuid4())
+        request_id = str(uuid4())
         sign = Signature.sign(config.credentials.sk, formatted_date_time)
         authorization = "MQv2-HMAC-SHA1" \
                         + " " \
@@ -57,5 +57,5 @@ class Signature:
     @staticmethod
     def sign(access_secret, date_time):
         signing_key = access_secret.encode('utf-8')
-        mac = hmac.new(signing_key, date_time.encode('utf-8'), hashlib.sha1)
+        mac = new(signing_key, date_time.encode('utf-8'), sha1)
         return hexlify(mac.digest()).decode('utf-8')

@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+from os import getpid
 import threading
-import time
-import uuid
+from time import time
+from uuid import getnode
 from datetime import datetime, timezone
 from rocketmq.v5.util.atomic import AtomicInteger
 
@@ -76,16 +76,16 @@ class MessageIdCodec:
         with MessageIdCodec._instance_lock:
             if not hasattr(self, 'initialized'):
                 buffer = bytearray(8)
-                mac = uuid.getnode().to_bytes(6, byteorder='big')
+                mac = getnode().to_bytes(6, byteorder='big')
                 buffer[0:6] = mac
-                pid = os.getpid()
+                pid = getpid()
                 pid_buffer = bytearray(4)
                 pid_buffer[0:4] = pid.to_bytes(4, byteorder='big')
                 buffer[6:8] = pid_buffer[2:4]
                 self.process_fixed_string_v1 = buffer.hex().upper()
                 self.seconds_since_custom_epoch = int(
                     (datetime.now(timezone.utc) - datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc)).total_seconds())
-                self.seconds_start_timestamp = int(time.time())
+                self.seconds_start_timestamp = int(time())
                 self.seconds = self.__delta_time()
                 self.sequence = None
                 self.initialized = True
@@ -109,7 +109,7 @@ class MessageIdCodec:
     """ private """
 
     def __delta_time(self):
-        return int(time.time()) - self.seconds_start_timestamp + self.seconds_since_custom_epoch
+        return int(time()) - self.seconds_start_timestamp + self.seconds_since_custom_epoch
 
     def __sequence_id(self):
         self.sequence = MessageIdCodec.__index.get_and_increment()

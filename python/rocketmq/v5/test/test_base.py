@@ -14,12 +14,8 @@
 # limitations under the License.
 
 import time
-
-from rocketmq.grpc_protocol import (AddressScheme, Broker, Code, Endpoints,
-                                    MessageType, Permission, Resource, Status,
-                                    definition_pb2)
-from rocketmq.grpc_protocol.service_pb2 import (ReceiveMessageResponse,  # noqa
-                                                SendMessageResponse) # noqa
+from rocketmq.grpc_protocol import AddressScheme, Broker, Code, Endpoints, MessageType, Permission, Resource, Status, definition_pb2
+from rocketmq.grpc_protocol.service_pb2 import ReceiveMessageResponse, SendMessageResponse # noqa
 from rocketmq.v5.client import ClientConfiguration, Credentials
 from rocketmq.v5.model import Message, MessageQueue, SendReceipt
 from rocketmq.v5.util import ClientId, MessageIdCodec

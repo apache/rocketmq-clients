@@ -14,9 +14,7 @@
 # limitations under the License.
 
 from rocketmq.grpc_protocol import Code, Status
-from rocketmq.v5.exception import BadRequestException, UnauthorizedException, PaymentRequiredException, \
-    ForbiddenException, NotFoundException, PayloadTooLargeException, TooManyRequestsException, \
-    RequestHeaderFieldsTooLargeException, InternalErrorException, ProxyTimeoutException, UnsupportedException
+from rocketmq.v5.exception import BadRequestException, UnauthorizedException, PaymentRequiredException, ForbiddenException, NotFoundException, PayloadTooLargeException, TooManyRequestsException, RequestHeaderFieldsTooLargeException, InternalErrorException, ProxyTimeoutException, UnsupportedException
 from rocketmq.v5.log import logger
 
 

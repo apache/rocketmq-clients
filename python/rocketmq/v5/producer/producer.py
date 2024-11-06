@@ -19,19 +19,12 @@ import time
 import threading
 from concurrent.futures import Future
 from rocketmq.v5.log import logger
-from rocketmq.grpc_protocol import (ClientType, Code, Encoding,
-                                    EndTransactionRequest, HeartbeatRequest,
-                                    MessageType,
-                                    NotifyClientTerminationRequest, Publishing,
-                                    SendMessageRequest, Settings,
-                                    TelemetryCommand, TransactionResolution,
-                                    TransactionSource)
+from rocketmq.grpc_protocol import ClientType, Code, Encoding, EndTransactionRequest, HeartbeatRequest, MessageType, NotifyClientTerminationRequest, Publishing, SendMessageRequest, Settings, TelemetryCommand, TransactionResolution, TransactionSource
 from rocketmq.v5.client.balancer import QueueSelector
 from rocketmq.v5.client import Client
 from rocketmq.v5.exception import IllegalArgumentException, ClientException, IllegalStateException, TooManyRequestsException
 from rocketmq.v5.model import Message, SendReceipt, CallbackResult
-from rocketmq.v5.util import (ConcurrentMap, MessageIdCodec,
-                              MessagingResultChecker, Misc)
+from rocketmq.v5.util import ConcurrentMap, MessageIdCodec, MessagingResultChecker, Misc
 
 
 class Transaction:

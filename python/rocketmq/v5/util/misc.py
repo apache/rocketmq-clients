@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import gzip
-import hashlib
-import platform
-import re
+from gzip import decompress
+from zlib import decompress, crc32
+from hashlib import md5, sha1
+from platform import version, system
+from re import compile
 import socket
-import zlib
 from rocketmq.grpc_protocol import Language
 from rocketmq.v5.log import logger
 
@@ -26,8 +26,8 @@ from rocketmq.v5.log import logger
 class Misc:
     __LOCAL_IP = None
     __OS_NAME = None
-    TOPIC_PATTERN = re.compile(r'^[%a-zA-Z0-9_-]+$')
-    CONSUMER_GROUP_PATTERN = re.compile(r'^[%a-zA-Z0-9_-]+$')
+    TOPIC_PATTERN = compile(r'^[%a-zA-Z0-9_-]+$')
+    CONSUMER_GROUP_PATTERN = compile(r'^[%a-zA-Z0-9_-]+$')
     SDK_VERSION = "V5_0_1_SNAPSHOT"
 
     @staticmethod
@@ -65,37 +65,37 @@ class Misc:
 
     @staticmethod
     def crc32_checksum(array):
-        crc32_value = zlib.crc32(array) & 0xffffffff
+        crc32_value = crc32(array) & 0xffffffff
         return format(crc32_value, '08X')
 
     @staticmethod
     def md5_checksum(array):
-        md5_hash = hashlib.md5()
+        md5_hash = md5()
         md5_hash.update(array)
         return md5_hash.hexdigest().upper()
 
     @staticmethod
     def sha1_checksum(array):
-        sha1_hash = hashlib.sha1()
+        sha1_hash = sha1()
         sha1_hash.update(array)
         return sha1_hash.hexdigest().upper()
 
     @staticmethod
     def uncompress_bytes_gzip(body):
         if body and body[:2] == b'\x1f\x8b':
-            body = gzip.decompress(body)  # Standard Gzip format
+            body = decompress(body)  # Standard Gzip format
         else:
-            body = zlib.decompress(body)  # deflate zip
+            body = decompress(body)  # deflate zip
         return body
 
     @staticmethod
     def get_os_description():
         if Misc.__OS_NAME is None:
-            os_name = platform.system()  # os system name
+            os_name = system()  # os system name
             if os_name is None:
                 return None
-            version = platform.version()  # os system version
-            Misc.__OS_NAME = f"{os_name} {version}" if version else os_name
+            os_version = version()  # os system version
+            Misc.__OS_NAME = f"{os_name} {os_version}" if os_version else os_name
 
         return Misc.__OS_NAME
 
