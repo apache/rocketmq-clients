@@ -38,7 +38,7 @@ class Credentials:
 
 class ClientConfiguration:
 
-    def __init__(self, endpoints: str, credentials: Credentials, namespace, request_timeout=3):
+    def __init__(self, endpoints: str, credentials: Credentials, namespace="", request_timeout=3):
         self.__rpc_endpoints = RpcEndpoints(ClientConfiguration.__parse_endpoints(endpoints))
         self.__credentials = credentials
         self.__request_timeout = request_timeout  # seconds

@@ -19,9 +19,8 @@ from rocketmq import SimpleConsumer
 
 if __name__ == '__main__':
     endpoints = "endpoints"
-    namespace = "namespace"
     credentials = Credentials("ak", "sk")
-    config = ClientConfiguration(endpoints, credentials, namespace)
+    config = ClientConfiguration(endpoints, credentials)
     topic = "topic"
     try:
         simple_consumer = SimpleConsumer(config, "consumer_group")

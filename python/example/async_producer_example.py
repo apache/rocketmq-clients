@@ -28,9 +28,8 @@ def handle_send_result(result_future):
 
 if __name__ == '__main__':
     endpoints = "endpoints"
-    namespace = "namespace"
     credentials = Credentials("ak", "sk")
-    config = ClientConfiguration(endpoints, credentials, namespace)
+    config = ClientConfiguration(endpoints, credentials)
     topic = "topic"
     try:
         producer = Producer(config, (topic,))
