@@ -85,7 +85,7 @@ func newFuncSimpleConsumerOption(f func(*simpleConsumerOptions)) *funcSimpleCons
 	}
 }
 
-// WithClientFuncForSimpleConsumer returns a consumerOption that sets ClientFunc for consumer.
+// WithClientFuncForSimpleConsumer returns a consumerOption that sets ClientFunc for simple consumer.
 // Default is nameserver.New.
 func WithClientFuncForSimpleConsumer(f NewClientFunc) SimpleConsumerOption {
 	return newFuncSimpleConsumerOption(func(o *simpleConsumerOptions) {
