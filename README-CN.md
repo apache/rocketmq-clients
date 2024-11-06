@@ -19,11 +19,11 @@
 
 | 特性                                           | Java  | C/C++ |  C#   | Golang | Rust  | Python | Node.js |  PHP  |
 | ---------------------------------------------- | :---: | :---: | :---: | :----: | :---: | :----: | :-----: | :---: |
-| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    ✅    |   🚧   |
-| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    ✅    |   🚧   |
-| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    ✅    |   🚧   |
-| Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    ✅    |   🚧   |
-| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    ✅    |   🚧   |
+| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
+| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
+| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
+| Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
+| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
 | Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
 | Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
 
