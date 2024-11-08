@@ -38,6 +38,10 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+const (
+	MASTER_BROKER_ID = 0
+)
+
 type Client interface {
 	GetClientID() string
 	Sign(ctx context.Context) context.Context
@@ -335,9 +339,16 @@ func (cli *defaultClient) getMessageQueues(ctx context.Context, topic string) ([
 		return nil, err
 	}
 
+	masterRoute := []*v2.MessageQueue{}
+	for _, messageQueue := range route {
+		if messageQueue.GetId() == MASTER_BROKER_ID {
+			masterRoute = append(masterRoute, messageQueue)
+		}
+	}
+
 	// telemeter to all messageQueues
 	endpointsSet := make(map[string]bool)
-	for _, messageQueue := range route {
+	for _, messageQueue := range masterRoute {
 		for _, address := range messageQueue.GetBroker().GetEndpoints().GetAddresses() {
 			target := utils.ParseAddress(address)
 			if _, ok := endpointsSet[target]; ok {
@@ -350,8 +361,8 @@ func (cli *defaultClient) getMessageQueues(ctx context.Context, topic string) ([
 		}
 	}
 
-	cli.router.Store(topic, route)
-	return route, nil
+	cli.router.Store(topic, masterRoute)
+	return masterRoute, nil
 }
 
 func (cli *defaultClient) queryRoute(ctx context.Context, topic string, duration time.Duration) ([]*v2.MessageQueue, error) {
