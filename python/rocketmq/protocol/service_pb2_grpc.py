@@ -17,7 +17,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from protocol import service_pb2 as apache_dot_rocketmq_dot_v2_dot_service__pb2
+from ..protocol import service_pb2 as apache_dot_rocketmq_dot_v2_dot_service__pb2
 
 
 class MessagingServiceStub(object):

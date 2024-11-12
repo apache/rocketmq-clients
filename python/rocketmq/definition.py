@@ -16,14 +16,14 @@
 from enum import Enum
 from typing import List
 
-from protocol.definition_pb2 import Broker as ProtoBroker
-from protocol.definition_pb2 import Encoding as ProtoEncoding
-from protocol.definition_pb2 import MessageQueue as ProtoMessageQueue
-from protocol.definition_pb2 import MessageType as ProtoMessageType
-from protocol.definition_pb2 import Permission as ProtoPermission
-from protocol.definition_pb2 import Resource as ProtoResource
-from rocketmq.protocol import definition_pb2
-from rocketmq.rpc_client import Endpoints
+from .protocol.definition_pb2 import Broker as ProtoBroker
+from .protocol.definition_pb2 import Encoding as ProtoEncoding
+from .protocol.definition_pb2 import MessageQueue as ProtoMessageQueue
+from .protocol.definition_pb2 import MessageType as ProtoMessageType
+from .protocol.definition_pb2 import Permission as ProtoPermission
+from .protocol.definition_pb2 import Resource as ProtoResource
+from .protocol import definition_pb2
+from .rpc_client import Endpoints
 
 
 class Encoding(Enum):

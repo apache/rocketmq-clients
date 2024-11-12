@@ -12,15 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import datetime
 import socket
 
-from definition import Encoding, EncodingHelper, MessageType, MessageTypeHelper
+from rocketmq.definition import Encoding, EncodingHelper, MessageType, MessageTypeHelper
 from google.protobuf.timestamp_pb2 import Timestamp
-from message import Message
-from message_id_codec import MessageIdCodec
-from protocol.definition_pb2 import Message as ProtoMessage
-from protocol.definition_pb2 import Resource, SystemProperties
+from rocketmq.message import Message
+from rocketmq.message_id_codec import MessageIdCodec
+from rocketmq.protocol.definition_pb2 import Message as ProtoMessage
+from rocketmq.protocol.definition_pb2 import Resource, SystemProperties
 from rocketmq.log import logger
 
 
@@ -65,6 +65,8 @@ class PublishingMessage(Message):
             queue_id=queue_id,
             message_type=MessageTypeHelper.to_protobuf(self.message_type)
         )
+        system_properties.born_timestamp.FromDatetime(dt=datetime.datetime.utcnow())
+
         if self.message.tag:
             system_properties.tag = self.message.tag
 

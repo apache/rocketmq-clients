@@ -18,7 +18,7 @@ import socket
 import threading
 import time
 
-import rocketmq.utils
+from rocketmq.utils import number_to_base
 
 
 class ClientIdEncoder:
@@ -60,5 +60,5 @@ class ClientIdEncoder:
             + ClientIdEncoder.__CLIENT_ID_SEPARATOR
             + str(index)
             + ClientIdEncoder.__CLIENT_ID_SEPARATOR
-            + str(rocketmq.utils.number_to_base(time.monotonic_ns(), 36))
+            + str(number_to_base(time.monotonic_ns(), 36))
         )

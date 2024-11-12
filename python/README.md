@@ -37,6 +37,15 @@ poetry build
 poetry publish -u username -p password
 ```
 
+## Install from GitHub
+
+```shell
+# Install with Poetry
+poetry add git+https://github.com/apache/rocketmq-clients.git@master#subdirectory=python
+# Or with pip
+pip install -U "git+https://github.com/apache/rocketmq-clients/@master#egg=rocketmq&subdirectory=python"
+```
+
 ## Current Progress
 
 * Protocol layer code generation is completed.

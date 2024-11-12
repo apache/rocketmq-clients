@@ -23,7 +23,7 @@ from typing import Set
 from unittest.mock import MagicMock, patch
 
 import rocketmq
-from publishing_message import MessageType
+from rocketmq.publishing_message import MessageType
 from rocketmq.client import Client
 from rocketmq.client_config import ClientConfig
 from rocketmq.definition import PermissionHelper, TopicRouteData
@@ -46,9 +46,9 @@ from rocketmq.rpc_client import Endpoints
 from rocketmq.send_receipt import SendReceipt
 from rocketmq.session_credentials import (SessionCredentials,
                                           SessionCredentialsProvider)
-from status_checker import TooManyRequestsException
-from utils import get_positive_mod
-
+from rocketmq.status_checker import TooManyRequestsException
+from rocketmq.utils import get_positive_mod
+from rocketmq.protocol import definition_pb2, service_pb2
 
 class Transaction:
     MAX_MESSAGE_NUM = 1
@@ -173,13 +173,13 @@ class Producer(Client):
     messages to specific topics in RocketMQ.
     """
 
-    def __init__(self, client_config: ClientConfig, topics: Set[str]):
+    def __init__(self, client_config: ClientConfig, topics: Set[str], consumer_group: str, client_type: definition_pb2.ClientType):
         """Create a new Producer.
 
         :param client_config: The configuration for the client.
         :param topics: The set of topics to which the producer can send messages.
         """
-        super().__init__(client_config)
+        super().__init__(client_config, consumer_group, client_type)
         self.publish_topics = topics
         retry_policy = ExponentialBackoffRetryPolicy.immediately_retry_policy(10)
         #: Set up the publishing settings with the given parameters.

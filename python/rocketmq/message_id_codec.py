@@ -21,34 +21,38 @@ import uuid
 from datetime import datetime, timezone
 
 
+def _get_process_fixed_string():
+    mac = uuid.getnode()
+    mac = format(mac, "012x")
+    mac_bytes = bytes.fromhex(mac[-12:])
+    pid = os.getpid() % 65536
+    pid_bytes = pid.to_bytes(2, "big")
+    return mac_bytes.hex().upper() + pid_bytes.hex().upper()
+
+
+def _get_seconds_since_custom_epoch():
+    custom_epoch = datetime(2021, 1, 1, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    return int((now - custom_epoch).total_seconds())
+
+
 class MessageIdCodec:
     __MESSAGE_ID_VERSION_V1 = "01"
 
     @staticmethod
-    def __get_process_fixed_string():
-        mac = uuid.getnode()
-        mac = format(mac, "012x")
-        mac_bytes = bytes.fromhex(mac[-12:])
-        pid = os.getpid() % 65536
-        pid_bytes = pid.to_bytes(2, "big")
-        return mac_bytes.hex().upper() + pid_bytes.hex().upper()
+    def __PROCESS_FIXED_STRING_V1():
+        # Force initialization to prevent problems in multi-threading
+        return _get_process_fixed_string()
 
-    @staticmethod
-    def __get_seconds_since_custom_epoch():
-        custom_epoch = datetime(2021, 1, 1, tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
-        return int((now - custom_epoch).total_seconds())
-
-    __PROCESS_FIXED_STRING_V1 = __get_process_fixed_string()
-    __SECONDS_SINCE_CUSTOM_EPOCH = __get_seconds_since_custom_epoch()
+    __SECONDS_SINCE_CUSTOM_EPOCH = _get_seconds_since_custom_epoch()
     __SECONDS_START_TIMESTAMP = int(time.time())
 
     @staticmethod
     def __delta_seconds():
         return (
-            int(time.time())
-            - MessageIdCodec.__SECONDS_START_TIMESTAMP
-            + MessageIdCodec.__SECONDS_SINCE_CUSTOM_EPOCH
+                int(time.time())
+                - MessageIdCodec.__SECONDS_START_TIMESTAMP
+                + MessageIdCodec.__SECONDS_SINCE_CUSTOM_EPOCH
         )
 
     @staticmethod
@@ -74,8 +78,8 @@ class MessageIdCodec:
             MessageIdCodec.__get_and_increment_sequence(), 4
         )[-4:]
         return (
-            MessageIdCodec.__MESSAGE_ID_VERSION_V1
-            + MessageIdCodec.__PROCESS_FIXED_STRING_V1
-            + seconds_bytes.hex().upper()
-            + sequence_bytes.hex().upper()
+                MessageIdCodec.__MESSAGE_ID_VERSION_V1
+                + MessageIdCodec.__PROCESS_FIXED_STRING_V1()
+                + seconds_bytes.hex().upper()
+                + sequence_bytes.hex().upper()
         )

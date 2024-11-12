@@ -24,7 +24,7 @@ from functools import reduce
 import certifi
 from grpc import aio, ssl_channel_credentials
 from rocketmq.log import logger
-from rocketmq.protocol import service_pb2, service_pb2_grpc
+from rocketmq.protocol import service_pb2, service_pb2_grpc, definition_pb2, definition_pb2_grpc
 from rocketmq.protocol.definition_pb2 import Address as ProtoAddress
 from rocketmq.protocol.definition_pb2 import \
     AddressScheme as ProtoAddressScheme
@@ -215,8 +215,14 @@ class RpcClient:
         response = []
         try:
             async for result in results:
+                if result.HasField("status"):
+                    status = result.status
+                    if status.code != definition_pb2.Code.OK:
+                        logger.debug('Error occurred: code: %s message: %s' % (status.code, status.message))
                 if result.HasField("message"):
                     response.append(result.message)
+                if result.HasField("delivery_timestamp"):
+                    logger.debug("Delivery timestamp: %s" % result.delivery_timestamp)
         except Exception as e:
             logger.info("An error occurred: %s", e)
             # Handle error as appropriate for your use case

@@ -21,7 +21,6 @@ from datetime import timedelta
 from threading import Lock
 from typing import Dict
 
-import rocketmq
 from google.protobuf.duration_pb2 import Duration
 from rocketmq.client_config import ClientConfig
 from rocketmq.consumer import Consumer
@@ -29,7 +28,7 @@ from rocketmq.definition import PermissionHelper
 from rocketmq.filter_expression import FilterExpression
 from rocketmq.log import logger
 from rocketmq.message import MessageView
-from rocketmq.protocol.definition_pb2 import Resource
+from rocketmq.protocol.definition_pb2 import Resource, SIMPLE_CONSUMER
 from rocketmq.protocol.definition_pb2 import Resource as ProtoResource
 from rocketmq.protocol.service_pb2 import \
     AckMessageEntry as ProtoAckMessageEntry
@@ -42,7 +41,7 @@ from rocketmq.session_credentials import (SessionCredentials,
                                           SessionCredentialsProvider)
 from rocketmq.simple_subscription_settings import SimpleSubscriptionSettings
 from rocketmq.state import State
-from utils import get_positive_mod
+from rocketmq.utils import get_positive_mod,master_broker_id
 
 
 class SubscriptionLoadBalancer:
@@ -60,7 +59,7 @@ class SubscriptionLoadBalancer:
         self._message_queues = [
             mq for mq in topic_route_data.message_queues
             if PermissionHelper().is_readable(mq.permission)
-            and mq.broker.id == rocketmq.utils.master_broker_id
+            and mq.broker.id == master_broker_id
         ]
 
     def update(self, topic_route_data):
@@ -69,7 +68,7 @@ class SubscriptionLoadBalancer:
         self._message_queues = [
             mq for mq in topic_route_data.message_queues
             if PermissionHelper().is_readable(mq.permission)
-            and mq.broker.id == rocketmq.utils.master_broker_id
+            and mq.broker.id == master_broker_id
         ]
         return self
 
@@ -94,7 +93,7 @@ class SimpleConsumer(Consumer):
         :param await_duration: The await duration.
         :param subscription_expressions: The subscription expressions.
         """
-        super().__init__(client_config, consumer_group)
+        super().__init__(client_config, consumer_group, SIMPLE_CONSUMER)
 
         self._consumer_group = consumer_group
         self._await_duration = await_duration
