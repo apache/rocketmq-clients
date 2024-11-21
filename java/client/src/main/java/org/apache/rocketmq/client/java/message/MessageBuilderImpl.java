@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageBuilder;
@@ -62,7 +63,7 @@ public class MessageBuilderImpl implements MessageBuilder {
      */
     @Override
     public MessageBuilder setBody(byte[] body) {
-        checkNotNull(body, "body should not be null");
+        checkArgument(ArrayUtils.isNotEmpty(body), "body should not be empty");
         this.body = body.clone();
         return this;
     }

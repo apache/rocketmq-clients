@@ -79,6 +79,8 @@ public class StatusChecker {
             case PAYLOAD_TOO_LARGE:
             case MESSAGE_BODY_TOO_LARGE:
                 throw new PayloadTooLargeException(codeNumber, requestId, statusMessage);
+            case MESSAGE_BODY_EMPTY:
+                throw new PayloadEmptyException(codeNumber, requestId, statusMessage);
             case TOO_MANY_REQUESTS:
                 throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
             case REQUEST_HEADER_FIELDS_TOO_LARGE:
