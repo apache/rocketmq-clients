@@ -330,7 +330,7 @@ func (cli *defaultClient) getMessageQueues(ctx context.Context, topic string) ([
 			return ret, nil
 		}
 	}
-	route, err := cli.queryRoute(ctx, topic, cli.opts.timeout)
+	route, err := cli.queryRoute(ctx, topic)
 	if err != nil {
 		return nil, err
 	}
@@ -354,9 +354,9 @@ func (cli *defaultClient) getMessageQueues(ctx context.Context, topic string) ([
 	return route, nil
 }
 
-func (cli *defaultClient) queryRoute(ctx context.Context, topic string, duration time.Duration) ([]*v2.MessageQueue, error) {
+func (cli *defaultClient) queryRoute(ctx context.Context, topic string) ([]*v2.MessageQueue, error) {
 	ctx = cli.Sign(ctx)
-	response, err := cli.clientManager.QueryRoute(ctx, cli.accessPoint, cli.getQueryRouteRequest(topic), duration)
+	response, err := cli.clientManager.QueryRoute(ctx, cli.accessPoint, cli.getQueryRouteRequest(topic), cli.opts.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +505,7 @@ func (cli *defaultClient) startUp() error {
 	f := func() {
 		cli.router.Range(func(k, v interface{}) bool {
 			topic := k.(string)
-			newRoute, err := cli.queryRoute(context.TODO(), topic, cli.opts.timeout)
+			newRoute, err := cli.queryRoute(context.TODO(), topic)
 			if err != nil {
 				cli.log.Errorf("scheduled queryRoute err=%v", err)
 			}
