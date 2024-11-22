@@ -79,7 +79,7 @@ func (p *defaultProducer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 }
 
 func (p *defaultProducer) takeMessageQueues(plb PublishingLoadBalancer) ([]*v2.MessageQueue, error) {
-	return plb.TakeMessageQueues(p.isolated, p.getRetryMaxAttempts())
+	return plb.TakeMessageQueues(&p.isolated, p.getRetryMaxAttempts())
 }
 
 func (p *defaultProducer) getPublishingTopicRouteResult(ctx context.Context, topic string) (PublishingLoadBalancer, error) {
