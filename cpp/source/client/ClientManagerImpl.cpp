@@ -48,6 +48,7 @@ ClientManagerImpl::ClientManagerImpl(std::string resource_namespace, bool with_s
       state_(State::CREATED),
       callback_thread_pool_(absl::make_unique<ThreadPoolImpl>(std::thread::hardware_concurrency())),
       with_ssl_(with_ssl) {
+
   certificate_verifier_ = grpc::experimental::ExternalCertificateVerifier::Create<InsecureCertificateVerifier>();
   tls_channel_credential_options_.set_verify_server_certs(false);
   tls_channel_credential_options_.set_check_call_host(false);
@@ -78,7 +79,7 @@ ClientManagerImpl::ClientManagerImpl(std::string resource_namespace, bool with_s
    */
   channel_arguments_.SetInt(GRPC_ARG_ENABLE_RETRIES, 0);
 
-  channel_arguments_.SetSslTargetNameOverride("localhost");
+  // channel_arguments_.SetSslTargetNameOverride("localhost");
 
   SPDLOG_INFO("ClientManager[ResourceNamespace={}] created", resource_namespace_);
 }
@@ -282,7 +283,7 @@ bool ClientManagerImpl::send(const std::string& target_host,
                              SendMessageRequest& request,
                              SendResultCallback cb) {
   assert(cb);
-  SPDLOG_DEBUG("Prepare to send message to {} asynchronously. Request: {}", target_host, request.DebugString());
+  SPDLOG_DEBUG("Prepare to send message to {} asynchronously. Request: {}", target_host, request.ShortDebugString());
   RpcClientSharedPtr client = getRpcClient(target_host);
   // Invocation context will be deleted in its onComplete() method.
   auto invocation_context = new InvocationContext<SendMessageResponse>();
@@ -440,7 +441,7 @@ bool ClientManagerImpl::send(const std::string& target_host,
 
       case rmq::Code::MESSAGE_PROPERTY_CONFLICT_WITH_TYPE: {
         SPDLOG_WARN("Message-property-conflict-with-type: Host={}, Response={}", invocation_context->remote_address,
-                    invocation_context->response.DebugString());
+                    invocation_context->response.ShortDebugString());
         send_result.ec = ErrorCode::MessagePropertyConflictWithType;
         break;
       }
@@ -482,7 +483,7 @@ RpcClientSharedPtr ClientManagerImpl::getRpcClient(const std::string& target_hos
     auto search = rpc_clients_.find(target_host);
     if (search == rpc_clients_.end() || !search->second->ok()) {
       if (search == rpc_clients_.end()) {
-        SPDLOG_INFO("Create a RPC client to {}", target_host.data());
+        SPDLOG_INFO("Create a RPC client to [{}]", target_host.data());
       } else if (!search->second->ok()) {
         SPDLOG_INFO("Prior RPC client to {} is not OK. Re-create one", target_host);
       }
@@ -549,7 +550,7 @@ void ClientManagerImpl::resolveRoute(const std::string& target_host,
                                      std::chrono::milliseconds timeout,
                                      const std::function<void(const std::error_code&, const TopicRouteDataPtr&)>& cb) {
   SPDLOG_DEBUG("Name server connection URL: {}", target_host);
-  SPDLOG_DEBUG("Query route request: {}", request.DebugString());
+  SPDLOG_DEBUG("Query route request: {}", request.ShortDebugString());
   RpcClientSharedPtr client = getRpcClient(target_host, false);
   if (!client) {
     SPDLOG_WARN("Failed to create RPC client for name server[host={}]", target_host);

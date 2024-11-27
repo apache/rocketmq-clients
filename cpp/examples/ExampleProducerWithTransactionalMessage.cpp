@@ -48,8 +48,8 @@ std::string randomString(std::string::size_type len) {
   return result;
 }
 
-DEFINE_string(topic, "tx_topic_sample", "Topic to which messages are published");
-DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
+DEFINE_string(topic, "TransTopic", "Topic to which messages are published");
+DEFINE_string(access_point, "127.0.0.1:8081", "Service access URL, provided by your service provider");
 DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
 DEFINE_string(access_key, "", "Your access key ID");

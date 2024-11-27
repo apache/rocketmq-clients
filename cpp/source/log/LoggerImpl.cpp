@@ -131,6 +131,7 @@ Logger& getLogger() {
 const std::size_t LoggerImpl::DEFAULT_MAX_LOG_FILE_QUANTITY = 16;
 const std::size_t LoggerImpl::DEFAULT_FILE_SIZE = 1048576 * 256;
 const char* LoggerImpl::USER_HOME_ENV = "HOME";
-const char* LoggerImpl::DEFAULT_PATTERN = "[%Y/%m/%d-%H:%M:%S.%e %z] [%n] [%^---%L---%$] [thread %t] %v %@";
+const char* LoggerImpl::DEFAULT_PATTERN = "%Y-%m-%d %H:%M:%S.%e [%^--%L--%$] [%7t] %v %@";
+// const char* LoggerImpl::DEFAULT_PATTERN = "[%Y/%m/%d-%H:%M:%S.%e %z] [%n] [%^---%L---%$] [thread %t] %v %@";
 
 ROCKETMQ_NAMESPACE_END
