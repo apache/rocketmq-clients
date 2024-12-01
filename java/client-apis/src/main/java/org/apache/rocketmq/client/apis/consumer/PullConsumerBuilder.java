@@ -17,21 +17,18 @@
 
 package org.apache.rocketmq.client.apis.consumer;
 
-import java.util.Map;
+import java.time.Duration;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 
-/**
- * Builder to config and start {@link PushConsumer}.
- */
-public interface PushConsumerBuilder {
+public interface PullConsumerBuilder {
     /**
      * Set the client configuration for the consumer.
      *
      * @param clientConfiguration client's configuration.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration);
+    PullConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration);
 
     /**
      * Set the load balancing group for the consumer.
@@ -39,23 +36,22 @@ public interface PushConsumerBuilder {
      * @param consumerGroup consumer load balancing group.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setConsumerGroup(String consumerGroup);
+    PullConsumerBuilder setConsumerGroup(String consumerGroup);
 
     /**
-     * Add {@link FilterExpression} for consumer.
+     * Automate the consumer's offset commit.
      *
-     * @param subscriptionExpressions subscriptions to add.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setSubscriptionExpressions(Map<String, FilterExpression> subscriptionExpressions);
+    PullConsumerBuilder enableAutoCommit(boolean enable);
 
     /**
-     * Register message listener, all messages meet the subscription expression would across listener here.
+     * Set the consumer's offset commit interval if auto commit is enabled.
      *
-     * @param listener message listener.
+     * @param duration offset commit interval
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setMessageListener(MessageListener listener);
+    PullConsumerBuilder setAutoCommitInterval(Duration duration);
 
     /**
      * Set the maximum number of messages cached locally.
@@ -63,7 +59,7 @@ public interface PushConsumerBuilder {
      * @param count message count.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setMaxCacheMessageCount(int count);
+    PullConsumerBuilder setMaxCacheMessageCountEachQueue(int count);
 
     /**
      * Set the maximum bytes of messages cached locally.
@@ -71,24 +67,16 @@ public interface PushConsumerBuilder {
      * @param bytes message size.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setMaxCacheMessageSizeInBytes(int bytes);
+    PullConsumerBuilder setMaxCacheMessageSizeInBytesEachQueue(int bytes);
 
     /**
-     * Set the consumption thread count in parallel.
+     * Finalize the build of {@link PullConsumer} and start.
      *
-     * @param count thread count.
-     * @return the consumer builder instance.
+     * <p>This method will block until the pull consumer starts successfully.
+     *
+     * <p>Especially, if this method is invoked more than once, different pull consumer will be created and started.
+     *
+     * @return the pull consumer instance.
      */
-    PushConsumerBuilder setConsumptionThreadCount(int count);
-
-    /**
-     * Finalize the build of {@link PushConsumer} and start.
-     *
-     * <p>This method will block until the push consumer starts successfully.
-     *
-     * <p>Especially, if this method is invoked more than once, different push consumer will be created and started.
-     *
-     * @return the push consumer instance.
-     */
-    PushConsumer build() throws ClientException;
+    PullConsumer build() throws ClientException;
 }
