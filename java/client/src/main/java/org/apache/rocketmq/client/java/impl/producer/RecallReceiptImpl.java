@@ -15,16 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.apis.producer;
+package org.apache.rocketmq.client.java.impl.producer;
 
+import com.google.common.base.MoreObjects;
 import org.apache.rocketmq.client.apis.message.MessageId;
+import org.apache.rocketmq.client.apis.producer.RecallReceipt;
+import org.apache.rocketmq.client.java.message.MessageIdCodec;
 
-/**
- * A receipt from the server, which only makes sense when the message is sent successfully.
- */
-public interface SendReceipt {
-    MessageId getMessageId();
+public class RecallReceiptImpl implements RecallReceipt {
+    private final MessageId messageId;
 
-    // Unique handle to identify a message to recall, only delay message is supported for now
-    String getRecallHandle();
+    public RecallReceiptImpl(String messageIdStr) {
+        messageId = MessageIdCodec.getInstance().decode(messageIdStr);
+    }
+
+    @Override
+    public MessageId getMessageId() {
+        return messageId;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("messageId", messageId)
+                .toString();
+    }
 }
