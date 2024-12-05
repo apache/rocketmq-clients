@@ -77,6 +77,31 @@ public interface Producer extends Closeable {
     Transaction beginTransaction() throws ClientException;
 
     /**
+     * Recall message synchronously, only delay message is supported for now.
+     *
+     * <pre>{@code
+     * SendReceipt receipt = producer.send(message);
+     * String recallHandle = receipt.getRecallHandle();
+     * }</pre>
+     *
+     * @param topic the topic of the operation
+     * @param recallHandle the handle to identify a message to recall
+     * @return the returned receipt, or throw exception if response status is not OK.
+     */
+    RecallReceipt recallMessage(String topic, String recallHandle) throws ClientException;
+
+    /**
+     * Recall message asynchronously.
+     *
+     * <p>This method returns immediately, the result is included in the {@link CompletableFuture};
+     *
+     * @param topic the topic of the operation
+     * @param recallHandle the handle to identify a message to recall
+     * @return a future that indicates the receipt
+     */
+    CompletableFuture<RecallReceipt> recallMessageAsync(String topic, String recallHandle);
+
+    /**
      * Closes the producer and releases all related resources.
      *
      * <p>Once producer is closed, <strong>it could not be started once again.</strong> we maintained an FSM

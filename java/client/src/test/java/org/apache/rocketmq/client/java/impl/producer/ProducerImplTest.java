@@ -24,10 +24,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import apache.rocketmq.v2.Broker;
+import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.MessageQueue;
 import apache.rocketmq.v2.MessageType;
 import apache.rocketmq.v2.Permission;
+import apache.rocketmq.v2.RecallMessageResponse;
 import apache.rocketmq.v2.Resource;
+import apache.rocketmq.v2.Status;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Service;
 import java.util.ArrayList;
@@ -38,10 +41,15 @@ import java.util.Set;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.Message;
+import org.apache.rocketmq.client.java.exception.InternalErrorException;
+import org.apache.rocketmq.client.java.impl.ClientManagerImpl;
+import org.apache.rocketmq.client.java.message.MessageIdCodec;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.apache.rocketmq.client.java.tool.TestBase;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
@@ -107,6 +115,39 @@ public class ProducerImplTest extends TestBase {
         producer.send(message);
         final int maxAttempts = producer.publishingSettings.getRetryPolicy().getMaxAttempts();
         verify(producer, times(maxAttempts)).send0(any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
+        producer.close();
+    }
+
+    @Test
+    public void testRecall() throws Exception {
+        final ProducerImpl producer = createProducerWithTopic(FAKE_TOPIC_0);
+        final String messageId = MessageIdCodec.getInstance().nextMessageId().toString();
+        final RecallReceiptImpl recallReceiptImpl = new RecallReceiptImpl(messageId);
+        Mockito.doReturn(Futures.immediateFuture(recallReceiptImpl)).when(producer).recallMessage0(any(), any());
+        producer.recallMessage(FAKE_TOPIC_0, "handle");
+        verify(producer, times(1)).recallMessage0(any(), any());
+        producer.close();
+    }
+
+    @Test
+    public void testRecallFailure() {
+        RecallMessageResponse response = RecallMessageResponse.newBuilder()
+            .setMessageId("")
+            .setStatus(Status.newBuilder().setCode(Code.INTERNAL_ERROR).build())
+            .build();
+        final ClientManagerImpl clientManager = mock(ClientManagerImpl.class);
+        final ProducerImpl producer = createProducerWithTopic(FAKE_TOPIC_0);
+        Mockito.doReturn(clientManager).when(producer).getClientManager();
+        Mockito.doReturn(new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response)))
+            .when(clientManager).recallMessage(any(), any(), any());
+
+        Assert.assertThrows(InternalErrorException.class, () -> {
+            producer.recallMessage(FAKE_TOPIC_0, "handle");
+        });
+        producer.recallMessageAsync(FAKE_TOPIC_0, "handle").whenComplete((r, t) -> {
+            Assert.assertTrue(t instanceof InternalErrorException);
+        });
+        verify(producer, times(2)).recallMessage0(any(), any());
         producer.close();
     }
 }

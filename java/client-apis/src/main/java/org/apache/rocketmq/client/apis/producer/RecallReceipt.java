@@ -19,12 +19,6 @@ package org.apache.rocketmq.client.apis.producer;
 
 import org.apache.rocketmq.client.apis.message.MessageId;
 
-/**
- * A receipt from the server, which only makes sense when the message is sent successfully.
- */
-public interface SendReceipt {
+public interface RecallReceipt {
     MessageId getMessageId();
-
-    // Unique handle to identify a message to recall, only delay message is supported for now
-    String getRecallHandle();
 }

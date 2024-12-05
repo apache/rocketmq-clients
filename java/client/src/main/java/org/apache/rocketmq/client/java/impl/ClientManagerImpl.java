@@ -33,6 +33,8 @@ import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryAssignmentResponse;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
+import apache.rocketmq.v2.RecallMessageRequest;
+import apache.rocketmq.v2.RecallMessageResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
@@ -338,6 +340,21 @@ public class ClientManagerImpl extends ClientManager {
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<NotifyClientTerminationResponse> future =
                 rpcClient.notifyClientTermination(metadata, request, asyncWorker, duration);
+            return new RpcFuture<>(context, request, future);
+        } catch (Throwable t) {
+            return new RpcFuture<>(t);
+        }
+    }
+
+    @Override
+    public RpcFuture<RecallMessageRequest, RecallMessageResponse> recallMessage(Endpoints endpoints,
+        RecallMessageRequest request, Duration duration) {
+        try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            final ListenableFuture<RecallMessageResponse> future =
+                rpcClient.recallMessage(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
             return new RpcFuture<>(t);
