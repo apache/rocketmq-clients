@@ -254,14 +254,6 @@ namespace Org.Apache.Rocketmq
                         throw;
                     }
 
-                    if (MessageType.Transaction == message.MessageType)
-                    {
-                        Logger.LogError(e, "Failed to send transaction message, run out of attempt times, " +
-                                                  $"topic={message.Topic}, maxAttempt=1, attempt={attempt}, " +
-                                                  $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
-                        throw;
-                    }
-
                     if (!(exception is TooManyRequestsException))
                     {
                         // Retry immediately if the request is not throttled.
