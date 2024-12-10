@@ -25,6 +25,7 @@ import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryRouteRequest;
+import apache.rocketmq.v2.RecallMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.SendMessageRequest;
 import io.grpc.Metadata;
@@ -133,6 +134,14 @@ public class ClientManagerImplTest extends TestBase {
         NotifyClientTerminationRequest request = NotifyClientTerminationRequest.newBuilder().build();
         CLIENT_MANAGER.notifyClientTermination(fakeEndpoints(), request, Duration.ofSeconds(1));
         CLIENT_MANAGER.notifyClientTermination(null, request, Duration.ofSeconds(1));
+        // Expect no exception thrown.
+    }
+
+    @Test
+    public void testRecallMessage() {
+        RecallMessageRequest request = RecallMessageRequest.newBuilder().build();
+        CLIENT_MANAGER.recallMessage(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.recallMessage(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 }
