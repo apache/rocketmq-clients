@@ -255,6 +255,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private ListenableFuture<Endpoints> pickEndpointsToQueryAssignments(String topic) {
         final ListenableFuture<TopicRouteData> future = getRouteData(topic);
         return Futures.transformAsync(future, topicRouteData -> {
+            if (topicRouteData.getTotalEndpoints().contains(this.getEndpoints())) {
+                return Futures.immediateFuture(this.getEndpoints());
+            }
             Endpoints endpoints = topicRouteData.pickEndpointsToQueryAssignments();
             return Futures.immediateFuture(endpoints);
         }, MoreExecutors.directExecutor());
