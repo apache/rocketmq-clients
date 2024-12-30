@@ -47,8 +47,5 @@ if __name__ == '__main__':
             msg.add_property("send", "async")
             send_result_future = producer.send_async(msg)
             send_result_future.add_done_callback(handle_send_result)
-        time.sleep(5)
-        producer.shutdown()
-        print("producer stopped.")
     except Exception as e:
         print(f"async producer{producer.__str__()} send message raise exception: {e}")
