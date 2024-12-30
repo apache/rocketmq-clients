@@ -29,7 +29,7 @@ class Misc:
     __OS_NAME = None
     TOPIC_PATTERN = compile(r'^[%a-zA-Z0-9_-]+$')
     CONSUMER_GROUP_PATTERN = compile(r'^[%a-zA-Z0-9_-]+$')
-    SDK_VERSION = "V5_0_1_SNAPSHOT"
+    SDK_VERSION = "5.0.2"
 
     @staticmethod
     def sdk_language():

@@ -22,9 +22,9 @@ from rocketmq.v5.log import logger
 
 class Credentials:
 
-    def __init__(self, ak, sk):
-        self.__ak = ak
-        self.__sk = sk
+    def __init__(self, ak="", sk=""):
+        self.__ak = ak if ak is not None else ""
+        self.__sk = sk if sk is not None else ""
 
     @property
     def ak(self):

@@ -72,6 +72,7 @@ class SimpleConsumer(Client):
             self.__subscriptions.put(topic, filter_expression if filter_expression is not None else FilterExpression())
         except Exception as e:
             logger.error(f"subscribe exception: {e}")
+            raise e
 
     def unsubscribe(self, topic):
         if self.is_running is False:
@@ -141,6 +142,7 @@ class SimpleConsumer(Client):
             sub_entry.topic.name = topic
             sub_entry.topic.resource_namespace = self.client_configuration.namespace
             sub_entry.expression.type = expression.filter_type
+            sub_entry.expression.expression = expression.expression
 
         settings = Settings()
         settings.client_type = self.client_type
@@ -148,7 +150,7 @@ class SimpleConsumer(Client):
         settings.request_timeout.seconds = self.client_configuration.request_timeout
         settings.subscription.CopyFrom(subscription)
         settings.user_agent.language = 6
-        settings.user_agent.version = "5.0.1.1"
+        settings.user_agent.version = Misc.sdk_version()
         settings.user_agent.platform = Misc.get_os_description()
         settings.user_agent.hostname = Misc.get_local_ip()
         settings.metric.on = False

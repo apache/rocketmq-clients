@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import time
 from rocketmq import ClientConfiguration, Credentials, Message, Producer
 
 
@@ -25,20 +25,30 @@ def handle_send_result(result_future):
 
 
 if __name__ == '__main__':
-    endpoints = "endpoints"
-    credentials = Credentials("ak", "sk")
+    endpoints = "foobar.com:8080"
+    credentials = Credentials()
+    # if auth enable
+    # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
     topic = "topic"
+    producer = Producer(config, (topic,))
+
     try:
-        producer = Producer(config, (topic,))
         producer.startup()
-        msg = Message()
-        msg.topic = topic
-        msg.body = "hello, rocketmq.".encode('utf-8')
-        msg.tag = "rocketmq-send-message"
-        msg.keys = "send_async"
-        msg.add_property("send", "async")
-        send_result_future = producer.send_async(msg)
-        send_result_future.add_done_callback(handle_send_result)
     except Exception as e:
-        print(f"async producer example raise exception: {e}")
+        print(f"{producer.__str__()} startup raise exception: {e}")
+    try:
+        for i in range(10):
+            msg = Message()
+            msg.topic = topic
+            msg.body = "hello, rocketmq.".encode('utf-8')
+            msg.tag = "rocketmq-send-message"
+            msg.keys = "send_async"
+            msg.add_property("send", "async")
+            send_result_future = producer.send_async(msg)
+            send_result_future.add_done_callback(handle_send_result)
+        time.sleep(5)
+        producer.shutdown()
+        print("producer stopped.")
+    except Exception as e:
+        print(f"async producer{producer.__str__()} send message raise exception: {e}")

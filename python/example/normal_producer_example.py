@@ -16,13 +16,19 @@
 from rocketmq import ClientConfiguration, Credentials, Message, Producer
 
 if __name__ == '__main__':
-    endpoints = "endpoints"
-    credentials = Credentials("ak", "sk")
+    endpoints = "foobar.com:8080"
+    credentials = Credentials()
+    # if auth enable
+    # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
-    topic = "topic"
+    topic = "test"
+    producer = Producer(config, (topic,))
+
     try:
-        producer = Producer(config, (topic,))
         producer.startup()
+    except Exception as e:
+        print(f"{producer.__str__()} startup raise exception: {e}")
+    try:
         msg = Message()
         msg.topic = topic
         msg.body = "hello, rocketmq.".encode('utf-8')
