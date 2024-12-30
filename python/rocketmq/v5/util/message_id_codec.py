@@ -101,10 +101,7 @@ class MessageIdCodec:
 
     @staticmethod
     def decode(message_id):
-        if len(message_id) != MessageIdCodec.MESSAGE_ID_LENGTH_FOR_V1_OR_LATER:
-            return MessageIdCodec.MESSAGE_ID_VERSION_V0 + message_id
-        else:
-            return message_id
+        return message_id
 
     """ private """
 
