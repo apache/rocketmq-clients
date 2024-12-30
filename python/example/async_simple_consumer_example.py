@@ -15,6 +15,7 @@
 
 import functools
 import time
+
 from rocketmq import ClientConfiguration, Credentials, SimpleConsumer
 
 
