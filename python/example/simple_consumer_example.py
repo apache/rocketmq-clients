@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rocketmq import ClientConfiguration, Credentials, SimpleConsumer, FilterExpression
+from rocketmq import ClientConfiguration, Credentials, SimpleConsumer
 
 if __name__ == '__main__':
     endpoints = "foobar.com:8080"

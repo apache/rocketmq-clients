@@ -15,7 +15,7 @@
 
 import functools
 import time
-from rocketmq import ClientConfiguration, Credentials, SimpleConsumer, FilterExpression
+from rocketmq import ClientConfiguration, Credentials, SimpleConsumer
 
 
 def receive_callback(receive_result_future, consumer):
