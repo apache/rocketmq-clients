@@ -21,7 +21,7 @@ if __name__ == '__main__':
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
-    topic = "test"
+    topic = "topic"
     producer = Producer(config, (topic,))
 
     try:
