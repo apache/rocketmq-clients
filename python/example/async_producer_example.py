@@ -35,17 +35,19 @@ if __name__ == '__main__':
 
     try:
         producer.startup()
+        try:
+            for i in range(10):
+                msg = Message()
+                msg.topic = topic
+                msg.body = "hello, rocketmq.".encode('utf-8')
+                msg.tag = "rocketmq-send-message"
+                msg.keys = "send_async"
+                msg.add_property("send", "async")
+                send_result_future = producer.send_async(msg)
+                send_result_future.add_done_callback(handle_send_result)
+        except Exception as e:
+            print(f"async producer{producer.__str__()} send message raise exception: {e}")
     except Exception as e:
         print(f"{producer.__str__()} startup raise exception: {e}")
-    try:
-        for i in range(10):
-            msg = Message()
-            msg.topic = topic
-            msg.body = "hello, rocketmq.".encode('utf-8')
-            msg.tag = "rocketmq-send-message"
-            msg.keys = "send_async"
-            msg.add_property("send", "async")
-            send_result_future = producer.send_async(msg)
-            send_result_future.add_done_callback(handle_send_result)
-    except Exception as e:
-        print(f"async producer{producer.__str__()} send message raise exception: {e}")
+        producer.shutdown()
+
