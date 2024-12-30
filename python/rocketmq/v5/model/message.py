@@ -160,6 +160,8 @@ class Message:
 
     @topic.setter
     def topic(self, topic):
+        if topic is None or topic.strip() == '':
+            raise IllegalArgumentException("topic has not been set yet")
         if Misc.is_valid_topic(topic):
             self.__topic = topic
         else:
