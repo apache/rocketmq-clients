@@ -51,4 +51,3 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"{producer.__str__()} startup raise exception: {e}")
         producer.shutdown()
-
