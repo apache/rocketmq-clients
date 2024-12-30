@@ -66,6 +66,9 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 
 public class RpcClientImpl implements RpcClient {
     private static final int CONNECT_TIMEOUT_MILLIS = 3 * 1000;
+    // the grpc server default permitted min keep alive is 5min, so by default we should not less than 5min.
+    private static final int KEEP_ALIVE_TIME_MILLIS = 300 * 1000;
+    private static final int KEEP_ALIVE_TIMEOUT_MILLIS = 30 * 1000;
     private static final int GRPC_MAX_MESSAGE_SIZE = Integer.MAX_VALUE;
 
     private final ManagedChannel channel;
@@ -79,6 +82,9 @@ public class RpcClientImpl implements RpcClient {
         final NettyChannelBuilder channelBuilder =
             NettyChannelBuilder.forTarget(endpoints.getGrpcTarget())
                 .withOption(ChannelOption.CONNECT_TIMEOUT_MILLIS, CONNECT_TIMEOUT_MILLIS)
+                .keepAliveTime(KEEP_ALIVE_TIME_MILLIS, TimeUnit.MILLISECONDS)
+                .keepAliveTimeout(KEEP_ALIVE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .keepAliveWithoutCalls(true)
                 .maxInboundMessageSize(GRPC_MAX_MESSAGE_SIZE)
                 .intercept(LoggingInterceptor.getInstance());
 
