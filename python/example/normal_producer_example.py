@@ -39,6 +39,7 @@ if __name__ == '__main__':
             print(f"{producer.__str__()} shutdown.")
         except Exception as e:
             print(f"normal producer example raise exception: {e}")
+            producer.shutdown()
     except Exception as e:
         print(f"{producer.__str__()} startup raise exception: {e}")
         producer.shutdown()

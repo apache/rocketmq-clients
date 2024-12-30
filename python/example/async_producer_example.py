@@ -47,6 +47,7 @@ if __name__ == '__main__':
                 send_result_future.add_done_callback(handle_send_result)
         except Exception as e:
             print(f"async producer{producer.__str__()} send message raise exception: {e}")
+            producer.shutdown()
     except Exception as e:
         print(f"{producer.__str__()} startup raise exception: {e}")
         producer.shutdown()
