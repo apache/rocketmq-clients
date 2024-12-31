@@ -54,7 +54,7 @@
         <grpc.version>1.50.0</grpc.version>
         <guava.version>32.0.0-jre</guava.version>
         <slf4j.version>1.7.30</slf4j.version>
-        <logback.version>1.2.9</logback.version>
+        <logback.version>1.5.13</logback.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <opentelemetry.version>1.14.0</opentelemetry.version>
         <future-coverter-java8-guava.version>1.2.0</future-coverter-java8-guava.version>
