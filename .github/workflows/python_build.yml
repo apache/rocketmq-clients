@@ -4,7 +4,7 @@ on:
 jobs:
   flake8:
     name: flake8
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -17,7 +17,7 @@ jobs:
         run: |
           flake8 --ignore=E501,W503 --exclude python/rocketmq/grpc_protocol python
   isort:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -30,7 +30,7 @@ jobs:
         run: |
           isort --check --diff --skip python/rocketmq/grpc_protocol python
   black:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3

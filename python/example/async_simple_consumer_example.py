@@ -21,27 +21,40 @@ from rocketmq import ClientConfiguration, Credentials, SimpleConsumer
 
 def receive_callback(receive_result_future, consumer):
     messages = receive_result_future.result()
+    print(f"{consumer.__str__()} receive {len(messages)} messages.")
     for msg in messages:
-        print(f"{consumer.__str__()} receive {len(messages)} messages in callback.")
         try:
             consumer.ack(msg)
-            print(f"receive and ack message:{msg.message_id} in callback.")
+            print(f"ack message:{msg.message_id}.")
         except Exception as exception:
-            print(f"receive message callback raise exception: {exception}")
+            print(f"receive message raise exception: {exception}")
 
 
 if __name__ == '__main__':
-    endpoints = "endpoints"
-    credentials = Credentials("ak", "sk")
+    endpoints = "foobar.com:8080"
+    credentials = Credentials()
+    # if auth enable
+    # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
     topic = "topic"
+
+    simple_consumer = SimpleConsumer(config, "consumer-group")
     try:
-        simple_consumer = SimpleConsumer(config, "consumer_group")
         simple_consumer.startup()
-        simple_consumer.subscribe(topic)
-        while True:
-            time.sleep(5)
-            future = simple_consumer.receive_async(32, 15)
-            future.add_done_callback(functools.partial(receive_callback, consumer=simple_consumer))
+        try:
+            simple_consumer.subscribe(topic)
+            # use tag filter
+            # simple_consumer.subscribe(topic, FilterExpression("tag"))
+            while True:
+                try:
+                    time.sleep(1)
+                    future = simple_consumer.receive_async(32, 15)
+                    future.add_done_callback(functools.partial(receive_callback, consumer=simple_consumer))
+                except Exception as e:
+                    print(f"{simple_consumer.__str__()} receive topic:{topic} raise exception: {e}")
+        except Exception as e:
+            print(f"{simple_consumer.__str__()} subscribe topic:{topic} raise exception: {e}")
+            simple_consumer.shutdown()
     except Exception as e:
-        print(f"simple consumer example raise exception: {e}")
+        print(f"{simple_consumer.__str__()} startup raise exception: {e}")
+        simple_consumer.shutdown()

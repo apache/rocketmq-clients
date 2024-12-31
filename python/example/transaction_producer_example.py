@@ -25,13 +25,20 @@ class TestChecker(TransactionChecker):
 
 
 if __name__ == '__main__':
-    endpoints = "endpoints"
-    credentials = Credentials("ak", "sk")
+    endpoints = "foobar.com:8080"
+    credentials = Credentials()
+    # if auth enable
+    # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
     topic = "topic"
+    producer = Producer(config, (topic,))
+
     try:
-        producer = Producer(config, (topic,), TestChecker())
         producer.startup()
+    except Exception as e:
+        print(f"{producer.__str__()} startup raise exception: {e}")
+
+    try:
         transaction = producer.begin_transaction()
         msg = Message()
         msg.topic = topic
@@ -40,6 +47,6 @@ if __name__ == '__main__':
         msg.keys = "send_transaction"
         msg.add_property("send", "transaction")
         res = producer.send(msg, transaction)
-        print(f"{producer.__str__()} send half message. {res}")
+        print(f"transaction producer{producer.__str__()} send half message success. {res}")
     except Exception as e:
-        print(f"transaction producer example raise exception: {e}")
+        print(f"transaction producer{producer.__str__()} example raise exception: {e}")

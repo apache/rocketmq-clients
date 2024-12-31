@@ -34,6 +34,8 @@ from rocketmq.v5.util import (ClientId, ConcurrentMap, MessagingResultChecker,
 
 class Client:
 
+    CALLBACK_THREADS_NUM = 5
+
     def __init__(self, client_configuration, topics, client_type: ClientType, tls_enable=False):
         if client_configuration is None:
             raise IllegalArgumentException("clientConfiguration should not be null.")
@@ -57,7 +59,7 @@ class Client:
         else:
             self.__topics = set()
         self.__callback_result_queue = Queue()
-        self.__callback_result_thread = None
+        self.__callback_threads = []
         self.__is_running = False
         self.__client_thread_task_enabled = False
         self.__had_shutdown = False
@@ -76,7 +78,7 @@ class Client:
                 logger.warn(
                     f"update topic exception when client startup, ignore it, try it again in scheduler. exception: {e}")
             self.__start_scheduler()
-            self.__start_callback_handler()
+            self.__start_async_rpc_callback_handler()
             self.__is_running = True
             self._start_success()
         except Exception as e:
@@ -240,12 +242,19 @@ class Client:
 
     """ callback handler for async method """
 
-    def __start_callback_handler(self):
+    def __start_async_rpc_callback_handler(self):
         # a thread to handle callback when using async method such as send_async(), receive_async().
         # this handler switches user's callback thread from RpcClient's _io_loop_thread to client's callback_handler_thread
-        self.__callback_result_thread = threading.Thread(name="callback_handler_thread", target=self.__handle_callback)
-        self.__callback_result_thread.daemon = True
-        self.__callback_result_thread.start()
+        try:
+            for i in range(Client.CALLBACK_THREADS_NUM):
+                th = threading.Thread(name=f"callback_handler_thread-{i}", target=self.__handle_callback)
+                th.daemon = True
+                self.__callback_threads.append(th)
+                th.start()
+                logger.info(f"{self.__str__()} start async rpc callback thread:{th} success.")
+        except Exception as e:
+            print(f"{self.__str__()} start async rpc callback raise exception: {e}")
+            raise e
 
     def __handle_callback(self):
         while True:
@@ -263,7 +272,7 @@ class Client:
                     self.__callback_result_queue.task_done()
             else:
                 break
-        logger.info(f"{self.__str__()} stop client callback result handler thread success.")
+        logger.info(f"{self.__str__()} stop client callback result handler thread:{threading.current_thread()} success.")
 
     """ protect """
 
@@ -375,6 +384,7 @@ class Client:
         req = self._sync_setting_req(endpoints)
         callback = functools.partial(self.__setting_write_callback, endpoints=endpoints)
         future = self.__rpc_client.telemetry_write_async(endpoints, req)
+        logger.debug(f"{self.__str__()} send setting to {endpoints.__str__()}, {req}")
         future.add_done_callback(callback)
 
     def __retrieve_telemetry_stream_stream_call(self, endpoints, rebuild=False):
@@ -466,9 +476,11 @@ class Client:
                 self.__clear_idle_rpc_channels_threading_event.set()
                 self.__clear_idle_rpc_channels_scheduler.join()
 
-        if self.__callback_result_thread is not None:
+        for i in range(Client.CALLBACK_THREADS_NUM):
             self._set_future_callback_result(CallbackResult.end_callback_thread_result())
-            self.__callback_result_thread.join()
+
+        for i in range(Client.CALLBACK_THREADS_NUM):
+            self.__callback_threads[i].join()
 
         self.__topic_route_scheduler = None
         self.__topic_route_scheduler_threading_event = None
@@ -478,7 +490,8 @@ class Client:
         self.__sync_setting_scheduler_threading_event = None
         self.__clear_idle_rpc_channels_scheduler = None
         self.__clear_idle_rpc_channels_threading_event = None
-        self.__callback_result_thread = None
+        self.__callback_result_queue = None
+        self.__callback_threads = None
 
     """ property """
 

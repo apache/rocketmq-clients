@@ -16,23 +16,32 @@
 from rocketmq import ClientConfiguration, Credentials, SimpleConsumer
 
 if __name__ == '__main__':
-    endpoints = "endpoints"
-    credentials = Credentials("ak", "sk")
+    endpoints = "foobar.com:8080"
+    credentials = Credentials()
+    # if auth enable
+    # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
     topic = "topic"
+    simple_consumer = SimpleConsumer(config, "consumer-group")
     try:
-        simple_consumer = SimpleConsumer(config, "consumer-group")
         simple_consumer.startup()
-        simple_consumer.subscribe(topic)
-        while True:
-            try:
-                messages = simple_consumer.receive(32, 15)
-                if messages is not None:
-                    print(f"{simple_consumer.__str__()} receive {len(messages)} messages.")
-                    for msg in messages:
-                        simple_consumer.ack(msg)
-                        print(f"{simple_consumer.__str__()} ack message:[{msg.message_id}].")
-            except Exception as e:
-                print(f"receive or ack message raise exception: {e}")
+        try:
+            simple_consumer.subscribe(topic)
+            # use tag filter
+            # simple_consumer.subscribe(topic, FilterExpression("tag"))
+            while True:
+                try:
+                    messages = simple_consumer.receive(32, 15)
+                    if messages is not None:
+                        print(f"{simple_consumer.__str__()} receive {len(messages)} messages.")
+                        for msg in messages:
+                            simple_consumer.ack(msg)
+                            print(f"{simple_consumer.__str__()} ack message:[{msg.message_id}].")
+                except Exception as e:
+                    print(f"receive or ack message raise exception: {e}")
+        except Exception as e:
+            print(f"{simple_consumer.__str__()} subscribe topic:{topic} raise exception: {e}")
+            simple_consumer.shutdown()
     except Exception as e:
-        print(f"simple consumer example raise exception: {e}")
+        print(f"{simple_consumer.__str__()} startup raise exception: {e}")
+        simple_consumer.shutdown()

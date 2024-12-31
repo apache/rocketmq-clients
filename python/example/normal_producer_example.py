@@ -16,22 +16,30 @@
 from rocketmq import ClientConfiguration, Credentials, Message, Producer
 
 if __name__ == '__main__':
-    endpoints = "endpoints"
-    credentials = Credentials("ak", "sk")
+    endpoints = "foobar.com:8080"
+    credentials = Credentials()
+    # if auth enable
+    # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
     topic = "topic"
+    producer = Producer(config, (topic,))
+
     try:
-        producer = Producer(config, (topic,))
         producer.startup()
-        msg = Message()
-        msg.topic = topic
-        msg.body = "hello, rocketmq.".encode('utf-8')
-        msg.tag = "rocketmq-send-message"
-        msg.keys = "send_sync"
-        msg.add_property("send", "sync")
-        res = producer.send(msg)
-        print(f"{producer.__str__()} send message success. {res}")
-        producer.shutdown()
-        print(f"{producer.__str__()} shutdown.")
+        try:
+            msg = Message()
+            msg.topic = topic
+            msg.body = "hello, rocketmq.".encode('utf-8')
+            msg.tag = "rocketmq-send-message"
+            msg.keys = "send_sync"
+            msg.add_property("send", "sync")
+            res = producer.send(msg)
+            print(f"{producer.__str__()} send message success. {res}")
+            producer.shutdown()
+            print(f"{producer.__str__()} shutdown.")
+        except Exception as e:
+            print(f"normal producer example raise exception: {e}")
+            producer.shutdown()
     except Exception as e:
-        print(f"normal producer example raise exception: {e}")
+        print(f"{producer.__str__()} startup raise exception: {e}")
+        producer.shutdown()
