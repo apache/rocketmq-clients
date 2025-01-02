@@ -53,11 +53,12 @@ namespace Org.Apache.Rocketmq
                       nics.FirstOrDefault(x => x.OperationalStatus == OperationalStatus.Unknown) ??
                       nics.FirstOrDefault();
 
-            if (nic == null) { return RandomMacAddressBytes; }
-
-            var mac = nic.GetPhysicalAddress().GetAddressBytes();
-
-            return mac.Length < 6 ? mac : RandomMacAddressBytes;
+            if (nic != null)
+            {
+                var mac = nic.GetPhysicalAddress().GetAddressBytes();
+                if (mac.Length == 6) return mac;
+            }
+            return RandomMacAddressBytes;
         }
 
         public static int GetProcessId()
