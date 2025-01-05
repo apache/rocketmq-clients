@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use async_trait::async_trait;
 use mockall::{automock, mock};
 use ring::hmac;
-use slog::{debug, error, info, o, Logger};
+use slog::{debug, error, info, o, warn, Logger};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use tokio::sync::{mpsc, oneshot};
@@ -109,6 +111,9 @@ pub(crate) struct Session {
     option: ClientOption,
     endpoints: Endpoints,
     stub: MessagingServiceClient<Channel>,
+    settings: Option<TelemetryCommand>,
+    telemetry_command_tx: Option<mpsc::Sender<Command>>,
+    telemetry_stream_epoch: Arc<AtomicUsize>,
     telemetry_tx: Option<mpsc::Sender<TelemetryCommand>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
@@ -126,6 +131,9 @@ impl Session {
             option: self.option.clone(),
             endpoints: self.endpoints.clone(),
             stub: self.stub.clone(),
+            settings: None,
+            telemetry_command_tx: None,
+            telemetry_stream_epoch: Arc::clone(&self.telemetry_stream_epoch),
             telemetry_tx: self.telemetry_tx.clone(),
             shutdown_tx: None,
         }
@@ -178,6 +186,9 @@ impl Session {
             endpoints: endpoints.clone(),
             client_id,
             stub,
+            settings: None,
+            telemetry_command_tx: None,
+            telemetry_stream_epoch: Arc::new(AtomicUsize::new(0)),
             telemetry_tx: None,
             shutdown_tx: None,
         })
@@ -287,6 +298,14 @@ impl Session {
         settings: TelemetryCommand,
         telemetry_command_tx: mpsc::Sender<Command>,
     ) -> Result<(), ClientError> {
+        if self.settings.is_none() {
+            self.settings = Some(settings.clone());
+        }
+
+        if self.telemetry_command_tx.is_none() {
+            self.telemetry_command_tx = Some(telemetry_command_tx.clone());
+        }
+
         let (tx, rx) = mpsc::channel(16);
         tx.send(settings).await.map_err(|e| {
             ClientError::new(
@@ -307,15 +326,30 @@ impl Session {
             )
             .set_source(e)
         })?;
-
+        let logger = self.logger.clone();
+        let epoch = self.telemetry_stream_epoch.load(Ordering::Relaxed);
+        info!(
+            logger,
+            "Started telemetry bidirectional stream, stream-epoch={}", epoch
+        );
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
-
-        let logger = self.logger.clone();
+        let stream_epoch = Arc::clone(&self.telemetry_stream_epoch);
         tokio::spawn(async move {
             let mut stream = response.into_inner();
+            let mut interval = tokio::time::interval(Duration::from_secs(3));
             loop {
                 tokio::select! {
+                    _ = interval.tick() => {
+                        // If the bidirectional stream has been deprecated, finish this daemon task
+                        // immediately.
+                        let latest_stream_epoch = stream_epoch.load(Ordering::Relaxed);
+                        if latest_stream_epoch != epoch {
+                            info!(logger, "Telemetry bidirectional stream epoch has changed: {} --> {}",
+                            epoch, latest_stream_epoch);
+                            break;
+                        }
+                    }
                     message = stream.message() => {
                         match message {
                             Ok(Some(item)) => {
@@ -371,6 +405,18 @@ impl Session {
         }
         Ok(())
     }
+
+    async fn reset_telemetry_stream(&mut self) -> Result<(), ClientError> {
+        if let Some((settings, tx)) = self
+            .settings
+            .as_ref()
+            .zip(self.telemetry_command_tx.as_ref())
+        {
+            self.telemetry_stream_epoch.fetch_add(1, Ordering::Relaxed);
+            self.start(settings.clone(), tx.clone()).await?;
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -396,15 +442,31 @@ impl RPCClient for Session {
         request: HeartbeatRequest,
     ) -> Result<HeartbeatResponse, ClientError> {
         let request = self.sign(request);
-        let response = self.stub.heartbeat(request).await.map_err(|e| {
-            ClientError::new(
-                ErrorKind::ClientInternal,
-                "send rpc heartbeat failed",
-                OPERATION_HEARTBEAT,
-            )
-            .set_source(e)
-        })?;
-        Ok(response.into_inner())
+        let heartbeat_future = self.stub.heartbeat(request);
+        let future = tokio::time::timeout(self.option.timeout, heartbeat_future);
+        match future.await {
+            Ok(res) => {
+                let response = res.map_err(|e| {
+                    ClientError::new(
+                        ErrorKind::ClientInternal,
+                        "send rpc heartbeat failed",
+                        OPERATION_HEARTBEAT,
+                    )
+                    .set_source(e)
+                })?;
+                Ok(response.into_inner())
+            }
+            Err(elapsed) => {
+                warn!(self.logger, "Heartbeat RPC timed out, reset telemetry bidirectional stream");
+                self.reset_telemetry_stream().await?;
+                Err(ClientError::new(
+                    ErrorKind::RpcTimeout,
+                    "Heartbeat RPC timed out",
+                    OPERATION_HEARTBEAT,
+                )
+                .set_source(elapsed))
+            }
+        }
     }
 
     async fn send_message(

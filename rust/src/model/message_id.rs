@@ -23,43 +23,40 @@ use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 
-/**
- * The codec for the message-id.
- *
- * <p>Codec here provides the following two functions:
- * 1. Provide decoding function of message-id of all versions above v0.
- * 2. Provide a generator of message-id of v1 version.
- *
- * <p>The message-id of versions above V1 consists of 17 bytes in total. The first two bytes represent the version
- * number. For V1, these two bytes are 0x0001.
- *
- * <h3>V1 message id example</h3>
- *
- * <pre>
- * ┌──┬────────────┬────┬────────┬────────┐
- * │01│56F7E71C361B│21BC│024CCDBE│00000000│
- * └──┴────────────┴────┴────────┴────────┘
- * </pre>
- *
- * <h3>V1 version message id generation rules</h3>
- *
- * <pre>
- *                     process id(lower 2bytes)
- *                             ▲
- * mac address(lower 6bytes)   │   sequence number(big endian)
- *                    ▲        │          ▲ (4bytes)
- *                    │        │          │
- *              ┌─────┴─────┐ ┌┴┐ ┌───┐ ┌─┴─┐
- *       0x01+  │     6     │ │2│ │ 4 │ │ 4 │
- *              └───────────┘ └─┘ └─┬─┘ └───┘
- *                                  │
- *                                  ▼
- *           seconds since 2021-01-01 00:00:00(UTC+0)
- *                         (lower 4bytes)
- * </pre>
- */
-
-// inspired by https://github.com/messense/rocketmq-rs
+/// The codec for the message-id.
+///
+/// 1. Provide decoding function of message-id of all versions above v0.
+/// 2. Provide a generator of message-id of v1 version.
+///
+/// The message-id of versions above V1 consists of 17 bytes in total. The first two bytes represent the version
+/// number. For V1, these two bytes are 0x0001.
+///
+///  <h3>V1 message id example</h3>
+///
+///  <pre>
+///  ┌──┬────────────┬────┬────────┬────────┐
+///  │01│56F7E71C361B│21BC│024CCDBE│00000000│
+///  └──┴────────────┴────┴────────┴────────┘
+///  </pre>
+///
+///  <h3>V1 version message id generation rules</h3>
+///
+///  <pre>
+///                      process id(lower 2bytes)
+///                              ▲
+///  mac address(lower 6bytes)   │   sequence number(big endian)
+///                     ▲        │          ▲ (4bytes)
+///                     │        │          │
+///               ┌─────┴─────┐ ┌┴┐ ┌───┐ ┌─┴─┐
+///        0x01+  │     6     │ │2│ │ 4 │ │ 4 │
+///               └───────────┘ └─┘ └─┬─┘ └───┘
+///                                   │
+///                                   ▼
+///            seconds since 2021-01-01 00:00:00(UTC+0)
+///                          (lower 4bytes)
+///  </pre>
+///
+/// inspired by https://github.com/messense/rocketmq-rs
 pub(crate) static UNIQ_ID_GENERATOR: Lazy<Mutex<UniqueIdGenerator>> = Lazy::new(|| {
     let mut wtr = Vec::new();
     wtr.write_u8(1).unwrap();

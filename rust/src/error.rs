@@ -57,6 +57,9 @@ pub enum ErrorKind {
     #[error("Failed to receive message via channel")]
     ChannelReceive,
 
+    #[error("Failed to receive RPC response before timeout elapsed")]
+    RpcTimeout,
+
     #[error("Unknown error")]
     Unknown,
 }
