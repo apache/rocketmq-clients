@@ -166,7 +166,7 @@ impl Client {
 
                         for session in sessions.unwrap() {
                             let peer = session.peer().to_string();
-                            let response = Self::heart_beat_inner(session, &group, &namespace, &client_type).await;
+                            let response = Self::heartbeat_inner(session, &group, &namespace, &client_type).await;
                             if response.is_err() {
                                 error!(
                                     logger,
@@ -322,7 +322,7 @@ impl Client {
             .await
     }
 
-    async fn heart_beat_inner<T: RPCClient + 'static>(
+    async fn heartbeat_inner<T: RPCClient + 'static>(
         mut rpc_client: T,
         group: &Option<String>,
         namespace: &str,
@@ -1123,7 +1123,7 @@ pub(crate) mod tests {
             .return_once(|_| Box::pin(futures::future::ready(response)));
 
         let send_result =
-            Client::heart_beat_inner(mock, &Some("group".to_string()), "", &ClientType::Producer)
+            Client::heartbeat_inner(mock, &Some("group".to_string()), "", &ClientType::Producer)
                 .await;
         assert!(send_result.is_ok());
     }

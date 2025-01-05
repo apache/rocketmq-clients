@@ -457,7 +457,10 @@ impl RPCClient for Session {
                 Ok(response.into_inner())
             }
             Err(elapsed) => {
-                warn!(self.logger, "Heartbeat RPC timed out, reset telemetry bidirectional stream");
+                warn!(
+                    self.logger,
+                    "Heartbeat RPC timed out, reset telemetry bidirectional stream"
+                );
                 self.reset_telemetry_stream().await?;
                 Err(ClientError::new(
                     ErrorKind::RpcTimeout,
