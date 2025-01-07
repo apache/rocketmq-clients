@@ -19,6 +19,8 @@ package utils
 
 import (
 	"compress/gzip"
+	"compress/zlib"
+	"strings"
 	"testing"
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
@@ -113,10 +115,24 @@ func TestMatchMessageType(t *testing.T) {
 
 func TestGZIPDecode(t *testing.T) {
 	_, err := GZIPDecode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
-	if err != gzip.ErrHeader {
+	if err != gzip.ErrHeader && !strings.Contains(err.Error(), "unknown format") {
 		t.Error()
 	}
 	bytes, err := GZIPDecode([]byte{31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 0, 0, 0, 255, 255, 1, 0, 0, 255, 255, 97, 36, 132, 114, 18, 0, 0, 0})
+	if err != nil {
+		t.Error()
+	}
+	if string(bytes) != "rocketmq-client-go" {
+		t.Error()
+	}
+}
+
+func TestZLIBDecode(t *testing.T) {
+	_, err := GZIPDecode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+	if err != zlib.ErrHeader && !strings.Contains(err.Error(), "unknown format") {
+		t.Error()
+	}
+	bytes, err := GZIPDecode([]byte{120, 156, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 4, 0, 0, 255, 255, 68, 223, 7, 22})
 	if err != nil {
 		t.Error()
 	}
