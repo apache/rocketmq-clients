@@ -20,9 +20,12 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/url"
@@ -140,8 +143,33 @@ func MatchMessageType(mq *v2.MessageQueue, messageType v2.MessageType) bool {
 	return false
 }
 
+func detectCompressionFormat(in []byte) (string, error) {
+	if len(in) < 2 {
+		return "", errors.New("body too short")
+	}
+	if in[0] == 0x1f && in[1] == 0x8b {
+		return "GZIP", nil
+	} else if in[0] == 0x78 {
+		return "ZLIB", nil
+	} else {
+		return "", errors.New("unknown format")
+	}
+}
+
 func GZIPDecode(in []byte) ([]byte, error) {
-	reader, err := gzip.NewReader(bytes.NewReader(in))
+	format, err := detectCompressionFormat(in)
+	if err != nil {
+		return nil, err
+	}
+	var reader io.ReadCloser
+	switch format {
+	case "GZIP":
+		reader, err = gzip.NewReader(bytes.NewReader(in))
+	case "ZLIB":
+		reader, err = zlib.NewReader(bytes.NewReader(in))
+	default:
+		return nil, errors.New("unsupported compression format")
+	}
 	if err != nil {
 		var out []byte
 		return out, err
