@@ -120,6 +120,15 @@ namespace Org.Apache.Rocketmq
                 request, response, metadata);
         }
 
+        public async Task<RpcInvocation<Proto.RecallMessageRequest, Proto.RecallMessageResponse>>
+            RecallMessage(Endpoints endpoints, Proto.RecallMessageRequest request, TimeSpan timeout)
+        {
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).RecallMessage(metadata, request, timeout);
+            return new RpcInvocation<Proto.RecallMessageRequest, Proto.RecallMessageResponse>(
+                request, response, metadata);
+        }
+
         public async Task<RpcInvocation<Proto.SendMessageRequest, Proto.SendMessageResponse>> SendMessage(
             Endpoints endpoints, Proto::SendMessageRequest request, TimeSpan timeout)
         {
