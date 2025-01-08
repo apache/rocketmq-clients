@@ -17,9 +17,8 @@
 
 namespace Org.Apache.Rocketmq
 {
-    public interface ISendReceipt
+    public interface IRecallReceipt
     {
         string MessageId { get; }
-        string RecallHandle { get; }
     }
 }
