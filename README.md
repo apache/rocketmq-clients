@@ -25,8 +25,8 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 | Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
 | Producer with recalling timed/delay messages   |   ✅   |   🚧   |   🚧    |   🚧   |   🚧   |    🚧    |   🚧    |   🚧   |
 | Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
-| Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
-| Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Push consumer with concurrent message listener |   ✅   |   ✅   |   ✅   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Push consumer with FIFO message listener       |   ✅   |   ✅   |   ✅   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
 
 ## Prerequisite and Build
 
