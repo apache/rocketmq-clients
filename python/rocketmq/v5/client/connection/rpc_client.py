@@ -57,17 +57,16 @@ class RpcClient:
     def retrieve_or_create_channel(self, endpoints: RpcEndpoints):
         if self.__enable_retrieve_channel is False:
             raise Exception("RpcClient is not running.")
-
         try:
             # get or create a new grpc channel
-            with RpcClient._channel_lock:
                 channel = self.__get_channel(endpoints)
                 if channel is not None:
                     channel.update_time = int(time.time())
                 else:
-                    channel = RpcChannel(endpoints, self.__tls_enable)
-                    channel.create_channel(RpcClient.get_channel_io_loop())
-                    self.__put_channel(endpoints, channel)
+                    with RpcClient._channel_lock:
+                        channel = RpcChannel(endpoints, self.__tls_enable)
+                        channel.create_channel(RpcClient.get_channel_io_loop())
+                        self.__put_channel(endpoints, channel)
                 return channel
         except Exception as e:
             logger.error(f"retrieve or create channel exception: {e}")
@@ -80,11 +79,12 @@ class RpcClient:
         for endpoints, channel in items:
             if now - channel.update_time > RpcClient.RPC_CLIENT_MAX_IDLE_SECONDS:
                 idle_endpoints.append(endpoints)
-        with RpcClient._channel_lock:
-            for endpoints in idle_endpoints:
-                logger.info(f"remove idle channel {endpoints.__str__()}")
-                self.__close_rpc_channel(endpoints)
-                self.channels.remove(endpoints)
+        if len(idle_endpoints) > 0:
+            with RpcClient._channel_lock:
+                for endpoints in idle_endpoints:
+                    logger.info(f"remove idle channel {endpoints.__str__()}")
+                    self.__close_rpc_channel(endpoints)
+                    self.channels.remove(endpoints)
 
     def stop(self):
         with RpcClient._channel_lock:
@@ -137,26 +137,30 @@ class RpcClient:
         return RpcClient.__run_message_service_async(
             self.__notify_client_termination_0(endpoints, req, metadata=metadata, timeout=timeout))
 
-    def telemetry_stream(self, endpoints: RpcEndpoints, client, metadata, timeout=3000, rebuild=False):
-        try:
-            channel = self.retrieve_or_create_channel(endpoints)
-            if channel.telemetry_stream_stream_call is None or rebuild is True:
-                stream = channel.async_stub.Telemetry(metadata=metadata, timeout=timeout)
-                channel.register_telemetry_stream_stream_call(stream, client)
-                asyncio.run_coroutine_threadsafe(channel.telemetry_stream_stream_call.start_stream_read(),
-                                                 RpcClient.get_channel_io_loop())
-                logger.info(
-                    f"{client.__str__()} rebuild stream_steam_call to {endpoints.__str__()} success." if rebuild else f"{client.__str__()} create stream_steam_call to {endpoints.__str__()} success.")
-        except Exception as e:
-            raise e
-
     def end_transaction_for_server_check(self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata,
                                          timeout=3):
+        ## assert asyncio.get_running_loop() == RpcClient._io_loop
         try:
             return self.__end_transaction_0(endpoints, req, metadata=metadata, timeout=timeout)
         except Exception as e:
             logger.error(
                 f"end transaction exception, topic:{req.topic.name}, message_id:{req.message_id}, transaction_id:{req.transaction_id}: {e}")
+            raise e
+
+    """ build stream_stream_call """
+
+    def telemetry_stream(self, endpoints: RpcEndpoints, client, metadata, rebuild, timeout=3000):
+        # assert asyncio.get_running_loop() == RpcClient._io_loop
+        try:
+            channel = self.retrieve_or_create_channel(endpoints)
+            stream = channel.async_stub.Telemetry(metadata=metadata, timeout=timeout, wait_for_ready=True)
+            channel.register_telemetry_stream_stream_call(stream, client)
+            asyncio.run_coroutine_threadsafe(channel.telemetry_stream_stream_call.start_stream_read(),
+                                             RpcClient.get_channel_io_loop())
+            logger.info(
+                f"{client.__str__()} rebuild stream_steam_call to {endpoints.__str__()}." if rebuild else f"{client.__str__()} create stream_steam_call to {endpoints.__str__()}.")
+            return channel
+        except Exception as e:
             raise e
 
     """ MessageService.stub impl """
@@ -196,6 +200,10 @@ class RpcClient:
         return await self.retrieve_or_create_channel(endpoints).async_stub.NotifyClientTermination(req,
                                                                                                    metadata=metadata,
                                                                                                    timeout=timeout)
+
+    async def __create_channel_async(self, endpoints: RpcEndpoints):
+        return self.retrieve_or_create_channel(endpoints)
+
 
     """ private """
 

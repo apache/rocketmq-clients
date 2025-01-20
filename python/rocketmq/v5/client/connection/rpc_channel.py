@@ -15,7 +15,6 @@
 
 import asyncio
 import time
-
 import grpc
 from grpc import ChannelConnectivity, aio
 from grpc.aio import AioRpcError
@@ -123,7 +122,7 @@ class RpcStreamStreamCall:
                     if res.HasField("settings"):
                         # read a response for send setting result
                         if res is not None and res.status.code == Code.OK:
-                            logger.debug(f"async setting success. response status code: {res.status.code}")
+                            logger.debug(f"{ self.__handler.__str__()} sync setting success. response status code: {res.status.code}")
                             if res.settings is not None and res.settings.metric is not None:
                                 # reset metrics if needed
                                 self.__handler.reset_metric(res.settings.metric)
@@ -136,9 +135,9 @@ class RpcStreamStreamCall:
                                                                                          transaction_id)
             except AioRpcError as e:
                 logger.warn(
-                    f"stream read from endpoints {self.__endpoints.__str__()} occurred AioRpcError. code: {e.code()}, message: {e.details()}")
+                    f"{ self.__handler.__str__()} read stream from endpoints {self.__endpoints.__str__()} occurred AioRpcError. code: {e.code()}, message: {e.details()}")
             except Exception as e:
-                logger.error(f"stream read from endpoints {self.__endpoints.__str__()} exception, {e}")
+                logger.error(f"{ self.__handler.__str__()} read stream from endpoints {self.__endpoints.__str__()} exception, {e}")
 
     async def stream_write(self, req):
         if self.__stream_stream_call is not None:
@@ -164,6 +163,7 @@ class RpcChannel:
 
     def create_channel(self, loop):
         # create grpc channel with the given loop
+        # assert loop == RpcClient._io_loop
         asyncio.set_event_loop(loop)
         self.__create_aio_channel()
 
@@ -211,7 +211,7 @@ class RpcChannel:
         except Exception as e:
             logger.error(f"create_aio_channel to [{self.__endpoints.__str__()}] exception: {e}")
             raise e
-
+    #
     """ property """
 
     @property

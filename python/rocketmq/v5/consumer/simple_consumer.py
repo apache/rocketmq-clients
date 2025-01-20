@@ -71,7 +71,7 @@ class SimpleConsumer(Client):
                 self._retrieve_topic_route_data(topic)
             self.__subscriptions.put(topic, filter_expression if filter_expression is not None else FilterExpression())
         except Exception as e:
-            logger.error(f"subscribe exception: {e}")
+            logger.error(f"subscribe raise exception: {e}")
             raise e
 
     def unsubscribe(self, topic):
@@ -204,7 +204,7 @@ class SimpleConsumer(Client):
                                                                               route))
             return queue_selector.select_next_queue()
         except Exception as e:
-            logger.error(f"simple consumer select topic queue for receive message exception: {e}")
+            logger.error(f"simple consumer select topic queue raise exception: {e}")
             raise e
 
     def __receive(self, max_message_num, invisible_duration):
@@ -300,7 +300,7 @@ class SimpleConsumer(Client):
 
         try:
             req = self.__ack_req(message)
-            future = self.rpc_client.ack_message_async(queue.endpoints, req, metadata=self._sign())
+            future = self.rpc_client.ack_message_async(queue.endpoints, req, metadata=self._sign(), timeout=self.client_configuration.request_timeout)
             self.__handle_ack_result(future)
         except Exception as e:
             raise e
@@ -311,7 +311,7 @@ class SimpleConsumer(Client):
 
         try:
             req = self.__ack_req(message)
-            future = self.rpc_client.ack_message_async(queue.endpoints, req, metadata=self._sign())
+            future = self.rpc_client.ack_message_async(queue.endpoints, req, metadata=self._sign(), timeout=self.client_configuration.request_timeout)
             ret_future = Future()
             ack_callback = functools.partial(self.__handle_ack_result, ret_future=ret_future)
             future.add_done_callback(ack_callback)
@@ -353,7 +353,7 @@ class SimpleConsumer(Client):
 
         try:
             req = self.__change_invisible_req(message, invisible_duration)
-            future = self.rpc_client.change_invisible_duration_async(queue.endpoints, req, metadata=self._sign())
+            future = self.rpc_client.change_invisible_duration_async(queue.endpoints, req, metadata=self._sign(), timeout=self.client_configuration.request_timeout)
             self.__handle_change_invisible_result(future)
         except Exception as e:
             raise e
@@ -364,7 +364,7 @@ class SimpleConsumer(Client):
 
         try:
             req = self.__change_invisible_req(message, invisible_duration)
-            future = self.rpc_client.change_invisible_duration_async(queue.endpoints, req, metadata=self._sign())
+            future = self.rpc_client.change_invisible_duration_async(queue.endpoints, req, metadata=self._sign(), timeout=self.client_configuration.request_timeout)
             ret_future = Future()
             change_invisible_callback = functools.partial(self.__handle_change_invisible_result, ret_future=ret_future)
             future.add_done_callback(change_invisible_callback)

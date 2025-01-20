@@ -273,7 +273,7 @@ class Producer(Client):
     def __send(self, message: Message, topic_queue, attempt=1) -> SendReceipt:
         req = self.__send_req(message)
         send_context = self.client_metrics.send_before(message.topic)
-        send_message_future = self.rpc_client.send_message_async(topic_queue.endpoints, req, self._sign())
+        send_message_future = self.rpc_client.send_message_async(topic_queue.endpoints, req, self._sign(), timeout=self.client_configuration.request_timeout)
         return self.__handle_sync_send_receipt(send_message_future, message, topic_queue, attempt, send_context)
 
     def __handle_sync_send_receipt(self, send_message_future, message, topic_queue, attempt, send_metric_context=None):
@@ -296,7 +296,7 @@ class Producer(Client):
     def __send_async(self, message: Message, topic_queue, attempt=1, ret_future=None):
         req = self.__send_req(message)
         send_context = self.client_metrics.send_before(message.topic)
-        send_message_future = self.rpc_client.send_message_async(topic_queue.endpoints, req, self._sign())
+        send_message_future = self.rpc_client.send_message_async(topic_queue.endpoints, req, self._sign(), timeout=self.client_configuration.request_timeout)
         if ret_future is None:
             ret_future = Future()
         handle_send_receipt_callback = functools.partial(self.__handle_async_send_receipt, message=message,
@@ -420,7 +420,7 @@ class Producer(Client):
                                                                        QueueSelector.producer_queue_selector(route))
             return queue_selector.select_next_queue()
         except Exception as e:
-            logger.error(f"producer select topic:{topic} queue index exception, {e}")
+            logger.error(f"producer select topic:{topic} queue raise exception, {e}")
             raise e
 
     def __end_transaction_req(self, message: Message, transaction_id, result, source):

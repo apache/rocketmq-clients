@@ -43,7 +43,9 @@ class QueueSelector:
 
     def select_next_queue(self):
         if self.__selector_type == QueueSelector.NONE_TYPE_SELECTOR:
-            raise IllegalArgumentException("error type for queue selector, type is NONE_TYPE_SELECTOR.")
+            raise IllegalArgumentException("select next queue raise exception, because selector type is NONE_TYPE_SELECTOR.")
+        if len(self.__message_queues) == 0:
+            raise IllegalArgumentException("select next queue raise exception, because queue's length is 0.")
         return self.__message_queues[self.__index.get_and_increment() % len(self.__message_queues)]
 
     def all_queues(self):
