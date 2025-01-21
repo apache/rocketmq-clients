@@ -34,6 +34,7 @@
 #include "NamingScheme.h"
 #include "SessionImpl.h"
 #include "Signature.h"
+#include "StdoutHandler.h"
 #include "UtilAll.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_join.h"
