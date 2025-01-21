@@ -59,15 +59,15 @@ class RpcClient:
             raise Exception("RpcClient is not running.")
         try:
             # get or create a new grpc channel
-                channel = self.__get_channel(endpoints)
-                if channel is not None:
-                    channel.update_time = int(time.time())
-                else:
-                    with RpcClient._channel_lock:
-                        channel = RpcChannel(endpoints, self.__tls_enable)
-                        channel.create_channel(RpcClient.get_channel_io_loop())
-                        self.__put_channel(endpoints, channel)
-                return channel
+            channel = self.__get_channel(endpoints)
+            if channel is not None:
+                channel.update_time = int(time.time())
+            else:
+                with RpcClient._channel_lock:
+                    channel = RpcChannel(endpoints, self.__tls_enable)
+                    channel.create_channel(RpcClient.get_channel_io_loop())
+                    self.__put_channel(endpoints, channel)
+            return channel
         except Exception as e:
             logger.error(f"retrieve or create channel exception: {e}")
             raise e
@@ -139,7 +139,7 @@ class RpcClient:
 
     def end_transaction_for_server_check(self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata,
                                          timeout=3):
-        ## assert asyncio.get_running_loop() == RpcClient._io_loop
+        # assert asyncio.get_running_loop() == RpcClient._io_loop
         try:
             return self.__end_transaction_0(endpoints, req, metadata=metadata, timeout=timeout)
         except Exception as e:
@@ -203,7 +203,6 @@ class RpcClient:
 
     async def __create_channel_async(self, endpoints: RpcEndpoints):
         return self.retrieve_or_create_channel(endpoints)
-
 
     """ private """
 

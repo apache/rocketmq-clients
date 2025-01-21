@@ -285,7 +285,7 @@ class Client:
                 self.__topics.add(topic)
                 return route
             else:
-                raise Exception(f"retrieve topic:{topic} route, but route is None.")
+                raise Exception(f"failed to fetch topic:{topic} route.")
 
     def _remove_unused_topic_route_data(self, topic):
         self.__topic_route_cache.remove(topic)
