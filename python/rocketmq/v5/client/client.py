@@ -176,7 +176,7 @@ class Client:
         while True:
             if self.__client_thread_task_enabled is True:
                 self.__topic_route_scheduler_threading_event.wait(30)
-                logger.debug(f"{self.__str__()} run scheduler for update topic route cache.")
+                logger.debug(f"{self.__str__()} run update topic route in scheduler.")
                 # update topic route for each topic in cache
                 topics = self.__topic_route_cache.keys()
                 for topic in topics:
@@ -185,7 +185,7 @@ class Client:
                             self.__update_topic_route_async(topic)
                     except Exception as e:
                         logger.error(
-                            f"{self.__str__()} run scheduler for update topic:{topic} route cache exception: {e}")
+                            f"{self.__str__()} scheduler update topic:{topic} route raise exception: {e}")
             else:
                 break
         logger.info(f"{self.__str__()} stop scheduler for update topic route cache success.")
@@ -195,14 +195,14 @@ class Client:
         while True:
             if self.__client_thread_task_enabled is True:
                 self.__heartbeat_scheduler_threading_event.wait(10)
-                logger.debug(f"{self.__str__()} run scheduler for heartbeat.")
+                logger.debug(f"{self.__str__()} run send heartbeat in scheduler.")
                 all_endpoints = self.__get_all_endpoints().values()
                 try:
                     for endpoints in all_endpoints:
                         if self.__client_thread_task_enabled is True:
                             self.__heartbeat_async(endpoints)
                 except Exception as e:
-                    logger.error(f"{self.__str__()} run scheduler for heartbeat exception: {e}")
+                    logger.error(f"{self.__str__()} scheduler send heartbeat raise exception: {e}")
             else:
                 break
         logger.info(f"{self.__str__()} stop scheduler for heartbeat success.")
@@ -212,16 +212,14 @@ class Client:
         while True:
             if self.__client_thread_task_enabled is True:
                 self.__sync_setting_scheduler_threading_event.wait(5)
-                logger.debug(f"{self.__str__()} run scheduler for update setting.")
+                logger.debug(f"{self.__str__()} run update setting in scheduler.")
                 try:
                     all_endpoints = self.__get_all_endpoints().values()
                     for endpoints in all_endpoints:
                         if self.__client_thread_task_enabled is True:
-                            # if stream_stream_call for grpc channel is none, create a new one, otherwise use the existing one
-                            self.__retrieve_telemetry_stream_stream_call(endpoints)
                             self.__setting_write(endpoints)
                 except Exception as e:
-                    logger.error(f"{self.__str__()} run scheduler for update setting exception: {e}")
+                    logger.error(f"{self.__str__()} scheduler set setting raise exception: {e}")
             else:
                 break
         logger.info(f"{self.__str__()} stop scheduler for update setting success.")
@@ -282,10 +280,12 @@ class Client:
             return route
         else:
             route = self.__update_topic_route(topic)
-            logger.info(f"{self.__str__()} update topic:{topic} route success.")
             if route is not None:
+                logger.info(f"{self.__str__()} update topic:{topic} route success.")
                 self.__topics.add(topic)
-            return route
+                return route
+            else:
+                raise Exception(f"failed to fetch topic:{topic} route.")
 
     def _remove_unused_topic_route_data(self, topic):
         self.__topic_route_cache.remove(topic)
@@ -306,16 +306,15 @@ class Client:
     # topic route #
 
     def __update_topic_route(self, topic):
-        try:
-            future = self.__rpc_client.query_topic_route_async(self.__client_configuration.rpc_endpoints,
-                                                               self.__topic_route_req(topic), metadata=self._sign(),
-                                                               timeout=self.__client_configuration.request_timeout)
-            res = future.result()
-            route = self.__handle_topic_route_res(res, topic)
-            return route
-        except Exception as e:
-            logger.error(f"update topic route error, topic:{topic}, {e}")
-            raise e
+        event = threading.Event()
+        callback = functools.partial(self.__query_topic_route_async_callback, topic=topic, event=event)
+        future = self.__rpc_client.query_topic_route_async(self.__client_configuration.rpc_endpoints,
+                                                           self.__topic_route_req(topic),
+                                                           metadata=self._sign(),
+                                                           timeout=self.__client_configuration.request_timeout)
+        future.add_done_callback(callback)
+        event.wait()
+        return self.__topic_route_cache.get(topic)
 
     def __update_topic_route_async(self, topic):
         callback = functools.partial(self.__query_topic_route_async_callback, topic=topic)
@@ -325,12 +324,15 @@ class Client:
                                                            timeout=self.__client_configuration.request_timeout)
         future.add_done_callback(callback)
 
-    def __query_topic_route_async_callback(self, future, topic):
+    def __query_topic_route_async_callback(self, future, topic, event=None):
         try:
             res = future.result()
             self.__handle_topic_route_res(res, topic)
         except Exception as e:
             raise e
+        finally:
+            if event is not None:
+                event.set()
 
     def __topic_route_req(self, topic):
         req = QueryRouteRequest()
@@ -344,7 +346,7 @@ class Client:
             MessagingResultChecker.check(res.status)
             if res.status.code == Code.OK:
                 topic_route = TopicRouteData(res.message_queues)
-                logger.debug(f"{self.__str__()} update topic:{topic} route, route info: {topic_route.__str__()}")
+                logger.info(f"{self.__str__()} update topic:{topic} route, route info: {topic_route.__str__()}")
                 # if topic route has new endpoint, connect
                 self.__check_topic_route_endpoints_changed(topic, topic_route)
                 self.__topic_route_cache.put(topic, topic_route)
@@ -380,6 +382,13 @@ class Client:
 
     # sync settings #
 
+    def __retrieve_telemetry_stream_stream_call(self, endpoints, rebuild=False):
+        try:
+            self.__rpc_client.telemetry_stream(endpoints, self, self._sign(), rebuild, timeout=60 * 60 * 24 * 365)
+        except Exception as e:
+            logger.error(
+                f"{self.__str__()} rebuild stream_steam_call to {endpoints.__str__()} exception: {e}" if rebuild else f"{self.__str__()} create stream_steam_call to {endpoints.__str__()} exception: {e}")
+
     def __setting_write(self, endpoints):
         req = self._sync_setting_req(endpoints)
         callback = functools.partial(self.__setting_write_callback, endpoints=endpoints)
@@ -387,18 +396,10 @@ class Client:
         logger.debug(f"{self.__str__()} send setting to {endpoints.__str__()}, {req}")
         future.add_done_callback(callback)
 
-    def __retrieve_telemetry_stream_stream_call(self, endpoints, rebuild=False):
-        try:
-            self.__rpc_client.telemetry_stream(endpoints, self, metadata=self._sign(), timeout=60 * 60 * 24 * 365,
-                                               rebuild=rebuild)
-        except Exception as e:
-            logger.error(
-                f"{self.__str__()} rebuild stream_steam_call to {endpoints.__str__()} exception: {e}" if rebuild else f"{self.__str__()} create stream_steam_call to {endpoints.__str__()} exception: {e}")
-
     def __setting_write_callback(self, future, endpoints):
         try:
             future.result()
-            logger.debug(f"{self.__str__()} send setting to {endpoints.__str__()} success.")
+            logger.info(f"{self.__str__()} send setting to {endpoints.__str__()} success.")
         except InvalidStateError as e:
             logger.warn(f"{self.__str__()} send setting to {endpoints.__str__()} occurred InvalidStateError: {e}")
             self.__retrieve_telemetry_stream_stream_call(endpoints, rebuild=True)
