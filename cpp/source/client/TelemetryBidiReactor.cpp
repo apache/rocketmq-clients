@@ -16,15 +16,12 @@
  */
 #include "TelemetryBidiReactor.h"
 
-#include <atomic>
-#include <cstdint>
 #include <memory>
 #include <utility>
 
 #include "ClientManager.h"
 #include "MessageExt.h"
 #include "Metadata.h"
-#include "RpcClient.h"
 #include "Signature.h"
 #include "google/protobuf/util/time_util.h"
 #include "rocketmq/Logger.h"
@@ -70,7 +67,7 @@ void TelemetryBidiReactor::OnWriteDone(bool ok) {
   RemoveHold();
 
   if (!ok) {
-    SPDLOG_WARN("Failed to write telemetry command {} to {}", writes_.front().DebugString(), peer_address_);
+    SPDLOG_WARN("Failed to write telemetry command {} to {}", writes_.front().ShortDebugString(), peer_address_);
     signalClose();
     return;
   }
@@ -91,7 +88,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
   if (!ok) {
     // for read stream
     RemoveHold();
-    SPDLOG_WARN("Failed to read from telemetry stream from {}", peer_address_);
+    // SPDLOG_WARN("Failed to read from telemetry stream from {}", peer_address_);
     signalClose();
     return;
   }
@@ -103,7 +100,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
     }
   }
 
-  SPDLOG_DEBUG("Read a telemetry command from {}: {}", peer_address_, read_.DebugString());
+  SPDLOG_DEBUG("Read a telemetry command from {}: {}", peer_address_, read_.ShortDebugString());
   auto client = client_.lock();
   if (!client) {
     SPDLOG_INFO("Client for {} has destructed", peer_address_);
@@ -114,19 +111,20 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
   switch (read_.command_case()) {
     case rmq::TelemetryCommand::kSettings: {
       auto settings = read_.settings();
-      SPDLOG_INFO("Received settings from {}: {}", peer_address_, settings.DebugString());
+      SPDLOG_INFO("Receive settings from {}: {}", peer_address_, settings.ShortDebugString());
       applySettings(settings);
       sync_settings_promise_.set_value(true);
       break;
     }
+
     case rmq::TelemetryCommand::kRecoverOrphanedTransactionCommand: {
-      SPDLOG_DEBUG("Receive orphan transaction command: {}", read_.DebugString());
-      auto message = client->manager()->wrapMessage(read_.release_verify_message_command()->message());
+      SPDLOG_INFO("Receive orphan transaction command: {}", read_.ShortDebugString());
+      auto message = client->manager()->wrapMessage(
+          read_.recover_orphaned_transaction_command().message());
       auto raw = const_cast<Message*>(message.get());
       raw->mutableExtension().target_endpoint = peer_address_;
       raw->mutableExtension().transaction_id = read_.recover_orphaned_transaction_command().transaction_id();
       client->recoverOrphanedTransaction(message);
-
       break;
     }
 
@@ -156,7 +154,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
     }
 
     default: {
-      SPDLOG_WARN("Unsupported command");
+      SPDLOG_WARN("Telemetry command receive unsupported command");
       break;
     }
   }
@@ -291,7 +289,7 @@ void TelemetryBidiReactor::tryWriteNext() {
   }
 
   if (!writes_.empty()) {
-    SPDLOG_DEBUG("Writing telemetry command to {}: {}", peer_address_, writes_.front().DebugString());
+    SPDLOG_DEBUG("Writing telemetry command to {}: {}", peer_address_, writes_.front().ShortDebugString());
     AddHold();
     StartWrite(&(writes_.front()));
   }

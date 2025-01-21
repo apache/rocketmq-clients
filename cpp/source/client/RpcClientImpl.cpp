@@ -16,7 +16,6 @@
  */
 #include "RpcClientImpl.h"
 
-#include <chrono>
 #include <functional>
 #include <sstream>
 #include <thread>
@@ -26,7 +25,6 @@
 #include "RpcClient.h"
 #include "TelemetryBidiReactor.h"
 #include "TlsHelper.h"
-#include "absl/time/time.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 

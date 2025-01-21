@@ -227,7 +227,10 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
   auto callback = [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) mutable {
     ec = code;
     SendReceipt& receipt_mut = const_cast<SendReceipt&>(receipt);
+    send_receipt.target = std::move(receipt_mut.target);
+    send_receipt.message_id = std::move(receipt_mut.message_id);
     send_receipt.message = std::move(receipt_mut.message);
+    send_receipt.transaction_id = std::move(receipt_mut.transaction_id);
     {
       absl::MutexLock lk(mtx.get());
       completed = true;
@@ -354,7 +357,7 @@ void ProducerImpl::sendImpl(std::shared_ptr<SendContext> context) {
   client_manager_->send(target, metadata, request, callback);
 }
 
-void ProducerImpl::send0(MessageConstPtr message, SendCallback callback, std::vector<rmq::MessageQueue> list) {
+void ProducerImpl::send0(MessageConstPtr message, const SendCallback& callback, std::vector<rmq::MessageQueue> list) {
   SendReceipt send_receipt;
   std::error_code ec;
   validate(*message, ec);
@@ -371,7 +374,8 @@ void ProducerImpl::send0(MessageConstPtr message, SendCallback callback, std::ve
     return;
   }
 
-  auto context = std::make_shared<SendContext>(shared_from_this(), std::move(message), callback, std::move(list));
+  auto context = std::make_shared<SendContext>(
+      shared_from_this(), std::move(message), callback, std::move(list));
   sendImpl(context);
 }
 

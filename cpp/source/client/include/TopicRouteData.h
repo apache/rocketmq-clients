@@ -43,7 +43,7 @@ public:
 
   std::string debugString() const {
     return absl::StrJoin(message_queues_.begin(), message_queues_.end(), ",",
-                         [](std::string* out, const rmq::MessageQueue& m) { out->append(m.DebugString()); });
+                         [](std::string* out, const rmq::MessageQueue& m) { out->append(m.ShortDebugString()); });
   };
 
 private:

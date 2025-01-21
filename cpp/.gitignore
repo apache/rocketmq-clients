@@ -19,3 +19,4 @@ bazel-rocketmq-client-cpp
 /compile_commands.json
 /.cache/
 .clangd
+build
