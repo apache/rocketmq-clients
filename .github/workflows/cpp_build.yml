@@ -11,7 +11,7 @@ jobs:
         # Disable VS 2022 before https://github.com/bazelbuild/bazel/issues/18592 issue is solved
         # Remove macos-11 since there is no such runner available
         # os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019, windows-2022]
-        os: [ubuntu-20.04, ubuntu-22.04, macos-12, windows-2019]
+        os: [ubuntu-20.04, ubuntu-22.04, windows-2019]
     steps:
       - uses: actions/checkout@v2
       - name: Compile On Linux
