@@ -94,8 +94,14 @@ void SimpleConsumerImpl::start() {
         simple_consumer->refreshAssignments0();
       }
     };
-    refresh_assignment_task_ = manager()->getScheduler()->schedule(refresh_assignment_task, "RefreshAssignmentTask",
-                                                                   std::chrono::seconds(3), std::chrono::seconds(3));
+
+    // refer java sdk: set refresh interval to 30 seconds
+    // org.apache.rocketmq.client.java.impl.ClientImpl#startUp
+    refresh_assignment_task_ = manager()->getScheduler()->schedule(
+        refresh_assignment_task, "RefreshAssignmentTask",
+        std::chrono::minutes(5), std::chrono::seconds(5));
+
+    client_manager_->addClientObserver(shared_from_this());
   }
 }
 
@@ -307,12 +313,21 @@ void SimpleConsumerImpl::receive(std::size_t limit,
   request.set_auto_renew(false);
   request.mutable_group()->CopyFrom(config().subscriber.group);
   request.mutable_message_queue()->CopyFrom(assignment.message_queue());
-  request.set_batch_size(limit);
+  request.set_batch_size((int32_t) limit);
 
-  auto duration = google::protobuf::util::TimeUtil::MillisecondsToDuration(invisible_duration.count());
+  request.mutable_filter_expression()->set_type(rmq::FilterType::TAG);
+  request.mutable_filter_expression()->set_expression("*");
 
-  request.mutable_invisible_duration()->set_nanos(duration.nanos());
-  request.mutable_invisible_duration()->set_seconds(duration.seconds());
+  auto invisible_duration_request =
+      google::protobuf::util::TimeUtil::MillisecondsToDuration(invisible_duration.count());
+  request.mutable_invisible_duration()->set_nanos(invisible_duration_request.nanos());
+  request.mutable_invisible_duration()->set_seconds(invisible_duration_request.seconds());
+
+  auto await_duration_request =
+      google::protobuf::util::TimeUtil::MillisecondsToDuration(
+          MixAll::millisecondsOf(long_polling_duration_));
+  request.mutable_long_polling_timeout()->set_nanos(await_duration_request.nanos());
+  request.mutable_long_polling_timeout()->set_seconds(await_duration_request.seconds());
 
   auto cb = [callback](const std::error_code& ec, const ReceiveMessageResult& result) {
     std::vector<MessageConstSharedPtr> messages;
@@ -324,7 +339,6 @@ void SimpleConsumerImpl::receive(std::size_t limit,
     callback(ec, result.messages);
   };
 
-  SPDLOG_DEBUG("ReceiveMessage.polling_timeout: {}ms", MixAll::millisecondsOf(long_polling_duration_));
   manager()->receiveMessage(target, metadata, request,
                             long_polling_duration_ + absl::ToChronoMilliseconds(requestTimeout()), cb);
 }

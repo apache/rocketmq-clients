@@ -301,7 +301,7 @@ void TelemetryBidiReactor::signalClose() {
 }
 
 void TelemetryBidiReactor::close() {
-  SPDLOG_INFO("{}#fireClose", peer_address_);
+  SPDLOG_DEBUG("{}#fireClose", peer_address_);
 
   {
     absl::MutexLock lk(&state_mtx_);
@@ -316,14 +316,12 @@ void TelemetryBidiReactor::close() {
   }
   context_.TryCancel();
 
-  {
-    // Acquire state lock
+  // Acquire state lock
+  while (StreamState::Closed != state_) {
     absl::MutexLock lk(&state_mtx_);
-    while (StreamState::Closed != state_) {
-      if (state_cv_.WaitWithTimeout(&state_mtx_, absl::Seconds(1))) {
-        SPDLOG_WARN("StreamState CondVar timed out before getting signalled: state={}",
-                    static_cast<uint8_t>(state_));
-      }
+    if (state_cv_.WaitWithTimeout(&state_mtx_, absl::Seconds(1))) {
+      SPDLOG_WARN("StreamState CondVar timed out before getting signalled: state={}",
+                  static_cast<uint8_t>(state_));
     }
   }
 }
@@ -338,7 +336,7 @@ void TelemetryBidiReactor::close() {
 void TelemetryBidiReactor::OnDone(const grpc::Status& status) {
   SPDLOG_DEBUG("{}#OnDone, status.ok={}", peer_address_, status.ok());
   if (!status.ok()) {
-    SPDLOG_WARN("{}#OnDone, status.error_code={}, status.error_message={}, status.error_details={}", peer_address_,
+    SPDLOG_DEBUG("{}#OnDone, status.error_code={}, status.error_message={}, status.error_details={}", peer_address_,
                 status.error_code(), status.error_message(), status.error_details());
   }
   {

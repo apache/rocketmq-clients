@@ -18,6 +18,7 @@
 #include <iostream>
 
 #include "gflags/gflags.h"
+#include "rocketmq/ErrorCode.h"
 #include "rocketmq/Logger.h"
 #include "rocketmq/SimpleConsumer.h"
 
@@ -42,10 +43,11 @@ int main(int argc, char* argv[]) {
 
   CredentialsProviderPtr credentials_provider;
   if (!FLAGS_access_key.empty() && !FLAGS_access_secret.empty()) {
-    credentials_provider = std::make_shared<StaticCredentialsProvider>(FLAGS_access_key, FLAGS_access_secret);
+    credentials_provider = std::make_shared<StaticCredentialsProvider>(
+        FLAGS_access_key, FLAGS_access_secret);
   }
 
-  // In most case, you don't need to create too many consumers, singletion pattern is recommended.
+  // In most case, you don't need to create too many consumers, singleton pattern is recommended.
   auto simple_consumer = SimpleConsumer::newBuilder()
                              .withGroup(FLAGS_group)
                              .withConfiguration(Configuration::newBuilder()
@@ -54,32 +56,36 @@ int main(int argc, char* argv[]) {
                                                     .withSsl(FLAGS_tls)
                                                     .build())
                              .subscribe(FLAGS_topic, tag)
+                             .withAwaitDuration(std::chrono::seconds(10))
                              .build();
-  std::vector<MessageConstSharedPtr> messages;
-  std::error_code ec;
-  simple_consumer.receive(4, std::chrono::seconds(3), ec, messages);
 
-  if (ec) {
-    std::cerr << "Failed to receive messages. Cause: " << ec.message() << std::endl;
-    return EXIT_FAILURE;
-  }
-
-  std::cout << "Received " << messages.size() << " messages" << std::endl;
-  std::size_t i = 0;
-  for (const auto& message : messages) {
-    std::cout << "Received a message[topic=" << message->topic() << ", message-id=" << message->id()
-              << ", receipt-handle='" << message->extension().receipt_handle << "']" << std::endl;
-
+  for (int j = 0; j < 30; j++) {
+    std::vector<MessageConstSharedPtr> messages;
     std::error_code ec;
-    if (++i % 2 == 0) {
-      simple_consumer.ack(*message, ec);
-      if (ec) {
-        std::cerr << "Failed to ack message. Cause: " << ec.message() << std::endl;
-      }
-    } else {
-      simple_consumer.changeInvisibleDuration(*message, std::chrono::milliseconds(100), ec);
-      if (ec) {
-        std::cerr << "Failed to change invisible duration of message. Cause: " << ec.message() << std::endl;
+    simple_consumer.receive(4, std::chrono::seconds(15), ec, messages);
+    if (ec) {
+      std::cerr << "Failed to receive messages. Cause: " << ec.message() << std::endl;
+    }
+
+    std::cout << "Received " << messages.size() << " messages" << std::endl;
+    std::size_t i = 0;
+
+    for (const auto& message : messages) {
+      std::cout << "Received a message[topic=" << message->topic()
+                << ", message-id=" << message->id()
+                << ", receipt-handle='" << message->extension().receipt_handle
+                << "']" << std::endl;
+
+      if (++i % 2 == 0) {
+        simple_consumer.ack(*message, ec);
+        if (ec) {
+          std::cerr << "Failed to ack message. Cause: " << ec.message() << std::endl;
+        }
+      } else {
+        simple_consumer.changeInvisibleDuration(*message, std::chrono::seconds(3), ec);
+        if (ec) {
+          std::cerr << "Failed to change invisible duration of message. Cause: " << ec.message() << std::endl;
+        }
       }
     }
   }

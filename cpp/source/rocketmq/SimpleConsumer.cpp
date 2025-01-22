@@ -19,6 +19,7 @@
 
 #include "SimpleConsumerImpl.h"
 #include "StaticNameServerResolver.h"
+#include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -58,7 +59,7 @@ void SimpleConsumer::receive(std::size_t limit,
   auto callback = [&, mtx, cv](const std::error_code& code, const std::vector<MessageConstSharedPtr>& result) {
     {
       absl::MutexLock lk(mtx.get());
-      if (code) {
+      if (code && code != ErrorCode::NoContent) {
         ec = code;
         SPDLOG_WARN("Failed to receive message. Cause: {}", code.message());
       }

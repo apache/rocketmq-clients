@@ -177,7 +177,7 @@ void ClientManagerImpl::heartbeat(const std::string& target_host,
                                   const HeartbeatRequest& request,
                                   std::chrono::milliseconds timeout,
                                   const std::function<void(const std::error_code&, const HeartbeatResponse&)>& cb) {
-  SPDLOG_DEBUG("Prepare to send heartbeat to {}. Request: {}", target_host, request.DebugString());
+  SPDLOG_DEBUG("Prepare to send heartbeat to {}. Request: {}", target_host, request.ShortDebugString());
   auto client = getRpcClient(target_host, true);
   auto invocation_context = new InvocationContext<HeartbeatResponse>();
   invocation_context->task_name = fmt::format("Heartbeat to {}", target_host);

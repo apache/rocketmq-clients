@@ -175,6 +175,8 @@ void ClientImpl::start() {
     }
   };
 
+  // refer java sdk: set refresh interval to 5 minutes
+  // org.apache.rocketmq.client.java.impl.ClientSessionImpl#syncSettings0
   telemetry_handle_ = client_manager_->getScheduler()->schedule(
       telemetry_functor, TELEMETRY_TASK_NAME,
       std::chrono::minutes(5), std::chrono::minutes(5));
@@ -401,8 +403,8 @@ void ClientImpl::heartbeat() {
       }
       SPDLOG_DEBUG("Heartbeat to {} OK", target);
     };
-    client_manager_->heartbeat(target, metadata, request, absl::ToChronoMilliseconds(client_config_.request_timeout),
-                               callback);
+    client_manager_->heartbeat(target, metadata, request,
+      absl::ToChronoMilliseconds(client_config_.request_timeout), callback);
   }
 }
 

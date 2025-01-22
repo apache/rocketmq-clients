@@ -66,6 +66,8 @@ message SendResultEntry {
   string message_id = 2;
   string transaction_id = 3;
   int64 offset = 4;
+  // Unique handle to identify message to recall, support delay message for now.
+  string recall_handle = 5;
 }
 
 message SendMessageResponse {
@@ -96,6 +98,8 @@ message ReceiveMessageRequest {
   optional google.protobuf.Duration invisible_duration = 5;
   // For message auto renew and clean
   bool auto_renew = 6;
+  optional google.protobuf.Duration long_polling_timeout = 7;
+  optional string attempt_id = 8;
 }
 
 message ReceiveMessageResponse {
@@ -129,6 +133,7 @@ message AckMessageResultEntry {
 }
 
 message AckMessageResponse {
+
   // RPC tier status, which is used to represent RPC-level errors including
   // authentication, authorization, throttling and other general failures.
   Status status = 1;
@@ -145,18 +150,14 @@ message ForwardMessageToDeadLetterQueueRequest {
   int32 max_delivery_attempts = 6;
 }
 
-message ForwardMessageToDeadLetterQueueResponse {
-  Status status = 1;
-}
+message ForwardMessageToDeadLetterQueueResponse { Status status = 1; }
 
 message HeartbeatRequest {
   optional Resource group = 1;
   ClientType client_type = 2;
 }
 
-message HeartbeatResponse {
-  Status status = 1;
-}
+message HeartbeatResponse { Status status = 1; }
 
 message EndTransactionRequest {
   Resource topic = 1;
@@ -167,13 +168,9 @@ message EndTransactionRequest {
   string trace_context = 6;
 }
 
-message EndTransactionResponse {
-  Status status = 1;
-}
+message EndTransactionResponse { Status status = 1; }
 
-message PrintThreadStackTraceCommand {
-  string nonce = 1;
-}
+message PrintThreadStackTraceCommand { string nonce = 1; }
 
 message ThreadStackTrace {
   string nonce = 1;
@@ -192,92 +189,6 @@ message VerifyMessageResult {
 message RecoverOrphanedTransactionCommand {
   Message message = 1;
   string transaction_id = 2;
-}
-
-message Publishing {
-  // Publishing settings below here is appointed by client, thus it is
-  // unnecessary for server to push at present.
-  //
-  // List of topics to which messages will publish to.
-  repeated Resource topics = 1;
-
-  // If the message body size exceeds `max_body_size`, broker servers would
-  // reject the request. As a result, it is advisable that Producer performs
-  // client-side check validation.
-  int32 max_body_size = 2;
-
-  // When `validate_message_type` flag set `false`, no need to validate message's type
-  // with messageQueue's `accept_message_types` before publishing.
-  bool validate_message_type = 3;
-}
-
-message Subscription {
-  // Subscription settings below here is appointed by client, thus it is
-  // unnecessary for server to push at present.
-  //
-  // Consumer group.
-  optional Resource group = 1;
-
-  // Subscription for consumer.
-  repeated SubscriptionEntry subscriptions = 2;
-
-  // Subscription settings below here are from server, it is essential for
-  // server to push.
-  //
-  // When FIFO flag is `true`, messages of the same message group are processed
-  // in first-in-first-out manner.
-  //
-  // Brokers will not deliver further messages of the same group until prior
-  // ones are completely acknowledged.
-  optional bool fifo = 3;
-
-  // Message receive batch size here is essential for push consumer.
-  optional int32 receive_batch_size = 4;
-
-  // Long-polling timeout for `ReceiveMessageRequest`, which is essential for
-  // push consumer.
-  optional google.protobuf.Duration long_polling_timeout = 5;
-}
-
-message Metric {
-  // Indicates that if client should export local metrics to server.
-  bool on = 1;
-
-  // The endpoint that client metrics should be exported to, which is required if the switch is on.
-  optional Endpoints endpoints = 2;
-}
-
-message Settings {
-  // Configurations for all clients.
-  optional ClientType client_type = 1;
-
-  optional Endpoints access_point = 2;
-
-  // If publishing of messages encounters throttling or server internal errors,
-  // publishers should implement automatic retries after progressive longer
-  // back-offs for consecutive errors.
-  //
-  // When processing message fails, `backoff_policy` describes an interval
-  // after which the message should be available to consume again.
-  //
-  // For FIFO messages, the interval should be relatively small because
-  // messages of the same message group would not be readily available until
-  // the prior one depletes its lifecycle.
-  optional RetryPolicy backoff_policy = 3;
-
-  // Request timeout for RPCs excluding long-polling.
-  optional google.protobuf.Duration request_timeout = 4;
-
-  oneof pub_sub {
-    Publishing publishing = 5;
-
-    Subscription subscription = 6;
-  }
-
-  // User agent details
-  UA user_agent = 7;
-
-  Metric metric = 8;
 }
 
 message TelemetryCommand {
@@ -313,9 +224,7 @@ message NotifyClientTerminationRequest {
   optional Resource group = 1;
 }
 
-message NotifyClientTerminationResponse {
-  Status status = 1;
-}
+message NotifyClientTerminationResponse { Status status = 1; }
 
 message ChangeInvisibleDurationRequest {
   Resource group = 1;
@@ -338,6 +247,65 @@ message ChangeInvisibleDurationResponse {
   string receipt_handle = 2;
 }
 
+message PullMessageRequest {
+  Resource group = 1;
+  MessageQueue message_queue = 2;
+  int64 offset = 3;
+  int32 batch_size = 4;
+  FilterExpression filter_expression = 5;
+  google.protobuf.Duration long_polling_timeout = 6;
+}
+
+message PullMessageResponse {
+  oneof content {
+    Status status = 1;
+    Message message = 2;
+    int64 next_offset = 3;
+  }
+}
+
+message UpdateOffsetRequest {
+  Resource group = 1;
+  MessageQueue message_queue = 2;
+  int64 offset = 3;
+}
+
+message UpdateOffsetResponse {
+  Status status = 1;
+}
+
+message GetOffsetRequest {
+  Resource group = 1;
+  MessageQueue message_queue = 2;
+}
+
+message GetOffsetResponse {
+  Status status = 1;
+  int64 offset = 2;
+}
+
+message QueryOffsetRequest {
+  MessageQueue message_queue = 1;
+  QueryOffsetPolicy query_offset_policy = 2;
+  optional google.protobuf.Timestamp timestamp = 3;
+}
+
+message QueryOffsetResponse {
+  Status status = 1;
+  int64 offset = 2;
+}
+
+message RecallMessageRequest {
+  Resource topic = 1;
+  // Refer to SendResultEntry.
+  string recall_handle = 2;
+}
+
+message RecallMessageResponse {
+  Status status = 1;
+  string message_id = 2;
+}
+
 // For all the RPCs in MessagingService, the following error handling policies
 // apply:
 //
@@ -349,6 +317,7 @@ message ChangeInvisibleDurationResponse {
 // common.status.code == `RESOURCE_EXHAUSTED`. If any unexpected server-side
 // errors raise, return a response with common.status.code == `INTERNAL`.
 service MessagingService {
+
   // Queries the route entries of the requested topic in the perspective of the
   // given endpoints. On success, servers should return a collection of
   // addressable message-queues. Note servers may return customized route
@@ -356,8 +325,7 @@ service MessagingService {
   //
   // If the requested topic doesn't exist, returns `NOT_FOUND`.
   // If the specific endpoints is empty, returns `INVALID_ARGUMENT`.
-  rpc QueryRoute(QueryRouteRequest) returns (QueryRouteResponse) {
-  }
+  rpc QueryRoute(QueryRouteRequest) returns (QueryRouteResponse) {}
 
   // Producer or consumer sends HeartbeatRequest to servers periodically to
   // keep-alive. Additionally, it also reports client-side configuration,
@@ -367,8 +335,7 @@ service MessagingService {
   //
   // If a client specifies a language that is not yet supported by servers,
   // returns `INVALID_ARGUMENT`
-  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse) {
-  }
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse) {}
 
   // Delivers messages to brokers.
   // Clients may further:
@@ -383,8 +350,7 @@ service MessagingService {
   // Returns message-id or transaction-id with status `OK` on success.
   //
   // If the destination topic doesn't exist, returns `NOT_FOUND`.
-  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
-  }
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {}
 
   // Queries the assigned route info of a topic for current consumer,
   // the returned assignment result is decided by server-side load balancer.
@@ -418,18 +384,30 @@ service MessagingService {
   //
   // If the given receipt_handle is illegal or out of date, returns
   // `INVALID_ARGUMENT`.
-  rpc AckMessage(AckMessageRequest) returns (AckMessageResponse) {
-  }
+  rpc AckMessage(AckMessageRequest) returns (AckMessageResponse) {}
 
   // Forwards one message to dead letter queue if the max delivery attempts is
   // exceeded by this message at client-side, return `OK` if success.
   rpc ForwardMessageToDeadLetterQueue(ForwardMessageToDeadLetterQueueRequest)
-      returns (ForwardMessageToDeadLetterQueueResponse) {
-  }
+      returns (ForwardMessageToDeadLetterQueueResponse) {}
+
+  // PullMessage and ReceiveMessage RPCs serve a similar purpose,
+  // which is to attempt to get messages from the server, but with different semantics.
+  rpc PullMessage(PullMessageRequest) returns (stream PullMessageResponse) {}
+
+  // Update the consumption progress of the designated queue of the
+  // consumer group to the remote.
+  rpc UpdateOffset(UpdateOffsetRequest) returns (UpdateOffsetResponse) {}
+
+  // Query the consumption progress of the designated queue of the
+  // consumer group to the remote.
+  rpc GetOffset(GetOffsetRequest) returns (GetOffsetResponse) {}
+
+  // Query the offset of the designated queue by the query offset policy.
+  rpc QueryOffset(QueryOffsetRequest) returns (QueryOffsetResponse) {}
 
   // Commits or rollback one transactional message.
-  rpc EndTransaction(EndTransactionRequest) returns (EndTransactionResponse) {
-  }
+  rpc EndTransaction(EndTransactionRequest) returns (EndTransactionResponse) {}
 
   // Once a client starts, it would immediately establishes bi-lateral stream
   // RPCs with brokers, reporting its settings as the initiative command.
@@ -437,8 +415,7 @@ service MessagingService {
   // When servers have need of inspecting client status, they would issue
   // telemetry commands to clients. After executing received instructions,
   // clients shall report command execution results through client-side streams.
-  rpc Telemetry(stream TelemetryCommand) returns (stream TelemetryCommand) {
-  }
+  rpc Telemetry(stream TelemetryCommand) returns (stream TelemetryCommand) {}
 
   // Notify the server that the client is terminated.
   rpc NotifyClientTermination(NotifyClientTerminationRequest) returns (NotifyClientTerminationResponse) {
@@ -451,5 +428,11 @@ service MessagingService {
   // not capable of processing the message timely, it may use
   // ChangeInvisibleDuration to lengthen invisible duration.
   rpc ChangeInvisibleDuration(ChangeInvisibleDurationRequest) returns (ChangeInvisibleDurationResponse) {
+  }
+
+  // Recall a message,
+  // for delay message, should recall before delivery time, like the rollback operation of transaction message,
+  // for normal message, not supported for now.
+  rpc RecallMessage(RecallMessageRequest) returns (RecallMessageResponse) {
   }
 }
