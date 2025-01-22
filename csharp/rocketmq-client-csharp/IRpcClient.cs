@@ -52,6 +52,8 @@ namespace Org.Apache.Rocketmq
         Task<NotifyClientTerminationResponse> NotifyClientTermination(Metadata metadata,
             NotifyClientTerminationRequest request, TimeSpan timeout);
 
+        Task<RecallMessageResponse> RecallMessage(Metadata metadata, RecallMessageRequest request, TimeSpan timeout);
+
         Task Shutdown();
     }
 }

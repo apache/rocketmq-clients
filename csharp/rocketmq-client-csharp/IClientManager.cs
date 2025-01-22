@@ -63,6 +63,16 @@ namespace Org.Apache.Rocketmq
             Endpoints endpoints, NotifyClientTerminationRequest request, TimeSpan timeout);
 
         /// <summary>
+        /// Recall messages.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request of recalling messages.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns>Task of response.</returns>
+        Task<RpcInvocation<RecallMessageRequest, RecallMessageResponse>> RecallMessage(
+            Endpoints endpoints, RecallMessageRequest request, TimeSpan timeout);
+
+        /// <summary>
         /// Send message to remote endpoints.
         /// </summary>
         /// <param name="endpoints">The target endpoints.</param>

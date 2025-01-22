@@ -342,6 +342,33 @@ namespace Org.Apache.Rocketmq
             StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
         }
 
+        public async Task<IRecallReceipt> RecallMessage(string topic, string recallhandle)
+        {
+            var recallReceipt = await RecallMessage0(topic, recallhandle);
+            return recallReceipt;
+        }
+
+        private async Task<RecallReceipt> RecallMessage0(string topic, string recallhandle)
+        {
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Producer is not running");
+            }
+            if (recallhandle == null)
+            {
+                throw new InvalidOperationException("Recall handle is invalid");
+            }
+            var request = new Proto.RecallMessageRequest
+            {
+                Topic = new Proto.Resource { ResourceNamespace = ClientConfig.Namespace, Name = topic },
+                RecallHandle = recallhandle
+            };
+            var invocation =
+                await ClientManager.RecallMessage(new Endpoints(ClientConfig.Endpoints), request, ClientConfig.RequestTimeout);
+            StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
+            return new RecallReceipt(invocation.Response.MessageId);
+        }
+
         public class Builder
         {
             private ClientConfig _clientConfig;
