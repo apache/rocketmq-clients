@@ -105,8 +105,8 @@ int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   auto& logger = getLogger();
-  logger.setConsoleLevel(Level::Debug);
-  logger.setLevel(Level::Debug);
+  logger.setConsoleLevel(Level::Info);
+  logger.setLevel(Level::Info);
   logger.init();
 
   // Access Key/Secret pair may be acquired from management console
@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
 
       semaphore->acquire();
       producer.send(std::move(message), callback);
-      std::cout << "Cached No." << i << " message" << std::endl;
+      // std::cout << "Cached No." << i << " message" << std::endl;
     }
   } catch (...) {
     std::cerr << "Ah...No!!!" << std::endl;

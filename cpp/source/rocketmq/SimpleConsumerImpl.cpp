@@ -95,11 +95,11 @@ void SimpleConsumerImpl::start() {
       }
     };
 
-    // refer java sdk: set refresh interval to 30 seconds
+    // refer java sdk: set refresh interval to 5 seconds
     // org.apache.rocketmq.client.java.impl.ClientImpl#startUp
     refresh_assignment_task_ = manager()->getScheduler()->schedule(
         refresh_assignment_task, "RefreshAssignmentTask",
-        std::chrono::minutes(5), std::chrono::seconds(5));
+        std::chrono::seconds(5), std::chrono::seconds(5));
 
     client_manager_->addClientObserver(shared_from_this());
   }
