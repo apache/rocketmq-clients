@@ -49,20 +49,20 @@ public:
   void shutdown() override;
 
   /**
-   * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
-   * sent.
+   * Note we require application to transfer ownership of the message
+   * to send to avoid concurrent modification during sent.
    *
-   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>, facilliating
-   * application to conduct customized retry policy.
+   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>,
+   * facilitating application to conduct customized retry policy.
    */
   SendReceipt send(MessageConstPtr message, std::error_code& ec) noexcept;
 
   /**
-   * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
-   * sent.
+   * Note we require application to transfer ownership of the message
+   * to send to avoid concurrent modification during sent.
    *
-   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>, facilliating
-   * application to conduct customized retry policy.
+   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>,
+   * facilitating application to conduct customized retry policy.
    */
   void send(MessageConstPtr message, SendCallback callback);
 
@@ -74,13 +74,10 @@ public:
   }
 
   /**
-   * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
-   * sent.
-   *
-   * TODO: Refine this API. Current API is not good enough as it cannot handle the message back to its caller on publish
-   * failure.
+   * Note we require application to transfer ownership of the message
+   * to send to avoid concurrent modification during sent.
    */
-  void send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
+  SendReceipt send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
 
   /**
    * Check if the RPC client for the target host is isolated or not

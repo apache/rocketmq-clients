@@ -64,8 +64,8 @@ std::unique_ptr<Transaction> Producer::beginTransaction() {
   return impl_->beginTransaction();
 }
 
-void Producer::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
-  impl_->send(std::move(message), ec, transaction);
+SendReceipt Producer::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
+  return impl_->send(std::move(message), ec, transaction);
 }
 
 ProducerBuilder Producer::newBuilder() {
