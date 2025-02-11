@@ -76,16 +76,21 @@ class ClientMetrics:
 
     def send_after(self, send_context: MetricContext, success: bool):
         if send_context is None:
-            logger.warn("metrics do send after exception. send_context must not be none.")
+            logger.warn(
+                "metrics do send after exception. send_context must not be none."
+            )
             return
 
         if send_context.metric_type != MessageMetricType.SEND:
             logger.warn(
-                f"metric type must be MessageMetricType.SEND. current send_context type is {send_context.metric_type}")
+                f"metric type must be MessageMetricType.SEND. current send_context type is {send_context.metric_type}"
+            )
             return
 
         if send_context.get_attr("send_stopwatch") is None:
-            logger.warn("metrics do send after exception. send_stopwatch must not be none.")
+            logger.warn(
+                "metrics do send after exception. send_stopwatch must not be none."
+            )
             return
 
         if send_context.get_attr("topic") is None:
@@ -108,7 +113,11 @@ class ClientMetrics:
         if metric.endpoints is None:
             return True
         # if metrics endpoints changed, return False
-        if self.__enabled and metric.on and self.__endpoints == RpcEndpoints(metric.endpoints):
+        if (
+            self.__enabled
+            and metric.on
+            and self.__endpoints == RpcEndpoints(metric.endpoints)
+        ):
             return True
         return not self.__enabled and not metric.on
 
@@ -122,36 +131,51 @@ class ClientMetrics:
 
     def __meter_provider_start(self):
         if self.__endpoints is None:
-            logger.warn(f"client:{self.__client_id} can't create meter provider, because endpoints is none.")
+            logger.warn(
+                f"client:{self.__client_id} can't create meter provider, because endpoints is none."
+            )
             return
 
         try:
             # setup OTLP exporter
-            exporter = OTLPMetricExporter(endpoint=self.__endpoints.__str__(), insecure=True,
-                                          timeout=ClientMetrics.METRIC_EXPORTER_RPC_TIMEOUT)
+            exporter = OTLPMetricExporter(
+                endpoint=self.__endpoints.__str__(),
+                insecure=True,
+                timeout=ClientMetrics.METRIC_EXPORTER_RPC_TIMEOUT,
+            )
             # create a metric reader and set the export interval
-            reader = PeriodicExportingMetricReader(exporter,
-                                                   export_interval_millis=ClientMetrics.METRIC_READER_INTERVAL)
+            reader = PeriodicExportingMetricReader(
+                exporter, export_interval_millis=ClientMetrics.METRIC_READER_INTERVAL
+            )
             # create an empty resource
             resource = Resource.get_empty()
             # create view
-            send_cost_time_view = View(instrument_type=Histogram,
-                                       instrument_name=HistogramEnum.SEND_COST_TIME.histogram_name,
-                                       aggregation=ExplicitBucketHistogramAggregation(
-                                           HistogramEnum.SEND_COST_TIME.buckets))
+            send_cost_time_view = View(
+                instrument_type=Histogram,
+                instrument_name=HistogramEnum.SEND_COST_TIME.histogram_name,
+                aggregation=ExplicitBucketHistogramAggregation(
+                    HistogramEnum.SEND_COST_TIME.buckets
+                ),
+            )
             # create MeterProvider
-            self.__meter_provider = MeterProvider(metric_readers=[reader], resource=resource,
-                                                  views=[send_cost_time_view])
+            self.__meter_provider = MeterProvider(
+                metric_readers=[reader], resource=resource, views=[send_cost_time_view]
+            )
             # define the histogram instruments
             self.__send_success_cost_time_instrument = self.__meter_provider.get_meter(
-                ClientMetrics.METRIC_INSTRUMENTATION_NAME).create_histogram(HistogramEnum.SEND_COST_TIME.histogram_name)
+                ClientMetrics.METRIC_INSTRUMENTATION_NAME
+            ).create_histogram(HistogramEnum.SEND_COST_TIME.histogram_name)
         except Exception as e:
-            logger.error(f"client:{self.__client_id} start meter provider exception: {e}")
+            logger.error(
+                f"client:{self.__client_id} start meter provider exception: {e}"
+            )
 
     def __record_send_success_cost_time(self, context, amount):
         if self.__enabled:
             try:
                 # record send message cost time and result
-                self.__send_success_cost_time_instrument.record(amount, context.attributes)
+                self.__send_success_cost_time_instrument.record(
+                    amount, context.attributes
+                )
             except Exception as e:
                 logger.error(f"record send message cost time exception, e:{e}")

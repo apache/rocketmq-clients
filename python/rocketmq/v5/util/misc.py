@@ -27,9 +27,9 @@ from rocketmq.v5.log import logger
 class Misc:
     __LOCAL_IP = None
     __OS_NAME = None
-    TOPIC_PATTERN = compile(r'^[%a-zA-Z0-9_-]+$')
-    CONSUMER_GROUP_PATTERN = compile(r'^[%a-zA-Z0-9_-]+$')
-    SDK_VERSION = "5.0.2"
+    TOPIC_PATTERN = compile(r"^[%a-zA-Z0-9_-]+$")
+    CONSUMER_GROUP_PATTERN = compile(r"^[%a-zA-Z0-9_-]+$")
+    SDK_VERSION = "5.0.3"
 
     @staticmethod
     def sdk_language():
@@ -41,33 +41,33 @@ class Misc:
 
     @staticmethod
     def to_base36(n):
-        chars = '0123456789abcdefghijklmnopqrstuvwxyz'
+        chars = "0123456789abcdefghijklmnopqrstuvwxyz"
         result = []
         if n == 0:
-            return '0'
+            return "0"
         while n > 0:
             n, r = divmod(n, 36)
             result.append(chars[r])
-        return ''.join(reversed(result))
+        return "".join(reversed(result))
 
     @staticmethod
     def get_local_ip():
         if Misc.__LOCAL_IP is None:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
-                s.connect(('8.8.8.8', 80))
+                s.connect(("8.8.8.8", 80))
                 Misc.__LOCAL_IP = s.getsockname()[0]
             except Exception as e:
                 logger.error(f"get local ip exception: {e}")
-                return '127.0.0.1'
+                return "127.0.0.1"
             finally:
                 s.close()
         return Misc.__LOCAL_IP
 
     @staticmethod
     def crc32_checksum(array):
-        crc32_value = zlib.crc32(array) & 0xffffffff
-        return format(crc32_value, '08X')
+        crc32_value = zlib.crc32(array) & 0xFFFFFFFF
+        return format(crc32_value, "08X")
 
     @staticmethod
     def md5_checksum(array):
@@ -83,7 +83,7 @@ class Misc:
 
     @staticmethod
     def uncompress_bytes_gzip(body):
-        if body and body[:2] == b'\x1f\x8b':
+        if body and body[:2] == b"\x1f\x8b":
             body = gzip.decompress(body)  # Standard Gzip format
         else:
             body = zlib.decompress(body)  # deflate zip

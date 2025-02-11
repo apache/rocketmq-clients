@@ -37,8 +37,12 @@ class Credentials:
 
 class ClientConfiguration:
 
-    def __init__(self, endpoints: str, credentials: Credentials, namespace="", request_timeout=3):
-        self.__rpc_endpoints = RpcEndpoints(ClientConfiguration.__parse_endpoints(endpoints))
+    def __init__(
+        self, endpoints: str, credentials: Credentials, namespace="", request_timeout=3
+    ):
+        self.__rpc_endpoints = RpcEndpoints(
+            ClientConfiguration.__parse_endpoints(endpoints)
+        )
         self.__credentials = credentials
         self.__request_timeout = request_timeout  # seconds
         self.__namespace = namespace
@@ -52,7 +56,10 @@ class ClientConfiguration:
                 endpoints = Endpoints()
                 addresses = endpoints_str.split(";")
                 endpoints.scheme = ClientConfiguration.__parse_endpoints_scheme_type(
-                    ClientConfiguration.__parse_endpoints_prefix(addresses[0].split(":")[0]))
+                    ClientConfiguration.__parse_endpoints_prefix(
+                        addresses[0].split(":")[0]
+                    )
+                )
                 for address in addresses:
                     if len(address) == 0:
                         continue
@@ -62,7 +69,9 @@ class ClientConfiguration:
                     ad.port = int(address.split(":")[1])
                 return endpoints
             except Exception as e:
-                logger.error(f"client configuration parse {endpoints_str} exception: {e}")
+                logger.error(
+                    f"client configuration parse {endpoints_str} exception: {e}"
+                )
                 return None
 
     @staticmethod

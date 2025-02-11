@@ -37,15 +37,19 @@ class Message:
         self.__message_type = None
 
     def __str__(self) -> str:
-        return f"topic:{self.__topic}, tag:{self.__tag}, messageGroup:{self.__message_group}, " \
-               f"deliveryTimestamp:{self.__delivery_timestamp}, keys:{self.__keys}, properties:{self.__properties}"
+        return (
+            f"topic:{self.__topic}, tag:{self.__tag}, messageGroup:{self.__message_group}, "
+            f"deliveryTimestamp:{self.__delivery_timestamp}, keys:{self.__keys}, properties:{self.__properties}"
+        )
 
     def fromProtobuf(self, message: definition_pb2.Message):  # noqa
         try:
             self.__message_body_check_sum(message)
             self.__topic = message.topic.name
             self.__namespace = message.topic.resource_namespace
-            self.__message_id = MessageIdCodec.decode(message.system_properties.message_id)
+            self.__message_id = MessageIdCodec.decode(
+                message.system_properties.message_id
+            )
             self.__body = self.__uncompress_body(message)
             self.__tag = message.system_properties.tag
             self.__message_group = message.system_properties.message_group
@@ -71,18 +75,26 @@ class Message:
         if message.system_properties.body_digest.type == DigestType.CRC32:
             crc32_sum = Misc.crc32_checksum(message.body)
             if message.system_properties.body_digest.checksum != crc32_sum:
-                raise Exception(f"(body_check_sum exception, {message.digest.checksum} != crc32_sum {crc32_sum}")
+                raise Exception(
+                    f"(body_check_sum exception, {message.digest.checksum} != crc32_sum {crc32_sum}"
+                )
         elif message.system_properties.body_digest.type == DigestType.MD5:
             md5_sum = Misc.md5_checksum(message.body)
             if message.system_properties.body_digest.checksum != md5_sum:
-                raise Exception(f"(body_check_sum exception, {message.digest.checksum} != crc32_sum {md5_sum}")
+                raise Exception(
+                    f"(body_check_sum exception, {message.digest.checksum} != crc32_sum {md5_sum}"
+                )
         elif message.system_properties.body_digest.type == DigestType.SHA1:
             sha1_sum = Misc.sha1_checksum(message.body)
             if message.system_properties.body_digest.checksum != sha1_sum:
-                raise Exception(f"(body_check_sum exception, {message.digest.checksum} != crc32_sum {sha1_sum}")
+                raise Exception(
+                    f"(body_check_sum exception, {message.digest.checksum} != crc32_sum {sha1_sum}"
+                )
         else:
-            raise Exception(f"unsupported message body digest algorithm, {message.system_properties.body_digest.type},"
-                            f" {message.topic}, {message.system_properties.message_id}")
+            raise Exception(
+                f"unsupported message body digest algorithm, {message.system_properties.body_digest.type},"
+                f" {message.topic}, {message.system_properties.message_id}"
+            )
 
     @staticmethod
     def __uncompress_body(message):
@@ -92,7 +104,8 @@ class Message:
             return message.body
         else:
             raise Exception(
-                f"unsupported message encoding algorithm, {message.system_properties.body_encoding}, {message.topic}, {message.system_properties.message_id}")
+                f"unsupported message encoding algorithm, {message.system_properties.body_encoding}, {message.topic}, {message.system_properties.message_id}"
+            )
 
     """ property """
 
@@ -154,18 +167,20 @@ class Message:
 
     @body.setter
     def body(self, body):
-        if body is None or body.strip() == '':
+        if body is None or body.strip() == "":
             raise IllegalArgumentException("body should not be blank")
         self.__body = body
 
     @topic.setter
     def topic(self, topic):
-        if topic is None or topic.strip() == '':
+        if topic is None or topic.strip() == "":
             raise IllegalArgumentException("topic has not been set yet")
         if Misc.is_valid_topic(topic):
             self.__topic = topic
         else:
-            raise IllegalArgumentException(f"topic does not match the regex [regex={Misc.TOPIC_PATTERN}]")
+            raise IllegalArgumentException(
+                f"topic does not match the regex [regex={Misc.TOPIC_PATTERN}]"
+            )
 
     @message_id.setter
     def message_id(self, message_id):
@@ -173,16 +188,18 @@ class Message:
 
     @tag.setter
     def tag(self, tag):
-        if tag is None or tag.strip() == '':
+        if tag is None or tag.strip() == "":
             raise IllegalArgumentException("tag should not be blank")
         if "|" in tag:
-            raise IllegalArgumentException("tag should not contain \"|\"")
+            raise IllegalArgumentException('tag should not contain "|"')
         self.__tag = tag
 
     @message_group.setter
     def message_group(self, message_group):
         if self.__delivery_timestamp is not None:
-            raise IllegalArgumentException("deliveryTimestamp and messageGroup should not be set at same time")
+            raise IllegalArgumentException(
+                "deliveryTimestamp and messageGroup should not be set at same time"
+            )
         if message_group is None or len(message_group) == 0:
             raise IllegalArgumentException("messageGroup should not be blank")
         self.__message_group = message_group
@@ -190,13 +207,15 @@ class Message:
     @delivery_timestamp.setter
     def delivery_timestamp(self, delivery_timestamp):
         if self.__message_group is not None:
-            raise IllegalArgumentException("deliveryTimestamp and messageGroup should not be set at same time")
+            raise IllegalArgumentException(
+                "deliveryTimestamp and messageGroup should not be set at same time"
+            )
         self.__delivery_timestamp = delivery_timestamp
 
     @keys.setter
     def keys(self, *keys):
         for key in keys:
-            if not key or key.strip() == '':
+            if not key or key.strip() == "":
                 raise IllegalArgumentException("key should not be blank")
         self.__keys.update(set(keys))
 
@@ -205,8 +224,8 @@ class Message:
         self.__message_type = message_type
 
     def add_property(self, key, value):
-        if key is None or key.strip() == '':
+        if key is None or key.strip() == "":
             raise IllegalArgumentException("key should not be blank")
-        if value is None or value.strip() == '':
+        if value is None or value.strip() == "":
             raise IllegalArgumentException("value should not be blank")
         self.__properties[key] = value

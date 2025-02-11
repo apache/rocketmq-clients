@@ -19,7 +19,11 @@ from rocketmq.grpc_protocol import FilterType
 class FilterExpression:
     TAG_EXPRESSION_SUB_ALL = "*"
 
-    def __init__(self, expression=TAG_EXPRESSION_SUB_ALL, filter_type: FilterType = FilterType.TAG):
+    def __init__(
+        self,
+        expression=TAG_EXPRESSION_SUB_ALL,
+        filter_type: FilterType = FilterType.TAG,
+    ):
         self.__expression = expression
         self.__filter_type = filter_type
 

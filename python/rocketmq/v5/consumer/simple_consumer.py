@@ -36,18 +36,27 @@ from rocketmq.v5.util import (AtomicInteger, ConcurrentMap,
 
 class SimpleConsumer(Client):
 
-    def __init__(self, client_configuration: ClientConfiguration, consumer_group, subscription: dict = None,
-                 await_duration=20):
-        if consumer_group is None or consumer_group.strip() == '':
+    def __init__(
+        self,
+        client_configuration: ClientConfiguration,
+        consumer_group,
+        subscription: dict = None,
+        await_duration=20,
+    ):
+        if consumer_group is None or consumer_group.strip() == "":
             raise IllegalArgumentException("consumerGroup should not be null")
         if Misc.is_valid_consumer_group(consumer_group) is False:
             raise IllegalArgumentException(
-                f"consumerGroup does not match the regex [regex={Misc.CONSUMER_GROUP_PATTERN}]")
+                f"consumerGroup does not match the regex [regex={Misc.CONSUMER_GROUP_PATTERN}]"
+            )
         if await_duration is None:
             raise IllegalArgumentException("awaitDuration should not be null")
 
-        super().__init__(client_configuration, None if subscription is None else subscription.keys(),
-                         ClientType.SIMPLE_CONSUMER)
+        super().__init__(
+            client_configuration,
+            None if subscription is None else subscription.keys(),
+            ClientType.SIMPLE_CONSUMER,
+        )
         self.__consumer_group = consumer_group
         self.__await_duration = await_duration  # long polling timeout, seconds
         # <String /* topic */, FilterExpression>
@@ -64,19 +73,30 @@ class SimpleConsumer(Client):
 
     def subscribe(self, topic, filter_expression: FilterExpression = None):
         if self.is_running is False:
-            raise IllegalStateException("unable to add subscription because simple consumer is not running")
+            raise IllegalStateException(
+                "unable to add subscription because simple consumer is not running"
+            )
 
         try:
             if not self.__subscriptions.contains(topic):
                 self._retrieve_topic_route_data(topic)
-            self.__subscriptions.put(topic, filter_expression if filter_expression is not None else FilterExpression())
+            self.__subscriptions.put(
+                topic,
+                (
+                    filter_expression
+                    if filter_expression is not None
+                    else FilterExpression()
+                ),
+            )
         except Exception as e:
-            logger.error(f"subscribe exception: {e}")
+            logger.error(f"subscribe raise exception: {e}")
             raise e
 
     def unsubscribe(self, topic):
         if self.is_running is False:
-            raise IllegalStateException("unable to remove subscription because simple consumer is not running")
+            raise IllegalStateException(
+                "unable to remove subscription because simple consumer is not running"
+            )
 
         if topic in self.__subscriptions:
             self.__subscriptions.remove(topic)
@@ -84,43 +104,57 @@ class SimpleConsumer(Client):
 
     def receive(self, max_message_num, invisible_duration):
         if self.is_running is False:
-            raise IllegalStateException("unable to receive messages because simple consumer is not running")
+            raise IllegalStateException(
+                "unable to receive messages because simple consumer is not running"
+            )
 
         return self.__receive(max_message_num, invisible_duration)
 
     def receive_async(self, max_message_num, invisible_duration):
         if self.is_running is False:
-            raise IllegalStateException("unable to receive messages because simple consumer is not running")
+            raise IllegalStateException(
+                "unable to receive messages because simple consumer is not running"
+            )
 
         return self.__receive_async(max_message_num, invisible_duration)
 
     def ack(self, message: Message):
         if self.is_running is False:
-            raise IllegalStateException("unable to ack message because simple consumer is not running")
+            raise IllegalStateException(
+                "unable to ack message because simple consumer is not running"
+            )
 
         queue = self.__select_topic_queue(message.topic)
         return self.__ack(message, queue)
 
     def ack_async(self, message: Message):
         if self.is_running is False:
-            raise IllegalStateException("unable to ack message because simple consumer is not running")
+            raise IllegalStateException(
+                "unable to ack message because simple consumer is not running"
+            )
 
         queue = self.__select_topic_queue(message.topic)
         return self.__ack_async(message, queue)
 
     def change_invisible_duration(self, message: Message, invisible_duration):
         if self.is_running is False:
-            raise IllegalStateException("unable to change invisible duration because simple consumer is not running")
+            raise IllegalStateException(
+                "unable to change invisible duration because simple consumer is not running"
+            )
 
         queue = self.__select_topic_queue(message.topic)
         return self.__change_invisible_duration(message, queue, invisible_duration)
 
     def change_invisible_duration_async(self, message: Message, invisible_duration):
         if self.is_running is False:
-            raise IllegalStateException("unable to change invisible duration because simple consumer is not running")
+            raise IllegalStateException(
+                "unable to change invisible duration because simple consumer is not running"
+            )
 
         queue = self.__select_topic_queue(message.topic)
-        return self.__change_invisible_duration_async(message, queue, invisible_duration)
+        return self.__change_invisible_duration_async(
+            message, queue, invisible_duration
+        )
 
     """ override """
 
@@ -190,21 +224,25 @@ class SimpleConsumer(Client):
     def __select_topic_for_receive(self):
         try:
             # select the next topic for receive
-            mod_index = self.__topic_index.get_and_increment() % len(self.__subscriptions.keys())
+            mod_index = self.__topic_index.get_and_increment() % len(
+                self.__subscriptions.keys()
+            )
             return list(self.__subscriptions.keys())[mod_index]
         except Exception as e:
-            logger.error(f"simple consumer select topic for receive message exception: {e}")
+            logger.error(
+                f"simple consumer select topic for receive message exception: {e}"
+            )
             raise e
 
     def __select_topic_queue(self, topic):
         try:
             route = self._retrieve_topic_route_data(topic)
-            queue_selector = self.__receive_queue_selectors.put_if_absent(topic,
-                                                                          QueueSelector.simple_consumer_queue_selector(
-                                                                              route))
+            queue_selector = self.__receive_queue_selectors.put_if_absent(
+                topic, QueueSelector.simple_consumer_queue_selector(route)
+            )
             return queue_selector.select_next_queue()
         except Exception as e:
-            logger.error(f"simple consumer select topic queue for receive message exception: {e}")
+            logger.error(f"simple consumer select topic queue raise exception: {e}")
             raise e
 
     def __receive(self, max_message_num, invisible_duration):
@@ -213,9 +251,13 @@ class SimpleConsumer(Client):
         queue = self.__select_topic_queue(topic)
         req = self.__receive_req(topic, queue, max_message_num, invisible_duration)
         timeout = self.client_configuration.request_timeout + self.__await_duration
-        future = self.rpc_client.receive_message_async(queue.endpoints, req, metadata=self._sign(), timeout=timeout)
-        read_future = asyncio.run_coroutine_threadsafe(self.__receive_message_response(future.result()),
-                                                       self._rpc_channel_io_loop())
+        future = self.rpc_client.receive_message_async(
+            queue.endpoints, req, metadata=self._sign(), timeout=timeout
+        )
+        read_future = asyncio.run_coroutine_threadsafe(
+            self.__receive_message_response(future.result()),
+            self._rpc_channel_io_loop(),
+        )
         return self.__handle_receive_message_response(read_future.result())
 
     def __receive_async(self, max_message_num, invisible_duration):
@@ -225,11 +267,17 @@ class SimpleConsumer(Client):
             queue = self.__select_topic_queue(topic)
             req = self.__receive_req(topic, queue, max_message_num, invisible_duration)
             timeout = self.client_configuration.request_timeout + self.__await_duration
-            future = self.rpc_client.receive_message_async(queue.endpoints, req, metadata=self._sign(), timeout=timeout)
-            read_future = asyncio.run_coroutine_threadsafe(self.__receive_message_response(future.result()),
-                                                           self._rpc_channel_io_loop())
+            future = self.rpc_client.receive_message_async(
+                queue.endpoints, req, metadata=self._sign(), timeout=timeout
+            )
+            read_future = asyncio.run_coroutine_threadsafe(
+                self.__receive_message_response(future.result()),
+                self._rpc_channel_io_loop(),
+            )
             ret_future = Future()
-            handle_send_receipt_callback = functools.partial(self.__receive_message_callback, ret_future=ret_future)
+            handle_send_receipt_callback = functools.partial(
+                self.__receive_message_callback, ret_future=ret_future
+            )
             read_future.add_done_callback(handle_send_receipt_callback)
             return ret_future
         except Exception as e:
@@ -261,20 +309,28 @@ class SimpleConsumer(Client):
         try:
             responses = future.result()
             messages = self.__handle_receive_message_response(responses)
-            self._set_future_callback_result(CallbackResult.async_receive_callback_result(ret_future, messages))
+            self._set_future_callback_result(
+                CallbackResult.async_receive_callback_result(ret_future, messages)
+            )
         except Exception as e:
-            self._set_future_callback_result(CallbackResult.async_receive_callback_result(ret_future, e, False))
+            self._set_future_callback_result(
+                CallbackResult.async_receive_callback_result(ret_future, e, False)
+            )
 
     async def __receive_message_response(self, unary_stream_call):
         try:
             responses = list()
             async for res in unary_stream_call:
                 if res.HasField("message") or res.HasField("status"):
-                    logger.debug(f"consumer:{self.__consumer_group} receive response: {res}")
+                    logger.debug(
+                        f"consumer:{self.__consumer_group} receive response: {res}"
+                    )
                     responses.append(res)
             return responses
         except Exception as e:
-            logger.error(f"consumer:{self.__consumer_group} receive message exception: {e}")
+            logger.error(
+                f"consumer:{self.__consumer_group} receive message exception: {e}"
+            )
             raise e
 
     def __handle_receive_message_response(self, responses):
@@ -284,7 +340,8 @@ class SimpleConsumer(Client):
         for res in responses:
             if res.HasField("status"):
                 logger.debug(
-                    f"simple_consumer[{self.__consumer_group}] receive_message, code:{res.status.code}, message:{res.status.message}.")
+                    f"simple_consumer[{self.__consumer_group}] receive_message, code:{res.status.code}, message:{res.status.message}."
+                )
                 status = res.status
             elif res.HasField("message"):
                 messages.append(Message().fromProtobuf(res.message))
@@ -300,7 +357,12 @@ class SimpleConsumer(Client):
 
         try:
             req = self.__ack_req(message)
-            future = self.rpc_client.ack_message_async(queue.endpoints, req, metadata=self._sign())
+            future = self.rpc_client.ack_message_async(
+                queue.endpoints,
+                req,
+                metadata=self._sign(),
+                timeout=self.client_configuration.request_timeout,
+            )
             self.__handle_ack_result(future)
         except Exception as e:
             raise e
@@ -311,9 +373,16 @@ class SimpleConsumer(Client):
 
         try:
             req = self.__ack_req(message)
-            future = self.rpc_client.ack_message_async(queue.endpoints, req, metadata=self._sign())
+            future = self.rpc_client.ack_message_async(
+                queue.endpoints,
+                req,
+                metadata=self._sign(),
+                timeout=self.client_configuration.request_timeout,
+            )
             ret_future = Future()
-            ack_callback = functools.partial(self.__handle_ack_result, ret_future=ret_future)
+            ack_callback = functools.partial(
+                self.__handle_ack_result, ret_future=ret_future
+            )
             future.add_done_callback(ack_callback)
             return ret_future
         except Exception as e:
@@ -335,15 +404,21 @@ class SimpleConsumer(Client):
     def __handle_ack_result(self, future, ret_future=None):
         try:
             res = future.result()
-            logger.debug(f"consumer[{self.__consumer_group}] ack response, {res.status}")
+            logger.debug(
+                f"consumer[{self.__consumer_group}] ack response, {res.status}"
+            )
             MessagingResultChecker.check(res.status)
             if ret_future is not None:
-                self._set_future_callback_result(CallbackResult.async_ack_callback_result(ret_future, None))
+                self._set_future_callback_result(
+                    CallbackResult.async_ack_callback_result(ret_future, None)
+                )
         except Exception as e:
             if ret_future is None:
                 raise e
             else:
-                self._set_future_callback_result(CallbackResult.async_ack_callback_result(ret_future, e, False))
+                self._set_future_callback_result(
+                    CallbackResult.async_ack_callback_result(ret_future, e, False)
+                )
 
     # change_invisible
 
@@ -353,20 +428,34 @@ class SimpleConsumer(Client):
 
         try:
             req = self.__change_invisible_req(message, invisible_duration)
-            future = self.rpc_client.change_invisible_duration_async(queue.endpoints, req, metadata=self._sign())
+            future = self.rpc_client.change_invisible_duration_async(
+                queue.endpoints,
+                req,
+                metadata=self._sign(),
+                timeout=self.client_configuration.request_timeout,
+            )
             self.__handle_change_invisible_result(future)
         except Exception as e:
             raise e
 
-    def __change_invisible_duration_async(self, message: Message, queue, invisible_duration):
+    def __change_invisible_duration_async(
+        self, message: Message, queue, invisible_duration
+    ):
         if self.is_running is False:
             raise IllegalArgumentException("consumer is not running now.")
 
         try:
             req = self.__change_invisible_req(message, invisible_duration)
-            future = self.rpc_client.change_invisible_duration_async(queue.endpoints, req, metadata=self._sign())
+            future = self.rpc_client.change_invisible_duration_async(
+                queue.endpoints,
+                req,
+                metadata=self._sign(),
+                timeout=self.client_configuration.request_timeout,
+            )
             ret_future = Future()
-            change_invisible_callback = functools.partial(self.__handle_change_invisible_result, ret_future=ret_future)
+            change_invisible_callback = functools.partial(
+                self.__handle_change_invisible_result, ret_future=ret_future
+            )
             future.add_done_callback(change_invisible_callback)
             return ret_future
         except Exception as e:
@@ -386,17 +475,25 @@ class SimpleConsumer(Client):
     def __handle_change_invisible_result(self, future, ret_future=None):
         try:
             res = future.result()
-            logger.debug(f"consumer[{self.__consumer_group}] change invisible response, {res.status}")
+            logger.debug(
+                f"consumer[{self.__consumer_group}] change invisible response, {res.status}"
+            )
             MessagingResultChecker.check(res.status)
             if ret_future is not None:
                 self._set_future_callback_result(
-                    CallbackResult.async_change_invisible_duration_callback_result(ret_future, None))
+                    CallbackResult.async_change_invisible_duration_callback_result(
+                        ret_future, None
+                    )
+                )
         except Exception as e:
             if ret_future is None:
                 raise e
             else:
                 self._set_future_callback_result(
-                    CallbackResult.async_change_invisible_duration_callback_result(ret_future, e, False))
+                    CallbackResult.async_change_invisible_duration_callback_result(
+                        ret_future, e, False
+                    )
+                )
 
     """ property """
 

@@ -30,19 +30,21 @@ class Signature:
         formatted_date_time = now.strftime("%Y%m%dT%H%M%SZ")
         request_id = str(uuid4())
         sign = Signature.sign(config.credentials.sk, formatted_date_time)
-        authorization = "MQv2-HMAC-SHA1" \
-                        + " " \
-                        + "Credential" \
-                        + "=" \
-                        + config.credentials.ak \
-                        + ", " \
-                        + "SignedHeaders" \
-                        + "=" \
-                        + "x-mq-date-time" \
-                        + ", " \
-                        + "Signature" \
-                        + "=" \
-                        + sign
+        authorization = (
+            "MQv2-HMAC-SHA1"
+            + " "
+            + "Credential"
+            + "="
+            + config.credentials.ak
+            + ", "
+            + "SignedHeaders"
+            + "="
+            + "x-mq-date-time"
+            + ", "
+            + "Signature"
+            + "="
+            + sign
+        )
         metadata = [
             ("x-mq-language", "PYTHON"),
             ("x-mq-protocol", "GRPC_V2"),
@@ -51,12 +53,12 @@ class Signature:
             ("x-mq-request-id", request_id),
             ("x-mq-client-id", client_id),
             ("x-mq-namespace", config.namespace),
-            ("authorization", authorization)
+            ("authorization", authorization),
         ]
         return metadata
 
     @staticmethod
     def sign(access_secret, date_time):
-        signing_key = access_secret.encode('utf-8')
-        mac = new(signing_key, date_time.encode('utf-8'), sha1)
-        return hexlify(mac.digest()).decode('utf-8')
+        signing_key = access_secret.encode("utf-8")
+        mac = new(signing_key, date_time.encode("utf-8"), sha1)
+        return hexlify(mac.digest()).decode("utf-8")
