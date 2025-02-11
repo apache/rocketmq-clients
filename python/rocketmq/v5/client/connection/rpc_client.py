@@ -19,7 +19,6 @@ import time
 from concurrent.futures import Future
 
 from grpc import ChannelConnectivity
-
 from rocketmq.grpc_protocol import (AckMessageRequest,
                                     ChangeInvisibleDurationRequest,
                                     EndTransactionRequest, HeartbeatRequest,
