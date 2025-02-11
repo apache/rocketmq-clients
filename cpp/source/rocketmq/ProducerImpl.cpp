@@ -474,7 +474,7 @@ void ProducerImpl::isolateEndpoint(const std::string& target) {
   isolated_endpoints_.insert(target);
 }
 
-void ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
+SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
   MiniTransaction mini = {};
   mini.topic = message->topic();
   mini.trace_context = message->traceContext();
@@ -482,13 +482,17 @@ void ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transactio
   if (!message->group().empty()) {
     ec = ErrorCode::MessagePropertyConflictWithType;
     SPDLOG_WARN("FIFO message may not be transactional");
-    return;
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   if (message->deliveryTimestamp().time_since_epoch().count()) {
     ec = ErrorCode::MessagePropertyConflictWithType;
     SPDLOG_WARN("Timed message may not be transactional");
-    return;
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   Message* msg = const_cast<Message*>(message.get());
@@ -501,6 +505,8 @@ void ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transactio
   mini.target = send_receipt.target;
   auto& impl = dynamic_cast<TransactionImpl&>(transaction);
   impl.appendMiniTransaction(mini);
+
+  return send_receipt;
 }
 
 void ProducerImpl::getPublishInfoAsync(const std::string& topic, const PublishInfoCallback& cb) {

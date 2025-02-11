@@ -65,7 +65,7 @@ public:
 
   std::unique_ptr<Transaction> beginTransaction();
 
-  void send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
+  SendReceipt send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
 
 private:
   explicit Producer(std::shared_ptr<ProducerImpl> impl) : impl_(std::move(impl)) {
