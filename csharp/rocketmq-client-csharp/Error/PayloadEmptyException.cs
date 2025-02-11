@@ -15,11 +15,20 @@
  * limitations under the License.
  */
 
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    public interface ISendReceipt
+    /// <summary>
+    /// Generic exception represents when the request entity is empty.
+    /// </summary>
+    public class PayloadEmptyException : ClientException
     {
-        string MessageId { get; }
-        string RecallHandle { get; }
+        public PayloadEmptyException(int responseCode, string requestId, string message) : base(responseCode,
+            requestId, message)
+        {
+        }
+
+        public PayloadEmptyException(int responseCode, string message) : base(responseCode, message)
+        {
+        }
     }
 }

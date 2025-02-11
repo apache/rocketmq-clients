@@ -17,9 +17,18 @@
 
 namespace Org.Apache.Rocketmq
 {
-    public interface ISendReceipt
+    public sealed class RecallReceipt : IRecallReceipt
     {
-        string MessageId { get; }
-        string RecallHandle { get; }
+        public RecallReceipt(string messageId)
+        {
+            MessageId = messageId;
+        }
+
+        public string MessageId { get; }
+
+        public override string ToString()
+        {
+            return $"{nameof(MessageId)}: {MessageId}";
+        }
     }
 }

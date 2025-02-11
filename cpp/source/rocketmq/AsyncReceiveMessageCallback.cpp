@@ -51,6 +51,11 @@ void AsyncReceiveMessageCallback::onCompletion(const std::error_code& ec, const 
     return;
   }
 
+  if (ec == ErrorCode::NoContent) {
+    checkThrottleThenReceive();
+    return;
+  }
+
   if (ec) {
     SPDLOG_WARN("Receive message from {} failed. Cause: {}. Retry after 1 second.", process_queue->simpleName(), ec.message());
     receiveMessageLater(std::chrono::seconds (1));

@@ -176,7 +176,7 @@ private:
 
   void validate(const Message& message, std::error_code& ec);
 
-  void send0(MessageConstPtr message, SendCallback callback, std::vector<rmq::MessageQueue> list);
+  void send0(MessageConstPtr message, const SendCallback& callback, std::vector<rmq::MessageQueue> list);
 
   void isolatedEndpoints(absl::flat_hash_set<std::string>& endpoints) LOCKS_EXCLUDED(isolated_endpoints_mtx_);
 
