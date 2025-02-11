@@ -109,9 +109,11 @@ int main(int argc, char* argv[]) {
     auto transaction = producer.beginTransaction();
     std::error_code ec;
 
-    producer.send(std::move(message), ec, *transaction);
+    SendReceipt send_receipt = producer.send(std::move(message), ec, *transaction);
 
     if (!ec) {
+      std::cout << "Send transactional message to " << FLAGS_topic << " OK. "
+                << "Message-ID: " << send_receipt.message_id << std::endl;
       if (!transaction->commit()) {
         std::cerr << "Failed to commit message" << std::endl;
       }
