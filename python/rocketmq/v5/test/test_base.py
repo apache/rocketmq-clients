@@ -33,7 +33,7 @@ class TestBase:
     FAKE_CLIENT_ID = ClientId()
     FAKE_TOPIC_0 = "foo-bar-topic-0"
     FAKE_TOPIC_1 = "foo-bar-topic-1"
-    FAKE_MESSAGE_BODY = "foobar".encode('utf-8')
+    FAKE_MESSAGE_BODY = "foobar".encode("utf-8")
     FAKE_TAG_0 = "foo-bar-tag-0"
     FAKE_BROKER_NAME_0 = "foo-bar-broker-name-0"
     FAKE_BROKER_NAME_1 = "foo-bar-broker-name-1"
@@ -49,7 +49,9 @@ class TestBase:
     @staticmethod
     def fake_client_config():
         credentials = Credentials(TestBase.FAKE_AK, TestBase.FAKE_SK)
-        config = ClientConfiguration(TestBase.FAKE_ENDPOINTS, credentials, TestBase.FAKE_NAMESPACE)
+        config = ClientConfiguration(
+            TestBase.FAKE_ENDPOINTS, credentials, TestBase.FAKE_NAMESPACE
+        )
         return config
 
     @staticmethod
@@ -75,7 +77,9 @@ class TestBase:
         msg.body = TestBase.FAKE_MESSAGE_BODY
         msg.system_properties.born_host = TestBase.FAKE_HOST_0
         msg.system_properties.born_timestamp.seconds = int(time.time() * 1000)
-        msg.system_properties.delivery_timestamp.seconds = msg.system_properties.born_timestamp.seconds - 10
+        msg.system_properties.delivery_timestamp.seconds = (
+            msg.system_properties.born_timestamp.seconds - 10
+        )
         msg.system_properties.message_type = 1
         msg.system_properties.body_encoding = 1
         return msg
@@ -103,7 +107,13 @@ class TestBase:
         fake_queue.broker.CopyFrom(fake_broker)
         fake_queue.permission = Permission.READ_WRITE
         fake_queue.accept_message_types.extend(
-            (MessageType.NORMAL, MessageType.FIFO, MessageType.DELAY, MessageType.TRANSACTION))
+            (
+                MessageType.NORMAL,
+                MessageType.FIFO,
+                MessageType.DELAY,
+                MessageType.TRANSACTION,
+            )
+        )
         return MessageQueue(fake_queue)
 
     @staticmethod
@@ -135,7 +145,12 @@ class TestBase:
         fake_response = TestBase.fake_send_success_response()
         fake_message_queue = TestBase.fake_queue(topic)
         fake_entry = fake_response.entries[0]
-        return SendReceipt(fake_entry.message_id, fake_entry.transaction_id, fake_message_queue, fake_entry.offset)
+        return SendReceipt(
+            fake_entry.message_id,
+            fake_entry.transaction_id,
+            fake_message_queue,
+            fake_entry.offset,
+        )
 
     @staticmethod
     def fake_receive_receipt():

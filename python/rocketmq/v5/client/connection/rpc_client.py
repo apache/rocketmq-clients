@@ -19,6 +19,7 @@ import time
 from concurrent.futures import Future
 
 from grpc import ChannelConnectivity
+
 from rocketmq.grpc_protocol import (AckMessageRequest,
                                     ChangeInvisibleDurationRequest,
                                     EndTransactionRequest, HeartbeatRequest,
@@ -42,8 +43,11 @@ class RpcClient:
             # start an event loop for async io
             if RpcClient._io_loop is None:
                 initialized_event = threading.Event()
-                RpcClient._io_loop_thread = threading.Thread(target=RpcClient.__init_io_loop, args=(initialized_event,),
-                                                             name="channel_io_loop_thread")
+                RpcClient._io_loop_thread = threading.Thread(
+                    target=RpcClient.__init_io_loop,
+                    args=(initialized_event,),
+                    name="channel_io_loop_thread",
+                )
                 RpcClient._io_loop_thread.daemon = True
                 RpcClient._io_loop_thread.start()
                 # waiting for thread start success
@@ -99,107 +103,187 @@ class RpcClient:
 
     """ grpc MessageService """
 
-    def query_topic_route_async(self, endpoints: RpcEndpoints, req: QueryRouteRequest, metadata, timeout=3):
+    def query_topic_route_async(
+        self, endpoints: RpcEndpoints, req: QueryRouteRequest, metadata, timeout=3
+    ):
         return RpcClient.__run_message_service_async(
-            self.__query_route_async_0(endpoints, req, metadata=metadata, timeout=timeout))
+            self.__query_route_async_0(
+                endpoints, req, metadata=metadata, timeout=timeout
+            )
+        )
 
-    def send_message_async(self, endpoints: RpcEndpoints, req: SendMessageRequest, metadata, timeout=3):
+    def send_message_async(
+        self, endpoints: RpcEndpoints, req: SendMessageRequest, metadata, timeout=3
+    ):
         return RpcClient.__run_message_service_async(
-            self.__send_message_0(endpoints, req, metadata=metadata, timeout=timeout))
+            self.__send_message_0(endpoints, req, metadata=metadata, timeout=timeout)
+        )
 
-    def receive_message_async(self, endpoints: RpcEndpoints, req: ReceiveMessageRequest, metadata, timeout=3):
+    def receive_message_async(
+        self, endpoints: RpcEndpoints, req: ReceiveMessageRequest, metadata, timeout=3
+    ):
         return RpcClient.__run_message_service_async(
-            self.__receive_message_0(endpoints, req, metadata=metadata, timeout=timeout))
+            self.__receive_message_0(endpoints, req, metadata=metadata, timeout=timeout)
+        )
 
-    def ack_message_async(self, endpoints: RpcEndpoints, req: AckMessageRequest, metadata, timeout=3):
+    def ack_message_async(
+        self, endpoints: RpcEndpoints, req: AckMessageRequest, metadata, timeout=3
+    ):
         return RpcClient.__run_message_service_async(
-            self.__ack_message_0(endpoints, req, metadata=metadata, timeout=timeout))
+            self.__ack_message_0(endpoints, req, metadata=metadata, timeout=timeout)
+        )
 
-    def change_invisible_duration_async(self, endpoints: RpcEndpoints, req: ChangeInvisibleDurationRequest, metadata,
-                                        timeout=3):
+    def change_invisible_duration_async(
+        self,
+        endpoints: RpcEndpoints,
+        req: ChangeInvisibleDurationRequest,
+        metadata,
+        timeout=3,
+    ):
         return RpcClient.__run_message_service_async(
-            self.__change_invisible_duration_0(endpoints, req, metadata=metadata, timeout=timeout))
+            self.__change_invisible_duration_0(
+                endpoints, req, metadata=metadata, timeout=timeout
+            )
+        )
 
-    def heartbeat_async(self, endpoints: RpcEndpoints, req: HeartbeatRequest, metadata, timeout=3):
+    def heartbeat_async(
+        self, endpoints: RpcEndpoints, req: HeartbeatRequest, metadata, timeout=3
+    ):
         return RpcClient.__run_message_service_async(
-            self.__heartbeat_async_0(endpoints, req, metadata=metadata, timeout=timeout))
+            self.__heartbeat_async_0(endpoints, req, metadata=metadata, timeout=timeout)
+        )
 
     def telemetry_write_async(self, endpoints: RpcEndpoints, req: TelemetryCommand):
         return RpcClient.__run_message_service_async(
-            self.retrieve_or_create_channel(endpoints).telemetry_stream_stream_call.stream_write(req))
+            self.retrieve_or_create_channel(
+                endpoints
+            ).telemetry_stream_stream_call.stream_write(req)
+        )
 
-    def end_transaction_async(self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata, timeout=3):
+    def end_transaction_async(
+        self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata, timeout=3
+    ):
         return RpcClient.__run_message_service_async(
-            self.__end_transaction_0(endpoints, req, metadata=metadata, timeout=timeout))
+            self.__end_transaction_0(endpoints, req, metadata=metadata, timeout=timeout)
+        )
 
-    def notify_client_termination(self, endpoints: RpcEndpoints, req: NotifyClientTerminationRequest, metadata,
-                                  timeout=3):
+    def notify_client_termination(
+        self,
+        endpoints: RpcEndpoints,
+        req: NotifyClientTerminationRequest,
+        metadata,
+        timeout=3,
+    ):
         return RpcClient.__run_message_service_async(
-            self.__notify_client_termination_0(endpoints, req, metadata=metadata, timeout=timeout))
+            self.__notify_client_termination_0(
+                endpoints, req, metadata=metadata, timeout=timeout
+            )
+        )
 
-    def end_transaction_for_server_check(self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata,
-                                         timeout=3):
+    def end_transaction_for_server_check(
+        self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata, timeout=3
+    ):
         # assert asyncio.get_running_loop() == RpcClient._io_loop
         try:
-            return self.__end_transaction_0(endpoints, req, metadata=metadata, timeout=timeout)
+            return self.__end_transaction_0(
+                endpoints, req, metadata=metadata, timeout=timeout
+            )
         except Exception as e:
             logger.error(
-                f"end transaction exception, topic:{req.topic.name}, message_id:{req.message_id}, transaction_id:{req.transaction_id}: {e}")
+                f"end transaction exception, topic:{req.topic.name}, message_id:{req.message_id}, transaction_id:{req.transaction_id}: {e}"
+            )
             raise e
 
     """ build stream_stream_call """
 
-    def telemetry_stream(self, endpoints: RpcEndpoints, client, metadata, rebuild, timeout=3000):
+    def telemetry_stream(
+        self, endpoints: RpcEndpoints, client, metadata, rebuild, timeout=3000
+    ):
         # assert asyncio.get_running_loop() == RpcClient._io_loop
         try:
             channel = self.retrieve_or_create_channel(endpoints)
-            stream = channel.async_stub.Telemetry(metadata=metadata, timeout=timeout, wait_for_ready=True)
+            stream = channel.async_stub.Telemetry(
+                metadata=metadata, timeout=timeout, wait_for_ready=True
+            )
             channel.register_telemetry_stream_stream_call(stream, client)
-            asyncio.run_coroutine_threadsafe(channel.telemetry_stream_stream_call.start_stream_read(),
-                                             RpcClient.get_channel_io_loop())
+            asyncio.run_coroutine_threadsafe(
+                channel.telemetry_stream_stream_call.start_stream_read(),
+                RpcClient.get_channel_io_loop(),
+            )
             logger.info(
-                f"{client.__str__()} rebuild stream_steam_call to {endpoints.__str__()}." if rebuild else f"{client.__str__()} create stream_steam_call to {endpoints.__str__()}.")
+                f"{client.__str__()} rebuild stream_steam_call to {endpoints.__str__()}."
+                if rebuild
+                else f"{client.__str__()} create stream_steam_call to {endpoints.__str__()}."
+            )
             return channel
         except Exception as e:
             raise e
 
     """ MessageService.stub impl """
 
-    async def __query_route_async_0(self, endpoints: RpcEndpoints, req: QueryRouteRequest, metadata, timeout=3):
-        return await self.retrieve_or_create_channel(endpoints).async_stub.QueryRoute(req, metadata=metadata,
-                                                                                      timeout=timeout)
+    async def __query_route_async_0(
+        self, endpoints: RpcEndpoints, req: QueryRouteRequest, metadata, timeout=3
+    ):
+        return await self.retrieve_or_create_channel(endpoints).async_stub.QueryRoute(
+            req, metadata=metadata, timeout=timeout
+        )
 
-    async def __send_message_0(self, endpoints: RpcEndpoints, req: SendMessageRequest, metadata, timeout=3):
-        return await self.retrieve_or_create_channel(endpoints).async_stub.SendMessage(req, metadata=metadata,
-                                                                                       timeout=timeout)
+    async def __send_message_0(
+        self, endpoints: RpcEndpoints, req: SendMessageRequest, metadata, timeout=3
+    ):
+        return await self.retrieve_or_create_channel(endpoints).async_stub.SendMessage(
+            req, metadata=metadata, timeout=timeout
+        )
 
-    async def __receive_message_0(self, endpoints: RpcEndpoints, req: ReceiveMessageRequest, metadata, timeout=3):
-        return self.retrieve_or_create_channel(endpoints).async_stub.ReceiveMessage(req, metadata=metadata,
-                                                                                    timeout=timeout)
+    async def __receive_message_0(
+        self, endpoints: RpcEndpoints, req: ReceiveMessageRequest, metadata, timeout=3
+    ):
+        return self.retrieve_or_create_channel(endpoints).async_stub.ReceiveMessage(
+            req, metadata=metadata, timeout=timeout
+        )
 
-    async def __ack_message_0(self, endpoints: RpcEndpoints, req: AckMessageRequest, metadata, timeout=3):
-        return await self.retrieve_or_create_channel(endpoints).async_stub.AckMessage(req, metadata=metadata,
-                                                                                      timeout=timeout)
+    async def __ack_message_0(
+        self, endpoints: RpcEndpoints, req: AckMessageRequest, metadata, timeout=3
+    ):
+        return await self.retrieve_or_create_channel(endpoints).async_stub.AckMessage(
+            req, metadata=metadata, timeout=timeout
+        )
 
-    async def __heartbeat_async_0(self, endpoints: RpcEndpoints, req: HeartbeatRequest, metadata, timeout=3):
-        return await self.retrieve_or_create_channel(endpoints).async_stub.Heartbeat(req, metadata=metadata,
-                                                                                     timeout=timeout)
+    async def __heartbeat_async_0(
+        self, endpoints: RpcEndpoints, req: HeartbeatRequest, metadata, timeout=3
+    ):
+        return await self.retrieve_or_create_channel(endpoints).async_stub.Heartbeat(
+            req, metadata=metadata, timeout=timeout
+        )
 
-    async def __change_invisible_duration_0(self, endpoints: RpcEndpoints, req: ChangeInvisibleDurationRequest,
-                                            metadata, timeout=3):
-        return await self.retrieve_or_create_channel(endpoints).async_stub.ChangeInvisibleDuration(req,
-                                                                                                   metadata=metadata,
-                                                                                                   timeout=timeout)
+    async def __change_invisible_duration_0(
+        self,
+        endpoints: RpcEndpoints,
+        req: ChangeInvisibleDurationRequest,
+        metadata,
+        timeout=3,
+    ):
+        return await self.retrieve_or_create_channel(
+            endpoints
+        ).async_stub.ChangeInvisibleDuration(req, metadata=metadata, timeout=timeout)
 
-    async def __end_transaction_0(self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata, timeout=3):
-        return await self.retrieve_or_create_channel(endpoints).async_stub.EndTransaction(req, metadata=metadata,
-                                                                                          timeout=timeout)
+    async def __end_transaction_0(
+        self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata, timeout=3
+    ):
+        return await self.retrieve_or_create_channel(
+            endpoints
+        ).async_stub.EndTransaction(req, metadata=metadata, timeout=timeout)
 
-    async def __notify_client_termination_0(self, endpoints: RpcEndpoints, req: NotifyClientTerminationRequest,
-                                            metadata, timeout=3):
-        return await self.retrieve_or_create_channel(endpoints).async_stub.NotifyClientTermination(req,
-                                                                                                   metadata=metadata,
-                                                                                                   timeout=timeout)
+    async def __notify_client_termination_0(
+        self,
+        endpoints: RpcEndpoints,
+        req: NotifyClientTerminationRequest,
+        metadata,
+        timeout=3,
+    ):
+        return await self.retrieve_or_create_channel(
+            endpoints
+        ).async_stub.NotifyClientTermination(req, metadata=metadata, timeout=timeout)
 
     async def __create_channel_async(self, endpoints: RpcEndpoints):
         return self.retrieve_or_create_channel(endpoints)
@@ -214,7 +298,10 @@ class RpcClient:
 
     def __close_rpc_channel(self, endpoints: RpcEndpoints):
         channel = self.__get_channel(endpoints)
-        if channel is not None and channel.channel_state() is not ChannelConnectivity.SHUTDOWN:
+        if (
+            channel is not None
+            and channel.channel_state() is not ChannelConnectivity.SHUTDOWN
+        ):
             try:
                 channel.close_channel(RpcClient.get_channel_io_loop())
                 self.channels.remove(endpoints)
@@ -241,7 +328,9 @@ class RpcClient:
     def __run_message_service_async(func):
         try:
             # execute grpc call in RpcClient._io_loop
-            return asyncio.run_coroutine_threadsafe(func, RpcClient.get_channel_io_loop())
+            return asyncio.run_coroutine_threadsafe(
+                func, RpcClient.get_channel_io_loop()
+            )
         except Exception as e:
             future = Future()
             future.set_exception(e)

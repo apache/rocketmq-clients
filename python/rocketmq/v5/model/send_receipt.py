@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 class SendReceipt:
 
     def __init__(self, message_id, transaction_id, message_queue, offset):

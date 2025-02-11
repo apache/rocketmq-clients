@@ -74,17 +74,21 @@ class MessageIdCodec:
 
     def __init__(self):
         with MessageIdCodec._instance_lock:
-            if not hasattr(self, 'initialized'):
+            if not hasattr(self, "initialized"):
                 buffer = bytearray(8)
-                mac = getnode().to_bytes(6, byteorder='big')
+                mac = getnode().to_bytes(6, byteorder="big")
                 buffer[0:6] = mac
                 pid = getpid()
                 pid_buffer = bytearray(4)
-                pid_buffer[0:4] = pid.to_bytes(4, byteorder='big')
+                pid_buffer[0:4] = pid.to_bytes(4, byteorder="big")
                 buffer[6:8] = pid_buffer[2:4]
                 self.process_fixed_string_v1 = buffer.hex().upper()
                 self.seconds_since_custom_epoch = int(
-                    (datetime.now(timezone.utc) - datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc)).total_seconds())
+                    (
+                        datetime.now(timezone.utc)
+                        - datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+                    ).total_seconds()
+                )
                 self.seconds_start_timestamp = int(time())
                 self.seconds = self.__delta_time()
                 self.sequence = None
@@ -95,9 +99,13 @@ class MessageIdCodec:
         if self.seconds != delta_seconds:
             self.seconds = delta_seconds
         buffer = bytearray(8)
-        buffer[0:4] = self.seconds.to_bytes(8, byteorder='big')[4:8]
-        buffer[4:8] = self.__sequence_id().to_bytes(4, byteorder='big')
-        return MessageIdCodec.MESSAGE_ID_VERSION_V1 + self.process_fixed_string_v1 + buffer.hex().upper()
+        buffer[0:4] = self.seconds.to_bytes(8, byteorder="big")[4:8]
+        buffer[4:8] = self.__sequence_id().to_bytes(4, byteorder="big")
+        return (
+            MessageIdCodec.MESSAGE_ID_VERSION_V1
+            + self.process_fixed_string_v1
+            + buffer.hex().upper()
+        )
 
     @staticmethod
     def decode(message_id):
@@ -106,7 +114,9 @@ class MessageIdCodec:
     """ private """
 
     def __delta_time(self):
-        return int(time()) - self.seconds_start_timestamp + self.seconds_since_custom_epoch
+        return (
+            int(time()) - self.seconds_start_timestamp + self.seconds_since_custom_epoch
+        )
 
     def __sequence_id(self):
         self.sequence = MessageIdCodec.__index.get_and_increment()

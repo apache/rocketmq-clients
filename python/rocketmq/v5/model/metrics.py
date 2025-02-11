@@ -54,9 +54,15 @@ class MetricContext:
 
 class HistogramEnum(Enum):
     # a histogram that records the cost time of successful api calls of message publishing.
-    SEND_COST_TIME = ("rocketmq_send_cost_time", [1.0, 5.0, 10.0, 20.0, 50.0, 200.0, 500.0])
+    SEND_COST_TIME = (
+        "rocketmq_send_cost_time",
+        [1.0, 5.0, 10.0, 20.0, 50.0, 200.0, 500.0],
+    )
     # a histogram that records the latency of message delivery from remote.
-    DELIVERY_LATENCY = ("rocketmq_delivery_latency", [1.0, 5.0, 10.0, 20.0, 50.0, 200.0, 500.0])
+    DELIVERY_LATENCY = (
+        "rocketmq_delivery_latency",
+        [1.0, 5.0, 10.0, 20.0, 50.0, 200.0, 500.0],
+    )
 
     def __init__(self, histogram_name, buckets):
         self.__histogram_name = histogram_name

@@ -48,21 +48,31 @@ class Transaction:
     def add_half_message(self, message: Message):
         with Transaction.__transaction_lock:
             if message is None:
-                raise IllegalArgumentException("add half message error, message is none.")
+                raise IllegalArgumentException(
+                    "add half message error, message is none."
+                )
 
             if self.__message is None:
                 self.__message = message
             else:
-                raise IllegalArgumentException(f"message already existed in transaction, topic:{message.topic}")
+                raise IllegalArgumentException(
+                    f"message already existed in transaction, topic:{message.topic}"
+                )
 
     def add_send_receipt(self, send_receipt):
         with Transaction.__transaction_lock:
             if self.__message is None:
-                raise IllegalArgumentException("add send receipt error, no message in transaction.")
+                raise IllegalArgumentException(
+                    "add send receipt error, no message in transaction."
+                )
             if send_receipt is None:
-                raise IllegalArgumentException("add send receipt error, send receipt in none.")
+                raise IllegalArgumentException(
+                    "add send receipt error, send receipt in none."
+                )
             if self.__message.message_id != send_receipt.message_id:
-                raise IllegalArgumentException("can't add another send receipt to a half message.")
+                raise IllegalArgumentException(
+                    "can't add another send receipt to a half message."
+                )
 
             self.__send_receipt = send_receipt
 
@@ -76,20 +86,28 @@ class Transaction:
         if self.__message is None:
             raise IllegalArgumentException("no message in transaction.")
         if self.__send_receipt is None or self.__send_receipt.transaction_id is None:
-            raise IllegalArgumentException("no transaction_id in transaction, must send half message at first.")
+            raise IllegalArgumentException(
+                "no transaction_id in transaction, must send half message at first."
+            )
 
         try:
-            res = self.__producer.end_transaction(self.__send_receipt.message_queue.endpoints, self.__message,
-                                                  self.__send_receipt.transaction_id, result,
-                                                  TransactionSource.SOURCE_CLIENT)
+            res = self.__producer.end_transaction(
+                self.__send_receipt.message_queue.endpoints,
+                self.__message,
+                self.__send_receipt.transaction_id,
+                result,
+                TransactionSource.SOURCE_CLIENT,
+            )
             if res.status.code != Code.OK:
                 logger.error(
-                    f"transaction commit or rollback error. topic:{self.__message.topic}, message_id:{self.__message.message_id}, transaction_id:{self.__send_receipt.transaction_id}, transactionResolution:{result}")
+                    f"transaction commit or rollback error. topic:{self.__message.topic}, message_id:{self.__message.message_id}, transaction_id:{self.__send_receipt.transaction_id}, transactionResolution:{result}"
+                )
                 raise ClientException(res.status.message, res.status.code)
             return res
         except Exception as e:
             logger.error(
-                f"end transaction error, topic:{self.__message.topic}, message_id:{self.__send_receipt.message_id}, transaction_id:{self.__send_receipt.transaction_id}, transactionResolution:{result}: {e}")
+                f"end transaction error, topic:{self.__message.topic}, message_id:{self.__send_receipt.message_id}, transaction_id:{self.__send_receipt.transaction_id}, transactionResolution:{result}: {e}"
+            )
             raise e
 
     """ property """
@@ -109,11 +127,15 @@ class TransactionChecker(metaclass=abc.ABCMeta):
 class Producer(Client):
     MAX_SEND_ATTEMPTS = 3  # max retry times when send failed
 
-    def __init__(self, client_configuration, topics=None, checker=None, tls_enable=False):
+    def __init__(
+        self, client_configuration, topics=None, checker=None, tls_enable=False
+    ):
         super().__init__(client_configuration, topics, ClientType.PRODUCER, tls_enable)
         # {topic, QueueSelector}
         self.__send_queue_selectors = ConcurrentMap()
-        self.__checker = checker  # checker for transaction message, handle checking from server
+        self.__checker = (
+            checker  # checker for transaction message, handle checking from server
+        )
 
     def __str__(self):
         return f"{ClientType.Name(self.client_type)} client_id:{self.client_id}"
@@ -128,7 +150,8 @@ class Producer(Client):
         topic_queue = self.__select_send_queue(message.topic)
         if message.message_type not in topic_queue.accept_message_types:
             raise IllegalArgumentException(
-                f"current message type not match with queue accept message types, topic:{message.topic}, message_type:{message.message_type}, queue access type:{topic_queue.accept_message_types}")
+                f"current message type not match with queue accept message types, topic:{message.topic}, message_type:{message.message_type}, queue access type:{topic_queue.accept_message_types}"
+            )
 
         if transaction is None:
             try:
@@ -146,7 +169,9 @@ class Producer(Client):
             except IllegalArgumentException as e:
                 raise e
             except Exception as e:
-                logger.error(f"send transaction message exception, topic: {message.topic}, e: {e}")
+                logger.error(
+                    f"send transaction message exception, topic: {message.topic}, e: {e}"
+                )
                 raise e
 
     def send_async(self, message: Message):
@@ -156,9 +181,11 @@ class Producer(Client):
         self.__wrap_sending_message(message, False)
         topic_queue = self.__select_send_queue(message.topic)
         if message.message_type not in topic_queue.accept_message_types:
-            raise IllegalArgumentException(f"current message type not match with queue accept message types, "
-                                           f"topic:{message.topic}, message_type:{message.message_type}, "
-                                           f"queue access type:{topic_queue.accept_message_types}")
+            raise IllegalArgumentException(
+                f"current message type not match with queue accept message types, "
+                f"topic:{message.topic}, message_type:{message.message_type}, "
+                f"queue access type:{topic_queue.accept_message_types}"
+            )
 
         try:
             return self.__send_async(message, topic_queue)
@@ -170,7 +197,9 @@ class Producer(Client):
 
     def begin_transaction(self):
         if self.is_running is False:
-            raise IllegalStateException("unable to begin transaction because producer is not running")
+            raise IllegalStateException(
+                "unable to begin transaction because producer is not running"
+            )
 
         if self.__checker is None:
             raise IllegalArgumentException("Transaction checker should not be null.")
@@ -178,22 +207,31 @@ class Producer(Client):
 
     def end_transaction(self, endpoints, message, transaction_id, result, source):
         if self.is_running is False:
-            raise IllegalStateException("unable to end transaction because producer is not running")
+            raise IllegalStateException(
+                "unable to end transaction because producer is not running"
+            )
 
         if self.__checker is None:
             raise IllegalArgumentException("Transaction checker should not be null.")
 
         req = self.__end_transaction_req(message, transaction_id, result, source)
-        future = self.rpc_client.end_transaction_async(endpoints, req, metadata=self._sign(),
-                                                       timeout=self.client_configuration.request_timeout)
+        future = self.rpc_client.end_transaction_async(
+            endpoints,
+            req,
+            metadata=self._sign(),
+            timeout=self.client_configuration.request_timeout,
+        )
         return future.result()
 
-    async def on_recover_orphaned_transaction_command(self, endpoints, msg, transaction_id):
+    async def on_recover_orphaned_transaction_command(
+        self, endpoints, msg, transaction_id
+    ):
         # call this function from server side stream, in RpcClient._io_loop
         try:
             if self.is_running is False:
                 raise IllegalStateException(
-                    "unable to recover orphaned transaction command because producer is not running")
+                    "unable to recover orphaned transaction command because producer is not running"
+                )
 
             if self.__checker is None:
                 raise IllegalArgumentException("No transaction checker registered.")
@@ -201,15 +239,25 @@ class Producer(Client):
             result = self.__checker.check(message)
 
             if result == TransactionResolution.COMMIT:
-                res = await self.__commit_for_server_check(endpoints, message, transaction_id,
-                                                           TransactionSource.SOURCE_SERVER_CHECK)
+                res = await self.__commit_for_server_check(
+                    endpoints,
+                    message,
+                    transaction_id,
+                    TransactionSource.SOURCE_SERVER_CHECK,
+                )
                 logger.debug(
-                    f"commit message. message_id: {message.message_id}, transaction_id: {transaction_id}, res: {res}")
+                    f"commit message. message_id: {message.message_id}, transaction_id: {transaction_id}, res: {res}"
+                )
             elif result == TransactionResolution.ROLLBACK:
-                res = await self.__rollback_for_server_check(endpoints, message, transaction_id,
-                                                             TransactionSource.SOURCE_SERVER_CHECK)
+                res = await self.__rollback_for_server_check(
+                    endpoints,
+                    message,
+                    transaction_id,
+                    TransactionSource.SOURCE_SERVER_CHECK,
+                )
                 logger.debug(
-                    f"rollback message. message_id: {message.message_id}, transaction_id: {transaction_id}, res: {res}")
+                    f"rollback message. message_id: {message.message_id}, transaction_id: {transaction_id}, res: {res}"
+                )
         except Exception as e:
             logger.error(f"on_recover_orphaned_transaction_command exception: {e}")
 
@@ -273,17 +321,35 @@ class Producer(Client):
     def __send(self, message: Message, topic_queue, attempt=1) -> SendReceipt:
         req = self.__send_req(message)
         send_context = self.client_metrics.send_before(message.topic)
-        send_message_future = self.rpc_client.send_message_async(topic_queue.endpoints, req, self._sign(), timeout=self.client_configuration.request_timeout)
-        return self.__handle_sync_send_receipt(send_message_future, message, topic_queue, attempt, send_context)
+        send_message_future = self.rpc_client.send_message_async(
+            topic_queue.endpoints,
+            req,
+            self._sign(),
+            timeout=self.client_configuration.request_timeout,
+        )
+        return self.__handle_sync_send_receipt(
+            send_message_future, message, topic_queue, attempt, send_context
+        )
 
-    def __handle_sync_send_receipt(self, send_message_future, message, topic_queue, attempt, send_metric_context=None):
+    def __handle_sync_send_receipt(
+        self,
+        send_message_future,
+        message,
+        topic_queue,
+        attempt,
+        send_metric_context=None,
+    ):
         try:
-            send_receipt = self.__process_send_message_response(send_message_future, topic_queue)
+            send_receipt = self.__process_send_message_response(
+                send_message_future, topic_queue
+            )
             self.client_metrics.send_after(send_metric_context, True)
             return send_receipt
         except Exception as e:
             attempt += 1
-            retry_exception_future = self.__check_send_retry_condition(message, topic_queue, attempt, e)
+            retry_exception_future = self.__check_send_retry_condition(
+                message, topic_queue, attempt, e
+            )
             if retry_exception_future is not None:
                 # end retry with exception
                 self.client_metrics.send_after(send_metric_context, False)
@@ -296,29 +362,55 @@ class Producer(Client):
     def __send_async(self, message: Message, topic_queue, attempt=1, ret_future=None):
         req = self.__send_req(message)
         send_context = self.client_metrics.send_before(message.topic)
-        send_message_future = self.rpc_client.send_message_async(topic_queue.endpoints, req, self._sign(), timeout=self.client_configuration.request_timeout)
+        send_message_future = self.rpc_client.send_message_async(
+            topic_queue.endpoints,
+            req,
+            self._sign(),
+            timeout=self.client_configuration.request_timeout,
+        )
         if ret_future is None:
             ret_future = Future()
-        handle_send_receipt_callback = functools.partial(self.__handle_async_send_receipt, message=message,
-                                                         topic_queue=topic_queue, attempt=attempt,
-                                                         ret_future=ret_future, send_metric_context=send_context)
+        handle_send_receipt_callback = functools.partial(
+            self.__handle_async_send_receipt,
+            message=message,
+            topic_queue=topic_queue,
+            attempt=attempt,
+            ret_future=ret_future,
+            send_metric_context=send_context,
+        )
         send_message_future.add_done_callback(handle_send_receipt_callback)
         return ret_future
 
-    def __handle_async_send_receipt(self, send_message_future, message, topic_queue, attempt, ret_future,
-                                    send_metric_context=None):
+    def __handle_async_send_receipt(
+        self,
+        send_message_future,
+        message,
+        topic_queue,
+        attempt,
+        ret_future,
+        send_metric_context=None,
+    ):
         try:
-            send_receipt = self.__process_send_message_response(send_message_future, topic_queue)
+            send_receipt = self.__process_send_message_response(
+                send_message_future, topic_queue
+            )
             self.client_metrics.send_after(send_metric_context, True)
-            self._set_future_callback_result(CallbackResult.async_send_callback_result(ret_future, send_receipt))
+            self._set_future_callback_result(
+                CallbackResult.async_send_callback_result(ret_future, send_receipt)
+            )
         except Exception as e:
             attempt += 1
-            retry_exception_future = self.__check_send_retry_condition(message, topic_queue, attempt, e)
+            retry_exception_future = self.__check_send_retry_condition(
+                message, topic_queue, attempt, e
+            )
             if retry_exception_future is not None:
                 # end retry with exception
                 self.client_metrics.send_after(send_metric_context, False)
                 self._set_future_callback_result(
-                    CallbackResult.async_send_callback_result(ret_future, retry_exception_future.exception(), False))
+                    CallbackResult.async_send_callback_result(
+                        ret_future, retry_exception_future.exception(), False
+                    )
+                )
                 return
             # resend message
             topic_queue = self.__select_send_queue(message.topic)
@@ -328,28 +420,34 @@ class Producer(Client):
         res = send_message_future.result()
         MessagingResultChecker.check(res.status)
         entries = res.entries
-        assert len(
-            entries) == 1, f"entries size error, the send response entries size is {len(entries)}, {self.__str__()}"
+        assert (
+            len(entries) == 1
+        ), f"entries size error, the send response entries size is {len(entries)}, {self.__str__()}"
         entry = entries[0]
-        return SendReceipt(entry.message_id, entry.transaction_id, topic_queue, entry.offset)
+        return SendReceipt(
+            entry.message_id, entry.transaction_id, topic_queue, entry.offset
+        )
 
     def __check_send_retry_condition(self, message, topic_queue, attempt, e):
         end_retry = False
         if attempt > Producer.MAX_SEND_ATTEMPTS:
             logger.error(
-                f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, because of run out of attempt times, topic:{message.topic}, message_id:{message.message_id},  message_type:{message.message_type}, attempt:{attempt}")
+                f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, because of run out of attempt times, topic:{message.topic}, message_id:{message.message_id},  message_type:{message.message_type}, attempt:{attempt}"
+            )
             end_retry = True
 
         # no need more attempts for transactional message
         if message.message_type == MessageType.TRANSACTION:
             logger.error(
-                f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, topic:{message.topic}, message_id:{message.message_id}, message_type:{message.message_type} ,attempt:{attempt}")
+                f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, topic:{message.topic}, message_id:{message.message_id}, message_type:{message.message_type} ,attempt:{attempt}"
+            )
             end_retry = True
 
         # end retry if system busy
         if isinstance(e, TooManyRequestsException):
             logger.error(
-                f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, because of to too many requests, topic:{message.topic},  message_type:{message.message_type}, message_id:{message.message_id}, attempt:{attempt}")
+                f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, because of to too many requests, topic:{message.topic},  message_type:{message.message_type}, message_id:{message.message_id}, attempt:{attempt}"
+            )
             end_retry = True
 
         if end_retry:
@@ -374,7 +472,8 @@ class Producer(Client):
             max_body_size = 4 * 1024 * 1024  # max body size is 4m
             if len(message.body) > max_body_size:
                 raise IllegalArgumentException(
-                    f"Message body size exceeds the threshold, max size={max_body_size} bytes")
+                    f"Message body size exceeds the threshold, max size={max_body_size} bytes"
+                )
 
             msg.body = message.body
             if message.tag is not None:
@@ -391,13 +490,19 @@ class Producer(Client):
             if message.message_group is not None:
                 msg.system_properties.message_group = message.message_group
             if message.delivery_timestamp is not None:
-                msg.system_properties.delivery_timestamp.seconds = message.delivery_timestamp
+                msg.system_properties.delivery_timestamp.seconds = (
+                    message.delivery_timestamp
+                )
             return req
         except Exception as e:
             raise e
 
     def __send_message_type(self, message: Message, is_transaction=False):
-        if message.message_group is None and message.delivery_timestamp is None and is_transaction is False:
+        if (
+            message.message_group is None
+            and message.delivery_timestamp is None
+            and is_transaction is False
+        ):
             return MessageType.NORMAL
 
         if message.message_group is not None and is_transaction is False:
@@ -406,18 +511,27 @@ class Producer(Client):
         if message.delivery_timestamp is not None and is_transaction is False:
             return MessageType.DELAY
 
-        if message.message_group is None and message.delivery_timestamp is None and is_transaction is True:
+        if (
+            message.message_group is None
+            and message.delivery_timestamp is None
+            and is_transaction is True
+        ):
             return MessageType.TRANSACTION
 
         # transaction semantics is conflicted with fifo/delay.
-        logger.error(f"{self.__str__()} set send message type exception, message: {str(message)}")
-        raise IllegalArgumentException("transactional message should not set messageGroup or deliveryTimestamp")
+        logger.error(
+            f"{self.__str__()} set send message type exception, message: {str(message)}"
+        )
+        raise IllegalArgumentException(
+            "transactional message should not set messageGroup or deliveryTimestamp"
+        )
 
     def __select_send_queue(self, topic):
         try:
             route = self._retrieve_topic_route_data(topic)
-            queue_selector = self.__send_queue_selectors.put_if_absent(topic,
-                                                                       QueueSelector.producer_queue_selector(route))
+            queue_selector = self.__send_queue_selectors.put_if_absent(
+                topic, QueueSelector.producer_queue_selector(route)
+            )
             return queue_selector.select_next_queue()
         except Exception as e:
             logger.error(f"producer select topic:{topic} queue raise exception, {e}")
@@ -433,15 +547,27 @@ class Producer(Client):
         req.source = source
         return req
 
-    def __commit_for_server_check(self, endpoints, message: Message, transaction_id, source):
-        return self.__end_transaction_for_server_check(endpoints, message, transaction_id, TransactionResolution.COMMIT,
-                                                       source)
+    def __commit_for_server_check(
+        self, endpoints, message: Message, transaction_id, source
+    ):
+        return self.__end_transaction_for_server_check(
+            endpoints, message, transaction_id, TransactionResolution.COMMIT, source
+        )
 
-    def __rollback_for_server_check(self, endpoints, message: Message, transaction_id, source):
-        return self.__end_transaction_for_server_check(endpoints, message, transaction_id,
-                                                       TransactionResolution.ROLLBACK, source)
+    def __rollback_for_server_check(
+        self, endpoints, message: Message, transaction_id, source
+    ):
+        return self.__end_transaction_for_server_check(
+            endpoints, message, transaction_id, TransactionResolution.ROLLBACK, source
+        )
 
-    def __end_transaction_for_server_check(self, endpoints, message: Message, transaction_id, result, source):
+    def __end_transaction_for_server_check(
+        self, endpoints, message: Message, transaction_id, result, source
+    ):
         req = self.__end_transaction_req(message, transaction_id, result, source)
-        return self.rpc_client.end_transaction_for_server_check(endpoints, req, metadata=self._sign(),
-                                                                timeout=self.client_configuration.request_timeout)
+        return self.rpc_client.end_transaction_for_server_check(
+            endpoints,
+            req,
+            metadata=self._sign(),
+            timeout=self.client_configuration.request_timeout,
+        )

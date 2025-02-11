@@ -33,18 +33,36 @@ class QueueSelector:
 
     @classmethod
     def producer_queue_selector(cls, topic_route: TopicRouteData):
-        return cls(list(filter(lambda queue: queue.is_writable() and queue.is_master_broker(), topic_route.message_queues)),
-                   QueueSelector.PRODUCER_QUEUE_SELECTOR)
+        return cls(
+            list(
+                filter(
+                    lambda queue: queue.is_writable() and queue.is_master_broker(),
+                    topic_route.message_queues,
+                )
+            ),
+            QueueSelector.PRODUCER_QUEUE_SELECTOR,
+        )
 
     @classmethod
     def simple_consumer_queue_selector(cls, topic_route: TopicRouteData):
-        return cls(list(filter(lambda queue: queue.is_readable() and queue.is_master_broker(), topic_route.message_queues)),
-                   QueueSelector.SIMPLE_CONSUMER_QUEUE_SELECTOR)
+        return cls(
+            list(
+                filter(
+                    lambda queue: queue.is_readable() and queue.is_master_broker(),
+                    topic_route.message_queues,
+                )
+            ),
+            QueueSelector.SIMPLE_CONSUMER_QUEUE_SELECTOR,
+        )
 
     def select_next_queue(self):
         if self.__selector_type == QueueSelector.NONE_TYPE_SELECTOR:
-            raise IllegalArgumentException("error type for queue selector, type is NONE_TYPE_SELECTOR.")
-        return self.__message_queues[self.__index.get_and_increment() % len(self.__message_queues)]
+            raise IllegalArgumentException(
+                "error type for queue selector, type is NONE_TYPE_SELECTOR."
+            )
+        return self.__message_queues[
+            self.__index.get_and_increment() % len(self.__message_queues)
+        ]
 
     def all_queues(self):
         index = self.__index.get_and_increment() % len(self.__message_queues)
@@ -54,6 +72,16 @@ class QueueSelector:
         if topic_route.message_queues == self.__message_queues:
             return
         if self.__selector_type == QueueSelector.PRODUCER_QUEUE_SELECTOR:
-            self.__message_queues = list(filter(lambda queue: queue.is_writable() and queue.is_master_broker(), topic_route.message_queues))
+            self.__message_queues = list(
+                filter(
+                    lambda queue: queue.is_writable() and queue.is_master_broker(),
+                    topic_route.message_queues,
+                )
+            )
         elif self.__selector_type == QueueSelector.SIMPLE_CONSUMER_QUEUE_SELECTOR:
-            self.__message_queues = list(filter(lambda queue: queue.is_readable() and queue.is_master_broker(), topic_route.message_queues))
+            self.__message_queues = list(
+                filter(
+                    lambda queue: queue.is_readable() and queue.is_master_broker(),
+                    topic_route.message_queues,
+                )
+            )
