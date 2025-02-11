@@ -33,10 +33,6 @@ SimpleConsumerBuilder SimpleConsumer::newBuilder() {
 SimpleConsumer::SimpleConsumer(std::string group) : impl_(std::make_shared<SimpleConsumerImpl>(group)) {
 }
 
-SimpleConsumer::~SimpleConsumer() {
-  impl_->shutdown();
-}
-
 void SimpleConsumer::start() {
   impl_->start();
 }
