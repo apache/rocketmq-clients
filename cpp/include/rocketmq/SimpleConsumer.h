@@ -43,8 +43,6 @@ class SimpleConsumerBuilder;
 
 class SimpleConsumer {
 public:
-  ~SimpleConsumer();
-
   static SimpleConsumerBuilder newBuilder();
 
   void subscribe(std::string topic, FilterExpression filter_expression);

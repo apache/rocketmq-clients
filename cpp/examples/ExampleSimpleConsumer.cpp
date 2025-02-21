@@ -59,6 +59,7 @@ int main(int argc, char* argv[]) {
                              .withAwaitDuration(std::chrono::seconds(10))
                              .build();
 
+  // Should use while (true) instead
   for (int j = 0; j < 30; j++) {
     std::vector<MessageConstSharedPtr> messages;
     std::error_code ec;
