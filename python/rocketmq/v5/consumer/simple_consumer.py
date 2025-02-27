@@ -309,11 +309,11 @@ class SimpleConsumer(Client):
         try:
             responses = future.result()
             messages = self.__handle_receive_message_response(responses)
-            self._set_future_callback_result(
+            self._submit_callback(
                 CallbackResult.async_receive_callback_result(ret_future, messages)
             )
         except Exception as e:
-            self._set_future_callback_result(
+            self._submit_callback(
                 CallbackResult.async_receive_callback_result(ret_future, e, False)
             )
 
@@ -409,14 +409,14 @@ class SimpleConsumer(Client):
             )
             MessagingResultChecker.check(res.status)
             if ret_future is not None:
-                self._set_future_callback_result(
+                self._submit_callback(
                     CallbackResult.async_ack_callback_result(ret_future, None)
                 )
         except Exception as e:
             if ret_future is None:
                 raise e
             else:
-                self._set_future_callback_result(
+                self._submit_callback(
                     CallbackResult.async_ack_callback_result(ret_future, e, False)
                 )
 
@@ -434,7 +434,7 @@ class SimpleConsumer(Client):
                 metadata=self._sign(),
                 timeout=self.client_configuration.request_timeout,
             )
-            self.__handle_change_invisible_result(future)
+            self.__handle_change_invisible_result(future, message)
         except Exception as e:
             raise e
 
@@ -454,7 +454,7 @@ class SimpleConsumer(Client):
             )
             ret_future = Future()
             change_invisible_callback = functools.partial(
-                self.__handle_change_invisible_result, ret_future=ret_future
+                self.__handle_change_invisible_result, message=message, ret_future=ret_future
             )
             future.add_done_callback(change_invisible_callback)
             return ret_future
@@ -472,15 +472,16 @@ class SimpleConsumer(Client):
         req.message_id = message.message_id
         return req
 
-    def __handle_change_invisible_result(self, future, ret_future=None):
+    def __handle_change_invisible_result(self, future, message, ret_future=None):
         try:
             res = future.result()
             logger.debug(
                 f"consumer[{self.__consumer_group}] change invisible response, {res.status}"
             )
+            message.receipt_handle = res.receipt_handle
             MessagingResultChecker.check(res.status)
             if ret_future is not None:
-                self._set_future_callback_result(
+                self._submit_callback(
                     CallbackResult.async_change_invisible_duration_callback_result(
                         ret_future, None
                     )
@@ -489,7 +490,7 @@ class SimpleConsumer(Client):
             if ret_future is None:
                 raise e
             else:
-                self._set_future_callback_result(
+                self._submit_callback(
                     CallbackResult.async_change_invisible_duration_callback_result(
                         ret_future, e, False
                     )

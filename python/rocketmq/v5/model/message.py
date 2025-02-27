@@ -219,6 +219,10 @@ class Message:
                 raise IllegalArgumentException("key should not be blank")
         self.__keys.update(set(keys))
 
+    @receipt_handle.setter
+    def receipt_handle(self, receipt_handle):
+        self.__receipt_handle = receipt_handle
+
     @message_type.setter
     def message_type(self, message_type):
         self.__message_type = message_type

@@ -179,20 +179,6 @@ class RpcClient:
             )
         )
 
-    def end_transaction_for_server_check(
-        self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata, timeout=3
-    ):
-        # assert asyncio.get_running_loop() == RpcClient._io_loop
-        try:
-            return self.__end_transaction_0(
-                endpoints, req, metadata=metadata, timeout=timeout
-            )
-        except Exception as e:
-            logger.error(
-                f"end transaction exception, topic:{req.topic.name}, message_id:{req.message_id}, transaction_id:{req.transaction_id}: {e}"
-            )
-            raise e
-
     """ build stream_stream_call """
 
     def telemetry_stream(

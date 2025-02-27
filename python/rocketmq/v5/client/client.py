@@ -15,8 +15,10 @@
 
 import asyncio
 import functools
+import os
 import threading
 from asyncio import InvalidStateError
+from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
 from grpc.aio import AioRpcError
@@ -34,7 +36,6 @@ from rocketmq.v5.util import (ClientId, ConcurrentMap, MessagingResultChecker,
 
 class Client:
 
-    CALLBACK_THREADS_NUM = 5
 
     def __init__(
         self, client_configuration, topics, client_type: ClientType, tls_enable=False
@@ -62,8 +63,7 @@ class Client:
             )
         else:
             self.__topics = set()
-        self.__callback_result_queue = Queue()
-        self.__callback_threads = []
+        self.__client_callback_executor = None
         self.__is_running = False
         self.__client_thread_task_enabled = False
         self.__had_shutdown = False
@@ -268,45 +268,23 @@ class Client:
     """ callback handler for async method """
 
     def __start_async_rpc_callback_handler(self):
-        # a thread to handle callback when using async method such as send_async(), receive_async().
-        # this handler switches user's callback thread from RpcClient's _io_loop_thread to client's callback_handler_thread
+        # to handle callback when using async method such as send_async(), receive_async().
+        # switches user's callback thread from RpcClient's _io_loop_thread to client's client_callback_worker_thread
         try:
-            for i in range(Client.CALLBACK_THREADS_NUM):
-                th = threading.Thread(
-                    name=f"callback_handler_thread-{i}", target=self.__handle_callback
-                )
-                th.daemon = True
-                self.__callback_threads.append(th)
-                th.start()
-                logger.info(
-                    f"{self.__str__()} start async rpc callback thread:{th} success."
-                )
+            workers = os.cpu_count()
+            self.__client_callback_executor = ThreadPoolExecutor(max_workers=workers,
+                                                                 thread_name_prefix=f"client_callback_worker-{self.__client_id}")
+            logger.info(f"{self.__str__()} start callback executor success. max_workers:{workers}")
         except Exception as e:
             print(f"{self.__str__()} start async rpc callback raise exception: {e}")
             raise e
 
-    def __handle_callback(self):
-        while True:
-            if self.__client_thread_task_enabled is True:
-                callback_result = self.__callback_result_queue.get()
-                if (
-                    callback_result.result_type
-                    == CallbackResultType.END_CALLBACK_THREAD_RESULT
-                ):
-                    # end infinite loop when client shutdown
-                    self.__callback_result_queue.task_done()
-                    break
-                else:
-                    if callback_result.is_success:
-                        callback_result.future.set_result(callback_result.result)
-                    else:
-                        callback_result.future.set_exception(callback_result.result)
-                    self.__callback_result_queue.task_done()
-            else:
-                break
-        logger.info(
-            f"{self.__str__()} stop client callback result handler thread:{threading.current_thread()} success."
-        )
+    @staticmethod
+    def __handle_callback(callback_result):
+        if callback_result.is_success:
+            callback_result.future.set_result(callback_result.result)
+        else:
+            callback_result.future.set_exception(callback_result.result)
 
     """ protect """
 
@@ -330,12 +308,11 @@ class Client:
     def _sign(self):
         return Signature.metadata(self.__client_configuration, self.__client_id)
 
-    def _set_future_callback_result(self, callback_result):
-        if self.__callback_result_queue is not None:
-            self.__callback_result_queue.put_nowait(callback_result)
-
     def _rpc_channel_io_loop(self):
         return self.__rpc_client.get_channel_io_loop()
+
+    def _submit_callback(self, callback_result):
+        self.__client_callback_executor.submit(Client.__handle_callback, callback_result)
 
     """ private """
 
@@ -555,13 +532,8 @@ class Client:
                 self.__clear_idle_rpc_channels_threading_event.set()
                 self.__clear_idle_rpc_channels_scheduler.join()
 
-        for i in range(Client.CALLBACK_THREADS_NUM):
-            self._set_future_callback_result(
-                CallbackResult.end_callback_thread_result()
-            )
-
-        for i in range(Client.CALLBACK_THREADS_NUM):
-            self.__callback_threads[i].join()
+        if self.__client_callback_executor is not None:
+            self.__client_callback_executor.shutdown()
 
         self.__topic_route_scheduler = None
         self.__topic_route_scheduler_threading_event = None
@@ -571,8 +543,7 @@ class Client:
         self.__sync_setting_scheduler_threading_event = None
         self.__clear_idle_rpc_channels_scheduler = None
         self.__clear_idle_rpc_channels_threading_event = None
-        self.__callback_result_queue = None
-        self.__callback_threads = None
+        self.__client_callback_executor = None
 
     """ property """
 
