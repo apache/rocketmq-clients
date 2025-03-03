@@ -136,7 +136,7 @@ class Producer(Client):
         self.__checker = (
             checker  # checker for transaction message, handle checking from server
         )
-        self.__transaction_check_executor = ThreadPoolExecutor(max_workers=5, thread_name_prefix="transaction_check_worker")
+        self.__transaction_check_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="transaction_check_worker")
 
     def __str__(self):
         return f"{ClientType.Name(self.client_type)} client_id:{self.client_id}"
