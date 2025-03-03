@@ -136,8 +136,7 @@ class Producer(Client):
         self.__checker = (
             checker  # checker for transaction message, handle checking from server
         )
-        self.__transaction_check_executor = ThreadPoolExecutor(max_workers=5,
-                                                                 thread_name_prefix=f"transaction_check_worker")
+        self.__transaction_check_executor = ThreadPoolExecutor(max_workers=5, thread_name_prefix="transaction_check_worker")
 
     def __str__(self):
         return f"{ClientType.Name(self.client_type)} client_id:{self.client_id}"
@@ -224,7 +223,6 @@ class Producer(Client):
             timeout=self.client_configuration.request_timeout,
         )
         return future.result()
-
 
     def on_recover_orphaned_transaction_command(
         self, endpoints, msg, transaction_id
@@ -417,13 +415,6 @@ class Producer(Client):
         if attempt > Producer.MAX_SEND_ATTEMPTS:
             logger.error(
                 f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, because of run out of attempt times, topic:{message.topic}, message_id:{message.message_id},  message_type:{message.message_type}, attempt:{attempt}"
-            )
-            end_retry = True
-
-        # no need more attempts for transactional message
-        if message.message_type == MessageType.TRANSACTION:
-            logger.error(
-                f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, topic:{message.topic}, message_id:{message.message_id}, message_type:{message.message_type} ,attempt:{attempt}"
             )
             end_retry = True
 

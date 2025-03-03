@@ -19,7 +19,6 @@ import os
 import threading
 from asyncio import InvalidStateError
 from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
 
 from grpc.aio import AioRpcError
 from rocketmq.grpc_protocol import ClientType, Code, QueryRouteRequest
@@ -28,14 +27,12 @@ from rocketmq.v5.client.metrics import ClientMetrics
 from rocketmq.v5.exception import (IllegalArgumentException,
                                    IllegalStateException)
 from rocketmq.v5.log import logger
-from rocketmq.v5.model import (CallbackResult, CallbackResultType,
-                               TopicRouteData)
+from rocketmq.v5.model import TopicRouteData
 from rocketmq.v5.util import (ClientId, ConcurrentMap, MessagingResultChecker,
                               Misc, Signature)
 
 
 class Client:
-
 
     def __init__(
         self, client_configuration, topics, client_type: ClientType, tls_enable=False
