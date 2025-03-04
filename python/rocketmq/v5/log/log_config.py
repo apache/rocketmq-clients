@@ -32,7 +32,7 @@ __LOG_CONFIG = {
         # },
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "level": "INFO",
+            "level": "DEBUG",
             "formatter": "standard",
             "filename": f"{__DIR}/rocketmq_client.log",
             "maxBytes": 1024 * 1024 * 100,  # 100MB

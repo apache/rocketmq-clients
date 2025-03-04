@@ -15,8 +15,19 @@
 
 import functools
 import time
+from concurrent.futures.thread import ThreadPoolExecutor
 
 from rocketmq import ClientConfiguration, Credentials, SimpleConsumer
+
+consume_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="consume-message")
+
+
+def consume_message(consumer, message):
+    try:
+        consumer.ack(message)
+        print(f"ack message:{message.message_id}.")
+    except Exception as exception:
+        print(f"consume message raise exception: {exception}")
 
 
 def receive_callback(receive_result_future, consumer):
@@ -24,8 +35,7 @@ def receive_callback(receive_result_future, consumer):
     print(f"{consumer.__str__()} receive {len(messages)} messages.")
     for msg in messages:
         try:
-            consumer.ack(msg)
-            print(f"ack message:{msg.message_id}.")
+            consume_executor.submit(consume_message, consumer=consumer, message=msg)
         except Exception as exception:
             print(f"receive message raise exception: {exception}")
 

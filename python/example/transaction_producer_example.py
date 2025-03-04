@@ -20,7 +20,7 @@ from rocketmq import (ClientConfiguration, Credentials, Message, Producer,
 class TestChecker(TransactionChecker):
 
     def check(self, message: Message) -> TransactionResolution:
-        print(f"do TestChecker check. message_id: {message.message_id}, commit message.")
+        print(f"do TestChecker check, topic:{message.topic}, message_id: {message.message_id}, commit message.")
         return TransactionResolution.COMMIT
 
 
@@ -31,7 +31,8 @@ if __name__ == '__main__':
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
     topic = "topic"
-    producer = Producer(config, (topic,))
+    check_from_server = True  # commit message from server check
+    producer = Producer(config, (topic,), checker=TestChecker())
 
     try:
         producer.startup()
@@ -47,6 +48,17 @@ if __name__ == '__main__':
         msg.keys = "send_transaction"
         msg.add_property("send", "transaction")
         res = producer.send(msg, transaction)
-        print(f"transaction producer{producer.__str__()} send half message success. {res}")
+        print(f"send message: {res}")
+        if check_from_server:
+            input("Please Enter to Stop the Application.\r\n")
+            producer.shutdown()
+        else:
+            # producer directly commit or rollback
+            transaction.commit()
+            print(f"producer commit message:{transaction.message_id}")
+            # transaction.rollback()
+            # print(f"producer rollback message:{transaction.message_id}")
+            producer.shutdown()
     except Exception as e:
         print(f"transaction producer{producer.__str__()} example raise exception: {e}")
+        producer.shutdown()

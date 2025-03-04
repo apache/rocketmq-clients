@@ -146,7 +146,7 @@ class RpcStreamStreamCall:
                                 res.recover_orphaned_transaction_command.transaction_id
                             )
                             message = res.recover_orphaned_transaction_command.message
-                            await self.__handler.on_recover_orphaned_transaction_command(
+                            self.__handler.on_recover_orphaned_transaction_command(
                                 self.__endpoints, message, transaction_id
                             )
             except AioRpcError as e:
