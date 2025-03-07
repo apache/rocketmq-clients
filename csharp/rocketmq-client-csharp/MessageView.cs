@@ -18,6 +18,7 @@
 using Proto = Apache.Rocketmq.V2;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 
@@ -147,7 +148,26 @@ namespace Org.Apache.Rocketmq
             {
                 case Proto.Encoding.Gzip:
                     {
-                        body = Utilities.DecompressBytesGzip(raw);
+                        // Gzip
+                        if (body[0] == 0x1f && body[1] == 0x8b)
+                        {
+                            body = Utilities.DecompressBytesGzip(raw);
+                        }
+                        // Zlib
+                        else if (body[0] == 0x78 || body[0] == 0x79)
+                        {
+                            body = Utilities.DecompressBytesZlib(raw);
+                        }
+                        // LZ4
+                        else if (body[0] == 0x04 && body[1] == 0x22 && body[2] == 0x4D && body[3] == 0x18)
+                        {
+                            body = Utilities.DecompressBytesLz4(raw);
+                        }
+                        // ZStd
+                        else if (body[0] == 0x28 && body[1] == 0xB5 && body[2] == 0x2F && body[3] == 0xFD)
+                        {
+                            body = Utilities.DecompressBytesZstd(raw);
+                        }
                         break;
                     }
                 case Proto.Encoding.Identity:
@@ -158,7 +178,7 @@ namespace Org.Apache.Rocketmq
                 default:
                     {
                         Logger.LogError($"Unsupported message encoding algorithm," +
-                                     $" topic={topic}, messageId={messageId}, bodyEncoding={bodyEncoding}");
+                                        $" topic={topic}, messageId={messageId}, bodyEncoding={bodyEncoding}");
                         break;
                     }
             }

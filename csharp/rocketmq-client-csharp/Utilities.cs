@@ -24,6 +24,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Threading;
+using K4os.Compression.LZ4;
+using K4os.Compression.LZ4.Streams;
+using Zstandard.Net;
 
 namespace Org.Apache.Rocketmq
 {
@@ -152,6 +155,45 @@ namespace Org.Apache.Rocketmq
             using var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
             using var outputStream = new MemoryStream();
             gzipStream.CopyTo(outputStream);
+            return outputStream.ToArray();
+        }
+
+        public static byte[] DecompressBytesZlib(byte[] src)
+        {
+            if (src == null || src.Length == 0)
+            {
+                throw new ArgumentException("Input cannot be null or empty.", nameof(src));
+            }
+            using var inputStream = new MemoryStream(src);
+            using var zLibStream = new ZLibStream(inputStream, CompressionMode.Decompress);
+            using var outputStream = new MemoryStream();
+            zLibStream.CopyTo(outputStream);
+            return outputStream.ToArray();
+        }
+
+        public static byte[] DecompressBytesLz4(byte[] src)
+        {
+            if (src == null || src.Length == 0)
+            {
+                throw new ArgumentException("Input cannot be null or empty.", nameof(src));
+            }
+            using var inputStream = new MemoryStream(src);
+            var lz4Stream = LZ4Stream.Decode(inputStream);
+            using var outputStream = new MemoryStream();
+            lz4Stream.CopyTo(outputStream);
+            return outputStream.ToArray();
+        }
+
+        public static byte[] DecompressBytesZstd(byte[] src)
+        {
+            if (src == null || src.Length == 0)
+            {
+                throw new ArgumentException("Input cannot be null or empty.", nameof(src));
+            }
+            using var inputStream = new MemoryStream(src);
+            var zstdStream = new ZstandardStream(inputStream, CompressionMode.Decompress);
+            using var outputStream = new MemoryStream();
+            zstdStream.CopyTo(outputStream);
             return outputStream.ToArray();
         }
     }
