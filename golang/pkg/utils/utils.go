@@ -34,11 +34,23 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/DataDog/zstd"
 	"github.com/apache/rocketmq-clients/golang/v5/metadata"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+	"github.com/pierrec/lz4"
 	"github.com/valyala/fastrand"
 	"go.opencensus.io/trace"
 	MD "google.golang.org/grpc/metadata"
+)
+
+type CompressionType int32
+
+const (
+	Unknown CompressionType = 0
+	GZIP    CompressionType = 1
+	Zlib    CompressionType = 2
+	LZ4     CompressionType = 3
+	ZSTD    CompressionType = 4
 )
 
 func Mod(n int32, m int) int {
@@ -141,14 +153,40 @@ func MatchMessageType(mq *v2.MessageQueue, messageType v2.MessageType) bool {
 	return false
 }
 
+func MatchCompressionAlgorithm(in []byte) CompressionType {
+	if in == nil {
+		return Unknown
+	}
+	if len(in) >= 2 {
+		if in[0] == 0x78 {
+			return Zlib
+		} else if in[0] == 0x1f && in[1] == 0x8b {
+			return GZIP
+		}
+	}
+	if len(in) >= 4 {
+		if in[0] == 0x04 && in[1] == 0x22 && in[2] == 0x4D && in[3] == 0x18 {
+			return LZ4
+		} else if in[0] == 0x28 && in[1] == 0xB5 && in[2] == 0x2F && in[3] == 0xFD {
+			return ZSTD
+		}
+	}
+	return Unknown
+}
+
 func AutoDecode(in []byte) ([]byte, error) {
-	if len(in) < 2 {
-		return in, fmt.Errorf("unknown format")
-	}
-	if in[0] == 0x1f && in[1] == 0x8b {
+	compressionType := MatchCompressionAlgorithm(in)
+	switch compressionType {
+	case Zlib:
+		return ZlibDecode(in)
+	case GZIP:
 		return GZIPDecode(in)
+	case LZ4:
+		return Lz4Decode(in)
+	case ZSTD:
+		return ZstdDecode(in)
 	}
-	return ZlibDecode(in)
+	return in, fmt.Errorf("unknown format")
 }
 
 func ZlibDecode(in []byte) ([]byte, error) {
@@ -159,6 +197,15 @@ func ZlibDecode(in []byte) ([]byte, error) {
 	}
 	defer reader.Close()
 	return ioutil.ReadAll(reader)
+}
+
+func Lz4Decode(in []byte) ([]byte, error) {
+	reader := lz4.NewReader(bytes.NewReader(in))
+	return ioutil.ReadAll(reader)
+}
+
+func ZstdDecode(in []byte) ([]byte, error) {
+	return zstd.Decompress(nil, in)
 }
 
 func GZIPDecode(in []byte) ([]byte, error) {
