@@ -20,6 +20,7 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -138,6 +139,26 @@ func MatchMessageType(mq *v2.MessageQueue, messageType v2.MessageType) bool {
 		}
 	}
 	return false
+}
+
+func AutoDecode(in []byte) ([]byte, error) {
+	if len(in) < 2 {
+		return in, fmt.Errorf("unknown format")
+	}
+	if in[0] == 0x1f && in[1] == 0x8b {
+		return GZIPDecode(in)
+	}
+	return ZlibDecode(in)
+}
+
+func ZlibDecode(in []byte) ([]byte, error) {
+	reader, err := zlib.NewReader(bytes.NewReader(in))
+	if err != nil {
+		var out []byte
+		return out, err
+	}
+	defer reader.Close()
+	return ioutil.ReadAll(reader)
 }
 
 func GZIPDecode(in []byte) ([]byte, error) {
