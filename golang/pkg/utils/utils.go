@@ -34,11 +34,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/DataDog/zstd"
 	"github.com/apache/rocketmq-clients/golang/v5/metadata"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/pierrec/lz4"
 	"github.com/valyala/fastrand"
+	"github.com/valyala/gozstd"
 	"go.opencensus.io/trace"
 	MD "google.golang.org/grpc/metadata"
 )
@@ -205,7 +205,7 @@ func Lz4Decode(in []byte) ([]byte, error) {
 }
 
 func ZstdDecode(in []byte) ([]byte, error) {
-	return zstd.Decompress(nil, in)
+	return gozstd.Decompress(nil, in)
 }
 
 func GZIPDecode(in []byte) ([]byte, error) {
