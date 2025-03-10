@@ -19,6 +19,7 @@ package utils
 
 import (
 	"compress/gzip"
+	"compress/zlib"
 	"testing"
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
@@ -111,12 +112,53 @@ func TestMatchMessageType(t *testing.T) {
 	}
 }
 
+func TestAutoDecode(t *testing.T) {
+	_, err := AutoDecode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+	if err != zlib.ErrHeader {
+		t.Error()
+	}
+	_, err = AutoDecode([]byte{0})
+	if err == nil {
+		t.Error()
+	}
+	// gzip
+	bytes, err := AutoDecode([]byte{31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 0, 0, 0, 255, 255, 1, 0, 0, 255, 255, 97, 36, 132, 114, 18, 0, 0, 0})
+	if err != nil {
+		t.Error()
+	}
+	if string(bytes) != "rocketmq-client-go" {
+		t.Error()
+	}
+	// zlib
+	bytes, err = AutoDecode([]byte{120, 156, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 4, 0, 0, 255, 255, 68, 223, 7, 22})
+	if err != nil {
+		t.Error()
+	}
+	if string(bytes) != "rocketmq-client-go" {
+		t.Error()
+	}
+}
+
 func TestGZIPDecode(t *testing.T) {
 	_, err := GZIPDecode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 	if err != gzip.ErrHeader {
 		t.Error()
 	}
 	bytes, err := GZIPDecode([]byte{31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 0, 0, 0, 255, 255, 1, 0, 0, 255, 255, 97, 36, 132, 114, 18, 0, 0, 0})
+	if err != nil {
+		t.Error()
+	}
+	if string(bytes) != "rocketmq-client-go" {
+		t.Error()
+	}
+}
+
+func TestZlibDecode(t *testing.T) {
+	_, err := ZlibDecode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+	if err != zlib.ErrHeader {
+		t.Error()
+	}
+	bytes, err := ZlibDecode([]byte{120, 156, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 4, 0, 0, 255, 255, 68, 223, 7, 22})
 	if err != nil {
 		t.Error()
 	}
