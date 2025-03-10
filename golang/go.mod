@@ -6,11 +6,11 @@ require (
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
+	github.com/klauspost/compress v1.16.7
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pierrec/lz4 v2.6.1+incompatible
 	github.com/prashantv/gostub v1.1.0
 	github.com/stretchr/testify v1.7.1
-	github.com/valyala/gozstd v1.21.2
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.1

@@ -36,9 +36,9 @@ import (
 
 	"github.com/apache/rocketmq-clients/golang/v5/metadata"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+	"github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4"
 	"github.com/valyala/fastrand"
-	"github.com/valyala/gozstd"
 	"go.opencensus.io/trace"
 	MD "google.golang.org/grpc/metadata"
 )
@@ -205,7 +205,13 @@ func Lz4Decode(in []byte) ([]byte, error) {
 }
 
 func ZstdDecode(in []byte) ([]byte, error) {
-	return gozstd.Decompress(nil, in)
+	reader, err := zstd.NewReader(bytes.NewReader(in))
+	if err != nil {
+		var out []byte
+		return out, err
+	}
+	defer reader.Close()
+	return ioutil.ReadAll(reader)
 }
 
 func GZIPDecode(in []byte) ([]byte, error) {
