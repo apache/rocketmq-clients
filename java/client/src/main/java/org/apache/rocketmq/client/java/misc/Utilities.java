@@ -23,6 +23,7 @@ import com.github.luben.zstd.ZstdOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
@@ -149,76 +150,45 @@ public class Utilities {
     }
 
     public static byte[] compressBytesGZIP(final byte[] src) throws IOException {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
-        GZIPOutputStream outputStream = new GZIPOutputStream(byteArrayOutputStream);
-        try {
-            outputStream.write(src);
-            outputStream.flush();
-            outputStream.close();
-
-            return byteArrayOutputStream.toByteArray();
-        } finally {
-            try {
-                byteArrayOutputStream.close();
-            } catch (IOException ignore) {
-                // Exception not expected here.
+        try(ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)) {
+            try(FilterOutputStream outputStream = new GZIPOutputStream(byteArrayOutputStream)){
+                outputStream.write(src);
+                outputStream.flush();
             }
+            return byteArrayOutputStream.toByteArray();
         }
     }
 
     public static byte[] compressBytesZSTD(final byte[] src, final int level) throws IOException {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
-        ZstdOutputStream outputStream = new ZstdOutputStream(byteArrayOutputStream, level);
-        try {
-            outputStream.write(src);
-            outputStream.flush();
-            outputStream.close();
-
-            return byteArrayOutputStream.toByteArray();
-        } finally {
-            try {
-                byteArrayOutputStream.close();
-            } catch (IOException ignore) {
-                // Exception not expected here.
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)){
+            try(FilterOutputStream outputStream = new ZstdOutputStream(byteArrayOutputStream, level)){
+                outputStream.write(src);
+                outputStream.flush();
             }
+            return byteArrayOutputStream.toByteArray();
         }
     }
 
     public static byte[] compressBytesZLIB(final byte[] src, final int level) throws IOException {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
         java.util.zip.Deflater defeater = new java.util.zip.Deflater(level);
-        DeflaterOutputStream deflaterOutputStream =
-            new DeflaterOutputStream(byteArrayOutputStream, defeater);
-        try {
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
+             DeflaterOutputStream deflaterOutputStream =
+                 new DeflaterOutputStream(byteArrayOutputStream, defeater)){
             deflaterOutputStream.write(src);
             deflaterOutputStream.finish();
-            deflaterOutputStream.close();
-
             return byteArrayOutputStream.toByteArray();
         } finally {
-            try {
-                byteArrayOutputStream.close();
-            } catch (IOException ignore) {
-                // Exception not expected here.
-            }
             defeater.end();
         }
     }
 
     public static byte[] compressBytesLZ4(byte[] src) throws IOException {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
-        LZ4FrameOutputStream outputStream = new LZ4FrameOutputStream(byteArrayOutputStream);
-        try {
-            outputStream.write(src);
-            outputStream.flush();
-            outputStream.close();
-            return byteArrayOutputStream.toByteArray();
-        } finally {
-            try {
-                byteArrayOutputStream.close();
-            } catch (IOException ignore) {
-                // Exception not expected here.
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)) {
+            try (FilterOutputStream outputStream = new LZ4FrameOutputStream(byteArrayOutputStream)) {
+                outputStream.write(src);
+                outputStream.flush();
             }
+            return byteArrayOutputStream.toByteArray();
         }
     }
 
