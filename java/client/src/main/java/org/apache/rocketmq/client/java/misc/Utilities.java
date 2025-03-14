@@ -150,8 +150,8 @@ public class Utilities {
     }
 
     public static byte[] compressBytesGZIP(final byte[] src) throws IOException {
-        try(ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)) {
-            try(FilterOutputStream outputStream = new GZIPOutputStream(byteArrayOutputStream)){
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)) {
+            try (FilterOutputStream outputStream = new GZIPOutputStream(byteArrayOutputStream)) {
                 outputStream.write(src);
                 outputStream.flush();
             }
@@ -160,8 +160,8 @@ public class Utilities {
     }
 
     public static byte[] compressBytesZSTD(final byte[] src, final int level) throws IOException {
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)){
-            try(FilterOutputStream outputStream = new ZstdOutputStream(byteArrayOutputStream, level)){
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)) {
+            try (FilterOutputStream outputStream = new ZstdOutputStream(byteArrayOutputStream, level)) {
                 outputStream.write(src);
                 outputStream.flush();
             }
@@ -173,7 +173,7 @@ public class Utilities {
         java.util.zip.Deflater defeater = new java.util.zip.Deflater(level);
         try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
              DeflaterOutputStream deflaterOutputStream =
-                 new DeflaterOutputStream(byteArrayOutputStream, defeater)){
+                 new DeflaterOutputStream(byteArrayOutputStream, defeater)) {
             deflaterOutputStream.write(src);
             deflaterOutputStream.finish();
             return byteArrayOutputStream.toByteArray();
