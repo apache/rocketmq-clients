@@ -181,10 +181,6 @@ func AutoDecode(in []byte) ([]byte, error) {
 		return ZlibDecode(in)
 	case GZIP:
 		return GZIPDecode(in)
-	case LZ4:
-		return Lz4Decode(in)
-	case ZSTD:
-		return ZstdDecode(in)
 	}
 	return in, fmt.Errorf("unknown format")
 }

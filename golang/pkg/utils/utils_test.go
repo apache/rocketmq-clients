@@ -137,22 +137,22 @@ func TestAutoDecode(t *testing.T) {
 	if string(bytes) != "rocketmq-client-go" {
 		t.Error()
 	}
-	// lz4
-	bytes, err = AutoDecode([]byte{4, 34, 77, 24, 100, 112, 185, 18, 0, 0, 128, 114, 111, 99, 107, 101, 116, 109, 113, 45, 99, 108, 105, 101, 110, 116, 45, 103, 111, 0, 0, 0, 0, 248, 183, 23, 47})
-	if err != nil {
-		t.Error()
-	}
-	if string(bytes) != "rocketmq-client-go" {
-		t.Error()
-	}
-	// zstd
-	bytes, err = AutoDecode([]byte{40, 181, 47, 253, 32, 18, 145, 0, 0, 114, 111, 99, 107, 101, 116, 109, 113, 45, 99, 108, 105, 101, 110, 116, 45, 103, 111})
-	if err != nil {
-		t.Error()
-	}
-	if string(bytes) != "rocketmq-client-go" {
-		t.Error()
-	}
+	// // lz4
+	// bytes, err = AutoDecode([]byte{4, 34, 77, 24, 100, 112, 185, 18, 0, 0, 128, 114, 111, 99, 107, 101, 116, 109, 113, 45, 99, 108, 105, 101, 110, 116, 45, 103, 111, 0, 0, 0, 0, 248, 183, 23, 47})
+	// if err != nil {
+	// 	t.Error()
+	// }
+	// if string(bytes) != "rocketmq-client-go" {
+	// 	t.Error()
+	// }
+	// // zstd
+	// bytes, err = AutoDecode([]byte{40, 181, 47, 253, 32, 18, 145, 0, 0, 114, 111, 99, 107, 101, 116, 109, 113, 45, 99, 108, 105, 101, 110, 116, 45, 103, 111})
+	// if err != nil {
+	// 	t.Error()
+	// }
+	// if string(bytes) != "rocketmq-client-go" {
+	// 	t.Error()
+	// }
 }
 
 func TestGZIPDecode(t *testing.T) {
