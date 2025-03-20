@@ -128,6 +128,7 @@ private:
   std::atomic<uint64_t> cached_message_memory_;
 
   void popMessage();
+
   void wrapPopMessageRequest(absl::flat_hash_map<std::string, std::string>& metadata,
                              rmq::ReceiveMessageRequest& request);
 

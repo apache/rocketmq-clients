@@ -28,6 +28,7 @@ void Signature::sign(const ClientConfig& client, absl::flat_hash_map<std::string
   metadata.insert({MetadataConstants::LANGUAGE_KEY, "CPP"});
   // Add common headers
   metadata.insert({MetadataConstants::CLIENT_ID_KEY, client.client_id});
+  metadata.insert({MetadataConstants::NAMESPACE_KEY, client.resource_namespace});
   metadata.insert({MetadataConstants::CLIENT_VERSION_KEY, MetadataConstants::CLIENT_VERSION});
   metadata.insert({MetadataConstants::PROTOCOL_VERSION_KEY, protocolVersion()});
 

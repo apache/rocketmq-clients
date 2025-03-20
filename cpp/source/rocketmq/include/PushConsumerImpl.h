@@ -72,7 +72,7 @@ public:
 
   void scanAssignments() LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
 
-  static bool selectBroker(const TopicRouteDataPtr& route, std::string& broker_host);
+  bool selectBroker(const TopicRouteDataPtr& route, std::string& broker_host);
 
   void wrapQueryAssignmentRequest(const std::string& topic,
                                   const std::string& consumer_group,

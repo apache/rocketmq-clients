@@ -70,13 +70,14 @@ void PushConsumerImpl::start() {
     return;
   }
 
+  client_config_.subscriber.group.set_resource_namespace(resourceNamespace());
   client_manager_->addClientObserver(shared_from_this());
 
   fetchRoutes();
 
-  SPDLOG_INFO("start concurrently consume service: {}", client_config_.subscriber.group.name());
-  consume_message_service_ =
-      std::make_shared<ConsumeMessageServiceImpl>(shared_from_this(), consume_thread_pool_size_, message_listener_);
+  SPDLOG_INFO("Start concurrently consume service: {}", client_config_.subscriber.group.name());
+  consume_message_service_ = std::make_shared<ConsumeMessageServiceImpl>(
+      shared_from_this(), consume_thread_pool_size_, message_listener_);
   consume_message_service_->start();
 
   // Heartbeat depends on initialization of consume-message-service
@@ -91,7 +92,8 @@ void PushConsumerImpl::start() {
   };
 
   scan_assignment_handle_ = client_manager_->getScheduler()->schedule(
-      scan_assignment_functor, SCAN_ASSIGNMENT_TASK_NAME, std::chrono::milliseconds(100), std::chrono::seconds(5));
+      scan_assignment_functor, SCAN_ASSIGNMENT_TASK_NAME,
+      std::chrono::milliseconds(100), std::chrono::seconds(5));
   SPDLOG_INFO("PushConsumer started, groupName={}", client_config_.subscriber.group.name());
 
   auto collect_stats_functor = [consumer_weak_ptr] {
@@ -101,8 +103,9 @@ void PushConsumerImpl::start() {
     }
   };
 
-  collect_stats_handle_ = client_manager_->getScheduler()->schedule(collect_stats_functor, COLLECT_STATS_TASK_NAME,
-                                                                    std::chrono::seconds(3), std::chrono::seconds(3));
+  collect_stats_handle_ = client_manager_->getScheduler()->schedule(
+      collect_stats_functor, COLLECT_STATS_TASK_NAME,
+      std::chrono::seconds(3), std::chrono::seconds(3));
 }
 
 const char* PushConsumerImpl::SCAN_ASSIGNMENT_TASK_NAME = "scan-assignment-task";
@@ -191,10 +194,33 @@ void PushConsumerImpl::scanAssignments() {
 }
 
 bool PushConsumerImpl::selectBroker(const TopicRouteDataPtr& topic_route_data, std::string& broker_host) {
+
+  absl::flat_hash_set<std::string> endpoints;
+  endpointsInUse(endpoints);
+  if (endpoints.empty()) {
+    SPDLOG_WARN("No broker is available");
+    return false;
+  }
+
+  // preference for selecting the access point filled in by the user
   if (topic_route_data && !topic_route_data->messageQueues().empty()) {
+    uint32_t queue_count = topic_route_data->messageQueues().size();
     uint32_t index = TopicAssignment::getAndIncreaseQueryWhichBroker();
-    for (uint32_t i = index; i < index + topic_route_data->messageQueues().size(); i++) {
-      auto message_queue = topic_route_data->messageQueues().at(i % topic_route_data->messageQueues().size());
+    for (uint32_t i = index; i < index + queue_count; i++) {
+      auto message_queue = topic_route_data->messageQueues().at(i % queue_count);
+      if (MixAll::MASTER_BROKER_ID != message_queue.broker().id() || !readable(message_queue.permission())) {
+        continue;
+      }
+
+      std::string current_host = urlOf(message_queue);
+      if (endpoints.contains(current_host)) {
+        broker_host = current_host;
+        return true;
+      }
+    }
+
+    for (uint32_t i = index; i < index + queue_count; i++) {
+      auto message_queue = topic_route_data->messageQueues().at(i % queue_count);
       if (MixAll::MASTER_BROKER_ID != message_queue.broker().id() || !readable(message_queue.permission())) {
         continue;
       }
@@ -527,8 +553,7 @@ void PushConsumerImpl::buildClientSettings(rmq::Settings& settings) {
 
 void PushConsumerImpl::prepareHeartbeatData(HeartbeatRequest& request) {
   request.set_client_type(rmq::ClientType::PUSH_CONSUMER);
-  request.mutable_group()->set_resource_namespace(resourceNamespace());
-  request.mutable_group()->set_name(groupName());
+  request.mutable_group()->CopyFrom(client_config_.subscriber.group);
 }
 
 void PushConsumerImpl::notifyClientTermination() {

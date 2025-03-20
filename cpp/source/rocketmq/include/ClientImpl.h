@@ -90,6 +90,10 @@ public:
     client_config_.credentials_provider = std::move(credentials_provider);
   }
 
+  void withResourceNamespace(std::string resource_namespace) {
+    client_config_.resource_namespace = std::move(resource_namespace);
+  }
+
   void withRequestTimeout(std::chrono::milliseconds request_timeout) {
     client_config_.request_timeout = absl::FromChrono(request_timeout);
   }
