@@ -25,7 +25,7 @@ import (
 
 // This test is designed to verify there is no data race in dcmp.Reset
 func TestDefaultClientMeterProviderResetNoDataRace(t *testing.T) {
-	cli := BuildCLient(t)
+	cli := BuildClient(t)
 	metric := &v2.Metric{On: false, Endpoints: cli.accessPoint}
 
 	for i := 0; i < 5; i++ {

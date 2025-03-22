@@ -26,14 +26,14 @@ import (
 
 	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/prashantv/gostub"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
 
-func BuildCLient(t *testing.T) *defaultClient {
+func BuildClient(t *testing.T) *defaultClient {
 	stubs := gostub.Stub(&defaultClientManagerOptions, clientManagerOptions{
 		RPC_CLIENT_MAX_IDLE_DURATION: time.Second,
 
@@ -83,12 +83,12 @@ func BuildCLient(t *testing.T) *defaultClient {
 }
 
 func GetClientAndDefaultClientSession(t *testing.T) (*defaultClient, *defaultClientSession) {
-	cli := BuildCLient(t)
-	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
+	cli := BuildClient(t)
+	defaultCliSession, err := cli.getDefaultClientSession(fakeAddress)
 	if err != nil {
 		t.Error(err)
 	}
-	return cli, default_cli_session
+	return cli, defaultCliSession
 }
 
 func PrepareTestLogger(cli *defaultClient) *observer.ObservedLogs {
@@ -149,13 +149,13 @@ func TestCLINewClient(t *testing.T) {
 
 func Test_acquire_observer_uninitialized(t *testing.T) {
 	// given
-	_, default_cli_session := GetClientAndDefaultClientSession(t)
+	_, defaultCliSession := GetClientAndDefaultClientSession(t)
 
 	// when
-	observer, acquired_observer := default_cli_session._acquire_observer()
+	observer, acquiredObserver := defaultCliSession._acquire_observer()
 
 	// then
-	if acquired_observer {
+	if acquiredObserver {
 		t.Error("Acquired observer even though it is uninitialized")
 	}
 	if observer != nil {
@@ -165,14 +165,14 @@ func Test_acquire_observer_uninitialized(t *testing.T) {
 
 func Test_acquire_observer_initialized(t *testing.T) {
 	// given
-	_, default_cli_session := GetClientAndDefaultClientSession(t)
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
+	_, defaultCliSession := GetClientAndDefaultClientSession(t)
+	defaultCliSession.publish(context.TODO(), &v2.TelemetryCommand{})
 
 	// when
-	observer, acquired_observer := default_cli_session._acquire_observer()
+	observer, acquiredObserver := defaultCliSession._acquire_observer()
 
 	// then
-	if !acquired_observer {
+	if !acquiredObserver {
 		t.Error("Failed to acquire observer even though it is uninitialized")
 	}
 	if observer == nil {
@@ -182,12 +182,15 @@ func Test_acquire_observer_initialized(t *testing.T) {
 
 func Test_execute_server_telemetry_command_fail(t *testing.T) {
 	// given
-	cli, default_cli_session := GetClientAndDefaultClientSession(t)
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
+	cli, defaultCliSession := GetClientAndDefaultClientSession(t)
+	err := defaultCliSession.publish(context.TODO(), &v2.TelemetryCommand{})
+	if err != nil {
+		return
+	}
 	observedLogs := PrepareTestLogger(cli)
 
 	// when
-	default_cli_session._execute_server_telemetry_command(&v2.TelemetryCommand{})
+	defaultCliSession._execute_server_telemetry_command(&v2.TelemetryCommand{})
 
 	// then
 	logs := observedLogs.All()
@@ -200,12 +203,15 @@ func Test_execute_server_telemetry_command_fail(t *testing.T) {
 
 func Test_execute_server_telemetry_command(t *testing.T) {
 	// given
-	cli, default_cli_session := GetClientAndDefaultClientSession(t)
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
+	cli, defaultCliSession := GetClientAndDefaultClientSession(t)
+	err := defaultCliSession.publish(context.TODO(), &v2.TelemetryCommand{})
+	if err != nil {
+		t.Error(err)
+	}
 	observedLogs := PrepareTestLogger(cli)
 
 	// when
-	default_cli_session._execute_server_telemetry_command(&v2.TelemetryCommand{Command: &v2.TelemetryCommand_RecoverOrphanedTransactionCommand{}})
+	defaultCliSession._execute_server_telemetry_command(&v2.TelemetryCommand{Command: &v2.TelemetryCommand_RecoverOrphanedTransactionCommand{}})
 
 	// then
 	logs := observedLogs.All()
@@ -218,18 +224,21 @@ func Test_execute_server_telemetry_command(t *testing.T) {
 
 func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	// given
-	cli := BuildCLient(t)
-	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
+	cli := BuildClient(t)
+	defaultCliSession, err := cli.getDefaultClientSession(fakeAddress)
 	if err != nil {
 		t.Error(err)
 	}
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
+	err = defaultCliSession.publish(context.TODO(), &v2.TelemetryCommand{})
+	if err != nil {
+		t.Error(err)
+	}
 	observedLogs := PrepareTestLogger(cli)
-	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
+	defaultCliSession.observer = &MOCK_MessagingService_TelemetryClient{
 		recv_error_count: 0,
 		cli:              cli,
 	}
-	default_cli_session.recoveryWaitTime = time.Second
+	defaultCliSession.recoveryWaitTime = time.Second
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
@@ -244,18 +253,21 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 
 func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	// given
-	cli := BuildCLient(t)
-	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
+	cli := BuildClient(t)
+	defaultCliSession, err := cli.getDefaultClientSession(fakeAddress)
 	if err != nil {
 		t.Error(err)
 	}
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
+	err = defaultCliSession.publish(context.TODO(), &v2.TelemetryCommand{})
+	if err != nil {
+		t.Error(err)
+	}
 	observedLogs := PrepareTestLogger(cli)
-	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
+	defaultCliSession.observer = &MOCK_MessagingService_TelemetryClient{
 		recv_error_count: 1,
 		cli:              cli,
 	}
-	default_cli_session.recoveryWaitTime = time.Second
+	defaultCliSession.recoveryWaitTime = time.Second
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
@@ -271,18 +283,21 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 
 func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	// given
-	cli := BuildCLient(t)
-	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
+	cli := BuildClient(t)
+	defaultCliSession, err := cli.getDefaultClientSession(fakeAddress)
 	if err != nil {
 		t.Error(err)
 	}
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
+	err = defaultCliSession.publish(context.TODO(), &v2.TelemetryCommand{})
+	if err != nil {
+		t.Error(err)
+	}
 	observedLogs := PrepareTestLogger(cli)
-	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
+	defaultCliSession.observer = &MOCK_MessagingService_TelemetryClient{
 		recv_error_count: 2,
 		cli:              cli,
 	}
-	default_cli_session.recoveryWaitTime = time.Second
+	defaultCliSession.recoveryWaitTime = time.Second
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
