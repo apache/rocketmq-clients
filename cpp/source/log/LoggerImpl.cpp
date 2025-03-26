@@ -76,7 +76,7 @@ void LoggerImpl::init0() {
       abort();
     }
   }
-  std::cout << "RocketMQ log files path: " << log_dir.c_str() << std::endl;
+  // std::cout << "RocketMQ log files path: " << log_dir.c_str() << std::endl;
 
   if (pattern_.empty()) {
     pattern_ = DEFAULT_PATTERN;

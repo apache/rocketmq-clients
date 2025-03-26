@@ -16,19 +16,14 @@
  */
 #pragma once
 
-#include <system_error>
+#include <string>
 
-#include "rocketmq/RocketMQ.h"
+#include "RocketMQ.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-struct SendResult {
-  std::error_code ec;
-  std::string target;
-
+struct RecallReceipt {
   std::string message_id;
-  std::string transaction_id;
-  std::string recall_handle;
 };
 
 ROCKETMQ_NAMESPACE_END

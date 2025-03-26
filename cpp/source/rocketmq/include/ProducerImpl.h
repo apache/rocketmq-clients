@@ -30,6 +30,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "rocketmq/Message.h"
+#include "rocketmq/RecallReceipt.h"
 #include "rocketmq/SendCallback.h"
 #include "rocketmq/SendReceipt.h"
 #include "rocketmq/TransactionChecker.h"
@@ -78,6 +79,11 @@ public:
    * to send to avoid concurrent modification during sent.
    */
   SendReceipt send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
+
+  /**
+   * Recall message synchronously, only delay message is supported for now.
+   */
+  RecallReceipt recall(const std::string& topic, std::string& recall_handle, std::error_code& ec) noexcept;
 
   /**
    * Check if the RPC client for the target host is isolated or not

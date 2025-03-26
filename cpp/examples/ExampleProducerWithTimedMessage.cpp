@@ -109,9 +109,30 @@ int main(int argc, char* argv[]) {
                              std::chrono::system_clock::now() +
                              std::chrono::seconds(10))  // This message would be available to consumers after 10 seconds
                          .build();
+
       std::error_code ec;
       SendReceipt send_receipt = producer.send(std::move(message), ec);
-      std::cout << "Message-ID: " << send_receipt.message_id << std::endl;
+
+      if (ec) {
+        std::cout << "Message-ID: " << send_receipt.message_id << " send error"<< std::endl;
+      } else {
+        std::cout << "Message-ID: " << send_receipt.message_id << ", "
+                  << "Message-Recall-Handle: " << send_receipt.recall_handle << std::endl;
+
+        // To attempt to recall a message, server support is required to perform this operation.
+        if (i % 2) {
+          RecallReceipt recall_receipt = producer.recall(FLAGS_topic, send_receipt.recall_handle, ec);
+
+          if (ec) {
+            std::cout << "Message-ID: " << send_receipt.message_id
+                      << ", Recall ErrorCode: " << ec << std::endl;
+          } else {
+            std::cout << "Message-ID: " << send_receipt.message_id
+                      << ", Message-Recall-ID: " << recall_receipt.message_id << std::endl;
+          }
+        }
+      }
+
       count++;
     }
   } catch (...) {
