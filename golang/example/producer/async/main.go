@@ -49,6 +49,7 @@ func main() {
 		},
 	},
 		rmq_client.WithTopics(Topic),
+		rmq_client.WithMaxAttempts(3), // max retry times
 	)
 	if err != nil {
 		log.Fatal(err)
