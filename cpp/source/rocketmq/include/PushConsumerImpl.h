@@ -99,8 +99,9 @@ public:
                                                         const FilterExpression& filter_expression)
       LOCKS_EXCLUDED(process_queue_table_mtx_);
 
-  bool receiveMessage(const rmq::MessageQueue& message_queue, const FilterExpression& filter_expression)
-      LOCKS_EXCLUDED(process_queue_table_mtx_);
+  bool receiveMessage(const rmq::MessageQueue& message_queue,
+                      const FilterExpression& filter_expression,
+                      std::string& attempt_id) LOCKS_EXCLUDED(process_queue_table_mtx_);
 
   uint32_t consumeThreadPoolSize() const;
 

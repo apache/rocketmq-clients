@@ -16,10 +16,8 @@
  */
 #include "PushConsumerImpl.h"
 
-#include <atomic>
 #include <cassert>
 #include <chrono>
-#include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <system_error>
@@ -324,9 +322,10 @@ void PushConsumerImpl::syncProcessQueue(const std::string& topic,
   for (const auto& message_queue : message_queue_list) {
     if (std::none_of(current.cbegin(), current.cend(),
                      [&](const rmq::MessageQueue& item) { return item == message_queue; })) {
-      SPDLOG_INFO("Start to receive message from {} according to latest assignment info from load balancer",
+      SPDLOG_DEBUG("Start to receive message from {} according to latest assignment info from load balancer",
                   simpleNameOf(message_queue));
-      if (!receiveMessage(message_queue, filter_expression)) {
+      std::string attempt_id;
+      if (!receiveMessage(message_queue, filter_expression, attempt_id)) {
         if (!active()) {
           SPDLOG_WARN("Failed to initiate receive message request-response-cycle for {}", simpleNameOf(message_queue));
           // TODO: remove it from current assignment such that a second attempt will be made again in the next round.
@@ -350,9 +349,9 @@ std::shared_ptr<ProcessQueue> PushConsumerImpl::getOrCreateProcessQueue(const rm
       process_queue = process_queue_table_.at(simpleNameOf(message_queue));
     } else {
       SPDLOG_INFO("Create ProcessQueue for message queue[{}]", simpleNameOf(message_queue));
-      // create ProcessQueue
-      process_queue =
-          std::make_shared<ProcessQueueImpl>(message_queue, filter_expression, shared_from_this(), client_manager_);
+      // create process queue object
+      process_queue = std::make_shared<ProcessQueueImpl>(
+          message_queue, filter_expression, shared_from_this(), client_manager_);
       std::shared_ptr<AsyncReceiveMessageCallback> receive_callback =
           std::make_shared<AsyncReceiveMessageCallback>(process_queue);
       process_queue->callback(receive_callback);
@@ -363,7 +362,8 @@ std::shared_ptr<ProcessQueue> PushConsumerImpl::getOrCreateProcessQueue(const rm
 }
 
 bool PushConsumerImpl::receiveMessage(const rmq::MessageQueue& message_queue,
-                                      const FilterExpression& filter_expression) {
+                                      const FilterExpression& filter_expression,
+                                      std::string& attempt_id) {
   if (!active()) {
     SPDLOG_INFO("PushConsumer has stopped. Drop further receive message request");
     return false;
@@ -379,7 +379,7 @@ bool PushConsumerImpl::receiveMessage(const rmq::MessageQueue& message_queue,
     SPDLOG_ERROR("Failed to resolve address for brokerName={}", message_queue.broker().name());
     return false;
   }
-  process_queue_ptr->receiveMessage();
+  process_queue_ptr->receiveMessage(attempt_id);
   return true;
 }
 

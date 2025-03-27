@@ -20,7 +20,6 @@
 #include <memory>
 
 #include "UniqueIdGenerator.h"
-#include "absl/memory/memory.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
