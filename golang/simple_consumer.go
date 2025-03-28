@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -287,6 +288,7 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	for k := range sc.subscriptionExpressions {
 		topics = append(topics, k)
 	}
+	sort.Strings(topics) // make sure sc.topicIndex can loop every topic
 	sc.subscriptionExpressionsLock.RUnlock()
 	// All topic is subscribed.
 	if len(topics) == 0 {
