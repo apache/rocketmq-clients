@@ -41,12 +41,12 @@ public class PushSubscriptionSettingsTest extends TestBase {
 
     @Test
     public void testToProtobuf() {
-        Resource groupResource = new Resource(FAKE_CONSUMER_GROUP_0);
+        Resource groupResource = new Resource(FAKE_NAMESPACE, FAKE_CONSUMER_GROUP_0);
         ClientId clientId = new ClientId();
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression());
         final Duration requestTimeout = Duration.ofSeconds(3);
-        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(clientId,
+        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(FAKE_NAMESPACE, clientId,
             fakeEndpoints(), groupResource, requestTimeout, subscriptionExpression);
         final Settings settings = pushSubscriptionSettings.toProtobuf();
         Assert.assertEquals(settings.getClientType(), ClientType.PUSH_CONSUMER);
@@ -54,26 +54,32 @@ public class PushSubscriptionSettingsTest extends TestBase {
         Assert.assertTrue(settings.hasSubscription());
         final Subscription subscription = settings.getSubscription();
         Assert.assertEquals(subscription.getGroup(),
-            apache.rocketmq.v2.Resource.newBuilder().setName(FAKE_CONSUMER_GROUP_0).build());
+            apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(FAKE_NAMESPACE)
+                .setName(FAKE_CONSUMER_GROUP_0)
+                .build());
         Assert.assertFalse(subscription.getFifo());
         final List<SubscriptionEntry> subscriptionsList = subscription.getSubscriptionsList();
         Assert.assertEquals(subscriptionsList.size(), 1);
         final SubscriptionEntry subscriptionEntry = subscriptionsList.get(0);
         Assert.assertEquals(subscriptionEntry.getExpression().getType(), FilterType.TAG);
         Assert.assertEquals(subscriptionEntry.getTopic(),
-            apache.rocketmq.v2.Resource.newBuilder().setName(FAKE_TOPIC_0).build());
+            apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(FAKE_NAMESPACE)
+                .setName(FAKE_TOPIC_0)
+                .build());
     }
 
     @Test
     public void testToProtobufWithSqlExpression() {
-        Resource groupResource = new Resource(FAKE_CONSUMER_GROUP_0);
+        Resource groupResource = new Resource(FAKE_NAMESPACE, FAKE_CONSUMER_GROUP_0);
         ClientId clientId = new ClientId();
 
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression("(a > 10 AND a < 100) OR (b IS NOT NULL AND "
             + "b=TRUE)", FilterExpressionType.SQL92));
         final Duration requestTimeout = Duration.ofSeconds(3);
-        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(clientId,
+        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(FAKE_NAMESPACE, clientId,
             fakeEndpoints(), groupResource, requestTimeout, subscriptionExpression);
         final Settings settings = pushSubscriptionSettings.toProtobuf();
         Assert.assertEquals(settings.getClientType(), ClientType.PUSH_CONSUMER);
@@ -81,14 +87,20 @@ public class PushSubscriptionSettingsTest extends TestBase {
         Assert.assertTrue(settings.hasSubscription());
         final Subscription subscription = settings.getSubscription();
         Assert.assertEquals(subscription.getGroup(),
-            apache.rocketmq.v2.Resource.newBuilder().setName(FAKE_CONSUMER_GROUP_0).build());
+            apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(FAKE_NAMESPACE)
+                .setName(FAKE_CONSUMER_GROUP_0)
+                .build());
         Assert.assertFalse(subscription.getFifo());
         final List<SubscriptionEntry> subscriptionsList = subscription.getSubscriptionsList();
         Assert.assertEquals(subscriptionsList.size(), 1);
         final SubscriptionEntry subscriptionEntry = subscriptionsList.get(0);
         Assert.assertEquals(subscriptionEntry.getExpression().getType(), FilterType.SQL);
         Assert.assertEquals(subscriptionEntry.getTopic(),
-            apache.rocketmq.v2.Resource.newBuilder().setName(FAKE_TOPIC_0).build());
+            apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(FAKE_NAMESPACE)
+                .setName(FAKE_TOPIC_0)
+                .build());
     }
 
     @Test
@@ -115,7 +127,7 @@ public class PushSubscriptionSettingsTest extends TestBase {
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression("(a > 10 AND a < 100) OR (b IS NOT NULL AND "
             + "b=TRUE)", FilterExpressionType.SQL92));
         final Duration requestTimeout = Duration.ofSeconds(3);
-        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(clientId,
+        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(FAKE_NAMESPACE, clientId,
             fakeEndpoints(), groupResource, requestTimeout, subscriptionExpression);
         pushSubscriptionSettings.sync(settings);
     }

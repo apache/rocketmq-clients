@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashMap;
 
 use async_trait::async_trait;
-use mockall::automock;
+use mockall::{automock, mock};
 use ring::hmac;
 use slog::{debug, error, info, o, Logger};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
-use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
 use tonic::metadata::{AsciiMetadataValue, MetadataMap};
@@ -35,9 +34,11 @@ use crate::pb::telemetry_command::Command;
 use crate::pb::{
     AckMessageRequest, AckMessageResponse, ChangeInvisibleDurationRequest,
     ChangeInvisibleDurationResponse, EndTransactionRequest, EndTransactionResponse,
+    ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse,
     HeartbeatRequest, HeartbeatResponse, NotifyClientTerminationRequest,
-    NotifyClientTerminationResponse, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest,
-    ReceiveMessageResponse, SendMessageRequest, SendMessageResponse, TelemetryCommand,
+    NotifyClientTerminationResponse, QueryAssignmentRequest, QueryAssignmentResponse,
+    QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest, ReceiveMessageResponse,
+    SendMessageRequest, SendMessageResponse, TelemetryCommand,
 };
 use crate::util::{PROTOCOL_VERSION, SDK_LANGUAGE, SDK_VERSION};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
@@ -53,6 +54,8 @@ const OPERATION_ACK_MESSAGE: &str = "rpc.ack_message";
 const OPERATION_CHANGE_INVISIBLE_DURATION: &str = "rpc.change_invisible_duration";
 const OPERATION_END_TRANSACTION: &str = "rpc.end_transaction";
 const OPERATION_NOTIFY_CLIENT_TERMINATION: &str = "rpc.notify_client_termination";
+const OPERATION_QUERY_ASSIGNMENT: &str = "rpc.query_assignment";
+const OPERATION_FORWARD_TO_DEADLETTER_QUEUE: &str = "rpc.forward_to_deadletter_queue";
 
 #[async_trait]
 #[automock]
@@ -89,6 +92,14 @@ pub(crate) trait RPCClient {
         &mut self,
         request: NotifyClientTerminationRequest,
     ) -> Result<NotifyClientTerminationResponse, ClientError>;
+    async fn query_assignment(
+        &mut self,
+        request: QueryAssignmentRequest,
+    ) -> Result<QueryAssignmentResponse, ClientError>;
+    async fn forward_to_deadletter_queue(
+        &mut self,
+        request: ForwardMessageToDeadLetterQueueRequest,
+    ) -> Result<ForwardMessageToDeadLetterQueueResponse, ClientError>;
 }
 
 #[derive(Debug)]
@@ -102,43 +113,25 @@ pub(crate) struct Session {
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
-impl Clone for Session {
-    fn clone(&self) -> Self {
-        Session {
-            logger: self.logger.clone(),
-            client_id: self.client_id.clone(),
-            option: self.option.clone(),
-            endpoints: self.endpoints.clone(),
-            stub: self.stub.clone(),
-            telemetry_tx: None,
-            shutdown_tx: None,
-        }
-    }
-}
-
 impl Session {
     const OPERATION_CREATE: &'static str = "session.create_session";
 
     const HTTP_SCHEMA: &'static str = "http";
     const HTTPS_SCHEMA: &'static str = "https";
 
-    #[cfg(test)]
-    pub(crate) fn mock() -> Self {
-        use crate::log::terminal_logger;
+    pub(crate) fn shadow_session(&self) -> Self {
         Session {
-            logger: terminal_logger(),
-            client_id: "fake_id".to_string(),
-            option: ClientOption::default(),
-            endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
-            stub: MessagingServiceClient::new(
-                Channel::from_static("http://localhost:8081").connect_lazy(),
-            ),
-            telemetry_tx: None,
+            logger: self.logger.clone(),
+            client_id: self.client_id.clone(),
+            option: self.option.clone(),
+            endpoints: self.endpoints.clone(),
+            stub: self.stub.clone(),
+            telemetry_tx: self.telemetry_tx.clone(),
             shutdown_tx: None,
         }
     }
 
-    async fn new(
+    pub(crate) async fn new(
         logger: &Logger,
         endpoints: &Endpoints,
         client_id: String,
@@ -362,20 +355,10 @@ impl Session {
         self.shutdown_tx.is_some()
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn update_settings(
         &mut self,
         settings: TelemetryCommand,
     ) -> Result<(), ClientError> {
-        if !self.is_started() {
-            return Err(ClientError::new(
-                ErrorKind::ClientIsNotRunning,
-                "session is not started",
-                OPERATION_UPDATE_SETTINGS,
-            )
-            .with_context("url", self.endpoints.endpoint_url()));
-        }
-
         if let Some(tx) = self.telemetry_tx.as_ref() {
             tx.send(settings).await.map_err(|e| {
                 ClientError::new(
@@ -390,7 +373,6 @@ impl Session {
     }
 }
 
-#[automock]
 #[async_trait]
 impl RPCClient for Session {
     async fn query_route(
@@ -548,69 +530,112 @@ impl RPCClient for Session {
             })?;
         Ok(response.into_inner())
     }
-}
 
-#[derive(Debug)]
-pub(crate) struct SessionManager {
-    logger: Logger,
-    client_id: String,
-    option: ClientOption,
-    session_map: Mutex<HashMap<String, Session>>,
-}
-
-#[automock]
-impl SessionManager {
-    pub(crate) fn new(logger: &Logger, client_id: String, option: &ClientOption) -> Self {
-        let logger = logger.new(o!("component" => "session"));
-        let session_map = Mutex::new(HashMap::new());
-        SessionManager {
-            logger,
-            client_id,
-            option: option.clone(),
-            session_map,
-        }
-    }
-
-    pub(crate) async fn get_or_create_session(
-        &self,
-        endpoints: &Endpoints,
-        settings: TelemetryCommand,
-        telemetry_command_tx: mpsc::Sender<Command>,
-    ) -> Result<Session, ClientError> {
-        let mut session_map = self.session_map.lock().await;
-        let endpoint_url = endpoints.endpoint_url().to_string();
-        return if session_map.contains_key(&endpoint_url) {
-            Ok(session_map.get(&endpoint_url).unwrap().clone())
-        } else {
-            let mut session = Session::new(
-                &self.logger,
-                endpoints,
-                self.client_id.clone(),
-                &self.option,
+    async fn query_assignment(
+        &mut self,
+        request: QueryAssignmentRequest,
+    ) -> Result<QueryAssignmentResponse, ClientError> {
+        let request = self.sign(request);
+        let response = self.stub.query_assignment(request).await.map_err(|e| {
+            ClientError::new(
+                ErrorKind::ClientInternal,
+                "send rpc query_assignment failed",
+                OPERATION_QUERY_ASSIGNMENT,
             )
-            .await?;
-            session.start(settings, telemetry_command_tx).await?;
-            session_map.insert(endpoint_url.clone(), session.clone());
-            Ok(session)
-        };
+            .set_source(e)
+        })?;
+        Ok(response.into_inner())
     }
 
-    pub(crate) async fn get_all_sessions(&self) -> Result<Vec<Session>, ClientError> {
-        let session_map = self.session_map.lock().await;
-        let mut sessions = Vec::new();
-        for (_, session) in session_map.iter() {
-            sessions.push(session.clone());
-        }
-        Ok(sessions)
+    async fn forward_to_deadletter_queue(
+        &mut self,
+        request: ForwardMessageToDeadLetterQueueRequest,
+    ) -> Result<ForwardMessageToDeadLetterQueueResponse, ClientError> {
+        let request = self.sign(request);
+        let response = self
+            .stub
+            .forward_message_to_dead_letter_queue(request)
+            .await
+            .map_err(|e| {
+                ClientError::new(
+                    ErrorKind::ClientInternal,
+                    "send rpc forward_to_deadletter_queue failed",
+                    OPERATION_FORWARD_TO_DEADLETTER_QUEUE,
+                )
+                .set_source(e)
+            })?;
+        Ok(response.into_inner())
+    }
+}
+
+mock! {
+    #[derive(Debug)]
+    pub(crate) Session {
+        pub(crate) fn shadow_session(&self) -> Self;
+        pub(crate) async fn new(
+            logger: &Logger,
+            endpoints: &Endpoints,
+            client_id: String,
+            option: &ClientOption,
+        ) -> Result<Self, ClientError>;
+        pub(crate) fn peer(&self) -> &str;
+        pub(crate) fn is_started(&self) -> bool;
+        pub(crate) async fn update_settings(
+            &mut self,
+            settings: TelemetryCommand,
+        ) -> Result<(), ClientError>;
+        pub(crate) async fn start(
+            &mut self,
+            settings: TelemetryCommand,
+            telemetry_command_tx: mpsc::Sender<Command>,
+        ) -> Result<(), ClientError>;
+        pub(crate) fn shutdown(&mut self);
     }
 
-    pub(crate) async fn shutdown(&self) {
-        let mut session_map = self.session_map.lock().await;
-        for (_, session) in session_map.iter_mut() {
-            session.shutdown();
-        }
-        session_map.clear();
+    #[async_trait]
+    impl RPCClient for Session {
+        async fn query_route(
+            &mut self,
+            request: QueryRouteRequest,
+        ) -> Result<QueryRouteResponse, ClientError>;
+        async fn heartbeat(
+            &mut self,
+            request: HeartbeatRequest,
+        ) -> Result<HeartbeatResponse, ClientError>;
+        async fn send_message(
+            &mut self,
+            request: SendMessageRequest,
+        ) -> Result<SendMessageResponse, ClientError>;
+        async fn receive_message(
+            &mut self,
+            request: ReceiveMessageRequest,
+        ) -> Result<Vec<ReceiveMessageResponse>, ClientError>;
+        async fn ack_message(
+            &mut self,
+            request: AckMessageRequest,
+        ) -> Result<AckMessageResponse, ClientError>;
+        async fn change_invisible_duration(
+            &mut self,
+            request: ChangeInvisibleDurationRequest,
+        ) -> Result<ChangeInvisibleDurationResponse, ClientError>;
+        async fn end_transaction(
+            &mut self,
+            request: EndTransactionRequest,
+        ) -> Result<EndTransactionResponse, ClientError>;
+        async fn notify_shutdown(
+            &mut self,
+            request: NotifyClientTerminationRequest,
+        ) -> Result<NotifyClientTerminationResponse, ClientError>;
+        async fn query_assignment(
+            &mut self,
+            request: QueryAssignmentRequest,
+        ) -> Result<QueryAssignmentResponse, ClientError>;
+        async fn forward_to_deadletter_queue(
+            &mut self,
+            request: ForwardMessageToDeadLetterQueueRequest,
+        ) -> Result<ForwardMessageToDeadLetterQueueResponse, ClientError>;
     }
+
 }
 
 #[cfg(test)]
@@ -685,39 +710,9 @@ mod tests {
 
         let (tx, _) = mpsc::channel(16);
         let result = session
-            .start(
-                build_producer_settings(&ProducerOption::default(), &ClientOption::default()),
-                tx,
-            )
+            .start(build_producer_settings(&ProducerOption::default()), tx)
             .await;
         assert!(result.is_ok());
         assert!(session.is_started());
-    }
-
-    #[tokio::test]
-    async fn session_manager_new() {
-        let mut server = RocketMQMockServer::start_default().await;
-        server.setup(
-            MockBuilder::when()
-                .path("/apache.rocketmq.v2.MessagingService/Telemetry")
-                .then()
-                .return_status(Code::Ok),
-        );
-
-        let logger = terminal_logger();
-        let mut client_option = ClientOption::default();
-        client_option.set_enable_tls(false);
-        let session_manager =
-            SessionManager::new(&logger, "test_client".to_string(), &client_option);
-        let (tx, _) = mpsc::channel(16);
-        let session = session_manager
-            .get_or_create_session(
-                &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
-                build_producer_settings(&ProducerOption::default(), &client_option),
-                tx,
-            )
-            .await
-            .unwrap();
-        debug!(logger, "session: {:?}", session);
     }
 }

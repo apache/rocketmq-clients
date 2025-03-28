@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <cstddef>
 #include <iostream>
 #include <random>
 #include <string>
@@ -50,12 +49,13 @@ std::string randomString(std::string::size_type len) {
   return result;
 }
 
-DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are published");
-DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
+DEFINE_string(topic, "TimerTopic", "Topic to which messages are published");
+DEFINE_string(access_point, "127.0.0.1:8081", "Service access URL, provided by your service provider");
 DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
 DEFINE_string(access_key, "", "Your access key ID");
 DEFINE_string(access_secret, "", "Your access secret");
+DEFINE_bool(tls, false, "Use HTTP2 with TLS/SSL");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
                       .withConfiguration(Configuration::newBuilder()
                                              .withEndpoints(FLAGS_access_point)
                                              .withCredentialsProvider(credentials_provider)
-                                             .withSsl(true)
+                                             .withSsl(FLAGS_tls)
                                              .build())
                       .withTopics({FLAGS_topic})
                       .build();
@@ -86,8 +86,8 @@ int main(int argc, char* argv[]) {
   auto stats_lambda = [&] {
     while (!stopped.load(std::memory_order_relaxed)) {
       long cnt = count.load(std::memory_order_relaxed);
-      while (count.compare_exchange_weak(cnt, 0)) {
-        break;
+      while (!count.compare_exchange_weak(cnt, 0)) {
+        cnt = count.load(std::memory_order_relaxed);
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
       std::cout << "QPS: " << cnt << std::endl;
@@ -109,9 +109,30 @@ int main(int argc, char* argv[]) {
                              std::chrono::system_clock::now() +
                              std::chrono::seconds(10))  // This message would be available to consumers after 10 seconds
                          .build();
+
       std::error_code ec;
       SendReceipt send_receipt = producer.send(std::move(message), ec);
-      std::cout << "Message-ID: " << send_receipt.message_id << std::endl;
+
+      if (ec) {
+        std::cout << "Message-ID: " << send_receipt.message_id << " send error"<< std::endl;
+      } else {
+        std::cout << "Message-ID: " << send_receipt.message_id << ", "
+                  << "Message-Recall-Handle: " << send_receipt.recall_handle << std::endl;
+
+        // To attempt to recall a message, server support is required to perform this operation.
+        if (i % 2) {
+          RecallReceipt recall_receipt = producer.recall(FLAGS_topic, send_receipt.recall_handle, ec);
+
+          if (ec) {
+            std::cout << "Message-ID: " << send_receipt.message_id
+                      << ", Recall ErrorCode: " << ec << std::endl;
+          } else {
+            std::cout << "Message-ID: " << send_receipt.message_id
+                      << ", Message-Recall-ID: " << recall_receipt.message_id << std::endl;
+          }
+        }
+      }
+
       count++;
     }
   } catch (...) {

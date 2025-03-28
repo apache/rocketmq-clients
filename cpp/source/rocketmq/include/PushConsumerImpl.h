@@ -52,7 +52,7 @@ public:
 
   void prepareHeartbeatData(HeartbeatRequest& request) override;
 
-  void topicsOfInterest(std::vector<std::string> topics) override LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
+  void topicsOfInterest(std::vector<std::string> &topics) override LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
 
   void start() override;
 
@@ -72,7 +72,7 @@ public:
 
   void scanAssignments() LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
 
-  static bool selectBroker(const TopicRouteDataPtr& route, std::string& broker_host);
+  bool selectBroker(const TopicRouteDataPtr& route, std::string& broker_host);
 
   void wrapQueryAssignmentRequest(const std::string& topic,
                                   const std::string& consumer_group,
@@ -99,8 +99,9 @@ public:
                                                         const FilterExpression& filter_expression)
       LOCKS_EXCLUDED(process_queue_table_mtx_);
 
-  bool receiveMessage(const rmq::MessageQueue& message_queue, const FilterExpression& filter_expression)
-      LOCKS_EXCLUDED(process_queue_table_mtx_);
+  bool receiveMessage(const rmq::MessageQueue& message_queue,
+                      const FilterExpression& filter_expression,
+                      std::string& attempt_id) LOCKS_EXCLUDED(process_queue_table_mtx_);
 
   uint32_t consumeThreadPoolSize() const;
 

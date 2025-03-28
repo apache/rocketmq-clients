@@ -81,8 +81,8 @@ struct InvocationContext : public BaseInvocationContext {
 
     if (!status.ok() && grpc::StatusCode::DEADLINE_EXCEEDED == status.error_code()) {
       auto diff =
-          std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - context.deadline())
-              .count();
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now() - context.deadline()).count();
       SPDLOG_WARN("Asynchronous RPC[{}.{}] timed out, elapsing {}ms, deadline-over-due: {}ms",
                   absl::FormatTime(created_time, absl::UTCTimeZone()), elapsed, diff);
     }

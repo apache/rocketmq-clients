@@ -19,7 +19,7 @@ using Proto = Apache.Rocketmq.V2;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using grpc = Grpc.Core;
+using grpcLib = Grpc.Core;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -89,7 +89,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public grpc::AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand> Telemetry(
+        public grpcLib::AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand> Telemetry(
             Endpoints endpoints)
         {
             return GetRpcClient(endpoints).Telemetry(_client.Sign());
@@ -120,6 +120,15 @@ namespace Org.Apache.Rocketmq
                 request, response, metadata);
         }
 
+        public async Task<RpcInvocation<Proto.RecallMessageRequest, Proto.RecallMessageResponse>>
+            RecallMessage(Endpoints endpoints, Proto.RecallMessageRequest request, TimeSpan timeout)
+        {
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).RecallMessage(metadata, request, timeout);
+            return new RpcInvocation<Proto.RecallMessageRequest, Proto.RecallMessageResponse>(
+                request, response, metadata);
+        }
+
         public async Task<RpcInvocation<Proto.SendMessageRequest, Proto.SendMessageResponse>> SendMessage(
             Endpoints endpoints, Proto::SendMessageRequest request, TimeSpan timeout)
         {
@@ -143,6 +152,7 @@ namespace Org.Apache.Rocketmq
         {
             var metadata = _client.Sign();
             var response = await GetRpcClient(endpoints).ReceiveMessage(metadata, request, timeout);
+
             return new RpcInvocation<Proto.ReceiveMessageRequest, List<Proto.ReceiveMessageResponse>>(
                 request, response, metadata);
         }
@@ -164,6 +174,16 @@ namespace Org.Apache.Rocketmq
             var response = await GetRpcClient(endpoints).ChangeInvisibleDuration(metadata, request, timeout);
             return new RpcInvocation<Proto.ChangeInvisibleDurationRequest, Proto.ChangeInvisibleDurationResponse>(
                 request, response, metadata);
+        }
+
+        public async Task<RpcInvocation<Proto.ForwardMessageToDeadLetterQueueRequest, Proto.ForwardMessageToDeadLetterQueueResponse>>
+            ForwardMessageToDeadLetterQueue(Endpoints endpoints,
+                Proto.ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout)
+        {
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).ForwardMessageToDeadLetterQueue(metadata, request, timeout);
+            return new RpcInvocation<Proto.ForwardMessageToDeadLetterQueueRequest, Proto.ForwardMessageToDeadLetterQueueResponse>(
+                    request, response, metadata);
         }
 
         public async Task<RpcInvocation<Proto.EndTransactionRequest, Proto.EndTransactionResponse>> EndTransaction(

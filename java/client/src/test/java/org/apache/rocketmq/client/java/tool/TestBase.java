@@ -86,6 +86,7 @@ import org.apache.rocketmq.client.java.rpc.Signature;
 import org.mockito.Mockito;
 
 public class TestBase {
+    protected static final String FAKE_NAMESPACE = "foo-bar-namespace";
     protected static final ClientId FAKE_CLIENT_ID = new ClientId();
 
     protected static final String FAKE_TOPIC_0 = "foo-bar-topic-0";
@@ -189,6 +190,14 @@ public class TestBase {
 
     protected MessageQueueImpl fakeMessageQueueImpl(String topic) {
         return new MessageQueueImpl(fakePbMessageQueue0(Resource.newBuilder().setName(topic).build()));
+    }
+
+    protected MessageQueueImpl fakeMessageQueueImpl(String namespace, String topic) {
+        return new MessageQueueImpl(fakePbMessageQueue0(
+            Resource.newBuilder()
+                .setResourceNamespace(namespace)
+                .setName(topic)
+                .build()));
     }
 
     protected MessageQueueImpl fakeMessageQueueImpl0() {
@@ -379,8 +388,8 @@ public class TestBase {
     }
 
     protected PublishingSettings fakeProducerSettings() {
-        return new PublishingSettings(FAKE_CLIENT_ID, fakeEndpoints(), fakeExponentialBackoffRetryPolicy(),
-            Duration.ofSeconds(1), new HashSet<>());
+        return new PublishingSettings(FAKE_NAMESPACE, FAKE_CLIENT_ID, fakeEndpoints(),
+            fakeExponentialBackoffRetryPolicy(), Duration.ofSeconds(1), new HashSet<>());
     }
 
     protected SendReceiptImpl fakeSendReceiptImpl(

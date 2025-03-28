@@ -72,7 +72,8 @@ bool operator==(const rmq::MessageQueue& lhs, const rmq::MessageQueue& rhs) {
 }
 
 std::string simpleNameOf(const rmq::MessageQueue& m) {
-  return fmt::format("{}{}-{}-{}", m.topic().resource_namespace(), m.topic().name(), m.id(), m.broker().name());
+  return fmt::format("{}@{}@{}@{}",
+                     m.topic().resource_namespace(), m.topic().name(), m.id(), m.broker().name());
 }
 
 bool operator==(const std::vector<rmq::MessageQueue>& lhs, const std::vector<rmq::MessageQueue>& rhs) {

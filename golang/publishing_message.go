@@ -26,6 +26,7 @@ import (
 )
 
 type PublishingMessage struct {
+	namespace    string
 	msg          *Message
 	encoding     v2.Encoding
 	messageId    string
@@ -33,7 +34,7 @@ type PublishingMessage struct {
 	traceContext *string
 }
 
-var NewPublishingMessage = func(msg *Message, settings *producerSettings, txEnabled bool) (*PublishingMessage, error) {
+var NewPublishingMessage = func(msg *Message, namespace string, settings *producerSettings, txEnabled bool) (*PublishingMessage, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("message is nil")
 	}
@@ -50,6 +51,8 @@ var NewPublishingMessage = func(msg *Message, settings *producerSettings, txEnab
 
 	// No need to compress message body.
 	pMsg.encoding = v2.Encoding_IDENTITY
+
+	pMsg.namespace = namespace
 
 	// Generate message id.
 	pMsg.messageId = GetMessageIdCodecInstance().NextMessageId().String()
@@ -84,7 +87,8 @@ func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
 	msg := &v2.Message{
 		Topic: &v2.Resource{
 			// ResourceNamespace: b.conn.Config().NameSpace,
-			Name: pMsg.msg.Topic,
+			Name:              pMsg.msg.Topic,
+			ResourceNamespace: pMsg.namespace,
 		},
 		SystemProperties: &v2.SystemProperties{
 			Keys:          pMsg.msg.GetKeys(),

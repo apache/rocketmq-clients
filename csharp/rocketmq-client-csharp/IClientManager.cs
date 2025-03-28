@@ -63,6 +63,16 @@ namespace Org.Apache.Rocketmq
             Endpoints endpoints, NotifyClientTerminationRequest request, TimeSpan timeout);
 
         /// <summary>
+        /// Recall messages.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request of recalling messages.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns>Task of response.</returns>
+        Task<RpcInvocation<RecallMessageRequest, RecallMessageResponse>> RecallMessage(
+            Endpoints endpoints, RecallMessageRequest request, TimeSpan timeout);
+
+        /// <summary>
         /// Send message to remote endpoints.
         /// </summary>
         /// <param name="endpoints">The target endpoints.</param>
@@ -111,6 +121,16 @@ namespace Org.Apache.Rocketmq
         /// <returns></returns>
         Task<RpcInvocation<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>> ChangeInvisibleDuration(
             Endpoints endpoints, ChangeInvisibleDurationRequest request, TimeSpan timeout);
+
+        /// <summary>
+        /// Send a message to the dead letter queue asynchronously, the method ensures no throwable.
+        /// </summary>
+        /// <param name="endpoints">Requested endpoints.</param>
+        /// <param name="request">Request of sending a message to DLQ.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns></returns>
+        Task<RpcInvocation<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse>> ForwardMessageToDeadLetterQueue(
+            Endpoints endpoints, ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout);
 
         /// <summary>
         /// Transaction ending request.

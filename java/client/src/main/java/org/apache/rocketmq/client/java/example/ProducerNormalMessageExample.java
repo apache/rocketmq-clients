@@ -57,6 +57,6 @@ public class ProducerNormalMessageExample {
         }
         // Close the producer when you don't need it anymore.
         // You could close it manually or add this into the JVM shutdown hook.
-        // producer.shutdown();
+        // producer.close();
     }
 }

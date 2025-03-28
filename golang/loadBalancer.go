@@ -31,6 +31,7 @@ import (
 type PublishingLoadBalancer interface {
 	TakeMessageQueueByMessageGroup(messageGroup *string) ([]*v2.MessageQueue, error)
 	TakeMessageQueues(excluded sync.Map, count int) ([]*v2.MessageQueue, error)
+	CopyAndUpdate([]*v2.MessageQueue) PublishingLoadBalancer
 }
 
 type publishingLoadBalancer struct {
@@ -119,8 +120,16 @@ func (plb *publishingLoadBalancer) TakeMessageQueues(excluded sync.Map, count in
 	return candidates, nil
 }
 
+func (plb *publishingLoadBalancer) CopyAndUpdate(messageQueues []*v2.MessageQueue) PublishingLoadBalancer {
+	return &publishingLoadBalancer{
+		messageQueues: messageQueues,
+		index:         plb.index,
+	}
+}
+
 type SubscriptionLoadBalancer interface {
 	TakeMessageQueue() (*v2.MessageQueue, error)
+	CopyAndUpdate([]*v2.MessageQueue) SubscriptionLoadBalancer
 }
 
 type subscriptionLoadBalancer struct {
@@ -146,4 +155,11 @@ func (slb *subscriptionLoadBalancer) TakeMessageQueue() (*v2.MessageQueue, error
 	idx := utils.Mod(next+1, len(slb.messageQueues))
 	selectMessageQueue := slb.messageQueues[idx]
 	return selectMessageQueue, nil
+}
+
+func (slb *subscriptionLoadBalancer) CopyAndUpdate(messageQueues []*v2.MessageQueue) SubscriptionLoadBalancer {
+	return &subscriptionLoadBalancer{
+		messageQueues: messageQueues,
+		index:         slb.index,
+	}
 }

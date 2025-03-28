@@ -45,9 +45,9 @@ public class SimpleSubscriptionSettings extends Settings {
     private final Duration longPollingTimeout;
     private final Map<String, FilterExpression> subscriptionExpressions;
 
-    public SimpleSubscriptionSettings(ClientId clientId, Endpoints endpoints, Resource group,
+    public SimpleSubscriptionSettings(String namespace, ClientId clientId, Endpoints endpoints, Resource group,
         Duration requestTimeout, Duration longPollingTimeout, Map<String, FilterExpression> subscriptionExpression) {
-        super(clientId, ClientType.SIMPLE_CONSUMER, endpoints, requestTimeout);
+        super(namespace, clientId, ClientType.SIMPLE_CONSUMER, endpoints, requestTimeout);
         this.group = group;
         this.subscriptionExpressions = subscriptionExpression;
         this.longPollingTimeout = longPollingTimeout;
@@ -59,7 +59,9 @@ public class SimpleSubscriptionSettings extends Settings {
         for (Map.Entry<String, FilterExpression> entry : subscriptionExpressions.entrySet()) {
             final FilterExpression filterExpression = entry.getValue();
             apache.rocketmq.v2.Resource topic = apache.rocketmq.v2.Resource.newBuilder()
-                .setName(entry.getKey()).build();
+                .setResourceNamespace(namespace)
+                .setName(entry.getKey())
+                .build();
             final apache.rocketmq.v2.FilterExpression.Builder expressionBuilder =
                 apache.rocketmq.v2.FilterExpression.newBuilder().setExpression(filterExpression.getExpression());
             final FilterExpressionType type = filterExpression.getFilterExpressionType();

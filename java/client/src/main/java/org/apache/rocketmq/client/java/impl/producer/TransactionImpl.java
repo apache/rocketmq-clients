@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
+import apache.rocketmq.v2.TransactionSource;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.io.IOException;
 import java.util.HashSet;
@@ -94,8 +95,14 @@ class TransactionImpl implements Transaction {
         for (Map.Entry<PublishingMessageImpl, SendReceiptImpl> entry : messageSendReceiptMap.entrySet()) {
             final PublishingMessageImpl publishingMessage = entry.getKey();
             final SendReceiptImpl sendReceipt = entry.getValue();
-            producerImpl.endTransaction(sendReceipt.getEndpoints(), new GeneralMessageImpl(publishingMessage),
-                sendReceipt.getMessageId(), sendReceipt.getTransactionId(), TransactionResolution.COMMIT);
+            producerImpl.endTransaction(
+                sendReceipt.getEndpoints(),
+                new GeneralMessageImpl(publishingMessage),
+                sendReceipt.getMessageId(),
+                sendReceipt.getTransactionId(),
+                TransactionResolution.COMMIT,
+                TransactionSource.SOURCE_CLIENT
+            );
         }
     }
 
@@ -107,8 +114,14 @@ class TransactionImpl implements Transaction {
         for (Map.Entry<PublishingMessageImpl, SendReceiptImpl> entry : messageSendReceiptMap.entrySet()) {
             final PublishingMessageImpl publishingMessage = entry.getKey();
             final SendReceiptImpl sendReceipt = entry.getValue();
-            producerImpl.endTransaction(sendReceipt.getEndpoints(), new GeneralMessageImpl(publishingMessage),
-                sendReceipt.getMessageId(), sendReceipt.getTransactionId(), TransactionResolution.ROLLBACK);
+            producerImpl.endTransaction(
+                sendReceipt.getEndpoints(),
+                new GeneralMessageImpl(publishingMessage),
+                sendReceipt.getMessageId(),
+                sendReceipt.getTransactionId(),
+                TransactionResolution.ROLLBACK,
+                TransactionSource.SOURCE_CLIENT
+            );
         }
     }
 }

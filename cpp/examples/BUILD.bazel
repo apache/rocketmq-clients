@@ -92,3 +92,14 @@ cc_binary(
         "@com_github_gflags_gflags//:gflags",
     ],
 )
+
+cc_binary(
+    name = "example_fifo_producer",
+    srcs = [
+        "ExampleFifoProducer.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
+    ]
+)

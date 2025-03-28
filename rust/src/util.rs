@@ -18,27 +18,27 @@ use std::hash::Hasher;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use crate::conf::{ClientOption, ProducerOption, SimpleConsumerOption};
+use once_cell::sync::Lazy;
 use siphasher::sip::SipHasher24;
 
+use crate::conf::{ProducerOption, PushConsumerOption, SimpleConsumerOption};
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{Endpoints, Route};
+use crate::model::common::{ClientType, Endpoints, Route};
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    Language, MessageQueue, Publishing, Resource, Settings, Subscription, TelemetryCommand, Ua,
+    Code, FilterExpression, Language, MessageQueue, Publishing, Resource, Settings, Status,
+    Subscription, SubscriptionEntry, TelemetryCommand, Ua,
 };
 
 pub(crate) static SDK_LANGUAGE: Language = Language::Rust;
 pub(crate) static SDK_VERSION: &str = "5.0.0";
 pub(crate) static PROTOCOL_VERSION: &str = "2.0.0";
 
-lazy_static::lazy_static! {
-    pub(crate) static ref HOST_NAME: String = match hostname::get() {
-        Ok(name) => name.to_str().unwrap_or("localhost").to_string(),
-        Err(_) => "localhost".to_string(),
-    };
-}
+pub(crate) static HOST_NAME: Lazy<String> = Lazy::new(|| match hostname::get() {
+    Ok(name) => name.to_str().unwrap_or("localhost").to_string(),
+    Err(_) => "localhost".to_string(),
+});
 
 pub(crate) fn select_message_queue(route: Arc<Route>) -> MessageQueue {
     let i = route.index.fetch_add(1, Ordering::Relaxed);
@@ -85,10 +85,7 @@ pub(crate) fn build_endpoints_by_message_queue(
     Ok(Endpoints::from_pb_endpoints(broker.endpoints.unwrap()))
 }
 
-pub(crate) fn build_producer_settings(
-    option: &ProducerOption,
-    client_options: &ClientOption,
-) -> TelemetryCommand {
+pub(crate) fn build_producer_settings(option: &ProducerOption) -> TelemetryCommand {
     let topics = option
         .topics()
         .clone()
@@ -102,10 +99,10 @@ pub(crate) fn build_producer_settings(
     let platform = os_info::get();
     TelemetryCommand {
         command: Some(Command::Settings(Settings {
-            client_type: Some(client_options.client_type.clone() as i32),
+            client_type: Some(ClientType::Producer as i32),
             request_timeout: Some(prost_types::Duration {
-                seconds: client_options.timeout().as_secs() as i64,
-                nanos: client_options.timeout().subsec_nanos() as i32,
+                seconds: option.timeout().as_secs() as i64,
+                nanos: option.timeout().subsec_nanos() as i32,
             }),
             pub_sub: Some(PubSub::Publishing(Publishing {
                 topics,
@@ -124,17 +121,14 @@ pub(crate) fn build_producer_settings(
     }
 }
 
-pub(crate) fn build_simple_consumer_settings(
-    option: &SimpleConsumerOption,
-    client_option: &ClientOption,
-) -> TelemetryCommand {
+pub(crate) fn build_simple_consumer_settings(option: &SimpleConsumerOption) -> TelemetryCommand {
     let platform = os_info::get();
     TelemetryCommand {
         command: Some(Command::Settings(Settings {
-            client_type: Some(client_option.client_type.clone() as i32),
+            client_type: Some(ClientType::SimpleConsumer as i32),
             request_timeout: Some(prost_types::Duration {
-                seconds: client_option.timeout().as_secs() as i64,
-                nanos: client_option.timeout().subsec_nanos() as i32,
+                seconds: option.timeout().as_secs() as i64,
+                nanos: option.timeout().subsec_nanos() as i32,
             }),
             pub_sub: Some(PubSub::Subscription(Subscription {
                 group: Some(Resource {
@@ -145,8 +139,8 @@ pub(crate) fn build_simple_consumer_settings(
                 fifo: Some(false),
                 receive_batch_size: None,
                 long_polling_timeout: Some(prost_types::Duration {
-                    seconds: client_option.long_polling_timeout().as_secs() as i64,
-                    nanos: client_option.long_polling_timeout().subsec_nanos() as i32,
+                    seconds: option.long_polling_timeout().as_secs() as i64,
+                    nanos: option.long_polling_timeout().subsec_nanos() as i32,
                 }),
             })),
             user_agent: Some(Ua {
@@ -161,13 +155,82 @@ pub(crate) fn build_simple_consumer_settings(
     }
 }
 
+pub(crate) fn build_push_consumer_settings(option: &PushConsumerOption) -> TelemetryCommand {
+    let subscriptions: Vec<SubscriptionEntry> = option
+        .subscription_expressions()
+        .iter()
+        .map(|(topic, filter_expression)| SubscriptionEntry {
+            topic: Some(Resource {
+                name: topic.to_string(),
+                resource_namespace: option.namespace().to_string(),
+            }),
+            expression: Some(FilterExpression {
+                expression: filter_expression.expression().to_string(),
+                r#type: filter_expression.filter_type() as i32,
+            }),
+        })
+        .collect();
+    let platform = os_info::get();
+    TelemetryCommand {
+        command: Some(Command::Settings(Settings {
+            client_type: Some(ClientType::PushConsumer as i32),
+            request_timeout: Some(prost_types::Duration {
+                seconds: option.timeout().as_secs() as i64,
+                nanos: option.timeout().subsec_nanos() as i32,
+            }),
+            pub_sub: Some(PubSub::Subscription(Subscription {
+                group: Some(Resource {
+                    name: option.consumer_group().to_string(),
+                    resource_namespace: option.namespace().to_string(),
+                }),
+                subscriptions,
+                fifo: Some(option.fifo()),
+                receive_batch_size: None,
+                long_polling_timeout: Some(prost_types::Duration {
+                    seconds: option.long_polling_timeout().as_secs() as i64,
+                    nanos: option.long_polling_timeout().subsec_nanos() as i32,
+                }),
+            })),
+            user_agent: Some(Ua {
+                language: SDK_LANGUAGE as i32,
+                version: SDK_VERSION.to_string(),
+                platform: format!("{} {}", platform.os_type(), platform.version()),
+                hostname: HOST_NAME.clone(),
+            }),
+            ..Settings::default()
+        })),
+        ..TelemetryCommand::default()
+    }
+}
+
+pub fn handle_response_status(
+    status: Option<Status>,
+    operation: &'static str,
+) -> Result<(), ClientError> {
+    let status = status.ok_or(ClientError::new(
+        ErrorKind::Server,
+        "server do not return status, this may be a bug",
+        operation,
+    ))?;
+
+    if status.code != Code::Ok as i32 {
+        return Err(
+            ClientError::new(ErrorKind::Server, "server return an error", operation)
+                .with_context("code", format!("{}", status.code))
+                .with_context("message", status.message),
+        );
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::Arc;
+
     use crate::model::common::Route;
     use crate::pb;
     use crate::pb::{Broker, MessageQueue};
-    use std::sync::atomic::AtomicUsize;
-    use std::sync::Arc;
 
     use super::*;
 
@@ -273,11 +336,56 @@ mod tests {
 
     #[test]
     fn util_build_producer_settings() {
-        build_producer_settings(&ProducerOption::default(), &ClientOption::default());
+        build_producer_settings(&ProducerOption::default());
     }
 
     #[test]
     fn util_build_simple_consumer_settings() {
-        build_simple_consumer_settings(&SimpleConsumerOption::default(), &ClientOption::default());
+        build_simple_consumer_settings(&SimpleConsumerOption::default());
+    }
+
+    #[test]
+    fn test_handle_response_status() {
+        let result = handle_response_status(None, "test");
+        assert!(result.is_err(), "should return error when status is None");
+        let result = result.unwrap_err();
+        assert_eq!(result.kind, ErrorKind::Server);
+        assert_eq!(
+            result.message,
+            "server do not return status, this may be a bug"
+        );
+        assert_eq!(result.operation, "test");
+
+        let result = handle_response_status(
+            Some(Status {
+                code: Code::BadRequest as i32,
+                message: "test failed".to_string(),
+            }),
+            "test failed",
+        );
+        assert!(
+            result.is_err(),
+            "should return error when status is BadRequest"
+        );
+        let result = result.unwrap_err();
+        assert_eq!(result.kind, ErrorKind::Server);
+        assert_eq!(result.message, "server return an error");
+        assert_eq!(result.operation, "test failed");
+        assert_eq!(
+            result.context,
+            vec![
+                ("code", format!("{}", Code::BadRequest as i32)),
+                ("message", "test failed".to_string()),
+            ]
+        );
+
+        let result = handle_response_status(
+            Some(Status {
+                code: Code::Ok as i32,
+                message: "test success".to_string(),
+            }),
+            "test success",
+        );
+        assert!(result.is_ok(), "should not return error when status is Ok");
     }
 }

@@ -87,6 +87,14 @@ func newFuncSimpleConsumerOption(f func(*simpleConsumerOptions)) *funcSimpleCons
 	}
 }
 
+// WithClientFuncForSimpleConsumer returns a consumerOption that sets ClientFunc for simple consumer.
+// Default is nameserver.New.
+func WithClientFuncForSimpleConsumer(f NewClientFunc) SimpleConsumerOption {
+	return newFuncSimpleConsumerOption(func(o *simpleConsumerOptions) {
+		o.clientFunc = f
+	})
+}
+
 // WithTag returns a consumerOption that sets tag for consumer.
 // Note: Default it uses *.
 func WithSubscriptionExpressions(subscriptionExpressions map[string]*FilterExpression) SimpleConsumerOption {
@@ -164,7 +172,8 @@ func (sc *simpleConsumerSettings) toProtobuf() *v2.Settings {
 	subscriptions := make([]*v2.SubscriptionEntry, 0)
 	for k, v := range sc.subscriptionExpressions {
 		topic := &v2.Resource{
-			Name: k,
+			Name:              k,
+			ResourceNamespace: sc.groupName.GetResourceNamespace(),
 		}
 		filterExpression := &v2.FilterExpression{
 			Expression: v.expression,

@@ -1,0 +1,28 @@
+=========================================================================
+==  Apache Notice                                                      ==
+=========================================================================
+
+Apache RocketMQ
+Copyright 2016-2022 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+=========================================================================
+==  Protocol Buffers Notice                                            ==
+=========================================================================
+
+This product includes software developed by the Protocol Buffers
+project (https://github.com/protocolbuffers/protobuf).
+
+=========================================================================
+==  gRPC Notice                                                        ==
+=========================================================================
+
+This product includes software developed by grpc
+ (https://github.com/grpc/grpc).
+=========================================================================
+==  Opentelemetry Notice                                               ==
+=========================================================================
+
+This product includes software developed by Opentelemetry
+ (https://github.com/open-telemetry).

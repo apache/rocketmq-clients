@@ -25,7 +25,7 @@
 using namespace std::chrono;
 ROCKETMQ_NAMESPACE_BEGIN
 
-class SimpleConsumerImpl : public ClientImpl, public std::enable_shared_from_this<SimpleConsumerImpl> {
+class SimpleConsumerImpl : virtual public ClientImpl, public std::enable_shared_from_this<SimpleConsumerImpl> {
 public:
   SimpleConsumerImpl(std::string group);
 
@@ -66,7 +66,7 @@ public:
   }
 
 protected:
-  void topicsOfInterest(std::vector<std::string> topics) override;
+  void topicsOfInterest(std::vector<std::string> &topics) override;
 
 private:
   absl::flat_hash_map<std::string, FilterExpression> subscriptions_ GUARDED_BY(subscriptions_mtx_);

@@ -87,7 +87,7 @@ public class PublishingMessageImpl extends MessageImpl {
      * <p>This method should be invoked before each message sending, because the born time is reset before each
      * invocation, which means that it should not be invoked ahead of time.
      */
-    public apache.rocketmq.v2.Message toProtobuf(MessageQueueImpl mq) {
+    public apache.rocketmq.v2.Message toProtobuf(String namespace, MessageQueueImpl mq) {
         final apache.rocketmq.v2.SystemProperties.Builder systemPropertiesBuilder =
             apache.rocketmq.v2.SystemProperties.newBuilder()
                 // Message keys
@@ -112,7 +112,7 @@ public class PublishingMessageImpl extends MessageImpl {
         // Message group
         this.getMessageGroup().ifPresent(systemPropertiesBuilder::setMessageGroup);
         final SystemProperties systemProperties = systemPropertiesBuilder.build();
-        Resource topicResource = Resource.newBuilder().setName(getTopic()).build();
+        Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(getTopic()).build();
         return apache.rocketmq.v2.Message.newBuilder()
             // Topic
             .setTopic(topicResource)

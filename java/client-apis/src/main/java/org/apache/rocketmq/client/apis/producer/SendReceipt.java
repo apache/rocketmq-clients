@@ -24,4 +24,7 @@ import org.apache.rocketmq.client.apis.message.MessageId;
  */
 public interface SendReceipt {
     MessageId getMessageId();
+
+    // Unique handle to identify a message to recall, only delay message is supported for now
+    String getRecallHandle();
 }

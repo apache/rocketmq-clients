@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -102,6 +102,11 @@ func (cs *defaultClientSession) startUp() {
 	cs.cli.log.Infof("defaultClientSession is startUp! endpoints=%v", cs.endpoints)
 	go func() {
 		for {
+			select {
+			case <-cs.cli.done:
+				return
+			default:
+			}
 			// ensure that observer is present, if not wait for it to be regenerated on publish.
 			observer, acquired_observer := cs._acquire_observer()
 			if !acquired_observer {
@@ -372,7 +377,8 @@ func (cli *defaultClient) queryRoute(ctx context.Context, topic string, duration
 func (cli *defaultClient) getQueryRouteRequest(topic string) *v2.QueryRouteRequest {
 	return &v2.QueryRouteRequest{
 		Topic: &v2.Resource{
-			Name: topic,
+			Name:              topic,
+			ResourceNamespace: cli.config.NameSpace,
 		},
 		Endpoints: cli.accessPoint,
 	}
@@ -431,7 +437,7 @@ func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatReques
 			Message: resp.GetStatus().GetMessage(),
 		}
 	}
-	cli.log.Infof("send heartbeat successfully, endpoints=%v", endpoints)
+	cli.log.Debugf("send heartbeat successfully, endpoints=%v", endpoints)
 	switch p := cli.clientImpl.(type) {
 	case *defaultProducer:
 		if _, ok := p.isolated.LoadAndDelete(target); ok {
@@ -499,27 +505,40 @@ func (cli *defaultClient) startUp() error {
 	f := func() {
 		cli.router.Range(func(k, v interface{}) bool {
 			topic := k.(string)
-			oldRoute := v
 			newRoute, err := cli.queryRoute(context.TODO(), topic, cli.opts.timeout)
 			if err != nil {
 				cli.log.Errorf("scheduled queryRoute err=%v", err)
 			}
-			if newRoute == nil && oldRoute != nil {
+			if newRoute == nil && v != nil {
 				cli.log.Info("newRoute is nil, but oldRoute is not. do not update")
 				return true
 			}
-			if !reflect.DeepEqual(newRoute, oldRoute) {
+			var oldRoute []*v2.MessageQueue
+			if v != nil {
+				oldRoute = v.([]*v2.MessageQueue)
+			}
+			if !routeEqual(oldRoute, newRoute) {
 				cli.router.Store(k, newRoute)
 				switch impl := cli.clientImpl.(type) {
 				case *defaultProducer:
-					plb, err := NewPublishingLoadBalancer(newRoute)
-					if err == nil {
-						impl.publishingRouteDataResultCache.Store(topic, plb)
+					existing, ok := impl.publishingRouteDataResultCache.Load(topic)
+					if !ok {
+						plb, err := NewPublishingLoadBalancer(newRoute)
+						if err == nil {
+							impl.publishingRouteDataResultCache.Store(topic, plb)
+						}
+					} else {
+						impl.publishingRouteDataResultCache.Store(topic, existing.(PublishingLoadBalancer).CopyAndUpdate(newRoute))
 					}
 				case *defaultSimpleConsumer:
-					slb, err := NewSubscriptionLoadBalancer(newRoute)
-					if err == nil {
-						impl.subTopicRouteDataResultCache.Store(topic, slb)
+					existing, ok := impl.subTopicRouteDataResultCache.Load(topic)
+					if !ok {
+						slb, err := NewSubscriptionLoadBalancer(newRoute)
+						if err == nil {
+							impl.subTopicRouteDataResultCache.Store(topic, slb)
+						}
+					} else {
+						impl.subTopicRouteDataResultCache.Store(topic, existing.(SubscriptionLoadBalancer).CopyAndUpdate(newRoute))
 					}
 				}
 			}
@@ -529,6 +548,19 @@ func (cli *defaultClient) startUp() error {
 	ticker.Tick(f, time.Second*30, cli.done)
 	return nil
 }
+
+func routeEqual(old, new []*v2.MessageQueue) bool {
+	if len(old) != len(new) {
+		return false
+	}
+	for i := 0; i < len(old); i++ {
+		if !proto.Equal(old[i], new[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 func (cli *defaultClient) notifyClientTermination() {
 	cli.log.Info("start notifyClientTermination")
 	ctx := cli.Sign(context.Background())
@@ -568,6 +600,8 @@ func (cli *defaultClient) Sign(ctx context.Context) context.Context {
 		innerMD.VersionValue,
 		innerMD.ClintID,
 		cli.clientID,
+		innerMD.NameSpace,
+		cli.config.NameSpace,
 		innerMD.DateTime,
 		now,
 		innerMD.Authorization,

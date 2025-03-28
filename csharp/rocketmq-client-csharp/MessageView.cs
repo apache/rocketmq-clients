@@ -77,7 +77,17 @@ namespace Org.Apache.Rocketmq
 
         public DateTime BornTime { get; }
 
-        public int DeliveryAttempt { get; }
+        public int DeliveryAttempt { get; set; }
+
+        public int IncrementAndGetDeliveryAttempt()
+        {
+            return ++DeliveryAttempt;
+        }
+
+        public bool IsCorrupted()
+        {
+            return _corrupted;
+        }
 
         public static MessageView FromProtobuf(Proto.Message message, MessageQueue messageQueue = null)
         {
@@ -137,7 +147,16 @@ namespace Org.Apache.Rocketmq
             {
                 case Proto.Encoding.Gzip:
                     {
-                        body = Utilities.DecompressBytesGzip(message.Body.ToByteArray());
+                        // Gzip
+                        if (body[0] == 0x1f && body[1] == 0x8b)
+                        {
+                            body = Utilities.DecompressBytesGzip(raw);
+                        }
+                        // Zlib
+                        else if (body[0] == 0x78 || body[0] == 0x79)
+                        {
+                            body = Utilities.DecompressBytesZlib(raw);
+                        }
                         break;
                     }
                 case Proto.Encoding.Identity:
@@ -148,7 +167,7 @@ namespace Org.Apache.Rocketmq
                 default:
                     {
                         Logger.LogError($"Unsupported message encoding algorithm," +
-                                     $" topic={topic}, messageId={messageId}, bodyEncoding={bodyEncoding}");
+                                        $" topic={topic}, messageId={messageId}, bodyEncoding={bodyEncoding}");
                         break;
                     }
             }

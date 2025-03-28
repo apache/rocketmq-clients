@@ -17,18 +17,20 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import apache.rocketmq.v2.ClientType;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.EndTransactionRequest;
 import apache.rocketmq.v2.EndTransactionResponse;
 import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
+import apache.rocketmq.v2.RecallMessageRequest;
+import apache.rocketmq.v2.RecallMessageResponse;
 import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.Status;
+import apache.rocketmq.v2.TransactionSource;
+import com.google.common.base.Preconditions;
 import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -50,16 +52,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import net.javacrumbs.futureconverter.java8guava.FutureConverter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.apis.producer.Producer;
+import org.apache.rocketmq.client.apis.producer.RecallReceipt;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
 import org.apache.rocketmq.client.apis.producer.Transaction;
 import org.apache.rocketmq.client.apis.producer.TransactionChecker;
 import org.apache.rocketmq.client.apis.producer.TransactionResolution;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
+import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
@@ -101,8 +106,8 @@ class ProducerImpl extends ClientImpl implements Producer {
         TransactionChecker checker) {
         super(clientConfiguration, topics);
         ExponentialBackoffRetryPolicy retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(maxAttempts);
-        this.publishingSettings = new PublishingSettings(clientId, endpoints, retryPolicy,
-            clientConfiguration.getRequestTimeout(), topics);
+        this.publishingSettings = new PublishingSettings(clientConfiguration.getNamespace(), clientId, endpoints,
+            retryPolicy, clientConfiguration.getRequestTimeout(), topics);
         this.checker = checker;
         this.publishingRouteDataCache = new ConcurrentHashMap<>();
     }
@@ -163,7 +168,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                     }
                     final GeneralMessage generalMessage = new GeneralMessageImpl(messageView);
                     endTransaction(endpoints, generalMessage, messageView.getMessageId(),
-                        transactionId, resolution);
+                        transactionId, resolution, TransactionSource.SOURCE_SERVER_CHECK);
                 } catch (Throwable t) {
                     log.error("Exception raised while ending the transaction, messageId={}, transactionId={}, "
                         + "endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
@@ -241,7 +246,7 @@ class ProducerImpl extends ClientImpl implements Producer {
      */
     @Override
     public Transaction beginTransaction() {
-        checkNotNull(checker, "Transaction checker should not be null");
+        Preconditions.checkNotNull(checker, "Transaction checker should not be null");
         if (!this.isRunning()) {
             log.error("Unable to begin a transaction because producer is not running, state={}, clientId={}",
                 this.state(), clientId);
@@ -251,15 +256,32 @@ class ProducerImpl extends ClientImpl implements Producer {
     }
 
     @Override
+    public RecallReceipt recallMessage(String topic, String recallHandle) throws ClientException {
+        final ListenableFuture<RecallReceipt> future = recallMessage0(topic, recallHandle);
+        return handleClientFuture(future);
+    }
+
+    @Override
+    public CompletableFuture<RecallReceipt> recallMessageAsync(String topic, String recallHandle) {
+        final ListenableFuture<RecallReceipt> future = recallMessage0(topic, recallHandle);
+        return FutureConverter.toCompletableFuture(future);
+    }
+
+    @Override
     public void close() {
         this.stopAsync().awaitTerminated();
     }
 
     public void endTransaction(Endpoints endpoints, GeneralMessage generalMessage, MessageId messageId,
-        String transactionId, final TransactionResolution resolution) throws ClientException {
+        String transactionId, final TransactionResolution resolution, final TransactionSource transactionSource)
+        throws ClientException {
         final EndTransactionRequest.Builder builder = EndTransactionRequest.newBuilder()
             .setMessageId(messageId.toString()).setTransactionId(transactionId)
-            .setTopic(apache.rocketmq.v2.Resource.newBuilder().setName(generalMessage.getTopic()).build());
+            .setSource(transactionSource)
+            .setTopic(apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(clientConfiguration.getNamespace())
+                .setName(generalMessage.getTopic())
+                .build());
         switch (resolution) {
             case COMMIT:
                 builder.setResolution(apache.rocketmq.v2.TransactionResolution.COMMIT);
@@ -415,7 +437,8 @@ class ProducerImpl extends ClientImpl implements Producer {
      */
     private SendMessageRequest wrapSendMessageRequest(List<PublishingMessageImpl> pubMessages, MessageQueueImpl mq) {
         final List<apache.rocketmq.v2.Message> messages = pubMessages.stream()
-            .map(publishingMessage -> publishingMessage.toProtobuf(mq)).collect(Collectors.toList());
+            .map(publishingMessage -> publishingMessage.toProtobuf(clientConfiguration.getNamespace(), mq))
+            .collect(Collectors.toList());
         return SendMessageRequest.newBuilder().addAllMessages(messages).build();
     }
 
@@ -514,14 +537,6 @@ class ProducerImpl extends ClientImpl implements Producer {
                         maxAttempts, attempt, topic, messageIds, endpoints, clientId, t);
                     return;
                 }
-                // No need more attempts for transactional message.
-                if (MessageType.TRANSACTION.equals(messageType)) {
-                    future0.setException(t);
-                    log.error("Failed to send transactional message finally, maxAttempts=1, attempt={}, " +
-                            "topic={}, messageId(s)={}, endpoints={}, clientId={}", attempt, topic, messageIds,
-                        endpoints, clientId, t);
-                    return;
-                }
                 // Try to do more attempts.
                 int nextAttempt = 1 + attempt;
                 // Retry immediately if the request is not throttled.
@@ -562,5 +577,33 @@ class ProducerImpl extends ClientImpl implements Producer {
         }
         return Futures.transform(getRouteData(topic), topicRouteData -> updatePublishingLoadBalancer(topic,
             topicRouteData), MoreExecutors.directExecutor());
+    }
+
+    ListenableFuture<RecallReceipt> recallMessage0(String topic, String recallHandle) {
+        if (!this.isRunning()) {
+            final IllegalStateException e = new IllegalStateException("Producer is not running now");
+            log.error("Unable to recall message because producer is not running, state={}, clientId={}",
+                this.state(), clientId);
+            return Futures.immediateFailedFuture(e);
+        }
+        if (StringUtils.isEmpty(recallHandle)) {
+            return Futures.immediateFailedFuture(new IllegalArgumentException("recall handle is invalid"));
+        }
+        final RecallMessageRequest request = RecallMessageRequest.newBuilder()
+            .setTopic(apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(clientConfiguration.getNamespace())
+                .setName(topic)
+                .build())
+            .setRecallHandle(recallHandle)
+            .build();
+        final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+        final RpcFuture<RecallMessageRequest, RecallMessageResponse> future =
+            this.getClientManager().recallMessage(endpoints, request, requestTimeout);
+
+        return Futures.transformAsync(future, response -> {
+            final Status status = response.getStatus();
+            StatusChecker.check(status, future);
+            return Futures.immediateFuture(new RecallReceiptImpl(response.getMessageId()));
+        }, MoreExecutors.directExecutor());
     }
 }

@@ -33,6 +33,8 @@ import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryAssignmentResponse;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
+import apache.rocketmq.v2.RecallMessageRequest;
+import apache.rocketmq.v2.RecallMessageResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
@@ -185,6 +187,18 @@ public interface RpcClient {
      */
     ListenableFuture<NotifyClientTerminationResponse> notifyClientTermination(Metadata metadata,
         NotifyClientTerminationRequest request, Executor executor, Duration duration);
+
+    /**
+     * Recall message asynchronously.
+     *
+     * @param metadata gRPC request header metadata.
+     * @param request  recall message request
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @return invocation of response future.
+     */
+    ListenableFuture<RecallMessageResponse> recallMessage(Metadata metadata,
+        RecallMessageRequest request, Executor executor, Duration duration);
 
     /**
      * Start a streaming request and get the request observer.

@@ -274,7 +274,7 @@ public class MessageViewImpl implements MessageView {
         switch (bodyEncoding) {
             case GZIP:
                 try {
-                    body = Utilities.uncompressBytesGzip(body);
+                    body = Utilities.decompressBytes(body);
                 } catch (IOException e) {
                     log.error("Failed to uncompress message body, topic={}, messageId={}", topic, messageId);
                     corrupted = true;

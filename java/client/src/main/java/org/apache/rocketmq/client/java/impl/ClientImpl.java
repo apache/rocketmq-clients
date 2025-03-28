@@ -608,7 +608,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     protected ListenableFuture<TopicRouteData> fetchTopicRoute0(final String topic) {
-        Resource topicResource = Resource.newBuilder().setName(topic).build();
+        Resource topicResource = Resource.newBuilder()
+            .setResourceNamespace(clientConfiguration.getNamespace())
+            .setName(topic)
+            .build();
         final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
             .setEndpoints(endpoints.toProtobuf()).build();
         final RpcFuture<QueryRouteRequest, QueryRouteResponse> future =

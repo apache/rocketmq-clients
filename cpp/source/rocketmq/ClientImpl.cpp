@@ -19,11 +19,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <functional>
-#include <iterator>
 #include <memory>
 #include <string>
 #include <system_error>
@@ -43,9 +41,6 @@
 #include "absl/strings/str_split.h"
 #include "fmt/format.h"
 #include "opencensus/stats/stats.h"
-#include "rocketmq/Logger.h"
-#include "rocketmq/Message.h"
-#include "rocketmq/MessageListener.h"
 #include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
@@ -175,12 +170,16 @@ void ClientImpl::start() {
   auto telemetry_functor = [ptr]() {
     std::shared_ptr<ClientImpl> base = ptr.lock();
     if (base) {
-      SPDLOG_INFO("Sync client settings to servers");
+      SPDLOG_DEBUG("Sync client settings to servers");
       base->syncClientSettings();
     }
   };
-  telemetry_handle_ = client_manager_->getScheduler()->schedule(telemetry_functor, TELEMETRY_TASK_NAME,
-                                                                std::chrono::minutes(5), std::chrono::minutes(5));
+
+  // refer java sdk: set refresh interval to 5 minutes
+  // org.apache.rocketmq.client.java.impl.ClientSessionImpl#syncSettings0
+  telemetry_handle_ = client_manager_->getScheduler()->schedule(
+      telemetry_functor, TELEMETRY_TASK_NAME,
+      std::chrono::minutes(5), std::chrono::minutes(5));
 
   auto&& metric_service_endpoint = metricServiceEndpoint();
   if (!metric_service_endpoint.empty()) {
@@ -404,8 +403,8 @@ void ClientImpl::heartbeat() {
       }
       SPDLOG_DEBUG("Heartbeat to {} OK", target);
     };
-    client_manager_->heartbeat(target, metadata, request, absl::ToChronoMilliseconds(client_config_.request_timeout),
-                               callback);
+    client_manager_->heartbeat(target, metadata, request,
+      absl::ToChronoMilliseconds(client_config_.request_timeout), callback);
   }
 }
 

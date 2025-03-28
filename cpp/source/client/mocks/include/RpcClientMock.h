@@ -56,6 +56,9 @@ public:
   MOCK_METHOD(void, asyncEndTransaction, (const EndTransactionRequest&, InvocationContext<EndTransactionResponse>*),
               (override));
 
+  MOCK_METHOD(void, asyncRecallMessage, (const RecallMessageRequest&, InvocationContext<RecallMessageResponse>*),
+              (override));
+
   MOCK_METHOD(void, asyncForwardMessageToDeadLetterQueue,
               (const ForwardMessageToDeadLetterQueueRequest&,
                InvocationContext<ForwardMessageToDeadLetterQueueResponse>*),

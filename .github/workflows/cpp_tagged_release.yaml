@@ -1,0 +1,57 @@
+---
+name: "cpp-tagged-release"
+
+on:
+  push:
+    tags:
+      - "cpp-*"
+
+jobs:
+  tagged-release:
+    name: "C++ Tagged Release"
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: grpc/grpc
+          # The branch, tag or SHA to checkout. When checking out the repository that
+          # triggered a workflow, this defaults to the reference or SHA for that event.
+          # Otherwise, uses the default branch.
+          ref: 'v1.46.3'
+          # Relative path under $GITHUB_WORKSPACE to place the repository
+          path: cpp/repo/grpc
+          submodules: true
+      - name: "Install Dependencies"
+        run: |
+            sudo apt-get install -y build-essential autoconf libtool pkg-config cmake git libprotobuf-dev libssl-dev zlib1g-dev libgflags-dev
+      - name: "Build gRPC"
+        working-directory: ./cpp/repo/grpc  
+        run: |
+          mkdir _build && cd _build
+          cmake -DCMAKE_INSTALL_PREFIX=$HOME/grpc -DgRPC_SSL_PROVIDER=package -DgRPC_ZLIB_PROVIDER=package -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG -DgRPC_ZLIB_PROVIDER=package ..
+          make
+          make install
+      - name: "Build Libraries"
+        working-directory: ./cpp
+        run: |
+          mkdir _build && cd _build
+          cmake .. 
+          make
+      - name: "Package"
+        working-directory: ./cpp
+        run: |
+          mkdir -p dist/lib
+          mkdir -p dist/include
+          cp -r include/rocketmq dist/include/
+          cp _build/librocketmq.so dist/lib/
+          cp _build/librocketmq.a  dist/lib/
+          tar -czvf dist.tar.gz dist
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          automatic_release_tag: cpp
+          files: |
+            cpp/dist.tar.gz

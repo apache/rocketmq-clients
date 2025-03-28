@@ -45,16 +45,19 @@ namespace Org.Apache.Rocketmq
 
         public static byte[] GetMacAddress()
         {
-            var nic = NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(
-                          x => x.OperationalStatus == OperationalStatus.Up &&
-                               x.NetworkInterfaceType != NetworkInterfaceType.Loopback) ??
-                      NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(
-                          x => x.OperationalStatus == OperationalStatus.Unknown &&
-                               x.NetworkInterfaceType != NetworkInterfaceType.Loopback) ??
-                      NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(
-                          x => x.NetworkInterfaceType != NetworkInterfaceType.Loopback);
+            var nics = NetworkInterface.GetAllNetworkInterfaces().Where(
+                x => x.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                     (int)x.NetworkInterfaceType != 53);
 
-            return nic != null ? nic.GetPhysicalAddress().GetAddressBytes() : RandomMacAddressBytes;
+            var nic = nics.FirstOrDefault(x => x.OperationalStatus == OperationalStatus.Up) ??
+                      nics.FirstOrDefault(x => x.OperationalStatus == OperationalStatus.Unknown) ??
+                      nics.FirstOrDefault();
+
+            if (nic == null) { return RandomMacAddressBytes; }
+
+            var mac = nic.GetPhysicalAddress().GetAddressBytes();
+
+            return mac.Length < 6 ? mac : RandomMacAddressBytes;
         }
 
         public static int GetProcessId()
@@ -77,24 +80,44 @@ namespace Org.Apache.Rocketmq
             return $"{hostName}@{pid}@{index}@{no}";
         }
 
+#if NET5_0_OR_GREATER
         public static string ComputeMd5Hash(byte[] data)
         {
-            using (var md5 = MD5.Create())
-            {
-                var hashBytes = md5.ComputeHash(data);
-                return BitConverter.ToString(hashBytes).Replace("-", "");
-            }
+            var hashBytes = MD5.HashData(data);
+            return Convert.ToHexString(hashBytes);
         }
 
         public static string ComputeSha1Hash(byte[] data)
         {
-            using (var sha1 = SHA1.Create())
-            {
-                var hashBytes = sha1.ComputeHash(data);
-                return BitConverter.ToString(hashBytes).Replace("-", "");
-            }
+            var hashBytes = SHA1.HashData(data);
+            return Convert.ToHexString(hashBytes);
         }
 
+        public static string ByteArrayToHexString(byte[] bytes)
+        {
+            return Convert.ToHexString(bytes);
+        }
+#else
+        private static readonly ThreadLocal<MD5> Md5 = new ThreadLocal<MD5>(MD5.Create);
+        private static readonly ThreadLocal<SHA1> Sha1 = new ThreadLocal<SHA1>(SHA1.Create);
+
+        public static string ComputeMd5Hash(byte[] data)
+        {
+            var hashBytes = Md5.Value.ComputeHash(data);
+            return BitConverter.ToString(hashBytes).Replace("-", "");
+        }
+
+        public static string ComputeSha1Hash(byte[] data)
+        {
+            var hashBytes = Sha1.Value.ComputeHash(data);
+            return BitConverter.ToString(hashBytes).Replace("-", "");
+        }
+
+        public static string ByteArrayToHexString(byte[] bytes)
+        {
+            return BitConverter.ToString(bytes).Replace("-", "");
+        }
+#endif
 
         private static string DecimalToBase36(long decimalNumber)
         {
@@ -108,20 +131,6 @@ namespace Org.Apache.Rocketmq
             }
 
             return result;
-        }
-
-        public static string ByteArrayToHexString(byte[] bytes)
-        {
-            var result = new StringBuilder(bytes.Length * 2);
-            const string hexAlphabet = "0123456789ABCDEF";
-
-            foreach (var b in bytes)
-            {
-                result.Append(hexAlphabet[(int)(b >> 4)]);
-                result.Append(hexAlphabet[(int)(b & 0xF)]);
-            }
-
-            return result.ToString();
         }
 
         public static byte[] CompressBytesGzip(byte[] src, CompressionLevel level)
@@ -140,9 +149,22 @@ namespace Org.Apache.Rocketmq
         public static byte[] DecompressBytesGzip(byte[] src)
         {
             var inputStream = new MemoryStream(src);
-            var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
-            var outputStream = new MemoryStream();
+            using var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
+            using var outputStream = new MemoryStream();
             gzipStream.CopyTo(outputStream);
+            return outputStream.ToArray();
+        }
+
+        public static byte[] DecompressBytesZlib(byte[] src)
+        {
+            if (src == null || src.Length == 0)
+            {
+                throw new ArgumentException("Input cannot be null or empty.", nameof(src));
+            }
+            using var inputStream = new MemoryStream(src);
+            using var zLibStream = new ZLibStream(inputStream, CompressionMode.Decompress);
+            using var outputStream = new MemoryStream();
+            zLibStream.CopyTo(outputStream);
             return outputStream.ToArray();
         }
     }

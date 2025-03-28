@@ -16,10 +16,8 @@
  */
 #include "PushConsumerImpl.h"
 
-#include <atomic>
 #include <cassert>
 #include <chrono>
-#include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <system_error>
@@ -47,7 +45,7 @@ PushConsumerImpl::~PushConsumerImpl() {
   shutdown();
 }
 
-void PushConsumerImpl::topicsOfInterest(std::vector<std::string> topics) {
+void PushConsumerImpl::topicsOfInterest(std::vector<std::string> &topics) {
   absl::MutexLock lk(&topic_filter_expression_table_mtx_);
   for (const auto& entry : topic_filter_expression_table_) {
     topics.push_back(entry.first);
@@ -70,13 +68,14 @@ void PushConsumerImpl::start() {
     return;
   }
 
+  client_config_.subscriber.group.set_resource_namespace(resourceNamespace());
   client_manager_->addClientObserver(shared_from_this());
 
   fetchRoutes();
 
-  SPDLOG_INFO("start concurrently consume service: {}", client_config_.subscriber.group.name());
-  consume_message_service_ =
-      std::make_shared<ConsumeMessageServiceImpl>(shared_from_this(), consume_thread_pool_size_, message_listener_);
+  SPDLOG_INFO("Start concurrently consume service: {}", client_config_.subscriber.group.name());
+  consume_message_service_ = std::make_shared<ConsumeMessageServiceImpl>(
+      shared_from_this(), consume_thread_pool_size_, message_listener_);
   consume_message_service_->start();
 
   // Heartbeat depends on initialization of consume-message-service
@@ -91,7 +90,8 @@ void PushConsumerImpl::start() {
   };
 
   scan_assignment_handle_ = client_manager_->getScheduler()->schedule(
-      scan_assignment_functor, SCAN_ASSIGNMENT_TASK_NAME, std::chrono::milliseconds(100), std::chrono::seconds(5));
+      scan_assignment_functor, SCAN_ASSIGNMENT_TASK_NAME,
+      std::chrono::milliseconds(100), std::chrono::seconds(5));
   SPDLOG_INFO("PushConsumer started, groupName={}", client_config_.subscriber.group.name());
 
   auto collect_stats_functor = [consumer_weak_ptr] {
@@ -101,8 +101,9 @@ void PushConsumerImpl::start() {
     }
   };
 
-  collect_stats_handle_ = client_manager_->getScheduler()->schedule(collect_stats_functor, COLLECT_STATS_TASK_NAME,
-                                                                    std::chrono::seconds(3), std::chrono::seconds(3));
+  collect_stats_handle_ = client_manager_->getScheduler()->schedule(
+      collect_stats_functor, COLLECT_STATS_TASK_NAME,
+      std::chrono::seconds(3), std::chrono::seconds(3));
 }
 
 const char* PushConsumerImpl::SCAN_ASSIGNMENT_TASK_NAME = "scan-assignment-task";
@@ -191,10 +192,33 @@ void PushConsumerImpl::scanAssignments() {
 }
 
 bool PushConsumerImpl::selectBroker(const TopicRouteDataPtr& topic_route_data, std::string& broker_host) {
+
+  absl::flat_hash_set<std::string> endpoints;
+  endpointsInUse(endpoints);
+  if (endpoints.empty()) {
+    SPDLOG_WARN("No broker is available");
+    return false;
+  }
+
+  // preference for selecting the access point filled in by the user
   if (topic_route_data && !topic_route_data->messageQueues().empty()) {
+    uint32_t queue_count = topic_route_data->messageQueues().size();
     uint32_t index = TopicAssignment::getAndIncreaseQueryWhichBroker();
-    for (uint32_t i = index; i < index + topic_route_data->messageQueues().size(); i++) {
-      auto message_queue = topic_route_data->messageQueues().at(i % topic_route_data->messageQueues().size());
+    for (uint32_t i = index; i < index + queue_count; i++) {
+      auto message_queue = topic_route_data->messageQueues().at(i % queue_count);
+      if (MixAll::MASTER_BROKER_ID != message_queue.broker().id() || !readable(message_queue.permission())) {
+        continue;
+      }
+
+      std::string current_host = urlOf(message_queue);
+      if (endpoints.contains(current_host)) {
+        broker_host = current_host;
+        return true;
+      }
+    }
+
+    for (uint32_t i = index; i < index + queue_count; i++) {
+      auto message_queue = topic_route_data->messageQueues().at(i % queue_count);
       if (MixAll::MASTER_BROKER_ID != message_queue.broker().id() || !readable(message_queue.permission())) {
         continue;
       }
@@ -298,9 +322,10 @@ void PushConsumerImpl::syncProcessQueue(const std::string& topic,
   for (const auto& message_queue : message_queue_list) {
     if (std::none_of(current.cbegin(), current.cend(),
                      [&](const rmq::MessageQueue& item) { return item == message_queue; })) {
-      SPDLOG_INFO("Start to receive message from {} according to latest assignment info from load balancer",
+      SPDLOG_DEBUG("Start to receive message from {} according to latest assignment info from load balancer",
                   simpleNameOf(message_queue));
-      if (!receiveMessage(message_queue, filter_expression)) {
+      std::string attempt_id;
+      if (!receiveMessage(message_queue, filter_expression, attempt_id)) {
         if (!active()) {
           SPDLOG_WARN("Failed to initiate receive message request-response-cycle for {}", simpleNameOf(message_queue));
           // TODO: remove it from current assignment such that a second attempt will be made again in the next round.
@@ -324,9 +349,9 @@ std::shared_ptr<ProcessQueue> PushConsumerImpl::getOrCreateProcessQueue(const rm
       process_queue = process_queue_table_.at(simpleNameOf(message_queue));
     } else {
       SPDLOG_INFO("Create ProcessQueue for message queue[{}]", simpleNameOf(message_queue));
-      // create ProcessQueue
-      process_queue =
-          std::make_shared<ProcessQueueImpl>(message_queue, filter_expression, shared_from_this(), client_manager_);
+      // create process queue object
+      process_queue = std::make_shared<ProcessQueueImpl>(
+          message_queue, filter_expression, shared_from_this(), client_manager_);
       std::shared_ptr<AsyncReceiveMessageCallback> receive_callback =
           std::make_shared<AsyncReceiveMessageCallback>(process_queue);
       process_queue->callback(receive_callback);
@@ -337,7 +362,8 @@ std::shared_ptr<ProcessQueue> PushConsumerImpl::getOrCreateProcessQueue(const rm
 }
 
 bool PushConsumerImpl::receiveMessage(const rmq::MessageQueue& message_queue,
-                                      const FilterExpression& filter_expression) {
+                                      const FilterExpression& filter_expression,
+                                      std::string& attempt_id) {
   if (!active()) {
     SPDLOG_INFO("PushConsumer has stopped. Drop further receive message request");
     return false;
@@ -353,7 +379,7 @@ bool PushConsumerImpl::receiveMessage(const rmq::MessageQueue& message_queue,
     SPDLOG_ERROR("Failed to resolve address for brokerName={}", message_queue.broker().name());
     return false;
   }
-  process_queue_ptr->receiveMessage();
+  process_queue_ptr->receiveMessage(attempt_id);
   return true;
 }
 
@@ -527,8 +553,7 @@ void PushConsumerImpl::buildClientSettings(rmq::Settings& settings) {
 
 void PushConsumerImpl::prepareHeartbeatData(HeartbeatRequest& request) {
   request.set_client_type(rmq::ClientType::PUSH_CONSUMER);
-  request.mutable_group()->set_resource_namespace(resourceNamespace());
-  request.mutable_group()->set_name(groupName());
+  request.mutable_group()->CopyFrom(client_config_.subscriber.group);
 }
 
 void PushConsumerImpl::notifyClientTermination() {

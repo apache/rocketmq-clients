@@ -19,6 +19,7 @@
 
 #include "SimpleConsumerImpl.h"
 #include "StaticNameServerResolver.h"
+#include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -30,10 +31,6 @@ SimpleConsumerBuilder SimpleConsumer::newBuilder() {
 }
 
 SimpleConsumer::SimpleConsumer(std::string group) : impl_(std::make_shared<SimpleConsumerImpl>(group)) {
-}
-
-SimpleConsumer::~SimpleConsumer() {
-  impl_->shutdown();
 }
 
 void SimpleConsumer::start() {
@@ -58,7 +55,7 @@ void SimpleConsumer::receive(std::size_t limit,
   auto callback = [&, mtx, cv](const std::error_code& code, const std::vector<MessageConstSharedPtr>& result) {
     {
       absl::MutexLock lk(mtx.get());
-      if (code) {
+      if (code && code != ErrorCode::NoContent) {
         ec = code;
         SPDLOG_WARN("Failed to receive message. Cause: {}", code.message());
       }
@@ -128,6 +125,7 @@ SimpleConsumer SimpleConsumerBuilder::build() {
 
   simple_consumer.impl_->withRequestTimeout(configuration_.requestTimeout());
   simple_consumer.impl_->withNameServerResolver(std::make_shared<StaticNameServerResolver>(configuration_.endpoints()));
+  simple_consumer.impl_->withResourceNamespace(configuration_.resourceNamespace());
   simple_consumer.impl_->withCredentialsProvider(configuration_.credentialsProvider());
   simple_consumer.impl_->withReceiveMessageTimeout(await_duration_);
   simple_consumer.impl_->withSsl(configuration_.withSsl());

@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
+using System.Threading.Tasks;
+
 namespace Org.Apache.Rocketmq
 {
     public interface ITransaction
     {
-        void Commit();
+        Task Commit();
 
-        void Rollback();
+        Task Rollback();
     }
 }

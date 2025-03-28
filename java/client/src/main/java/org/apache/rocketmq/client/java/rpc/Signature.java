@@ -43,6 +43,7 @@ public class Signature {
     public static final String LANGUAGE_KEY = "x-mq-language";
     public static final String CLIENT_VERSION_KEY = "x-mq-client-version";
     public static final String PROTOCOL_VERSION = "x-mq-protocol";
+    public static final String NAMESPACE_KEY = "x-mq-namespace";
 
     public static final String ALGORITHM = "MQv2-HMAC-SHA1";
     public static final String CREDENTIAL = "Credential";
@@ -69,6 +70,7 @@ public class Signature {
         metadata.put(Metadata.Key.of(REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), requestId);
 
         metadata.put(Metadata.Key.of(CLIENT_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), clientId.toString());
+        metadata.put(Metadata.Key.of(NAMESPACE_KEY, Metadata.ASCII_STRING_MARSHALLER), config.getNamespace());
 
         final Optional<SessionCredentialsProvider> optionalSessionCredentialsProvider =
             config.getCredentialsProvider();

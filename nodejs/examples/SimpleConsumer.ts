@@ -20,6 +20,7 @@ import { SimpleConsumer } from '..';
 const simpleConsumer = new SimpleConsumer({
   consumerGroup: 'nodejs-demo-group',
   endpoints: '127.0.0.1:8081',
+  namespace: '',
   subscriptions: new Map().set('TopicTest', 'nodejs-demo'),
 });
 await simpleConsumer.startup();

@@ -17,9 +17,11 @@
 
 //! Configuration of RocketMQ rust client.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::model::common::ClientType;
+use crate::model::common::{ClientType, FilterExpression};
+use crate::pb::{self, Resource};
 #[allow(unused_imports)]
 use crate::producer::Producer;
 #[allow(unused_imports)]
@@ -111,6 +113,14 @@ impl ClientOption {
     pub fn set_secret_key(&mut self, secret_key: impl Into<String>) {
         self.secret_key = Some(secret_key.into());
     }
+
+    pub fn get_namespace(&self) -> &str {
+        &self.namespace
+    }
+    /// Set the namespace
+    pub fn set_namespace(&mut self, namespace: impl Into<String>) {
+        self.namespace = namespace.into();
+    }
 }
 
 /// Log format for output.
@@ -130,6 +140,7 @@ pub struct ProducerOption {
     topics: Option<Vec<String>>,
     namespace: String,
     validate_message_type: bool,
+    timeout: Duration,
 }
 
 impl Default for ProducerOption {
@@ -140,6 +151,7 @@ impl Default for ProducerOption {
             topics: None,
             namespace: "".to_string(),
             validate_message_type: true,
+            timeout: Duration::from_secs(3),
         }
     }
 }
@@ -188,6 +200,10 @@ impl ProducerOption {
     pub fn set_validate_message_type(&mut self, validate_message_type: bool) {
         self.validate_message_type = validate_message_type;
     }
+
+    pub fn timeout(&self) -> &Duration {
+        &self.timeout
+    }
 }
 
 /// The configuration of [`SimpleConsumer`].
@@ -198,6 +214,8 @@ pub struct SimpleConsumerOption {
     prefetch_route: bool,
     topics: Option<Vec<String>>,
     namespace: String,
+    timeout: Duration,
+    long_polling_timeout: Duration,
 }
 
 impl Default for SimpleConsumerOption {
@@ -208,6 +226,8 @@ impl Default for SimpleConsumerOption {
             prefetch_route: true,
             topics: None,
             namespace: "".to_string(),
+            timeout: Duration::from_secs(3),
+            long_polling_timeout: Duration::from_secs(40),
         }
     }
 }
@@ -256,10 +276,253 @@ impl SimpleConsumerOption {
     pub(crate) fn set_namespace(&mut self, name_space: impl Into<String>) {
         self.namespace = name_space.into();
     }
+
+    pub fn timeout(&self) -> &Duration {
+        &self.timeout
+    }
+
+    pub fn long_polling_timeout(&self) -> &Duration {
+        &self.long_polling_timeout
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PushConsumerOption {
+    logging_format: LoggingFormat,
+    consumer_group: String,
+    namespace: String,
+    timeout: Duration,
+    long_polling_timeout: Duration,
+    subscription_expressions: HashMap<String, FilterExpression>,
+    fifo: bool,
+    batch_size: i32,
+    consumer_worker_count_each_queue: usize,
+}
+
+impl Default for PushConsumerOption {
+    fn default() -> Self {
+        Self {
+            logging_format: LoggingFormat::Terminal,
+            consumer_group: "".to_string(),
+            namespace: "".to_string(),
+            timeout: Duration::from_secs(3),
+            long_polling_timeout: Duration::from_secs(40),
+            subscription_expressions: HashMap::new(),
+            fifo: false,
+            batch_size: 32,
+            consumer_worker_count_each_queue: 4,
+        }
+    }
+}
+
+impl PushConsumerOption {
+    pub fn timeout(&self) -> &Duration {
+        &self.timeout
+    }
+
+    pub fn consumer_group(&self) -> &str {
+        &self.consumer_group
+    }
+
+    pub fn get_consumer_group_resource(&self) -> Resource {
+        Resource {
+            name: self.consumer_group.clone(),
+            resource_namespace: self.namespace.clone(),
+        }
+    }
+
+    pub fn set_consumer_group(&mut self, consumer_group: impl Into<String>) {
+        self.consumer_group = consumer_group.into();
+    }
+
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
+    pub fn long_polling_timeout(&self) -> &Duration {
+        &self.long_polling_timeout
+    }
+
+    pub fn subscription_expressions(&self) -> &HashMap<String, FilterExpression> {
+        &self.subscription_expressions
+    }
+
+    pub fn subscribe(&mut self, topic: impl Into<String>, filter_expression: FilterExpression) {
+        self.subscription_expressions
+            .insert(topic.into(), filter_expression);
+    }
+
+    pub fn get_filter_expression(&self, topic: &str) -> Option<&FilterExpression> {
+        self.subscription_expressions.get(topic)
+    }
+
+    pub fn fifo(&self) -> bool {
+        self.fifo
+    }
+
+    pub(crate) fn set_fifo(&mut self, fifo: bool) {
+        self.fifo = fifo;
+    }
+
+    pub fn logging_format(&self) -> &LoggingFormat {
+        &self.logging_format
+    }
+
+    pub fn set_logging_format(&mut self, logging_format: LoggingFormat) {
+        self.logging_format = logging_format;
+    }
+
+    pub fn batch_size(&self) -> i32 {
+        self.batch_size
+    }
+
+    pub fn consumer_worker_count_each_queue(&self) -> usize {
+        self.consumer_worker_count_each_queue
+    }
+
+    pub fn set_consumer_worker_count_each_queue(&mut self, count: usize) {
+        self.consumer_worker_count_each_queue = count;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum BackOffRetryPolicy {
+    Exponential(ExponentialBackOffRetryPolicy),
+    Customized(CustomizedBackOffRetryPolicy),
+}
+
+const INVALID_COMMAND: &str = "invalid command";
+
+impl TryFrom<pb::telemetry_command::Command> for BackOffRetryPolicy {
+    type Error = &'static str;
+
+    fn try_from(value: pb::telemetry_command::Command) -> Result<Self, Self::Error> {
+        if let pb::telemetry_command::Command::Settings(settings) = value {
+            let pubsub = settings.pub_sub.ok_or(INVALID_COMMAND)?;
+            if let pb::settings::PubSub::Subscription(_) = pubsub {
+                let retry_policy = settings.backoff_policy.ok_or(INVALID_COMMAND)?;
+                let strategy = retry_policy.strategy.ok_or(INVALID_COMMAND)?;
+                return match strategy {
+                    pb::retry_policy::Strategy::ExponentialBackoff(strategy) => {
+                        Ok(BackOffRetryPolicy::Exponential(
+                            ExponentialBackOffRetryPolicy::new(strategy, retry_policy.max_attempts),
+                        ))
+                    }
+                    pb::retry_policy::Strategy::CustomizedBackoff(strategy) => {
+                        Ok(BackOffRetryPolicy::Customized(
+                            CustomizedBackOffRetryPolicy::new(strategy, retry_policy.max_attempts),
+                        ))
+                    }
+                };
+            }
+        }
+        Err(INVALID_COMMAND)
+    }
+}
+
+impl BackOffRetryPolicy {
+    pub fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
+        match self {
+            BackOffRetryPolicy::Exponential(policy) => policy.get_next_attempt_delay(attempts),
+            BackOffRetryPolicy::Customized(policy) => policy.get_next_attempt_delay(attempts),
+        }
+    }
+
+    pub fn get_max_attempts(&self) -> i32 {
+        match self {
+            BackOffRetryPolicy::Exponential(policy) => policy.max_attempts(),
+            BackOffRetryPolicy::Customized(policy) => policy.max_attempts(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ExponentialBackOffRetryPolicy {
+    initial: Duration,
+    max: Duration,
+    multiplier: f32,
+    max_attempts: i32,
+}
+
+impl ExponentialBackOffRetryPolicy {
+    pub fn new(
+        strategy: pb::ExponentialBackoff,
+        max_attempts: i32,
+    ) -> ExponentialBackOffRetryPolicy {
+        let initial = strategy.initial.map_or(Duration::ZERO, |d| {
+            Duration::new(d.seconds as u64, d.nanos as u32)
+        });
+        let max = strategy.max.map_or(Duration::ZERO, |d| {
+            Duration::new(d.seconds as u64, d.nanos as u32)
+        });
+        let multiplier = strategy.multiplier;
+        ExponentialBackOffRetryPolicy {
+            initial,
+            max,
+            multiplier,
+            max_attempts,
+        }
+    }
+
+    pub(crate) fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
+        let delay_nanos = (self.initial.as_nanos() * self.multiplier.powi(attempts - 1) as u128)
+            .min(self.max.as_nanos());
+        Duration::from_nanos(delay_nanos as u64)
+    }
+
+    pub(crate) fn max_attempts(&self) -> i32 {
+        self.max_attempts
+    }
+}
+
+impl Default for ExponentialBackOffRetryPolicy {
+    fn default() -> Self {
+        Self {
+            initial: Duration::ZERO,
+            max: Duration::ZERO,
+            multiplier: 1.0,
+            max_attempts: 1,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CustomizedBackOffRetryPolicy {
+    next_list: Vec<Duration>,
+    max_attempts: i32,
+}
+
+impl CustomizedBackOffRetryPolicy {
+    pub fn new(strategy: pb::CustomizedBackoff, max_attempts: i32) -> CustomizedBackOffRetryPolicy {
+        CustomizedBackOffRetryPolicy {
+            next_list: strategy
+                .next
+                .iter()
+                .map(|d| Duration::new(d.seconds as u64, d.nanos as u32))
+                .collect(),
+            max_attempts,
+        }
+    }
+
+    pub(crate) fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
+        let mut index = attempts.min(self.next_list.len() as i32) - 1;
+        if index < 0 {
+            index = 0;
+        }
+        self.next_list[index as usize]
+    }
+
+    pub(crate) fn max_attempts(&self) -> i32 {
+        self.max_attempts
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
+    use crate::model::common::FilterType;
+
     use super::*;
 
     #[test]
@@ -284,5 +547,111 @@ mod tests {
         let option = SimpleConsumerOption::default();
         assert_eq!(option.logging_format(), &LoggingFormat::Terminal);
         assert!(option.prefetch_route());
+    }
+
+    #[test]
+    fn conf_push_consumer_option() {
+        let mut option = PushConsumerOption::default();
+        option.subscribe("topic", FilterExpression::new(FilterType::Tag, "*"));
+        assert!(option.subscription_expressions().contains_key("topic"));
+    }
+
+    #[test]
+    fn test_exponential_backoff() {
+        let policy = ExponentialBackOffRetryPolicy::new(
+            pb::ExponentialBackoff {
+                initial: Some(prost_types::Duration::from_str("1s").unwrap()),
+                max: Some(prost_types::Duration::from_str("60s").unwrap()),
+                multiplier: 2.0,
+            },
+            1,
+        );
+        assert_eq!(Duration::from_secs(1), policy.get_next_attempt_delay(1));
+        assert_eq!(Duration::from_secs(2), policy.get_next_attempt_delay(2));
+        assert_eq!(Duration::from_secs(4), policy.get_next_attempt_delay(3));
+        assert_eq!(Duration::from_secs(8), policy.get_next_attempt_delay(4));
+        assert_eq!(Duration::from_secs(16), policy.get_next_attempt_delay(5));
+        assert_eq!(Duration::from_secs(32), policy.get_next_attempt_delay(6));
+        assert_eq!(Duration::from_secs(60), policy.get_next_attempt_delay(7));
+        assert_eq!(Duration::from_secs(60), policy.get_next_attempt_delay(8));
+    }
+
+    #[test]
+    fn test_customized_backoff() {
+        let next: Vec<prost_types::Duration> = vec![
+            prost_types::Duration::from_str("1s").unwrap(),
+            prost_types::Duration::from_str("10s").unwrap(),
+            prost_types::Duration::from_str("20s").unwrap(),
+            prost_types::Duration::from_str("30s").unwrap(),
+        ];
+        let policy = CustomizedBackOffRetryPolicy::new(pb::CustomizedBackoff { next }, 1);
+        assert_eq!(Duration::from_secs(1), policy.get_next_attempt_delay(1));
+        assert_eq!(Duration::from_secs(10), policy.get_next_attempt_delay(2));
+        assert_eq!(Duration::from_secs(20), policy.get_next_attempt_delay(3));
+        assert_eq!(Duration::from_secs(30), policy.get_next_attempt_delay(4));
+        assert_eq!(Duration::from_secs(30), policy.get_next_attempt_delay(5));
+    }
+
+    use pb::settings::PubSub;
+    use pb::CustomizedBackoff;
+    use pb::ExponentialBackoff;
+    use pb::RetryPolicy;
+    use pb::Settings;
+    use pb::Subscription;
+
+    #[test]
+    fn test_parse_back_policy() -> Result<(), String> {
+        let command = pb::telemetry_command::Command::VerifyMessageCommand(
+            pb::VerifyMessageCommand::default(),
+        );
+        let result = BackOffRetryPolicy::try_from(command);
+        assert!(result.is_err());
+
+        let command2 = pb::telemetry_command::Command::Settings(pb::Settings::default());
+        let result2 = BackOffRetryPolicy::try_from(command2);
+        assert!(result2.is_err());
+
+        let exponential_backoff_settings = pb::Settings {
+            pub_sub: Some(PubSub::Subscription(Subscription::default())),
+            client_type: Some(ClientType::PushConsumer as i32),
+            backoff_policy: Some(RetryPolicy {
+                max_attempts: 0,
+                strategy: Some(pb::retry_policy::Strategy::ExponentialBackoff(
+                    ExponentialBackoff {
+                        initial: Some(prost_types::Duration::from_str("1s").unwrap()),
+                        max: Some(prost_types::Duration::from_str("60s").unwrap()),
+                        multiplier: 2.0,
+                    },
+                )),
+            }),
+            ..Settings::default()
+        };
+        let command3 = pb::telemetry_command::Command::Settings(exponential_backoff_settings);
+        let result3 = BackOffRetryPolicy::try_from(command3);
+        if let Ok(BackOffRetryPolicy::Exponential(_)) = result3 {
+        } else {
+            return Err("get_backoff_policy failed, expected ExponentialBackoff.".to_string());
+        }
+
+        let customized_backoff_settings = Settings {
+            pub_sub: Some(PubSub::Subscription(Subscription::default())),
+            client_type: Some(ClientType::PushConsumer as i32),
+            backoff_policy: Some(RetryPolicy {
+                max_attempts: 0,
+                strategy: Some(pb::retry_policy::Strategy::CustomizedBackoff(
+                    CustomizedBackoff {
+                        next: vec![prost_types::Duration::from_str("1s").unwrap()],
+                    },
+                )),
+            }),
+            ..Settings::default()
+        };
+        let command4 = pb::telemetry_command::Command::Settings(customized_backoff_settings);
+        let result4 = BackOffRetryPolicy::try_from(command4);
+        if let Ok(BackOffRetryPolicy::Customized(_)) = result4 {
+        } else {
+            return Err("get_backoff_policy failed, expected CustomizedBackoff.".to_string());
+        }
+        Ok(())
     }
 }

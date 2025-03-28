@@ -19,6 +19,8 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <future>
+#include <list>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -33,13 +35,18 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 enum class StreamState : std::uint8_t
 {
-  Created = 0,
-  Active = 1,
-  ReadDone = 2,
-  WriteDone = 3,
-  Closed = 4,
+  Ready = 0,
+  Closing = 1,
+  Closed = 2,
 };
 
+/// stream-state: ready --> closing --> closed
+///
+/// requirement:
+///    1, close --> blocking wait till bidireactor is closed;
+///    2, when session is closed and client is still active, recreate a new session to accept incoming commands from
+///    server
+///
 class TelemetryBidiReactor : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
                              public std::enable_shared_from_this<TelemetryBidiReactor> {
 public:
@@ -47,23 +54,44 @@ public:
 
   ~TelemetryBidiReactor();
 
-  void OnWriteDone(bool ok) override;
-
-  void OnWritesDoneDone(bool ok) override;
-
-  void OnReadDone(bool ok) override;
-
+  /// Notifies the application that all operations associated with this RPC
+  /// have completed and all Holds have been removed. OnDone provides the RPC
+  /// status outcome for both successful and failed RPCs and will be called in
+  /// all cases. If it is not called, it indicates an application-level problem
+  /// (like failure to remove a hold).
+  ///
+  /// \param[in] s The status outcome of this RPC
   void OnDone(const grpc::Status& status) override;
 
-  void fireRead();
+  /// Notifies the application that a read of initial metadata from the
+  /// server is done. If the application chooses not to implement this method,
+  /// it can assume that the initial metadata has been read before the first
+  /// call of OnReadDone or OnDone.
+  ///
+  /// \param[in] ok Was the initial metadata read successfully? If false, no
+  ///               new read/write operation will succeed, and any further
+  ///               Start* operations should not be called.
+  void OnReadInitialMetadataDone(bool /*ok*/) override;
 
-  void fireWrite();
+  /// Notifies the application that a StartRead operation completed.
+  ///
+  /// \param[in] ok Was it successful? If false, no new read/write operation
+  ///               will succeed, and any further Start* should not be called.
+  void OnReadDone(bool ok) override;
 
-  void fireClose();
+  /// Notifies the application that a StartWrite or StartWriteLast operation
+  /// completed.
+  ///
+  /// \param[in] ok Was it successful? If false, no new read/write operation
+  ///               will succeed, and any further Start* should not be called.
+  void OnWriteDone(bool ok) override;
 
+  /// Core API method to initiate this bidirectional stream.
   void write(TelemetryCommand command);
 
-  bool await();
+  bool awaitApplyingSettings();
+
+  void close();
 
 private:
   grpc::ClientContext context_;
@@ -75,17 +103,15 @@ private:
 
   /**
    * @brief Buffered commands to write to server
+   *
+   * TODO: move buffered commands to a shared container, which may survive
+   * multiple TelemetryBidiReactor lifecycles.
    */
-  std::vector<TelemetryCommand> writes_ GUARDED_BY(writes_mtx_);
+  std::list<TelemetryCommand> writes_ GUARDED_BY(writes_mtx_);
   absl::Mutex writes_mtx_;
 
   /**
-   * @brief The command that is currently being written back to server.
-   */
-  TelemetryCommand write_;
-
-  /**
-   * @brief Each TelemetryBidiReactor belongs to a specific client as its owner. 
+   * @brief Each TelemetryBidiReactor belongs to a specific client as its owner.
    */
   std::weak_ptr<Client> client_;
 
@@ -94,20 +120,12 @@ private:
    */
   std::string peer_address_;
 
-  /**
-   * @brief Indicate if there is a command being written to network.
-   */
-  std::atomic_bool command_inflight_{false};
+  StreamState state_ GUARDED_BY(state_mtx_);
+  absl::Mutex state_mtx_;
+  absl::CondVar state_cv_;
 
-  StreamState stream_state_ GUARDED_BY(stream_state_mtx_);
-  absl::Mutex stream_state_mtx_;
-  absl::CondVar stream_state_cv_;
-
-  bool server_setting_received_ GUARDED_BY(server_setting_received_mtx_){false};
-  absl::Mutex server_setting_received_mtx_;
-  absl::CondVar server_setting_received_cv_;
-
-  void onVerifyMessageResult(TelemetryCommand command);
+  std::promise<bool> sync_settings_promise_;
+  std::future<bool> sync_settings_future_;
 
   void applySettings(const rmq::Settings& settings);
 
@@ -116,6 +134,10 @@ private:
   void applyPublishingConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
 
   void applySubscriptionConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
+
+  /// Attempt to write pending telemetry command to server.
+  void tryWriteNext() LOCKS_EXCLUDED(state_mtx_, writes_mtx_);
+  void signalClose();
 };
 
 ROCKETMQ_NAMESPACE_END

@@ -16,20 +16,16 @@
  */
 #include "rocketmq/Producer.h"
 
-#include <chrono>
 #include <memory>
 #include <system_error>
 #include <utility>
 
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
-#include "MixAll.h"
 #include "ProducerImpl.h"
 #include "StaticNameServerResolver.h"
-#include "absl/strings/str_split.h"
 #include "rocketmq/ErrorCode.h"
 #include "rocketmq/SendReceipt.h"
 #include "rocketmq/Transaction.h"
+#include "rocketmq/RecallReceipt.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -68,8 +64,12 @@ std::unique_ptr<Transaction> Producer::beginTransaction() {
   return impl_->beginTransaction();
 }
 
-void Producer::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
-  impl_->send(std::move(message), ec, transaction);
+SendReceipt Producer::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
+  return impl_->send(std::move(message), ec, transaction);
+}
+
+RecallReceipt Producer::recall(std::string& topic, std::string& recall_handle, std::error_code& ec) noexcept {
+  return impl_->recall(topic, recall_handle, ec);
 }
 
 ProducerBuilder Producer::newBuilder() {
@@ -81,6 +81,7 @@ ProducerBuilder::ProducerBuilder() : impl_(std::make_shared<ProducerImpl>()){};
 ProducerBuilder& ProducerBuilder::withConfiguration(Configuration configuration) {
   auto name_server_resolver = std::make_shared<StaticNameServerResolver>(configuration.endpoints());
   impl_->withNameServerResolver(std::move(name_server_resolver));
+  impl_->withResourceNamespace(configuration.resourceNamespace());
   impl_->withCredentialsProvider(configuration.credentialsProvider());
   impl_->withRequestTimeout(configuration.requestTimeout());
   impl_->withSsl(configuration.withSsl());
@@ -88,7 +89,7 @@ ProducerBuilder& ProducerBuilder::withConfiguration(Configuration configuration)
 }
 
 ProducerBuilder& ProducerBuilder::withTopics(const std::vector<std::string>& topics) {
-  impl_->topicsOfInterest(topics);
+  impl_->withTopics(topics);
   return *this;
 }
 

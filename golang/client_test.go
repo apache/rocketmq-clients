@@ -20,6 +20,7 @@ package golang
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -292,4 +293,51 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	commandExecutionLog := observedLogs.All()[:2]
 	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
 	assert.Equal(t, "Failed to recover, err=EOF", commandExecutionLog[1].Message)
+}
+
+func Test_routeEqual(t *testing.T) {
+	oldMq := &v2.MessageQueue{
+		Topic: &v2.Resource{
+			Name:              "topic-test",
+			ResourceNamespace: "ns-test",
+		},
+		Id:         0,
+		Permission: v2.Permission_READ_WRITE,
+		Broker: &v2.Broker{
+			Name:      "broker-test",
+			Id:        0,
+			Endpoints: fakeEndpoints(),
+		},
+		AcceptMessageTypes: []v2.MessageType{
+			v2.MessageType_NORMAL,
+		},
+	}
+	newMq := &v2.MessageQueue{
+		Topic: &v2.Resource{
+			Name:              "topic-test",
+			ResourceNamespace: "ns-test",
+		},
+		Id:         0,
+		Permission: v2.Permission_READ_WRITE,
+		Broker: &v2.Broker{
+			Name:      "broker-test",
+			Id:        0,
+			Endpoints: fakeEndpoints(),
+		},
+		AcceptMessageTypes: []v2.MessageType{
+			v2.MessageType_NORMAL,
+		},
+	}
+
+	newMq.ProtoReflect() // message internal field value will be changed
+
+	oldRoute := []*v2.MessageQueue{oldMq}
+	newRoute := []*v2.MessageQueue{newMq}
+
+	assert.Equal(t, false, reflect.DeepEqual(oldRoute, newRoute))
+	assert.Equal(t, true, routeEqual(oldRoute, newRoute))
+	assert.Equal(t, true, routeEqual(nil, nil))
+	assert.Equal(t, false, routeEqual(nil, newRoute))
+	assert.Equal(t, false, routeEqual(oldRoute, nil))
+	assert.Equal(t, true, routeEqual(nil, []*v2.MessageQueue{}))
 }

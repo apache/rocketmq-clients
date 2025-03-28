@@ -30,4 +30,5 @@ jobs:
         with:
           flags: java
           fail_ci_if_error: true
+          token: e7eb01be-398b-4f7f-a73e-dc35c428cb50
           verbose: true

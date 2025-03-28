@@ -4,7 +4,7 @@ on:
 jobs:
   flake8:
     name: flake8
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -15,9 +15,9 @@ jobs:
       - run: python -m pip install flake8
       - name: flake8
         run: |
-          flake8 --ignore=E501,W503 --exclude python/rocketmq/protocol python
+          flake8 --ignore=E501,W503 --exclude python/rocketmq/grpc_protocol python
   isort:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -28,9 +28,9 @@ jobs:
       - run: python -m pip install isort
       - name: isort
         run: |
-          isort --check --diff --skip python/rocketmq/protocol python
+          isort --check --diff --skip python/rocketmq/grpc_protocol python
   black:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3

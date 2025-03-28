@@ -21,28 +21,31 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
 using Org.Apache.Rocketmq.Error;
 
+[assembly: InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace Org.Apache.Rocketmq
 {
     public class Producer : Client, IAsyncDisposable, IDisposable
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<Producer>();
-        private readonly ConcurrentDictionary<string /* topic */, PublishingLoadBalancer> _publishingRouteDataCache;
+        internal readonly ConcurrentDictionary<string /* topic */, PublishingLoadBalancer> _publishingRouteDataCache;
         internal readonly PublishingSettings PublishingSettings;
         private readonly ConcurrentDictionary<string, bool> _publishingTopics;
         private readonly ITransactionChecker _checker;
 
         private readonly Histogram<double> _sendCostTimeHistogram;
 
-        private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> publishingTopics,
+        internal Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> publishingTopics,
             int maxAttempts, ITransactionChecker checker) : base(clientConfig)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
-            PublishingSettings = new PublishingSettings(ClientId, Endpoints, retryPolicy,
+            PublishingSettings = new PublishingSettings(ClientConfig.Namespace, ClientId, Endpoints, retryPolicy,
                 clientConfig.RequestTimeout, publishingTopics);
             _publishingRouteDataCache = new ConcurrentDictionary<string, PublishingLoadBalancer>();
             _publishingTopics = publishingTopics;
@@ -102,7 +105,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        protected override Proto::HeartbeatRequest WrapHeartbeatRequest()
+        internal override Proto::HeartbeatRequest WrapHeartbeatRequest()
         {
             return new Proto::HeartbeatRequest
             {
@@ -110,7 +113,7 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        protected override Proto::NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
+        internal override Proto::NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
         {
             return new Proto::NotifyClientTerminationRequest();
         }
@@ -192,11 +195,11 @@ namespace Org.Apache.Rocketmq
             return sendReceipt;
         }
 
-        private static Proto.SendMessageRequest WrapSendMessageRequest(PublishingMessage message, MessageQueue mq)
+        private Proto.SendMessageRequest WrapSendMessageRequest(PublishingMessage message, MessageQueue mq)
         {
             return new Proto.SendMessageRequest
             {
-                Messages = { message.ToProtobuf(mq.QueueId) }
+                Messages = { message.ToProtobuf(ClientConfig.Namespace, mq.QueueId) }
             };
         }
 
@@ -247,14 +250,6 @@ namespace Org.Apache.Rocketmq
                     {
                         Logger.LogError(e, "Failed to send message finally, run out of attempt times, " +
                                                   $"topic={message.Topic}, maxAttempt={maxAttempts}, attempt={attempt}, " +
-                                                  $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
-                        throw;
-                    }
-
-                    if (MessageType.Transaction == message.MessageType)
-                    {
-                        Logger.LogError(e, "Failed to send transaction message, run out of attempt times, " +
-                                                  $"topic={message.Topic}, maxAttempt=1, attempt={attempt}, " +
                                                   $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
                         throw;
                     }
@@ -331,6 +326,7 @@ namespace Org.Apache.Rocketmq
         {
             var topicResource = new Proto.Resource
             {
+                ResourceNamespace = ClientConfig.Namespace,
                 Name = topic
             };
             var request = new Proto.EndTransactionRequest
@@ -344,6 +340,33 @@ namespace Org.Apache.Rocketmq
             };
             var invocation = await ClientManager.EndTransaction(endpoints, request, ClientConfig.RequestTimeout);
             StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
+        }
+
+        public async Task<IRecallReceipt> RecallMessage(string topic, string recallhandle)
+        {
+            var recallReceipt = await RecallMessage0(topic, recallhandle);
+            return recallReceipt;
+        }
+
+        private async Task<RecallReceipt> RecallMessage0(string topic, string recallhandle)
+        {
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Producer is not running");
+            }
+            if (recallhandle == null)
+            {
+                throw new InvalidOperationException("Recall handle is invalid");
+            }
+            var request = new Proto.RecallMessageRequest
+            {
+                Topic = new Proto.Resource { ResourceNamespace = ClientConfig.Namespace, Name = topic },
+                RecallHandle = recallhandle
+            };
+            var invocation =
+                await ClientManager.RecallMessage(new Endpoints(ClientConfig.Endpoints), request, ClientConfig.RequestTimeout);
+            StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
+            return new RecallReceipt(invocation.Response.MessageId);
         }
 
         public class Builder

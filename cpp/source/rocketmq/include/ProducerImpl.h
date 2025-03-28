@@ -16,28 +16,24 @@
  */
 #pragma once
 
-#include <chrono>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <system_error>
 
 #include "ClientImpl.h"
-#include "ClientManagerImpl.h"
 #include "MixAll.h"
 #include "PublishInfoCallback.h"
+#include "PublishStats.h"
 #include "SendContext.h"
 #include "TopicPublishInfo.h"
 #include "TransactionImpl.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/strings/string_view.h"
 #include "rocketmq/Message.h"
+#include "rocketmq/RecallReceipt.h"
 #include "rocketmq/SendCallback.h"
 #include "rocketmq/SendReceipt.h"
-#include "rocketmq/State.h"
 #include "rocketmq/TransactionChecker.h"
-#include "PublishStats.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -53,8 +49,22 @@ public:
 
   void shutdown() override;
 
+  /**
+   * Note we require application to transfer ownership of the message
+   * to send to avoid concurrent modification during sent.
+   *
+   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>,
+   * facilitating application to conduct customized retry policy.
+   */
   SendReceipt send(MessageConstPtr message, std::error_code& ec) noexcept;
 
+  /**
+   * Note we require application to transfer ownership of the message
+   * to send to avoid concurrent modification during sent.
+   *
+   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>,
+   * facilitating application to conduct customized retry policy.
+   */
   void send(MessageConstPtr message, SendCallback callback);
 
   void setTransactionChecker(TransactionChecker checker);
@@ -64,7 +74,16 @@ public:
     return absl::make_unique<TransactionImpl>(producer);
   }
 
-  void send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
+  /**
+   * Note we require application to transfer ownership of the message
+   * to send to avoid concurrent modification during sent.
+   */
+  SendReceipt send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
+
+  /**
+   * Recall message synchronously, only delay message is supported for now.
+   */
+  RecallReceipt recall(const std::string& topic, std::string& recall_handle, std::error_code& ec) noexcept;
 
   /**
    * Check if the RPC client for the target host is isolated or not
@@ -107,7 +126,9 @@ public:
 
   void buildClientSettings(rmq::Settings& settings) override;
 
-  void topicsOfInterest(std::vector<std::string> topics) override LOCKS_EXCLUDED(topics_mtx_);
+  void topicsOfInterest(std::vector<std::string> &topics) override LOCKS_EXCLUDED(topics_mtx_);
+
+  void withTopics(const std::vector<std::string> &topics) LOCKS_EXCLUDED(topics_mtx_);
 
   const PublishStats& stats() const {
     return stats_;
@@ -158,7 +179,7 @@ private:
 
   void validate(const Message& message, std::error_code& ec);
 
-  void send0(MessageConstPtr message, SendCallback callback, std::vector<rmq::MessageQueue> list);
+  void send0(MessageConstPtr message, const SendCallback& callback, std::vector<rmq::MessageQueue> list);
 
   void isolatedEndpoints(absl::flat_hash_set<std::string>& endpoints) LOCKS_EXCLUDED(isolated_endpoints_mtx_);
 

@@ -45,9 +45,9 @@ public class PublishingSettings extends Settings {
     private volatile int maxBodySizeBytes = 4 * 1024 * 1024;
     private volatile boolean validateMessageType = true;
 
-    public PublishingSettings(ClientId clientId, Endpoints accessPoint, ExponentialBackoffRetryPolicy retryPolicy,
-        Duration requestTimeout, Set<String> topics) {
-        super(clientId, ClientType.PRODUCER, accessPoint, retryPolicy, requestTimeout);
+    public PublishingSettings(String namespace, ClientId clientId, Endpoints accessPoint,
+        ExponentialBackoffRetryPolicy retryPolicy, Duration requestTimeout, Set<String> topics) {
+        super(namespace, clientId, ClientType.PRODUCER, accessPoint, retryPolicy, requestTimeout);
         this.topics = topics;
     }
 
@@ -62,8 +62,13 @@ public class PublishingSettings extends Settings {
     @Override
     public apache.rocketmq.v2.Settings toProtobuf() {
         final Publishing publishing = Publishing.newBuilder()
-            .addAllTopics(topics.stream().map(name -> Resource.newBuilder().setName(name).build())
-                .collect(Collectors.toList())).setValidateMessageType(validateMessageType).build();
+            .addAllTopics(topics.stream().map(name -> Resource.newBuilder()
+                    .setResourceNamespace(namespace)
+                    .setName(name)
+                    .build())
+                .collect(Collectors.toList()))
+            .setValidateMessageType(validateMessageType)
+            .build();
         final apache.rocketmq.v2.Settings.Builder builder = apache.rocketmq.v2.Settings.newBuilder()
             .setAccessPoint(accessPoint.toProtobuf()).setClientType(clientType.toProtobuf())
             .setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos())).setPublishing(publishing);

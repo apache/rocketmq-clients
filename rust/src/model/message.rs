@@ -21,8 +21,17 @@ use std::collections::HashMap;
 
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::Endpoints;
+use crate::model::message::MessageType::{DELAY, FIFO, NORMAL, TRANSACTION};
 use crate::model::message_id::UNIQ_ID_GENERATOR;
 use crate::pb;
+
+#[derive(Clone, Copy, Debug)]
+pub enum MessageType {
+    NORMAL = 1,
+    FIFO = 2,
+    DELAY = 3,
+    TRANSACTION = 4,
+}
 
 /// [`Message`] is the data model for sending.
 pub trait Message {
@@ -35,6 +44,17 @@ pub trait Message {
     fn take_message_group(&mut self) -> Option<String>;
     fn take_delivery_timestamp(&mut self) -> Option<i64>;
     fn transaction_enabled(&mut self) -> bool;
+    fn get_message_type(&self) -> MessageType;
+}
+
+pub trait MessageTypeAware {
+    fn accept_type(&self, message_type: MessageType) -> bool;
+}
+
+impl MessageTypeAware for pb::MessageQueue {
+    fn accept_type(&self, message_type: MessageType) -> bool {
+        self.accept_message_types.contains(&(message_type as i32))
+    }
 }
 
 pub(crate) struct MessageImpl {
@@ -47,6 +67,7 @@ pub(crate) struct MessageImpl {
     pub(crate) message_group: Option<String>,
     pub(crate) delivery_timestamp: Option<i64>,
     pub(crate) transaction_enabled: bool,
+    pub(crate) message_type: MessageType,
 }
 
 impl Message for MessageImpl {
@@ -85,6 +106,10 @@ impl Message for MessageImpl {
     fn transaction_enabled(&mut self) -> bool {
         self.transaction_enabled
     }
+
+    fn get_message_type(&self) -> MessageType {
+        self.message_type
+    }
 }
 
 /// [`MessageBuilder`] is the builder for [`Message`].
@@ -108,6 +133,7 @@ impl MessageBuilder {
                 message_group: None,
                 delivery_timestamp: None,
                 transaction_enabled: false,
+                message_type: NORMAL,
             },
         }
     }
@@ -135,6 +161,7 @@ impl MessageBuilder {
                 message_group: Some(message_group.into()),
                 delivery_timestamp: None,
                 transaction_enabled: false,
+                message_type: FIFO,
             },
         }
     }
@@ -162,6 +189,7 @@ impl MessageBuilder {
                 message_group: None,
                 delivery_timestamp: Some(delay_time),
                 transaction_enabled: false,
+                message_type: DELAY,
             },
         }
     }
@@ -184,6 +212,7 @@ impl MessageBuilder {
                 message_group: None,
                 delivery_timestamp: None,
                 transaction_enabled: true,
+                message_type: TRANSACTION,
             },
         }
     }
@@ -330,10 +359,10 @@ impl AckMessageEntry for MessageView {
 }
 
 impl MessageView {
-    pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Self {
-        let system_properties = message.system_properties.unwrap();
-        let topic = message.topic.unwrap();
-        MessageView {
+    pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Option<Self> {
+        let system_properties = message.system_properties?;
+        let topic = message.topic?;
+        Some(MessageView {
             message_id: system_properties.message_id,
             receipt_handle: system_properties.receipt_handle,
             namespace: topic.resource_namespace,
@@ -348,7 +377,7 @@ impl MessageView {
             born_timestamp: system_properties.born_timestamp.map_or(0, |t| t.seconds),
             delivery_attempt: system_properties.delivery_attempt.unwrap_or(0),
             endpoints,
-        }
+        })
     }
 
     /// Get message id
@@ -506,7 +535,8 @@ mod tests {
                 }),
             },
             Endpoints::from_url("localhost:8081").unwrap(),
-        );
+        )
+        .unwrap();
 
         assert_eq!(message_view.message_id(), "message_id");
         assert_eq!(message_view.topic(), "test");
