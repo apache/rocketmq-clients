@@ -30,6 +30,8 @@ if __name__ == '__main__':
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
+    # with namespace
+    # config = ClientConfiguration(endpoints, credentials, "namespace")
     topic = "topic"
     check_from_server = True  # commit message from server check
     producer = Producer(config, (topic,), checker=TestChecker())
@@ -42,18 +44,23 @@ if __name__ == '__main__':
     try:
         transaction = producer.begin_transaction()
         msg = Message()
+        # topic for the current message
         msg.topic = topic
         msg.body = "hello, rocketmq.".encode('utf-8')
+        # secondary classifier of message besides topic
         msg.tag = "rocketmq-send-transaction-message"
+        # key(s) of the message, another way to mark message besides message id
         msg.keys = "send_transaction"
+        # user property for the message
         msg.add_property("send", "transaction")
         res = producer.send(msg, transaction)
         print(f"send message: {res}")
         if check_from_server:
+            # wait for server check in TransactionChecker's check
             input("Please Enter to Stop the Application.\r\n")
             producer.shutdown()
         else:
-            # producer directly commit or rollback
+            # direct commit or rollback
             transaction.commit()
             print(f"producer commit message:{transaction.message_id}")
             # transaction.rollback()

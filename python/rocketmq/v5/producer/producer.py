@@ -148,10 +148,10 @@ class Producer(Client):
             raise IllegalStateException("producer is not running now.")
 
         self.__wrap_sending_message(message, False if transaction is None else True)
-        topic_queue = self.__select_send_queue(message.topic)
+        topic_queue = self.__select_send_queue(message)
         if message.message_type not in topic_queue.accept_message_types:
             raise IllegalArgumentException(
-                f"current message type not match with queue accept message types, topic:{message.topic}, message_type:{message.message_type}, queue access type:{topic_queue.accept_message_types}"
+                f"current message type not match with queue accept message types, topic:{message.topic}, message_type:{Message.message_type_desc(message.message_type)}, queue access type:{topic_queue.accept_message_types_desc()}"
             )
 
         if transaction is None:
@@ -180,12 +180,12 @@ class Producer(Client):
             raise IllegalStateException("producer is not running now.")
 
         self.__wrap_sending_message(message, False)
-        topic_queue = self.__select_send_queue(message.topic)
+        topic_queue = self.__select_send_queue(message)
         if message.message_type not in topic_queue.accept_message_types:
             raise IllegalArgumentException(
                 f"current message type not match with queue accept message types, "
-                f"topic:{message.topic}, message_type:{message.message_type}, "
-                f"queue access type:{topic_queue.accept_message_types}"
+                f"topic:{message.topic}, message_type:{Message.message_type_desc(message.message_type)}, "
+                f"queue access type:{topic_queue.accept_message_types_desc()}"
             )
 
         try:
@@ -303,6 +303,7 @@ class Producer(Client):
     def __send(self, message: Message, topic_queue, attempt=1) -> SendReceipt:
         req = self.__send_req(message)
         send_context = self.client_metrics.send_before(message.topic)
+        print(f"{topic_queue}")
         send_message_future = self.rpc_client.send_message_async(
             topic_queue.endpoints,
             req,
@@ -338,7 +339,7 @@ class Producer(Client):
                 raise retry_exception_future.exception()
 
             # resend message
-            topic_queue = self.__select_send_queue(message.topic)
+            topic_queue = self.__select_send_queue(message)
             return self.__send(message, topic_queue, attempt)
 
     def __send_async(self, message: Message, topic_queue, attempt=1, ret_future=None):
@@ -395,7 +396,7 @@ class Producer(Client):
                 )
                 return
             # resend message
-            topic_queue = self.__select_send_queue(message.topic)
+            topic_queue = self.__select_send_queue(message)
             self.__send_async(message, topic_queue, attempt, ret_future)
 
     def __process_send_message_response(self, send_message_future, topic_queue):
@@ -501,15 +502,18 @@ class Producer(Client):
             "transactional message should not set messageGroup or deliveryTimestamp"
         )
 
-    def __select_send_queue(self, topic):
+    def __select_send_queue(self, message):
         try:
-            route = self._retrieve_topic_route_data(topic)
+            route = self._retrieve_topic_route_data(message.topic)
             queue_selector = self.__send_queue_selectors.put_if_absent(
-                topic, QueueSelector.producer_queue_selector(route)
+                message.topic, QueueSelector.producer_queue_selector(route)
             )
-            return queue_selector.select_next_queue()
+            if message.message_group is None:
+                return queue_selector.select_next_queue()
+            else:
+                return queue_selector.select_queue_by_hash_key(message.message_group)
         except Exception as e:
-            logger.error(f"producer select topic:{topic} queue raise exception, {e}")
+            logger.error(f"producer select topic:{message.topic} queue raise exception, {e}")
             raise e
 
     def __end_transaction_req(self, message: Message, transaction_id, result, source):
