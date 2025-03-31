@@ -85,6 +85,7 @@ void SimpleConsumerImpl::start() {
   ClientImpl::start();
   State expected = State::STARTING;
   if (state_.compare_exchange_strong(expected, State::STARTED, std::memory_order_relaxed)) {
+    client_config_.subscriber.group.set_resource_namespace(resourceNamespace());
     refreshAssignments();
 
     std::weak_ptr<SimpleConsumerImpl> consumer(shared_from_this());
@@ -301,8 +302,23 @@ void SimpleConsumerImpl::receive(std::size_t limit,
       callback(ec, messages);
       return;
     }
-    std::size_t idx = ++assignment_index_ % assignments_.size();
-    assignment.CopyFrom(assignments_[idx]);
+
+    // choose assign allow readable
+    std::size_t start_index = ++assignment_index_ % assignments_.size();
+    for (std::size_t i = 0; i < assignments_.size(); ++i) {
+      const auto& assign = assignments_[(start_index + i) % assignments_.size()];
+      if (readable(assign.message_queue().permission())) {
+        assignment.CopyFrom(assign);
+        break;
+      }
+    }
+
+    if (!assignment.IsInitialized()) {
+      std::error_code ec = ErrorCode::NotFound;
+      std::vector<MessageConstSharedPtr> messages;
+      callback(ec, messages);
+      return;
+    }
   }
 
   const auto& target = urlOf(assignment.message_queue());

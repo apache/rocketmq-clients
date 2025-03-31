@@ -124,6 +124,13 @@ void RpcClientImpl::asyncEndTransaction(const EndTransactionRequest& request,
   stub_->async()->EndTransaction(&invocation_context->context, &request, &invocation_context->response, callback);
 }
 
+void RpcClientImpl::asyncRecallMessage(const RecallMessageRequest& request,
+                                       InvocationContext<RecallMessageResponse>* invocation_context) {
+  std::weak_ptr<RpcClient> rpc_client(shared_from_this());
+  auto callback = std::bind(&RpcClientImpl::asyncCallback, rpc_client, invocation_context, std::placeholders::_1);
+  stub_->async()->RecallMessage(&invocation_context->context, &request, &invocation_context->response, callback);
+}
+
 bool RpcClientImpl::ok() const {
   return channel_ && grpc_connectivity_state::GRPC_CHANNEL_SHUTDOWN != channel_->GetState(false);
 }

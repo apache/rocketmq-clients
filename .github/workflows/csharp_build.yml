@@ -24,6 +24,5 @@ jobs:
         working-directory: ./csharp
         run: |
           dotnet build
-          dotnet tool install -g dotnet-format
-          dotnet-format --check
+          dotnet format style
           dotnet test -l "console;verbosity=detailed"

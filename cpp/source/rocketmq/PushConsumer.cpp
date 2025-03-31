@@ -43,6 +43,7 @@ PushConsumer PushConsumerBuilder::build() {
   }
   impl->consumeThreadPoolSize(consume_thread_);
   impl->withNameServerResolver(std::make_shared<StaticNameServerResolver>(configuration_.endpoints()));
+  impl->withResourceNamespace(configuration_.resourceNamespace());
   impl->withSsl(configuration_.withSsl());
   impl->withCredentialsProvider(configuration_.credentialsProvider());
   impl->withRequestTimeout(configuration_.requestTimeout());
