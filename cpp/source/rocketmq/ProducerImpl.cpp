@@ -17,14 +17,12 @@
 #include "ProducerImpl.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <memory>
 #include <system_error>
 #include <utility>
 
-#include "apache/rocketmq/v2/definition.pb.h"
 #include "MixAll.h"
 #include "Protocol.h"
 #include "PublishInfoCallback.h"
@@ -40,6 +38,7 @@
 #include "rocketmq/SendReceipt.h"
 #include "rocketmq/Transaction.h"
 #include "rocketmq/TransactionChecker.h"
+#include "rocketmq/RecallReceipt.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -97,8 +96,12 @@ void ProducerImpl::validate(const Message& message, std::error_code& ec) {
   MixAll::validate(message, ec);
 
   if (!ec) {
+    if (message.body().empty()) {
+      SPDLOG_WARN("Body of the message is null, topic={}", message.topic());
+      ec = ErrorCode::MessageBodyEmpty;
+    }
     if (message.body().length() > client_config_.publisher.max_body_size) {
-      SPDLOG_WARN("Body of the message to send is too large");
+      SPDLOG_WARN("Body of the message to send is too large, topic={}", message.topic());
       ec = ErrorCode::PayloadTooLarge;
     }
   }
@@ -224,13 +227,15 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
   SendReceipt   send_receipt;
 
   // Define callback
-  auto callback = [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) mutable {
+  auto callback =
+      [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) mutable {
     ec = code;
-    SendReceipt& receipt_mut = const_cast<SendReceipt&>(receipt);
+    auto& receipt_mut = const_cast<SendReceipt&>(receipt);
     send_receipt.target = std::move(receipt_mut.target);
     send_receipt.message_id = std::move(receipt_mut.message_id);
     send_receipt.message = std::move(receipt_mut.message);
     send_receipt.transaction_id = std::move(receipt_mut.transaction_id);
+    send_receipt.recall_handle = std::move(receipt_mut.recall_handle);
     {
       absl::MutexLock lk(mtx.get());
       completed = true;
@@ -450,8 +455,9 @@ bool ProducerImpl::endTransaction0(const MiniTransaction& transaction, Transacti
     }
   };
 
-  client_manager_->endTransaction(transaction.target, metadata, request, absl::ToChronoMilliseconds(requestTimeout()),
-                                  cb);
+  client_manager_->endTransaction(
+      transaction.target, metadata, request, absl::ToChronoMilliseconds(requestTimeout()), cb);
+
   {
     absl::MutexLock lk(mtx.get());
     cv->Wait(mtx.get());
@@ -507,6 +513,73 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Tra
   impl.appendMiniTransaction(mini);
 
   return send_receipt;
+}
+
+RecallReceipt ProducerImpl::recall(const std::string& topic, std::string& recall_handle, std::error_code& ec) noexcept {
+  ensureRunning(ec);
+  if (ec) {
+    SPDLOG_WARN("Producer is not running");
+    return RecallReceipt{};
+  }
+
+  auto topic_publish_info = getPublishInfo(topic);
+  if (!topic_publish_info) {
+    SPDLOG_WARN("Route of topic[{}] is not found", topic);
+    ec = ErrorCode::NotFound;
+    return RecallReceipt{};
+  }
+
+  std::vector<rmq::MessageQueue> message_queue_list;
+  absl::optional<std::string> message_group{};
+
+  if (!topic_publish_info->selectMessageQueues(message_group, message_queue_list)) {
+    SPDLOG_WARN("Failed to select an addressable message queue for timer topic[{}]", topic);
+    ec = ErrorCode::NotFound;
+    return RecallReceipt{};
+  }
+
+  const std::string& target = urlOf(message_queue_list.front());
+  if (target.empty()) {
+    SPDLOG_WARN("Failed to resolve broker address from MessageQueue");
+    ec = ErrorCode::BadGateway;
+    return RecallReceipt{};
+  }
+
+  RecallMessageRequest request;
+  request.mutable_topic()->set_resource_namespace(resourceNamespace());
+  request.mutable_topic()->set_name(topic);
+  request.set_recall_handle(recall_handle);
+
+  Metadata metadata;
+  Signature::sign(client_config_, metadata);
+
+  auto mtx = std::make_shared<absl::Mutex>();
+  auto cv = std::make_shared<absl::CondVar>();
+
+  RecallReceipt recall_receipt;
+  auto callback =
+      [&, mtx, cv, topic](const std::error_code& code, const RecallMessageResponse& response) {
+
+    ec = code;
+    if (!ec) {
+      recall_receipt.message_id = response.message_id();
+    }
+
+    {
+      absl::MutexLock lk(mtx.get());
+      cv->SignalAll();
+    }
+  };
+
+  client_manager_->recallMessage(
+      target, metadata, request, absl::ToChronoMilliseconds(requestTimeout()), callback);
+
+  {
+    absl::MutexLock lk(mtx.get());
+    cv->Wait(mtx.get());
+  }
+
+  return recall_receipt;
 }
 
 void ProducerImpl::getPublishInfoAsync(const std::string& topic, const PublishInfoCallback& cb) {

@@ -29,11 +29,11 @@ class AsyncReceiveMessageCallback : public std::enable_shared_from_this<AsyncRec
 public:
   explicit AsyncReceiveMessageCallback(std::weak_ptr<ProcessQueue> process_queue);
 
-  void onCompletion(const std::error_code& ec, const ReceiveMessageResult& result);
+  void onCompletion(const std::error_code& ec, std::string& attempt_id, const ReceiveMessageResult& result);
 
-  void receiveMessageLater(std::chrono::milliseconds delay);
+  void receiveMessageLater(std::chrono::milliseconds delay, std::string& attempt_id);
 
-  void receiveMessageImmediately();
+  void receiveMessageImmediately(std::string& attempt_id);
 
 private:
   /**
@@ -42,9 +42,9 @@ private:
    */
   std::weak_ptr<ProcessQueue> process_queue_;
 
-  std::function<void(void)> receive_message_later_;
+  std::function<void(std::string)> receive_message_later_;
 
-  void checkThrottleThenReceive();
+  void checkThrottleThenReceive(std::string attempt_id);
 
   static const char* RECEIVE_LATER_TASK_NAME;
 };
