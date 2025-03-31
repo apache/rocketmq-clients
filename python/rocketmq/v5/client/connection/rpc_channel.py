@@ -88,7 +88,7 @@ class RpcEndpoints:
             or len(self.__addresses) == 0
             or self.__scheme == AddressScheme.ADDRESS_SCHEME_UNSPECIFIED
         ):
-            return ""
+            return "", ""
 
         prefix = "dns:"
         if self.__scheme == AddressScheme.IPv4:
@@ -227,6 +227,7 @@ class RpcChannel:
                     ("grpc.enable_retries", 0),
                     ("grpc.max_send_message_length", -1),
                     ("grpc.max_receive_message_length", -1),
+                    ("grpc.use_local_subchannel_pool", 1),
                 ]
                 if self.__tls_enabled:
                     self.__async_channel = aio.secure_channel(
@@ -237,7 +238,7 @@ class RpcChannel:
                         self.__endpoints.facade, options
                     )
                 self.__async_stub = MessagingServiceStub(self.__async_channel)
-                logger.debug(
+                logger.info(
                     f"create_aio_channel to [{self.__endpoints.__str__()}] success. channel state:{self.__async_channel.get_state()}"
                 )
         except Exception as e:

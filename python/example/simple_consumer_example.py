@@ -21,7 +21,11 @@ if __name__ == '__main__':
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
+    # with namespace
+    # config = ClientConfiguration(endpoints, credentials, "namespace")
     topic = "topic"
+    # in most case, you don't need to create too many consumers, singleton pattern is recommended
+    # close the simple consumer when you don't need it anymore
     simple_consumer = SimpleConsumer(config, "consumer-group")
     try:
         simple_consumer.startup()
@@ -31,6 +35,7 @@ if __name__ == '__main__':
             # simple_consumer.subscribe(topic, FilterExpression("tag"))
             while True:
                 try:
+                    # max message num for each long polling and message invisible duration after it is received
                     messages = simple_consumer.receive(32, 15)
                     if messages is not None:
                         print(f"{simple_consumer.__str__()} receive {len(messages)} messages.")

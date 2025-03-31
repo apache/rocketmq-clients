@@ -12,18 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 
 from rocketmq import ClientConfiguration, Credentials, Message, Producer
-
-
-def handle_send_result(result_future):
-    try:
-        # don't write time-consuming code in the callback. if needed, use other thread
-        res = result_future.result()
-        print(f"send message success, {res}")
-    except Exception as exception:
-        print(f"send message failed, raise exception: {exception}")
-
 
 if __name__ == '__main__':
     endpoints = "foobar.com:8080"
@@ -33,31 +24,27 @@ if __name__ == '__main__':
     config = ClientConfiguration(endpoints, credentials)
     # with namespace
     # config = ClientConfiguration(endpoints, credentials, "namespace")
-    topic = "topic"
+    topic = "delay-topic"
     producer = Producer(config, (topic,))
 
     try:
         producer.startup()
         try:
-            for i in range(10):
-                msg = Message()
-                # topic for the current message
-                msg.topic = topic
-                msg.body = "hello, rocketmq.".encode('utf-8')
-                # secondary classifier of message besides topic
-                msg.tag = "rocketmq-send-message"
-                # key(s) of the message, another way to mark message besides message id
-                msg.keys = "send_async"
-                # user property for the message
-                msg.add_property("send", "async")
-                send_result_future = producer.send_async(msg)
-                send_result_future.add_done_callback(handle_send_result)
+            msg = Message()
+            # topic for the current message
+            msg.topic = topic
+            msg.body = "hello, rocketmq.".encode('utf-8')
+            # secondary classifier of message besides topic
+            msg.tag = "rocketmq-send-delay-message"
+            # delay 10 seconds
+            msg.delivery_timestamp = int(time.time()) + 10
+            res = producer.send(msg)
+            print(f"{producer.__str__()} send message success. {res}")
+            producer.shutdown()
+            print(f"{producer.__str__()} shutdown.")
         except Exception as e:
-            print(f"producer{producer.__str__()} send message raise exception: {e}")
+            print(f"normal producer example raise exception: {e}")
             producer.shutdown()
     except Exception as e:
         print(f"{producer.__str__()} startup raise exception: {e}")
         producer.shutdown()
-
-    input("Please Enter to Stop the Application.")
-    producer.shutdown()

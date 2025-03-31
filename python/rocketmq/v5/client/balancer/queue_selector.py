@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import random
 
 from rocketmq.v5.exception import IllegalArgumentException
@@ -63,6 +64,12 @@ class QueueSelector:
         return self.__message_queues[
             self.__index.get_and_increment() % len(self.__message_queues)
         ]
+
+    def select_queue_by_hash_key(self, key):
+        hash_object = hashlib.sha256(key.encode('utf-8'))
+        hash_code = int.from_bytes(hash_object.digest(), byteorder='big')
+        print(f"hashcode: {hash_code}")
+        return self.__message_queues[hash_code % len(self.__message_queues)]
 
     def all_queues(self):
         index = self.__index.get_and_increment() % len(self.__message_queues)
