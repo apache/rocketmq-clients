@@ -18,21 +18,24 @@
 import { Producer } from '..';
 import { topics, endpoints, sessionCredentials, namespace } from './ProducerSingleton';
 
-const producer = new Producer({
-  endpoints,
-  namespace,
-  sessionCredentials,
-  maxAttempts: 2,
-});
-await producer.startup();
+(async () => {
+  const producer = new Producer({
+    endpoints,
+    namespace,
+    sessionCredentials,
+    maxAttempts: 2,
+  });
+  await producer.startup();
 
-const receipt = await producer.send({
-  topic: topics.fifo,
-  tag: 'nodejs-fifo',
-  body: Buffer.from(JSON.stringify({
-    hello: 'rocketmq-client-nodejs world 😄',
-    now: Date(),
-  })),
-  messageGroup: 'fifoMessageGroup',
-});
-console.log(receipt);
+  const receipt = await producer.send({
+    topic: topics.fifo,
+    tag: 'nodejs-fifo',
+    body: Buffer.from(JSON.stringify({
+      hello: 'rocketmq-client-nodejs world 😄',
+      now: Date(),
+    })),
+    messageGroup: 'fifoMessageGroup',
+  });
+  console.log(receipt);
+})();
+

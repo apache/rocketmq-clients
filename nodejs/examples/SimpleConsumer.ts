@@ -19,20 +19,23 @@ import { SimpleConsumer } from '..';
 
 import { topics, endpoints, sessionCredentials, namespace, tag, consumerGroup } from './ProducerSingleton';
 
-const simpleConsumer = new SimpleConsumer({
-  consumerGroup,
-  endpoints,
-  namespace,
-  sessionCredentials,
-  subscriptions: new Map().set(topics.normal, tag),
-  awaitDuration: 3000,
-});
-await simpleConsumer.startup();
 
-const messages = await simpleConsumer.receive(20);
-console.log('got %d messages', messages.length);
-for (const message of messages) {
-  console.log(message);
-  console.log('body=%o', message.body.toString());
-  await simpleConsumer.ack(message);
-}
+(async () => {
+  const simpleConsumer = new SimpleConsumer({
+    consumerGroup,
+    endpoints,
+    namespace,
+    sessionCredentials,
+    subscriptions: new Map().set(topics.normal, tag),
+    awaitDuration: 3000,
+  });
+  await simpleConsumer.startup();
+
+  const messages = await simpleConsumer.receive(20);
+  console.log('got %d messages', messages.length);
+  for (const message of messages) {
+    console.log(message);
+    console.log('body=%o', message.body.toString());
+    await simpleConsumer.ack(message);
+  }
+})();

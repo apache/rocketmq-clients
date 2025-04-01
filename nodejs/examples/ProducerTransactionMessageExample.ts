@@ -16,29 +16,37 @@
  */
 
 import { Producer } from '..';
-import { topics, endpoints, sessionCredentials, namespace } from './ProducerSingleton';
+import { topics, endpoints, sessionCredentials, namespace, tag } from './ProducerSingleton';
 import { TransactionResolution } from '../proto/apache/rocketmq/v2/definition_pb';
 
-const producer = new Producer({
-  endpoints,
-  namespace,
-  sessionCredentials,
-  maxAttempts: 2,
-  checker: {
-    async check(messageView) {
-      console.log(messageView);
-      return TransactionResolution.COMMIT;
-    },
-  },
-});
-await producer.startup();
 
-const receipt = await producer.send({
-  topic: topics.transaction,
-  tag: 'nodejs-transaction',
-  body: Buffer.from(JSON.stringify({
-    hello: 'rocketmq-client-nodejs world 😄',
-    now: Date(),
-  })),
-});
-console.log(receipt);
+(async () => {
+  const producer = new Producer({
+    endpoints,
+    namespace,
+    sessionCredentials,
+    maxAttempts: 2,
+    checker: {
+      async check(messageView) {
+        console.log(messageView);
+        return TransactionResolution.COMMIT;
+      },
+    },
+  });
+  await producer.startup();
+  const transaction = producer.beginTransaction();
+  const receipt = await producer.send({
+    topic: topics.transaction,
+    tag,
+    keys: [
+      `foo-key-${Date.now()}`,
+      `bar-key-${Date.now()}`,
+    ],
+    body: Buffer.from(JSON.stringify({
+      hello: 'rocketmq-client-nodejs world 😄',
+      now: Date(),
+    })),
+  }, transaction);
+  await transaction.commit();
+  console.log(receipt);
+})();

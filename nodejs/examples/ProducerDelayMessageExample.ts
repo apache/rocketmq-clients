@@ -18,20 +18,24 @@
 import { Producer } from '..';
 import { topics, endpoints, sessionCredentials, namespace } from './ProducerSingleton';
 
-const producer = new Producer({
-  endpoints,
-  namespace,
-  sessionCredentials,
-  maxAttempts: 2,
-});
-await producer.startup();
+(async () => {
+  const producer = new Producer({
+    endpoints,
+    namespace,
+    sessionCredentials,
+    maxAttempts: 2,
+  });
+  await producer.startup();
 
-const receipt = await producer.send({
-  topic: topics.delay,
-  tag: 'nodejs-delay',
-  body: Buffer.from(JSON.stringify({
-    hello: 'rocketmq-client-nodejs world 😄',
-    now: Date(),
-  })),
-});
-console.log(receipt);
+  const receipt = await producer.send({
+    topic: topics.delay,
+    tag: 'nodejs-delay',
+    delay: 2000,
+    body: Buffer.from(JSON.stringify({
+      hello: 'rocketmq-client-nodejs world 😄',
+      now: Date(),
+    })),
+  });
+  console.log(receipt);
+})();
+
