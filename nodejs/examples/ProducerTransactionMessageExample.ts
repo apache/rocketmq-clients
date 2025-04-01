@@ -15,24 +15,30 @@
  * limitations under the License.
  */
 
-import { SimpleConsumer } from '..';
+import { Producer } from '..';
+import { topics, endpoints, sessionCredentials, namespace } from './ProducerSingleton';
+import { TransactionResolution } from '../proto/apache/rocketmq/v2/definition_pb';
 
-import { topics, endpoints, sessionCredentials, namespace, tag, consumerGroup } from './ProducerSingleton';
-
-const simpleConsumer = new SimpleConsumer({
-  consumerGroup,
+const producer = new Producer({
   endpoints,
   namespace,
   sessionCredentials,
-  subscriptions: new Map().set(topics.normal, tag),
-  awaitDuration: 3000,
+  maxAttempts: 2,
+  checker: {
+    async check(messageView) {
+      console.log(messageView);
+      return TransactionResolution.COMMIT;
+    },
+  },
 });
-await simpleConsumer.startup();
+await producer.startup();
 
-const messages = await simpleConsumer.receive(20);
-console.log('got %d messages', messages.length);
-for (const message of messages) {
-  console.log(message);
-  console.log('body=%o', message.body.toString());
-  await simpleConsumer.ack(message);
-}
+const receipt = await producer.send({
+  topic: topics.transaction,
+  tag: 'nodejs-transaction',
+  body: Buffer.from(JSON.stringify({
+    hello: 'rocketmq-client-nodejs world 😄',
+    now: Date(),
+  })),
+});
+console.log(receipt);
