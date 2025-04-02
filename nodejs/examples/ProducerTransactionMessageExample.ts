@@ -17,7 +17,8 @@
 
 import { Producer } from '..';
 import { topics, endpoints, sessionCredentials, namespace, tag } from './ProducerSingleton';
-import { TransactionResolution } from '../proto/apache/rocketmq/v2/definition_pb';
+import pkg from 'rocketmq-client-nodejs/proto/apache/rocketmq/v2/definition_pb.js';
+const { TransactionResolution } = pkg;
 
 
 (async () => {
