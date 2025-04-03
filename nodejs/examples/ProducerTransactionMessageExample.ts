@@ -38,10 +38,6 @@ import { TransactionResolution } from '../proto/apache/rocketmq/v2/definition_pb
   const receipt = await producer.send({
     topic: topics.transaction,
     tag,
-    keys: [
-      `foo-key-${Date.now()}`,
-      `bar-key-${Date.now()}`,
-    ],
     body: Buffer.from(JSON.stringify({
       hello: 'rocketmq-client-nodejs world 😄',
       now: Date(),
