@@ -132,6 +132,7 @@ export abstract class BaseClient {
       this.updateRoutes();
     }, 30000));
 
+    await this.#syncSettings();
     // sync settings every 5m
     this.#timers.push(setInterval(async () => {
       this.#syncSettings();
