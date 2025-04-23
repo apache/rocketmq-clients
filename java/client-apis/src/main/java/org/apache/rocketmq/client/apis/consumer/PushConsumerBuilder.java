@@ -87,7 +87,7 @@ public interface PushConsumerBuilder {
      * @param enableFifoParallelProcessing  enable fifo parallel processing.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setEnableFifoParallelProcessing(boolean enableFifoParallelProcessing);
+    PushConsumerBuilder setEnableFifoParallelConsuming(boolean enableFifoParallelProcessing);
 
     /**
      * Finalize the build of {@link PushConsumer} and start.

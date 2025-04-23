@@ -115,10 +115,10 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     }
 
     /**
-     * @see PushConsumerBuilder#setEnableFifoParallelProcessing(boolean)
+     * @see PushConsumerBuilder#setEnableFifoParallelConsuming(boolean)
      */
     @Override
-    public PushConsumerBuilder setEnableFifoParallelProcessing(boolean enableFifoParallelConsuming) {
+    public PushConsumerBuilder setEnableFifoParallelConsuming(boolean enableFifoParallelConsuming) {
         this.enableFifoParallelConsuming = enableFifoParallelConsuming;
         return this;
     }
