@@ -41,7 +41,7 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     private int maxCacheMessageCount = 1024;
     private int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
     private int consumptionThreadCount = 20;
-    private boolean enableFifoParallelConsuming = false;
+    private boolean enableFifoConsumeAccelerator = false;
 
     /**
      * @see PushConsumerBuilder#setClientConfiguration(ClientConfiguration)
@@ -115,11 +115,11 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     }
 
     /**
-     * @see PushConsumerBuilder#setEnableFifoParallelConsuming(boolean)
+     * @see PushConsumerBuilder#setEnableFifoConsumeAccelerator(boolean)
      */
     @Override
-    public PushConsumerBuilder setEnableFifoParallelConsuming(boolean enableFifoParallelConsuming) {
-        this.enableFifoParallelConsuming = enableFifoParallelConsuming;
+    public PushConsumerBuilder setEnableFifoConsumeAccelerator(boolean enableFifoConsumeAccelerator) {
+        this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
         return this;
     }
 
@@ -134,7 +134,7 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
         checkArgument(!subscriptionExpressions.isEmpty(), "subscriptionExpressions have not been set yet");
         final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, consumerGroup,
             subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
-            consumptionThreadCount, enableFifoParallelConsuming);
+            consumptionThreadCount, enableFifoConsumeAccelerator);
         pushConsumer.startAsync().awaitRunning();
         return pushConsumer;
     }

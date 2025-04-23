@@ -39,18 +39,18 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("UnstableApiUsage")
 class FifoConsumeService extends ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(FifoConsumeService.class);
-    private final boolean enableFifoParallelConsuming;
+    private final boolean enableFifoConsumeAccelerator;
 
     public FifoConsumeService(ClientId clientId, MessageListener messageListener,
         ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
-        ScheduledExecutorService scheduler, boolean enableFifoParallelConsuming) {
+        ScheduledExecutorService scheduler, boolean enableFifoConsumeAccelerator) {
         super(clientId, messageListener, consumptionExecutor, messageInterceptor, scheduler);
-        this.enableFifoParallelConsuming = enableFifoParallelConsuming;
+        this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
     }
 
     @Override
     public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
-        if (!enableFifoParallelConsuming || messageViews.size() <= 1) {
+        if (!enableFifoConsumeAccelerator || messageViews.size() <= 1) {
             consumeIteratively(pq, messageViews.iterator());
             return;
         }
