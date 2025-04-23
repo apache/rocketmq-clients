@@ -66,6 +66,9 @@ class FifoConsumeService extends ConsumeService {
             }
         }
 
+        log.debug("FifoConsumeService parallel consume, messageViewsNum={}, groupNum={}", messageViews.size(),
+            messageViewsGroupByMessageGroup.size() + (messageViewsWithoutMessageGroup.isEmpty() ? 0 : 1));
+
         messageViewsGroupByMessageGroup.values().forEach(list -> consumeIteratively(pq, list.iterator()));
         consumeIteratively(pq, messageViewsWithoutMessageGroup.iterator());
     }

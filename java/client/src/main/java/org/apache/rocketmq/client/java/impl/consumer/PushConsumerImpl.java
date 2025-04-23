@@ -203,7 +203,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
         if (pushSubscriptionSettings.isFifo()) {
-            log.info("Create FIFO consume service, consumerGroup={}, clientId={}", consumerGroup, clientId);
+            log.info("Create FIFO consume service, consumerGroup={}, clientId={}, enableFifoParallelConsuming={}",
+                consumerGroup, clientId, enableFifoParallelConsuming);
             return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this,
                 scheduler, enableFifoParallelConsuming);
         }
