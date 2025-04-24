@@ -82,7 +82,7 @@ public interface PushConsumerBuilder {
     PushConsumerBuilder setConsumptionThreadCount(int count);
 
     /**
-     * Set the fifo parallel processing.
+     * Set enable fifo consume accelerator. If enabled, the consumer will consume messages in parallel by messageGroup.
      *
      * @param enableFifoConsumeAccelerator  enable fifo parallel processing.
      * @return the consumer builder instance.
