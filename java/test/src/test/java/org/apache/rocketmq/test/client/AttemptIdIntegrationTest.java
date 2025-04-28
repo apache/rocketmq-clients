@@ -56,6 +56,7 @@ import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.test.helper.ResponseWriter;
+import org.apache.rocketmq.test.server.BaseMockServerImpl;
 import org.apache.rocketmq.test.server.GrpcServerIntegrationTest;
 import org.apache.rocketmq.test.server.MockServer;
 import org.junit.Before;
@@ -63,126 +64,40 @@ import org.junit.Test;
 
 public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
     private final String topic = "topic";
-    private final String broker = "broker";
-    private final ResponseWriter responseWriter = ResponseWriter.getInstance();
-    private final Status mockStatus = Status.newBuilder()
-        .setCode(Code.OK)
-        .setMessage("mock test")
-        .build();
+    MockServer serverImpl;
 
-    private final List<String> attemptIdList = new CopyOnWriteArrayList<>();
-    private final AtomicBoolean serverDeadlineFlag = new AtomicBoolean(true);
+     static class MockServerImpl extends BaseMockServerImpl {
+        public final List<String> attemptIdList = new CopyOnWriteArrayList<>();
+        public final AtomicBoolean serverDeadlineFlag = new AtomicBoolean(true);
+
+        public MockServerImpl(String topic) {
+            super(topic);
+        }
+
+        @Override
+        public void receiveMessage(ReceiveMessageRequest request,
+            StreamObserver<ReceiveMessageResponse> responseObserver) {
+            // prevent too much request
+            if (attemptIdList.size() >= 3) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            attemptIdList.add(request.getAttemptId());
+            if (serverDeadlineFlag.compareAndSet(true, false)) {
+                // timeout
+            } else {
+                responseObserver.onNext(ReceiveMessageResponse.newBuilder().setStatus(mockStatus).build());
+                responseObserver.onCompleted();
+            }
+        }
+    }
 
     @Before
     public void setUp() throws Exception {
-        MockServer serverImpl = new MockServer() {
-            @Override
-            public void queryRoute(QueryRouteRequest request, StreamObserver<QueryRouteResponse> responseObserver) {
-                responseWriter.write(responseObserver, QueryRouteResponse.newBuilder()
-                    .setStatus(mockStatus)
-                    .addMessageQueues(MessageQueue.newBuilder()
-                        .setTopic(Resource.newBuilder()
-                            .setName(topic).build())
-                        .setId(0)
-                        .setPermission(Permission.READ_WRITE)
-                        .setBroker(Broker.newBuilder()
-                            .setName(broker)
-                            .setId(0)
-                            .setEndpoints(Endpoints.newBuilder()
-                                .addAddresses(Address.newBuilder()
-                                    .setHost("127.0.0.1")
-                                    .setPort(port)
-                                    .build())
-                                .build())
-                            .build())
-                        .addAcceptMessageTypes(MessageType.NORMAL)
-                        .build())
-                    .build());
-            }
-
-            @Override
-            public void heartbeat(HeartbeatRequest request, StreamObserver<HeartbeatResponse> responseObserver) {
-                responseWriter.write(responseObserver, HeartbeatResponse.newBuilder().setStatus(mockStatus)
-                    .build());
-            }
-
-            @Override
-            public void queryAssignment(QueryAssignmentRequest request,
-                StreamObserver<QueryAssignmentResponse> responseObserver) {
-                responseWriter.write(responseObserver, QueryAssignmentResponse.newBuilder().setStatus(mockStatus)
-                        .addAssignments(Assignment.newBuilder()
-                            .setMessageQueue(MessageQueue.newBuilder()
-                                .setTopic(Resource.newBuilder()
-                                    .setName(topic).build())
-                                .setId(0)
-                                .setPermission(Permission.READ_WRITE)
-                                .setBroker(Broker.newBuilder()
-                                    .setName(broker)
-                                    .setId(0)
-                                    .setEndpoints(Endpoints.newBuilder()
-                                        .addAddresses(Address.newBuilder()
-                                            .setHost("127.0.0.1")
-                                            .setPort(port)
-                                            .build())
-                                        .build())
-                                    .build())
-                                .addAcceptMessageTypes(MessageType.NORMAL)
-                                .build())
-                            .build())
-                    .build());
-            }
-
-            @Override
-            public void receiveMessage(ReceiveMessageRequest request,
-                StreamObserver<ReceiveMessageResponse> responseObserver) {
-                // prevent too much request
-                if (attemptIdList.size() >= 3) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-                attemptIdList.add(request.getAttemptId());
-                if (serverDeadlineFlag.compareAndSet(true, false)) {
-                    // timeout
-                } else {
-                    responseObserver.onNext(ReceiveMessageResponse.newBuilder().setStatus(mockStatus).build());
-                    responseObserver.onCompleted();
-                }
-            }
-
-            @Override
-            public StreamObserver<TelemetryCommand> telemetry(StreamObserver<TelemetryCommand> responseObserver) {
-                return new StreamObserver<TelemetryCommand>() {
-                    @Override
-                    public void onNext(TelemetryCommand value) {
-                        responseObserver.onNext(value.toBuilder().setStatus(mockStatus)
-                            .setSettings(value.getSettings().toBuilder()
-                                .setBackoffPolicy(value.getSettings().getBackoffPolicy().toBuilder()
-                                    .setMaxAttempts(16)
-                                    .setExponentialBackoff(ExponentialBackoff.newBuilder()
-                                        .setInitial(Duration.newBuilder()
-                                            .setSeconds(1).build())
-                                        .setMax(Duration.newBuilder()
-                                            .setSeconds(10).build())
-                                        .setMultiplier(1.5f)
-                                        .build()))).build());
-                        responseObserver.onCompleted();
-                    }
-
-                    @Override
-                    public void onError(Throwable t) {
-                    }
-
-                    @Override
-                    public void onCompleted() {
-                        responseObserver.onCompleted();
-                    }
-                };
-            }
-        };
-
+        serverImpl = new MockServerImpl(topic);
         setUpServer(serverImpl, port);
         serverImpl.setPort(port);
     }
@@ -195,10 +110,9 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
         SessionCredentialsProvider sessionCredentialsProvider =
             new StaticSessionCredentialsProvider(accessKey, secretKey);
 
-        String endpoints = "127.0.0.1" + ":" + port;
         int timeout = 1000;
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-            .setEndpoints(endpoints)
+            .setEndpoints(serverImpl.getLocalEndpoints())
             .setCredentialProvider(sessionCredentialsProvider)
             .setRequestTimeout(java.time.Duration.of(timeout, ChronoUnit.MILLIS))
             .build();
@@ -213,6 +127,7 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
             .build();
         try {
             await().atMost(java.time.Duration.ofSeconds(5)).untilAsserted(() -> {
+                List<String> attemptIdList = ((MockServerImpl) serverImpl).attemptIdList;
                 assertThat(attemptIdList.size()).isGreaterThanOrEqualTo(3);
                 assertThat(attemptIdList.get(0)).isEqualTo(attemptIdList.get(1));
                 assertThat(attemptIdList.get(0)).isNotEqualTo(attemptIdList.get(2));

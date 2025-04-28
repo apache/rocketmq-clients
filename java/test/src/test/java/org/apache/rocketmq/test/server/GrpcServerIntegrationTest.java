@@ -26,6 +26,9 @@ import io.grpc.netty.shaded.io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.grpc.testing.GrpcCleanupRule;
 import java.io.IOException;
 import java.security.cert.CertificateException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.junit.Rule;
 
 public class GrpcServerIntegrationTest {
@@ -46,7 +49,7 @@ public class GrpcServerIntegrationTest {
         SelfSignedCertificate selfSignedCertificate = new SelfSignedCertificate();
         ServerServiceDefinition serviceDefinition = serverImpl.bindService();
         NettyServerBuilder serverBuilder = NettyServerBuilder.forPort(port)
-            .directExecutor()
+            .executor(new ThreadPoolExecutor(4, 4, 2L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1000)))
             .addService(serviceDefinition)
             .useTransportSecurity(selfSignedCertificate.certificate(), selfSignedCertificate.privateKey());
         for (ServerInterceptor interceptor : interceptors) {
