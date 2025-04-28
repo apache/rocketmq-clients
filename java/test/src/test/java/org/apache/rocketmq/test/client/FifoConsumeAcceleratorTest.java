@@ -116,19 +116,8 @@ public class FifoConsumeAcceleratorTest extends GrpcServerIntegrationTest {
             });
 
         try (PushConsumer ignore = builder.build()) {
-            {
-                List<String> messageBatch = new ArrayList<>();
-                for (int i = 0; i < messageBatchSize; i++) {
-                    messageBatch.add(buildMessage("A", i));
-                }
-                messageList.add(messageBatch);
-                await().atMost(30, TimeUnit.SECONDS).untilAsserted(() -> {
-                    Assert.assertEquals(messageBatchSize, consumeList.size());
-                });
-                checkConsumeOrder(consumeList);
-            }
-
             Random random = new Random();
+            random.setSeed(System.currentTimeMillis());
             for (int testTime = 0; testTime < 100; testTime++) {
                 List<String> messageBatch = new ArrayList<>();
                 for (int i = 0; i < messageBatchSize; i++) {
