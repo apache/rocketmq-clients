@@ -94,6 +94,21 @@ func (mr *MockRpcClientMockRecorder) EndTransaction(ctx, request interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndTransaction", reflect.TypeOf((*MockRpcClient)(nil).EndTransaction), ctx, request)
 }
 
+// ForwardMessageToDeadLetterQueue mocks base method.
+func (m *MockRpcClient) ForwardMessageToDeadLetterQueue(ctx context.Context, request *v2.ForwardMessageToDeadLetterQueueRequest) (*v2.ForwardMessageToDeadLetterQueueResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ForwardMessageToDeadLetterQueue", ctx, request)
+	ret0, _ := ret[0].(*v2.ForwardMessageToDeadLetterQueueResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ForwardMessageToDeadLetterQueue indicates an expected call of ForwardMessageToDeadLetterQueue.
+func (mr *MockRpcClientMockRecorder) ForwardMessageToDeadLetterQueue(ctx, request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForwardMessageToDeadLetterQueue", reflect.TypeOf((*MockRpcClient)(nil).ForwardMessageToDeadLetterQueue), ctx, request)
+}
+
 // GetTarget mocks base method.
 func (m *MockRpcClient) GetTarget() string {
 	m.ctrl.T.Helper()
@@ -150,6 +165,21 @@ func (m *MockRpcClient) NotifyClientTermination(ctx context.Context, request *v2
 func (mr *MockRpcClientMockRecorder) NotifyClientTermination(ctx, request interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyClientTermination", reflect.TypeOf((*MockRpcClient)(nil).NotifyClientTermination), ctx, request)
+}
+
+// QueryAssignments mocks base method.
+func (m *MockRpcClient) QueryAssignments(ctx context.Context, request *v2.QueryAssignmentRequest) (*v2.QueryAssignmentResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryAssignments", ctx, request)
+	ret0, _ := ret[0].(*v2.QueryAssignmentResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryAssignments indicates an expected call of QueryAssignments.
+func (mr *MockRpcClientMockRecorder) QueryAssignments(ctx, request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAssignments", reflect.TypeOf((*MockRpcClient)(nil).QueryAssignments), ctx, request)
 }
 
 // QueryRoute mocks base method.
@@ -215,7 +245,9 @@ func (mr *MockRpcClientMockRecorder) Telemetry(ctx interface{}) *gomock.Call {
 // idleDuration mocks base method.
 func (m *MockRpcClient) idleDuration() time.Duration {
 	m.ctrl.T.Helper()
-	return time.Hour
+	ret := m.ctrl.Call(m, "idleDuration")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
 }
 
 // idleDuration indicates an expected call of idleDuration.

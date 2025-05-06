@@ -22,8 +22,9 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
@@ -51,7 +52,7 @@ type defaultSimpleConsumer struct {
 	cli *defaultClient
 
 	groupName                    string
-	topicIndex                   int32
+	topicIndex                   atomic.Int32
 	scOpts                       simpleConsumerOptions
 	scSettings                   *simpleConsumerSettings
 	awaitDuration                time.Duration
@@ -292,7 +293,7 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	if len(topics) == 0 {
 		return nil, fmt.Errorf("there is no topic to receive message")
 	}
-	next := atomic.AddInt32(&sc.topicIndex, 1)
+	next := sc.topicIndex.Inc()
 	idx := utils.Mod(next+1, len(topics))
 	topic := topics[idx]
 
