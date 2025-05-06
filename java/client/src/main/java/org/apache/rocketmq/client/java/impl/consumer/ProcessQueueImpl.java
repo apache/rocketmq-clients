@@ -109,6 +109,8 @@ class ProcessQueueImpl implements ProcessQueue {
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long cacheFullNanoTime = Long.MIN_VALUE;
 
+    private final AtomicLong inflightReceiveRequestCount = new AtomicLong(0);
+
     public ProcessQueueImpl(PushConsumerImpl consumer, MessageQueueImpl mq, FilterExpression filterExpression) {
         this.consumer = consumer;
         this.dropped = false;
@@ -245,9 +247,11 @@ class ProcessQueueImpl implements ProcessQueue {
 
             final ListenableFuture<ReceiveMessageResult> future = consumer.receiveMessage(request, mq,
                 longPollingTimeout);
+            inflightReceiveRequestCount.incrementAndGet();
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                 @Override
                 public void onSuccess(ReceiveMessageResult result) {
+                    inflightReceiveRequestCount.decrementAndGet();
                     // Intercept after message reception.
                     final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
                         .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
@@ -268,6 +272,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
                 @Override
                 public void onFailure(Throwable t) {
+                    inflightReceiveRequestCount.decrementAndGet();
                     String nextAttemptId = null;
                     if (t instanceof StatusRuntimeException) {
                         StatusRuntimeException exception = (StatusRuntimeException) t;
@@ -667,5 +672,10 @@ class ProcessQueueImpl implements ProcessQueue {
         log.info("Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}, "
             + "cachedMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq, receptionTimes,
             receivedMessagesQuantity, this.getCachedMessageCount(), this.getCachedMessageBytes());
+    }
+
+    @Override
+    public long getInflightReceiveRequestCount() {
+        return inflightReceiveRequestCount.get();
     }
 }

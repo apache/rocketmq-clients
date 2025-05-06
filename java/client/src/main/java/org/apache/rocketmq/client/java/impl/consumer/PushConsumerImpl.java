@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -194,10 +195,29 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         if (null != scanAssignmentsFuture) {
             scanAssignmentsFuture.cancel(false);
         }
-        super.shutDown();
+        waitingReceiveRequest();
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
+        super.shutDown();
         log.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
+    }
+
+    private void waitingReceiveRequest() {
+        Duration maxWaitingTime = clientConfiguration.getRequestTimeout()
+            .plus(pushSubscriptionSettings.getLongPollingTimeout());
+        try {
+            CompletableFuture.runAsync(() -> {
+                while (processQueueTable.values().stream().anyMatch(q -> q.getInflightReceiveRequestCount() > 0)) {
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(100);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }).get(maxWaitingTime.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (Exception ignore) {
+            // ignore
+        }
     }
 
     private ConsumeService createConsumeService() {
