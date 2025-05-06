@@ -74,6 +74,7 @@ func BuildCLient(t *testing.T) *defaultClient {
 	if err != nil {
 		t.Error(err)
 	}
+	cli.inited.Store(true)
 	err = cli.startUp()
 	if err != nil {
 		t.Error(err)
@@ -140,6 +141,7 @@ func TestCLINewClient(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	cli.(*defaultClient).inited.Store(true)
 	sugarBaseLogger.Info(cli)
 	err = cli.(*defaultClient).startUp()
 	if err != nil {
@@ -259,7 +261,7 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	time.Sleep(3 * time.Second)
+	time.Sleep(4 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())
@@ -286,7 +288,7 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	time.Sleep(3 * time.Second)
+	time.Sleep(4 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())

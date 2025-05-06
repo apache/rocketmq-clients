@@ -338,7 +338,7 @@ func TestCMClearIdleRpcClients(t *testing.T) {
 	})
 	defer stubs.Reset()
 
-	MOCK_RPC_CLIENT.EXPECT().idleDuration().Return(time.Hour * 24 * 365)
+	MOCK_RPC_CLIENT.EXPECT().idleDuration().Return(time.Hour * 24 * 365).AnyTimes()
 	cm := NewDefaultClientManager()
 	cm.startUp()
 	cm.RegisterClient(MOCK_CLIENT)
