@@ -26,7 +26,9 @@ jobs:
         id: changed_files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(jq -r '.pull_request.changed_files[]' <<< ${{ toJson(github.event) }})
+            BASE_SHA=${{ github.event.pull_request.base.sha }}
+            HEAD_SHA=${{ github.event.pull_request.head.sha }}
+            CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA)
           else
             CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
           fi
