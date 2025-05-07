@@ -32,7 +32,7 @@ jobs:
             REPO_OWNER=${{ github.repository_owner }}
             REPO_NAME=${{ github.event.repository.name }}
 
-            # calling GitHub API for changed files in PR
+            # calling GitHub API for changed files in PR, the result is in string format.
             CHANGED_FILES=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
               "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER/files" | \
               jq -r '.[].filename' | tr '\n' ' ')
