@@ -17,6 +17,9 @@
 
 package org.apache.rocketmq.test.client;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import io.grpc.stub.StreamObserver;
@@ -38,9 +41,6 @@ import org.apache.rocketmq.test.server.GrpcServerIntegrationTest;
 import org.apache.rocketmq.test.server.MockServer;
 import org.junit.Before;
 import org.junit.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
     private final String topic = "topic";

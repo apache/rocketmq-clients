@@ -17,6 +17,9 @@
 
 package org.apache.rocketmq.test.client;
 
+import static org.apache.rocketmq.client.apis.consumer.FilterExpression.SUB_ALL;
+import static org.awaitility.Awaitility.await;
+
 import apache.rocketmq.v2.Message;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
@@ -49,9 +52,6 @@ import org.apache.rocketmq.test.server.MockServer;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import static org.apache.rocketmq.client.apis.consumer.FilterExpression.SUB_ALL;
-import static org.awaitility.Awaitility.await;
 
 public class FifoConsumeAcceleratorTest extends GrpcServerIntegrationTest {
     private final String topic = "topic";
