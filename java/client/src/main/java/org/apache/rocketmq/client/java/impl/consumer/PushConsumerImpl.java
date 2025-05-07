@@ -195,7 +195,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         if (null != scanAssignmentsFuture) {
             scanAssignmentsFuture.cancel(false);
         }
+        log.info("Waiting for the inflight receive requests to be finished, clientId={}", clientId);
         waitingReceiveRequest();
+        log.info("Begin to Shutdown consumption executor, clientId={}", clientId);
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
         super.shutDown();

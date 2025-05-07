@@ -251,7 +251,6 @@ class ProcessQueueImpl implements ProcessQueue {
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                 @Override
                 public void onSuccess(ReceiveMessageResult result) {
-                    inflightReceiveRequestCount.decrementAndGet();
                     // Intercept after message reception.
                     final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
                         .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
@@ -272,7 +271,6 @@ class ProcessQueueImpl implements ProcessQueue {
 
                 @Override
                 public void onFailure(Throwable t) {
-                    inflightReceiveRequestCount.decrementAndGet();
                     String nextAttemptId = null;
                     if (t instanceof StatusRuntimeException) {
                         StatusRuntimeException exception = (StatusRuntimeException) t;
@@ -291,6 +289,7 @@ class ProcessQueueImpl implements ProcessQueue {
                     onReceiveMessageException(t, nextAttemptId);
                 }
             }, MoreExecutors.directExecutor());
+            future.addListener(inflightReceiveRequestCount::decrementAndGet, MoreExecutors.directExecutor());
             receptionTimes.getAndIncrement();
             consumer.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
