@@ -44,7 +44,7 @@ import org.junit.Test;
 
 public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
     private final String topic = "topic";
-    MockServer serverImpl;
+    private MockServer serverImpl;
 
      static class MockServerImpl extends BaseMockServerImpl {
         public final List<String> attemptIdList = new CopyOnWriteArrayList<>();

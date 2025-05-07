@@ -56,10 +56,9 @@ import org.junit.Test;
 public class FifoConsumeAcceleratorTest extends GrpcServerIntegrationTest {
     private final String topic = "topic";
     private final int messageBatchSize = 30;
-    MockServer serverImpl;
-
-    Map<String, Message> messageMap = new ConcurrentHashMap<>();
-    LinkedBlockingDeque<List<String>> messageList = new LinkedBlockingDeque<>();
+    private final Map<String, Message> messageMap = new ConcurrentHashMap<>();
+    private final LinkedBlockingDeque<List<String>> messageList = new LinkedBlockingDeque<>();
+    private MockServer serverImpl;
 
     class MockServerImpl extends BaseMockServerImpl {
         public MockServerImpl(String topic) {
@@ -77,9 +76,13 @@ public class FifoConsumeAcceleratorTest extends GrpcServerIntegrationTest {
                 } else {
                     responseObserver.onNext(ReceiveMessageResponse.newBuilder().setStatus(mockStatus).build());
                     for (String message : messages) {
-                        responseObserver.onNext(ReceiveMessageResponse.newBuilder().setMessage(messageMap.get(message)).build());
+                        responseObserver.onNext(ReceiveMessageResponse.newBuilder()
+                            .setMessage(messageMap.get(message))
+                            .build());
                     }
-                    responseObserver.onNext(ReceiveMessageResponse.newBuilder().setDeliveryTimestamp(Timestamps.fromMillis(System.currentTimeMillis())).build());
+                    responseObserver.onNext(ReceiveMessageResponse.newBuilder()
+                        .setDeliveryTimestamp(Timestamps.fromMillis(System.currentTimeMillis()))
+                        .build());
                     responseObserver.onCompleted();
                 }
             } catch (InterruptedException e) {
