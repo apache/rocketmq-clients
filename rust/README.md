@@ -34,7 +34,7 @@ Run the following command to start the example:
 # send message via producer
 cargo run --example producer
 
-# consume message via simple consumer
+# consume message via the simple consumer
 cargo run --example simple_consumer
 ```
 
