@@ -9,6 +9,8 @@ on:
 jobs:
   paths-filter:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       java: ${{ steps.java.outputs.java }}
       cpp: ${{ steps.cpp.outputs.cpp }}
@@ -19,7 +21,7 @@ jobs:
       python: ${{ steps.python.outputs.python }}
       nodejs: ${{ steps.nodejs.outputs.nodejs }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Get changed files (Push/Pull Request)
         id: changed_files
         run: |
