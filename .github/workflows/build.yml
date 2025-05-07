@@ -26,9 +26,14 @@ jobs:
         id: changed_files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_SHA=${{ github.event.pull_request.base.sha }}
-            HEAD_SHA=${{ github.event.pull_request.head.sha }}
-            CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA)
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            REPO_OWNER=${{ github.repository_owner }}
+            REPO_NAME=${{ github.event.repository.name }}
+
+            # 调用 GitHub API 获取文件列表
+            CHANGED_FILES=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+              "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER/files" | \
+              jq -r '.[].filename' | tr '\n' ' ')
           else
             CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
           fi
