@@ -189,6 +189,15 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         }
     }
 
+    /**
+     * PushConsumerImpl shutdown order
+     * 1. when begin shutdown, do not send any new receive request
+     * 2. cancel scanAssignmentsFuture, do not create new processQueue
+     * 3. waiting all receive request finished or timeout
+     * 4. close consumptionExecutor and waiting all message consumption finished
+     * 5. Sleep 1s for ack message
+     * 6. shutdown clientImpl
+     */
     @Override
     protected void shutDown() throws InterruptedException {
         log.info("Begin to shutdown the rocketmq push consumer, clientId={}", clientId);
@@ -196,15 +205,16 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             scanAssignmentsFuture.cancel(false);
         }
         log.info("Waiting for the inflight receive requests to be finished, clientId={}", clientId);
-        waitingReceiveRequest();
+        waitingReceiveRequestFinished();
         log.info("Begin to Shutdown consumption executor, clientId={}", clientId);
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
+        TimeUnit.SECONDS.sleep(1);
         super.shutDown();
         log.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
     }
 
-    private void waitingReceiveRequest() {
+    private void waitingReceiveRequestFinished() {
         Duration maxWaitingTime = clientConfiguration.getRequestTimeout()
             .plus(pushSubscriptionSettings.getLongPollingTimeout());
         try {
