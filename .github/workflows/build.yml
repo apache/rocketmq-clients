@@ -9,37 +9,109 @@ on:
 jobs:
   paths-filter:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
-      java: ${{ steps.filter.outputs.java }}
-      cpp: ${{ steps.filter.outputs.cpp }}
-      golang: ${{ steps.filter.outputs.golang }}
-      csharp: ${{ steps.filter.outputs.csharp }}
-      php: ${{ steps.filter.outputs.php }}
-      rust: ${{ steps.filter.outputs.rust }}
-      python: ${{ steps.filter.outputs.python }}
-      nodejs: ${{ steps.filter.outputs.nodejs }}
+      java: ${{ steps.java.outputs.java }}
+      cpp: ${{ steps.cpp.outputs.cpp }}
+      golang: ${{ steps.golang.outputs.golang }}
+      csharp: ${{ steps.csharp.outputs.csharp }}
+      php: ${{ steps.php.outputs.php }}
+      rust: ${{ steps.rust.outputs.rust }}
+      python: ${{ steps.python.outputs.python }}
+      nodejs: ${{ steps.nodejs.outputs.nodejs }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            java:
-              - 'java/**'
-            cpp:
-              - 'cpp/**'
-            golang:
-              - 'golang/**'
-            csharp:
-              - 'csharp/**'
-            php:
-              - 'php/**'
-            rust:
-              - 'rust/**'
-            python:
-              - 'python/**'
-            nodejs:
-              - 'nodejs/**'
+      - uses: actions/checkout@v4
+      - name: Get changed files (Push/Pull Request)
+        id: changed_files
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            REPO_OWNER=${{ github.repository_owner }}
+            REPO_NAME=${{ github.event.repository.name }}
+
+            # calling GitHub API for changed files in PR
+            CHANGED_FILES=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+              "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER/files" | \
+              jq -r '.[].filename' | tr '\n' ' ')
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          echo "::set-output name=files::$CHANGED_FILES"
+
+      - name: Check Java changes
+        id: java
+        run: |
+          if echo "${{ steps.changed_files.outputs.files }}" | grep -qE '^(java/|pom.xml)'; then
+            echo "::set-output name=java::true"
+          else
+            echo "::set-output name=java::false"
+          fi
+
+      - name: Check C++ changes
+        id: cpp
+        run: |
+          if echo "${{ steps.changed_files.outputs.files }}" | grep -qE '^cpp/'; then
+            echo "::set-output name=cpp::true"
+          else
+            echo "::set-output name=cpp::false"
+          fi
+
+      - name: Check Golang changes
+        id: golang
+        run: |
+          if echo "${{ steps.changed_files.outputs.files }}" | grep -qE '^golang/'; then
+            echo "::set-output name=golang::true"
+          else
+            echo "::set-output name=golang::false"
+          fi
+
+      - name: Check C# changes
+        id: csharp
+        run: |
+          if echo "${{ steps.changed_files.outputs.files }}" | grep -qE '^csharp/'; then
+            echo "::set-output name=csharp::true"
+          else
+            echo "::set-output name=csharp::false"
+          fi
+
+      - name: Check PHP changes
+        id: php
+        run: |
+          if echo "${{ steps.changed_files.outputs.files }}" | grep -qE '^php/'; then
+            echo "::set-output name=php::true"
+          else
+            echo "::set-output name=php::false"
+          fi
+
+      - name: Check Rust changes
+        id: rust
+        run: |
+          if echo "${{ steps.changed_files.outputs.files }}" | grep -qE '^rust/'; then
+            echo "::set-output name=rust::true"
+          else
+            echo "::set-output name=rust::false"
+          fi
+
+      - name: Check Python changes
+        id: python
+        run: |
+          if echo "${{ steps.changed_files.outputs.files }}" | grep -qE '^python/'; then
+            echo "::set-output name=python::true"
+          else
+            echo "::set-output name=python::false"
+          fi
+
+      - name: Check Node.js changes
+        id: nodejs
+        run: |
+          if echo "${{ steps.changed_files.outputs.files }}" | grep -qE '^nodejs/'; then
+            echo "::set-output name=nodejs::true"
+          else
+            echo "::set-output name=nodejs::false"
+          fi
   java-build:
     needs: [paths-filter]
     if: ${{ needs.paths-filter.outputs.java == 'true' }}
