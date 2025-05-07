@@ -17,30 +17,8 @@
 
 package org.apache.rocketmq.test.client;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-
-import apache.rocketmq.v2.Address;
-import apache.rocketmq.v2.Assignment;
-import apache.rocketmq.v2.Broker;
-import apache.rocketmq.v2.Code;
-import apache.rocketmq.v2.Endpoints;
-import apache.rocketmq.v2.ExponentialBackoff;
-import apache.rocketmq.v2.HeartbeatRequest;
-import apache.rocketmq.v2.HeartbeatResponse;
-import apache.rocketmq.v2.MessageQueue;
-import apache.rocketmq.v2.MessageType;
-import apache.rocketmq.v2.Permission;
-import apache.rocketmq.v2.QueryAssignmentRequest;
-import apache.rocketmq.v2.QueryAssignmentResponse;
-import apache.rocketmq.v2.QueryRouteRequest;
-import apache.rocketmq.v2.QueryRouteResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
-import apache.rocketmq.v2.Resource;
-import apache.rocketmq.v2.Status;
-import apache.rocketmq.v2.TelemetryCommand;
-import com.google.protobuf.Duration;
 import io.grpc.stub.StreamObserver;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -55,12 +33,14 @@ import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
-import org.apache.rocketmq.test.helper.ResponseWriter;
 import org.apache.rocketmq.test.server.BaseMockServerImpl;
 import org.apache.rocketmq.test.server.GrpcServerIntegrationTest;
 import org.apache.rocketmq.test.server.MockServer;
 import org.junit.Before;
 import org.junit.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
     private final String topic = "topic";
