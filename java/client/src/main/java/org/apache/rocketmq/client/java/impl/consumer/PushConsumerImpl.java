@@ -194,7 +194,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      * 1. when begin shutdown, do not send any new receive request
      * 2. cancel scanAssignmentsFuture, do not create new processQueue
      * 3. waiting all receive request finished or timeout
-     * 4. close consumptionExecutor and waiting all message consumption finished
+     * 4. shutdown consumptionExecutor and waiting all message consumption finished
      * 5. Sleep 1s for ack message
      * 6. shutdown clientImpl
      */
