@@ -17,14 +17,31 @@
 
 package golang
 
-import (
-	"time"
+type FilterExpressionType int32
 
-	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+const (
+	SQL92 FilterExpressionType = iota
+	TAG
+	UNSPECIFIED
 )
 
-type Consumer interface {
-	GetGroupName() string
-	wrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, invisibleDuration time.Duration) *v2.ReceiveMessageRequest
-	isClient
+type FilterExpression struct {
+	expression     string
+	expressionType FilterExpressionType
+}
+
+var SUB_ALL = NewFilterExpression("*")
+
+var NewFilterExpression = func(expression string) *FilterExpression {
+	return &FilterExpression{
+		expression:     expression,
+		expressionType: TAG,
+	}
+}
+
+var NewFilterExpressionWithType = func(expression string, expressionType FilterExpressionType) *FilterExpression {
+	return &FilterExpression{
+		expression:     expression,
+		expressionType: expressionType,
+	}
 }

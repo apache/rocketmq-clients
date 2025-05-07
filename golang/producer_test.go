@@ -86,6 +86,7 @@ func TestProducer(t *testing.T) {
 			},
 		}},
 	}, nil).AnyTimes()
+	p.(*defaultProducer).cli.inited.Store(true)
 	err = p.Start()
 	if err != nil {
 		t.Error(err)
