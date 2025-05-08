@@ -29,6 +29,7 @@ import java.security.cert.CertificateException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.junit.After;
 import org.junit.Rule;
 
 public class GrpcServerIntegrationTest {
@@ -43,13 +44,20 @@ public class GrpcServerIntegrationTest {
      */
     protected int port = 0;
 
+    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(4, 4, 2L, TimeUnit.SECONDS,
+        new LinkedBlockingQueue<>(1000));
+
+    @After
+    public void after() {
+        executor.shutdown();
+    }
 
     protected void setUpServer(MessagingServiceGrpc.MessagingServiceImplBase serverImpl,
         int port, ServerInterceptor... interceptors) throws IOException, CertificateException {
         SelfSignedCertificate selfSignedCertificate = new SelfSignedCertificate();
         ServerServiceDefinition serviceDefinition = serverImpl.bindService();
         NettyServerBuilder serverBuilder = NettyServerBuilder.forPort(port)
-            .executor(new ThreadPoolExecutor(4, 4, 2L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1000)))
+            .executor(executor)
             .addService(serviceDefinition)
             .useTransportSecurity(selfSignedCertificate.certificate(), selfSignedCertificate.privateKey());
         for (ServerInterceptor interceptor : interceptors) {
