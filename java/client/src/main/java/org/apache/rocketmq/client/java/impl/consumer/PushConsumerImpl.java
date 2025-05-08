@@ -102,6 +102,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final MessageListener messageListener;
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
+    private final boolean enableFifoConsumeAccelerator;
 
     /**
      * Indicates the times of message reception.
@@ -124,7 +125,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      */
     public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
-        int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
+        int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
+        boolean enableFifoConsumeAccelerator) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.clientConfiguration = clientConfiguration;
         Resource groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
@@ -136,6 +138,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         this.messageListener = messageListener;
         this.maxCacheMessageCount = maxCacheMessageCount;
         this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
+        this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
 
         this.receptionTimes = new AtomicLong(0);
         this.receivedMessagesQuantity = new AtomicLong(0);
@@ -151,6 +154,13 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             new ThreadFactoryImpl("MessageConsumption", this.getClientId().getIndex()));
+    }
+
+    public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
+        Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
+        int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
+        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
+            maxCacheMessageSizeInBytes, consumptionThreadCount, true);
     }
 
     @Override
@@ -193,8 +203,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
         if (pushSubscriptionSettings.isFifo()) {
-            log.info("Create FIFO consume service, consumerGroup={}, clientId={}", consumerGroup, clientId);
-            return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
+            log.info("Create FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
+                consumerGroup, clientId, enableFifoConsumeAccelerator);
+            return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this,
+                scheduler, enableFifoConsumeAccelerator);
         }
         log.info("Create standard consume service, consumerGroup={}, clientId={}", consumerGroup, clientId);
         return new StandardConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);

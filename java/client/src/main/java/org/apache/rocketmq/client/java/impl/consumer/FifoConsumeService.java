@@ -20,8 +20,12 @@ package org.apache.rocketmq.client.java.impl.consumer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
@@ -35,16 +39,38 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("UnstableApiUsage")
 class FifoConsumeService extends ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(FifoConsumeService.class);
+    private final boolean enableFifoConsumeAccelerator;
 
     public FifoConsumeService(ClientId clientId, MessageListener messageListener,
         ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
-        ScheduledExecutorService scheduler) {
+        ScheduledExecutorService scheduler, boolean enableFifoConsumeAccelerator) {
         super(clientId, messageListener, consumptionExecutor, messageInterceptor, scheduler);
+        this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
     }
 
     @Override
     public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
-        consumeIteratively(pq, messageViews.iterator());
+        if (!enableFifoConsumeAccelerator || messageViews.size() <= 1) {
+            consumeIteratively(pq, messageViews.iterator());
+            return;
+        }
+        Map<String, List<MessageViewImpl>> messageViewsGroupByMessageGroup = new HashMap<>();
+        List<MessageViewImpl> messageViewsWithoutMessageGroup = new ArrayList<>();
+        for (MessageViewImpl messageView : messageViews) {
+            Optional<String> messageGroup = messageView.getMessageGroup();
+            if (messageGroup.isPresent()) {
+                messageViewsGroupByMessageGroup.computeIfAbsent(messageGroup.get(), k -> new ArrayList<>())
+                    .add(messageView);
+            } else {
+                messageViewsWithoutMessageGroup.add(messageView);
+            }
+        }
+
+        log.debug("FifoConsumeService parallel consume, messageViewsNum={}, groupNum={}", messageViews.size(),
+            messageViewsGroupByMessageGroup.size() + (messageViewsWithoutMessageGroup.isEmpty() ? 0 : 1));
+
+        messageViewsGroupByMessageGroup.values().forEach(list -> consumeIteratively(pq, list.iterator()));
+        consumeIteratively(pq, messageViewsWithoutMessageGroup.iterator());
     }
 
     public void consumeIteratively(ProcessQueue pq, Iterator<MessageViewImpl> iterator) {
