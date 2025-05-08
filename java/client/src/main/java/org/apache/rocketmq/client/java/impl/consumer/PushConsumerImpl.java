@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -48,6 +49,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
@@ -188,16 +190,50 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         }
     }
 
+    /**
+     * PushConsumerImpl shutdown order
+     * 1. when begin shutdown, do not send any new receive request
+     * 2. cancel scanAssignmentsFuture, do not create new processQueue
+     * 3. waiting all inflight receive request finished or timeout
+     * 4. shutdown consumptionExecutor and waiting all message consumption finished
+     * 5. sleep 1s to ack message async
+     * 6. shutdown clientImpl
+     */
     @Override
     protected void shutDown() throws InterruptedException {
         log.info("Begin to shutdown the rocketmq push consumer, clientId={}", clientId);
         if (null != scanAssignmentsFuture) {
             scanAssignmentsFuture.cancel(false);
         }
-        super.shutDown();
+        log.info("Waiting for the inflight receive requests to be finished, clientId={}", clientId);
+        waitingReceiveRequestFinished();
+        log.info("Begin to Shutdown consumption executor, clientId={}", clientId);
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
+        TimeUnit.SECONDS.sleep(1);
+        super.shutDown();
         log.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
+    }
+
+    private void waitingReceiveRequestFinished() {
+        Duration maxWaitingTime = clientConfiguration.getRequestTimeout()
+            .plus(pushSubscriptionSettings.getLongPollingTimeout());
+        try {
+            CompletableFuture.runAsync(() -> {
+                while (processQueueTable.values().stream().anyMatch(q -> q.getInflightReceiveRequestCount() > 0)) {
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(100);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }).get(maxWaitingTime.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            log.info("Timeout waiting for the inflight receive requests to be finished, clientId={}", clientId);
+        } catch (Exception e) {
+            log.error("Unexpected exception while waiting for the inflight receive requests to be finished, "
+                + "clientId={}", clientId, e);
+        }
     }
 
     private ConsumeService createConsumeService() {

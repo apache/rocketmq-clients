@@ -140,4 +140,6 @@ public interface ProcessQueue {
      * Do some stats work.
      */
     void doStats();
+
+    long getInflightReceiveRequestCount();
 }
