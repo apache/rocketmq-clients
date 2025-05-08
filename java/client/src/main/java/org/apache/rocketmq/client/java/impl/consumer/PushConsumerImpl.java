@@ -49,6 +49,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
@@ -227,8 +228,11 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                     }
                 }
             }).get(maxWaitingTime.toMillis(), TimeUnit.MILLISECONDS);
-        } catch (Exception ignore) {
-            // ignore
+        } catch (TimeoutException e) {
+            log.info("Timeout waiting for the inflight receive requests to be finished, clientId={}", clientId);
+        } catch (Exception e) {
+            log.error("Unexpected exception while waiting for the inflight receive requests to be finished, "
+                + "clientId={}", clientId, e);
         }
     }
 
