@@ -56,7 +56,7 @@ void ProducerImpl::start() {
 
   State expecting = State::STARTING;
   if (!state_.compare_exchange_strong(expecting, State::STARTED)) {
-    SPDLOG_ERROR("Start with unexpected state. Expecting: {}, Actual: {}", State::STARTING,
+    SPDLOG_ERROR("Producer started with an unexpected state. Expecting: {}, Actual: {}", State::STARTING,
                  state_.load(std::memory_order_relaxed));
     return;
   }
