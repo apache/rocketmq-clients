@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
+using System.IO.Hashing;
 
 namespace Org.Apache.Rocketmq
 {
@@ -96,14 +97,13 @@ namespace Org.Apache.Rocketmq
             var messageId = systemProperties.MessageId;
             var bodyDigest = systemProperties.BodyDigest;
             var checkSum = bodyDigest.Checksum;
-            var raw = message.Body.ToByteArray();
             var corrupted = false;
             var type = bodyDigest.Type;
             switch (type)
             {
                 case Proto.DigestType.Crc32:
                     {
-                        var expectedCheckSum = Force.Crc32.Crc32Algorithm.Compute(raw, 0, raw.Length).ToString("X");
+                        var expectedCheckSum = Crc32.HashToUInt32(message.Body.Span).ToString("X");
                         if (!expectedCheckSum.Equals(checkSum))
                         {
                             corrupted = true;
@@ -113,7 +113,7 @@ namespace Org.Apache.Rocketmq
                     }
                 case Proto.DigestType.Md5:
                     {
-                        var expectedCheckSum = Utilities.ComputeMd5Hash(raw);
+                        var expectedCheckSum = Utilities.ComputeMd5Hash(message.Body.Span);
                         if (!expectedCheckSum.Equals(checkSum))
                         {
                             corrupted = true;
@@ -123,7 +123,7 @@ namespace Org.Apache.Rocketmq
                     }
                 case Proto.DigestType.Sha1:
                     {
-                        var expectedCheckSum = Utilities.ComputeSha1Hash(raw);
+                        var expectedCheckSum = Utilities.ComputeSha1Hash(message.Body.Span);
                         if (!expectedCheckSum.Equals(checkSum))
                         {
                             corrupted = true;
@@ -142,6 +142,7 @@ namespace Org.Apache.Rocketmq
             }
 
             var bodyEncoding = systemProperties.BodyEncoding;
+            var raw = message.Body.ToByteArray();
             var body = raw;
             switch (bodyEncoding)
             {
