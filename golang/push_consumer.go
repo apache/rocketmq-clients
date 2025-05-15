@@ -44,7 +44,6 @@ type PushConsumer interface {
 	Subscribe(topic string, filterExpression *FilterExpression) error
 	Unsubscribe(topic string) error
 	Ack(ctx context.Context, messageView *MessageView) error
-	Receive(ctx context.Context, maxMessageNum int32, invisibleDuration time.Duration) ([]*MessageView, error)
 	ChangeInvisibleDuration(messageView *MessageView, invisibleDuration time.Duration) error
 	ChangeInvisibleDurationAsync(messageView *MessageView, invisibleDuration time.Duration)
 }
@@ -286,44 +285,6 @@ func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.R
 			}
 		}
 	}
-}
-
-func (pc *defaultPushConsumer) Receive(ctx context.Context, maxMessageNum int32, invisibleDuration time.Duration) ([]*MessageView, error) {
-	if !pc.isOn() {
-		return nil, fmt.Errorf("simple consumer is not running")
-	}
-	if maxMessageNum <= 0 {
-		return nil, fmt.Errorf("maxMessageNum must be greater than 0")
-	}
-	topics := make([]string, 0, utils.CountSyncMapSize(pc.subscriptionExpressions))
-	pc.subscriptionExpressions.Range(func(key, value interface{}) bool {
-		topics = append(topics, key.(string))
-		return true
-	})
-	// All topic is subscribed.
-	if len(topics) == 0 {
-		return nil, fmt.Errorf("there is no topic to receive message")
-	}
-	next := pc.topicIndex.Inc()
-	idx := utils.Mod(next+1, len(topics))
-	topic := topics[idx]
-
-	v, ok := pc.subscriptionExpressions.Load(topic)
-	if !ok {
-		return nil, fmt.Errorf("no found filterExpression about topic: %s", topic)
-	}
-	filterExpression := v.(*FilterExpression)
-	subLoadBalancer, err := pc.getSubscriptionTopicRouteResult(ctx, topic)
-	if err != nil {
-		return nil, err
-	}
-	selectMessageQueue, err := subLoadBalancer.TakeMessageQueue()
-	if err != nil {
-		return nil, err
-	}
-	request := pc.wrapReceiveMessageRequest(int(maxMessageNum), selectMessageQueue, filterExpression, invisibleDuration)
-	timeout := pc.pcOpts.awaitDuration + pc.cli.opts.timeout
-	return pc.receiveMessage(ctx, request, selectMessageQueue, timeout)
 }
 
 func (pc *defaultPushConsumer) isClient() {
