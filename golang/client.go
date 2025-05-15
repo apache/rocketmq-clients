@@ -31,11 +31,11 @@ import (
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 )
 
 type Client interface {
@@ -218,8 +218,8 @@ type defaultClient struct {
 	endpointsTelemetryClientTable map[string]*defaultClientSession
 	endpointsTelemetryClientsLock sync.RWMutex
 	on                            atomic.Bool
-
-	clientImpl isClient
+	inited                        atomic.Bool
+	clientImpl                    isClient
 }
 
 var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
@@ -235,6 +235,7 @@ var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
 		messageInterceptors:           make([]MessageInterceptor, 0),
 		endpointsTelemetryClientTable: make(map[string]*defaultClientSession),
 		on:                            *atomic.NewBool(true),
+		inited:                        *atomic.NewBool(false),
 	}
 	cli.log = sugarBaseLogger.With("client_id", cli.clientID)
 	for _, opt := range opts {
@@ -299,7 +300,7 @@ func (cli *defaultClient) registerMessageInterceptor(messageInterceptor MessageI
 	cli.messageInterceptors = append(cli.messageInterceptors, messageInterceptor)
 }
 
-func (cli *defaultClient) doBefore(hookPoint MessageHookPoints, messageCommons []*MessageCommon) {
+func (cli *defaultClient) doBefore(hookPoint MessageHookPoints, messageCommons []*MessageCommon) error {
 	cli.messageInterceptorsLock.RLocker().Lock()
 	defer cli.messageInterceptorsLock.RLocker().Unlock()
 
@@ -309,9 +310,10 @@ func (cli *defaultClient) doBefore(hookPoint MessageHookPoints, messageCommons [
 			cli.log.Errorf("exception raised while intercepting message, hookPoint=%v, err=%v", hookPoint, err)
 		}
 	}
+	return nil
 }
 
-func (cli *defaultClient) doAfter(hookPoint MessageHookPoints, messageCommons []*MessageCommon, duration time.Duration, status MessageHookPointsStatus) {
+func (cli *defaultClient) doAfter(hookPoint MessageHookPoints, messageCommons []*MessageCommon, duration time.Duration, status MessageHookPointsStatus) error {
 	cli.messageInterceptorsLock.RLocker().Lock()
 	defer cli.messageInterceptorsLock.RLocker().Unlock()
 
@@ -321,6 +323,7 @@ func (cli *defaultClient) doAfter(hookPoint MessageHookPoints, messageCommons []
 			cli.log.Errorf("exception raised while intercepting message, hookPoint=%v, err=%v", hookPoint, err)
 		}
 	}
+	return nil
 }
 
 func (cli *defaultClient) getMessageQueues(ctx context.Context, topic string) ([]*v2.MessageQueue, error) {
@@ -417,6 +420,36 @@ func (cli *defaultClient) getSettingsCommand() *v2.TelemetryCommand {
 	}
 }
 
+func (cli *defaultClient) queryAssignments(ctx context.Context, topic string, group string, duration time.Duration) (*[]*v2.Assignment, error) {
+	ctx = cli.Sign(ctx)
+	response, err := cli.clientManager.QueryAssignments(ctx, cli.accessPoint, cli.getQueryAssignmentRequest(topic, group), duration)
+	if err != nil {
+		return nil, err
+	}
+	if response.GetStatus().GetCode() != v2.Code_OK {
+		return nil, &ErrRpcStatus{
+			Code:    int32(response.Status.GetCode()),
+			Message: response.GetStatus().GetMessage(),
+		}
+	}
+	ret := response.GetAssignments()
+	return &ret, nil
+}
+
+func (cli *defaultClient) getQueryAssignmentRequest(topic string, group string) *v2.QueryAssignmentRequest {
+	return &v2.QueryAssignmentRequest{
+		Topic: &v2.Resource{
+			Name:              topic,
+			ResourceNamespace: cli.config.NameSpace,
+		},
+		Group: &v2.Resource{
+			Name:              group,
+			ResourceNamespace: cli.config.NameSpace,
+		},
+		Endpoints: cli.accessPoint,
+	}
+}
+
 func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatRequest) error {
 	ctx := cli.Sign(context.Background())
 	endpoints, err := utils.ParseTarget(target)
@@ -428,9 +461,6 @@ func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatReques
 		return fmt.Errorf("failed to send heartbeat, endpoints=%v, err=%v, requestId=%s", endpoints, err, utils.GetRequestID(ctx))
 	}
 	if resp.Status.GetCode() != v2.Code_OK {
-		if resp.Status.GetCode() == v2.Code_UNRECOGNIZED_CLIENT_TYPE {
-			go cli.trySyncSettings()
-		}
 		cli.log.Errorf("failed to send heartbeat, code=%v, status message=[%s], endpoints=%v, requestId=%s", resp.Status.GetCode(), resp.Status.GetMessage(), endpoints, utils.GetRequestID(ctx))
 		return &ErrRpcStatus{
 			Code:    int32(resp.Status.GetCode()),
@@ -496,6 +526,7 @@ func (cli *defaultClient) startUp() error {
 	cm.startUp()
 	cm.RegisterClient(cli)
 	cli.clientManager = cm
+
 	for _, topic := range cli.initTopics {
 		_, err := cli.getMessageQueues(context.Background(), topic)
 		if err != nil {
@@ -546,6 +577,13 @@ func (cli *defaultClient) startUp() error {
 		})
 	}
 	ticker.Tick(f, time.Second*30, cli.done)
+
+	// wait syncSettings finish
+	for !cli.inited.Load() {
+		sugarBaseLogger.Infoln("wait for sync settings finish")
+		time.Sleep(time.Second)
+	}
+	sugarBaseLogger.Infoln("sync settings finished")
 	return nil
 }
 
@@ -585,6 +623,10 @@ func (cli *defaultClient) GracefulStop() error {
 		On: false,
 	})
 	return nil
+}
+
+func (cli *defaultClient) isRunning() bool {
+	return cli.on.Load()
 }
 
 func (cli *defaultClient) Sign(ctx context.Context) context.Context {
@@ -629,7 +671,9 @@ func (cli *defaultClient) onSettingsCommand(endpoints *v2.Endpoints, settings *v
 	if metric != nil {
 		cli.clientMeterProvider.Reset(metric)
 	}
-	return cli.settings.applySettingsCommand(settings)
+	err := cli.settings.applySettingsCommand(settings)
+	cli.inited.Store(true)
+	return err
 }
 
 func (cli *defaultClient) onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) {

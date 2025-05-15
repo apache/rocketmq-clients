@@ -25,35 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-type FilterExpressionType int32
-
-const (
-	SQL92 FilterExpressionType = iota
-	TAG
-	UNSPECIFIED
-)
-
-type FilterExpression struct {
-	expression     string
-	expressionType FilterExpressionType
-}
-
-var SUB_ALL = NewFilterExpression("*")
-
-var NewFilterExpression = func(expression string) *FilterExpression {
-	return &FilterExpression{
-		expression:     expression,
-		expressionType: TAG,
-	}
-}
-
-var NewFilterExpressionWithType = func(expression string, expressionType FilterExpressionType) *FilterExpression {
-	return &FilterExpression{
-		expression:     expression,
-		expressionType: expressionType,
-	}
-}
-
 type simpleConsumerOptions struct {
 	subscriptionExpressions map[string]*FilterExpression
 	awaitDuration           time.Duration
@@ -95,13 +66,13 @@ func WithClientFuncForSimpleConsumer(f NewClientFunc) SimpleConsumerOption {
 
 // WithTag returns a consumerOption that sets tag for consumer.
 // Note: Default it uses *.
-func WithSubscriptionExpressions(subscriptionExpressions map[string]*FilterExpression) SimpleConsumerOption {
+func WithSimpleSubscriptionExpressions(subscriptionExpressions map[string]*FilterExpression) SimpleConsumerOption {
 	return newFuncSimpleConsumerOption(func(o *simpleConsumerOptions) {
 		o.subscriptionExpressions = subscriptionExpressions
 	})
 }
 
-func WithAwaitDuration(awaitDuration time.Duration) SimpleConsumerOption {
+func WithSimpleAwaitDuration(awaitDuration time.Duration) SimpleConsumerOption {
 	return newFuncSimpleConsumerOption(func(o *simpleConsumerOptions) {
 		o.awaitDuration = awaitDuration
 	})

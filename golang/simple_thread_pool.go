@@ -17,14 +17,39 @@
 
 package golang
 
-import (
-	"time"
+type simpleThreadPool struct {
+	name     string
+	tasks    chan func()
+	shutdown chan any
+}
 
-	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
-)
+func NewSimpleThreadPool(poolName string, taskSize int, threadNum int) *simpleThreadPool {
+	r := &simpleThreadPool{
+		name:     poolName,
+		tasks:    make(chan func(), taskSize),
+		shutdown: make(chan any),
+	}
+	for i := 0; i < threadNum; i++ {
+		go func() {
+			tp := r
+			for {
+				select {
+				case <-tp.shutdown:
+					sugarBaseLogger.Infof("routine pool is shutdown, name=%s", tp.name)
+					return
+				case t := <-tp.tasks:
+					t()
+				}
+			}
+		}()
+	}
+	return r
+}
 
-type Consumer interface {
-	GetGroupName() string
-	wrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, invisibleDuration time.Duration) *v2.ReceiveMessageRequest
-	isClient
+func (tp *simpleThreadPool) Submit(task func()) {
+	tp.tasks <- task
+}
+func (tp *simpleThreadPool) Shutdown() {
+	tp.shutdown <- 0
+	close(tp.shutdown)
 }
