@@ -176,13 +176,19 @@ func (cs *defaultClientSession) release() {
 }
 func (cs *defaultClientSession) publish(ctx context.Context, common *v2.TelemetryCommand) error {
 	var err error
-	cs.observerLock.RLock()
-	if cs.observer != nil {
-		err = cs.observer.Send(common)
-		cs.observerLock.RUnlock()
+
+	f0 := func() (bool, error) {
+		cs.observerLock.RLock()
+		defer cs.observerLock.RUnlock()
+		if cs.observer != nil {
+			return true, cs.observer.Send(common)
+		}
+		return false, nil
+	}
+	over, err := f0()
+	if over {
 		return err
 	}
-	cs.observerLock.RUnlock()
 
 	cs.observerLock.Lock()
 	defer cs.observerLock.Unlock()
