@@ -58,6 +58,7 @@ import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
+import org.apache.rocketmq.client.java.hook.InflightRequestCountInterceptor;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
@@ -103,6 +104,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
     private final boolean enableFifoConsumeAccelerator;
+    private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
 
     /**
      * Indicates the times of message reception.
@@ -154,6 +156,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             new ThreadFactoryImpl("MessageConsumption", this.getClientId().getIndex()));
+
+        this.inflightRequestCountInterceptor = new InflightRequestCountInterceptor();
+        this.addMessageInterceptor(inflightRequestCountInterceptor);
     }
 
     public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
@@ -188,16 +193,52 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         }
     }
 
+    /**
+     * PushConsumerImpl shutdown order
+     * 1. when begin shutdown, do not send any new receive request
+     * 2. cancel scanAssignmentsFuture, do not create new processQueue
+     * 3. waiting all inflight receive request finished or timeout
+     * 4. shutdown consumptionExecutor and waiting all message consumption finished
+     * 5. sleep 1s to ack message async
+     * 6. shutdown clientImpl
+     */
     @Override
     protected void shutDown() throws InterruptedException {
         log.info("Begin to shutdown the rocketmq push consumer, clientId={}", clientId);
         if (null != scanAssignmentsFuture) {
             scanAssignmentsFuture.cancel(false);
         }
-        super.shutDown();
+        log.info("Waiting for the inflight receive requests to be finished, clientId={}", clientId);
+        waitingReceiveRequestFinished();
+        log.info("Begin to Shutdown consumption executor, clientId={}", clientId);
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
+        TimeUnit.SECONDS.sleep(1);
+        super.shutDown();
         log.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
+    }
+
+    private void waitingReceiveRequestFinished() {
+        Duration maxWaitingTime = clientConfiguration.getRequestTimeout()
+            .plus(pushSubscriptionSettings.getLongPollingTimeout());
+        long endTime = System.currentTimeMillis() + maxWaitingTime.toMillis();
+        try {
+            while (true) {
+                long inflightReceiveRequestCount = inflightRequestCountInterceptor.getInflightReceiveRequestCount();
+                if (inflightReceiveRequestCount <= 0) {
+                    log.info("All inflight receive requests have been finished, clientId={}", clientId);
+                    break;
+                } else if (System.currentTimeMillis() > endTime) {
+                    log.warn("Timeout waiting for all inflight receive requests to be finished, clientId={}, "
+                        + "inflightReceiveRequestCount={}", clientId, inflightReceiveRequestCount);
+                    break;
+                }
+                TimeUnit.MILLISECONDS.sleep(100);
+            }
+        } catch (Exception e) {
+            log.error("Unexpected exception while waiting for the inflight receive requests to be finished, "
+                + "clientId={}", clientId, e);
+        }
     }
 
     private ConsumeService createConsumeService() {

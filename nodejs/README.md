@@ -4,7 +4,8 @@ English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apa
 
 ## Overview
 
-Here are some preparations you may need to know (or refer to [here](https://rocketmq.apache.org/docs/quickStart/01quickstart/)).
+Here are some preparations you may need to know (or refer
+to [quick start](https://rocketmq.apache.org/docs/quickStart/01quickstart/)).
 
 1. [Node.js](https://nodejs.dev/en/download/) 16.19.0 is the minimum version required, Node.js >= 18.17.0 is the recommended version.
 2. Setup namesrv, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
