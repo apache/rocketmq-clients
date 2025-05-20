@@ -60,6 +60,7 @@ import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
+import org.apache.rocketmq.client.java.hook.InflightRequestCountInterceptor;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
@@ -105,6 +106,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
     private final boolean enableFifoConsumeAccelerator;
+    private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
 
     /**
      * Indicates the times of message reception.
@@ -156,6 +158,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             new ThreadFactoryImpl("MessageConsumption", this.getClientId().getIndex()));
+
+        this.inflightRequestCountInterceptor = new InflightRequestCountInterceptor();
+        this.addMessageInterceptor(inflightRequestCountInterceptor);
     }
 
     public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
@@ -220,7 +225,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             .plus(pushSubscriptionSettings.getLongPollingTimeout());
         try {
             CompletableFuture.runAsync(() -> {
-                while (processQueueTable.values().stream().anyMatch(q -> q.getInflightReceiveRequestCount() > 0)) {
+                while (inflightRequestCountInterceptor.getInflightReceiveRequestCount() > 0) {
                     try {
                         TimeUnit.MILLISECONDS.sleep(100);
                     } catch (InterruptedException e) {

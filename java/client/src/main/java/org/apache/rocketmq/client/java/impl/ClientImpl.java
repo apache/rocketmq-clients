@@ -229,6 +229,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         log.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
     }
 
+    protected void addMessageInterceptor(MessageInterceptor messageInterceptor) {
+        if (!this.isRunning()) {
+            compositedMessageInterceptor.addInterceptor(messageInterceptor);
+        }
+    }
+
     @Override
     public void doBefore(MessageInterceptorContext context, List<GeneralMessage> generalMessages) {
         try {

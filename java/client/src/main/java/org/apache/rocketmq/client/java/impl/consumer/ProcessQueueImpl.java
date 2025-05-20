@@ -247,9 +247,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
             final ListenableFuture<ReceiveMessageResult> future = consumer.receiveMessage(request, mq,
                 longPollingTimeout);
-            inflightReceiveRequestCount.incrementAndGet();
-            try {
-                Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
+            Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                     @Override
                     public void onSuccess(ReceiveMessageResult result) {
                         // Intercept after message reception.
@@ -290,11 +288,6 @@ class ProcessQueueImpl implements ProcessQueue {
                         onReceiveMessageException(t, nextAttemptId);
                     }
                 }, MoreExecutors.directExecutor());
-                future.addListener(inflightReceiveRequestCount::decrementAndGet, MoreExecutors.directExecutor());
-            } catch (Throwable t) {
-                inflightReceiveRequestCount.decrementAndGet();
-                throw t;
-            }
             receptionTimes.getAndIncrement();
             consumer.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
