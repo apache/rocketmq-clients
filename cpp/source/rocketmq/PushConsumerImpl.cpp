@@ -65,7 +65,6 @@ void PushConsumerImpl::start() {
   if (!message_listener_) {
     SPDLOG_ERROR("Required message listener is missing");
     abort();
-    return;
   }
 
   client_config_.subscriber.group.set_resource_namespace(resourceNamespace());
