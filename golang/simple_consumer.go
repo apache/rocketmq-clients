@@ -57,7 +57,7 @@ type defaultSimpleConsumer struct {
 	scSettings                   *simpleConsumerSettings
 	awaitDuration                time.Duration
 	subscriptionExpressionsLock  sync.RWMutex
-	subscriptionExpressions      map[string]*FilterExpression
+	subscriptionExpressions      *map[string]*FilterExpression
 	subTopicRouteDataResultCache sync.Map
 }
 
@@ -144,7 +144,7 @@ func (sc *defaultSimpleConsumer) Subscribe(topic string, filterExpression *Filte
 	sc.subscriptionExpressionsLock.Lock()
 	defer sc.subscriptionExpressionsLock.Unlock()
 
-	sc.subscriptionExpressions[topic] = filterExpression
+	(*sc.subscriptionExpressions)[topic] = filterExpression
 	return nil
 }
 
@@ -152,7 +152,7 @@ func (sc *defaultSimpleConsumer) Unsubscribe(topic string) error {
 	sc.subscriptionExpressionsLock.Lock()
 	defer sc.subscriptionExpressionsLock.Unlock()
 
-	delete(sc.subscriptionExpressions, topic)
+	delete(*sc.subscriptionExpressions, topic)
 	return nil
 }
 
@@ -284,8 +284,8 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 		return nil, fmt.Errorf("maxMessageNum must be greater than 0")
 	}
 	sc.subscriptionExpressionsLock.RLock()
-	topics := make([]string, 0, len(sc.subscriptionExpressions))
-	for k := range sc.subscriptionExpressions {
+	topics := make([]string, 0, len(*sc.subscriptionExpressions))
+	for k := range *sc.subscriptionExpressions {
 		topics = append(topics, k)
 	}
 	sc.subscriptionExpressionsLock.RUnlock()
@@ -298,7 +298,7 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	topic := topics[idx]
 
 	sc.subscriptionExpressionsLock.RLock()
-	filterExpression, ok := sc.subscriptionExpressions[topic]
+	filterExpression, ok := (*sc.subscriptionExpressions)[topic]
 	sc.subscriptionExpressionsLock.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("no found filterExpression about topic: %s", topic)
@@ -348,17 +348,18 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 	if err != nil {
 		return nil, err
 	}
+	if scOpts.subscriptionExpressions == nil {
+		scOpts.subscriptionExpressions = make(map[string]*FilterExpression)
+	}
 	sc := &defaultSimpleConsumer{
 		scOpts:    *scOpts,
 		cli:       cli.(*defaultClient),
 		groupName: config.ConsumerGroup,
 
 		awaitDuration:           scOpts.awaitDuration,
-		subscriptionExpressions: scOpts.subscriptionExpressions,
+		subscriptionExpressions: &scOpts.subscriptionExpressions,
 	}
-	if sc.subscriptionExpressions == nil {
-		sc.subscriptionExpressions = make(map[string]*FilterExpression)
-	}
+
 	sc.cli.initTopics = make([]string, 0)
 	for topic := range scOpts.subscriptionExpressions {
 		sc.cli.initTopics = append(sc.cli.initTopics, topic)

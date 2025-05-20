@@ -325,6 +325,9 @@ var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushCons
 	if err != nil {
 		return nil, err
 	}
+	if pcOpts.subscriptionExpressions == nil {
+		pcOpts.subscriptionExpressions = &sync.Map{}
+	}
 	pc := &defaultPushConsumer{
 		pcOpts:    *pcOpts,
 		cli:       cli.(*defaultClient),
