@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -49,7 +48,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
@@ -223,18 +221,20 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private void waitingReceiveRequestFinished() {
         Duration maxWaitingTime = clientConfiguration.getRequestTimeout()
             .plus(pushSubscriptionSettings.getLongPollingTimeout());
+        long endTime = System.currentTimeMillis() + maxWaitingTime.toMillis();
         try {
-            CompletableFuture.runAsync(() -> {
-                while (inflightRequestCountInterceptor.getInflightReceiveRequestCount() > 0) {
-                    try {
-                        TimeUnit.MILLISECONDS.sleep(100);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
+            while (true) {
+                long inflightReceiveRequestCount = inflightRequestCountInterceptor.getInflightReceiveRequestCount();
+                if (inflightReceiveRequestCount <= 0) {
+                    log.info("All inflight receive requests have been finished, clientId={}", clientId);
+                    break;
+                } else if (System.currentTimeMillis() > endTime) {
+                    log.warn("Timeout waiting for all inflight receive requests to be finished, clientId={}, "
+                        + "inflightReceiveRequestCount={}", clientId, inflightReceiveRequestCount);
+                    break;
                 }
-            }).get(maxWaitingTime.toMillis(), TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            log.info("Timeout waiting for the inflight receive requests to be finished, clientId={}", clientId);
+                TimeUnit.MILLISECONDS.sleep(100);
+            }
         } catch (Exception e) {
             log.error("Unexpected exception while waiting for the inflight receive requests to be finished, "
                 + "clientId={}", clientId, e);
