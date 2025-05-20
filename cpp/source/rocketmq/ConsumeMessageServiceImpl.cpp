@@ -72,7 +72,7 @@ void ConsumeMessageServiceImpl::dispatch(std::shared_ptr<ProcessQueue> process_q
     return;
   }
 
-  for (auto message : messages) {
+  for (const auto& message : messages) {
     auto consume_task = std::make_shared<ConsumeTask>(shared_from_this(), process_queue, message);
     pool_->submit([consume_task]() { consume_task->process(); });
   }

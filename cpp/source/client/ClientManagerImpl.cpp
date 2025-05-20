@@ -94,22 +94,21 @@ void ClientManagerImpl::start() {
     SPDLOG_WARN("Unexpected client instance state: {}", state_.load(std::memory_order_relaxed));
     return;
   }
+
   state_.store(State::STARTING, std::memory_order_relaxed);
 
   callback_thread_pool_->start();
-
   scheduler_->start();
 
   std::weak_ptr<ClientManagerImpl> client_instance_weak_ptr = shared_from_this();
-
   auto heartbeat_functor = [client_instance_weak_ptr]() {
     auto client_instance = client_instance_weak_ptr.lock();
     if (client_instance) {
       client_instance->doHeartbeat();
     }
   };
-  heartbeat_task_id_ =
-      scheduler_->schedule(heartbeat_functor, HEARTBEAT_TASK_NAME, std::chrono::seconds(1), std::chrono::seconds(10));
+  heartbeat_task_id_ = scheduler_->schedule(
+      heartbeat_functor, HEARTBEAT_TASK_NAME, std::chrono::seconds(1), std::chrono::seconds(10));
   SPDLOG_DEBUG("Heartbeat task-id={}", heartbeat_task_id_);
 
   state_.store(State::STARTED, std::memory_order_relaxed);

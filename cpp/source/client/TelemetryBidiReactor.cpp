@@ -38,7 +38,6 @@ TelemetryBidiReactor::TelemetryBidiReactor(std::weak_ptr<Client> client,
   auto ptr = client_.lock();
   auto deadline = std::chrono::system_clock::now() + std::chrono::hours(1);
   context_.set_deadline(deadline);
-  sync_settings_future_ = sync_settings_promise_.get_future();
   Metadata metadata;
   Signature::sign(ptr->config(), metadata);
   for (const auto& entry : metadata) {
@@ -56,8 +55,19 @@ TelemetryBidiReactor::~TelemetryBidiReactor() {
 }
 
 bool TelemetryBidiReactor::awaitApplyingSettings() {
-  sync_settings_future_.get();
-  return true;
+  auto settings_future = sync_settings_promise_.get_future();
+  std::future_status status = settings_future.wait_for(std::chrono::seconds(3));
+  if (status == std::future_status::ready) {
+    if (settings_future.get()) {
+      return true;
+    }
+  }
+  {
+    absl::MutexLock lk(&state_mtx_);
+    state_ = StreamState::Closed;
+    state_cv_.SignalAll();
+  }
+  return false;
 }
 
 void TelemetryBidiReactor::OnWriteDone(bool ok) {
@@ -283,21 +293,29 @@ void TelemetryBidiReactor::tryWriteNext() {
                 static_cast<std::uint8_t>(state_));
     return;
   }
+
   if (writes_.empty()) {
-    SPDLOG_DEBUG("No TelemetryCommand to write. Peer={}", peer_address_);
+    SPDLOG_DEBUG("No pending TelemetryCommand to write. Peer={}", peer_address_);
     return;
   }
 
   if (!writes_.empty()) {
-    SPDLOG_DEBUG("Writing telemetry command to {}: {}", peer_address_, writes_.front().ShortDebugString());
-    AddHold();
-    StartWrite(&(writes_.front()));
+    SPDLOG_DEBUG("Writing TelemetryCommand to {}: {}", peer_address_, writes_.front().ShortDebugString());
+    if (StreamState::Ready == state_) {
+      AddHold();
+      StartWrite(&(writes_.front()));
+    } else {
+      SPDLOG_WARN("Writing TelemetryCommand error due to unexpected state. State={}, Peer={}",
+                  static_cast<uint8_t>(state_), peer_address_);
+    }
   }
 }
 
 void TelemetryBidiReactor::signalClose() {
   absl::MutexLock lk(&state_mtx_);
-  state_ = StreamState::Closing;
+  if (state_ == StreamState::Ready) {
+    state_ = StreamState::Closing;
+  }
 }
 
 void TelemetryBidiReactor::close() {
@@ -361,7 +379,7 @@ void TelemetryBidiReactor::OnReadInitialMetadataDone(bool ok) {
   if (!ok) {
     // for read stream
     // Remove the hold corresponding to AddHold in TelemetryBidiReactor::TelemetryBidiReactor.
-    RemoveHold();
+    // RemoveHold();
 
     SPDLOG_DEBUG("Change state {} --> {}", static_cast<std::uint8_t>(state_),
                  static_cast<std::uint8_t>(StreamState::Closing));
