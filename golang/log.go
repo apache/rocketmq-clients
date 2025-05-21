@@ -46,6 +46,10 @@ func ResetLogger() {
 	InitLogger()
 }
 
+func SetLogger(logger *zap.SugaredLogger){
+	sugarBaseLogger = logger
+}
+
 func InitLogger() {
 	writeSyncer := getLogWriter()
 	isStdOut := utils.GetenvWithDef(ENABLE_CONSOLE_APPENDER, "false")
