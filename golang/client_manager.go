@@ -33,6 +33,7 @@ type ClientManager interface {
 	RegisterClient(client Client)
 	UnRegisterClient(client Client)
 	QueryRoute(ctx context.Context, endpoints *v2.Endpoints, request *v2.QueryRouteRequest, duration time.Duration) (*v2.QueryRouteResponse, error)
+	QueryAssignments(ctx context.Context, endpoints *v2.Endpoints, request *v2.QueryAssignmentRequest, duration time.Duration) (*v2.QueryAssignmentResponse, error)
 	HeartBeat(ctx context.Context, endpoints *v2.Endpoints, request *v2.HeartbeatRequest, duration time.Duration) (*v2.HeartbeatResponse, error)
 	SendMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.SendMessageRequest, duration time.Duration) (*v2.SendMessageResponse, error)
 	Telemetry(ctx context.Context, endpoints *v2.Endpoints, duration time.Duration) (v2.MessagingService_TelemetryClient, error)
@@ -41,6 +42,7 @@ type ClientManager interface {
 	ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error)
 	AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest, duration time.Duration) (*v2.AckMessageResponse, error)
 	ChangeInvisibleDuration(ctx context.Context, endpoints *v2.Endpoints, request *v2.ChangeInvisibleDurationRequest, duration time.Duration) (*v2.ChangeInvisibleDurationResponse, error)
+	ForwardMessageToDeadLetterQueue(ctx context.Context, endpoints *v2.Endpoints, request *v2.ForwardMessageToDeadLetterQueueRequest, duration time.Duration) (*v2.ForwardMessageToDeadLetterQueueResponse, error)
 }
 
 type clientManagerOptions struct {
@@ -232,6 +234,17 @@ func (cm *defaultClientManager) QueryRoute(ctx context.Context, endpoints *v2.En
 	return ret, err
 }
 
+func (cm *defaultClientManager) QueryAssignments(ctx context.Context, endpoints *v2.Endpoints, request *v2.QueryAssignmentRequest, duration time.Duration) (*v2.QueryAssignmentResponse, error) {
+	ctx, _ = context.WithTimeout(ctx, duration)
+	rpcClient, err := cm.getRpcClient(endpoints)
+	if err != nil {
+		return nil, err
+	}
+	ret, err := rpcClient.QueryAssignments(ctx, request)
+	cm.handleGrpcError(rpcClient, err)
+	return ret, err
+}
+
 func (cm *defaultClientManager) SendMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.SendMessageRequest, duration time.Duration) (*v2.SendMessageResponse, error) {
 	ctx, _ = context.WithTimeout(ctx, duration)
 	rpcClient, err := cm.getRpcClient(endpoints)
@@ -316,6 +329,17 @@ func (cm *defaultClientManager) ChangeInvisibleDuration(ctx context.Context, end
 		return nil, err
 	}
 	ret, err := rpcClient.ChangeInvisibleDuration(ctx, request)
+	cm.handleGrpcError(rpcClient, err)
+	return ret, err
+}
+
+func (cm *defaultClientManager) ForwardMessageToDeadLetterQueue(ctx context.Context, endpoints *v2.Endpoints, request *v2.ForwardMessageToDeadLetterQueueRequest, duration time.Duration) (*v2.ForwardMessageToDeadLetterQueueResponse, error) {
+	ctx, _ = context.WithTimeout(ctx, duration)
+	rpcClient, err := cm.getRpcClient(endpoints)
+	if err != nil {
+		return nil, err
+	}
+	ret, err := rpcClient.ForwardMessageToDeadLetterQueue(ctx, request)
 	cm.handleGrpcError(rpcClient, err)
 	return ret, err
 }

@@ -18,7 +18,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -29,21 +28,17 @@ import (
 )
 
 const (
-	Topic         = "xxxxxx"
 	ConsumerGroup = "xxxxxx"
+	Topic         = "xxxxxx"
 	Endpoint      = "xxxxxx"
 	AccessKey     = "xxxxxx"
 	SecretKey     = "xxxxxx"
+	NameSpace     = "xxxxxx"
 )
 
 var (
 	// maximum waiting time for receive func
 	awaitDuration = time.Second * 5
-	// maximum number of messages received at one time
-	maxMessageNum int32 = 16
-	// invisibleDuration should > 20s
-	invisibleDuration = time.Second * 20
-	// receive messages in a loop
 )
 
 func main() {
@@ -51,47 +46,39 @@ func main() {
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
 	// In most case, you don't need to create many consumers, singleton pattern is more recommended.
-	simpleConsumer, err := rmq_client.NewSimpleConsumer(&rmq_client.Config{
+	pushConsumer, err := rmq_client.NewPushConsumer(&rmq_client.Config{
 		Endpoint:      Endpoint,
 		ConsumerGroup: ConsumerGroup,
 		Credentials: &credentials.SessionCredentials{
 			AccessKey:    AccessKey,
 			AccessSecret: SecretKey,
 		},
+		NameSpace: NameSpace,
 	},
-		rmq_client.WithSimpleAwaitDuration(awaitDuration),
-		rmq_client.WithSimpleSubscriptionExpressions(map[string]*rmq_client.FilterExpression{
+		rmq_client.WithPushAwaitDuration(awaitDuration),
+		rmq_client.WithPushSubscriptionExpressions(map[string]*rmq_client.FilterExpression{
 			Topic: rmq_client.SUB_ALL,
 		}),
+		rmq_client.WithPushMessageListener(&rmq_client.FuncMessageListener{
+			Consume: func(mv *rmq_client.MessageView) rmq_client.ConsumerResult {
+				fmt.Println(mv)
+				// ack message
+				return rmq_client.SUCCESS
+			},
+		}),
+		rmq_client.WithPushConsumptionThreadCount(20),
+		rmq_client.WithPushMaxCacheMessageCount(1024),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// start simpleConsumer
-	err = simpleConsumer.Start()
+	// start pushConsumer
+	err = pushConsumer.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
-	// graceful stop simpleConsumer
-	defer simpleConsumer.GracefulStop()
-
-	go func() {
-		for {
-			fmt.Println("start receive message")
-			mvs, err := simpleConsumer.Receive(context.TODO(), maxMessageNum, invisibleDuration)
-			if err != nil {
-				fmt.Println(err)
-			}
-			// ack message
-			for _, mv := range mvs {
-				simpleConsumer.Ack(context.TODO(), mv)
-				fmt.Println(mv)
-			}
-			fmt.Println("wait a moment")
-			fmt.Println()
-			time.Sleep(time.Second * 3)
-		}
-	}()
+	// graceful stop pushConsumer
+	defer pushConsumer.GracefulStop()
 	// run for a while
-	time.Sleep(time.Minute)
+	time.Sleep(time.Minute * 100)
 }
