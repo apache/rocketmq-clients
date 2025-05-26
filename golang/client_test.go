@@ -235,7 +235,7 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	time.Sleep(6 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())
@@ -261,12 +261,12 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	time.Sleep(8 * time.Second)
+	time.Sleep(4 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:3]
-	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
+	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover, err=EOF", commandExecutionLog[0].Message)
 	assert.Equal(t, "Managed to recover, executing message", commandExecutionLog[1].Message)
 	assert.Equal(t, "Executed command successfully", commandExecutionLog[2].Message)
 }
@@ -288,12 +288,12 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	time.Sleep(8 * time.Second)
+	time.Sleep(4 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:2]
-	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
+	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover, err=EOF", commandExecutionLog[0].Message)
 	assert.Equal(t, "Failed to recover, err=EOF", commandExecutionLog[1].Message)
 }
 

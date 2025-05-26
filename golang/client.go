@@ -117,7 +117,7 @@ func (cs *defaultClientSession) startUp() {
 			if err != nil {
 				// we are recovering
 				if !cs.recovering {
-					cs.cli.log.Info("Encountered error while receiving TelemetryCommand, trying to recover")
+					cs.cli.log.Infof("Encountered error while receiving TelemetryCommand, trying to recover, err=%v", err)
 					// we wait five seconds to give time for the transmission error to be resolved externally before we attempt to read the message again.
 					time.Sleep(cs.recoveryWaitTime)
 					cs.recovering = true
