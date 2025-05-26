@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.hook;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,10 +30,10 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
     private static final Logger log = LoggerFactory.getLogger(MessageInterceptor.class);
     private static final AttributeKey<Map<Integer, Map<AttributeKey, Attribute>>> INTERCEPTOR_ATTRIBUTES_KEY =
         AttributeKey.create("composited_interceptor_attributes");
-    private final List<MessageInterceptor> interceptors;
+    private final List<MessageInterceptor> interceptors = new ArrayList<>();
 
     public CompositedMessageInterceptor(List<MessageInterceptor> interceptors) {
-        this.interceptors = interceptors;
+        this.interceptors.addAll(interceptors);
     }
 
     @Override
@@ -71,5 +72,9 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
                 log.error("Exception raised while handing messages", t);
             }
         }
+    }
+    
+    public void addInterceptor(MessageInterceptor interceptor) {
+        interceptors.add(interceptor);
     }
 }
