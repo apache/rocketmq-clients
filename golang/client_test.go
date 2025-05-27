@@ -225,7 +225,6 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	observedLogs := PrepareTestLogger(cli)
 	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
 		recv_error_count: 0,
@@ -233,6 +232,8 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	}
 	default_cli_session.recoveryWaitTime = time.Second
 	cli.settings = &simpleConsumerSettings{}
+
+	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 
 	// when
 	time.Sleep(3 * time.Second)
@@ -251,7 +252,6 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	observedLogs := PrepareTestLogger(cli)
 	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
 		recv_error_count: 1,
@@ -260,6 +260,7 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	default_cli_session.recoveryWaitTime = time.Second
 	cli.settings = &simpleConsumerSettings{}
 
+	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	// when
 	time.Sleep(4 * time.Second)
 
@@ -278,7 +279,6 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	observedLogs := PrepareTestLogger(cli)
 	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
 		recv_error_count: 2,
@@ -287,6 +287,7 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	default_cli_session.recoveryWaitTime = time.Second
 	cli.settings = &simpleConsumerSettings{}
 
+	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	// when
 	time.Sleep(4 * time.Second)
 
