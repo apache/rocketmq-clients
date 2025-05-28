@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"hash/crc32"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
@@ -207,21 +208,21 @@ func fromProtobuf_MessageView2(message *v2.Message, messageQueue *v2.MessageQueu
 	var expectedChecksum string
 	switch bodyDigest.GetType() {
 	case v2.DigestType_CRC32:
-		expectedChecksum = strconv.FormatInt(int64(crc32.ChecksumIEEE(message.GetBody())), 16)
+		expectedChecksum = strings.ToUpper(strconv.FormatInt(int64(crc32.ChecksumIEEE(message.GetBody())), 16))
 		if expectedChecksum != checksum {
 			corrupted = true
 		}
 	case v2.DigestType_MD5:
 		c := md5.New()
 		c.Write(message.GetBody())
-		expectedChecksum = hex.EncodeToString(c.Sum(nil))
+		expectedChecksum = strings.ToUpper(hex.EncodeToString(c.Sum(nil)))
 		if expectedChecksum != checksum {
 			corrupted = true
 		}
 	case v2.DigestType_SHA1:
 		c := sha1.New()
 		c.Write(message.GetBody())
-		expectedChecksum = hex.EncodeToString(c.Sum(nil))
+		expectedChecksum = strings.ToUpper(hex.EncodeToString(c.Sum(nil)))
 		if expectedChecksum != checksum {
 			corrupted = true
 		}
@@ -267,6 +268,8 @@ func fromProtobuf_MessageView2(message *v2.Message, messageQueue *v2.MessageQueu
 		mv.bornTimestamp = &bornTimestamp
 	}
 	mv.deliveryTimestampFromRemote = deliveryTimestampFromRemote
+	decodeStopwatch := time.Now()
+	mv.decodeStopwatch = &decodeStopwatch
 	return mv
 }
 

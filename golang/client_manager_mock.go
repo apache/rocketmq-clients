@@ -94,6 +94,21 @@ func (mr *MockClientManagerMockRecorder) EndTransaction(ctx, endpoints, request,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndTransaction", reflect.TypeOf((*MockClientManager)(nil).EndTransaction), ctx, endpoints, request, duration)
 }
 
+// ForwardMessageToDeadLetterQueue mocks base method.
+func (m *MockClientManager) ForwardMessageToDeadLetterQueue(ctx context.Context, endpoints *v2.Endpoints, request *v2.ForwardMessageToDeadLetterQueueRequest, duration time.Duration) (*v2.ForwardMessageToDeadLetterQueueResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ForwardMessageToDeadLetterQueue", ctx, endpoints, request, duration)
+	ret0, _ := ret[0].(*v2.ForwardMessageToDeadLetterQueueResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ForwardMessageToDeadLetterQueue indicates an expected call of ForwardMessageToDeadLetterQueue.
+func (mr *MockClientManagerMockRecorder) ForwardMessageToDeadLetterQueue(ctx, endpoints, request, duration interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForwardMessageToDeadLetterQueue", reflect.TypeOf((*MockClientManager)(nil).ForwardMessageToDeadLetterQueue), ctx, endpoints, request, duration)
+}
+
 // HeartBeat mocks base method.
 func (m *MockClientManager) HeartBeat(ctx context.Context, endpoints *v2.Endpoints, request *v2.HeartbeatRequest, duration time.Duration) (*v2.HeartbeatResponse, error) {
 	m.ctrl.T.Helper()
@@ -122,6 +137,21 @@ func (m *MockClientManager) NotifyClientTermination(ctx context.Context, endpoin
 func (mr *MockClientManagerMockRecorder) NotifyClientTermination(ctx, endpoints, request, duration interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyClientTermination", reflect.TypeOf((*MockClientManager)(nil).NotifyClientTermination), ctx, endpoints, request, duration)
+}
+
+// QueryAssignments mocks base method.
+func (m *MockClientManager) QueryAssignments(ctx context.Context, endpoints *v2.Endpoints, request *v2.QueryAssignmentRequest, duration time.Duration) (*v2.QueryAssignmentResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryAssignments", ctx, endpoints, request, duration)
+	ret0, _ := ret[0].(*v2.QueryAssignmentResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryAssignments indicates an expected call of QueryAssignments.
+func (mr *MockClientManagerMockRecorder) QueryAssignments(ctx, endpoints, request, duration interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAssignments", reflect.TypeOf((*MockClientManager)(nil).QueryAssignments), ctx, endpoints, request, duration)
 }
 
 // QueryRoute mocks base method.

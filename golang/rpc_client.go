@@ -36,6 +36,7 @@ type RpcClient interface {
 	GracefulStop() error
 	HeartBeat(ctx context.Context, request *v2.HeartbeatRequest) (*v2.HeartbeatResponse, error)
 	QueryRoute(ctx context.Context, request *v2.QueryRouteRequest) (*v2.QueryRouteResponse, error)
+	QueryAssignments(ctx context.Context, request *v2.QueryAssignmentRequest) (*v2.QueryAssignmentResponse, error)
 	SendMessage(ctx context.Context, request *v2.SendMessageRequest) (*v2.SendMessageResponse, error)
 	Telemetry(ctx context.Context) (v2.MessagingService_TelemetryClient, error)
 	EndTransaction(ctx context.Context, request *v2.EndTransactionRequest) (*v2.EndTransactionResponse, error)
@@ -43,6 +44,7 @@ type RpcClient interface {
 	ReceiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error)
 	AckMessage(ctx context.Context, request *v2.AckMessageRequest) (*v2.AckMessageResponse, error)
 	ChangeInvisibleDuration(ctx context.Context, request *v2.ChangeInvisibleDurationRequest) (*v2.ChangeInvisibleDurationResponse, error)
+	ForwardMessageToDeadLetterQueue(ctx context.Context, request *v2.ForwardMessageToDeadLetterQueueRequest) (*v2.ForwardMessageToDeadLetterQueueResponse, error)
 	idleDuration() time.Duration
 	GetTarget() string
 }
@@ -115,6 +117,15 @@ func (rc *rpcClient) QueryRoute(ctx context.Context, request *v2.QueryRouteReque
 	return resp, err
 }
 
+func (rc *rpcClient) QueryAssignments(ctx context.Context, request *v2.QueryAssignmentRequest) (*v2.QueryAssignmentResponse, error) {
+	rc.mux.Lock()
+	rc.activityNanoTime = time.Now()
+	rc.mux.Unlock()
+	resp, err := rc.msc.QueryAssignment(ctx, request)
+	sugarBaseLogger.Debugf("queryAssignment request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
+}
+
 func (rc *rpcClient) SendMessage(ctx context.Context, request *v2.SendMessageRequest) (*v2.SendMessageResponse, error) {
 	rc.mux.Lock()
 	rc.activityNanoTime = time.Now()
@@ -179,5 +190,14 @@ func (rc *rpcClient) ChangeInvisibleDuration(ctx context.Context, request *v2.Ch
 	rc.mux.Unlock()
 	resp, err := rc.msc.ChangeInvisibleDuration(ctx, request)
 	sugarBaseLogger.Debugf("changeInvisibleDuration request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
+}
+
+func (rc *rpcClient) ForwardMessageToDeadLetterQueue(ctx context.Context, request *v2.ForwardMessageToDeadLetterQueueRequest) (*v2.ForwardMessageToDeadLetterQueueResponse, error) {
+	rc.mux.Lock()
+	rc.activityNanoTime = time.Now()
+	rc.mux.Unlock()
+	resp, err := rc.msc.ForwardMessageToDeadLetterQueue(ctx, request)
+	sugarBaseLogger.Debugf("forwardMessageToDeadLetterQueue request: %v, response: %v, err: %v", request, resp, err)
 	return resp, err
 }

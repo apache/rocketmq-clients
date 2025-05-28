@@ -45,20 +45,48 @@ var (
 	topicTag, _            = tag.NewKey("topic")
 	clientIdTag, _         = tag.NewKey("client_id")
 	invocationStatusTag, _ = tag.NewKey("invocation_status")
+	consumerGroupTag, _    = tag.NewKey("consumer_group")
 
-	MLatencyMs = stats.Int64("publish_latency", "Publish latency in milliseconds", "ms")
+	PublishMLatencyMs         = stats.Int64("publish_latency", "Publish latency in milliseconds", "ms")
+	ConsumeDeliveryMLatencyMs = stats.Int64("delivery_latency", "Time spent delivering messages from servers to clients", "ms")
+	ConsumeAwaitMLatencyMs    = stats.Int64("await_time", "Client side queuing time of messages before getting processed", "ms")
+	ConsumeProcessMLatencyMs  = stats.Int64("process_time", "Process message time", "ms")
 
 	PublishLatencyView = view.View{
 		Name:        "rocketmq_send_cost_time",
 		Description: "Publish latency",
-		Measure:     MLatencyMs,
+		Measure:     PublishMLatencyMs,
 		Aggregation: view.Distribution(1, 5, 10, 20, 50, 200, 500),
 		TagKeys:     []tag.Key{topicTag, clientIdTag, invocationStatusTag},
+	}
+
+	ConsumeDeliveryLatencyView = view.View{
+		Name:        "rocketmq_delivery_latency",
+		Description: "Message delivery latency",
+		Measure:     ConsumeDeliveryMLatencyMs,
+		Aggregation: view.Distribution(1, 5, 10, 20, 50, 200, 500),
+		TagKeys:     []tag.Key{topicTag, clientIdTag, consumerGroupTag},
+	}
+
+	ConsumeAwaitTimeView = view.View{
+		Name:        "rocketmq_await_time",
+		Description: "Message await time",
+		Measure:     ConsumeAwaitMLatencyMs,
+		Aggregation: view.Distribution(1, 5, 20, 100, 1000, 5000, 10000),
+		TagKeys:     []tag.Key{topicTag, clientIdTag, consumerGroupTag},
+	}
+
+	ConsumeProcessTimeView = view.View{
+		Name:        "rocketmq_process_time",
+		Description: "Message process time",
+		Measure:     ConsumeProcessMLatencyMs,
+		Aggregation: view.Distribution(1, 5, 10, 100, 1000, 10000, 60000),
+		TagKeys:     []tag.Key{topicTag, clientIdTag, consumerGroupTag, invocationStatusTag},
 	}
 )
 
 func init() {
-	if err := view.Register(&PublishLatencyView); err != nil {
+	if err := view.Register(&PublishLatencyView, &ConsumeDeliveryLatencyView, &ConsumeAwaitTimeView, &ConsumeProcessTimeView); err != nil {
 		sugarBaseLogger.Fatalf("failed to register views: %v", err)
 	}
 	view.SetReportingPeriod(time.Minute)
@@ -116,6 +144,7 @@ type ClientMeterProvider interface {
 	Reset(metric *v2.Metric)
 	isEnabled() bool
 	getClientID() string
+	getClientImpl() isClient
 }
 
 var _ = ClientMeterProvider(&defaultClientMeterProvider{})
@@ -126,6 +155,13 @@ type defaultClientMeterProvider struct {
 	globalMutex sync.Mutex
 }
 
+func (dcmp *defaultClientMeterProvider) getClientImpl() isClient {
+	if dc, ok := dcmp.client.(*defaultClient); ok {
+		return dc.clientImpl
+	}
+	return nil
+}
+
 var _ = MessageMeterInterceptor(&defaultMessageMeterInterceptor{})
 
 var NewDefaultMessageMeterInterceptor = func(clientMeterProvider ClientMeterProvider) *defaultMessageMeterInterceptor {
@@ -134,7 +170,120 @@ var NewDefaultMessageMeterInterceptor = func(clientMeterProvider ClientMeterProv
 	}
 }
 
+func (dmmi *defaultMessageMeterInterceptor) doBeforeConsumeMessage(messageCommons []*MessageCommon) error {
+	if len(messageCommons) == 0 {
+		// Should never reach here.
+		return nil
+	}
+	clientImpl := dmmi.clientMeterProvider.getClientImpl()
+	if clientImpl == nil {
+		return nil
+	}
+	var pc PushConsumer
+	var ok bool
+	if pc, ok = clientImpl.(PushConsumer); !ok {
+		return nil
+	}
+	consumerGroup := pc.GetGroupName()
+	clientId := dmmi.clientMeterProvider.getClientID()
+	if len(consumerGroup) == 0 {
+		sugarBaseLogger.Errorf("[Bug] consumerGroup is not recognized, clientId=%s", clientId)
+		return nil
+	}
+	for _, messageCommon := range messageCommons {
+		if messageCommon.decodeStopwatch == nil {
+			continue
+		}
+		duration := time.Since(*messageCommon.decodeStopwatch)
+		err := stats.RecordWithTags(context.Background(), []tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, dmmi.clientMeterProvider.getClientID()), tag.Insert(consumerGroupTag, consumerGroup)}, ConsumeAwaitMLatencyMs.M(duration.Milliseconds()))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (dmmi *defaultMessageMeterInterceptor) doAfterConsumeMessage(messageCommons []*MessageCommon, duration time.Duration, status MessageHookPointsStatus) error {
+	if len(messageCommons) == 0 {
+		// Should never reach here.
+		return nil
+	}
+	clientImpl := dmmi.clientMeterProvider.getClientImpl()
+	if clientImpl == nil {
+		return nil
+	}
+	var pc PushConsumer
+	var ok bool
+	if pc, ok = clientImpl.(PushConsumer); !ok {
+		return nil
+	}
+	consumerGroup := pc.GetGroupName()
+	clientId := dmmi.clientMeterProvider.getClientID()
+	if len(consumerGroup) == 0 {
+		sugarBaseLogger.Errorf("[Bug] consumerGroup is not recognized, clientId=%s", clientId)
+		return nil
+	}
+
+	invocationStatus := InvocationStatus_FAILURE
+	if status == MessageHookPointsStatus_OK {
+		invocationStatus = InvocationStatus_SUCCESS
+	}
+	for _, messageCommon := range messageCommons {
+		err := stats.RecordWithTags(context.Background(), []tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, dmmi.clientMeterProvider.getClientID()), tag.Insert(consumerGroupTag, consumerGroup), tag.Insert(invocationStatusTag, string(invocationStatus))}, ConsumeProcessMLatencyMs.M(duration.Milliseconds()))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (dmmi *defaultMessageMeterInterceptor) doAfterReceiveMessage(messageCommons []*MessageCommon, duration time.Duration, status MessageHookPointsStatus) error {
+	if len(messageCommons) == 0 {
+		// Should never reach here.
+		return nil
+	}
+	clientImpl := dmmi.clientMeterProvider.getClientImpl()
+	if clientImpl == nil {
+		return nil
+	}
+	var pc PushConsumer
+	var ok bool
+	if pc, ok = clientImpl.(PushConsumer); !ok {
+		return nil
+	}
+	consumerGroup := pc.GetGroupName()
+	clientId := dmmi.clientMeterProvider.getClientID()
+	if len(consumerGroup) == 0 {
+		sugarBaseLogger.Errorf("[Bug] consumerGroup is not recognized, clientId=%s", clientId)
+		return nil
+	}
+
+	for _, messageCommon := range messageCommons {
+		if messageCommon.deliveryTimestamp == nil {
+			continue
+		}
+		latency := time.Since(*messageCommon.deliveryTimestamp)
+		err := stats.RecordWithTags(context.Background(), []tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, dmmi.clientMeterProvider.getClientID()), tag.Insert(consumerGroupTag, consumerGroup)}, ConsumeDeliveryMLatencyMs.M(latency.Milliseconds()))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (dmmi *defaultMessageMeterInterceptor) doBefore(messageHookPoints MessageHookPoints, messageCommons []*MessageCommon) error {
+	if !dmmi.clientMeterProvider.isEnabled() {
+		return nil
+	}
+	switch messageHookPoints {
+	case MessageHookPoints_CONSUME:
+		return dmmi.doBeforeConsumeMessage(messageCommons)
+	default:
+		break
+	}
 	return nil
 }
 
@@ -144,7 +293,7 @@ func (dmmi *defaultMessageMeterInterceptor) doAfterSendMessage(messageCommons []
 		invocationStatus = InvocationStatus_SUCCESS
 	}
 	for _, messageCommon := range messageCommons {
-		err := stats.RecordWithTags(context.Background(), []tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, dmmi.clientMeterProvider.getClientID()), tag.Insert(invocationStatusTag, string(invocationStatus))}, MLatencyMs.M(duration.Milliseconds()))
+		err := stats.RecordWithTags(context.Background(), []tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, dmmi.clientMeterProvider.getClientID()), tag.Insert(invocationStatusTag, string(invocationStatus))}, PublishMLatencyMs.M(duration.Milliseconds()))
 		if err != nil {
 			return err
 		}
@@ -159,6 +308,10 @@ func (dmmi *defaultMessageMeterInterceptor) doAfter(messageHookPoints MessageHoo
 	switch messageHookPoints {
 	case MessageHookPoints_SEND:
 		return dmmi.doAfterSendMessage(messageCommons, duration, status)
+	case MessageHookPoints_CONSUME:
+		return dmmi.doAfterConsumeMessage(messageCommons, duration, status)
+	case MessageHookPoints_RECEIVE:
+		return dmmi.doAfterReceiveMessage(messageCommons, duration, status)
 	default:
 		break
 	}

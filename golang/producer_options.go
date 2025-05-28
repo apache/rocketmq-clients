@@ -150,8 +150,10 @@ func (ps *producerSettings) applySettingsCommand(settings *v2.Settings) error {
 	if !ok {
 		return fmt.Errorf("[bug] Issued settings not match with the client type, clientId=%v, clientType=%v", ps.GetClientID(), ps.GetClientType())
 	}
-	if settings.GetBackoffPolicy() != nil {
-		exponentialBackoff := settings.GetBackoffPolicy().GetExponentialBackoff()
+	retryPolicy := settings.GetBackoffPolicy()
+	if retryPolicy != nil {
+		ps.retryPolicy.MaxAttempts = retryPolicy.GetMaxAttempts()
+		exponentialBackoff := retryPolicy.GetExponentialBackoff()
 		if exponentialBackoff != nil {
 			ps.retryPolicy.Strategy = &v2.RetryPolicy_ExponentialBackoff{
 				ExponentialBackoff: &v2.ExponentialBackoff{
