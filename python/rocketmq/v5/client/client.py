@@ -227,7 +227,6 @@ class Client:
         asyncio.set_event_loop(self._rpc_channel_io_loop())
         while True:
             if self.__client_thread_task_enabled is True:
-                self.__sync_setting_scheduler_threading_event.wait(5)
                 logger.debug(f"{self.__str__()} run update setting in scheduler.")
                 try:
                     all_endpoints = self.__get_all_endpoints().values()
@@ -238,6 +237,7 @@ class Client:
                     logger.error(
                         f"{self.__str__()} scheduler set setting raise exception: {e}"
                     )
+                self.__sync_setting_scheduler_threading_event.wait(300)
             else:
                 break
         logger.info(f"{self.__str__()} stop scheduler for update setting success.")
@@ -273,7 +273,7 @@ class Client:
                                                                  thread_name_prefix=f"client_callback_worker-{self.__client_id}")
             logger.info(f"{self.__str__()} start callback executor success. max_workers:{workers}")
         except Exception as e:
-            print(f"{self.__str__()} start async rpc callback raise exception: {e}")
+            logger.error(f"{self.__str__()} start async rpc callback raise exception: {e}")
             raise e
 
     @staticmethod

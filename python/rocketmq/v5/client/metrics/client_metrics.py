@@ -24,6 +24,8 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import (ExplicitBucketHistogramAggregation,
                                             View)
 from opentelemetry.sdk.resources import Resource
+from rocketmq.v5.util import Signature
+
 from rocketmq.grpc_protocol import Metric
 from rocketmq.v5.client.connection import RpcEndpoints
 from rocketmq.v5.log import logger
@@ -142,6 +144,7 @@ class ClientMetrics:
                 endpoint=self.__endpoints.__str__(),
                 insecure=True,
                 timeout=ClientMetrics.METRIC_EXPORTER_RPC_TIMEOUT,
+                headers=Signature.metadata(self.__client_configuration, self.__client_id)
             )
             # create a metric reader and set the export interval
             reader = PeriodicExportingMetricReader(

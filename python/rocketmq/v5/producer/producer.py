@@ -303,7 +303,6 @@ class Producer(Client):
     def __send(self, message: Message, topic_queue, attempt=1) -> SendReceipt:
         req = self.__send_req(message)
         send_context = self.client_metrics.send_before(message.topic)
-        print(f"{topic_queue}")
         send_message_future = self.rpc_client.send_message_async(
             topic_queue.endpoints,
             req,
