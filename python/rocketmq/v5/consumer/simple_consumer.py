@@ -42,6 +42,7 @@ class SimpleConsumer(Client):
         consumer_group,
         subscription: dict = None,
         await_duration=20,
+        tls_enable=False
     ):
         if consumer_group is None or consumer_group.strip() == "":
             raise IllegalArgumentException("consumerGroup should not be null")
@@ -56,6 +57,7 @@ class SimpleConsumer(Client):
             client_configuration,
             None if subscription is None else subscription.keys(),
             ClientType.SIMPLE_CONSUMER,
+            tls_enable
         )
         self.__consumer_group = consumer_group
         self.__await_duration = await_duration  # long polling timeout, seconds
@@ -98,7 +100,7 @@ class SimpleConsumer(Client):
                 "unable to remove subscription because simple consumer is not running"
             )
 
-        if topic in self.__subscriptions:
+        if self.__subscriptions.contains(topic):
             self.__subscriptions.remove(topic)
             self._remove_unused_topic_route_data(topic)
 
