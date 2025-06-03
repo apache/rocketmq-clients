@@ -21,7 +21,6 @@
 #include "ConsumeStats.h"
 #include "ConsumeTask.h"
 #include "PushConsumerImpl.h"
-#include "Tag.h"
 #include "ThreadPoolImpl.h"
 #include "rocketmq/ErrorCode.h"
 #include "rocketmq/Logger.h"
@@ -67,13 +66,44 @@ void ConsumeMessageServiceImpl::dispatch(std::shared_ptr<ProcessQueue> process_q
   }
 
   if (consumer->config().subscriber.fifo) {
-    auto consume_task = std::make_shared<ConsumeTask>(shared_from_this(), process_queue, std::move(messages));
-    pool_->submit([consume_task]() { consume_task->process(); });
+    if (!consumer->config().subscriber.fifo_consume_accelerator) {
+      auto consume_task = std::make_shared<ConsumeTask>(
+          shared_from_this(), process_queue, std::move(messages));
+      pool_->submit([consume_task]() { consume_task->process(); });
+    } else {
+      std::map<std::string, std::vector<MessageConstSharedPtr>> grouped_messages;
+      std::vector<MessageConstSharedPtr> ungrouped_messages;
+
+      for (const auto& message : messages) {
+        if (!message->group().empty()) {
+          grouped_messages[message->group()].push_back(message);
+        } else {
+          ungrouped_messages.push_back(message);
+        }
+      }
+
+      SPDLOG_INFO("FifoConsumeService accelerator enable, message_count={}, group_count={}",
+                  messages.size(), grouped_messages.size() + (ungrouped_messages.empty() ? 0 : 1));
+
+      // C++17 could use [group, msg_list]
+      for (const auto& pair : grouped_messages) {
+        auto consume_task = std::make_shared<ConsumeTask>(
+            shared_from_this(), process_queue, pair.second);
+        pool_->submit([consume_task]() { consume_task->process(); });
+      }
+
+      if (!ungrouped_messages.empty()) {
+        auto consume_task = std::make_shared<ConsumeTask>(
+            shared_from_this(), process_queue, ungrouped_messages);
+        pool_->submit([consume_task]() { consume_task->process(); });
+      }
+    }
     return;
   }
 
   for (const auto& message : messages) {
-    auto consume_task = std::make_shared<ConsumeTask>(shared_from_this(), process_queue, message);
+    auto consume_task = std::make_shared<ConsumeTask>(
+        shared_from_this(), process_queue, message);
     pool_->submit([consume_task]() { consume_task->process(); });
   }
 }

@@ -774,7 +774,7 @@ void ClientManagerImpl::receiveMessage(const std::string& target_host,
                                        const ReceiveMessageRequest& request,
                                        std::chrono::milliseconds timeout,
                                        ReceiveMessageCallback cb) {
-  SPDLOG_DEBUG("Prepare to receive message from {} asynchronously. Request: {}", target_host, request.DebugString());
+  SPDLOG_DEBUG("Prepare to receive message from {} asynchronously. Request: {}", target_host, request.ShortDebugString());
   RpcClientSharedPtr client = getRpcClient(target_host);
   auto context = absl::make_unique<ReceiveMessageContext>();
   context->callback = std::move(cb);
@@ -807,6 +807,11 @@ MessageConstSharedPtr ClientManagerImpl::wrapMessage(const rmq::Message& item) {
   }
   if (!keys.empty()) {
     builder.withKeys(std::move(keys));
+  }
+
+  // Message Group
+  if (system_properties.has_message_group()) {
+    builder.withGroup(system_properties.message_group());
   }
 
   // Message-Id

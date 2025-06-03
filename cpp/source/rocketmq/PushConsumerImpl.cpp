@@ -462,7 +462,7 @@ void PushConsumerImpl::consumeThreadPoolSize(int thread_pool_size) {
 }
 
 void PushConsumerImpl::registerMessageListener(MessageListener message_listener) {
-  message_listener_ = message_listener;
+  message_listener_ = std::move(message_listener);
 }
 
 std::size_t PushConsumerImpl::getProcessQueueTableSize() {

@@ -47,6 +47,7 @@ PushConsumer PushConsumerBuilder::build() {
   impl->withSsl(configuration_.withSsl());
   impl->withCredentialsProvider(configuration_.credentialsProvider());
   impl->withRequestTimeout(configuration_.requestTimeout());
+  impl->withFifoConsumeAccelerator(fifo_consume_accelerator_);
   impl->start();
   return PushConsumer(impl);
 }
