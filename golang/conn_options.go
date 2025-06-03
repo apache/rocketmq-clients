@@ -27,6 +27,7 @@ import (
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/zaplog"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 type connOptions struct {
@@ -68,7 +69,14 @@ var defaultConnOptions = connOptions{
 		RootCAs:            x509.NewCertPool(),
 		InsecureSkipVerify: true,
 	},
-	Logger:            zaplog.New(),
+	Logger: zaplog.New(),
+	DialOptions: []grpc.DialOption{
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                300 * time.Second,
+			Timeout:             30 * time.Second,
+			PermitWithoutStream: true,
+		}),
+	},
 }
 
 // A ConnOption sets options such as tls.Config, etc.
