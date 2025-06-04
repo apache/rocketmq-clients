@@ -31,7 +31,7 @@ import (
 
 type PublishingLoadBalancer interface {
 	TakeMessageQueueByMessageGroup(messageGroup *string) ([]*v2.MessageQueue, error)
-	TakeMessageQueues(excluded sync.Map, count int) ([]*v2.MessageQueue, error)
+	TakeMessageQueues(excluded *sync.Map, count int) ([]*v2.MessageQueue, error)
 	CopyAndUpdate([]*v2.MessageQueue) PublishingLoadBalancer
 }
 
@@ -64,7 +64,7 @@ func (plb *publishingLoadBalancer) TakeMessageQueueByMessageGroup(messageGroup *
 	}, nil
 }
 
-func (plb *publishingLoadBalancer) TakeMessageQueues(excluded sync.Map, count int) ([]*v2.MessageQueue, error) {
+func (plb *publishingLoadBalancer) TakeMessageQueues(excluded *sync.Map, count int) ([]*v2.MessageQueue, error) {
 	if len(plb.messageQueues) == 0 {
 		return nil, fmt.Errorf("messageQueues is empty")
 	}
