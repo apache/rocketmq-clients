@@ -70,6 +70,11 @@ type defaultPushConsumer struct {
 	consumptionErrorQuantity atomic.Int64
 }
 
+func (pc *defaultPushConsumer) SetRequestTimeout(timeout time.Duration) {
+	pc.cli.opts.timeout = timeout
+	pc.pcSettings.requestTimeout = pc.cli.opts.timeout
+}
+
 func (pc *defaultPushConsumer) isOn() bool {
 	return pc.cli.on.Load()
 }
