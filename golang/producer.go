@@ -455,3 +455,8 @@ func (p *defaultProducer) onRecoverOrphanedTransactionCommand(endpoints *v2.Endp
 func (p *defaultProducer) onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error {
 	return nil
 }
+
+func (p *defaultProducer) SetRequestTimeout(timeout time.Duration) {
+	p.cli.opts.timeout = timeout
+	p.pSetting.requestTimeout = p.cli.opts.timeout
+}
