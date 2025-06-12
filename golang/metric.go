@@ -19,19 +19,19 @@ package golang
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"contrib.go.opencensus.io/exporter/ocagent"
-	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
-	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 )
 
 type InvocationStatus string
@@ -93,43 +93,75 @@ func init() {
 }
 
 type defaultClientMeter struct {
-	enabled     atomic.Bool
+	enabled     bool
 	endpoints   *v2.Endpoints
 	ocaExporter view.Exporter
-	mutex       sync.Mutex
+	rwMutex     sync.RWMutex
 }
 
 func (dcm *defaultClientMeter) shutdown() {
-	if !dcm.enabled.Load() {
+	dcm.rwMutex.RLock()
+	if !dcm.enabled {
+		dcm.rwMutex.RUnlock()
 		return
 	}
-	dcm.mutex.Lock()
-	defer dcm.mutex.Unlock()
+	dcm.rwMutex.RUnlock()
+
+	dcm.rwMutex.Lock()
+	defer dcm.rwMutex.Unlock()
+	if !dcm.enabled { // Double check
+		return
+	}
+	dcm.enabled = false
+	dcm.endpoints = nil
 	view.UnregisterExporter(dcm.ocaExporter)
-	if dcm.ocaExporter != nil {
-		exporter, ok := dcm.ocaExporter.(*ocagent.Exporter)
-		if ok {
-			err := exporter.Stop()
-			if err != nil {
-				sugarBaseLogger.Errorf("ocExporter stop failed, err=%w", err)
-			}
+	exporter, ok := dcm.ocaExporter.(*ocagent.Exporter)
+	if ok {
+		err := exporter.Stop()
+		if err != nil {
+			sugarBaseLogger.Errorf("ocExporter stop failed, err=%w", err)
 		}
 	}
+	dcm.ocaExporter = nil
 }
 
-func (dcm *defaultClientMeter) start() {
-	if !dcm.enabled.Load() {
-		return
+func (dcm *defaultClientMeter) start(endpoints *v2.Endpoints, exporter view.Exporter) error {
+	if endpoints == nil || exporter == nil {
+		return errors.New("endpoints or exporter cannot be nil")
 	}
+
+	dcm.rwMutex.RLock()
+	if dcm.enabled {
+		dcm.rwMutex.RUnlock()
+		return errors.New("client meter is already enabled and cannot be started again")
+	}
+	dcm.rwMutex.RUnlock()
+
+	dcm.rwMutex.Lock()
+	defer dcm.rwMutex.Unlock()
+	if dcm.enabled { // Double check
+		return errors.New("client meter is already enabled and cannot be started again")
+	}
+	dcm.enabled = true
+	dcm.endpoints = endpoints
+	dcm.ocaExporter = exporter
 	view.RegisterExporter(dcm.ocaExporter)
+	return nil
 }
 
-var NewDefaultClientMeter = func(exporter view.Exporter, on bool, endpoints *v2.Endpoints, clientID string) *defaultClientMeter {
-	return &defaultClientMeter{
-		enabled:     *atomic.NewBool(on),
-		endpoints:   endpoints,
-		ocaExporter: exporter,
+func (dcm *defaultClientMeter) isEnabled() bool {
+	dcm.rwMutex.RLock()
+	defer dcm.rwMutex.RUnlock()
+	return dcm.enabled
+}
+
+func (dcm *defaultClientMeter) compareEndpoints(endpoints *v2.Endpoints) bool {
+	dcm.rwMutex.RLock()
+	defer dcm.rwMutex.RUnlock()
+	if !dcm.enabled {
+		return false
 	}
+	return utils.CompareEndpoints(dcm.endpoints, endpoints)
 }
 
 type MessageMeterInterceptor interface {
@@ -152,7 +184,6 @@ var _ = ClientMeterProvider(&defaultClientMeterProvider{})
 type defaultClientMeterProvider struct {
 	client      Client
 	clientMeter *defaultClientMeter
-	globalMutex sync.Mutex
 }
 
 func (dcmp *defaultClientMeterProvider) getClientImpl() isClient {
@@ -318,26 +349,24 @@ func (dmmi *defaultMessageMeterInterceptor) doAfter(messageHookPoints MessageHoo
 	return nil
 }
 func (dcmp *defaultClientMeterProvider) isEnabled() bool {
-	return dcmp.clientMeter.enabled.Load()
+	return dcmp.clientMeter.isEnabled()
 }
 func (dcmp *defaultClientMeterProvider) getClientID() string {
 	return dcmp.client.GetClientID()
 }
 func (dcmp *defaultClientMeterProvider) Reset(metric *v2.Metric) {
-	dcmp.globalMutex.Lock()
-	defer dcmp.globalMutex.Unlock()
 	endpoints := metric.GetEndpoints()
-	if dcmp.clientMeter.enabled.Load() && metric.GetOn() && utils.CompareEndpoints(dcmp.clientMeter.endpoints, endpoints) {
+	if metric.GetOn() && dcmp.clientMeter.compareEndpoints(endpoints) {
 		sugarBaseLogger.Infof("metric settings is satisfied by the current message meter, clientId=%s", dcmp.client.GetClientID())
 		return
 	}
 
+	dcmp.clientMeter.shutdown()
 	if !metric.GetOn() {
-		dcmp.clientMeter.shutdown()
 		sugarBaseLogger.Infof("metric is off, clientId=%s", dcmp.client.GetClientID())
-		dcmp.clientMeter = NewDefaultClientMeter(nil, false, nil, dcmp.client.GetClientID())
 		return
 	}
+
 	agentAddr := utils.ParseAddress(utils.SelectAnAddress(endpoints))
 	exporter, err := ocagent.NewExporter(
 		ocagent.WithInsecure(),
@@ -349,17 +378,20 @@ func (dcmp *defaultClientMeterProvider) Reset(metric *v2.Metric) {
 		sugarBaseLogger.Errorf("exception raised when resetting message meter, clientId=%s", dcmp.client.GetClientID())
 		return
 	}
+
 	// Reset message meter.
-	dcmp.clientMeter.shutdown()
-	dcmp.clientMeter = NewDefaultClientMeter(exporter, true, endpoints, dcmp.client.GetClientID())
-	dcmp.clientMeter.start()
+	err = dcmp.clientMeter.start(endpoints, exporter)
+	if err != nil {
+		sugarBaseLogger.Errorf("exception raised when resetting message meter, err=%v, clientId=%s", err, dcmp.client.GetClientID())
+		return
+	}
 	sugarBaseLogger.Infof("metrics is on, endpoints=%v, clientId=%s", endpoints, dcmp.client.GetClientID())
 }
 
 var NewDefaultClientMeterProvider = func(client *defaultClient) ClientMeterProvider {
 	cmp := &defaultClientMeterProvider{
 		client:      client,
-		clientMeter: NewDefaultClientMeter(nil, false, nil, "nil"),
+		clientMeter: &defaultClientMeter{},
 	}
 	client.registerMessageInterceptor(NewDefaultMessageMeterInterceptor(cmp))
 	return cmp
