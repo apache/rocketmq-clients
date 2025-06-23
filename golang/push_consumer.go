@@ -499,6 +499,7 @@ func (pc *defaultPushConsumer) dropProcessQueue(mqstr utils.MessageQueueStr) {
 }
 
 func (pc *defaultPushConsumer) GracefulStop() error {
+	pc.consumerService.Shutdown()
 	return pc.cli.GracefulStop()
 }
 
