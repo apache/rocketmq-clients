@@ -156,7 +156,6 @@ func (fcs *fifoConsumeService) consumeIteratively(pq ProcessQueue, messageViewsP
 			sugarBaseLogger.Errorf("[Bug] Exception raised in consumption callback, clientId=%s", fcs.clientId)
 			return
 		}
-		fmt.Printf("ConsumerResult: %v\n", result)
 		pq.eraseFifoMessage(mv, result)
 		fcs.consumeIteratively(pq, messageViewsPtr, ptr+1)
 	})
