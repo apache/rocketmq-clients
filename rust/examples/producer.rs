@@ -23,11 +23,11 @@ async fn main() {
     // It's recommended to specify the topics that applications will publish messages to
     // because the producer will prefetch topic routes for them on start and fail fast in case they do not exist
     let mut producer_option = ProducerOption::default();
-    producer_option.set_topics(vec!["TestTopic"]);
+    producer_option.set_topics(vec!["test_topic"]);
 
     // set which rocketmq proxy to connect
     let mut client_option = ClientOption::default();
-    client_option.set_access_url("localhost:8082");
+    client_option.set_access_url("localhost:8081");
 
     // build and start producer
     let mut producer = Producer::new(producer_option, client_option).unwrap();
@@ -39,9 +39,9 @@ async fn main() {
 
     // build message
     let message = MessageBuilder::builder()
-        .set_topic("TestTopic")
+        .set_topic("test_topic")
         .set_tag("test_tag")
-        .set_body("hello world rust".as_bytes().to_vec())
+        .set_body("hello world".as_bytes().to_vec())
         .build()
         .unwrap();
 
