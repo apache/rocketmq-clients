@@ -168,15 +168,6 @@ impl Client {
                             let peer = session.peer().to_string();
                             let response = Self::heart_beat_inner(session, &group, &namespace, &client_type).await;
                             if response.is_err() {
-                                // match response.unwrap_err().kind {
-                                //     ErrorKind::ServerUnavailable => {
-                                //         info!(logger, "send heartbeat failed: server unavailable: {}", peer);
-                                //         // let (tx, rx) = mpsc::channel(16);
-                                //         // session.insert_
-                                //         // session_manager.insert_session(tx, peer.clone());
-                                //     },
-                                //     _ => {}
-                                // }
                                 error!(
                                     logger,
                                     "send heartbeat failed: failed to send heartbeat rpc: {}",
