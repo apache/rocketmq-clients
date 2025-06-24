@@ -411,7 +411,7 @@ impl Producer {
                             "Current message type {:?} not match with accepted types {:?}.",
                             message_type, message_queue.accept_message_types
                         )
-                            .as_str(),
+                        .as_str(),
                         Self::OPERATION_SEND_MESSAGE,
                     ));
                 }
@@ -569,8 +569,8 @@ mod tests {
             ClientOption::default(),
             Box::new(|_, _| TransactionResolution::COMMIT),
         )?
-            .start()
-            .await?;
+        .start()
+        .await?;
         Ok(())
     }
 
@@ -796,7 +796,7 @@ mod tests {
             &Some(Box::new(|_, _| TransactionResolution::COMMIT)),
             Endpoints::from_url("localhost:8081").unwrap(),
         )
-            .await;
+        .await;
         assert!(result.is_ok())
     }
 }
