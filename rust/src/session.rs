@@ -378,7 +378,7 @@ impl Session {
         settings: TelemetryCommand,
     ) -> Result<(), ClientError> {
         if self.is_started() {
-            info!(self.logger, "Client is already started, send setting");
+            debug!(self.logger, "Client is already started, send setting");
             if let Some(tx) = self.telemetry_tx.as_ref() {
                 tx.send(settings).await.map_err(|e| {
                     ClientError::new(
@@ -391,60 +391,9 @@ impl Session {
             }
             Ok(())
         } else {
-            info!(self.logger, "session is closed: {:?}", self.telemetry_command_tx);
+            debug!(self.logger, "session is closed: {:?}", self.telemetry_tx);
             Ok(self.establish_telemetry_stream(settings).await?)
         }
-
-        // let (tx, rx) = mpsc::channel(16);
-        // tx.send(settings).await.map_err(|e| {
-        //     ClientError::new(
-        //         ErrorKind::ChannelSend,
-        //         "failed to send telemetry command",
-        //         OPERATION_UPDATE_SETTINGS,
-        //     )
-        //     .set_source(e)
-        // })?;
-        // let mut request = tonic::Request::new(ReceiverStream::new(rx));
-        // self.sign_without_timeout(request.metadata_mut());
-        // let response = self.stub.telemetry(request).await.map_err(|e| {
-        //     ClientError::new(
-        //         ErrorKind::ClientInternal,
-        //         "send rpc telemetry failed",
-        //         OPERATION_UPDATE_SETTINGS,
-        //     )
-        //     .set_source(e)
-        // })?;
-        // let _ = self.telemetry_tx.insert(tx);
-        //
-        // Ok(())
-
-        // // 检查 stream 是否需要（重新）建立
-        // // 条件：sender 不存在，或者 sender 存在但其对应的 receiver 已关闭
-        // if self.telemetry_tx.as_ref().map_or(true, |tx| tx.is_closed()) {
-        //     info!(self.logger, "Telemetry stream is closed or not initialized. Re-establishing...");
-        //     self.establish_telemetry_stream().await?;
-        // }
-        //
-        // // 现在我们可以安全地发送数据
-        // if let Some(tx) = self.telemetry_tx.as_ref() {
-        //     tx.send(settings).await.map_err(|e| {
-        //         // 如果在这里发送失败，说明 stream 在检查和发送的间隙被关闭了。
-        //         // 这是一个竞争条件，但错误处理是正确的。
-        //         ClientError::new(
-        //             ErrorKind::ChannelSend,
-        //             "failed to send telemetry command after check",
-        //             OPERATION_UPDATE_SETTINGS,
-        //         )
-        //             .set_source(e)
-        //     })
-        // } else {
-        //     // 这个分支理论上不可能到达，因为上面已经 ensure 了 stream 的存在
-        //     Err(ClientError::new(
-        //         ErrorKind::ClientInternal,
-        //         "telemetry_tx is None even after establishment",
-        //         OPERATION_UPDATE_SETTINGS,
-        //     ))
-        // }
     }
 }
 
