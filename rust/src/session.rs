@@ -110,6 +110,7 @@ pub(crate) struct Session {
     endpoints: Endpoints,
     stub: MessagingServiceClient<Channel>,
     telemetry_tx: Option<mpsc::Sender<TelemetryCommand>>,
+    telemetry_command_tx: Option<mpsc::Sender<Command>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -127,6 +128,7 @@ impl Session {
             endpoints: self.endpoints.clone(),
             stub: self.stub.clone(),
             telemetry_tx: self.telemetry_tx.clone(),
+            telemetry_command_tx: self.telemetry_command_tx.clone(),
             shutdown_tx: None,
         }
     }
@@ -179,6 +181,7 @@ impl Session {
             client_id,
             stub,
             telemetry_tx: None,
+            telemetry_command_tx: None,
             shutdown_tx: None,
         })
     }
@@ -287,6 +290,17 @@ impl Session {
         settings: TelemetryCommand,
         telemetry_command_tx: mpsc::Sender<Command>,
     ) -> Result<(), ClientError> {
+        self.telemetry_command_tx = Some(telemetry_command_tx);
+        self.establish_telemetry_stream(settings).await?;
+        debug!(self.logger, "telemetry_command_tx: {:?}", self.telemetry_command_tx);
+        info!(self.logger, "starting client success");
+        Ok(())
+    }
+
+    async fn establish_telemetry_stream(
+        &mut self,
+        settings: TelemetryCommand,
+    ) -> Result<(), ClientError> {
         let (tx, rx) = mpsc::channel(16);
         tx.send(settings).await.map_err(|e| {
             ClientError::new(
@@ -312,6 +326,7 @@ impl Session {
         self.shutdown_tx = Some(shutdown_tx);
 
         let logger = self.logger.clone();
+        let telemetry_command_tx = self.telemetry_command_tx.as_ref().unwrap().clone();
         tokio::spawn(async move {
             let mut stream = response.into_inner();
             loop {
@@ -330,6 +345,7 @@ impl Session {
                             }
                             Err(e) => {
                                 error!(logger, "telemetry response error: {:?}", e);
+                                break;
                             }
                         }
                     }
@@ -342,6 +358,7 @@ impl Session {
         });
         let _ = self.telemetry_tx.insert(tx);
         debug!(self.logger, "start session success");
+
         Ok(())
     }
 
@@ -353,23 +370,81 @@ impl Session {
 
     pub(crate) fn is_started(&self) -> bool {
         self.shutdown_tx.is_some()
+            && self.telemetry_tx.is_some()
     }
 
     pub(crate) async fn update_settings(
         &mut self,
         settings: TelemetryCommand,
     ) -> Result<(), ClientError> {
-        if let Some(tx) = self.telemetry_tx.as_ref() {
-            tx.send(settings).await.map_err(|e| {
-                ClientError::new(
-                    ErrorKind::ChannelSend,
-                    "failed to send telemetry command",
-                    OPERATION_UPDATE_SETTINGS,
-                )
-                .set_source(e)
-            })?;
+        if self.is_started() {
+            info!(self.logger, "Client is already started, send setting");
+            if let Some(tx) = self.telemetry_tx.as_ref() {
+                tx.send(settings).await.map_err(|e| {
+                    ClientError::new(
+                        ErrorKind::ChannelSend,
+                        "failed to send telemetry command",
+                        OPERATION_UPDATE_SETTINGS,
+                    )
+                    .set_source(e)
+                })?;
+            }
+            Ok(())
+        } else {
+            info!(self.logger, "session is closed: {:?}", self.telemetry_command_tx);
+            Ok(self.establish_telemetry_stream(settings).await?)
         }
-        Ok(())
+
+        // let (tx, rx) = mpsc::channel(16);
+        // tx.send(settings).await.map_err(|e| {
+        //     ClientError::new(
+        //         ErrorKind::ChannelSend,
+        //         "failed to send telemetry command",
+        //         OPERATION_UPDATE_SETTINGS,
+        //     )
+        //     .set_source(e)
+        // })?;
+        // let mut request = tonic::Request::new(ReceiverStream::new(rx));
+        // self.sign_without_timeout(request.metadata_mut());
+        // let response = self.stub.telemetry(request).await.map_err(|e| {
+        //     ClientError::new(
+        //         ErrorKind::ClientInternal,
+        //         "send rpc telemetry failed",
+        //         OPERATION_UPDATE_SETTINGS,
+        //     )
+        //     .set_source(e)
+        // })?;
+        // let _ = self.telemetry_tx.insert(tx);
+        //
+        // Ok(())
+
+        // // 检查 stream 是否需要（重新）建立
+        // // 条件：sender 不存在，或者 sender 存在但其对应的 receiver 已关闭
+        // if self.telemetry_tx.as_ref().map_or(true, |tx| tx.is_closed()) {
+        //     info!(self.logger, "Telemetry stream is closed or not initialized. Re-establishing...");
+        //     self.establish_telemetry_stream().await?;
+        // }
+        //
+        // // 现在我们可以安全地发送数据
+        // if let Some(tx) = self.telemetry_tx.as_ref() {
+        //     tx.send(settings).await.map_err(|e| {
+        //         // 如果在这里发送失败，说明 stream 在检查和发送的间隙被关闭了。
+        //         // 这是一个竞争条件，但错误处理是正确的。
+        //         ClientError::new(
+        //             ErrorKind::ChannelSend,
+        //             "failed to send telemetry command after check",
+        //             OPERATION_UPDATE_SETTINGS,
+        //         )
+        //             .set_source(e)
+        //     })
+        // } else {
+        //     // 这个分支理论上不可能到达，因为上面已经 ensure 了 stream 的存在
+        //     Err(ClientError::new(
+        //         ErrorKind::ClientInternal,
+        //         "telemetry_tx is None even after establishment",
+        //         OPERATION_UPDATE_SETTINGS,
+        //     ))
+        // }
     }
 }
 
@@ -396,14 +471,24 @@ impl RPCClient for Session {
         request: HeartbeatRequest,
     ) -> Result<HeartbeatResponse, ClientError> {
         let request = self.sign(request);
-        let response = self.stub.heartbeat(request).await.map_err(|e| {
-            ClientError::new(
-                ErrorKind::ClientInternal,
-                "send rpc heartbeat failed",
-                OPERATION_HEARTBEAT,
-            )
-            .set_source(e)
-        })?;
+        let response = self
+            .stub
+            .heartbeat(request)
+            .await
+            .map_err(|e| match e.code() {
+                tonic::Code::Unavailable => ClientError::new(
+                    ErrorKind::ServerUnavailable,
+                    "server unavailable",
+                    OPERATION_HEARTBEAT,
+                )
+                .set_source(e),
+                _ => ClientError::new(
+                    ErrorKind::ClientInternal,
+                    "send rpc heartbeat failed",
+                    OPERATION_HEARTBEAT,
+                )
+                .set_source(e),
+            })?;
         Ok(response.into_inner())
     }
 
@@ -434,13 +519,19 @@ impl RPCClient for Session {
             .stub
             .receive_message(request)
             .await
-            .map_err(|e| {
-                ClientError::new(
+            .map_err(|e| match e.code() {
+                tonic::Code::Unavailable => ClientError::new(
+                    ErrorKind::ServerUnavailable,
+                    "server unavailable",
+                    OPERATION_HEARTBEAT,
+                )
+                .set_source(e),
+                _ => ClientError::new(
                     ErrorKind::ClientInternal,
                     "send rpc receive_message failed",
                     OPERATION_RECEIVE_MESSAGE,
                 )
-                .set_source(e)
+                .set_source(e),
             })?
             .into_inner();
 

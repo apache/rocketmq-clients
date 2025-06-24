@@ -168,6 +168,15 @@ impl Client {
                             let peer = session.peer().to_string();
                             let response = Self::heart_beat_inner(session, &group, &namespace, &client_type).await;
                             if response.is_err() {
+                                // match response.unwrap_err().kind {
+                                //     ErrorKind::ServerUnavailable => {
+                                //         info!(logger, "send heartbeat failed: server unavailable: {}", peer);
+                                //         // let (tx, rx) = mpsc::channel(16);
+                                //         // session.insert_
+                                //         // session_manager.insert_session(tx, peer.clone());
+                                //     },
+                                //     _ => {}
+                                // }
                                 error!(
                                     logger,
                                     "send heartbeat failed: failed to send heartbeat rpc: {}",
@@ -731,7 +740,7 @@ impl SessionManager {
     ) -> Result<Session, ClientError> {
         let mut session_map = self.session_map.lock().await;
         let endpoint_url = endpoints.endpoint_url().to_string();
-        return if session_map.contains_key(&endpoint_url) {
+        if session_map.contains_key(&endpoint_url) {
             Ok(session_map.get(&endpoint_url).unwrap().shadow_session())
         } else {
             let mut session = Session::new(
@@ -745,9 +754,8 @@ impl SessionManager {
             let shadow_session = session.shadow_session();
             session_map.insert(endpoint_url.clone(), session);
             Ok(shadow_session)
-        };
+        }
     }
-
     pub(crate) async fn get_all_sessions(&self) -> Result<Vec<Session>, ClientError> {
         let session_map = self.session_map.lock().await;
         let mut sessions = Vec::new();
