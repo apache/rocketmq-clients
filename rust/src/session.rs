@@ -291,7 +291,9 @@ impl Session {
         telemetry_command_tx: mpsc::Sender<Command>,
     ) -> Result<(), ClientError> {
         self.telemetry_command_tx = Some(telemetry_command_tx);
+
         self.establish_telemetry_stream(settings).await?;
+
         debug!(self.logger, "telemetry_command_tx: {:?}", self.telemetry_command_tx);
         info!(self.logger, "starting client success");
         Ok(())
@@ -301,6 +303,12 @@ impl Session {
         &mut self,
         settings: TelemetryCommand,
     ) -> Result<(), ClientError> {
+        if let Some(old_shutdown_tx) = self.shutdown_tx.take() {
+            // a `send` error means the receiver is already gone, which is fine.
+            let _ = old_shutdown_tx.send(());
+            info!(self.logger, "sent shutdown signal to the previous telemetry stream.");
+        }
+
         let (tx, rx) = mpsc::channel(16);
         tx.send(settings).await.map_err(|e| {
             ClientError::new(
@@ -323,7 +331,9 @@ impl Session {
         })?;
 
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+
         self.shutdown_tx = Some(shutdown_tx);
+        self.telemetry_tx = Some(tx);
 
         let logger = self.logger.clone();
         let telemetry_command_tx = self.telemetry_command_tx.as_ref().unwrap().clone();
@@ -355,8 +365,8 @@ impl Session {
                     }
                 }
             }
+            // telemetry tx will be dropped here
         });
-        let _ = self.telemetry_tx.insert(tx);
         debug!(self.logger, "start session success");
 
         Ok(())
@@ -369,8 +379,7 @@ impl Session {
     }
 
     pub(crate) fn is_started(&self) -> bool {
-        self.shutdown_tx.is_some()
-            && self.telemetry_tx.is_some()
+        self.telemetry_tx.is_some() && !self.telemetry_tx.as_ref().unwrap().is_closed()
     }
 
     pub(crate) async fn update_settings(
@@ -378,7 +387,7 @@ impl Session {
         settings: TelemetryCommand,
     ) -> Result<(), ClientError> {
         if self.is_started() {
-            debug!(self.logger, "Client is already started, send setting");
+            debug!(self.logger, "session is already started: {:?}", self.telemetry_tx);
             if let Some(tx) = self.telemetry_tx.as_ref() {
                 tx.send(settings).await.map_err(|e| {
                     ClientError::new(
@@ -392,7 +401,9 @@ impl Session {
             Ok(())
         } else {
             debug!(self.logger, "session is closed: {:?}", self.telemetry_tx);
-            Ok(self.establish_telemetry_stream(settings).await?)
+            self.establish_telemetry_stream(settings).await?;
+            debug!(self.logger, "session is established, closed: {:?}", self.telemetry_tx.as_ref().unwrap().is_closed());
+            Ok(())
         }
     }
 }
@@ -472,7 +483,7 @@ impl RPCClient for Session {
                 tonic::Code::Unavailable => ClientError::new(
                     ErrorKind::ServerUnavailable,
                     "server unavailable",
-                    OPERATION_HEARTBEAT,
+                    OPERATION_RECEIVE_MESSAGE,
                 )
                 .set_source(e),
                 _ => ClientError::new(
