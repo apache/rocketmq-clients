@@ -17,16 +17,14 @@ jobs:
           submodules: true
 
       - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        run: |
+           rustup toolchain add --profile=minimal stable
+           rustup override set stable
 
+      - uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
       - name: Install cargo-llvm-cov
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-llvm-cov
+        run: |
+          cargo install cargo-llvm-cov
 
       - name: Generate code coverage
         working-directory: ./rust
