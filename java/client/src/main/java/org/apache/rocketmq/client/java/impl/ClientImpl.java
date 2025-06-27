@@ -528,6 +528,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         return receiveReconnect;
     }
 
+    public void setReceiveReconnect(boolean receiveReconnect) {
+        this.receiveReconnect = receiveReconnect;
+    }
+
     /**
      * @see Client#doHeartbeat()
      */
