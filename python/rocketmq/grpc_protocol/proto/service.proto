@@ -170,6 +170,8 @@ message EndTransactionResponse { Status status = 1; }
 
 message PrintThreadStackTraceCommand { string nonce = 1; }
 
+message ReconnectEndpointsCommand { string nonce = 1; }
+
 message ThreadStackTrace {
   string nonce = 1;
   optional string thread_stack_trace = 2;
@@ -214,6 +216,9 @@ message TelemetryCommand {
 
     // Request client to verify the consumption of the appointed message.
     VerifyMessageCommand verify_message_command = 7;
+
+    // Request client to reconnect server use the latest endpoints.
+    ReconnectEndpointsCommand reconnect_endpoints_command = 8;
   }
 }
 

@@ -149,6 +149,12 @@ class RpcStreamStreamCall:
                             self.__handler.on_recover_orphaned_transaction_command(
                                 self.__endpoints, message, transaction_id
                             )
+                    elif res.HasField("reconnect_endpoints_command"):
+                        # reconnect endpoints command
+                        logger.info(
+                            f"{self.__handler.__str__()} receive reconnect endpoints from endpoints {self.__endpoints.__str__()}")
+                        if self.__handler is not None:
+                            self.__handler.reconnect_endpoints_command()
             except AioRpcError as e:
                 logger.warn(
                     f"{ self.__handler.__str__()} read stream from endpoints {self.__endpoints.__str__()} occurred AioRpcError. code: {e.code()}, message: {e.details()}"

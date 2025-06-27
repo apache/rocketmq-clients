@@ -64,6 +64,7 @@ class Client:
         self.__is_running = False
         self.__client_thread_task_enabled = False
         self.__had_shutdown = False
+        self.__receive_reconnect = False
 
     def startup(self):
         try:
@@ -542,6 +543,12 @@ class Client:
         self.__clear_idle_rpc_channels_threading_event = None
         self.__client_callback_executor = None
 
+    def reconnect_endpoints_command(self):
+        self.__receive_reconnect = True
+
+    def reset_receive_reconnect(self):
+        self.__receive_reconnect = False
+
     """ property """
 
     @property
@@ -571,3 +578,7 @@ class Client:
     @property
     def client_metrics(self):
         return self.__client_metrics
+
+    @property
+    def receive_reconnect(self):
+        return self.__receive_reconnect
