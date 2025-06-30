@@ -20,6 +20,7 @@ package golang
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -80,12 +81,21 @@ func getEncoder() zapcore.Encoder {
 }
 
 func getLogWriter() zapcore.WriteSyncer {
-	clientLogRoot := utils.GetenvWithDef(CLIENT_LOG_ROOT, os.Getenv("user.home")+"/logs/rocketmqlogs")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		// If getting the user home directory fails, fall back to the system's temporary directory.
+		// This prevents errors in environments where HOME is not set (e.g., containers).
+		log.Printf("Failed to get user home directory, falling back to temp directory: %v", err)
+		homeDir = os.TempDir()
+	}
+	defaultLogDir := filepath.Join(homeDir, "logs", "rocketmqlogs")
+
+	clientLogRoot := utils.GetenvWithDef(CLIENT_LOG_ROOT, defaultLogDir)
 	clientLogMaxIndex := utils.GetenvWithDef(CLIENT_LOG_MAXINDEX, "10")
 	clientLogFileName := utils.GetenvWithDef(CLIENT_LOG_FILENAME, "rocketmq_client_go.log")
 	clientLogMaxFileSize := utils.GetenvWithDef(CLIENT_LOG_FILESIZE, "1073741824")
 
-	logFileName := clientLogRoot + "/" + clientLogFileName
+	logFileName := filepath.Join(clientLogRoot, clientLogFileName)
 	maxFileIndex, err := strconv.Atoi(clientLogMaxIndex)
 	if err != nil {
 		log.Printf("%s='%s' is invalid and has been replaced with the default value %s", CLIENT_LOG_MAXINDEX, clientLogMaxIndex, "10")
