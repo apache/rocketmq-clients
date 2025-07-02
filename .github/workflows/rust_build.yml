@@ -71,7 +71,7 @@ jobs:
       - name: Install cargo-msrv
         run: |
           cargo install cargo-msrv
-          cargo msrv --min ${{ matrix.msrv }}
+          cargo msrv verify --min ${{ matrix.msrv }}
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}

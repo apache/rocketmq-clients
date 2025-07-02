@@ -40,7 +40,7 @@ fn main() {
             ],
             &["../protos"],
         )
-        .unwrap_or_else(|e| panic!("Failed to compile protos {:?}", e));
+        .unwrap_or_else(|e| panic!("Failed to compile protos {e:?}"));
 }
 
 fn check_protoc_version() {
@@ -57,12 +57,12 @@ fn check_protoc_version() {
     let result = cmd.output();
 
     if result.is_err() {
-        panic!("failed to invoke protoc: {:?}", result)
+        panic!("failed to invoke protoc: {result:?}")
     }
 
     let output = result.unwrap();
     if !output.status.success() {
-        panic!("protoc failed: {:?}", output)
+        panic!("protoc failed: {output:?}")
     }
 
     let version_regex = Regex::new(r"(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)").unwrap();
