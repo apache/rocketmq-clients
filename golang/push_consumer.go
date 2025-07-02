@@ -54,7 +54,6 @@ type defaultPushConsumer struct {
 	cli *defaultClient
 
 	groupName                    string
-	topicIndex                   atomic.Int32
 	pcOpts                       pushConsumerOptions
 	pcSettings                   *pushConsumerSettings
 	awaitDuration                time.Duration
@@ -68,6 +67,9 @@ type defaultPushConsumer struct {
 
 	consumptionOkQuantity    atomic.Int64
 	consumptionErrorQuantity atomic.Int64
+
+	stopping                        atomic.Bool
+	inflightRequestCountInterceptor *defultInflightRequestCountInterceptor
 }
 
 func (pc *defaultPushConsumer) SetRequestTimeout(timeout time.Duration) {
@@ -341,9 +343,11 @@ var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushCons
 		awaitDuration:           pcOpts.awaitDuration,
 		subscriptionExpressions: pcOpts.subscriptionExpressions,
 
-		subTopicRouteDataResultCache: &sync.Map{},
-		cacheAssignments:             &sync.Map{},
-		processQueueTable:            &sync.Map{},
+		subTopicRouteDataResultCache:    &sync.Map{},
+		cacheAssignments:                &sync.Map{},
+		processQueueTable:               &sync.Map{},
+		stopping:                        *atomic.NewBool(false),
+		inflightRequestCountInterceptor: NewDefultInflightRequestCountInterceptor(),
 	}
 	pc.cli.initTopics = make([]string, 0)
 	pcOpts.subscriptionExpressions.Range(func(key, value interface{}) bool {
@@ -375,6 +379,7 @@ var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushCons
 	}
 	pc.cli.settings = pc.pcSettings
 	pc.cli.clientImpl = pc
+	pc.cli.registerMessageInterceptor(pc.inflightRequestCountInterceptor)
 	return pc, nil
 }
 
@@ -406,6 +411,10 @@ func (pc *defaultPushConsumer) Start() error {
 }
 
 func (pc *defaultPushConsumer) scanAssignments() {
+	// When stopping in progress, return directly
+	if pc.stopping.Load() {
+		return
+	}
 	pc.subscriptionExpressions.Range(func(key, value interface{}) bool {
 		topic := key.(string)
 		filterExpression := value.(*FilterExpression)
@@ -498,9 +507,57 @@ func (pc *defaultPushConsumer) dropProcessQueue(mqstr utils.MessageQueueStr) {
 	}
 }
 
+/**
+ * PushConsumerImpl shutdown order
+ * 1. when begin shutdown, do not send any new receive request
+ * 2. cancel scanAssignmentsFuture, do not create new processQueue
+ * 3. waiting all inflight receive request finished or timeout
+ * 4. shutdown consumptionExecutor and waiting all message consumption finished
+ * 5. sleep 1s to ack message async
+ * 6. shutdown clientImpl
+ */
 func (pc *defaultPushConsumer) GracefulStop() error {
+	// step 1 and 2
+	pc.stopping.Store(true)
+
+	// step 3
+	pc.cli.log.Infof("Waiting for the inflight receive requests to be finished, clientId=%s", pc.cli.clientID)
+	pc.waitingReceiveRequestFinished()
+	pc.cli.log.Infof("Begin to Shutdown consumption executor, clientId=%s", pc.cli.clientID)
+
+	// step 4
 	pc.consumerService.Shutdown()
+
+	// step 5
+	time.Sleep(time.Second)
+
+	// step 6
 	return pc.cli.GracefulStop()
+}
+
+func (pc *defaultPushConsumer) waitingReceiveRequestFinished() error {
+	maxWaitingTime := pc.pcSettings.GetRequestTimeout() + pc.pcSettings.longPollingTimeout
+	endTime := time.Now().Add(maxWaitingTime)
+	defer func() {
+		if err := recover(); err != nil {
+			pc.cli.log.Errorf("Unexpected exception while waiting for the inflight receive requests to be finished, "+
+				"clientId=%s, err=%v", pc.cli.clientID, err)
+		}
+	}()
+
+	for {
+		inflightReceiveRequestCount := pc.inflightRequestCountInterceptor.getInflightReceiveRequestCount()
+		if inflightReceiveRequestCount <= 0 {
+			pc.cli.log.Infof("All inflight receive requests have been finished, clientId=%s", pc.cli.clientID)
+			break
+		} else if time.Now().After(endTime) {
+			pc.cli.log.Warnf("Timeout waiting for all inflight receive requests to be finished, clientId=%s, "+
+				"inflightReceiveRequestCount=%d", pc.cli.clientID, inflightReceiveRequestCount)
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return nil
 }
 
 func (pc *defaultPushConsumer) getSubscriptionTopicRouteResult(ctx context.Context, topic string) (SubscriptionLoadBalancer, error) {
@@ -595,6 +652,10 @@ func (pc *defaultPushConsumer) forwardMessageToDeadLetterQueue0(ctx context.Cont
 }
 
 func (pc *defaultPushConsumer) isRunning() bool {
+	// graceful stop in pushConsumer
+	if pc.stopping.Load() {
+		return false
+	}
 	return pc.cli.isRunning()
 }
 
@@ -618,4 +679,34 @@ func (pc *defaultPushConsumer) cacheMessageBytesThresholdPerQueue() int64 {
 		return 0
 	}
 	return int64(math.Max(1, float64(pc.pcOpts.maxCacheMessageSizeInBytes)/float64(size)))
+}
+
+type defultInflightRequestCountInterceptor struct {
+	inflightReceiveRequestCount atomic.Int64
+}
+
+var _ = MessageInterceptor(&defultInflightRequestCountInterceptor{})
+
+var NewDefultInflightRequestCountInterceptor = func() *defultInflightRequestCountInterceptor {
+	return &defultInflightRequestCountInterceptor{
+		inflightReceiveRequestCount: *atomic.NewInt64(0),
+	}
+}
+
+func (dirci *defultInflightRequestCountInterceptor) doBefore(messageHookPoints MessageHookPoints, messageCommons []*MessageCommon) error {
+	if messageHookPoints == MessageHookPoints_RECEIVE {
+		dirci.inflightReceiveRequestCount.Inc()
+	}
+	return nil
+}
+
+func (dirci *defultInflightRequestCountInterceptor) doAfter(messageHookPoints MessageHookPoints, messageCommons []*MessageCommon, duration time.Duration, status MessageHookPointsStatus) error {
+	if messageHookPoints == MessageHookPoints_RECEIVE {
+		dirci.inflightReceiveRequestCount.Dec()
+	}
+	return nil
+}
+
+func (dirci *defultInflightRequestCountInterceptor) getInflightReceiveRequestCount() int64 {
+	return dirci.inflightReceiveRequestCount.Load()
 }
