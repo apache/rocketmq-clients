@@ -83,7 +83,7 @@ impl Endpoints {
                 let port_i32 = port.parse::<i32>().map_err(|e| {
                     ClientError::new(
                         ErrorKind::Config,
-                        &format!("port {} in endpoint url is invalid", port),
+                        &format!("port {port} in endpoint url is invalid"),
                         Self::OPERATION_PARSE,
                     )
                     .with_context("url", endpoint_url)

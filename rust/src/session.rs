@@ -275,8 +275,7 @@ impl Session {
             let signature = hmac::sign(&key, date_time.as_bytes());
             let signature = hex::encode(signature.as_ref());
             let authorization = format!(
-                "MQv2-HMAC-SHA1 Credential={}, SignedHeaders=x-mq-date-time, Signature={}",
-                access_key, signature
+                "MQv2-HMAC-SHA1 Credential={access_key}, SignedHeaders=x-mq-date-time, Signature={signature}"
             );
             metadata.insert(
                 "authorization",
