@@ -37,7 +37,7 @@ fn main() {
             &[
                 "./proto/apache/rocketmq/v2/service.proto",
                 "./proto/apache/rocketmq/v2/admin.proto",
-                "./proto/apache/rocketmq/v2/definition.proto"
+                "./proto/apache/rocketmq/v2/definition.proto",
             ],
             &["./proto"],
         )
