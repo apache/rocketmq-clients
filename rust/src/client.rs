@@ -863,8 +863,23 @@ pub(crate) mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn client_start() -> Result<(), ClientError> {
-        // TODO: add grpc bi-stream test
+        let context = MockSession::new_context();
+        context.expect().returning(|_, _, _, _| {
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session
+                .expect_shadow_session()
+                .returning(|| MockSession::default());
+            Ok(session)
+        });
+        let session_manager = new_session_manager();
+        let mut client = new_client_with_session_manager(session_manager);
+        let (tx, _) = mpsc::channel(16);
+        client.start(tx).await?;
 
+        // TODO use countdown latch instead sleeping
+        // wait for run
+        tokio::time::sleep(Duration::from_secs(1)).await;
         Ok(())
     }
 
