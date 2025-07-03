@@ -26,9 +26,9 @@ jobs:
           paths: "**/TEST-*.xml"
         if: always()
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           flags: java
           fail_ci_if_error: true
-          token: e7eb01be-398b-4f7f-a73e-dc35c428cb50
+          token: ${{ secrets.CODECOV_ACTION_KEY }}
           verbose: true
