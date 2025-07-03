@@ -128,7 +128,7 @@ func (pc *defaultPushConsumer) changeInvisibleDuration(messageView *MessageView,
 		return fmt.Errorf("changeInvisibleDuration failed, err = the message is nil")
 	}
 	resp, err := pc.changeInvisibleDuration0(context.Background(), messageView, invisibleDuration)
-	if resp != nil {
+	if err == nil && resp != nil {
 		messageView.ReceiptHandle = resp.ReceiptHandle
 	}
 	return err
