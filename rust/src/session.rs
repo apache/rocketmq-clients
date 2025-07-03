@@ -759,10 +759,7 @@ mod tests {
             .times(1)
             .returning(|_, _| Ok(()));
 
-        mock_session
-            .expect_is_started()
-            .times(1)
-            .returning(|| true);
+        mock_session.expect_is_started().times(1).returning(|| true);
 
         let result = mock_session.start(settings, telemetry_command_tx).await;
         assert!(result.is_ok(), "Session start should succeed");
