@@ -33,7 +33,7 @@ jobs:
         run: cargo llvm-cov --all-features --workspace --ignore-filename-regex pb/ --codecov --output-path codecov.json
 
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: ./rust/codecov.json
           flags: rust
