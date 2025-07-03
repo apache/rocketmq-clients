@@ -62,7 +62,7 @@ jobs:
         working-directory: ./rust
     strategy:
       matrix:
-        msrv: [1.70.0]
+        msrv: [1.74.0]
     name: MSRV ${{ matrix.msrv }} check
     steps:
       - uses: actions/checkout@v3
@@ -83,7 +83,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-20.04, macos-12, windows-2022]
-        msrv: [1.70]
+        msrv: [1.74]
     steps:
       - uses: actions/checkout@v2
         with:
