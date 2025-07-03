@@ -703,6 +703,7 @@ mock! {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::always;
     use slog::debug;
     use wiremock_grpc::generate;
 
@@ -747,6 +748,28 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn session_start() {
+        let (telemetry_command_tx, _) = mpsc::channel::<Command>(16);
+        let producer_option = ProducerOption::default();
+        let settings = build_producer_settings(&producer_option);
+        let mut mock_session = MockSession::default();
+
+        mock_session
+            .expect_start()
+            .with(always(), always())
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        mock_session
+            .expect_is_started()
+            .times(1)
+            .returning(|| true);
+
+        let result = mock_session.start(settings, telemetry_command_tx).await;
+        assert!(result.is_ok(), "Session start should succeed");
+
+        let started = mock_session.is_started();
+        assert!(started, "Session should be marked as started");
+
         // TODO: add grpc bi-stream test
     }
 }
