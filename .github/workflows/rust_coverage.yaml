@@ -38,4 +38,5 @@ jobs:
           files: ./rust/codecov.json
           flags: rust
           verbose: true
+          token: ${{ secrets.CODECOV_ACTION_KEY }}
           fail_ci_if_error: true
