@@ -57,6 +57,9 @@ pub enum ErrorKind {
     #[error("Failed to receive message via channel")]
     ChannelReceive,
 
+    #[error("Grpc server unavailable, may be corrected by retrying")]
+    ServerUnavailable,
+
     #[error("Unknown error")]
     Unknown,
 }
