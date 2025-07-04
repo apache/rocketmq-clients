@@ -35,6 +35,7 @@ class Message:
         self.__delivery_attempt = None
         self.__receipt_handle = None
         self.__message_type = None
+        self.__endpoints = None
 
     def __str__(self) -> str:
         return (
@@ -165,6 +166,10 @@ class Message:
     def message_type(self):
         return self.__message_type
 
+    @property
+    def endpoints(self):
+        return self.__endpoints
+
     @body.setter
     def body(self, body):
         if body is None or body.strip() == "":
@@ -219,9 +224,17 @@ class Message:
                 raise IllegalArgumentException("key should not be blank")
         self.__keys.update(set(keys))
 
+    @receipt_handle.setter
+    def receipt_handle(self, receipt_handle):
+        self.__receipt_handle = receipt_handle
+
     @message_type.setter
     def message_type(self, message_type):
         self.__message_type = message_type
+
+    @endpoints.setter
+    def endpoints(self, endpoints):
+        self.__endpoints = endpoints
 
     def add_property(self, key, value):
         if key is None or key.strip() == "":
@@ -229,3 +242,16 @@ class Message:
         if value is None or value.strip() == "":
             raise IllegalArgumentException("value should not be blank")
         self.__properties[key] = value
+
+    @staticmethod
+    def message_type_desc(message_type):
+        if message_type == 1:
+            return "NORMAL"
+        elif message_type == 2:
+            return "FIFO"
+        elif message_type == 3:
+            return "DELAY"
+        elif message_type == 4:
+            return "TRANSACTION"
+        else:
+            return "MESSAGE_TYPE_UNSPECIFIED"

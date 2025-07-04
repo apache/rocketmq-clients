@@ -18,10 +18,11 @@ from rocketmq import ClientConfiguration, Credentials, Message, Producer
 
 def handle_send_result(result_future):
     try:
+        # don't write time-consuming code in the callback. if needed, use other thread
         res = result_future.result()
-        print(f"async send message success, {res}")
+        print(f"send message success, {res}")
     except Exception as exception:
-        print(f"async send message failed, raise exception: {exception}")
+        print(f"send message failed, raise exception: {exception}")
 
 
 if __name__ == '__main__':
@@ -30,6 +31,8 @@ if __name__ == '__main__':
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
+    # with namespace
+    # config = ClientConfiguration(endpoints, credentials, "namespace")
     topic = "topic"
     producer = Producer(config, (topic,))
 
@@ -38,16 +41,23 @@ if __name__ == '__main__':
         try:
             for i in range(10):
                 msg = Message()
+                # topic for the current message
                 msg.topic = topic
                 msg.body = "hello, rocketmq.".encode('utf-8')
+                # secondary classifier of message besides topic
                 msg.tag = "rocketmq-send-message"
+                # key(s) of the message, another way to mark message besides message id
                 msg.keys = "send_async"
+                # user property for the message
                 msg.add_property("send", "async")
                 send_result_future = producer.send_async(msg)
                 send_result_future.add_done_callback(handle_send_result)
         except Exception as e:
-            print(f"async producer{producer.__str__()} send message raise exception: {e}")
+            print(f"producer{producer.__str__()} send message raise exception: {e}")
             producer.shutdown()
     except Exception as e:
         print(f"{producer.__str__()} startup raise exception: {e}")
         producer.shutdown()
+
+    input("Please Enter to Stop the Application.")
+    producer.shutdown()

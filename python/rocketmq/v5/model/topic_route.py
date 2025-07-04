@@ -15,6 +15,7 @@
 
 from rocketmq.grpc_protocol import Permission, definition_pb2
 from rocketmq.v5.client.connection import RpcEndpoints
+from rocketmq.v5.model import Message
 
 
 class MessageQueue:
@@ -76,6 +77,15 @@ class MessageQueue:
         queue.broker.endpoints.CopyFrom(self.__broker_endpoints.endpoints)
         queue.accept_message_types.extend(self.__accept_message_types)
         return queue
+
+    def accept_message_types_desc(self):
+        ret = ""
+        for access_type in self.__accept_message_types:
+            ret = ret + Message.message_type_desc(access_type) + ","
+        if len(ret) == 0:
+            return ret
+        else:
+            return ret[:len(ret) - 1]
 
     """ property """
 

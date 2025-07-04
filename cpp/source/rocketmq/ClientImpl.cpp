@@ -106,26 +106,30 @@ void ClientImpl::start() {
   name_server_resolver_->start();
 
   client_config_.client_id = clientId();
-
   if (!client_manager_) {
-    client_manager_ = std::make_shared<ClientManagerImpl>(client_config_.resource_namespace, client_config_.withSsl);
+    client_manager_ = std::make_shared<ClientManagerImpl>(
+        client_config_.resource_namespace, client_config_.withSsl);
+    client_manager_->start();
   }
-  client_manager_->start();
 
   const auto& endpoint = name_server_resolver_->resolve();
   if (endpoint.empty()) {
     SPDLOG_ERROR("Failed to resolve name server address");
-    abort();
+    return;
   }
 
-  createSession(endpoint, false);
-  {
-    absl::MutexLock lk(&session_map_mtx_);
-    session_map_[endpoint]->await();
+  while (true) {
+    createSession(endpoint, false);
+    {
+      absl::MutexLock lk(&session_map_mtx_);
+      if (session_map_.contains(endpoint) && session_map_[endpoint]->await()) {
+        break;
+      }
+      session_map_.erase(endpoint);
+    }
   }
 
   std::weak_ptr<ClientImpl> ptr(self());
-
   {
     // Query routes for topics of interest in synchronous
     std::vector<std::string> topics;
@@ -164,8 +168,9 @@ void ClientImpl::start() {
     }
   };
 
-  route_update_handle_ = client_manager_->getScheduler()->schedule(route_update_functor, UPDATE_ROUTE_TASK_NAME,
-                                                                   std::chrono::seconds(10), std::chrono::seconds(30));
+  route_update_handle_ = client_manager_->getScheduler()->schedule(
+      route_update_functor, UPDATE_ROUTE_TASK_NAME,
+      std::chrono::seconds(10), std::chrono::seconds(30));
 
   auto telemetry_functor = [ptr]() {
     std::shared_ptr<ClientImpl> base = ptr.lock();
@@ -597,8 +602,11 @@ void ClientImpl::notifyClientTermination(const NotifyClientTerminationRequest& r
   Signature::sign(client_config_, metadata);
 
   for (const auto& endpoint : endpoints) {
-    client_manager_->notifyClientTermination(endpoint, metadata, request,
-                                             absl::ToChronoMilliseconds(client_config_.request_timeout));
+    std::error_code ec = client_manager_->notifyClientTermination(
+        endpoint, metadata, request,absl::ToChronoMilliseconds(client_config_.request_timeout));
+    if (ec) {
+      SPDLOG_WARN("Notify client termination error, ErrorCode={}, Endpoint={}", ec.message(), endpoint);
+    }
   }
 }
 

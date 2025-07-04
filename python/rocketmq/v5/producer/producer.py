@@ -17,7 +17,7 @@ import abc
 import functools
 import threading
 import time
-from concurrent.futures import Future
+from concurrent.futures import Future, ThreadPoolExecutor
 
 from rocketmq.grpc_protocol import (ClientType, Code, Encoding,
                                     EndTransactionRequest, HeartbeatRequest,
@@ -136,6 +136,7 @@ class Producer(Client):
         self.__checker = (
             checker  # checker for transaction message, handle checking from server
         )
+        self.__transaction_check_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="transaction_check_worker")
 
     def __str__(self):
         return f"{ClientType.Name(self.client_type)} client_id:{self.client_id}"
@@ -147,10 +148,10 @@ class Producer(Client):
             raise IllegalStateException("producer is not running now.")
 
         self.__wrap_sending_message(message, False if transaction is None else True)
-        topic_queue = self.__select_send_queue(message.topic)
+        topic_queue = self.__select_send_queue(message)
         if message.message_type not in topic_queue.accept_message_types:
             raise IllegalArgumentException(
-                f"current message type not match with queue accept message types, topic:{message.topic}, message_type:{message.message_type}, queue access type:{topic_queue.accept_message_types}"
+                f"current message type not match with queue accept message types, topic:{message.topic}, message_type:{Message.message_type_desc(message.message_type)}, queue access type:{topic_queue.accept_message_types_desc()}"
             )
 
         if transaction is None:
@@ -179,12 +180,12 @@ class Producer(Client):
             raise IllegalStateException("producer is not running now.")
 
         self.__wrap_sending_message(message, False)
-        topic_queue = self.__select_send_queue(message.topic)
+        topic_queue = self.__select_send_queue(message)
         if message.message_type not in topic_queue.accept_message_types:
             raise IllegalArgumentException(
                 f"current message type not match with queue accept message types, "
-                f"topic:{message.topic}, message_type:{message.message_type}, "
-                f"queue access type:{topic_queue.accept_message_types}"
+                f"topic:{message.topic}, message_type:{Message.message_type_desc(message.message_type)}, "
+                f"queue access type:{topic_queue.accept_message_types_desc()}"
             )
 
         try:
@@ -223,7 +224,7 @@ class Producer(Client):
         )
         return future.result()
 
-    async def on_recover_orphaned_transaction_command(
+    def on_recover_orphaned_transaction_command(
         self, endpoints, msg, transaction_id
     ):
         # call this function from server side stream, in RpcClient._io_loop
@@ -236,28 +237,7 @@ class Producer(Client):
             if self.__checker is None:
                 raise IllegalArgumentException("No transaction checker registered.")
             message = Message().fromProtobuf(msg)
-            result = self.__checker.check(message)
-
-            if result == TransactionResolution.COMMIT:
-                res = await self.__commit_for_server_check(
-                    endpoints,
-                    message,
-                    transaction_id,
-                    TransactionSource.SOURCE_SERVER_CHECK,
-                )
-                logger.debug(
-                    f"commit message. message_id: {message.message_id}, transaction_id: {transaction_id}, res: {res}"
-                )
-            elif result == TransactionResolution.ROLLBACK:
-                res = await self.__rollback_for_server_check(
-                    endpoints,
-                    message,
-                    transaction_id,
-                    TransactionSource.SOURCE_SERVER_CHECK,
-                )
-                logger.debug(
-                    f"rollback message. message_id: {message.message_id}, transaction_id: {transaction_id}, res: {res}"
-                )
+            self.__transaction_check_executor.submit(self.__server_transaction_check, endpoints, message, transaction_id)
         except Exception as e:
             logger.error(f"on_recover_orphaned_transaction_command exception: {e}")
 
@@ -313,6 +293,8 @@ class Producer(Client):
 
     def shutdown(self):
         logger.info(f"begin to shutdown {self.__str__()}")
+        self.__transaction_check_executor.shutdown()
+        self.__transaction_check_executor = None
         super().shutdown()
         logger.info(f"shutdown {self.__str__()} success.")
 
@@ -356,7 +338,7 @@ class Producer(Client):
                 raise retry_exception_future.exception()
 
             # resend message
-            topic_queue = self.__select_send_queue(message.topic)
+            topic_queue = self.__select_send_queue(message)
             return self.__send(message, topic_queue, attempt)
 
     def __send_async(self, message: Message, topic_queue, attempt=1, ret_future=None):
@@ -395,7 +377,7 @@ class Producer(Client):
                 send_message_future, topic_queue
             )
             self.client_metrics.send_after(send_metric_context, True)
-            self._set_future_callback_result(
+            self._submit_callback(
                 CallbackResult.async_send_callback_result(ret_future, send_receipt)
             )
         except Exception as e:
@@ -406,14 +388,14 @@ class Producer(Client):
             if retry_exception_future is not None:
                 # end retry with exception
                 self.client_metrics.send_after(send_metric_context, False)
-                self._set_future_callback_result(
+                self._submit_callback(
                     CallbackResult.async_send_callback_result(
                         ret_future, retry_exception_future.exception(), False
                     )
                 )
                 return
             # resend message
-            topic_queue = self.__select_send_queue(message.topic)
+            topic_queue = self.__select_send_queue(message)
             self.__send_async(message, topic_queue, attempt, ret_future)
 
     def __process_send_message_response(self, send_message_future, topic_queue):
@@ -433,13 +415,6 @@ class Producer(Client):
         if attempt > Producer.MAX_SEND_ATTEMPTS:
             logger.error(
                 f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, because of run out of attempt times, topic:{message.topic}, message_id:{message.message_id},  message_type:{message.message_type}, attempt:{attempt}"
-            )
-            end_retry = True
-
-        # no need more attempts for transactional message
-        if message.message_type == MessageType.TRANSACTION:
-            logger.error(
-                f"{self.__str__()} failed to send message to {topic_queue.endpoints.__str__()}, topic:{message.topic}, message_id:{message.message_id}, message_type:{message.message_type} ,attempt:{attempt}"
             )
             end_retry = True
 
@@ -526,15 +501,18 @@ class Producer(Client):
             "transactional message should not set messageGroup or deliveryTimestamp"
         )
 
-    def __select_send_queue(self, topic):
+    def __select_send_queue(self, message):
         try:
-            route = self._retrieve_topic_route_data(topic)
+            route = self._retrieve_topic_route_data(message.topic)
             queue_selector = self.__send_queue_selectors.put_if_absent(
-                topic, QueueSelector.producer_queue_selector(route)
+                message.topic, QueueSelector.producer_queue_selector(route)
             )
-            return queue_selector.select_next_queue()
+            if message.message_group is None:
+                return queue_selector.select_next_queue()
+            else:
+                return queue_selector.select_queue_by_hash_key(message.message_group)
         except Exception as e:
-            logger.error(f"producer select topic:{topic} queue raise exception, {e}")
+            logger.error(f"producer select topic:{message.topic} queue raise exception, {e}")
             raise e
 
     def __end_transaction_req(self, message: Message, transaction_id, result, source):
@@ -547,27 +525,31 @@ class Producer(Client):
         req.source = source
         return req
 
-    def __commit_for_server_check(
-        self, endpoints, message: Message, transaction_id, source
-    ):
-        return self.__end_transaction_for_server_check(
-            endpoints, message, transaction_id, TransactionResolution.COMMIT, source
-        )
+    def __server_transaction_check_callback(self, future, message, transaction_id, result):
+        try:
+            res = future.result()
+            if res is not None and res.status.code == Code.OK:
+                if result == TransactionResolution.COMMIT:
+                    logger.debug(
+                        f"{self.__str__()} commit message. message_id: {message.message_id}, transaction_id: {transaction_id}, res: {res}"
+                    )
+                elif result == TransactionResolution.ROLLBACK:
+                    logger.debug(
+                        f"{self.__str__()} rollback message. message_id: {message.message_id}, transaction_id: {transaction_id}, res: {res}"
+                    )
+            else:
+                if result == TransactionResolution.COMMIT:
+                    raise Exception(f"{self.__str__()} commit message: {message.message_id} raise exception")
+                elif result == TransactionResolution.ROLLBACK:
+                    raise Exception(f"{self.__str__()} rollback message: {message.message_id} raise exception")
+        except Exception as e:
+            logger.error(f"server transaction check raise exception, {e}")
 
-    def __rollback_for_server_check(
-        self, endpoints, message: Message, transaction_id, source
-    ):
-        return self.__end_transaction_for_server_check(
-            endpoints, message, transaction_id, TransactionResolution.ROLLBACK, source
-        )
-
-    def __end_transaction_for_server_check(
-        self, endpoints, message: Message, transaction_id, result, source
-    ):
-        req = self.__end_transaction_req(message, transaction_id, result, source)
-        return self.rpc_client.end_transaction_for_server_check(
-            endpoints,
-            req,
-            metadata=self._sign(),
-            timeout=self.client_configuration.request_timeout,
-        )
+    def __server_transaction_check(self, endpoints, message, transaction_id):
+        try:
+            result = self.__checker.check(message)
+            req = self.__end_transaction_req(message, transaction_id, result, TransactionSource.SOURCE_SERVER_CHECK)
+            future = self.rpc_client.end_transaction_async(endpoints, req, metadata=self._sign(), timeout=self.client_configuration.request_timeout)
+            future.add_done_callback(functools.partial(self.__server_transaction_check_callback, message=message, transaction_id=transaction_id, result=result))
+        except Exception as e:
+            raise e

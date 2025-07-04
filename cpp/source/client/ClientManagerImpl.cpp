@@ -94,22 +94,21 @@ void ClientManagerImpl::start() {
     SPDLOG_WARN("Unexpected client instance state: {}", state_.load(std::memory_order_relaxed));
     return;
   }
+
   state_.store(State::STARTING, std::memory_order_relaxed);
 
   callback_thread_pool_->start();
-
   scheduler_->start();
 
   std::weak_ptr<ClientManagerImpl> client_instance_weak_ptr = shared_from_this();
-
   auto heartbeat_functor = [client_instance_weak_ptr]() {
     auto client_instance = client_instance_weak_ptr.lock();
     if (client_instance) {
       client_instance->doHeartbeat();
     }
   };
-  heartbeat_task_id_ =
-      scheduler_->schedule(heartbeat_functor, HEARTBEAT_TASK_NAME, std::chrono::seconds(1), std::chrono::seconds(10));
+  heartbeat_task_id_ = scheduler_->schedule(
+      heartbeat_functor, HEARTBEAT_TASK_NAME, std::chrono::seconds(1), std::chrono::seconds(10));
   SPDLOG_DEBUG("Heartbeat task-id={}", heartbeat_task_id_);
 
   state_.store(State::STARTED, std::memory_order_relaxed);
@@ -325,8 +324,11 @@ bool ClientManagerImpl::send(const std::string& target_host,
           auto first = invocation_context->response.entries().begin();
           send_result.message_id = first->message_id();
           send_result.transaction_id = first->transaction_id();
+          // unique handle to identify a message to recall,
+          // only delay message is supported for now
+          send_result.recall_handle = first->recall_handle();
         } else {
-          SPDLOG_ERROR("Unexpected send-message-response: {}", invocation_context->response.DebugString());
+          SPDLOG_ERROR("Unexpected send-message-response: {}", invocation_context->response.ShortDebugString());
         }
         break;
       }
@@ -361,6 +363,12 @@ bool ClientManagerImpl::send(const std::string& target_host,
         break;
       }
 
+      case rmq::Code::ILLEGAL_DELIVERY_TIME: {
+        SPDLOG_ERROR("IllegalDeliveryTime: {}. Host={}", status.message(), invocation_context->remote_address);
+        send_result.ec = ErrorCode::IllegalMessageProperty;
+        break;
+      }
+
       case rmq::Code::MESSAGE_PROPERTIES_TOO_LARGE: {
         SPDLOG_ERROR("MessagePropertiesTooLarge: {}. Host={}", status.message(), invocation_context->remote_address);
         send_result.ec = ErrorCode::MessagePropertiesTooLarge;
@@ -369,6 +377,12 @@ bool ClientManagerImpl::send(const std::string& target_host,
 
       case rmq::Code::MESSAGE_BODY_TOO_LARGE: {
         SPDLOG_ERROR("MessageBodyTooLarge: {}. Host={}", status.message(), invocation_context->remote_address);
+        send_result.ec = ErrorCode::MessageBodyTooLarge;
+        break;
+      }
+
+      case rmq::Code::MESSAGE_BODY_EMPTY: {
+        SPDLOG_ERROR("MessageBodyEmpty: {}. Host={}", status.message(), invocation_context->remote_address);
         send_result.ec = ErrorCode::MessageBodyTooLarge;
         break;
       }
@@ -760,7 +774,7 @@ void ClientManagerImpl::receiveMessage(const std::string& target_host,
                                        const ReceiveMessageRequest& request,
                                        std::chrono::milliseconds timeout,
                                        ReceiveMessageCallback cb) {
-  SPDLOG_DEBUG("Prepare to receive message from {} asynchronously. Request: {}", target_host, request.DebugString());
+  SPDLOG_DEBUG("Prepare to receive message from {} asynchronously. Request: {}", target_host, request.ShortDebugString());
   RpcClientSharedPtr client = getRpcClient(target_host);
   auto context = absl::make_unique<ReceiveMessageContext>();
   context->callback = std::move(cb);
@@ -793,6 +807,11 @@ MessageConstSharedPtr ClientManagerImpl::wrapMessage(const rmq::Message& item) {
   }
   if (!keys.empty()) {
     builder.withKeys(std::move(keys));
+  }
+
+  // Message Group
+  if (system_properties.has_message_group()) {
+    builder.withGroup(system_properties.message_group());
   }
 
   // Message-Id
@@ -1286,6 +1305,107 @@ void ClientManagerImpl::endTransaction(
 
   invocation_context->callback = callback;
   client->asyncEndTransaction(request, invocation_context);
+}
+
+void ClientManagerImpl::recallMessage(const std::string& target_host, const Metadata& metadata,
+                                      const RecallMessageRequest& request, std::chrono::milliseconds timeout,
+                                      const std::function<void(const std::error_code&, const RecallMessageResponse&)>& cb) {
+
+  SPDLOG_DEBUG("RecallMessage Request: {}", request.ShortDebugString());
+
+  RpcClientSharedPtr client = getRpcClient(target_host);
+  if (!client) {
+    SPDLOG_WARN("No RPC client for {}", target_host);
+    RecallMessageResponse response;
+    std::error_code ec = ErrorCode::BadRequest;
+    cb(ec, response);
+    return;
+  }
+
+  auto invocation_context = new InvocationContext<RecallMessageResponse>();
+  invocation_context->task_name = fmt::format("Recall message, topic={}, recall handle={} to {}",
+                                              request.topic().ShortDebugString(), request.recall_handle().data(), target_host);
+  invocation_context->remote_address = target_host;
+  for (const auto& item : metadata) {
+    invocation_context->context.AddMetadata(item.first, item.second);
+  }
+  invocation_context->context.set_deadline(std::chrono::system_clock::now() + timeout);
+
+  auto callback =
+      [target_host, cb](const InvocationContext<RecallMessageResponse>* invocation_context) {
+
+    std::error_code ec;
+    if (!invocation_context->status.ok()) {
+      SPDLOG_WARN("Failed to write EndTransaction to wire. gRPC-code: {}, gRPC-message: {}, host={}",
+                  invocation_context->status.error_code(), invocation_context->status.error_message(),
+                  invocation_context->remote_address);
+      ec = ErrorCode::BadRequest;
+      cb(ec, invocation_context->response);
+      return;
+    }
+
+    auto&& status = invocation_context->response.status();
+    auto&& peer_address = invocation_context->remote_address;
+    switch (status.code()) {
+      case rmq::Code::OK: {
+        SPDLOG_DEBUG("Recall message OK. Response: {}, host={}",
+                     invocation_context->response.ShortDebugString(), peer_address);
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_TOPIC: {
+        SPDLOG_WARN("IllegalTopic: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::IllegalTopic;
+        break;
+      }
+
+      case rmq::Code::CLIENT_ID_REQUIRED: {
+        SPDLOG_WARN("ClientIdRequired: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::InternalClientError;
+        break;
+      }
+
+      case rmq::Code::TOPIC_NOT_FOUND: {
+        SPDLOG_WARN("TopicNotFound: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::TopicNotFound;
+        break;
+      }
+
+      case rmq::Code::UNAUTHORIZED: {
+        SPDLOG_WARN("Unauthorized: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::Unauthorized;
+        break;
+      }
+
+      case rmq::Code::FORBIDDEN: {
+        SPDLOG_WARN("Forbidden: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::Forbidden;
+        break;
+      }
+
+      case rmq::Code::INTERNAL_SERVER_ERROR: {
+        SPDLOG_WARN("InternalServerError: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::InternalServerError;
+        break;
+      }
+
+      case rmq::Code::PROXY_TIMEOUT: {
+        SPDLOG_WARN("GatewayTimeout: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::GatewayTimeout;
+        break;
+      }
+
+      default: {
+        SPDLOG_WARN("NotSupported: please upgrade SDK to latest release. {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::NotSupported;
+        break;
+      }
+    }
+    cb(ec, invocation_context->response);
+  };
+
+  invocation_context->callback = callback;
+  client->asyncRecallMessage(request, invocation_context);
 }
 
 void ClientManagerImpl::forwardMessageToDeadLetterQueue(const std::string& target_host,

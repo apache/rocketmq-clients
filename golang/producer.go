@@ -79,7 +79,7 @@ func (p *defaultProducer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 }
 
 func (p *defaultProducer) takeMessageQueues(plb PublishingLoadBalancer) ([]*v2.MessageQueue, error) {
-	return plb.TakeMessageQueues(p.isolated, p.getRetryMaxAttempts())
+	return plb.TakeMessageQueues(&p.isolated, p.getRetryMaxAttempts())
 }
 
 func (p *defaultProducer) getPublishingTopicRouteResult(ctx context.Context, topic string) (PublishingLoadBalancer, error) {
@@ -232,12 +232,6 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 		}
 		if attempt >= maxAttempts {
 			p.cli.log.Errorf("failed to send message(s) finally, run out of attempt times, topic=%s, messageId(s)=%v, maxAttempts=%d, attempt=%d, endpoints=%v, requestId=%s",
-				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
-			return nil, err
-		}
-		// No need more attempts for transactional message.
-		if messageType == v2.MessageType_TRANSACTION {
-			p.cli.log.Errorf("failed to send transactional message finally, topic=%s, messageId(s)=%v,  maxAttempts=%d, attempt=%d, endpoints=%s, requestId=%s",
 				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
 			return nil, err
 		}
@@ -454,4 +448,9 @@ func (p *defaultProducer) onRecoverOrphanedTransactionCommand(endpoints *v2.Endp
 
 func (p *defaultProducer) onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error {
 	return nil
+}
+
+func (p *defaultProducer) SetRequestTimeout(timeout time.Duration) {
+	p.cli.opts.timeout = timeout
+	p.pSetting.requestTimeout = p.cli.opts.timeout
 }

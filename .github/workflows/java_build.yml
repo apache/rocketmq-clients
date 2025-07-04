@@ -8,13 +8,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macos-latest, windows-2022]
+        os: [ ubuntu-22.04, macos-latest, windows-2022 ]
         jdk: [11, 17]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up JDK ${{ matrix.jdk }}
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.jdk }}
           distribution: "adopt"
@@ -27,10 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Current Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       # Use JDK 17.
       - name: Use JDK 17
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: 17
           distribution: "adopt"
@@ -53,7 +53,7 @@ jobs:
             | xargs echo "::set-output name=tag_name::"
       # Clone the opentelemetry-java-instrumentation repository.
       - name: Checkout Latest Release
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: open-telemetry/opentelemetry-java-instrumentation
           ref: ${{ steps.get_release_tag.outputs.tag_name }}
@@ -67,7 +67,7 @@ jobs:
           sed -i 's/org\.apache\.rocketmq:rocketmq-client-java:[^"]*/org.apache.rocketmq:rocketmq-client-java:${{ steps.get_version.outputs.version }}/' instrumentation/rocketmq/rocketmq-client/rocketmq-client-5.0/testing/build.gradle.kts
       # Use JDK 17.
       - name: Use JDK 17
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: 17
           distribution: "adopt"

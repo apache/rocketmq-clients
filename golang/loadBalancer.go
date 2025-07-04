@@ -20,7 +20,8 @@ package golang
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
@@ -30,14 +31,14 @@ import (
 
 type PublishingLoadBalancer interface {
 	TakeMessageQueueByMessageGroup(messageGroup *string) ([]*v2.MessageQueue, error)
-	TakeMessageQueues(excluded sync.Map, count int) ([]*v2.MessageQueue, error)
+	TakeMessageQueues(excluded *sync.Map, count int) ([]*v2.MessageQueue, error)
 	CopyAndUpdate([]*v2.MessageQueue) PublishingLoadBalancer
 }
 
 type publishingLoadBalancer struct {
 	messageQueues []*v2.MessageQueue
 
-	index int32
+	index atomic.Int32
 }
 
 var _ = PublishingLoadBalancer(&publishingLoadBalancer{})
@@ -63,11 +64,11 @@ func (plb *publishingLoadBalancer) TakeMessageQueueByMessageGroup(messageGroup *
 	}, nil
 }
 
-func (plb *publishingLoadBalancer) TakeMessageQueues(excluded sync.Map, count int) ([]*v2.MessageQueue, error) {
+func (plb *publishingLoadBalancer) TakeMessageQueues(excluded *sync.Map, count int) ([]*v2.MessageQueue, error) {
 	if len(plb.messageQueues) == 0 {
 		return nil, fmt.Errorf("messageQueues is empty")
 	}
-	next := atomic.AddInt32(&plb.index, 1)
+	next := plb.index.Inc()
 	var candidates []*v2.MessageQueue
 	candidateBrokerNames := make(map[string]bool, 32)
 
@@ -135,7 +136,7 @@ type SubscriptionLoadBalancer interface {
 type subscriptionLoadBalancer struct {
 	messageQueues []*v2.MessageQueue
 
-	index int32
+	index atomic.Int32
 }
 
 var _ = SubscriptionLoadBalancer(&subscriptionLoadBalancer{})
@@ -151,7 +152,7 @@ func (slb *subscriptionLoadBalancer) TakeMessageQueue() (*v2.MessageQueue, error
 	if len(slb.messageQueues) == 0 {
 		return nil, fmt.Errorf("messageQueues is empty")
 	}
-	next := atomic.AddInt32(&slb.index, 1)
+	next := slb.index.Inc()
 	idx := utils.Mod(next+1, len(slb.messageQueues))
 	selectMessageQueue := slb.messageQueues[idx]
 	return selectMessageQueue, nil

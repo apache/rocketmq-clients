@@ -21,6 +21,8 @@ if __name__ == '__main__':
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
+    # with namespace
+    # config = ClientConfiguration(endpoints, credentials, "namespace")
     topic = "topic"
     producer = Producer(config, (topic,))
 
@@ -28,10 +30,14 @@ if __name__ == '__main__':
         producer.startup()
         try:
             msg = Message()
+            # topic for the current message
             msg.topic = topic
             msg.body = "hello, rocketmq.".encode('utf-8')
+            # secondary classifier of message besides topic
             msg.tag = "rocketmq-send-message"
+            # key(s) of the message, another way to mark message besides message id
             msg.keys = "send_sync"
+            # user property for the message
             msg.add_property("send", "sync")
             res = producer.send(msg)
             print(f"{producer.__str__()} send message success. {res}")

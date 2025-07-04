@@ -39,6 +39,7 @@ struct SubscriberConfig {
   rmq::Resource group;
   absl::flat_hash_map<std::string, rmq::SubscriptionEntry> subscriptions;
   bool fifo{false};
+  bool fifo_consume_accelerator{false};
   std::uint32_t receive_batch_size{32};
   absl::Duration polling_timeout{absl::Seconds(30)};
 };

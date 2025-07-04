@@ -32,9 +32,27 @@ public class UtilitiesTest {
     @Test
     public void testCompressAndUncompressByteArray() throws IOException {
         final byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        final byte[] compressedBytes = Utilities.compressBytesGzip(bytes, 5);
-        final byte[] originalBytes = Utilities.uncompressBytesGzip(compressedBytes);
-        assertEquals(new String(originalBytes, StandardCharsets.UTF_8), body);
+        {
+            final byte[] compressedBytes = Utilities.compressBytesZLIB(bytes, 5);
+            final byte[] originalBytes = Utilities.decompressBytes(compressedBytes);
+            assertEquals(new String(originalBytes, StandardCharsets.UTF_8), body);
+        }
+        {
+            final byte[] compressedBytes = Utilities.compressBytesLZ4(bytes);
+            final byte[] originalBytes = Utilities.decompressBytes(compressedBytes);
+            assertEquals(new String(originalBytes, StandardCharsets.UTF_8), body);
+        }
+        {
+            final byte[] compressedBytes = Utilities.compressBytesZSTD(bytes, 3);
+            final byte[] originalBytes = Utilities.decompressBytes(compressedBytes);
+            assertEquals(new String(originalBytes, StandardCharsets.UTF_8), body);
+        }
+        {
+            final byte[] compressedBytes = Utilities.compressBytesGZIP(bytes);
+            final byte[] originalBytes = Utilities.decompressBytes(compressedBytes);
+            assertEquals(new String(originalBytes, StandardCharsets.UTF_8), body);
+        }
+
     }
 
     @Test

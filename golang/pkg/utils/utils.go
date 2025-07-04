@@ -20,24 +20,41 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/url"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/apache/rocketmq-clients/golang/v5/metadata"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+	"github.com/klauspost/compress/zstd"
+	"github.com/pierrec/lz4"
 	"github.com/valyala/fastrand"
 	"go.opencensus.io/trace"
 	MD "google.golang.org/grpc/metadata"
+)
+
+type CompressionType int32
+type MessageQueueStr string
+
+const (
+	Unknown CompressionType = 0
+	GZIP    CompressionType = 1
+	Zlib    CompressionType = 2
+	LZ4     CompressionType = 3
+	ZSTD    CompressionType = 4
 )
 
 func Mod(n int32, m int) int {
@@ -140,6 +157,63 @@ func MatchMessageType(mq *v2.MessageQueue, messageType v2.MessageType) bool {
 	return false
 }
 
+func MatchCompressionAlgorithm(in []byte) CompressionType {
+	if in == nil {
+		return Unknown
+	}
+	if len(in) >= 2 {
+		if in[0] == 0x78 {
+			return Zlib
+		} else if in[0] == 0x1f && in[1] == 0x8b {
+			return GZIP
+		}
+	}
+	if len(in) >= 4 {
+		if in[0] == 0x04 && in[1] == 0x22 && in[2] == 0x4D && in[3] == 0x18 {
+			return LZ4
+		} else if in[0] == 0x28 && in[1] == 0xB5 && in[2] == 0x2F && in[3] == 0xFD {
+			return ZSTD
+		}
+	}
+	return Unknown
+}
+
+func AutoDecode(in []byte) ([]byte, error) {
+	compressionType := MatchCompressionAlgorithm(in)
+	switch compressionType {
+	case Zlib:
+		return ZlibDecode(in)
+	case GZIP:
+		return GZIPDecode(in)
+	}
+	return in, fmt.Errorf("unknown format")
+}
+
+func ZlibDecode(in []byte) ([]byte, error) {
+	reader, err := zlib.NewReader(bytes.NewReader(in))
+	if err != nil {
+		var out []byte
+		return out, err
+	}
+	defer reader.Close()
+	return ioutil.ReadAll(reader)
+}
+
+func Lz4Decode(in []byte) ([]byte, error) {
+	reader := lz4.NewReader(bytes.NewReader(in))
+	return ioutil.ReadAll(reader)
+}
+
+func ZstdDecode(in []byte) ([]byte, error) {
+	reader, err := zstd.NewReader(bytes.NewReader(in))
+	if err != nil {
+		var out []byte
+		return out, err
+	}
+	defer reader.Close()
+	return ioutil.ReadAll(reader)
+}
+
 func GZIPDecode(in []byte) ([]byte, error) {
 	reader, err := gzip.NewReader(bytes.NewReader(in))
 	if err != nil {
@@ -150,12 +224,12 @@ func GZIPDecode(in []byte) ([]byte, error) {
 	return ioutil.ReadAll(reader)
 }
 
-var clientIdx int64 = 0
+var clientIdx atomic.Int64 = *atomic.NewInt64(0)
 
 func GenClientID() string {
 	hostName := HostName()
 	processID := os.Getpid()
-	nextIdx := atomic.AddInt64(&clientIdx, 1) - 1
+	nextIdx := clientIdx.Inc() - 1
 	nanotime := time.Now().UnixNano() / 1000
 	return fmt.Sprintf("%s@%d@%d@%s", hostName, processID, nextIdx, strconv.FormatInt(nanotime, 36))
 }
@@ -278,4 +352,114 @@ func GetRequestID(ctx context.Context) string {
 		ret = fmt.Sprintf("%v", md.Get(metadata.RequestID))
 	}
 	return ret
+}
+
+func CountSyncMapSize(m *sync.Map) int32 {
+	if m == nil {
+		return 0
+	}
+	cnt := int32(0)
+	m.Range(func(key, value interface{}) bool {
+		cnt++
+		return true
+	})
+	return cnt
+}
+
+func IsAssignmentsEmpty(a *[]*v2.Assignment) bool {
+	if a == nil {
+		return true
+	}
+	if len(*a) == 0 {
+		return true
+	}
+	return false
+}
+
+func CompareAssignments(a *[]*v2.Assignment, b *[]*v2.Assignment) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	l := len(*a)
+	if l != len(*b) {
+		return false
+	}
+	for i := 0; i < l; i++ {
+		a0 := (*a)[0]
+		b0 := (*b)[0]
+		if !CompareAssignment(a0, b0) {
+			return false
+		}
+	}
+	return true
+}
+
+func CompareAssignment(a *v2.Assignment, b *v2.Assignment) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return CompareMessageQueue(a.MessageQueue, b.MessageQueue)
+}
+
+func CompareMessageQueue(a *v2.MessageQueue, b *v2.MessageQueue) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return (a.Id == b.Id) && (a.Permission == b.Permission) && CompareResource(a.Topic, b.Topic) && CompareBroker(a.Broker, b.Broker)
+}
+
+func CompareResource(a *v2.Resource, b *v2.Resource) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return (a.Name == b.Name) && (a.ResourceNamespace == b.ResourceNamespace)
+}
+
+func CompareBroker(a *v2.Broker, b *v2.Broker) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return (a.Name == b.Name) && (a.Id == b.Id) && CompareEndpoints(a.Endpoints, b.Endpoints)
+}
+
+func ParseMessageQueue2Str(m *v2.MessageQueue) MessageQueueStr {
+	if m == nil {
+		return ""
+	}
+	return MessageQueueStr(m.String())
+}
+
+func GetNextAttemptDelay(retryPolicy *v2.RetryPolicy, attempt int) time.Duration {
+	if attempt <= 0 {
+		// TODO bug when retryPolicy is nil
+		return time.Duration(time.Second * 10)
+	}
+	var delayNanos int64
+	if backoff, ok := retryPolicy.GetStrategy().(*v2.RetryPolicy_ExponentialBackoff); ok {
+		delayNanos = int64(math.Min(float64(backoff.ExponentialBackoff.Initial.AsDuration().Nanoseconds())*math.Pow(float64(backoff.ExponentialBackoff.Multiplier), 1.0*float64(attempt-1)), float64(backoff.ExponentialBackoff.Max.AsDuration().Nanoseconds())))
+		if delayNanos <= 0 {
+			delayNanos = 0
+		}
+	} else if backoff, ok := retryPolicy.GetStrategy().(*v2.RetryPolicy_CustomizedBackoff); ok {
+		if attempt > len(backoff.CustomizedBackoff.Next) {
+			attempt = len(backoff.CustomizedBackoff.Next)
+		}
+		delayNanos = backoff.CustomizedBackoff.Next[attempt-1].AsDuration().Nanoseconds()
+	}
+	return time.Duration(delayNanos)
 }

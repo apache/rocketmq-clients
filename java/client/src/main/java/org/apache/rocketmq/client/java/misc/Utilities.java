@@ -18,9 +18,14 @@
 package org.apache.rocketmq.client.java.misc;
 
 import apache.rocketmq.v2.ReceiveMessageRequest;
+import com.github.luben.zstd.ZstdInputStream;
+import com.github.luben.zstd.ZstdOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
+import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.net.InetAddress;
@@ -35,7 +40,11 @@ import java.util.Map;
 import java.util.Random;
 import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 import java.util.zip.InflaterInputStream;
+import net.jpountz.lz4.LZ4FrameInputStream;
+import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.commons.lang3.StringUtils;
 
 public class Utilities {
@@ -140,37 +149,59 @@ public class Utilities {
         }
     }
 
-    public static byte[] compressBytesGzip(final byte[] src, final int level) throws IOException {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
+    public static byte[] compressBytesGZIP(final byte[] src) throws IOException {
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)) {
+            try (FilterOutputStream outputStream = new GZIPOutputStream(byteArrayOutputStream)) {
+                outputStream.write(src);
+                outputStream.flush();
+            }
+            return byteArrayOutputStream.toByteArray();
+        }
+    }
+
+    public static byte[] compressBytesZSTD(final byte[] src, final int level) throws IOException {
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)) {
+            try (FilterOutputStream outputStream = new ZstdOutputStream(byteArrayOutputStream, level)) {
+                outputStream.write(src);
+                outputStream.flush();
+            }
+            return byteArrayOutputStream.toByteArray();
+        }
+    }
+
+    public static byte[] compressBytesZLIB(final byte[] src, final int level) throws IOException {
         java.util.zip.Deflater defeater = new java.util.zip.Deflater(level);
-        DeflaterOutputStream deflaterOutputStream =
-            new DeflaterOutputStream(byteArrayOutputStream, defeater);
-        try {
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
+             DeflaterOutputStream deflaterOutputStream =
+                 new DeflaterOutputStream(byteArrayOutputStream, defeater)) {
             deflaterOutputStream.write(src);
             deflaterOutputStream.finish();
-            deflaterOutputStream.close();
-
             return byteArrayOutputStream.toByteArray();
         } finally {
-            try {
-                byteArrayOutputStream.close();
-            } catch (IOException ignore) {
-                // Exception not expected here.
-            }
             defeater.end();
         }
     }
 
-    public static byte[] uncompressBytesGzip(final byte[] src) throws IOException {
+    public static byte[] compressBytesLZ4(byte[] src) throws IOException {
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length)) {
+            try (FilterOutputStream outputStream = new LZ4FrameOutputStream(byteArrayOutputStream)) {
+                outputStream.write(src);
+                outputStream.flush();
+            }
+            return byteArrayOutputStream.toByteArray();
+        }
+    }
+
+    public static byte[] decompressBytes(final byte[] src) throws IOException {
         byte[] uncompressData = new byte[src.length];
 
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(src);
-        InflaterInputStream inflaterInputStream = new InflaterInputStream(byteArrayInputStream);
+        FilterInputStream filterInputStream = getStreamByMagicCode(src, byteArrayInputStream);
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
 
         try {
             int length;
-            while ((length = inflaterInputStream.read(uncompressData, 0, uncompressData.length)) > 0) {
+            while ((length = filterInputStream.read(uncompressData, 0, uncompressData.length)) > 0) {
                 byteArrayOutputStream.write(uncompressData, 0, length);
             }
             byteArrayOutputStream.flush();
@@ -183,7 +214,7 @@ public class Utilities {
                 // Exception not expected here.
             }
             try {
-                inflaterInputStream.close();
+                filterInputStream.close();
             } catch (IOException ignore) {
                 // Exception not expected here.
             }
@@ -193,6 +224,29 @@ public class Utilities {
                 // Exception not expected here.
             }
         }
+    }
+
+    private static FilterInputStream getStreamByMagicCode(byte[] src, InputStream inputStream) throws IOException {
+        // Automatically select the appropriate decompression algorithm according to magic code
+        // GZIP magic code: 0x1F 0x8B
+        // ZLIB magic code: 0x78
+        // LZ4 magic code: 0x04 0x22 0x4D 0x18
+        // ZSTD magic code: 0x28 0xB5 0x2F 0xFD
+        FilterInputStream filterInputStream;
+        if ((src[0] & 0xFF) == 0x1F && (src[1] & 0xFF) == 0x8B) {
+            filterInputStream = new GZIPInputStream(inputStream);
+        } else if ((src[0] & 0xFF) == 0x78) {
+            filterInputStream = new InflaterInputStream(inputStream);
+        } else if ((src[0] & 0xFF) == 0x04 && (src[1] & 0xFF) == 0x22 && (src[2] & 0xFF) == 0x4D
+            && (src[3] & 0xFF) == 0x18) {
+            filterInputStream = new LZ4FrameInputStream(inputStream);
+        } else if (((src[0] & 0xFF) == 0x28 && (src[1] & 0xFF) == 0xB5 && (src[2] & 0xFF) == 0x2F
+            && (src[3] & 0xFF) == 0xFD)) {
+            filterInputStream = new ZstdInputStream(inputStream);
+        } else {
+            throw new IOException("Unknown compression format");
+        }
+        return filterInputStream;
     }
 
     public static String encodeHexString(ByteBuffer byteBuffer, boolean toLowerCase) {

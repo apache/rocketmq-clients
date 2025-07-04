@@ -28,6 +28,7 @@ from rocketmq.grpc_protocol import Metric
 from rocketmq.v5.client.connection import RpcEndpoints
 from rocketmq.v5.log import logger
 from rocketmq.v5.model import HistogramEnum, MessageMetricType, MetricContext
+from rocketmq.v5.util import Signature
 
 
 class ClientMetrics:
@@ -142,6 +143,7 @@ class ClientMetrics:
                 endpoint=self.__endpoints.__str__(),
                 insecure=True,
                 timeout=ClientMetrics.METRIC_EXPORTER_RPC_TIMEOUT,
+                headers=Signature.metadata(self.__client_configuration, self.__client_id)
             )
             # create a metric reader and set the export interval
             reader = PeriodicExportingMetricReader(

@@ -43,7 +43,7 @@ public:
 private:
   friend class PushConsumerBuilder;
 
-  PushConsumer(std::shared_ptr<PushConsumerImpl> impl)
+  explicit PushConsumer(std::shared_ptr<PushConsumerImpl> impl)
       : impl_(std::move(impl)) {
   } 
 
@@ -54,29 +54,34 @@ class PushConsumerBuilder {
 public:
   PushConsumerBuilder() : configuration_(Configuration::newBuilder().build()) {}
   
-  PushConsumerBuilder &withConfiguration(Configuration configuration) {
+  PushConsumerBuilder& withConfiguration(Configuration configuration) {
     configuration_ = std::move(configuration);
     return *this;
   }
 
-  PushConsumerBuilder &withGroup(std::string group) {
+  PushConsumerBuilder& withGroup(std::string group) {
     group_ = std::move(group);
     return *this;
   }
 
-  PushConsumerBuilder &withConsumeThreads(std::size_t consume_thread) {
+  PushConsumerBuilder& withConsumeThreads(std::size_t consume_thread) {
     consume_thread_ = consume_thread;
     return *this;
   }
 
-  PushConsumerBuilder &withListener(MessageListener listener) {
+  PushConsumerBuilder& withListener(MessageListener listener) {
     listener_ = std::move(listener);
     return *this;
   }
 
-  PushConsumerBuilder &subscribe(std::string topic,
+  PushConsumerBuilder& subscribe(std::string topic,
                                  FilterExpression filter_expression) {
     subscriptions_.insert({topic, filter_expression});
+    return *this;
+  }
+
+  PushConsumerBuilder& fifoConsumeAccelerator(bool fifo_consume_accelerator) {
+    fifo_consume_accelerator_ = fifo_consume_accelerator;
     return *this;
   }
 
@@ -85,10 +90,10 @@ public:
 private:
   std::string group_;
   Configuration configuration_;
-  std::size_t consume_thread_;
-  MessageListener listener_;
-
+  std::size_t consume_thread_ = 20;
   std::unordered_map<std::string, FilterExpression> subscriptions_;
+  MessageListener listener_;
+  bool fifo_consume_accelerator_ = false;
 };
 
 ROCKETMQ_NAMESPACE_END

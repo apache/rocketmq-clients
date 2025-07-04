@@ -28,6 +28,7 @@ struct SendResult {
 
   std::string message_id;
   std::string transaction_id;
+  std::string recall_handle;
 };
 
 ROCKETMQ_NAMESPACE_END

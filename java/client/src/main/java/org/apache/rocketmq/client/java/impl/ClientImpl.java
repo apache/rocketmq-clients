@@ -27,6 +27,7 @@ import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
+import apache.rocketmq.v2.ReconnectEndpointsCommand;
 import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.Status;
@@ -128,6 +129,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private final ReadWriteLock sessionsLock;
 
     private final CompositedMessageInterceptor compositedMessageInterceptor;
+    private boolean receiveReconnect = false;
 
     public ClientImpl(ClientConfiguration clientConfiguration, Set<String> topics) {
         this.clientConfiguration = checkNotNull(clientConfiguration, "clientConfiguration should not be null");
@@ -229,6 +231,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         log.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
     }
 
+    protected void addMessageInterceptor(MessageInterceptor messageInterceptor) {
+        if (!this.isRunning()) {
+            compositedMessageInterceptor.addInterceptor(messageInterceptor);
+        }
+    }
+
     @Override
     public void doBefore(MessageInterceptorContext context, List<GeneralMessage> generalMessages) {
         try {
@@ -271,6 +279,11 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     public boolean isEndpointsDeprecated(Endpoints endpoints) {
         final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
         return !totalRouteEndpoints.contains(endpoints);
+    }
+
+    @Override
+    public void onReconnectEndpointsCommand(Endpoints endpoints, ReconnectEndpointsCommand command) {
+        receiveReconnect = true;
     }
 
     /**
@@ -509,6 +522,14 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     public ClientId getClientId() {
         return clientId;
+    }
+
+    public boolean isReceiveReconnect() {
+        return receiveReconnect;
+    }
+
+    public void setReceiveReconnect(boolean receiveReconnect) {
+        this.receiveReconnect = receiveReconnect;
     }
 
     /**

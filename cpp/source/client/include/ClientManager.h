@@ -81,12 +81,15 @@ public:
                               const EndTransactionRequest& request, std::chrono::milliseconds timeout,
                               const std::function<void(const std::error_code&, const EndTransactionResponse&)>& cb) = 0;
 
+  virtual void recallMessage(const std::string& target_host, const Metadata& metadata,
+                             const RecallMessageRequest& request, std::chrono::milliseconds timeout,
+                             const std::function<void(const std::error_code&, const RecallMessageResponse&)>& cb) = 0;
+
   virtual void addClientObserver(std::weak_ptr<Client> client) = 0;
 
-  virtual void
-  queryAssignment(const std::string& target, const Metadata& metadata, const QueryAssignmentRequest& request,
-                  std::chrono::milliseconds timeout,
-                  const std::function<void(const std::error_code&, const QueryAssignmentResponse&)>& cb) = 0;
+  virtual void queryAssignment(const std::string& target, const Metadata& metadata,
+                               const QueryAssignmentRequest& request, std::chrono::milliseconds timeout,
+                               const std::function<void(const std::error_code&, const QueryAssignmentResponse&)>& cb) = 0;
 
   virtual void receiveMessage(const std::string& target, const Metadata& metadata, const ReceiveMessageRequest& request,
                               std::chrono::milliseconds timeout, ReceiveMessageCallback callback) = 0;

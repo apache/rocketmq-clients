@@ -38,7 +38,7 @@ dotnet add package RocketMQ.Client
 
 You can obtain the latest version of `RocketMQ.Client`
 from [NuGet Gallery](https://www.nuget.org/packages/RocketMQ.Client). To assist with getting started quickly and working
-with various message types and clients, we offer examples [here](./examples).
+with various message types and clients, we offer [examples](./examples).
 
 Layout of this project roughly
 follows [this guide](https://docs.microsoft.com/en-us/dotnet/core/tutorials/library-with-visual-studio-code?pivots=dotnet-5-0)
