@@ -52,8 +52,7 @@ export class PublishingSettings extends Settings {
     const publishing = new Publishing()
       .setValidateMessageType(this.#validateMessageType);
     for (const topic of this.#topics) {
-      publishing.addTopics().setName(topic);
-      publishing.addTopics().setResourceNamespace(this.namespace);
+      publishing.addTopics().setName(topic).setResourceNamespace(this.namespace);
     }
     return new SettingsPB()
       .setClientType(this.clientType)
