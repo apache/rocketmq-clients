@@ -44,6 +44,8 @@ public class MessageImpl implements Message {
     private final String messageGroup;
     @Nullable
     private final Long deliveryTimestamp;
+    @Nullable
+    private final String liteTopic;
 
     private final Map<String, String> properties;
 
@@ -52,12 +54,13 @@ public class MessageImpl implements Message {
      * logging warnings already, so we avoid repeating args check here.
      */
     MessageImpl(String topic, byte[] body, @Nullable String tag, Collection<String> keys,
-        @Nullable String messageGroup, @Nullable Long deliveryTimestamp,
+        @Nullable String messageGroup, @Nullable Long deliveryTimestamp, @Nullable String liteTopic,
         Map<String, String> properties) {
         this.topic = topic;
         this.body = body;
         this.tag = tag;
         this.messageGroup = messageGroup;
+        this.liteTopic = liteTopic;
         this.deliveryTimestamp = deliveryTimestamp;
         this.keys = keys;
         this.properties = properties;
@@ -78,6 +81,7 @@ public class MessageImpl implements Message {
         this.tag = message.getTag().orElse(null);
         this.messageGroup = message.getMessageGroup().orElse(null);
         this.deliveryTimestamp = message.getDeliveryTimestamp().orElse(null);
+        this.liteTopic = message.getLiteTopic().orElse(null);
         this.keys = message.getKeys();
         this.properties = message.getProperties();
     }
@@ -136,6 +140,11 @@ public class MessageImpl implements Message {
     @Override
     public Optional<String> getMessageGroup() {
         return Optional.ofNullable(messageGroup);
+    }
+
+    @Override
+    public Optional<String> getLiteTopic() {
+        return Optional.ofNullable(liteTopic);
     }
 
     @Override

@@ -40,6 +40,7 @@ public class MessageBuilderImpl implements MessageBuilder {
     private String tag = null;
     private String messageGroup = null;
     private Long deliveryTimestamp = null;
+    private String liteTopic = null;
     private Collection<String> keys = new HashSet<>();
     private final Map<String, String> properties = new HashMap<>();
 
@@ -113,6 +114,14 @@ public class MessageBuilderImpl implements MessageBuilder {
         return this;
     }
 
+    @Override
+    public MessageBuilder setLiteTopic(String liteTopic) {
+        // todo 不能与其他消息特性共存
+        checkArgument(StringUtils.isNotBlank(liteTopic), "liteTopic should not be blank");
+        this.liteTopic = liteTopic;
+        return this;
+    }
+
     /**
      * See {@link MessageBuilder#addProperty(String, String)}
      */
@@ -131,6 +140,6 @@ public class MessageBuilderImpl implements MessageBuilder {
     public Message build() {
         checkNotNull(topic, "topic has not been set yet");
         checkNotNull(body, "body has not been set yet");
-        return new MessageImpl(topic, body, tag, keys, messageGroup, deliveryTimestamp, properties);
+        return new MessageImpl(topic, body, tag, keys, messageGroup, deliveryTimestamp, liteTopic, properties);
     }
 }

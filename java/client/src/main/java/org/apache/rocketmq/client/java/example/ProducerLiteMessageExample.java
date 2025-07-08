@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.example;
 
-import java.nio.charset.StandardCharsets;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
 import org.apache.rocketmq.client.apis.message.Message;
@@ -26,36 +25,46 @@ import org.apache.rocketmq.client.apis.producer.SendReceipt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ProducerNormalMessageExample {
-    private static final Logger log = LoggerFactory.getLogger(ProducerNormalMessageExample.class);
+import java.nio.charset.StandardCharsets;
 
-    private ProducerNormalMessageExample() {
+public class ProducerLiteMessageExample {
+    private static final Logger log = LoggerFactory.getLogger(ProducerLiteMessageExample.class);
+
+    private ProducerLiteMessageExample() {
     }
 
     public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         String topic = "topic_quan";
+        String liteTopic = "yourLiteTopic";
         final Producer producer = ProducerSingleton.getInstance(topic);
         // Define your message body.
-        byte[] body = "This is a normal message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);
+        byte[] body = "This is a LITE message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);
         String tag = "yourMessageTagA";
-        final Message message = provider.newMessageBuilder()
-            // Set topic for the current message.
-            .setTopic(topic)
-            // Message secondary classifier of message besides topic.
-            .setTag(tag)
-            // Key(s) of the message, another way to mark message besides message id.
-            .setKeys("yourMessageKey-1c151062f96e")
-            .setBody(body)
-            .build();
-        try {
-            final SendReceipt sendReceipt = producer.send(message);
-            System.out.printf("Send message successfully, messageId=%s", sendReceipt.getMessageId());
-            log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
-        } catch (Throwable t) {
-            log.error("Failed to send message", t);
+
+        for (int i = 0; i < 2; i++) {
+            final Message message = provider.newMessageBuilder()
+                // Set topic for the current message.
+                .setTopic(topic)
+                // Message secondary classifier of message besides topic.
+                .setTag(tag)
+                // Key(s) of the message, another way to mark message besides message id.
+                .setKeys("yourMessageKey-1ff69ada8e0e")
+                // Message group decides the message delivery order.
+                .setLiteTopic(liteTopic)
+                .setBody(body)
+                .build();
+            try {
+                final SendReceipt sendReceipt = producer.send(message);
+                System.out.printf("Send message successfully, messageId=%s %n", sendReceipt.getMessageId());
+                log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
+            } catch (Throwable t) {
+                System.out.println(t);
+                log.error("Failed to send message", t);
+            }
         }
+
         // Close the producer when you don't need it anymore.
         // You could close it manually or add this into the JVM shutdown hook.
         // producer.close();

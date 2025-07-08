@@ -97,6 +97,8 @@ public interface MessageBuilder {
      */
     MessageBuilder setDeliveryTimestamp(long deliveryTimestamp);
 
+    MessageBuilder setLiteTopic(String liteTopic);
+
     /**
      * Add user property for the message.
      *

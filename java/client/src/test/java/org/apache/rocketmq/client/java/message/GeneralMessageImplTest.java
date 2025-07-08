@@ -36,6 +36,7 @@ public class GeneralMessageImplTest extends TestBase {
     @Test
     public void testMessage() {
         String topic = "testTopic";
+        String liteTopic = "liteTopic";
         byte[] body = "foobar".getBytes(StandardCharsets.UTF_8);
         String tag = "tagA";
         List<String> keys = new ArrayList<>();
@@ -45,8 +46,8 @@ public class GeneralMessageImplTest extends TestBase {
         Map<String, String> properties = new HashMap<>();
         properties.put("propertyA", "valueA");
 
-        final MessageImpl message = new MessageImpl(topic, body, tag, keys, messageGroup, deliveryTimestamp,
-            properties);
+        final MessageImpl message = new MessageImpl(topic, body, tag, keys, messageGroup
+            , deliveryTimestamp, liteTopic, properties);
         final GeneralMessageImpl generalMessage = new GeneralMessageImpl(message);
         assertFalse(generalMessage.getMessageId().isPresent());
         assertEquals(topic, generalMessage.getTopic());

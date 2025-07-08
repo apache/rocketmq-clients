@@ -48,6 +48,7 @@ public class StatusChecker {
             case ILLEGAL_MESSAGE_TAG:
             case ILLEGAL_MESSAGE_KEY:
             case ILLEGAL_MESSAGE_GROUP:
+            case ILLEGAL_LITE_TOPIC:
             case ILLEGAL_MESSAGE_PROPERTY_KEY:
             case INVALID_TRANSACTION_ID:
             case ILLEGAL_MESSAGE_ID:

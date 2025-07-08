@@ -79,4 +79,6 @@ public interface Message {
      * timestamp is not specified.
      */
     Optional<Long> getDeliveryTimestamp();
+
+    Optional<String> getLiteTopic();
 }
