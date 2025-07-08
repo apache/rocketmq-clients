@@ -53,17 +53,15 @@ public class MessageImpl implements Message {
      * The caller is supposed to have validated the arguments and handled throwing exception or
      * logging warnings already, so we avoid repeating args check here.
      */
-    MessageImpl(String topic, byte[] body, @Nullable String tag, Collection<String> keys,
-        @Nullable String messageGroup, @Nullable Long deliveryTimestamp, @Nullable String liteTopic,
-        Map<String, String> properties) {
-        this.topic = topic;
-        this.body = body;
-        this.tag = tag;
-        this.messageGroup = messageGroup;
-        this.liteTopic = liteTopic;
-        this.deliveryTimestamp = deliveryTimestamp;
-        this.keys = keys;
-        this.properties = properties;
+    MessageImpl(MessageBuilderImpl builder) {
+        this.topic = builder.topic;
+        this.body = builder.body;
+        this.tag = builder.tag;
+        this.messageGroup = builder.messageGroup;
+        this.liteTopic = builder.liteTopic;
+        this.deliveryTimestamp = builder.deliveryTimestamp;
+        this.keys = builder.keys;
+        this.properties = builder.properties;
     }
 
     MessageImpl(Message message) {

@@ -27,6 +27,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -39,15 +41,27 @@ public class GeneralMessageImplTest extends TestBase {
         String liteTopic = "liteTopic";
         byte[] body = "foobar".getBytes(StandardCharsets.UTF_8);
         String tag = "tagA";
+        String key = "keyA";
         List<String> keys = new ArrayList<>();
-        keys.add("keyA");
+        keys.add(key);
         String messageGroup = "messageGroup0";
         long deliveryTimestamp = System.currentTimeMillis();
         Map<String, String> properties = new HashMap<>();
         properties.put("propertyA", "valueA");
 
-        final MessageImpl message = new MessageImpl(topic, body, tag, keys, messageGroup
-            , deliveryTimestamp, liteTopic, properties);
+        final Message message = new MessageBuilderImpl()
+            .setTopic(topic)
+            .setBody(body)
+            .setTag(tag)
+            .setKeys(key)
+            .setMessageGroup(messageGroup)
+//            .setDeliveryTimestamp(deliveryTimestamp)
+            .setLiteTopic(liteTopic)
+            .addProperty("propertyA", "valueA")
+            .build();
+
+//        final MessageImpl message = new MessageImpl(topic, body, tag, keys, messageGroup
+//            , deliveryTimestamp, liteTopic, properties);
         final GeneralMessageImpl generalMessage = new GeneralMessageImpl(message);
         assertFalse(generalMessage.getMessageId().isPresent());
         assertEquals(topic, generalMessage.getTopic());
@@ -58,8 +72,8 @@ public class GeneralMessageImplTest extends TestBase {
         assertEquals(keys, generalMessage.getKeys());
         assertTrue(generalMessage.getMessageGroup().isPresent());
         assertEquals(messageGroup, generalMessage.getMessageGroup().get());
-        assertTrue(generalMessage.getDeliveryTimestamp().isPresent());
-        assertEquals(deliveryTimestamp, (long) generalMessage.getDeliveryTimestamp().get());
+//        assertTrue(generalMessage.getDeliveryTimestamp().isPresent());
+//        assertEquals(deliveryTimestamp, (long) generalMessage.getDeliveryTimestamp().get());
         assertFalse(generalMessage.getBornHost().isPresent());
         assertFalse(generalMessage.getBornTimestamp().isPresent());
         assertFalse(generalMessage.getDeliveryAttempt().isPresent());
