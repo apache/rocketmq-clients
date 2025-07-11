@@ -18,7 +18,6 @@
 use async_trait::async_trait;
 use mockall::{automock, mock};
 use ring::hmac;
-use slog::{debug, error, info, o, Logger};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use tokio::sync::{mpsc, oneshot};
@@ -42,6 +41,7 @@ use crate::pb::{
 };
 use crate::util::{PROTOCOL_VERSION, SDK_LANGUAGE, SDK_VERSION};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
+use tracing::{debug, error, info};
 
 const OPERATION_START: &str = "session.start";
 const OPERATION_UPDATE_SETTINGS: &str = "session.update_settings";
@@ -104,7 +104,6 @@ pub(crate) trait RPCClient {
 
 #[derive(Debug)]
 pub(crate) struct Session {
-    logger: Logger,
     client_id: String,
     option: ClientOption,
     endpoints: Endpoints,
@@ -122,7 +121,6 @@ impl Session {
 
     pub(crate) fn shadow_session(&self) -> Self {
         Session {
-            logger: self.logger.clone(),
             client_id: self.client_id.clone(),
             option: self.option.clone(),
             endpoints: self.endpoints.clone(),
@@ -134,7 +132,6 @@ impl Session {
     }
 
     pub(crate) async fn new(
-        logger: &Logger,
         endpoints: &Endpoints,
         client_id: String,
         option: &ClientOption,
@@ -171,14 +168,12 @@ impl Session {
 
         let stub = MessagingServiceClient::new(channel);
 
-        let logger = logger.new(o!("peer" => peer.clone()));
-        info!(logger, "create session success");
+        info!("create session success");
 
         Ok(Session {
-            logger,
+            client_id,
             option: option.clone(),
             endpoints: endpoints.clone(),
-            client_id,
             stub,
             telemetry_tx: None,
             telemetry_command_tx: None,
@@ -293,11 +288,8 @@ impl Session {
 
         self.establish_telemetry_stream(settings).await?;
 
-        debug!(
-            self.logger,
-            "telemetry_command_tx: {:?}", self.telemetry_command_tx
-        );
-        info!(self.logger, "starting client success");
+        debug!("telemetry_command_tx: {:?}", self.telemetry_command_tx);
+        info!("starting client success");
         Ok(())
     }
 
@@ -308,10 +300,7 @@ impl Session {
         if let Some(old_shutdown_tx) = self.shutdown_tx.take() {
             // a `send` error means the receiver is already gone, which is fine.
             let _ = old_shutdown_tx.send(());
-            info!(
-                self.logger,
-                "sent shutdown signal to the previous telemetry stream."
-            );
+            info!("sent shutdown signal to the previous telemetry stream.");
         }
 
         let (tx, rx) = mpsc::channel(16);
@@ -340,7 +329,6 @@ impl Session {
         self.shutdown_tx = Some(shutdown_tx);
         self.telemetry_tx = Some(tx);
 
-        let logger = self.logger.clone();
         let telemetry_command_tx = self.telemetry_command_tx.as_ref().unwrap().clone();
         tokio::spawn(async move {
             let mut stream = response.into_inner();
@@ -349,30 +337,30 @@ impl Session {
                     message = stream.message() => {
                         match message {
                             Ok(Some(item)) => {
-                                debug!(logger, "receive telemetry command: {:?}", item);
+                                debug!("receive telemetry command: {:?}", item);
                                 if let Some(command) = item.command {
                                     _ = telemetry_command_tx.send(command).await;
                                 }
                             }
                             Ok(None) => {
-                                info!(logger, "telemetry command stream closed by server");
+                                info!("telemetry command stream closed by server");
                                 break;
                             }
                             Err(e) => {
-                                error!(logger, "telemetry response error: {:?}", e);
+                                error!("telemetry response error: {:?}", e);
                                 break;
                             }
                         }
                     }
                     _ = &mut shutdown_rx => {
-                        info!(logger, "receive shutdown signal, stop dealing with telemetry command");
+                        info!("receive shutdown signal, stop dealing with telemetry command");
                         break;
                     }
                 }
             }
             // telemetry tx will be dropped here
         });
-        debug!(self.logger, "start session success");
+        debug!("start session success");
 
         Ok(())
     }
@@ -392,10 +380,7 @@ impl Session {
         settings: TelemetryCommand,
     ) -> Result<(), ClientError> {
         if self.is_started() {
-            debug!(
-                self.logger,
-                "session is already started: {:?}", self.telemetry_tx
-            );
+            debug!("session is already started: {:?}", self.telemetry_tx);
             if let Some(tx) = self.telemetry_tx.as_ref() {
                 tx.send(settings).await.map_err(|e| {
                     ClientError::new(
@@ -408,10 +393,9 @@ impl Session {
             }
             Ok(())
         } else {
-            debug!(self.logger, "session is closed: {:?}", self.telemetry_tx);
+            debug!("session is closed: {:?}", self.telemetry_tx);
             self.establish_telemetry_stream(settings).await?;
             debug!(
-                self.logger,
                 "session is established, closed: {:?}",
                 self.telemetry_tx.as_ref().unwrap().is_closed()
             );
@@ -636,7 +620,6 @@ mock! {
     pub(crate) Session {
         pub(crate) fn shadow_session(&self) -> Self;
         pub(crate) async fn new(
-            logger: &Logger,
             endpoints: &Endpoints,
             client_id: String,
             option: &ClientOption,
@@ -703,13 +686,7 @@ mock! {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::always;
-    use slog::debug;
     use wiremock_grpc::generate;
-
-    use crate::conf::ProducerOption;
-    use crate::log::terminal_logger;
-    use crate::util::build_producer_settings;
 
     use super::*;
 
@@ -718,31 +695,25 @@ mod tests {
     #[tokio::test]
     async fn session_new() {
         let server = RocketMQMockServer::start_default().await;
-        let logger = terminal_logger();
-        let mut client_option = ClientOption::default();
-        client_option.set_enable_tls(false);
         let session = Session::new(
-            &logger,
             &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
             "test_client".to_string(),
-            &client_option,
+            &ClientOption::default(),
         )
         .await;
-        debug!(logger, "session: {:?}", session);
+        debug!("session: {:?}", session);
         assert!(session.is_ok());
     }
 
     #[tokio::test]
     async fn session_new_multi_addr() {
-        let logger = terminal_logger();
         let session = Session::new(
-            &logger,
             &Endpoints::from_url("127.0.0.1:8080,127.0.0.1:8081").unwrap(),
             "test_client".to_string(),
             &ClientOption::default(),
         )
         .await;
-        debug!(logger, "session: {:?}", session);
+        debug!("session: {:?}", session);
         assert!(session.is_ok());
     }
 

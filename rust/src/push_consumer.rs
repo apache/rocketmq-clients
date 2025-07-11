@@ -18,8 +18,6 @@
 use mockall::automock;
 use mockall_double::double;
 use parking_lot::{Mutex, RwLock};
-use slog::Logger;
-use slog::{debug, error, info, warn};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
@@ -34,19 +32,21 @@ use crate::conf::{BackOffRetryPolicy, ClientOption, PushConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, ConsumeResult, MessageQueue};
 use crate::model::message::{AckMessageEntry, MessageView};
+use crate::pb;
 use crate::pb::receive_message_response::Content;
 use crate::pb::{
     AckMessageRequest, Assignment, ChangeInvisibleDurationRequest,
     ForwardMessageToDeadLetterQueueRequest, QueryAssignmentRequest, ReceiveMessageRequest,
-    Resource,
+    Resource, Status,
 };
 use crate::session::RPCClient;
 #[double]
 use crate::session::Session;
 use crate::util::{
-    build_endpoints_by_message_queue, build_push_consumer_settings, handle_response_status,
+    build_endpoints_by_message_queue, build_push_consumer_settings, handle_receive_message_status,
+    handle_response_status,
 };
-use crate::{log, pb};
+use tracing::{debug, error, info, warn};
 
 const OPERATION_NEW_PUSH_CONSUMER: &str = "push_consumer.new";
 const OPERATION_RECEIVE_MESSAGE: &str = "push_consumer.receive_message";
@@ -58,7 +58,6 @@ const OPERATION_FORWARD_TO_DEADLETTER_QUEUE: &str = "push_consumer.forward_to_de
 pub type MessageListener = Box<dyn Fn(&MessageView) -> ConsumeResult + Send + Sync>;
 
 pub struct PushConsumer {
-    logger: Logger,
     client: Client,
     message_listener: Arc<MessageListener>,
     option: Arc<RwLock<PushConsumerOption>>,
@@ -91,14 +90,8 @@ impl PushConsumer {
             group: Some(option.consumer_group().to_string()),
             ..client_option
         };
-        let logger = log::logger(option.logging_format());
-        let client = Client::new(
-            &logger,
-            client_option,
-            build_push_consumer_settings(&option),
-        )?;
+        let client = Client::new(client_option, build_push_consumer_settings(&option))?;
         Ok(Self {
-            logger,
             client,
             message_listener: Arc::new(message_listener),
             option: Arc::new(RwLock::new(option)),
@@ -125,7 +118,6 @@ impl PushConsumer {
         route_manager
             .sync_topic_routes(&mut rpc_client, topics)
             .await?;
-        let logger = self.logger.clone();
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
 
         let message_listener = Arc::clone(&self.message_listener);
@@ -155,7 +147,7 @@ impl PushConsumer {
                             option_retry_policy = retry_policy.lock().clone();
                         }
                         if option_retry_policy.is_none() {
-                            warn!(logger, "retry policy is not set. skip scanning.");
+                            warn!("retry policy is not set. skip scanning.");
                             continue;
                         }
                         let retry_policy_inner = option_retry_policy.unwrap();
@@ -181,7 +173,7 @@ impl PushConsumer {
                                 let result = rpc_client.query_assignment(request).await;
                                 if let Ok(response) = result {
                                     if handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
-                                            let result = Self::process_assignments(logger.clone(),
+                                            let result = Self::process_assignments(
                                                 &rpc_client,
                                                 &consumer_option,
                                                 Arc::clone(&message_listener),
@@ -190,20 +182,20 @@ impl PushConsumer {
                                                 retry_policy_inner.clone(),
                                             ).await;
                                             if result.is_err() {
-                                                error!(logger, "process assignments failed: {:?}", result.unwrap_err());
+                                                error!("process assignments failed: {:?}", result.unwrap_err());
                                             }
                                     } else {
-                                        error!(logger, "query assignment failed, no status in response.");
+                                        error!("query assignment failed, no status in response.");
                                     }
                                 } else {
-                                    error!(logger, "query assignment failed: {:?}", result.unwrap_err());
+                                    error!("query assignment failed: {:?}", result.unwrap_err());
                                 }
                             }
                         }
                     }
                     _ = shutdown_token.cancelled() => {
                         let entries = actor_table.drain();
-                        info!(logger, "shutdown {:?} actors", entries.len());
+                        info!("shutdown {:?} actors", entries.len());
                         for (_, actor) in entries {
                             let _ = actor.shutdown().await;
                         }
@@ -216,7 +208,6 @@ impl PushConsumer {
     }
 
     async fn process_assignments(
-        logger: Logger,
         rpc_client: &Session,
         option: &PushConsumerOption,
         message_listener: Arc<MessageListener>,
@@ -261,7 +252,6 @@ impl PushConsumer {
             }
             let option = option.clone();
             let mut actor = MessageQueueActor::new(
-                logger.clone(),
                 rpc_client.shadow_session(),
                 message_queue.clone(),
                 option,
@@ -290,7 +280,6 @@ impl PushConsumer {
 
     async fn receive_messages<T: RPCClient + 'static>(
         rpc_client: &mut T,
-        logger: &Logger,
         message_queue: &MessageQueue,
         option: &PushConsumerOption,
     ) -> Result<Vec<MessageView>, ClientError> {
@@ -321,15 +310,20 @@ impl PushConsumer {
             &message_queue.to_pb_message_queue(),
             OPERATION_RECEIVE_MESSAGE,
         )?;
+        let mut status: Option<Status> = None;
+        let mut _delivery_timestamp: Option<prost_types::Timestamp> = None;
+
         for response in responses {
             if response.content.is_some() {
                 let content = response.content.unwrap();
                 match content {
-                    Content::Status(status) => {
-                        warn!(logger, "unhandled status message {:?}", status);
+                    Content::Status(response_status) => {
+                        // Store the status for later processing
+                        status = Some(response_status);
                     }
-                    Content::DeliveryTimestamp(_) => {
-                        warn!(logger, "unhandled delivery timestamp message");
+                    Content::DeliveryTimestamp(timestamp) => {
+                        // Store the delivery timestamp for later use
+                        _delivery_timestamp = Some(timestamp);
                     }
                     Content::Message(message) => {
                         messages.push(
@@ -344,6 +338,11 @@ impl PushConsumer {
                     }
                 }
             }
+        }
+
+        // Handle the status message properly
+        if let Some(status) = status {
+            handle_receive_message_status(&status, OPERATION_RECEIVE_MESSAGE)?;
         }
         Ok(messages)
     }
@@ -424,7 +423,6 @@ impl DlqEntry {
 }
 
 struct MessageQueueActor {
-    logger: Logger,
     rpc_client: Session,
     message_queue: MessageQueue,
     option: PushConsumerOption,
@@ -437,7 +435,6 @@ struct MessageQueueActor {
 #[automock]
 impl MessageQueueActor {
     pub(crate) fn new(
-        logger: Logger,
         rpc_client: Session,
         message_queue: MessageQueue,
         option: PushConsumerOption,
@@ -445,7 +442,6 @@ impl MessageQueueActor {
         retry_policy: BackOffRetryPolicy,
     ) -> Self {
         Self {
-            logger,
             rpc_client,
             message_queue,
             option,
@@ -466,10 +462,7 @@ impl MessageQueueActor {
     }
 
     pub(crate) async fn start(&mut self) -> Result<(), ClientError> {
-        debug!(
-            self.logger,
-            "start a new queue actor {:?}", self.message_queue
-        );
+        debug!("start a new queue actor {:?}", self.message_queue);
         let shutdown_token = CancellationToken::new();
         self.shutdown_token = Some(shutdown_token.clone());
         let task_tracker = TaskTracker::new();
@@ -479,23 +472,18 @@ impl MessageQueueActor {
         if self.option.fifo() {
             consumer_worker_count = 1;
         }
-        info!(
-            self.logger,
-            "start consumer worker count: {}", consumer_worker_count
-        );
+        info!("start consumer worker count: {}", consumer_worker_count);
 
         for _ in 0..consumer_worker_count {
             // create consumer worker
             let mut consumer_worker: ConsumerWorker;
             if self.option.fifo() {
                 consumer_worker = ConsumerWorker::Fifo(FifoConsumerWorker::new(
-                    self.logger.clone(),
                     self.rpc_client.shadow_session(),
                     Arc::clone(&self.message_listener),
                 ));
             } else {
                 consumer_worker = ConsumerWorker::Standard(StandardConsumerWorker::new(
-                    self.logger.clone(),
                     self.rpc_client.shadow_session(),
                     Arc::clone(&self.message_listener),
                 ));
@@ -505,21 +493,19 @@ impl MessageQueueActor {
             let option = self.option.clone();
             let retry_policy = self.retry_policy.clone();
             let mut ack_processor = AckEntryProcessor::new(
-                self.logger.clone(),
                 self.rpc_client.shadow_session(),
                 self.option.get_consumer_group_resource(),
                 self.message_queue.topic.to_owned(),
             );
             ack_processor.start().await?;
             let shutdown_token = shutdown_token.clone();
-            let logger = self.logger.clone();
             task_tracker.spawn(async move {
                 loop {
                     select! {
                         _ = ticker.tick() => {
                             let result = consumer_worker.receive_messages(&message_queue, &option, &mut ack_processor, &retry_policy).await;
                             if result.is_err() {
-                                error!(logger, "receive messages error: {:?}", result.err());
+                                error!("receive messages error: {:?}", result.err());
                             }
                         }
                         _ = shutdown_token.cancelled() => {
@@ -534,7 +520,7 @@ impl MessageQueueActor {
     }
 
     pub(crate) async fn shutdown(mut self) -> Result<(), ClientError> {
-        debug!(self.logger, "shutdown queue actor {:?}", self.message_queue);
+        debug!("shutdown queue actor {:?}", self.message_queue);
         if let Some(shutdown_token) = self.shutdown_token.take() {
             shutdown_token.cancel();
         }
@@ -575,15 +561,13 @@ impl ConsumerWorker {
 }
 
 struct StandardConsumerWorker {
-    logger: Logger,
     rpc_client: Session,
     message_listener: Arc<MessageListener>,
 }
 
 impl StandardConsumerWorker {
-    fn new(logger: Logger, rpc_client: Session, message_listener: Arc<MessageListener>) -> Self {
+    fn new(rpc_client: Session, message_listener: Arc<MessageListener>) -> Self {
         Self {
-            logger,
             rpc_client,
             message_listener,
         }
@@ -596,13 +580,8 @@ impl StandardConsumerWorker {
         ack_processor: &mut AckEntryProcessor,
         retry_policy: &BackOffRetryPolicy,
     ) -> Result<(), ClientError> {
-        let messages = PushConsumer::receive_messages(
-            &mut self.rpc_client,
-            &self.logger,
-            message_queue,
-            option,
-        )
-        .await?;
+        let messages =
+            PushConsumer::receive_messages(&mut self.rpc_client, message_queue, option).await?;
         for message in messages {
             let consume_result = (self.message_listener)(&message);
             match consume_result {
@@ -623,15 +602,13 @@ impl StandardConsumerWorker {
 }
 
 struct FifoConsumerWorker {
-    logger: Logger,
     rpc_client: Session,
     message_listener: Arc<MessageListener>,
 }
 
 impl FifoConsumerWorker {
-    fn new(logger: Logger, rpc_client: Session, message_listener: Arc<MessageListener>) -> Self {
+    fn new(rpc_client: Session, message_listener: Arc<MessageListener>) -> Self {
         Self {
-            logger,
             rpc_client,
             message_listener,
         }
@@ -644,13 +621,8 @@ impl FifoConsumerWorker {
         ack_processor: &mut AckEntryProcessor,
         retry_policy: &BackOffRetryPolicy,
     ) -> Result<(), ClientError> {
-        let messages = PushConsumer::receive_messages(
-            &mut self.rpc_client,
-            &self.logger,
-            message_queue,
-            option,
-        )
-        .await?;
+        let messages =
+            PushConsumer::receive_messages(&mut self.rpc_client, message_queue, option).await?;
         for message in messages {
             let mut delivery_attempt = message.delivery_attempt();
             let max_delivery_attempts = retry_policy.get_max_attempts();
@@ -688,7 +660,6 @@ impl FifoConsumerWorker {
 }
 
 struct AckEntryProcessor {
-    logger: Logger,
     rpc_client: Session,
     consumer_group: Resource,
     topic: Resource,
@@ -698,9 +669,8 @@ struct AckEntryProcessor {
 }
 
 impl AckEntryProcessor {
-    fn new(logger: Logger, rpc_client: Session, consumer_group: Resource, topic: Resource) -> Self {
+    fn new(rpc_client: Session, consumer_group: Resource, topic: Resource) -> Self {
         Self {
-            logger,
             rpc_client,
             consumer_group,
             topic,
@@ -712,7 +682,6 @@ impl AckEntryProcessor {
 
     fn shadow_self(&self) -> Self {
         Self {
-            logger: self.logger.clone(),
             rpc_client: self.rpc_client.shadow_session(),
             consumer_group: self.consumer_group.clone(),
             topic: self.topic.clone(),
@@ -730,17 +699,10 @@ impl AckEntryProcessor {
                     .send(AckEntryItem::Ack(AckEntry::new(message)))
                     .await;
                 if send_result.is_err() {
-                    error!(
-                        self.logger,
-                        "put ack entry to queue error {:?}",
-                        send_result.err()
-                    );
+                    error!("put ack entry to queue error {:?}", send_result.err());
                 }
             } else {
-                error!(
-                    self.logger,
-                    "The ack entry sender is not set. Drop the ack message."
-                );
+                error!("The ack entry sender is not set. Drop the ack message.");
             }
         }
     }
@@ -762,17 +724,10 @@ impl AckEntryProcessor {
                     )))
                     .await;
                 if send_result.is_err() {
-                    error!(
-                        self.logger,
-                        "put nack entry to queue error {:?}",
-                        send_result.err()
-                    );
+                    error!("put nack entry to queue error {:?}", send_result.err());
                 }
             } else {
-                error!(
-                    self.logger,
-                    "Drop the nack message due to ack entry sender is not set."
-                )
+                error!("Drop the nack message due to ack entry sender is not set.")
             }
         }
     }
@@ -796,17 +751,10 @@ impl AckEntryProcessor {
                     )))
                     .await;
                 if send_result.is_err() {
-                    error!(
-                        self.logger,
-                        "put dlq entry to queue error {:?}",
-                        send_result.err()
-                    );
+                    error!("put dlq entry to queue error {:?}", send_result.err());
                 }
             } else {
-                error!(
-                    self.logger,
-                    "Drop the dlq message due to ack edntry sender is not set."
-                );
+                error!("Drop the dlq message due to ack edntry sender is not set.");
             }
         }
     }
@@ -869,15 +817,15 @@ impl AckEntryProcessor {
                     _ = ack_ticker.tick() => {
                         let result = processor.process_ack_entry_queue(&mut ack_entry_queue).await;
                         if result.is_err() {
-                            error!(processor.logger, "process ack entry queue failed: {:?}", result);
+                            error!("process ack entry queue failed: {:?}", result);
                         }
                     }
                     Some(ack_entry) = ack_entry_receiver.recv() => {
                         ack_entry_queue.push_back(ack_entry);
-                        debug!(processor.logger, "ack entry queue size: {}", ack_entry_queue.len());
+                        debug!("ack entry queue size: {}", ack_entry_queue.len());
                     }
                     _ = shutdown_token.cancelled() => {
-                        info!(processor.logger, "need to process remaining {} entries on shutdown.", ack_entry_queue.len());
+                        info!("need to process remaining {} entries on shutdown.", ack_entry_queue.len());
                         processor.flush_ack_entry_queue(&mut ack_entry_queue).await;
                         break;
                     }
@@ -913,10 +861,7 @@ impl AckEntryProcessor {
             if result.is_ok() {
                 ack_entry_queue.pop_front();
             } else {
-                error!(
-                    self.logger,
-                    "ack message failed: {:?}, will deliver later.", result
-                );
+                error!("ack message failed: {:?}, will deliver later.", result);
                 ack_entry_item.inc_attempt();
             }
         }
@@ -965,15 +910,12 @@ impl AckEntryProcessor {
             shutdown_token.cancel();
         }
         if let Some(task_tracker) = self.task_tracker.take() {
-            info!(self.logger, "waiting for task to complete");
+            info!("waiting for task to complete");
             task_tracker.close();
             task_tracker.wait().await;
-            info!(self.logger, "task completed");
+            info!("task completed");
         }
-        info!(
-            self.logger,
-            "The ack entry processor shuts down completely."
-        );
+        info!("The ack entry processor shuts down completely.");
     }
 }
 
@@ -982,7 +924,6 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::{str::FromStr, vec};
 
-    use log::terminal_logger;
     use pb::{
         AckMessageResponse, Address, Broker, ChangeInvisibleDurationResponse, Code,
         ForwardMessageToDeadLetterQueueResponse, QueryRouteResponse, ReceiveMessageResponse,
@@ -1021,7 +962,7 @@ mod tests {
         option2.set_consumer_group("test");
         option2.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
         let context = Client::new_context();
-        context.expect().returning(|_, _, _| Ok(Client::default()));
+        context.expect().returning(|_, _| Ok(Client::default()));
         let result3 = PushConsumer::new(
             ClientOption::default(),
             option2,
@@ -1061,12 +1002,11 @@ mod tests {
         });
         client.expect_get_route_manager().returning(|| {
             TopicRouteManager::new(
-                terminal_logger(),
                 "".to_string(),
                 Endpoints::from_url("http://localhost:8081").unwrap(),
             )
         });
-        context.expect().return_once(|_, _, _| Ok(client));
+        context.expect().return_once(|_, _| Ok(client));
         let mut push_consumer_option = PushConsumerOption::default();
         push_consumer_option.set_consumer_group("test_group");
         push_consumer_option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
@@ -1084,7 +1024,6 @@ mod tests {
     #[tokio::test]
     async fn test_process_assignments_invalid_assignment() -> Result<(), ClientError> {
         let rpc_client = Session::default();
-        let logger = terminal_logger();
         let option = &PushConsumerOption::default();
         let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
@@ -1100,13 +1039,12 @@ mod tests {
             }),
         }];
         let context = MockMessageQueueActor::new_context();
-        context.expect().returning(|_, _, _, _, _, _| {
+        context.expect().returning(|_, _, _, _, _| {
             let mut actor = MockMessageQueueActor::default();
             actor.expect_start().returning(|| Ok(()));
             return actor;
         });
         PushConsumer::process_assignments(
-            logger,
             &rpc_client,
             option,
             message_listener,
@@ -1121,7 +1059,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_assignments() -> Result<(), ClientError> {
-        let logger = terminal_logger();
         let option = &PushConsumerOption::default();
         let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
 
@@ -1163,7 +1100,6 @@ mod tests {
             }),
         }];
         PushConsumer::process_assignments(
-            logger,
             &rpc_client,
             option,
             message_listener,
@@ -1178,7 +1114,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_assignments_two_queues() -> Result<(), ClientError> {
-        let logger = terminal_logger();
         let option = &PushConsumerOption::default();
         let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
@@ -1242,7 +1177,6 @@ mod tests {
             mock
         });
         PushConsumer::process_assignments(
-            logger.clone(),
             &session,
             option,
             message_listener,
@@ -1274,7 +1208,6 @@ mod tests {
             }),
         }];
         PushConsumer::process_assignments(
-            logger,
             &session,
             option,
             Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
@@ -1365,7 +1298,6 @@ mod tests {
             mock
         });
         let mut actor = MessageQueueActor::new(
-            terminal_logger(),
             session,
             message_queue,
             option,
@@ -1399,7 +1331,6 @@ mod tests {
             mock
         });
         let mut actor = MessageQueueActor::new(
-            terminal_logger(),
             session,
             message_queue,
             option,
@@ -1437,8 +1368,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1487,8 +1417,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1534,8 +1463,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1590,8 +1518,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1637,8 +1564,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1692,8 +1618,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1721,11 +1646,8 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker = StandardConsumerWorker::new(
-            terminal_logger(),
-            rpc_client,
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
-        );
+        let consumer_worker =
+            StandardConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -1757,8 +1679,7 @@ mod tests {
                 entries: vec![],
             })
         });
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), session, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic);
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
         let result = ConsumerWorker::Standard(consumer_worker)
@@ -1780,11 +1701,8 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker = StandardConsumerWorker::new(
-            terminal_logger(),
-            rpc_client,
-            Arc::new(Box::new(|_| ConsumeResult::FAILURE)),
-        );
+        let consumer_worker =
+            StandardConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::FAILURE)));
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -1820,8 +1738,7 @@ mod tests {
                     receipt_handle: "".to_string(),
                 })
             });
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), session, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic);
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
         let result = ConsumerWorker::Standard(consumer_worker)
@@ -1843,11 +1760,8 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker = FifoConsumerWorker::new(
-            terminal_logger(),
-            rpc_client,
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
-        );
+        let consumer_worker =
+            FifoConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -1877,8 +1791,7 @@ mod tests {
                 entries: vec![],
             })
         });
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), session, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic);
         let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
@@ -1901,7 +1814,6 @@ mod tests {
         let receive_call_count = Arc::new(AtomicUsize::new(0));
         let outer_call_counter = Arc::clone(&receive_call_count);
         let consumer_worker = FifoConsumerWorker::new(
-            terminal_logger(),
             rpc_client,
             Arc::new(Box::new(move |_| {
                 receive_call_count.fetch_add(1, Ordering::Relaxed);
@@ -1940,8 +1852,7 @@ mod tests {
                     }),
                 })
             });
-        let mut ack_processor =
-            AckEntryProcessor::new(terminal_logger(), session, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic);
         let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
