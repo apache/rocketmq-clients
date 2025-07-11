@@ -101,8 +101,10 @@ void SimpleConsumer::changeInvisibleDuration(const Message& message, std::string
     {
       absl::MutexLock lk(mtx.get());
       completed = true;
-      receipt_handle = server_receipt_handle;
       ec = code;
+      if (!ec) {
+        receipt_handle = server_receipt_handle;
+      }
     }
     cv->Signal();
   };
