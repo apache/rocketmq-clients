@@ -22,7 +22,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use mockall_double::double;
 use parking_lot::RwLock;
 use prost_types::Timestamp;
-use slog::{error, info, warn, Logger};
+use tracing::{info, warn, error};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
@@ -43,7 +43,7 @@ use crate::util::{
     build_endpoints_by_message_queue, build_producer_settings, handle_response_status,
     select_message_queue, select_message_queue_by_message_group, HOST_NAME,
 };
-use crate::{log, pb};
+use crate::{pb};
 
 /// [`Producer`] is the core struct, to which application developers should turn, when publishing messages to RocketMQ proxy.
 ///
@@ -53,7 +53,6 @@ use crate::{log, pb};
 /// [`Producer`] is `Send` and `Sync` by design, so that developers may get started easily.
 pub struct Producer {
     option: Arc<RwLock<ProducerOption>>,
-    logger: Logger,
     client: Client,
     transaction_checker: Option<Box<TransactionChecker>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
@@ -84,11 +83,9 @@ impl Producer {
             namespace: option.namespace().to_string(),
             ..client_option
         };
-        let logger = log::logger(option.logging_format());
-        let client = Client::new(&logger, client_option, build_producer_settings(&option))?;
+        let client = Client::new(client_option, build_producer_settings(&option))?;
         Ok(Producer {
             option: Arc::new(RwLock::new(option)),
-            logger,
             client,
             transaction_checker: None,
             shutdown_tx: None,
@@ -112,11 +109,9 @@ impl Producer {
             namespace: option.namespace().to_string(),
             ..client_option
         };
-        let logger = log::logger(option.logging_format());
-        let client = Client::new(&logger, client_option, build_producer_settings(&option))?;
+        let client = Client::new(client_option, build_producer_settings(&option))?;
         Ok(Producer {
             option: Arc::new(RwLock::new(option)),
-            logger,
             client,
             transaction_checker: Some(transaction_checker),
             shutdown_tx: None,
@@ -156,7 +151,6 @@ impl Producer {
         self.shutdown_tx = Some(shutdown_tx);
         let rpc_client = self.client.get_session().await?;
         let endpoints = self.client.get_endpoints();
-        let logger = self.logger.clone();
         let producer_option = Arc::clone(&self.option);
         tokio::spawn(async move {
             loop {
@@ -171,16 +165,16 @@ impl Producer {
                                             &transaction_checker,
                                             endpoints.clone()).await;
                                     if let Err(error) = result {
-                                        error!(logger, "handle trannsaction command failed: {:?}", error);
+                                        error!("handle trannsaction command failed: {:?}", error);
                                     };
                                 }
                                 Settings(command) => {
                                     let option = &mut producer_option.write();
                                     Self::handle_settings_command(command, option);
-                                    info!(logger, "handle setting command success.");
+                                    info!("handle setting command success.");
                                 }
                                 _ => {
-                                    warn!(logger, "unimplemented command {:?}", command);
+                                    warn!("unimplemented command {:?}", command);
                                 }
                             }
                         }
@@ -192,7 +186,6 @@ impl Producer {
             }
         });
         info!(
-            self.logger,
             "start producer success, client_id: {}",
             self.client.client_id()
         );
@@ -473,7 +466,6 @@ mod tests {
     use std::sync::Arc;
 
     use crate::error::ErrorKind;
-    use crate::log::terminal_logger;
     use crate::model::common::Route;
     use crate::model::message::{MessageBuilder, MessageImpl, MessageType};
     use crate::model::transaction::TransactionResolution;
@@ -487,7 +479,6 @@ mod tests {
     fn new_producer_for_test() -> Producer {
         Producer {
             option: Default::default(),
-            logger: terminal_logger(),
             client: Client::default(),
             shutdown_tx: None,
             transaction_checker: None,
@@ -497,7 +488,6 @@ mod tests {
     fn new_transaction_producer_for_test() -> Producer {
         Producer {
             option: Default::default(),
-            logger: terminal_logger(),
             client: Client::default(),
             shutdown_tx: None,
             transaction_checker: Some(Box::new(|_, _| TransactionResolution::COMMIT)),
@@ -509,7 +499,7 @@ mod tests {
         let _m = crate::client::tests::MTX.lock();
 
         let ctx = Client::new_context();
-        ctx.expect().return_once(|_, _, _| {
+        ctx.expect().return_once(|_, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
                 Ok(Arc::new(Route {
@@ -542,7 +532,7 @@ mod tests {
         let _m = crate::client::tests::MTX.lock();
 
         let ctx = Client::new_context();
-        ctx.expect().return_once(|_, _, _| {
+        ctx.expect().return_once(|_, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
                 Ok(Arc::new(Route {
