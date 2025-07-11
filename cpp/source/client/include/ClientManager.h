@@ -70,7 +70,7 @@ public:
 
   virtual void changeInvisibleDuration(const std::string& target_host, const Metadata& metadata,
                                        const ChangeInvisibleDurationRequest&, std::chrono::milliseconds timeout,
-                                       const std::function<void(const std::error_code&)>&) = 0;
+                                       const std::function<void(const std::error_code&, const ChangeInvisibleDurationResponse&)>&) = 0;
 
   virtual void forwardMessageToDeadLetterQueue(
       const std::string& target_host, const Metadata& metadata, const ForwardMessageToDeadLetterQueueRequest& request,

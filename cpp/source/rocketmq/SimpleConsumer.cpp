@@ -89,22 +89,25 @@ void SimpleConsumer::asyncAck(const Message& message, AckCallback callback) {
   impl_->ackAsync(message, callback);
 }
 
-void SimpleConsumer::changeInvisibleDuration(const Message& message,
+void SimpleConsumer::changeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                              std::chrono::milliseconds duration,
                                              std::error_code& ec) {
   auto mtx = std::make_shared<absl::Mutex>();
   auto cv = std::make_shared<absl::CondVar>();
   bool completed = false;
-  auto callback = [&, mtx, cv](const std::error_code& code) {
+
+  auto callback =
+      [&, mtx, cv](const std::error_code& code, std::string& server_receipt_handle) {
     {
       absl::MutexLock lk(mtx.get());
       completed = true;
+      receipt_handle = server_receipt_handle;
       ec = code;
     }
     cv->Signal();
   };
 
-  impl_->changeInvisibleDuration(message, duration, callback);
+  impl_->changeInvisibleDuration(message, receipt_handle, duration, callback);
 
   {
     absl::MutexLock lk(mtx.get());
@@ -114,10 +117,10 @@ void SimpleConsumer::changeInvisibleDuration(const Message& message,
   }
 }
 
-void SimpleConsumer::asyncChangeInvisibleDuration(const Message& message,
+void SimpleConsumer::asyncChangeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                                   std::chrono::milliseconds duration,
                                                   ChangeInvisibleDurationCallback callback) {
-  impl_->changeInvisibleDuration(message, duration, callback);
+  impl_->changeInvisibleDuration(message, receipt_handle, duration, callback);
 }
 
 SimpleConsumer SimpleConsumerBuilder::build() {
