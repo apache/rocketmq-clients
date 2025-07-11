@@ -21,6 +21,7 @@
 #include "rocketmq/ErrorCode.h"
 #include "rocketmq/Logger.h"
 #include "rocketmq/SimpleConsumer.h"
+#include "spdlog/spdlog.h"
 
 using namespace ROCKETMQ_NAMESPACE;
 
@@ -58,34 +59,43 @@ int main(int argc, char* argv[]) {
                              .subscribe(FLAGS_topic, tag)
                              .withAwaitDuration(std::chrono::seconds(10))
                              .build();
+  std::size_t total = 0;
 
   // Should use while (true) instead
   for (int j = 0; j < 30; j++) {
     std::vector<MessageConstSharedPtr> messages;
     std::error_code ec;
     simple_consumer.receive(4, std::chrono::seconds(15), ec, messages);
+
     if (ec) {
       std::cerr << "Failed to receive messages. Cause: " << ec.message() << std::endl;
+    } else {
+      std::cout << "Received " << messages.size() << " messages" << std::endl;
     }
 
-    std::cout << "Received " << messages.size() << " messages" << std::endl;
-    std::size_t i = 0;
-
     for (const auto& message : messages) {
-      std::cout << "Received a message[topic=" << message->topic()
-                << ", message-id=" << message->id()
-                << ", receipt-handle='" << message->extension().receipt_handle
-                << "']" << std::endl;
+      std::string receipt_handle = message->extension().receipt_handle;
+      SPDLOG_INFO("Receive message, topic={}, message-id={}, receipt-handle={}]", message->topic(), message->id(), receipt_handle);
 
-      if (++i % 2 == 0) {
+      if (total++ % 2 == 0) {
+        // Consume message successfully then ack it
         simple_consumer.ack(*message, ec);
         if (ec) {
-          std::cerr << "Failed to ack message. Cause: " << ec.message() << std::endl;
+          SPDLOG_ERROR("Failed to ack message. Cause: {}", ec.message());
+        } else {
+          SPDLOG_INFO("Ack message, topic={}, message-id={}, receipt-handle={}]", message->topic(), message->id(), receipt_handle);
         }
       } else {
-        simple_consumer.changeInvisibleDuration(*message, std::chrono::seconds(3), ec);
-        if (ec) {
-          std::cerr << "Failed to change invisible duration of message. Cause: " << ec.message() << std::endl;
+        // Extend the message consumption time by modifying the invisible duration API
+        for (int k = 0; k < 3; k++) {
+          simple_consumer.changeInvisibleDuration(
+              *message, receipt_handle, std::chrono::seconds(15), ec);
+          if (ec) {
+            SPDLOG_WARN("Failed to change invisible duration of message. Cause: ", ec.message());
+          } else {
+            SPDLOG_INFO("Change invisible duration, topic={}, message-id={}, times={}, receipt-handle={}]",
+                        message->topic(), message->id(), k, receipt_handle);
+          }
         }
       }
     }

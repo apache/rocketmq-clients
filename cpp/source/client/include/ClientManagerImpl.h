@@ -148,7 +148,7 @@ public:
                                const Metadata& metadata,
                                const ChangeInvisibleDurationRequest&,
                                std::chrono::milliseconds timeout,
-                               const std::function<void(const std::error_code&)>&) override;
+                               const std::function<void(const std::error_code&, const ChangeInvisibleDurationResponse&)>&) override;
 
   void forwardMessageToDeadLetterQueue(const std::string& target_host,
                                        const Metadata& metadata,
