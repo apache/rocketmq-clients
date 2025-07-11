@@ -18,9 +18,9 @@
 use std::time::Duration;
 
 use mockall_double::double;
-use slog::{info, warn, Logger};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
+use tracing::{info, warn};
 
 #[double]
 use crate::client::Client;
@@ -31,7 +31,6 @@ use crate::model::message::{AckMessageEntry, MessageView};
 use crate::util::{
     build_endpoints_by_message_queue, build_simple_consumer_settings, select_message_queue,
 };
-use crate::{log, pb};
 
 /// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
 ///
@@ -45,7 +44,6 @@ use crate::{log, pb};
 #[derive(Debug)]
 pub struct SimpleConsumer {
     option: SimpleConsumerOption,
-    logger: Logger,
     client: Client,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
@@ -74,15 +72,9 @@ impl SimpleConsumer {
             namespace: option.namespace().to_string(),
             ..client_option
         };
-        let logger = log::logger(option.logging_format());
-        let client = Client::new(
-            &logger,
-            client_option,
-            build_simple_consumer_settings(&option),
-        )?;
+        let client = Client::new(client_option, build_simple_consumer_settings(&option))?;
         Ok(SimpleConsumer {
             option,
-            logger,
             client,
             shutdown_tx: None,
         })
@@ -106,12 +98,11 @@ impl SimpleConsumer {
         }
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
-        let logger = self.logger.clone();
         tokio::spawn(async move {
             loop {
                 select! {
                     command = telemetry_command_rx.recv() => {
-                        warn!(logger, "command {:?} cannot be handled in simple consumer.", command);
+                        warn!("command {:?} cannot be handled in simple consumer.", command);
                     }
 
                     _ = &mut shutdown_rx => {
@@ -121,7 +112,6 @@ impl SimpleConsumer {
             }
         });
         info!(
-            self.logger,
             "start simple consumer success, client_id: {}",
             self.client.client_id()
         );
@@ -174,7 +164,7 @@ impl SimpleConsumer {
             .receive_message(
                 &endpoints,
                 message_queue,
-                pb::FilterExpression {
+                crate::pb::FilterExpression {
                     r#type: expression.filter_type() as i32,
                     expression: expression.expression().to_string(),
                 },
@@ -221,10 +211,9 @@ impl SimpleConsumer {
 mod tests {
     use std::sync::Arc;
 
-    use crate::log::terminal_logger;
     use crate::model::common::{FilterType, Route};
     use crate::pb::{
-        AckMessageResultEntry, Broker, Message, MessageQueue, Resource, SystemProperties,
+        AckMessageResultEntry, Broker, Endpoints, Message, MessageQueue, Resource, SystemProperties,
     };
 
     use super::*;
@@ -234,7 +223,7 @@ mod tests {
         let _m = crate::client::tests::MTX.lock();
 
         let ctx = Client::new_context();
-        ctx.expect().return_once(|_, _, _| {
+        ctx.expect().return_once(|_, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
                 Ok(Arc::new(Route {
@@ -273,7 +262,7 @@ mod tests {
                     broker: Some(Broker {
                         name: "".to_string(),
                         id: 0,
-                        endpoints: Some(pb::Endpoints {
+                        endpoints: Some(Endpoints {
                             scheme: 0,
                             addresses: vec![],
                         }),
@@ -297,7 +286,6 @@ mod tests {
             .returning(|_: &MessageView| Ok(AckMessageResultEntry::default()));
         let simple_consumer = SimpleConsumer {
             option: SimpleConsumerOption::default(),
-            logger: terminal_logger(),
             client,
             shutdown_tx: None,
         };

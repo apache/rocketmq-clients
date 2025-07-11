@@ -24,6 +24,8 @@ use tokio::time;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     let mut client_option = ClientOption::default();
     client_option.set_access_url("localhost:8081");
     client_option.set_enable_tls(false);

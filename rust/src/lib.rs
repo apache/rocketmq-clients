@@ -128,8 +128,6 @@ pub use simple_consumer::SimpleConsumer;
 #[allow(dead_code)]
 pub mod conf;
 pub mod error;
-#[allow(dead_code)]
-mod log;
 
 mod client;
 
