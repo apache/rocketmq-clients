@@ -23,9 +23,9 @@ setup(
         "grpcio>=1.5.0",
         "grpcio-tools>=1.5.0",
         'protobuf',
-        "opentelemetry-api>=1.2.0",
-        "opentelemetry-sdk>=1.2.0",
-        "opentelemetry-exporter-otlp>=1.2.0"
+        "opentelemetry-api>=1.33.0",
+        "opentelemetry-sdk>=1.33.0",
+        "opentelemetry-exporter-otlp>=1.33.0"
     ],
     python_requires='>=3.7',
 )
