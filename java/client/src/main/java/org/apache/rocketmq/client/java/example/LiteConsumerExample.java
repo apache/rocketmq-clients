@@ -18,7 +18,6 @@
 package org.apache.rocketmq.client.java.example;
 
 import java.io.IOException;
-import java.util.Collections;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
@@ -27,15 +26,12 @@ import org.apache.rocketmq.client.apis.StaticSessionCredentialsProvider;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
-import org.apache.rocketmq.client.apis.consumer.PushConsumer;
+import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PushConsumerExample {
-    private static final Logger log = LoggerFactory.getLogger(PushConsumerExample.class);
-
-    private PushConsumerExample() {
-    }
+public class LiteConsumerExample {
+    private static final Logger log = LoggerFactory.getLogger(LiteConsumerExample.class);
 
     public static void main(String[] args) throws ClientException, InterruptedException, IOException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
@@ -51,20 +47,20 @@ public class PushConsumerExample {
             .setEndpoints(endpoints)
             // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
             // client configuration to solve the problem please if SSL is not essential.
-             .enableSsl(false)
-//            .setCredentialProvider(sessionCredentialsProvider)
+            .enableSsl(false)
+            //            .setCredentialProvider(sessionCredentialsProvider)
             .build();
         String tag = "yourMessageTagA";
         FilterExpression filterExpression = new FilterExpression(tag, FilterExpressionType.TAG);
         String consumerGroup = "FooBarGroup";
         String topic = "topic_quan";
         // In most case, you don't need to create too many consumers, singleton pattern is recommended.
-        PushConsumer pushConsumer = provider.newPushConsumerBuilder()
+        LitePushConsumer litePushConsumer = provider.newLitePushConsumerBuilder()
             .setClientConfiguration(clientConfiguration)
+            .bindTopic(topic)
             // Set the consumer group name.
             .setConsumerGroup(consumerGroup)
-            // Set the subscription for the consumer.
-            .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+            //            .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
             .setMessageListener(messageView -> {
                 // Handle the received message and return consume result.
                 System.out.printf("Consume message=%s %n", messageView);
@@ -72,10 +68,17 @@ public class PushConsumerExample {
                 return ConsumeResult.SUCCESS;
             })
             .build();
+
+        litePushConsumer.addInterest("liteTopic1");
+        litePushConsumer.addInterest("liteTopic2");
+        litePushConsumer.addInterest("liteTopic3");
+
+        litePushConsumer.removeInterest("liteTopic1");
+
         // Block the main thread, no need for production environment.
         Thread.sleep(Long.MAX_VALUE);
         // Close the push consumer when you don't need it anymore.
         // You could close it manually or add this into the JVM shutdown hook.
-        pushConsumer.close();
+        litePushConsumer.close();
     }
 }

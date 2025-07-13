@@ -25,8 +25,10 @@ import com.google.common.base.MoreObjects;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.java.impl.ClientType;
@@ -44,11 +46,24 @@ import org.slf4j.LoggerFactory;
 public class PushSubscriptionSettings extends Settings {
     private static final Logger log = LoggerFactory.getLogger(PushSubscriptionSettings.class);
 
-    private final Resource group;
+    final Resource group;
     private final Map<String, FilterExpression> subscriptionExpressions;
     private volatile Boolean fifo = false;
-    private volatile int receiveBatchSize = 32;
-    private volatile Duration longPollingTimeout = Duration.ofSeconds(30);
+    volatile int receiveBatchSize = 32;
+    volatile Duration longPollingTimeout = Duration.ofSeconds(30);
+
+    public PushSubscriptionSettings(
+        ClientConfiguration configuration,
+        ClientId clientId,
+        ClientType clientType,
+        Endpoints endpoints,
+        String group
+    ) {
+        super(configuration.getNamespace(), clientId, clientType, endpoints, configuration.getRequestTimeout());
+        this.group = new Resource(namespace, group);
+        // no use
+        this.subscriptionExpressions = new HashMap<>();
+    }
 
     public PushSubscriptionSettings(String namespace, ClientId clientId, Endpoints endpoints, Resource group,
         Duration requestTimeout, Map<String, FilterExpression> subscriptionExpression) {

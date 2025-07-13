@@ -231,6 +231,7 @@ class ProcessQueueImpl implements ProcessQueue {
             log.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq, clientId);
             return;
         }
+        System.out.printf("receiveMessageImmediately clientId:%s %n", clientId);
         try {
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final int batchSize = this.getReceptionBatchSize();

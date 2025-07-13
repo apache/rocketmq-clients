@@ -34,14 +34,14 @@ import org.apache.rocketmq.client.apis.consumer.PushConsumerBuilder;
  * Implementation of {@link PushConsumerBuilder}
  */
 public class PushConsumerBuilderImpl implements PushConsumerBuilder {
-    private ClientConfiguration clientConfiguration = null;
-    private String consumerGroup = null;
-    private Map<String, FilterExpression> subscriptionExpressions = new ConcurrentHashMap<>();
-    private MessageListener messageListener = null;
-    private int maxCacheMessageCount = 1024;
-    private int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
-    private int consumptionThreadCount = 20;
-    private boolean enableFifoConsumeAccelerator = false;
+    ClientConfiguration clientConfiguration = null;
+    String consumerGroup = null;
+    Map<String, FilterExpression> subscriptionExpressions = new ConcurrentHashMap<>();
+    MessageListener messageListener = null;
+    int maxCacheMessageCount = 1024;
+    int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
+    int consumptionThreadCount = 20;
+    boolean enableFifoConsumeAccelerator = false;
 
     /**
      * @see PushConsumerBuilder#setClientConfiguration(ClientConfiguration)
