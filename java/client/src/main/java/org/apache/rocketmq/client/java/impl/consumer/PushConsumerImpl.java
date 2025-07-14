@@ -97,13 +97,13 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     private final ClientConfiguration clientConfiguration;
     private final PushSubscriptionSettings pushSubscriptionSettings;
-    private final String consumerGroup;
+    protected final String consumerGroup;
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
     private final ConcurrentMap<String /* topic */, Assignments> cacheAssignments;
-    private final MessageListener messageListener;
+    protected final MessageListener messageListener;
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
-    private final boolean enableFifoConsumeAccelerator;
+    protected final boolean enableFifoConsumeAccelerator;
     private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
 
     /**
@@ -115,7 +115,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      */
     private final AtomicLong receivedMessagesQuantity;
 
-    private final ThreadPoolExecutor consumptionExecutor;
+    protected final ThreadPoolExecutor consumptionExecutor;
     private final ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable;
     private ConsumeService consumeService;
 
@@ -241,7 +241,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         }
     }
 
-    private ConsumeService createConsumeService() {
+    protected ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
         if (pushSubscriptionSettings.isFifo()) {
             log.info("Create FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",

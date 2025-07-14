@@ -47,8 +47,8 @@ public class PushSubscriptionSettings extends Settings {
     private static final Logger log = LoggerFactory.getLogger(PushSubscriptionSettings.class);
 
     final Resource group;
-    private final Map<String, FilterExpression> subscriptionExpressions;
-    private volatile Boolean fifo = false;
+    final Map<String, FilterExpression> subscriptionExpressions;
+    volatile Boolean fifo = false;
     volatile int receiveBatchSize = 32;
     volatile Duration longPollingTimeout = Duration.ofSeconds(30);
 
