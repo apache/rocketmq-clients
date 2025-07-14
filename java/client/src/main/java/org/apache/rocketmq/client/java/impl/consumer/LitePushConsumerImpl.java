@@ -11,7 +11,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
@@ -82,15 +81,6 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
                 log.error("Failed to telemeter settings, clientId={}, endpoints={}", clientId, endpoints, t);
             }
         }
-    }
-
-    @Override
-    protected ConsumeService createConsumeService() {
-        final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
-        log.info("Create lite FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
-            consumerGroup, clientId, enableFifoConsumeAccelerator);
-        return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this,
-            scheduler, enableFifoConsumeAccelerator);
     }
 
     @Override

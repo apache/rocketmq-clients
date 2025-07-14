@@ -220,7 +220,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     private void waitingReceiveRequestFinished() {
         Duration maxWaitingTime = clientConfiguration.getRequestTimeout()
-            .plus(pushSubscriptionSettings.getLongPollingTimeout());
+            .plus(getPushConsumerSettings().getLongPollingTimeout());
         long endTime = System.currentTimeMillis() + maxWaitingTime.toMillis();
         try {
             while (true) {
@@ -243,7 +243,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     protected ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
-        if (pushSubscriptionSettings.isFifo()) {
+        if (getPushConsumerSettings().isFifo()) {
             log.info("Create FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
                 consumerGroup, clientId, enableFifoConsumeAccelerator);
             return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this,
@@ -620,7 +620,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     }
 
     public RetryPolicy getRetryPolicy() {
-        return pushSubscriptionSettings.getRetryPolicy();
+        return getPushConsumerSettings().getRetryPolicy();
     }
 
     public ThreadPoolExecutor getConsumptionExecutor() {

@@ -348,6 +348,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void onReceiveMessageResult(ReceiveMessageResult result) {
         final List<MessageViewImpl> messages = result.getMessageViewImpls();
+        System.out.println("onReceiveMessageResult msgNum:" + messages.size());
         if (!messages.isEmpty()) {
             cacheMessages(messages);
             receivedMessagesQuantity.getAndAdd(messages.size());
@@ -615,6 +616,8 @@ class ProcessQueueImpl implements ProcessQueue {
                 }
                 log.debug("Ack message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, "
                     + "endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq, endpoints, requestId);
+                System.out.printf("Ack message successfully, clientId=%s, consumerGroup=%s, messageId=%s, mq=%s %n",
+                    clientId, consumerGroup, messageId, mq);
             }
 
             @Override

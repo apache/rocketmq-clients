@@ -53,6 +53,8 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     ) {
         super(configuration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, group);
         this.topic = new Resource(namespace, topic);
+        // lite push consumer is fifo consumer
+        this.fifo = true;
     }
 
     public void addInterest(String liteTopic) {
