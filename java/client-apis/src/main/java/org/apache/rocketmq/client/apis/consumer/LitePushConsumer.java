@@ -4,8 +4,8 @@ import org.apache.rocketmq.client.apis.ClientException;
 
 public interface LitePushConsumer extends PushConsumer {
 
-    PushConsumer addInterest(String liteTopic) throws ClientException;
+    LitePushConsumer subscribeLite(String liteTopic) throws ClientException;
 
-    PushConsumer removeInterest(String liteTopic) throws ClientException;
+    LitePushConsumer unsubscribeLite(String liteTopic) throws ClientException;
 
 }

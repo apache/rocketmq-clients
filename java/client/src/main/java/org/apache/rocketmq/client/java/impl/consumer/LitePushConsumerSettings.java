@@ -17,22 +17,17 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import apache.rocketmq.v2.Interest;
-import apache.rocketmq.v2.InterestType;
-import apache.rocketmq.v2.RetryPolicy;
 import com.google.common.base.MoreObjects;
-import com.google.protobuf.util.Durations;
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
+import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.java.impl.ClientType;
-import org.apache.rocketmq.client.java.impl.UserAgent;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.ExcludeFromJacocoGeneratedReport;
-import org.apache.rocketmq.client.java.retry.CustomizedBackoffRetryPolicy;
-import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,31 +35,30 @@ import org.slf4j.LoggerFactory;
 public class LitePushConsumerSettings extends PushSubscriptionSettings {
     private static final Logger log = LoggerFactory.getLogger(LitePushConsumerSettings.class);
 
-    final Resource topic;
+    // bindTopic for lite push consumer
+    final Resource bindTopic;
+    // interested liteTopics
     private final Set<String/*lite topic*/> interestSet = ConcurrentHashMap.newKeySet();
     private final AtomicLong updateTime = new AtomicLong(System.currentTimeMillis());
 
-    public LitePushConsumerSettings(
-        ClientConfiguration configuration,
-        ClientId clientId,
-        Endpoints endpoints,
-        String topic,
-        String group
-    ) {
-        super(configuration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, group);
-        this.topic = new Resource(namespace, topic);
+    public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
+        String bindTopic, String group) {
+        // to keep compatibility, lite push consumer subscribeLite ALL
+        super(configuration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, group,
+            Collections.singletonMap(bindTopic, FilterExpression.SUB_ALL));
+        this.bindTopic = new Resource(namespace, bindTopic);
         // lite push consumer is fifo consumer
         this.fifo = true;
     }
 
-    public void addInterest(String liteTopic) {
+    public void subscribeLite(String liteTopic) {
         if (!interestSet.add(liteTopic)) {
             return;
         }
         updateTime.set(System.currentTimeMillis());
     }
 
-    public void removeInterest(String liteTopic) {
+    public void unsubscribeLite(String liteTopic) {
         if (!interestSet.remove(liteTopic)) {
             return;
         }
@@ -72,49 +66,37 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     }
 
     @Override
-    public apache.rocketmq.v2.Settings toProtobuf() {
-        Interest interest = Interest.newBuilder()
-            .setInterestType(InterestType.ALL)
-            .setTopic(topic.toProtobuf())
-            .setGroup(group.toProtobuf())
-            .addAllInterestSet(interestSet)
-            .build();
-        return apache.rocketmq.v2.Settings.newBuilder()
-            .setAccessPoint(accessPoint.toProtobuf())
-            .setClientType(clientType.toProtobuf())
-            .setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos()))
-            .setUserAgent(UserAgent.INSTANCE.toProtoBuf())
-            .setInterest(interest)
-            .build();
+    public boolean isFifo() {
+        // todo fifo 配置同步似乎有点问题，先这样写
+        return true;
     }
 
     /**
      * 服务端处理完 client 发上去的 setting 之后，会写回同步
      * ClientActivity#processAndWriteClientSettings
      */
-    @Override
-    public void sync(apache.rocketmq.v2.Settings settings) {
-        final apache.rocketmq.v2.Settings.PubSubCase pubSubCase = settings.getPubSubCase();
-        if (!apache.rocketmq.v2.Settings.PubSubCase.INTEREST.equals(pubSubCase)) {
-            log.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
-                + "clientType={}", clientId, pubSubCase, clientType);
-            return;
-        }
-        if (settings.hasBackoffPolicy()) {
-            final RetryPolicy backoffPolicy = settings.getBackoffPolicy();
-            switch (backoffPolicy.getStrategyCase()) {
-                case EXPONENTIAL_BACKOFF:
-                    retryPolicy = ExponentialBackoffRetryPolicy.fromProtobuf(backoffPolicy);
-                    break;
-                case CUSTOMIZED_BACKOFF:
-                    retryPolicy = CustomizedBackoffRetryPolicy.fromProtobuf(backoffPolicy);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unrecognized backoff policy strategy.");
-            }
-        }
-    }
-
+    //    @Override
+    //    public void sync(apache.rocketmq.v2.Settings settings) {
+    //        final apache.rocketmq.v2.Settings.PubSubCase pubSubCase = settings.getPubSubCase();
+    //        if (!apache.rocketmq.v2.Settings.PubSubCase.INTEREST.equals(pubSubCase)) {
+    //            log.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
+    //                + "clientType={}", clientId, pubSubCase, clientType);
+    //            return;
+    //        }
+    //        if (settings.hasBackoffPolicy()) {
+    //            final RetryPolicy backoffPolicy = settings.getBackoffPolicy();
+    //            switch (backoffPolicy.getStrategyCase()) {
+    //                case EXPONENTIAL_BACKOFF:
+    //                    retryPolicy = ExponentialBackoffRetryPolicy.fromProtobuf(backoffPolicy);
+    //                    break;
+    //                case CUSTOMIZED_BACKOFF:
+    //                    retryPolicy = CustomizedBackoffRetryPolicy.fromProtobuf(backoffPolicy);
+    //                    break;
+    //                default:
+    //                    throw new IllegalArgumentException("Unrecognized backoff policy strategy.");
+    //            }
+    //        }
+    //    }
     @ExcludeFromJacocoGeneratedReport
     @Override
     public String toString() {
@@ -123,7 +105,7 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
             .add("clientType", clientType)
             .add("accessPoint", accessPoint)
             .add("requestTimeout", requestTimeout)
-            .add("topic", topic)
+            .add("bindTopic", bindTopic)
             .add("group", group)
             .add("interestSet", interestSet)
             .toString();

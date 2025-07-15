@@ -1,6 +1,5 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import apache.rocketmq.v2.ClientType;
 import apache.rocketmq.v2.Interest;
 import apache.rocketmq.v2.InterestType;
 import apache.rocketmq.v2.ReceiveMessageRequest;
@@ -13,7 +12,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
-import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -38,47 +36,47 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     }
 
     @Override
-    public PushConsumer addInterest(String liteTopic) {
+    public LitePushConsumer subscribeLite(String liteTopic) {
         if (!this.isRunning()) {
-            log.error("addInterest failed, lite push consumer not running, state={}, clientId={}",
+            log.error("subscribeLite failed, lite push consumer not running, state={}, clientId={}",
                 this.state(), clientId);
             throw new IllegalStateException("lite push consumer not running");
         }
-        litePushConsumerSettings.addInterest(liteTopic);
-        syncInterset(InterestType.ADD, Collections.singleton(liteTopic));
+        litePushConsumerSettings.subscribeLite(liteTopic);
+        syncInterset(InterestType.INCREMENTAL_ADD, Collections.singleton(liteTopic));
         return this;
     }
 
     @Override
-    public PushConsumer removeInterest(String liteTopic) {
+    public LitePushConsumer unsubscribeLite(String liteTopic) {
         if (!this.isRunning()) {
-            log.error("removeInterest failed, lite push consumer not running, state={}, clientId={}",
+            log.error("unsubscribeLite failed, lite push consumer not running, state={}, clientId={}",
                 this.state(), clientId);
             throw new IllegalStateException("lite push consumer not running");
         }
-        litePushConsumerSettings.removeInterest(liteTopic);
-        syncInterset(InterestType.REMOVE, Collections.singleton(liteTopic));
+        litePushConsumerSettings.unsubscribeLite(liteTopic);
+        syncInterset(InterestType.INCREMENTAL_REMOVE, Collections.singleton(liteTopic));
         return this;
     }
 
     void syncInterset(InterestType interestType, Collection<String> diff) {
         Interest interest = Interest.newBuilder()
             .setInterestType(interestType)
-            .setTopic(litePushConsumerSettings.topic.toProtobuf())
+            .setTopic(litePushConsumerSettings.bindTopic.toProtobuf())
             .setGroup(litePushConsumerSettings.group.toProtobuf())
             .addAllInterestSet(diff)
             .build();
-        final apache.rocketmq.v2.Settings settings = apache.rocketmq.v2.Settings.newBuilder()
-            .setClientType(ClientType.LITE_PUSH_CONSUMER)
+        final TelemetryCommand command = TelemetryCommand
+            .newBuilder()
             .setInterest(interest)
             .build();
-        final TelemetryCommand command = TelemetryCommand.newBuilder().setSettings(settings).build();
         final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
         for (Endpoints endpoints : totalRouteEndpoints) {
             try {
                 telemetry(endpoints, command);
             } catch (Throwable t) {
-                log.error("Failed to telemeter settings, clientId={}, endpoints={}", clientId, endpoints, t);
+                log.error("syncInterset failed, clientId={}, endpoints={}, command={}"
+                    , clientId, endpoints, command, t);
             }
         }
     }

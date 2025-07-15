@@ -53,11 +53,10 @@ public class LiteConsumerExample {
         String tag = "yourMessageTagA";
         FilterExpression filterExpression = new FilterExpression(tag, FilterExpressionType.TAG);
         String consumerGroup = "FooBarGroup";
-        String topic = "topic_quan";
         // In most case, you don't need to create too many consumers, singleton pattern is recommended.
         LitePushConsumer litePushConsumer = provider.newLitePushConsumerBuilder()
             .setClientConfiguration(clientConfiguration)
-            .bindTopic(topic)
+            .bindTopic(LiteProducerExample.TOPIC)
             // Set the consumer group name.
             .setConsumerGroup(consumerGroup)
             //            .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
@@ -69,11 +68,11 @@ public class LiteConsumerExample {
             })
             .build();
 
-        litePushConsumer.addInterest("liteTopic1");
-        litePushConsumer.addInterest("liteTopic2");
-        litePushConsumer.addInterest("liteTopic3");
+        litePushConsumer.subscribeLite("liteTopic1");
+        litePushConsumer.subscribeLite("liteTopic2");
+        litePushConsumer.subscribeLite("liteTopic3");
 
-        litePushConsumer.removeInterest("liteTopic1");
+//        litePushConsumer.unsubscribeLite("liteTopic1");
 
         // Block the main thread, no need for production environment.
         Thread.sleep(Long.MAX_VALUE);
