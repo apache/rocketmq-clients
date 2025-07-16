@@ -1,5 +1,7 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import apache.rocketmq.v2.ClientType;
+import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.Interest;
 import apache.rocketmq.v2.InterestType;
 import apache.rocketmq.v2.ReceiveMessageRequest;
@@ -10,6 +12,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
 import org.apache.rocketmq.client.java.impl.Settings;
@@ -20,6 +24,8 @@ import org.slf4j.LoggerFactory;
 
 public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushConsumer {
     private static final Logger log = LoggerFactory.getLogger(LitePushConsumerImpl.class);
+
+    private volatile ScheduledFuture<?> syncAllIntersetFuture;
 
     private final LitePushConsumerSettings litePushConsumerSettings;
 
@@ -36,14 +42,35 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     }
 
     @Override
+    protected void startUp() throws Exception {
+        super.startUp();
+        syncAllIntersetFuture = getScheduler().scheduleWithFixedDelay(() -> {
+            try {
+                syncAllInterset();
+            } catch (Throwable t) {
+                log.error("Exception raised during syncAllInterset, clientId={}", clientId, t);
+            }
+        }, 60, 60, TimeUnit.SECONDS);
+    }
+
+    @Override
+    protected void shutDown() throws InterruptedException {
+        super.shutDown();
+        if (null != syncAllIntersetFuture) {
+            syncAllIntersetFuture.cancel(false);
+        }
+    }
+
+    @Override
     public LitePushConsumer subscribeLite(String liteTopic) {
         if (!this.isRunning()) {
             log.error("subscribeLite failed, lite push consumer not running, state={}, clientId={}",
                 this.state(), clientId);
             throw new IllegalStateException("lite push consumer not running");
         }
-        litePushConsumerSettings.subscribeLite(liteTopic);
-        syncInterset(InterestType.INCREMENTAL_ADD, Collections.singleton(liteTopic));
+        if (litePushConsumerSettings.subscribeLite(liteTopic)) {
+            syncInterset(InterestType.INCREMENTAL_ADD, Collections.singleton(liteTopic));
+        }
         return this;
     }
 
@@ -54,17 +81,25 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
                 this.state(), clientId);
             throw new IllegalStateException("lite push consumer not running");
         }
-        litePushConsumerSettings.unsubscribeLite(liteTopic);
-        syncInterset(InterestType.INCREMENTAL_REMOVE, Collections.singleton(liteTopic));
+        if (litePushConsumerSettings.unsubscribeLite(liteTopic)) {
+            syncInterset(InterestType.INCREMENTAL_REMOVE, Collections.singleton(liteTopic));
+        }
         return this;
     }
 
-    void syncInterset(InterestType interestType, Collection<String> diff) {
+    private void syncAllInterset() {
+        final Set<String> set = litePushConsumerSettings.getInterestSet();
+        syncInterset(InterestType.ALL_ADD, set);
+        log.info("syncAllInterset: {}", set);
+    }
+
+    private void syncInterset(InterestType interestType, Collection<String> diff) {
         Interest interest = Interest.newBuilder()
             .setInterestType(interestType)
             .setTopic(litePushConsumerSettings.bindTopic.toProtobuf())
             .setGroup(litePushConsumerSettings.group.toProtobuf())
             .addAllInterestSet(diff)
+            .setVersion(litePushConsumerSettings.getVersion())
             .build();
         final TelemetryCommand command = TelemetryCommand
             .newBuilder()
@@ -105,4 +140,11 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             .setAttemptId(attemptId)
             .build();
     }
+
+    @Override
+    public HeartbeatRequest wrapHeartbeatRequest() {
+        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
+            .setClientType(ClientType.LITE_PUSH_CONSUMER).build();
+    }
+
 }

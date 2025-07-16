@@ -39,7 +39,7 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     final Resource bindTopic;
     // interested liteTopics
     private final Set<String/*lite topic*/> interestSet = ConcurrentHashMap.newKeySet();
-    private final AtomicLong updateTime = new AtomicLong(System.currentTimeMillis());
+    private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
     public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
         String bindTopic, String group) {
@@ -51,18 +51,28 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         this.fifo = true;
     }
 
-    public void subscribeLite(String liteTopic) {
-        if (!interestSet.add(liteTopic)) {
-            return;
+    public boolean subscribeLite(String liteTopic) {
+        if (interestSet.add(liteTopic)) {
+            version.set(System.currentTimeMillis());
+            return true;
         }
-        updateTime.set(System.currentTimeMillis());
+        return false;
     }
 
-    public void unsubscribeLite(String liteTopic) {
-        if (!interestSet.remove(liteTopic)) {
-            return;
+    public boolean unsubscribeLite(String liteTopic) {
+        if (interestSet.remove(liteTopic)) {
+            version.set(System.currentTimeMillis());
+            return true;
         }
-        updateTime.set(System.currentTimeMillis());
+        return false;
+    }
+
+    public Set<String/*lite topic*/> getInterestSet() {
+        return Collections.unmodifiableSet(interestSet);
+    }
+
+    public long getVersion() {
+        return version.get();
     }
 
     @Override

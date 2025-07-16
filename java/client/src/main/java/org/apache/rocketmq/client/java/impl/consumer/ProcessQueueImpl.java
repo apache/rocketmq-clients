@@ -231,7 +231,6 @@ class ProcessQueueImpl implements ProcessQueue {
             log.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq, clientId);
             return;
         }
-        System.out.printf("receiveMessageImmediately clientId:%s %n", clientId);
         try {
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final int batchSize = this.getReceptionBatchSize();
@@ -348,7 +347,6 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void onReceiveMessageResult(ReceiveMessageResult result) {
         final List<MessageViewImpl> messages = result.getMessageViewImpls();
-        System.out.println("onReceiveMessageResult msgNum:" + messages.size());
         if (!messages.isEmpty()) {
             cacheMessages(messages);
             receivedMessagesQuantity.getAndAdd(messages.size());
@@ -616,8 +614,6 @@ class ProcessQueueImpl implements ProcessQueue {
                 }
                 log.debug("Ack message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, "
                     + "endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq, endpoints, requestId);
-                System.out.printf("Ack message successfully, clientId=%s, consumerGroup=%s, messageId=%s, mq=%s %n",
-                    clientId, consumerGroup, messageId, mq);
             }
 
             @Override
