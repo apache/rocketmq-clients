@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.apache.rocketmq</groupId>
         <artifactId>rocketmq-client-java-parent</artifactId>
-        <version>5.0.9-SNAPSHOT</version>
+        <version>5.0.9-lite-topic-SNAPSHOT</version>
     </parent>
 
     <artifactId>test</artifactId>
