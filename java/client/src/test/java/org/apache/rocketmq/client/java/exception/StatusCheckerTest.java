@@ -111,6 +111,17 @@ public class StatusCheckerTest extends TestBase {
         }
 
         {
+            Status status = Status.newBuilder().setCode(Code.ILLEGAL_LITE_TOPIC).build();
+            RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, Futures.immediateFuture(response));
+            try {
+                StatusChecker.check(status, invocation);
+                fail();
+            } catch (BadRequestException ignore) {
+                // ignore on purpose
+            }
+        }
+
+        {
             Status status = Status.newBuilder().setCode(Code.ILLEGAL_MESSAGE_TAG).build();
             RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, Futures.immediateFuture(response));
             try {

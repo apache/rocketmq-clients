@@ -46,11 +46,11 @@ import org.slf4j.LoggerFactory;
 public class PushSubscriptionSettings extends Settings {
     private static final Logger log = LoggerFactory.getLogger(PushSubscriptionSettings.class);
 
-    final Resource group;
-    final Map<String, FilterExpression> subscriptionExpressions;
-    volatile Boolean fifo = false;
-    volatile int receiveBatchSize = 32;
-    volatile Duration longPollingTimeout = Duration.ofSeconds(30);
+    protected final Resource group;
+    protected final Map<String, FilterExpression> subscriptionExpressions;
+    protected volatile Boolean fifo = false;
+    protected volatile int receiveBatchSize = 32;
+    protected volatile Duration longPollingTimeout = Duration.ofSeconds(30);
 
     public PushSubscriptionSettings(
         ClientConfiguration configuration,

@@ -35,14 +35,14 @@ import org.apache.rocketmq.client.apis.message.MessageBuilder;
 public class MessageBuilderImpl implements MessageBuilder {
     public static final Pattern TOPIC_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
 
-    String topic = null;
-    byte[] body = null;
-    String tag = null;
-    String messageGroup = null;
-    Long deliveryTimestamp = null;
-    String liteTopic = null;
-    Collection<String> keys = new HashSet<>();
-    final Map<String, String> properties = new HashMap<>();
+   protected String topic = null;
+   protected byte[] body = null;
+   protected String tag = null;
+   protected String messageGroup = null;
+   protected Long deliveryTimestamp = null;
+   protected String liteTopic = null;
+   protected Collection<String> keys = new HashSet<>();
+   protected final Map<String, String> properties = new HashMap<>();
 
     public MessageBuilderImpl() {
     }
