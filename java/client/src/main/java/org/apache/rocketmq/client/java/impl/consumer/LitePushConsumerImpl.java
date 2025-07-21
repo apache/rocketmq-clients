@@ -65,7 +65,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     }
 
     @Override
-    public LitePushConsumer subscribeLite(List<String> liteTopics) {
+    public LitePushConsumer subscribeLite(Collection<String> liteTopics) {
         if (!this.isRunning()) {
             log.error("subscribeLite failed, lite push consumer not running, state={}, clientId={}",
                 this.state(), clientId);
