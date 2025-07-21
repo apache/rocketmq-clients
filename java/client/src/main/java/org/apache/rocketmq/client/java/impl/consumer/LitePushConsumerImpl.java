@@ -10,6 +10,8 @@ import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
@@ -37,7 +39,8 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             builder.consumptionThreadCount, builder.enableFifoConsumeAccelerator);
 
         this.bindTopic = builder.bindTopic;
-        this.litePushConsumerSettings = new LitePushConsumerSettings(builder.clientConfiguration, clientId, endpoints, bindTopic,
+        this.litePushConsumerSettings = new LitePushConsumerSettings(builder.clientConfiguration, clientId, endpoints
+            , bindTopic,
             builder.consumerGroup);
     }
 
@@ -59,6 +62,23 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         if (null != syncAllIntersetFuture) {
             syncAllIntersetFuture.cancel(false);
         }
+    }
+
+    @Override
+    public LitePushConsumer subscribeLite(List<String> liteTopics) {
+        if (!this.isRunning()) {
+            log.error("subscribeLite failed, lite push consumer not running, state={}, clientId={}",
+                this.state(), clientId);
+            throw new IllegalStateException("lite push consumer not running");
+        }
+        Set<String> addedSet = new HashSet<>();
+        for (String liteTopic : liteTopics) {
+            if (litePushConsumerSettings.subscribeLite(liteTopic)) {
+                addedSet.add(liteTopic);
+            }
+        }
+        syncInterset(InterestType.INCREMENTAL_ADD, addedSet);
+        return this;
     }
 
     @Override
