@@ -335,6 +335,10 @@ impl PushConsumer {
         }
         Ok(messages)
     }
+
+    pub fn is_heartbeat_healthy(&self) -> bool {
+        self.client.is_heartbeat_healthy()
+    }
 }
 
 #[derive(Debug)]

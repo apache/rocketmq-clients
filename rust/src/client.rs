@@ -17,7 +17,7 @@
 use std::clone::Clone;
 use std::fmt::Debug;
 use std::string::ToString;
-use std::{collections::HashMap, sync::atomic::AtomicUsize, sync::Arc};
+use std::{collections::HashMap, sync::atomic::{AtomicUsize, AtomicBool}, sync::Arc};
 
 use mockall::automock;
 use mockall_double::double;
@@ -56,6 +56,7 @@ pub(crate) struct Client {
     settings: TelemetryCommand,
     telemetry_command_tx: Option<mpsc::Sender<pb::telemetry_command::Command>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
+    heartbeat_healthy: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone)]
@@ -98,6 +99,7 @@ impl Client {
             settings,
             telemetry_command_tx: None,
             shutdown_tx: None,
+            heartbeat_healthy: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -134,6 +136,7 @@ impl Client {
             .map_err(|error| error.with_operation(OPERATION_CLIENT_START))?;
 
         let route_manager = self.route_manager.clone();
+        let heartbeat_healthy = self.heartbeat_healthy.clone();
 
         let settings = self.settings.clone();
         tokio::spawn(async move {
@@ -152,9 +155,11 @@ impl Client {
                                 "send heartbeat failed: failed to get sessions: {}",
                                 sessions.unwrap_err()
                             );
+                            heartbeat_healthy.store(false, std::sync::atomic::Ordering::Relaxed);
                             continue;
                         }
 
+                        let mut all_heartbeats_successful = true;
                         for session in sessions.unwrap() {
                             let peer = session.peer().to_string();
                             let response = Self::heart_beat_inner(session, &group, &namespace, &client_type).await;
@@ -163,6 +168,7 @@ impl Client {
                                     "send heartbeat failed: failed to send heartbeat rpc: {}",
                                     response.unwrap_err()
                                 );
+                                all_heartbeats_successful = false;
                                 continue;
                             }
                             let result =
@@ -172,10 +178,14 @@ impl Client {
                                     "send heartbeat failed: server return error: {}",
                                     result.unwrap_err()
                                 );
+                                all_heartbeats_successful = false;
                                 continue;
                             }
                             debug!("send heartbeat to server success, peer={}",peer);
                         }
+                        
+                        // Update heart beat status: only set to true when all heartbeats are successful
+                        heartbeat_healthy.store(all_heartbeats_successful, std::sync::atomic::Ordering::Relaxed);
                     },
                     _ = sync_settings_interval.tick() => {
                         let sessions = session_manager.get_all_sessions().await;
@@ -502,6 +512,10 @@ impl Client {
         handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.receipt_handle)
     }
+
+    pub(crate) fn is_heartbeat_healthy(&self) -> bool {
+        self.heartbeat_healthy.load(std::sync::atomic::Ordering::Relaxed)
+    }
 }
 
 impl TopicRouteManager {
@@ -740,7 +754,7 @@ impl SessionManager {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
     use std::sync::Arc;
     use std::thread::sleep;
     use std::time::Duration;
@@ -795,6 +809,7 @@ pub(crate) mod tests {
             settings: TelemetryCommand::default(),
             telemetry_command_tx: None,
             shutdown_tx: None,
+            heartbeat_healthy: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -809,6 +824,7 @@ pub(crate) mod tests {
             settings: TelemetryCommand::default(),
             telemetry_command_tx: Some(tx),
             shutdown_tx: None,
+            heartbeat_healthy: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -1073,6 +1089,21 @@ pub(crate) mod tests {
             Client::heart_beat_inner(mock, &Some("group".to_string()), "", &ClientType::Producer)
                 .await;
         assert!(send_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn client_heartbeat_status() {
+        // Test that heartbeat status is initialized as false
+        let client = new_client_for_test();
+        assert!(!client.is_heartbeat_healthy());
+
+        // Test that we can set heartbeat status to true
+        client.heartbeat_healthy.store(true, std::sync::atomic::Ordering::Relaxed);
+        assert!(client.is_heartbeat_healthy());
+
+        // Test that we can set heartbeat status back to false
+        client.heartbeat_healthy.store(false, std::sync::atomic::Ordering::Relaxed);
+        assert!(!client.is_heartbeat_healthy());
     }
 
     #[tokio::test]

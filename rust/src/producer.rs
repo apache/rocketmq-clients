@@ -459,6 +459,10 @@ impl Producer {
         }
         self.client.shutdown().await
     }
+
+    pub fn is_heartbeat_healthy(&self) -> bool {
+        self.client.is_heartbeat_healthy()
+    }
 }
 
 #[cfg(test)]
