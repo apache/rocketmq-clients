@@ -335,6 +335,9 @@ func TestCMClearIdleRpcClients(t *testing.T) {
 
 		SYNC_SETTINGS_DELAY:  time.Hour,
 		SYNC_SETTINGS_PERIOD: time.Hour,
+
+		CHECK_ISOLATED_ENDPOINTS_INITIAL_DELAY: time.Hour,
+		CHECK_ISOLATED_ENDPOINTS_PERIOD:        time.Hour,
 	})
 	defer stubs.Reset()
 
