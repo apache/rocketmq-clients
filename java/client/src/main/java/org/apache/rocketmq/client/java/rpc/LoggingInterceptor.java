@@ -17,12 +17,14 @@
 
 package org.apache.rocketmq.client.java.rpc;
 
+import io.grpc.Attributes;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.ClientInterceptor;
 import io.grpc.ForwardingClientCall;
 import io.grpc.ForwardingClientCallListener;
+import io.grpc.Grpc;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import java.util.UUID;
@@ -36,6 +38,11 @@ public class LoggingInterceptor implements ClientInterceptor {
     private static final Logger log = LoggerFactory.getLogger(LoggingInterceptor.class);
 
     private static final LoggingInterceptor INSTANCE = new LoggingInterceptor();
+    private static String remoteAddr = "";
+
+    public static String getRemoteAddr() {
+        return remoteAddr;
+    }
 
     public static LoggingInterceptor getInstance() {
         return INSTANCE;
@@ -70,6 +77,16 @@ public class LoggingInterceptor implements ClientInterceptor {
                                 + "authority={}, headers={}", rpcId, serviceName, methodName, authority, headers);
                             super.onHeaders(headers);
                         }
+
+                        @Override
+                        public void onReady() {
+                            Attributes attributes = getAttributes();
+                            Object address = attributes.get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR);
+                            String remoteAddrStr = address != null ? address.toString() : "";
+                            remoteAddr = remoteAddrStr.startsWith("/") ? remoteAddrStr.substring(1) : remoteAddrStr;
+                            super.onReady();
+                        }
+
                     };
                 super.start(observabilityListener, headers);
             }

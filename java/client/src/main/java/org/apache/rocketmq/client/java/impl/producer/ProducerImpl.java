@@ -38,10 +38,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -66,6 +69,8 @@ import org.apache.rocketmq.client.apis.producer.TransactionResolution;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
+import org.apache.rocketmq.client.java.hook.Attribute;
+import org.apache.rocketmq.client.java.hook.AttributeKey;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
@@ -81,6 +86,7 @@ import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
+import org.apache.rocketmq.client.java.rpc.LoggingInterceptor;
 import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,6 +100,10 @@ import org.slf4j.LoggerFactory;
 class ProducerImpl extends ClientImpl implements Producer {
     private static final Logger log = LoggerFactory.getLogger(ProducerImpl.class);
 
+    public static final String SEND_RECEIPTS_CONTEXT = "sendReceipts";
+    public static final String SEND_EXCEPTION_CONTEXT = "sendException";
+    public static final String MESSAGE_TYPE_CONTEXT = "messageType";
+    public static final String REMOTE_ADDR_CONTEXT = "remoteAddr";
     protected final PublishingSettings publishingSettings;
     final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataCache;
     private final TransactionChecker checker;
@@ -217,7 +227,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         if (!(transaction instanceof TransactionImpl)) {
             throw new IllegalArgumentException("Failed downcasting for transaction");
         }
-        TransactionImpl transactionImpl = (TransactionImpl) transaction;
+        TransactionImpl transactionImpl = (TransactionImpl)transaction;
         final PublishingMessageImpl publishingMessage;
         try {
             publishingMessage = transactionImpl.tryAddMessage(message);
@@ -227,7 +237,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         final ListenableFuture<List<SendReceiptImpl>> future = send(Collections.singletonList(publishingMessage), true);
         final List<SendReceiptImpl> receipts = handleClientFuture(future);
         final SendReceiptImpl sendReceipt = receipts.iterator().next();
-        ((TransactionImpl) transaction).tryAddReceipt(publishingMessage, sendReceipt);
+        ((TransactionImpl)transaction).tryAddReceipt(publishingMessage, sendReceipt);
         return sendReceipt;
     }
 
@@ -468,14 +478,33 @@ class ProducerImpl extends ClientImpl implements Producer {
             return;
         }
         final Endpoints endpoints = mq.getBroker().getEndpoints();
-        final ListenableFuture<List<SendReceiptImpl>> future = send0(endpoints, messages, mq);
         final int maxAttempts = this.getRetryPolicy().getMaxAttempts();
 
         // Intercept before message publishing.
         final List<GeneralMessage> generalMessages = messages.stream().map((Function<PublishingMessageImpl,
-            GeneralMessage>) GeneralMessageImpl::new).collect(Collectors.toList());
-        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+            GeneralMessage>)GeneralMessageImpl::new).collect(Collectors.toList());
+        MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+
+        // Add message type to context.
+        AttributeKey<MessageType> messageTypeKey = AttributeKey.create(MESSAGE_TYPE_CONTEXT);
+        context.putAttribute(messageTypeKey, Attribute.create(messageType));
+        // Add remoteAddr to context.
+        String remoteAddr = LoggingInterceptor.getRemoteAddr();
+        AttributeKey<String> remoteAddrKey = AttributeKey.create(REMOTE_ADDR_CONTEXT);
+        context.putAttribute(remoteAddrKey, Attribute.create(remoteAddr));
+
         doBefore(context, generalMessages);
+
+        //  Add properties from message to publishing message
+        Map<String, String> properties = generalMessages.get(0).getProperties();
+        for (Entry<String, String> property : properties.entrySet()) {
+            if (property.getKey() == null || property.getValue() == null) {
+                continue;
+            }
+            messages.get(0).getProperties().put(property.getKey(), property.getValue());
+        }
+
+        final ListenableFuture<List<SendReceiptImpl>> future = send0(endpoints, messages, mq);
 
         Futures.addCallback(future, new FutureCallback<List<SendReceiptImpl>>() {
             @Override
@@ -488,19 +517,23 @@ class ProducerImpl extends ClientImpl implements Producer {
                     future0.setException(e);
 
                     // Intercept after message publishing.
-                    final MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
+                    MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                         MessageHookPointsStatus.ERROR);
+                    // Add send exception to context.
+                    AttributeKey<Throwable> sendExceptionKey = AttributeKey.create(SEND_EXCEPTION_CONTEXT);
+                    context0.putAttribute(sendExceptionKey, Attribute.create(e));
                     doAfter(context0, generalMessages);
-
                     return;
                 }
                 // Intercept after message publishing.
-                final MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
+                MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.OK);
+                // Add send receipts to context.
+                AttributeKey<List<SendReceiptImpl>> sendReceiptsKey = AttributeKey.create(SEND_RECEIPTS_CONTEXT);
+                context0.putAttribute(sendReceiptsKey, Attribute.create(sendReceipts));
                 doAfter(context0, generalMessages);
 
                 // No need more attempts.
-                future0.set(sendReceipts);
                 // Resend message(s) successfully.
                 if (1 < attempt) {
                     // Collect messageId(s) for logging.
@@ -518,8 +551,11 @@ class ProducerImpl extends ClientImpl implements Producer {
             @Override
             public void onFailure(Throwable t) {
                 // Intercept after message publishing.
-                final MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
+                MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.ERROR);
+                // Add send exception to context.
+                AttributeKey<Throwable> sendExceptionKey = AttributeKey.create(SEND_EXCEPTION_CONTEXT);
+                context0.putAttribute(sendExceptionKey, Attribute.create(t));
                 doAfter(context0, generalMessages);
 
                 // Collect messageId(s) for logging.

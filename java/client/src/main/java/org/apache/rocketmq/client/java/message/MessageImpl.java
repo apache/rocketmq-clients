@@ -21,7 +21,6 @@ import com.google.common.base.MoreObjects;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -45,7 +44,7 @@ public class MessageImpl implements Message {
     @Nullable
     private final Long deliveryTimestamp;
 
-    private final Map<String, String> properties;
+    private Map<String, String> properties;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exception or
@@ -103,7 +102,7 @@ public class MessageImpl implements Message {
      */
     @Override
     public Map<String, String> getProperties() {
-        return new HashMap<>(properties);
+        return properties;
     }
 
     /**

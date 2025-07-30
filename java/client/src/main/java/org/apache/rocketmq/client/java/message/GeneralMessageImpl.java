@@ -20,7 +20,6 @@ package org.apache.rocketmq.client.java.message;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.rocketmq.client.apis.message.Message;
@@ -118,7 +117,7 @@ public class GeneralMessageImpl implements GeneralMessage {
 
     @Override
     public Map<String, String> getProperties() {
-        return new HashMap<>(properties);
+        return properties;
     }
 
     @Override
