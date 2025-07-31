@@ -33,7 +33,10 @@ import org.apache.rocketmq.client.apis.message.Message;
  * @see Message
  */
 public class MessageImpl implements Message {
+
     protected final Collection<String> keys;
+
+    protected final Map<String, String> properties;
 
     final byte[] body;
     private final String topic;
@@ -44,8 +47,6 @@ public class MessageImpl implements Message {
     private final String messageGroup;
     @Nullable
     private final Long deliveryTimestamp;
-
-    protected final Map<String, String> properties;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exception or
