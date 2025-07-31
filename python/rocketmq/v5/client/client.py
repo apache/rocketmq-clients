@@ -545,6 +545,8 @@ class Client:
 
     def reconnect_endpoints_command(self):
         self.__receive_reconnect = True
+        endpoints = self.__client_configuration.rpc_endpoints
+        self.__rpc_client.reconnect_endpoints(endpoints)
 
     def reset_receive_reconnect(self):
         self.__receive_reconnect = False
