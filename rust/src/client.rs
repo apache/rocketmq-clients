@@ -36,15 +36,15 @@ use crate::model::message::AckMessageEntry;
 use crate::pb;
 use crate::pb::receive_message_response::Content;
 use crate::pb::{
-    AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, Code,
-    FilterExpression, HeartbeatRequest, HeartbeatResponse, Message, MessageQueue,
-    NotifyClientTerminationRequest, QueryRouteRequest, ReceiveMessageRequest, Resource,
-    SendMessageRequest, TelemetryCommand,
+    AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, FilterExpression,
+    HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, NotifyClientTerminationRequest,
+    QueryRouteRequest, ReceiveMessageRequest, Resource, SendMessageRequest, Status,
+    TelemetryCommand,
 };
 use crate::session::RPCClient;
 #[double]
 use crate::session::Session;
-use crate::util::{handle_response_status, select_message_queue};
+use crate::util::{handle_receive_message_status, handle_response_status, select_message_queue};
 
 #[derive(Debug)]
 pub(crate) struct Client {
@@ -400,20 +400,34 @@ impl Client {
         let responses = rpc_client.receive_message(request).await?;
 
         let mut messages = Vec::with_capacity(batch_size as usize);
+        let mut status: Option<Status> = None;
+        let mut delivery_timestamp: Option<prost_types::Timestamp> = None;
+
         for response in responses {
             match response.content.unwrap() {
-                Content::Status(status) => {
-                    if status.code() == Code::MessageNotFound {
-                        return Ok(vec![]);
-                    }
-                    handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
+                Content::Status(response_status) => {
+                    status = Some(response_status);
                 }
                 Content::Message(message) => {
                     messages.push(message);
                 }
-                Content::DeliveryTimestamp(_) => {}
+                Content::DeliveryTimestamp(timestamp) => {
+                    delivery_timestamp = Some(timestamp);
+                }
             }
         }
+
+        if let Some(status) = status {
+            handle_receive_message_status(&status, OPERATION_RECEIVE_MESSAGE)?;
+        }
+        if let Some(ref delivery_timestamp) = delivery_timestamp {
+            for message in &mut messages {
+                if let Some(system_properties) = message.system_properties.as_mut() {
+                    system_properties.delivery_timestamp = Some(delivery_timestamp.clone());
+                }
+            }
+        }
+
         Ok(messages)
     }
 
@@ -1146,8 +1160,8 @@ pub(crate) mod tests {
         assert!(receive_result.is_err());
 
         let error = receive_result.unwrap_err();
-        assert_eq!(error.kind, ErrorKind::Server);
-        assert_eq!(error.message, "server return an error");
+        assert_eq!(error.kind, ErrorKind::Config);
+        assert_eq!(error.message, "bad request");
         assert_eq!(error.operation, "client.receive_message");
     }
 

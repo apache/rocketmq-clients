@@ -223,6 +223,136 @@ pub fn handle_response_status(
     Ok(())
 }
 
+/// Handle status messages in receive message responses, similar to Java StatusChecker
+/// This function handles status codes appropriately based on the context
+pub fn handle_receive_message_status(
+    status: &Status,
+    operation: &'static str,
+) -> Result<(), ClientError> {
+    let code = match Code::from_i32(status.code) {
+        Some(code) => code,
+        None => {
+            // Handle unrecognized status codes.
+            tracing::warn!(
+                "Unrecognized status code={}, statusMessage={}, operation={}",
+                status.code,
+                status.message,
+                operation
+            );
+            return Err(
+                ClientError::new(ErrorKind::Server, "unsupported status code", operation)
+                    .with_context("code", format!("{}", status.code))
+                    .with_context("message", status.message.clone()),
+            );
+        }
+    };
+
+    match code {
+        // Unused, unrecognized status codes
+        Code::Unspecified
+        | Code::PreconditionFailed
+        | Code::NotImplemented
+        | Code::FailedToConsumeMessage => {
+            Err(
+                ClientError::new(ErrorKind::Server, "unsupported status code", operation)
+                    .with_context("code", format!("{}", status.code))
+                    .with_context("message", status.message.clone()),
+            )
+        }
+
+        // OK and MULTIPLE_RESULTS are acceptable for receive message
+        Code::Ok | Code::MultipleResults => Ok(()),
+        // MESSAGE_NOT_FOUND is acceptable for receive message - no messages available
+        // This is not an error, just indicates no new messages
+        Code::MessageNotFound => Ok(()),
+
+        Code::BadRequest
+        | Code::IllegalAccessPoint
+        | Code::IllegalTopic
+        | Code::IllegalConsumerGroup
+        | Code::IllegalMessageTag
+        | Code::IllegalMessageKey
+        | Code::IllegalMessageGroup
+        | Code::IllegalMessagePropertyKey
+        | Code::InvalidTransactionId
+        | Code::IllegalMessageId
+        | Code::IllegalFilterExpression
+        | Code::IllegalInvisibleTime
+        | Code::IllegalDeliveryTime
+        | Code::InvalidReceiptHandle
+        | Code::MessagePropertyConflictWithType
+        | Code::UnrecognizedClientType
+        | Code::MessageCorrupted
+        | Code::ClientIdRequired
+        | Code::IllegalPollingTime => {
+            Err(
+                ClientError::new(ErrorKind::Config, "bad request", operation)
+                    .with_context("code", format!("{}", status.code))
+                    .with_context("message", status.message.clone()),
+            )
+        }
+        Code::Unauthorized => Err(
+            ClientError::new(ErrorKind::Server, "unauthorized", operation)
+                .with_context("code", format!("{}", status.code))
+                .with_context("message", status.message.clone()),
+        ),
+        Code::PaymentRequired => {
+            Err(
+                ClientError::new(ErrorKind::Server, "payment required", operation)
+                    .with_context("code", format!("{}", status.code))
+                    .with_context("message", status.message.clone()),
+            )
+        }
+        Code::Forbidden => Err(ClientError::new(ErrorKind::Server, "forbidden", operation)
+            .with_context("code", format!("{}", status.code))
+            .with_context("message", status.message.clone())),
+        Code::NotFound | Code::TopicNotFound | Code::ConsumerGroupNotFound => {
+            Err(ClientError::new(ErrorKind::Server, "not found", operation)
+                .with_context("code", format!("{}", status.code))
+                .with_context("message", status.message.clone()))
+        }
+        Code::PayloadTooLarge | Code::MessageBodyTooLarge => {
+            Err(
+                ClientError::new(ErrorKind::Server, "payload too large", operation)
+                    .with_context("code", format!("{}", status.code))
+                    .with_context("message", status.message.clone()),
+            )
+        }
+        Code::TooManyRequests => {
+            Err(
+                ClientError::new(ErrorKind::Server, "too many requests", operation)
+                    .with_context("code", format!("{}", status.code))
+                    .with_context("message", status.message.clone()),
+            )
+        }
+        Code::RequestHeaderFieldsTooLarge | Code::MessagePropertiesTooLarge => {
+            Err(ClientError::new(
+                ErrorKind::Server,
+                "request header fields too large",
+                operation,
+            )
+            .with_context("code", format!("{}", status.code))
+            .with_context("message", status.message.clone()))
+        }
+        Code::InternalError | Code::InternalServerError | Code::HaNotAvailable => Err(
+            ClientError::new(ErrorKind::Server, "internal error", operation)
+                .with_context("code", format!("{}", status.code))
+                .with_context("message", status.message.clone()),
+        ),
+        Code::RequestTimeout
+        | Code::ProxyTimeout
+        | Code::MasterPersistenceTimeout
+        | Code::SlavePersistenceTimeout => {
+            Err(ClientError::new(ErrorKind::Server, "timeout", operation))
+        }
+        Code::Unsupported | Code::VersionUnsupported | Code::VerifyFifoMessageUnsupported => Err(
+            ClientError::new(ErrorKind::Server, "unsupported", operation)
+                .with_context("code", format!("{}", status.code))
+                .with_context("message", status.message.clone()),
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::AtomicUsize;
@@ -387,5 +517,92 @@ mod tests {
             "test success",
         );
         assert!(result.is_ok(), "should not return error when status is Ok");
+    }
+
+    #[test]
+    fn test_handle_receive_message_status() {
+        // Test OK status
+        let result = handle_receive_message_status(
+            &Status {
+                code: Code::Ok as i32,
+                message: "OK".to_string(),
+            },
+            "test",
+        );
+        assert!(result.is_ok(), "should not return error when status is Ok");
+
+        // Test MultipleResults status
+        let result = handle_receive_message_status(
+            &Status {
+                code: Code::MultipleResults as i32,
+                message: "Multiple results".to_string(),
+            },
+            "test",
+        );
+        assert!(
+            result.is_ok(),
+            "should not return error when status is MultipleResults"
+        );
+
+        // Test MessageNotFound status - should be OK for receive message
+        let result = handle_receive_message_status(
+            &Status {
+                code: Code::MessageNotFound as i32,
+                message: "no new message".to_string(),
+            },
+            "test",
+        );
+        assert!(
+            result.is_ok(),
+            "should not return error when status is MessageNotFound"
+        );
+
+        // Test BadRequest status
+        let result = handle_receive_message_status(
+            &Status {
+                code: Code::BadRequest as i32,
+                message: "bad request".to_string(),
+            },
+            "test",
+        );
+        assert!(
+            result.is_err(),
+            "should return error when status is BadRequest"
+        );
+        let result = result.unwrap_err();
+        assert_eq!(result.kind, ErrorKind::Config);
+        assert_eq!(result.message, "bad request");
+
+        // Test NotFound status
+        let result = handle_receive_message_status(
+            &Status {
+                code: Code::NotFound as i32,
+                message: "not found".to_string(),
+            },
+            "test",
+        );
+        assert!(
+            result.is_err(),
+            "should return error when status is NotFound"
+        );
+        let result = result.unwrap_err();
+        assert_eq!(result.kind, ErrorKind::Server);
+        assert_eq!(result.message, "not found");
+
+        // Test Unauthorized status
+        let result = handle_receive_message_status(
+            &Status {
+                code: Code::Unauthorized as i32,
+                message: "unauthorized".to_string(),
+            },
+            "test",
+        );
+        assert!(
+            result.is_err(),
+            "should return error when status is Unauthorized"
+        );
+        let result = result.unwrap_err();
+        assert_eq!(result.kind, ErrorKind::Server);
+        assert_eq!(result.message, "unauthorized");
     }
 }
