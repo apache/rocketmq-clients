@@ -233,6 +233,20 @@ func GenClientID() string {
 	nanotime := time.Now().UnixNano() / 1000
 	return fmt.Sprintf("%s@%d@%d@%s", hostName, processID, nextIdx, strconv.FormatInt(nanotime, 36))
 }
+func EndpointsToString(endpoints *v2.Endpoints) string {
+	if endpoints == nil {
+		return ""
+	}
+	var sb strings.Builder
+	addresses := endpoints.GetAddresses()
+	for i, addr := range addresses {
+		sb.WriteString(fmt.Sprintf("%s:%d", addr.Host, addr.Port))
+		if i != len(addresses)-1 {
+			sb.WriteString(";")
+		}
+	}
+	return sb.String()
+}
 
 func SelectAnAddress(endpoints *v2.Endpoints) *v2.Address {
 	if endpoints == nil {
