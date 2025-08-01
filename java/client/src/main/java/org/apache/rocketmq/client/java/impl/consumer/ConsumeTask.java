@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
+import org.apache.rocketmq.client.java.hook.Attribute;
+import org.apache.rocketmq.client.java.hook.AttributeKey;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
@@ -30,6 +32,7 @@ import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
+import org.apache.rocketmq.client.java.rpc.LoggingInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +43,9 @@ public class ConsumeTask implements Callable<ConsumeResult> {
     private final MessageListener messageListener;
     private final MessageViewImpl messageView;
     private final MessageInterceptor messageInterceptor;
-
+    private static final String MESSAGE_VIEW_CONTEXT = "messageView";
+    private static final String REMOTE_ADDR_CONTEXT = "remoteAddr";
+    private static final String CONSUME_ERROR_CONTEXT = "consumeError";
     public ConsumeTask(ClientId clientId, MessageListener messageListener, MessageViewImpl messageView,
         MessageInterceptor messageInterceptor) {
         this.clientId = clientId;
@@ -59,7 +64,17 @@ public class ConsumeTask implements Callable<ConsumeResult> {
         ConsumeResult consumeResult;
         final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
         MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.CONSUME);
+
+        // Add remoteAddr to context.
+        String remoteAddr = LoggingInterceptor.getRemoteAddr();
+        AttributeKey<String> remoteAddrKey = AttributeKey.create(REMOTE_ADDR_CONTEXT);
+        context.putAttribute(remoteAddrKey, Attribute.create(remoteAddr));
+        // Add message view to context.
+        AttributeKey<MessageViewImpl> messageViewKey = AttributeKey.create(MESSAGE_VIEW_CONTEXT);
+        context.putAttribute(messageViewKey, Attribute.create(messageView));
+
         messageInterceptor.doBefore(context, generalMessages);
+        Throwable throwable = null;
         try {
             consumeResult = messageListener.consume(messageView);
         } catch (Throwable t) {
@@ -67,10 +82,16 @@ public class ConsumeTask implements Callable<ConsumeResult> {
                 "messageId={}", clientId, messageView.getMessageQueue(), messageView.getMessageId(), t);
             // If exception was thrown during the period of message consumption, mark it as failure.
             consumeResult = ConsumeResult.FAILURE;
+            throwable = t;
         }
         MessageHookPointsStatus status = ConsumeResult.SUCCESS.equals(consumeResult) ? MessageHookPointsStatus.OK :
             MessageHookPointsStatus.ERROR;
         context = new MessageInterceptorContextImpl(context, status);
+        if(!ConsumeResult.SUCCESS.equals(consumeResult) && null != throwable) {
+            // Add consume error to context.
+            AttributeKey<Throwable> consumeErrorKey = AttributeKey.create(CONSUME_ERROR_CONTEXT);
+            context.putAttribute(consumeErrorKey, Attribute.create(throwable));
+        }
         messageInterceptor.doAfter(context, generalMessages);
         // Make sure that the return value is the subset of messageViews.
         return consumeResult;

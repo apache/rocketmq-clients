@@ -39,11 +39,15 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
     @Override
     public void doBefore(MessageInterceptorContext context0, List<GeneralMessage> messages) {
         final HashMap<Integer, Map<AttributeKey, Attribute>> attributeMap = new HashMap<>();
+        final MessageHookPoints messageHookPoints = context0.getMessageHookPoints();
+        final MessageHookPointsStatus status = context0.getStatus();
+        MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status);
+
         for (int index = 0; index < interceptors.size(); index++) {
             MessageInterceptor interceptor = interceptors.get(index);
-            final MessageHookPoints messageHookPoints = context0.getMessageHookPoints();
-            final MessageHookPointsStatus status = context0.getStatus();
-            final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status);
+            if (context0 instanceof MessageInterceptorContextImpl) {
+                ((MessageInterceptorContextImpl)context0).getAttributes().forEach(context::putAttribute);
+            }
             try {
                 interceptor.doBefore(context, messages);
             } catch (Throwable t) {
@@ -63,8 +67,11 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
             final Map<AttributeKey, Attribute> attributes = attributeMap.get(index);
             final MessageHookPoints messageHookPoints = context0.getMessageHookPoints();
             final MessageHookPointsStatus status = context0.getStatus();
-            final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status,
+            MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status,
                 attributes);
+            if (context0 instanceof MessageInterceptorContextImpl) {
+                ((MessageInterceptorContextImpl)context0).getAttributes().forEach(context::putAttribute);
+            }
             MessageInterceptor interceptor = interceptors.get(index);
             try {
                 interceptor.doAfter(context, messages);
