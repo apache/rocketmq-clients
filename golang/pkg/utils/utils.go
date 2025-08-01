@@ -87,6 +87,9 @@ func ParseAddress(address *v2.Address) string {
 }
 
 func ParseTarget(target string) (*v2.Endpoints, error) {
+	if strings.HasPrefix(target, "ip:///") {
+		target = strings.TrimPrefix(target, "ip:///")
+	}
 	ret := &v2.Endpoints{
 		Scheme: v2.AddressScheme_DOMAIN_NAME,
 	}
