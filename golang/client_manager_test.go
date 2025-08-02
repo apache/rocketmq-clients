@@ -166,11 +166,13 @@ func TestCMUnRegisterClient(t *testing.T) {
 var (
 	fakeHost          = "127.0.0.1"
 	fakePort    int32 = 80
-	fakeAddress       = fmt.Sprintf("%s:%d", fakeHost, fakePort)
+	fakeScheme        = "ip"
+	fakeAddress       = fmt.Sprintf("%s:///%s:%d", fakeScheme, fakeHost, fakePort)
 )
 
 func fakeEndpoints() *v2.Endpoints {
 	return &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv4,
 		Addresses: []*v2.Address{
 			{
 				Host: fakeHost,
