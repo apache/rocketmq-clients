@@ -38,7 +38,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,7 +51,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import net.javacrumbs.futureconverter.java8guava.FutureConverter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
