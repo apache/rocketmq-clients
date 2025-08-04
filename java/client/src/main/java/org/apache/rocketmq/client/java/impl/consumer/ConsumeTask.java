@@ -39,13 +39,15 @@ import org.slf4j.LoggerFactory;
 public class ConsumeTask implements Callable<ConsumeResult> {
     private static final Logger log = LoggerFactory.getLogger(ConsumeTask.class);
 
+    private static final String MESSAGE_VIEW_CONTEXT = "messageView";
+    private static final String REMOTE_ADDR_CONTEXT = "remoteAddr";
+    private static final String CONSUME_ERROR_CONTEXT = "consumeError";
+
     private final ClientId clientId;
     private final MessageListener messageListener;
     private final MessageViewImpl messageView;
     private final MessageInterceptor messageInterceptor;
-    private static final String MESSAGE_VIEW_CONTEXT = "messageView";
-    private static final String REMOTE_ADDR_CONTEXT = "remoteAddr";
-    private static final String CONSUME_ERROR_CONTEXT = "consumeError";
+
     public ConsumeTask(ClientId clientId, MessageListener messageListener, MessageViewImpl messageView,
         MessageInterceptor messageInterceptor) {
         this.clientId = clientId;
@@ -87,7 +89,7 @@ public class ConsumeTask implements Callable<ConsumeResult> {
         MessageHookPointsStatus status = ConsumeResult.SUCCESS.equals(consumeResult) ? MessageHookPointsStatus.OK :
             MessageHookPointsStatus.ERROR;
         context = new MessageInterceptorContextImpl(context, status);
-        if(!ConsumeResult.SUCCESS.equals(consumeResult) && null != throwable) {
+        if (!ConsumeResult.SUCCESS.equals(consumeResult) && null != throwable) {
             // Add consume error to context.
             AttributeKey<Throwable> consumeErrorKey = AttributeKey.create(CONSUME_ERROR_CONTEXT);
             context.putAttribute(consumeErrorKey, Attribute.create(throwable));

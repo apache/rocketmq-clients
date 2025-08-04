@@ -46,7 +46,7 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
         for (int index = 0; index < interceptors.size(); index++) {
             MessageInterceptor interceptor = interceptors.get(index);
             if (context0 instanceof MessageInterceptorContextImpl) {
-                ((MessageInterceptorContextImpl)context0).getAttributes().forEach(context::putAttribute);
+                ((MessageInterceptorContextImpl) context0).getAttributes().forEach(context::putAttribute);
             }
             try {
                 interceptor.doBefore(context, messages);
@@ -70,7 +70,7 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
             MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status,
                 attributes);
             if (context0 instanceof MessageInterceptorContextImpl) {
-                ((MessageInterceptorContextImpl)context0).getAttributes().forEach(context::putAttribute);
+                ((MessageInterceptorContextImpl) context0).getAttributes().forEach(context::putAttribute);
             }
             MessageInterceptor interceptor = interceptors.get(index);
             try {

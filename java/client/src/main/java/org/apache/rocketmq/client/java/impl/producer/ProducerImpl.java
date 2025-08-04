@@ -38,6 +38,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,6 +52,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import net.javacrumbs.futureconverter.java8guava.FutureConverter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
@@ -97,13 +99,15 @@ import org.slf4j.LoggerFactory;
 class ProducerImpl extends ClientImpl implements Producer {
     private static final Logger log = LoggerFactory.getLogger(ProducerImpl.class);
 
-    protected final PublishingSettings publishingSettings;
-    final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataCache;
-    private final TransactionChecker checker;
     private static final String SEND_RECEIPTS_CONTEXT = "sendReceipts";
     private static final String SEND_EXCEPTION_CONTEXT = "sendException";
     private static final String MESSAGE_TYPE_CONTEXT = "messageType";
     private static final String REMOTE_ADDR_CONTEXT = "remoteAddr";
+
+    protected final PublishingSettings publishingSettings;
+    final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataCache;
+    private final TransactionChecker checker;
+
     /**
      * The caller is supposed to have validated the arguments and handled throwing exception or
      * logging warnings already, so we avoid repeating args check here.
@@ -223,7 +227,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         if (!(transaction instanceof TransactionImpl)) {
             throw new IllegalArgumentException("Failed downcasting for transaction");
         }
-        TransactionImpl transactionImpl = (TransactionImpl)transaction;
+        TransactionImpl transactionImpl = (TransactionImpl) transaction;
         final PublishingMessageImpl publishingMessage;
         try {
             publishingMessage = transactionImpl.tryAddMessage(message);
@@ -233,7 +237,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         final ListenableFuture<List<SendReceiptImpl>> future = send(Collections.singletonList(publishingMessage), true);
         final List<SendReceiptImpl> receipts = handleClientFuture(future);
         final SendReceiptImpl sendReceipt = receipts.iterator().next();
-        ((TransactionImpl)transaction).tryAddReceipt(publishingMessage, sendReceipt);
+        ((TransactionImpl) transaction).tryAddReceipt(publishingMessage, sendReceipt);
         return sendReceipt;
     }
 
@@ -478,7 +482,7 @@ class ProducerImpl extends ClientImpl implements Producer {
 
         // Intercept before message publishing.
         final List<GeneralMessage> generalMessages = messages.stream().map((Function<PublishingMessageImpl,
-            GeneralMessage>)GeneralMessageImpl::new).collect(Collectors.toList());
+            GeneralMessage>) GeneralMessageImpl::new).collect(Collectors.toList());
         MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
 
         // Add message type to context.
