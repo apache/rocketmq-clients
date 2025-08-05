@@ -121,6 +121,23 @@ func ParseTarget(target string) (*v2.Endpoints, error) {
 	return ret, nil
 }
 
+func FormatTarget(endpoints *v2.Endpoints) string {
+	if endpoints == nil {
+		return ""
+	}
+	if len(endpoints.GetAddresses()) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for i, address := range endpoints.GetAddresses() {
+		if i > 0 {
+			sb.WriteString(";")
+		}
+		sb.WriteString(ParseAddress(address))
+	}
+	return sb.String()
+}
+
 func GetOsDescription() string {
 	osName := os.Getenv("os.name")
 	if len(osName) == 0 {
