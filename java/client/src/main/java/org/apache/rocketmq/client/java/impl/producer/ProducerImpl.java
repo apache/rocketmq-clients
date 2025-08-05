@@ -476,6 +476,7 @@ class ProducerImpl extends ClientImpl implements Producer {
             return;
         }
         final Endpoints endpoints = mq.getBroker().getEndpoints();
+        final ListenableFuture<List<SendReceiptImpl>> future = send0(endpoints, messages, mq);
         final int maxAttempts = this.getRetryPolicy().getMaxAttempts();
 
         // Intercept before message publishing.
@@ -492,8 +493,6 @@ class ProducerImpl extends ClientImpl implements Producer {
         context.putAttribute(remoteAddrKey, Attribute.create(remoteAddr));
 
         doBefore(context, generalMessages);
-
-        final ListenableFuture<List<SendReceiptImpl>> future = send0(endpoints, messages, mq);
 
         Futures.addCallback(future, new FutureCallback<List<SendReceiptImpl>>() {
             @Override
@@ -523,6 +522,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                 doAfter(context0, generalMessages);
 
                 // No need more attempts.
+                future0.set(sendReceipts);
                 // Resend message(s) successfully.
                 if (1 < attempt) {
                     // Collect messageId(s) for logging.
