@@ -200,8 +200,16 @@ public class Endpoints {
             Objects.equal(addresses, endpoints.addresses);
     }
 
+    /**
+     * Cache the hash code for the object
+     */
+    private int hash; // Default to 0
+
     @Override
     public int hashCode() {
-        return Objects.hashCode(scheme, facade, addresses);
+        if (hash == 0) {
+            hash = Objects.hashCode(scheme, facade, addresses);
+        }
+        return hash;
     }
 }

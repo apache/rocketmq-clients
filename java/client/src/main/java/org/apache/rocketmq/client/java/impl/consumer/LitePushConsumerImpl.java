@@ -53,7 +53,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             } catch (Throwable t) {
                 log.error("Exception raised during syncAllInterset, clientId={}", clientId, t);
             }
-        }, 60, 60, TimeUnit.SECONDS);
+        }, 30, 30, TimeUnit.SECONDS);
     }
 
     @Override
