@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -242,6 +243,14 @@ func EndpointsToString(endpoints *v2.Endpoints) string {
 	}
 	var sb strings.Builder
 	addresses := endpoints.GetAddresses()
+	sort.Slice(addresses, func(i, j int) bool {
+		ip1 := net.ParseIP(addresses[i].Host).String()
+		ip2 := net.ParseIP(addresses[j].Host).String()
+		if ip1 == ip2 {
+			return addresses[i].Port < addresses[j].Port
+		}
+		return ip1 < ip2
+	})
 	for i, addr := range addresses {
 		sb.WriteString(fmt.Sprintf("%s:%d", addr.Host, addr.Port))
 		if i != len(addresses)-1 {
