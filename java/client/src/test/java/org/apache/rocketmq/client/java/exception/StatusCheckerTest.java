@@ -442,6 +442,14 @@ public class StatusCheckerTest extends TestBase {
         }
     }
 
+    @Test(expected = LiteQuotaExceededException.class)
+    public void testLiteQuotaExceeded() throws ClientException {
+        Status status = Status.newBuilder().setCode(Code.LITE_QUOTA_EXCEEDED).build();
+        final Context context = generateContext();
+        RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, null);
+        StatusChecker.check(status, invocation);
+    }
+
     @Test
     public void testRequestHeaderFieldsTooLarge() throws ClientException {
         Object response = new Object();

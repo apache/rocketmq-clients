@@ -20,8 +20,8 @@ package org.apache.rocketmq.client.java.impl;
 public enum ClientType {
     PRODUCER,
     PUSH_CONSUMER,
-    SIMPLE_CONSUMER,
-    LITE_PUSH_CONSUMER;
+    LITE_PUSH_CONSUMER,
+    SIMPLE_CONSUMER;
 
     public apache.rocketmq.v2.ClientType toProtobuf() {
         if (PRODUCER.equals(this)) {
@@ -30,11 +30,11 @@ public enum ClientType {
         if (PUSH_CONSUMER.equals(this)) {
             return apache.rocketmq.v2.ClientType.PUSH_CONSUMER;
         }
-        if (SIMPLE_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.SIMPLE_CONSUMER;
-        }
         if (LITE_PUSH_CONSUMER.equals(this)) {
             return apache.rocketmq.v2.ClientType.LITE_PUSH_CONSUMER;
+        }
+        if (SIMPLE_CONSUMER.equals(this)) {
+            return apache.rocketmq.v2.ClientType.SIMPLE_CONSUMER;
         }
         return apache.rocketmq.v2.ClientType.CLIENT_TYPE_UNSPECIFIED;
     }

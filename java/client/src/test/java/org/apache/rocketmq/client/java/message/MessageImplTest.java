@@ -131,4 +131,21 @@ public class MessageImplTest extends TestBase {
         assertFalse(message.getDeliveryTimestamp().isPresent());
         assertFalse(message.getMessageGroup().isPresent());
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testLiteTopicSetterWithSpaces() {
+        provider.newMessageBuilder().setLiteTopic("  ");
+    }
+
+    @Test
+    public void testLiteTopicSetter() {
+        final Message message = provider.newMessageBuilder()
+            .setLiteTopic("liteTopicA")
+            .setTopic(FAKE_TOPIC_0)
+            .setBody(FAKE_MESSAGE_BODY)
+            .build();
+        assertTrue(message.getLiteTopic().isPresent());
+        assertEquals("liteTopicA", message.getLiteTopic().get());
+    }
+
 }

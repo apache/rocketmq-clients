@@ -65,13 +65,6 @@ public class PushSubscriptionSettings extends Settings {
         this.subscriptionExpressions = subscriptionExpression;
     }
 
-    public PushSubscriptionSettings(String namespace, ClientId clientId, Endpoints endpoints, Resource group,
-        Duration requestTimeout, Map<String, FilterExpression> subscriptionExpression) {
-        super(namespace, clientId, ClientType.PUSH_CONSUMER, endpoints, requestTimeout);
-        this.group = group;
-        this.subscriptionExpressions = subscriptionExpression;
-    }
-
     public boolean isFifo() {
         return fifo;
     }

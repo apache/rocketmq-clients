@@ -1,7 +1,5 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import apache.rocketmq.v2.ClientType;
-import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.LiteSubscriptionAction;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
@@ -35,15 +33,13 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
 
     private volatile ScheduledFuture<?> syncAllIntersetFuture;
     private final LitePushConsumerSettings litePushConsumerSettings;
-    private final String bindTopic;
 
     public LitePushConsumerImpl(LitePushConsumerBuilderImpl builder) {
         super(builder.clientConfiguration, builder.consumerGroup, builder.subscriptionExpressions,
             builder.messageListener, builder.maxCacheMessageCount, builder.maxCacheMessageSizeInBytes,
             builder.consumptionThreadCount, builder.enableFifoConsumeAccelerator);
-        this.bindTopic = builder.bindTopic;
         this.litePushConsumerSettings = new LitePushConsumerSettings(builder.clientConfiguration,
-            clientId, endpoints, bindTopic,
+            clientId, endpoints, builder.bindTopic,
             builder.consumerGroup);
     }
 
@@ -159,12 +155,6 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             .setAutoRenew(true)
             .setAttemptId(attemptId)
             .build();
-    }
-
-    @Override
-    public HeartbeatRequest wrapHeartbeatRequest() {
-        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
-            .setClientType(ClientType.LITE_PUSH_CONSUMER).build();
     }
 
     private void checkRunning() {

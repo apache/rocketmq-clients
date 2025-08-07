@@ -154,12 +154,6 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         return new HashMap<>(subscriptionExpressions);
     }
 
-    @Override
-    public HeartbeatRequest wrapHeartbeatRequest() {
-        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
-            .setClientType(ClientType.SIMPLE_CONSUMER).build();
-    }
-
     /**
      * @see SimpleConsumer#receive(int, Duration)
      */

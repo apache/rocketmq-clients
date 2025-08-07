@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import apache.rocketmq.v2.ClientType;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
@@ -63,6 +62,7 @@ import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
+import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
@@ -129,9 +129,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
-        Resource groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
-        this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration.getNamespace(), clientId,
-            endpoints, groupResource, clientConfiguration.getRequestTimeout(), subscriptionExpressions);
+        this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration, clientId,
+            ClientType.PUSH_CONSUMER, endpoints, consumerGroup, subscriptionExpressions);
         this.consumerGroup = consumerGroup;
         this.subscriptionExpressions = subscriptionExpressions;
         this.cacheAssignments = new ConcurrentHashMap<>();
@@ -373,13 +372,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         }
         return Optional.of(processQueue);
     }
-
-    @Override
-    public HeartbeatRequest wrapHeartbeatRequest() {
-        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
-            .setClientType(ClientType.PUSH_CONSUMER).build();
-    }
-
 
     @VisibleForTesting
     void syncProcessQueue(String topic, Assignments assignments, FilterExpression filterExpression) {

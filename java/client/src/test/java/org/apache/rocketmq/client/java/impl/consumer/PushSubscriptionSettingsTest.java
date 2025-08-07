@@ -29,6 +29,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.rocketmq.client.apis.ClientConfiguration;
+import org.apache.rocketmq.client.apis.ClientConfigurationBuilder;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
@@ -41,13 +43,19 @@ public class PushSubscriptionSettingsTest extends TestBase {
 
     @Test
     public void testToProtobuf() {
-        Resource groupResource = new Resource(FAKE_NAMESPACE, FAKE_CONSUMER_GROUP_0);
+        final Duration requestTimeout = Duration.ofSeconds(3);
+        ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
+            .setNamespace(FAKE_NAMESPACE)
+            .setRequestTimeout(requestTimeout)
+            .setEndpoints(FAKE_ENDPOINTS)
+            .build();
         ClientId clientId = new ClientId();
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression());
-        final Duration requestTimeout = Duration.ofSeconds(3);
-        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(FAKE_NAMESPACE, clientId,
-            fakeEndpoints(), groupResource, requestTimeout, subscriptionExpression);
+        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(
+            clientConfiguration, clientId,
+            org.apache.rocketmq.client.java.impl.ClientType.PUSH_CONSUMER,
+            fakeEndpoints(), FAKE_CONSUMER_GROUP_0, subscriptionExpression);
         final Settings settings = pushSubscriptionSettings.toProtobuf();
         Assert.assertEquals(settings.getClientType(), ClientType.PUSH_CONSUMER);
         Assert.assertEquals(settings.getRequestTimeout(), Durations.fromNanos(requestTimeout.toNanos()));
@@ -72,15 +80,20 @@ public class PushSubscriptionSettingsTest extends TestBase {
 
     @Test
     public void testToProtobufWithSqlExpression() {
-        Resource groupResource = new Resource(FAKE_NAMESPACE, FAKE_CONSUMER_GROUP_0);
+        final Duration requestTimeout = Duration.ofSeconds(3);
+        ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
+            .setNamespace(FAKE_NAMESPACE)
+            .setRequestTimeout(requestTimeout)
+            .setEndpoints(FAKE_ENDPOINTS)
+            .build();
         ClientId clientId = new ClientId();
-
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression("(a > 10 AND a < 100) OR (b IS NOT NULL AND "
             + "b=TRUE)", FilterExpressionType.SQL92));
-        final Duration requestTimeout = Duration.ofSeconds(3);
-        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(FAKE_NAMESPACE, clientId,
-            fakeEndpoints(), groupResource, requestTimeout, subscriptionExpression);
+        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(
+            clientConfiguration, clientId,
+            org.apache.rocketmq.client.java.impl.ClientType.PUSH_CONSUMER,
+            fakeEndpoints(), FAKE_CONSUMER_GROUP_0, subscriptionExpression);
         final Settings settings = pushSubscriptionSettings.toProtobuf();
         Assert.assertEquals(settings.getClientType(), ClientType.PUSH_CONSUMER);
         Assert.assertEquals(settings.getRequestTimeout(), Durations.fromNanos(requestTimeout.toNanos()));
@@ -121,14 +134,20 @@ public class PushSubscriptionSettingsTest extends TestBase {
         Subscription subscription = Subscription.newBuilder().setFifo(fifo).setReceiveBatchSize(receiveBatchSize)
             .setLongPollingTimeout(longPollingTimeout).build();
         Settings settings = Settings.newBuilder().setSubscription(subscription).setBackoffPolicy(retryPolicy).build();
-        Resource groupResource = new Resource(FAKE_CONSUMER_GROUP_0);
         ClientId clientId = new ClientId();
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression("(a > 10 AND a < 100) OR (b IS NOT NULL AND "
             + "b=TRUE)", FilterExpressionType.SQL92));
         final Duration requestTimeout = Duration.ofSeconds(3);
-        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(FAKE_NAMESPACE, clientId,
-            fakeEndpoints(), groupResource, requestTimeout, subscriptionExpression);
+        ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
+            .setNamespace(FAKE_NAMESPACE)
+            .setRequestTimeout(requestTimeout)
+            .setEndpoints(FAKE_ENDPOINTS)
+            .build();
+        final PushSubscriptionSettings pushSubscriptionSettings = new PushSubscriptionSettings(
+            clientConfiguration, clientId,
+            org.apache.rocketmq.client.java.impl.ClientType.PUSH_CONSUMER,
+            fakeEndpoints(), FAKE_CONSUMER_GROUP_0, subscriptionExpression);
         pushSubscriptionSettings.sync(settings);
     }
 }

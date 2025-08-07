@@ -35,14 +35,14 @@ import org.apache.rocketmq.client.apis.message.MessageBuilder;
 public class MessageBuilderImpl implements MessageBuilder {
     public static final Pattern TOPIC_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
 
-   protected String topic = null;
-   protected byte[] body = null;
-   protected String tag = null;
-   protected String messageGroup = null;
-   protected Long deliveryTimestamp = null;
-   protected String liteTopic = null;
-   protected Collection<String> keys = new HashSet<>();
-   protected final Map<String, String> properties = new HashMap<>();
+    protected String topic = null;
+    protected byte[] body = null;
+    protected String tag = null;
+    protected String messageGroup = null;
+    protected String liteTopic = null;
+    protected Long deliveryTimestamp = null;
+    protected Collection<String> keys = new HashSet<>();
+    protected final Map<String, String> properties = new HashMap<>();
 
     public MessageBuilderImpl() {
     }
@@ -99,8 +99,18 @@ public class MessageBuilderImpl implements MessageBuilder {
     @Override
     public MessageBuilder setMessageGroup(String messageGroup) {
         checkArgument(null == deliveryTimestamp, "messageGroup and deliveryTimestamp should not be set at same time");
+        checkArgument(null == liteTopic, "messageGroup and liteTopic should not be set at same time");
         checkArgument(StringUtils.isNotBlank(messageGroup), "messageGroup should not be blank");
         this.messageGroup = messageGroup;
+        return this;
+    }
+
+    @Override
+    public MessageBuilder setLiteTopic(String liteTopic) {
+        checkArgument(null == deliveryTimestamp, "liteTopic and deliveryTimestamp should not be set at same time");
+        checkArgument(null == messageGroup, "liteTopic and messageGroup should not be set at same time");
+        checkArgument(StringUtils.isNotBlank(liteTopic), "liteTopic should not be blank");
+        this.liteTopic = liteTopic;
         return this;
     }
 
@@ -110,15 +120,8 @@ public class MessageBuilderImpl implements MessageBuilder {
     @Override
     public MessageBuilder setDeliveryTimestamp(long deliveryTimestamp) {
         checkArgument(null == messageGroup, "deliveryTimestamp and messageGroup should not be set at same time");
+        checkArgument(null == liteTopic, "deliveryTimestamp and liteTopic should not be set at same time");
         this.deliveryTimestamp = deliveryTimestamp;
-        return this;
-    }
-
-    @Override
-    public MessageBuilder setLiteTopic(String liteTopic) {
-        // todo 不能与其他消息特性共存
-        checkArgument(StringUtils.isNotBlank(liteTopic), "liteTopic should not be blank");
-        this.liteTopic = liteTopic;
         return this;
     }
 
