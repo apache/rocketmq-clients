@@ -192,8 +192,11 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract RpcFuture<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse> syncLiteSubscription(Endpoints endpoints,
-        SyncLiteSubscriptionRequest request, Duration duration);
+    public abstract RpcFuture<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse> syncLiteSubscription(
+        Endpoints endpoints,
+        SyncLiteSubscriptionRequest request,
+        Duration duration
+    );
 
     /**
      * Establish telemetry session stream to server.

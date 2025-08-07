@@ -364,8 +364,11 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public RpcFuture<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse> syncLiteSubscription(Endpoints endpoints,
-        SyncLiteSubscriptionRequest request, Duration duration) {
+    public RpcFuture<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse> syncLiteSubscription(
+        Endpoints endpoints,
+        SyncLiteSubscriptionRequest request,
+        Duration duration
+    ) {
         try {
             final Metadata metadata = client.sign();
             final Context context = new Context(endpoints, metadata);
