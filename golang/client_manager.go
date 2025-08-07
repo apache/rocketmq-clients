@@ -204,7 +204,13 @@ func (cm *defaultClientManager) getRpcClient(endpoints *v2.Endpoints) (RpcClient
 			return ret, nil
 		}
 	}
-	rpcClient, err := NewRpcClient(target)
+	// Get the first defaultClient from clientTable
+	var client Client
+	cm.clientTable.Range(func(_, v interface{}) bool {
+		client = v.(Client)
+		return false
+	})
+	rpcClient, err := NewRpcClient(target, client.GetEnableSsl())
 	if err != nil {
 		return nil, err
 	}

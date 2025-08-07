@@ -107,8 +107,10 @@ func (c *clientConn) Close() error {
 
 func (c *clientConn) dialSetupOpts(dopts ...grpc.DialOption) (opts []grpc.DialOption, err error) {
 	opts = append(opts, dopts...)
-	if c.creds != nil {
+	if c.creds != nil && c.opts.EnableSsl {
 		opts = append(opts, grpc.WithTransportCredentials(c.creds))
+	} else {
+		opts = append(opts, grpc.WithInsecure())
 	}
 	// TODO get requestID in header
 	opts = append(opts, grpc.WithBlock(), grpc.WithChainUnaryInterceptor(

@@ -58,6 +58,7 @@ func main() {
 			AccessKey:    AccessKey,
 			AccessSecret: SecretKey,
 		},
+		EnableSsl: true,
 	},
 		rmq_client.WithSimpleAwaitDuration(awaitDuration),
 		rmq_client.WithSimpleSubscriptionExpressions(map[string]*rmq_client.FilterExpression{

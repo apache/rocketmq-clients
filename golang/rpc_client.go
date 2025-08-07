@@ -68,7 +68,7 @@ type rpcClient struct {
  *   so let's assume to access or mutate it locking the mutex is required.
  */
 
-var NewRpcClient = func(target string, opts ...RpcClientOption) (RpcClient, error) {
+var NewRpcClient = func(target string, enableSsl bool, opts ...RpcClientOption) (RpcClient, error) {
 	rc := &rpcClient{
 		target: target,
 		opts:   defaultRpcClientOptions,
@@ -76,6 +76,7 @@ var NewRpcClient = func(target string, opts ...RpcClientOption) (RpcClient, erro
 	for _, opt := range opts {
 		opt.apply(&rc.opts)
 	}
+	rc.opts.connOptions = append(rc.opts.connOptions, WithEnableSsl(enableSsl))
 	conn, err := rc.opts.clientConnFunc(target, rc.opts.connOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("create grpc conn failed, err=%w", err)

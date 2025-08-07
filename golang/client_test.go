@@ -50,7 +50,7 @@ func BuildCLient(t *testing.T) *defaultClient {
 		SYNC_SETTINGS_PERIOD: time.Hour,
 	})
 
-	stubs2 := gostub.Stub(&NewRpcClient, func(target string, opts ...RpcClientOption) (RpcClient, error) {
+	stubs2 := gostub.Stub(&NewRpcClient, func(target string, enableSsl bool, opts ...RpcClientOption) (RpcClient, error) {
 		if target == fakeAddress {
 			return MOCK_RPC_CLIENT, nil
 		}
@@ -117,7 +117,7 @@ func TestCLINewClient(t *testing.T) {
 		SYNC_SETTINGS_PERIOD: time.Hour,
 	})
 
-	stubs2 := gostub.Stub(&NewRpcClient, func(target string, opts ...RpcClientOption) (RpcClient, error) {
+	stubs2 := gostub.Stub(&NewRpcClient, func(target string, enableSsl bool, opts ...RpcClientOption) (RpcClient, error) {
 		if target == fakeAddress {
 			return MOCK_RPC_CLIENT, nil
 		}

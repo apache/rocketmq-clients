@@ -34,6 +34,7 @@ import (
 var MOCK_CLIENT_ID = "mock_client_id"
 var MOCK_TOPIC = "mock_topic"
 var MOCK_GROUP = "mock_group"
+var MOCK_ENABLE_SSL = true
 var MOCK_CLIENT *MockClient
 var MOCK_RPC_CLIENT *MockRpcClient
 
@@ -113,7 +114,7 @@ func TestMain(m *testing.M) {
 
 	MOCK_CLIENT = NewMockClient(ctrl)
 	MOCK_CLIENT.EXPECT().GetClientID().Return(MOCK_CLIENT_ID).AnyTimes()
-
+	MOCK_CLIENT.EXPECT().GetEnableSsl().Return(MOCK_ENABLE_SSL).AnyTimes()
 	MOCK_RPC_CLIENT = NewMockRpcClient(ctrl)
 	MOCK_RPC_CLIENT.EXPECT().HeartBeat(gomock.Any(), gomock.Any()).Return(&v2.HeartbeatResponse{
 		Status: &v2.Status{
@@ -123,7 +124,7 @@ func TestMain(m *testing.M) {
 
 	MOCK_RPC_CLIENT.EXPECT().GracefulStop().Return(nil).AnyTimes()
 	MOCK_RPC_CLIENT.EXPECT().GetTarget().Return(fakeAddress).AnyTimes()
-	stubs := gostub.Stub(&NewRpcClient, func(target string, opts ...RpcClientOption) (RpcClient, error) {
+	stubs := gostub.Stub(&NewRpcClient, func(target string, enableSsl bool, opts ...RpcClientOption) (RpcClient, error) {
 		if target == fakeAddress {
 			return MOCK_RPC_CLIENT, nil
 		}

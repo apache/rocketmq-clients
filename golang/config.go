@@ -24,4 +24,5 @@ type Config struct {
 	NameSpace     string
 	ConsumerGroup string
 	Credentials   *credentials.SessionCredentials `validate:"required"`
+	EnableSsl     bool
 }

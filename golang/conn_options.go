@@ -58,6 +58,9 @@ type connOptions struct {
 
 	// Logger is logger
 	Logger *zap.Logger
+
+	// EnableSsl indicates whether to enable SSL/TLS for the connection.
+	EnableSsl bool
 }
 
 var defaultConnOptions = connOptions{
@@ -68,7 +71,8 @@ var defaultConnOptions = connOptions{
 		RootCAs:            x509.NewCertPool(),
 		InsecureSkipVerify: true,
 	},
-	Logger:            zaplog.New(),
+	Logger:    zaplog.New(),
+	EnableSsl: true,
 }
 
 // A ConnOption sets options such as tls.Config, etc.
@@ -148,5 +152,11 @@ func WithContext(ctx context.Context) ConnOption {
 func WithZapLogger(logger *zap.Logger) ConnOption {
 	return newFuncConnOption(func(o *connOptions) {
 		o.Logger = logger
+	})
+}
+
+func WithEnableSsl(enable bool) ConnOption {
+	return newFuncConnOption(func(o *connOptions) {
+		o.EnableSsl = enable
 	})
 }

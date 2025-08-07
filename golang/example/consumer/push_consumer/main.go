@@ -54,6 +54,7 @@ func main() {
 			AccessSecret: SecretKey,
 		},
 		NameSpace: NameSpace,
+		EnableSsl: true,
 	},
 		rmq_client.WithPushAwaitDuration(awaitDuration),
 		rmq_client.WithPushSubscriptionExpressions(map[string]*rmq_client.FilterExpression{

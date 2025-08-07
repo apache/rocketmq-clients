@@ -42,6 +42,7 @@ type Client interface {
 	GetClientID() string
 	Sign(ctx context.Context) context.Context
 	GracefulStop() error
+	GetEnableSsl() bool
 }
 
 type isClient interface {
@@ -279,6 +280,10 @@ var NewClientConcrete = func(config *Config, opts ...ClientOption) (*defaultClie
 
 func (cli *defaultClient) GetClientID() string {
 	return cli.clientID
+}
+
+func (cli *defaultClient) GetEnableSsl() bool {
+	return cli.config.EnableSsl
 }
 
 func (cli *defaultClient) getDefaultClientSession(target string) (*defaultClientSession, error) {

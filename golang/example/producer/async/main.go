@@ -47,6 +47,7 @@ func main() {
 			AccessKey:    AccessKey,
 			AccessSecret: SecretKey,
 		},
+		EnableSsl: true,
 	},
 		rmq_client.WithTopics(Topic),
 	)

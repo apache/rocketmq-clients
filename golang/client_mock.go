@@ -62,6 +62,20 @@ func (mr *MockClientMockRecorder) GetClientID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClientID", reflect.TypeOf((*MockClient)(nil).GetClientID))
 }
 
+// GetEnableSsl mocks base method.
+func (m *MockClient) GetEnableSsl() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEnableSsl")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetEnableSsl indicates an expected call of GetEnableSsl.
+func (mr *MockClientMockRecorder) GetEnableSsl() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnableSsl", reflect.TypeOf((*MockClient)(nil).GetEnableSsl))
+}
+
 // GracefulStop mocks base method.
 func (m *MockClient) GracefulStop() error {
 	m.ctrl.T.Helper()
