@@ -84,6 +84,8 @@ public class StatusChecker {
                 throw new PayloadEmptyException(codeNumber, requestId, statusMessage);
             case TOO_MANY_REQUESTS:
                 throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
+            case LITE_QUOTA_EXCEEDED:
+                throw new LiteQuotaExceededException(codeNumber, requestId, statusMessage);
             case REQUEST_HEADER_FIELDS_TOO_LARGE:
             case MESSAGE_PROPERTIES_TOO_LARGE:
                 throw new RequestHeaderFieldsTooLargeException(codeNumber, requestId, statusMessage);

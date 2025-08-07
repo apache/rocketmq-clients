@@ -39,6 +39,8 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
+import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
+import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
 import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.AbstractIdleService;
 import io.grpc.stub.StreamObserver;
@@ -181,6 +183,17 @@ public abstract class ClientManager extends AbstractIdleService {
      */
     public abstract RpcFuture<RecallMessageRequest, RecallMessageResponse> recallMessage(Endpoints endpoints,
         RecallMessageRequest request, Duration duration);
+
+    /**
+     * Sync lite subscription asynchronously, the method ensures no throwable.
+     *
+     * @param endpoints request endpoints.
+     * @param request   request.
+     * @param duration  request max duration.
+     * @return invocation of response future.
+     */
+    public abstract RpcFuture<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse> syncLiteSubscription(Endpoints endpoints,
+        SyncLiteSubscriptionRequest request, Duration duration);
 
     /**
      * Establish telemetry session stream to server.

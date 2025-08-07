@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 
 public class LiteProducerExample {
     private static final Logger log = LoggerFactory.getLogger(LiteProducerExample.class);
-    static final String TOPIC = "topic_quan";
+    static final String TOPIC = "topic_quan_0_0";
 //    static final String TOPIC = "TopicXXX";
 
     public static void main(String[] args) throws ClientException {

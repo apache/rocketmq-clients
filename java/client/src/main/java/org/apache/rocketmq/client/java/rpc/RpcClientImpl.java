@@ -40,6 +40,8 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
+import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
+import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
 import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -226,6 +228,16 @@ public class RpcClientImpl implements RpcClient {
         this.activityNanoTime = System.nanoTime();
         return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
             .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).recallMessage(request);
+    }
+
+    @Override
+    public ListenableFuture<SyncLiteSubscriptionResponse> syncLiteSubscription(Metadata metadata,
+        SyncLiteSubscriptionRequest request, Executor executor, Duration duration) {
+        this.activityNanoTime = System.nanoTime();
+        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata))
+            .withExecutor(executor)
+            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS)
+            .syncLiteSubscription(request);
     }
 
     @Override

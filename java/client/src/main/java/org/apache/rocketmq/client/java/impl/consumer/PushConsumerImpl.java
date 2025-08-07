@@ -95,7 +95,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     final AtomicLong consumptionOkQuantity;
     final AtomicLong consumptionErrorQuantity;
 
-    private final ClientConfiguration clientConfiguration;
     private final PushSubscriptionSettings pushSubscriptionSettings;
     protected final String consumerGroup;
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
@@ -130,7 +129,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
-        this.clientConfiguration = clientConfiguration;
         Resource groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
         this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration.getNamespace(), clientId,
             endpoints, groupResource, clientConfiguration.getRequestTimeout(), subscriptionExpressions);

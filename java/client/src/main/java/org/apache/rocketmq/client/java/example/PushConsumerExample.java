@@ -57,7 +57,7 @@ public class PushConsumerExample {
         String tag = "yourMessageTagA";
         FilterExpression filterExpression = new FilterExpression(tag, FilterExpressionType.TAG);
         String consumerGroup = "FooBarGroup";
-        String topic = "topic_quan";
+        String topic = "topic_quan_0_0";
         // In most case, you don't need to create too many consumers, singleton pattern is recommended.
         PushConsumer pushConsumer = provider.newPushConsumerBuilder()
             .setClientConfiguration(clientConfiguration)

@@ -2,25 +2,31 @@ package org.apache.rocketmq.client.java.impl.consumer;
 
 import apache.rocketmq.v2.ClientType;
 import apache.rocketmq.v2.HeartbeatRequest;
-import apache.rocketmq.v2.Interest;
-import apache.rocketmq.v2.InterestType;
+import apache.rocketmq.v2.LiteSubscriptionAction;
 import apache.rocketmq.v2.ReceiveMessageRequest;
-import apache.rocketmq.v2.TelemetryCommand;
+import apache.rocketmq.v2.Status;
+import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
+import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
+import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,19 +34,16 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     private static final Logger log = LoggerFactory.getLogger(LitePushConsumerImpl.class);
 
     private volatile ScheduledFuture<?> syncAllIntersetFuture;
-
     private final LitePushConsumerSettings litePushConsumerSettings;
-
     private final String bindTopic;
 
     public LitePushConsumerImpl(LitePushConsumerBuilderImpl builder) {
         super(builder.clientConfiguration, builder.consumerGroup, builder.subscriptionExpressions,
             builder.messageListener, builder.maxCacheMessageCount, builder.maxCacheMessageSizeInBytes,
             builder.consumptionThreadCount, builder.enableFifoConsumeAccelerator);
-
         this.bindTopic = builder.bindTopic;
-        this.litePushConsumerSettings = new LitePushConsumerSettings(builder.clientConfiguration, clientId, endpoints
-            , bindTopic,
+        this.litePushConsumerSettings = new LitePushConsumerSettings(builder.clientConfiguration,
+            clientId, endpoints, bindTopic,
             builder.consumerGroup);
     }
 
@@ -49,9 +52,9 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         super.startUp();
         syncAllIntersetFuture = getScheduler().scheduleWithFixedDelay(() -> {
             try {
-                syncAllInterset();
+                syncAllLiteSubscription();
             } catch (Throwable t) {
-                log.error("Exception raised during syncAllInterset, clientId={}", clientId, t);
+                log.error("schedule syncAllLiteSubscription error, clientId={}", clientId, t);
             }
         }, 30, 30, TimeUnit.SECONDS);
     }
@@ -65,75 +68,72 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     }
 
     @Override
-    public LitePushConsumer subscribeLite(Collection<String> liteTopics) {
-        if (!this.isRunning()) {
-            log.error("subscribeLite failed, lite push consumer not running, state={}, clientId={}",
-                this.state(), clientId);
-            throw new IllegalStateException("lite push consumer not running");
-        }
+    public LitePushConsumer subscribeLite(Collection<String> liteTopics) throws ClientException {
+        checkRunning();
         Set<String> addedSet = new HashSet<>();
         for (String liteTopic : liteTopics) {
             if (litePushConsumerSettings.subscribeLite(liteTopic)) {
                 addedSet.add(liteTopic);
             }
         }
-        syncInterset(InterestType.INCREMENTAL_ADD, addedSet);
+        if (!addedSet.isEmpty()) {
+            ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, addedSet);
+            handleClientFuture(future);
+        }
         return this;
     }
 
     @Override
-    public LitePushConsumer subscribeLite(String liteTopic) {
-        if (!this.isRunning()) {
-            log.error("subscribeLite failed, lite push consumer not running, state={}, clientId={}",
-                this.state(), clientId);
-            throw new IllegalStateException("lite push consumer not running");
-        }
+    public void subscribeLite(String liteTopic) throws ClientException {
+        checkRunning();
         if (litePushConsumerSettings.subscribeLite(liteTopic)) {
-            syncInterset(InterestType.INCREMENTAL_ADD, Collections.singleton(liteTopic));
+            ListenableFuture<Void> future =
+                syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, Collections.singleton(liteTopic));
+            handleClientFuture(future);
         }
-        return this;
     }
 
     @Override
-    public LitePushConsumer unsubscribeLite(String liteTopic) {
-        if (!this.isRunning()) {
-            log.error("unsubscribeLite failed, lite push consumer not running, state={}, clientId={}",
-                this.state(), clientId);
-            throw new IllegalStateException("lite push consumer not running");
-        }
+    public LitePushConsumer unsubscribeLite(String liteTopic) throws ClientException {
+        checkRunning();
         if (litePushConsumerSettings.unsubscribeLite(liteTopic)) {
-            syncInterset(InterestType.INCREMENTAL_REMOVE, Collections.singleton(liteTopic));
+            ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_REMOVE,
+                Collections.singleton(liteTopic));
+            handleClientFuture(future);
         }
         return this;
     }
 
-    private void syncAllInterset() {
+    private void syncAllLiteSubscription() throws ClientException {
         final Set<String> set = litePushConsumerSettings.getInterestSet();
-        syncInterset(InterestType.ALL_ADD, set);
-        log.info("syncAllInterset: {}", set);
+        ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.ALL_ADD, set);
+        handleClientFuture(future);
+        log.info("syncAllLiteSubscription: {}", set);
     }
 
-    private void syncInterset(InterestType interestType, Collection<String> diff) {
-        Interest interest = Interest.newBuilder()
-            .setInterestType(interestType)
+    protected ListenableFuture<Void> syncLiteSubscription(LiteSubscriptionAction action, Collection<String> diff) {
+        SyncLiteSubscriptionRequest request = SyncLiteSubscriptionRequest.newBuilder()
+            .setAction(action)
             .setTopic(litePushConsumerSettings.bindTopic.toProtobuf())
             .setGroup(litePushConsumerSettings.group.toProtobuf())
-            .addAllInterestSet(diff)
-            .setVersion(litePushConsumerSettings.getVersion())
+            .addAllSet(diff)
             .build();
-        final TelemetryCommand command = TelemetryCommand
-            .newBuilder()
-            .setInterest(interest)
-            .build();
-        final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
-        for (Endpoints endpoints : totalRouteEndpoints) {
-            try {
-                telemetry(endpoints, command);
-            } catch (Throwable t) {
-                log.error("syncInterset failed, clientId={}, endpoints={}, command={}"
-                    , clientId, endpoints, command, t);
-            }
-        }
+        Endpoints endpoints = getEndpoints();
+        // todo 这两个有什么区别
+        //        final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
+        return syncLiteSubscription0(endpoints, request);
+    }
+
+    protected ListenableFuture<Void> syncLiteSubscription0(Endpoints endpoints, SyncLiteSubscriptionRequest request) {
+        final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+        RpcFuture<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse> future =
+            this.getClientManager().syncLiteSubscription(endpoints, request, requestTimeout);
+
+        return Futures.transformAsync(future, response -> {
+            final Status status = response.getStatus();
+            StatusChecker.check(status, future);
+            return Futures.immediateVoidFuture();
+        }, MoreExecutors.directExecutor());
     }
 
     @Override
@@ -165,6 +165,14 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     public HeartbeatRequest wrapHeartbeatRequest() {
         return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
             .setClientType(ClientType.LITE_PUSH_CONSUMER).build();
+    }
+
+    private void checkRunning() {
+        if (!this.isRunning()) {
+            log.error("lite push consumer not running, state={}, clientId={}",
+                this.state(), clientId);
+            throw new IllegalStateException("lite push consumer not running");
+        }
     }
 
 }
