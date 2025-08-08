@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl;
 
+import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
 import apache.rocketmq.v2.ReconnectEndpointsCommand;
 import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
@@ -163,6 +164,14 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                     log.info("Receive reconnect endpoints command from remote, endpoints={}, clientId={}",
                             endpoints, clientId);
                     sessionHandler.onReconnectEndpointsCommand(endpoints, reconnectEndpointsCommand);
+                    break;
+                }
+                case NOTIFY_UNSUBSCRIBE_LITE_COMMAND: {
+                    final NotifyUnsubscribeLiteCommand notifyUnsubscribeLiteCommand =
+                        command.getNotifyUnsubscribeLiteCommand();
+                    log.info("Receive notify unsubscribe lite command from remote, endpoints={}, "
+                        + "clientId={}", endpoints, clientId);
+                    sessionHandler.onNotifyUnsubscribeLiteCommand(endpoints, notifyUnsubscribeLiteCommand);
                     break;
                 }
                 default:

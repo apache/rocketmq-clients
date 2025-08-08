@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
 import apache.rocketmq.v2.LiteSubscriptionAction;
+import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
 import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
@@ -34,6 +35,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
@@ -147,6 +149,23 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             StatusChecker.check(status, future);
             return Futures.immediateVoidFuture();
         }, MoreExecutors.directExecutor());
+    }
+
+    @Override
+    public void onNotifyUnsubscribeLiteCommand(Endpoints endpoints, NotifyUnsubscribeLiteCommand command) {
+        String liteTopic = command.getLiteTopic();
+        String topic = command.getTopic();
+        String group = command.getGroup();
+        String brokerName = command.getBrokerName();
+
+        log.info("onNotifyUnsubscribeLiteCommand liteTopic={} topic={} group={} brokerName={}"
+            , liteTopic, topic, group, brokerName);
+
+        if (StringUtils.isBlank(liteTopic)) {
+            return;
+        }
+
+        litePushConsumerSettings.unsubscribeLite(liteTopic);
     }
 
     @Override

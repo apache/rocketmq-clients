@@ -38,9 +38,10 @@ public class ProducerTransactionMessageExample {
     public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
-        String topic = "yourTransactionTopic";
+        String topic = "topic_quan_0_0";
         TransactionChecker checker = messageView -> {
             log.info("Receive transactional message check, message={}", messageView);
+            System.out.println("Receive transactional message check, message=" + messageView);
             // Return the transaction resolution according to your business logic.
             return TransactionResolution.COMMIT;
         };
@@ -62,12 +63,13 @@ public class ProducerTransactionMessageExample {
         try {
             final SendReceipt sendReceipt = producer.send(message, transaction);
             log.info("Send transaction message successfully, messageId={}", sendReceipt.getMessageId());
+            System.out.println("Send transaction message successfully, messageId=" + sendReceipt.getMessageId());
         } catch (Throwable t) {
             log.error("Failed to send message", t);
             return;
         }
         // Commit the transaction.
-        transaction.commit();
+        //        transaction.commit();
         // Or rollback the transaction.
         // transaction.rollback();
 
