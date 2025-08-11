@@ -75,8 +75,10 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.hook.CompositedMessageInterceptor;
+import org.apache.rocketmq.client.java.hook.FilterMessageHook;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
+import org.apache.rocketmq.client.java.impl.consumer.ReceiveMessageResult;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.metrics.ClientMeterManager;
@@ -237,6 +239,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }
     }
 
+    protected void addFilterMessageHook(FilterMessageHook filterMessageHook) {
+        if (!this.isRunning()) {
+            compositedMessageInterceptor.addFilterMessageHook(filterMessageHook);
+        }
+    }
+
     @Override
     public void doBefore(MessageInterceptorContext context, List<GeneralMessage> generalMessages) {
         try {
@@ -256,6 +264,17 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             log.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
         }
     }
+
+
+    public void filterMessage(MessageInterceptorContext context, ReceiveMessageResult result) {
+        try {
+            compositedMessageInterceptor.filterMessage(context, result);
+        } catch (Throwable t) {
+            // Should never reach here.
+            log.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
+        }
+    }
+
 
     @Override
     public TelemetryCommand settingsCommand() {

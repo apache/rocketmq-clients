@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.rocketmq.client.java.impl.consumer.ReceiveMessageResult;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +33,7 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
     private static final AttributeKey<Map<Integer, Map<AttributeKey, Attribute>>> INTERCEPTOR_ATTRIBUTES_KEY =
         AttributeKey.create("composited_interceptor_attributes");
     private final List<MessageInterceptor> interceptors = new ArrayList<>();
+    private final List<FilterMessageHook> filterMessageHooks = new ArrayList<>();
 
     public CompositedMessageInterceptor(List<MessageInterceptor> interceptors) {
         this.interceptors.addAll(interceptors);
@@ -55,6 +58,27 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
         context0.putAttribute(INTERCEPTOR_ATTRIBUTES_KEY, Attribute.create(attributeMap));
     }
 
+    public void filterMessage(MessageInterceptorContext context0, ReceiveMessageResult result) {
+        for (int index = filterMessageHooks.size() - 1; index >= 0; index--) {
+            final Map<Integer, Map<AttributeKey, Attribute>> attributeMap =
+                context0.getAttribute(INTERCEPTOR_ATTRIBUTES_KEY).get();
+            final Map<AttributeKey, Attribute> attributes = attributeMap.get(index);
+            final MessageHookPoints messageHookPoints = context0.getMessageHookPoints();
+            final MessageHookPointsStatus status = context0.getStatus();
+            MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status,
+                attributes);
+            if (context0 instanceof MessageInterceptorContextImpl) {
+                ((MessageInterceptorContextImpl)context0).getAttributes().forEach(context::putAttribute);
+            }
+            FilterMessageHook filterMessageHook = filterMessageHooks.get(index);
+            try {
+                filterMessageHook.filterMessage(context0, result);
+            } catch (Throwable t) {
+                log.error("Exception raised while handing messages", t);
+            }
+        }
+    }
+
     @Override
     public void doAfter(MessageInterceptorContext context0, List<GeneralMessage> messages) {
         for (int index = interceptors.size() - 1; index >= 0; index--) {
@@ -73,8 +97,12 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
             }
         }
     }
-    
+
     public void addInterceptor(MessageInterceptor interceptor) {
         interceptors.add(interceptor);
+    }
+
+    public void addFilterMessageHook(FilterMessageHook filterMessageHook) {
+        filterMessageHooks.add(filterMessageHook);
     }
 }

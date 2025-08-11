@@ -248,12 +248,14 @@ class ProcessQueueImpl implements ProcessQueue {
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                     @Override
                     public void onSuccess(ReceiveMessageResult result) {
+                        final MessageInterceptorContextImpl context0 =
+                            new MessageInterceptorContextImpl(context, MessageHookPointsStatus.OK);
+                        consumer.filterMessage(context0,result);
+
                         // Intercept after message reception.
                         final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
                             .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
                             .collect(Collectors.toList());
-                        final MessageInterceptorContextImpl context0 =
-                            new MessageInterceptorContextImpl(context, MessageHookPointsStatus.OK);
                         consumer.doAfter(context0, generalMessages);
 
                         try {
