@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/grpc/middleware/zaplog"
 	validator "github.com/go-playground/validator/v10"
@@ -28,8 +29,13 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+const (
+	CLIENT_ENABLE_SSL = "rocketmq.client.enableSsl"
+)
+
 var (
 	ErrNoAvailableEndpoints = errors.New("rocketmq: no available endpoints")
+	EnableSsl               = true
 )
 
 type ClientConnFunc func(string, ...ConnOption) (ClientConn, error)
@@ -107,8 +113,10 @@ func (c *clientConn) Close() error {
 
 func (c *clientConn) dialSetupOpts(dopts ...grpc.DialOption) (opts []grpc.DialOption, err error) {
 	opts = append(opts, dopts...)
-	if c.creds != nil {
+	if c.creds != nil && EnableSsl {
 		opts = append(opts, grpc.WithTransportCredentials(c.creds))
+	} else {
+		opts = append(opts, grpc.WithInsecure())
 	}
 	// TODO get requestID in header
 	opts = append(opts, grpc.WithBlock(), grpc.WithChainUnaryInterceptor(
@@ -132,4 +140,8 @@ func (c *clientConn) dial(target string, dopts ...grpc.DialOption) (*grpc.Client
 		return nil, err
 	}
 	return conn, nil
+}
+
+func init() {
+	EnableSsl = utils.GetenvWithDef(CLIENT_ENABLE_SSL, "true") == "true"
 }
