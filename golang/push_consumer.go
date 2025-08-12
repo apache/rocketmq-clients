@@ -714,3 +714,7 @@ func (dirci *defultInflightRequestCountInterceptor) getInflightReceiveRequestCou
 func (pc *defaultPushConsumer) IsEndpointUpdated() bool {
 	return pc.cli.ReceiveReconnect
 }
+
+func (sc *defaultPushConsumer) SetReceiveReconnect(receiveReconnect bool) {
+	sc.cli.ReceiveReconnect = receiveReconnect
+}
