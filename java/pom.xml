@@ -79,15 +79,26 @@
         <lz4-java.version>1.8.0</lz4-java.version>
     </properties>
 
+<!--    <distributionManagement>-->
+<!--        <snapshotRepository>-->
+<!--            <id>apache.snapshots.https</id>-->
+<!--            <url>https://repository.apache.org/content/repositories/snapshots</url>-->
+<!--        </snapshotRepository>-->
+<!--        <repository>-->
+<!--            <id>apache.staging.https</id>-->
+<!--            <url>https://repository.apache.org/service/local/staging/deploy/maven2/</url>-->
+<!--        </repository>-->
+<!--    </distributionManagement>-->
+
     <distributionManagement>
-        <snapshotRepository>
-            <id>apache.snapshots.https</id>
-            <url>https://repository.apache.org/content/repositories/snapshots</url>
-        </snapshotRepository>
         <repository>
-            <id>apache.staging.https</id>
-            <url>https://repository.apache.org/service/local/staging/deploy/maven2/</url>
+            <id>releases</id>
+            <url>http://repo.alibaba-inc.com/mvn/releases</url>
         </repository>
+        <snapshotRepository>
+            <id>snapshots</id>
+            <url>http://repo.alibaba-inc.com/mvn/snapshots</url>
+        </snapshotRepository>
     </distributionManagement>
 
     <dependencyManagement>
@@ -407,10 +418,10 @@
         </plugins>
     </build>
 
-    <scm>
-        <url>git@github.com:apache/rocketmq-clients.git</url>
-        <connection>scm:git:git@github.com:apache/rocketmq-clients.git</connection>
-        <developerConnection>scm:git:git@github.com:apache/rocketmq-clients.git</developerConnection>
-        <tag>HEAD</tag>
-    </scm>
+<!--    <scm>-->
+<!--        <url>git@github.com:apache/rocketmq-clients.git</url>-->
+<!--        <connection>scm:git:git@github.com:apache/rocketmq-clients.git</connection>-->
+<!--        <developerConnection>scm:git:git@github.com:apache/rocketmq-clients.git</developerConnection>-->
+<!--        <tag>HEAD</tag>-->
+<!--    </scm>-->
 </project>

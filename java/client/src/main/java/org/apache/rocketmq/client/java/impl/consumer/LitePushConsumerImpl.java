@@ -131,7 +131,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             .setAction(action)
             .setTopic(litePushConsumerSettings.bindTopic.toProtobuf())
             .setGroup(litePushConsumerSettings.group.toProtobuf())
-            .addAllSet(diff)
+            .addAllLiteTopicSet(diff)
             .build();
         Endpoints endpoints = getEndpoints();
         // todo 这两个有什么区别

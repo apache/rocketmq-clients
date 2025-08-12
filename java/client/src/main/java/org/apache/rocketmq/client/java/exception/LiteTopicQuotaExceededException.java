@@ -19,11 +19,8 @@ package org.apache.rocketmq.client.java.exception;
 
 import org.apache.rocketmq.client.apis.ClientException;
 
-/**
- * Quota for LiteTopic exceeded.
- */
-public class LiteQuotaExceededException extends ClientException {
-    public LiteQuotaExceededException(int responseCode, String requestId, String message) {
+public class LiteTopicQuotaExceededException extends ClientException {
+    public LiteTopicQuotaExceededException(int responseCode, String requestId, String message) {
         super(responseCode, requestId, message);
     }
 }

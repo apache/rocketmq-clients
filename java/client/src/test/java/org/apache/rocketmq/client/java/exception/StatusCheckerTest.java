@@ -442,9 +442,17 @@ public class StatusCheckerTest extends TestBase {
         }
     }
 
-    @Test(expected = LiteQuotaExceededException.class)
-    public void testLiteQuotaExceeded() throws ClientException {
-        Status status = Status.newBuilder().setCode(Code.LITE_QUOTA_EXCEEDED).build();
+    @Test(expected = LiteTopicQuotaExceededException.class)
+    public void testLiteTopicQuotaExceeded() throws ClientException {
+        Status status = Status.newBuilder().setCode(Code.LITE_TOPIC_QUOTA_EXCEEDED).build();
+        final Context context = generateContext();
+        RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, null);
+        StatusChecker.check(status, invocation);
+    }
+
+    @Test(expected = LiteSubscriptionQuotaExceededException.class)
+    public void testLiteSubscriptionQuotaExceeded() throws ClientException {
+        Status status = Status.newBuilder().setCode(Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED).build();
         final Context context = generateContext();
         RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, null);
         StatusChecker.check(status, invocation);
