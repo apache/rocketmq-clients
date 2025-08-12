@@ -710,3 +710,7 @@ func (dirci *defultInflightRequestCountInterceptor) doAfter(messageHookPoints Me
 func (dirci *defultInflightRequestCountInterceptor) getInflightReceiveRequestCount() int64 {
 	return dirci.inflightReceiveRequestCount.Load()
 }
+
+func (pc *defaultPushConsumer) IsEndpointUpdated() bool {
+	return pc.cli.ReceiveReconnect
+}

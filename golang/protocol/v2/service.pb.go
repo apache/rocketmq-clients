@@ -1272,6 +1272,50 @@ func (x *PrintThreadStackTraceCommand) GetNonce() string {
 	return ""
 }
 
+type ReconnectEndpointsCommand struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Nonce         string                 `protobuf:"bytes,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReconnectEndpointsCommand) Reset() {
+	*x = ReconnectEndpointsCommand{}
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReconnectEndpointsCommand) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReconnectEndpointsCommand) ProtoMessage() {}
+
+func (x *ReconnectEndpointsCommand) ProtoReflect() protoreflect.Message {
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReconnectEndpointsCommand.ProtoReflect.Descriptor instead.
+func (*ReconnectEndpointsCommand) Descriptor() ([]byte, []int) {
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ReconnectEndpointsCommand) GetNonce() string {
+	if x != nil {
+		return x.Nonce
+	}
+	return ""
+}
+
 type ThreadStackTrace struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Nonce            string                 `protobuf:"bytes,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
@@ -1282,7 +1326,7 @@ type ThreadStackTrace struct {
 
 func (x *ThreadStackTrace) Reset() {
 	*x = ThreadStackTrace{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[20]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1294,7 +1338,7 @@ func (x *ThreadStackTrace) String() string {
 func (*ThreadStackTrace) ProtoMessage() {}
 
 func (x *ThreadStackTrace) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[20]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1307,7 +1351,7 @@ func (x *ThreadStackTrace) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ThreadStackTrace.ProtoReflect.Descriptor instead.
 func (*ThreadStackTrace) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{20}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ThreadStackTrace) GetNonce() string {
@@ -1334,7 +1378,7 @@ type VerifyMessageCommand struct {
 
 func (x *VerifyMessageCommand) Reset() {
 	*x = VerifyMessageCommand{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[21]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1346,7 +1390,7 @@ func (x *VerifyMessageCommand) String() string {
 func (*VerifyMessageCommand) ProtoMessage() {}
 
 func (x *VerifyMessageCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[21]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1359,7 +1403,7 @@ func (x *VerifyMessageCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyMessageCommand.ProtoReflect.Descriptor instead.
 func (*VerifyMessageCommand) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{21}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *VerifyMessageCommand) GetNonce() string {
@@ -1385,7 +1429,7 @@ type VerifyMessageResult struct {
 
 func (x *VerifyMessageResult) Reset() {
 	*x = VerifyMessageResult{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[22]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1397,7 +1441,7 @@ func (x *VerifyMessageResult) String() string {
 func (*VerifyMessageResult) ProtoMessage() {}
 
 func (x *VerifyMessageResult) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[22]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1410,7 +1454,7 @@ func (x *VerifyMessageResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyMessageResult.ProtoReflect.Descriptor instead.
 func (*VerifyMessageResult) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{22}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *VerifyMessageResult) GetNonce() string {
@@ -1430,7 +1474,7 @@ type RecoverOrphanedTransactionCommand struct {
 
 func (x *RecoverOrphanedTransactionCommand) Reset() {
 	*x = RecoverOrphanedTransactionCommand{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[23]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1442,7 +1486,7 @@ func (x *RecoverOrphanedTransactionCommand) String() string {
 func (*RecoverOrphanedTransactionCommand) ProtoMessage() {}
 
 func (x *RecoverOrphanedTransactionCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[23]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1455,7 +1499,7 @@ func (x *RecoverOrphanedTransactionCommand) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use RecoverOrphanedTransactionCommand.ProtoReflect.Descriptor instead.
 func (*RecoverOrphanedTransactionCommand) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{23}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *RecoverOrphanedTransactionCommand) GetMessage() *Message {
@@ -1483,6 +1527,7 @@ type TelemetryCommand struct {
 	//	*TelemetryCommand_RecoverOrphanedTransactionCommand
 	//	*TelemetryCommand_PrintThreadStackTraceCommand
 	//	*TelemetryCommand_VerifyMessageCommand
+	//	*TelemetryCommand_ReconnectEndpointsCommand
 	Command       isTelemetryCommand_Command `protobuf_oneof:"command"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1490,7 +1535,7 @@ type TelemetryCommand struct {
 
 func (x *TelemetryCommand) Reset() {
 	*x = TelemetryCommand{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[24]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1502,7 +1547,7 @@ func (x *TelemetryCommand) String() string {
 func (*TelemetryCommand) ProtoMessage() {}
 
 func (x *TelemetryCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[24]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1515,7 +1560,7 @@ func (x *TelemetryCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TelemetryCommand.ProtoReflect.Descriptor instead.
 func (*TelemetryCommand) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{24}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *TelemetryCommand) GetStatus() *Status {
@@ -1586,6 +1631,15 @@ func (x *TelemetryCommand) GetVerifyMessageCommand() *VerifyMessageCommand {
 	return nil
 }
 
+func (x *TelemetryCommand) GetReconnectEndpointsCommand() *ReconnectEndpointsCommand {
+	if x != nil {
+		if x, ok := x.Command.(*TelemetryCommand_ReconnectEndpointsCommand); ok {
+			return x.ReconnectEndpointsCommand
+		}
+	}
+	return nil
+}
+
 type isTelemetryCommand_Command interface {
 	isTelemetryCommand_Command()
 }
@@ -1624,6 +1678,11 @@ type TelemetryCommand_VerifyMessageCommand struct {
 	VerifyMessageCommand *VerifyMessageCommand `protobuf:"bytes,7,opt,name=verify_message_command,json=verifyMessageCommand,proto3,oneof"`
 }
 
+type TelemetryCommand_ReconnectEndpointsCommand struct {
+	// Request client to reconnect server use the latest endpoints.
+	ReconnectEndpointsCommand *ReconnectEndpointsCommand `protobuf:"bytes,8,opt,name=reconnect_endpoints_command,json=reconnectEndpointsCommand,proto3,oneof"`
+}
+
 func (*TelemetryCommand_Settings) isTelemetryCommand_Command() {}
 
 func (*TelemetryCommand_ThreadStackTrace) isTelemetryCommand_Command() {}
@@ -1636,6 +1695,8 @@ func (*TelemetryCommand_PrintThreadStackTraceCommand) isTelemetryCommand_Command
 
 func (*TelemetryCommand_VerifyMessageCommand) isTelemetryCommand_Command() {}
 
+func (*TelemetryCommand_ReconnectEndpointsCommand) isTelemetryCommand_Command() {}
+
 type NotifyClientTerminationRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Consumer group, which is absent for producer.
@@ -1646,7 +1707,7 @@ type NotifyClientTerminationRequest struct {
 
 func (x *NotifyClientTerminationRequest) Reset() {
 	*x = NotifyClientTerminationRequest{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[25]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1658,7 +1719,7 @@ func (x *NotifyClientTerminationRequest) String() string {
 func (*NotifyClientTerminationRequest) ProtoMessage() {}
 
 func (x *NotifyClientTerminationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[25]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1671,7 +1732,7 @@ func (x *NotifyClientTerminationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotifyClientTerminationRequest.ProtoReflect.Descriptor instead.
 func (*NotifyClientTerminationRequest) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{25}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *NotifyClientTerminationRequest) GetGroup() *Resource {
@@ -1690,7 +1751,7 @@ type NotifyClientTerminationResponse struct {
 
 func (x *NotifyClientTerminationResponse) Reset() {
 	*x = NotifyClientTerminationResponse{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[26]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1702,7 +1763,7 @@ func (x *NotifyClientTerminationResponse) String() string {
 func (*NotifyClientTerminationResponse) ProtoMessage() {}
 
 func (x *NotifyClientTerminationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[26]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1715,7 +1776,7 @@ func (x *NotifyClientTerminationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotifyClientTerminationResponse.ProtoReflect.Descriptor instead.
 func (*NotifyClientTerminationResponse) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{26}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *NotifyClientTerminationResponse) GetStatus() *Status {
@@ -1741,7 +1802,7 @@ type ChangeInvisibleDurationRequest struct {
 
 func (x *ChangeInvisibleDurationRequest) Reset() {
 	*x = ChangeInvisibleDurationRequest{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[27]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1753,7 +1814,7 @@ func (x *ChangeInvisibleDurationRequest) String() string {
 func (*ChangeInvisibleDurationRequest) ProtoMessage() {}
 
 func (x *ChangeInvisibleDurationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[27]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1766,7 +1827,7 @@ func (x *ChangeInvisibleDurationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeInvisibleDurationRequest.ProtoReflect.Descriptor instead.
 func (*ChangeInvisibleDurationRequest) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{27}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ChangeInvisibleDurationRequest) GetGroup() *Resource {
@@ -1815,7 +1876,7 @@ type ChangeInvisibleDurationResponse struct {
 
 func (x *ChangeInvisibleDurationResponse) Reset() {
 	*x = ChangeInvisibleDurationResponse{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[28]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1827,7 +1888,7 @@ func (x *ChangeInvisibleDurationResponse) String() string {
 func (*ChangeInvisibleDurationResponse) ProtoMessage() {}
 
 func (x *ChangeInvisibleDurationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[28]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1840,7 +1901,7 @@ func (x *ChangeInvisibleDurationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeInvisibleDurationResponse.ProtoReflect.Descriptor instead.
 func (*ChangeInvisibleDurationResponse) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{28}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ChangeInvisibleDurationResponse) GetStatus() *Status {
@@ -1871,7 +1932,7 @@ type PullMessageRequest struct {
 
 func (x *PullMessageRequest) Reset() {
 	*x = PullMessageRequest{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[29]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1883,7 +1944,7 @@ func (x *PullMessageRequest) String() string {
 func (*PullMessageRequest) ProtoMessage() {}
 
 func (x *PullMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[29]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1896,7 +1957,7 @@ func (x *PullMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PullMessageRequest.ProtoReflect.Descriptor instead.
 func (*PullMessageRequest) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{29}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *PullMessageRequest) GetGroup() *Resource {
@@ -1955,7 +2016,7 @@ type PullMessageResponse struct {
 
 func (x *PullMessageResponse) Reset() {
 	*x = PullMessageResponse{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[30]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1967,7 +2028,7 @@ func (x *PullMessageResponse) String() string {
 func (*PullMessageResponse) ProtoMessage() {}
 
 func (x *PullMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[30]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1980,7 +2041,7 @@ func (x *PullMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PullMessageResponse.ProtoReflect.Descriptor instead.
 func (*PullMessageResponse) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{30}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *PullMessageResponse) GetContent() isPullMessageResponse_Content {
@@ -2050,7 +2111,7 @@ type UpdateOffsetRequest struct {
 
 func (x *UpdateOffsetRequest) Reset() {
 	*x = UpdateOffsetRequest{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[31]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2062,7 +2123,7 @@ func (x *UpdateOffsetRequest) String() string {
 func (*UpdateOffsetRequest) ProtoMessage() {}
 
 func (x *UpdateOffsetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[31]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2075,7 +2136,7 @@ func (x *UpdateOffsetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateOffsetRequest.ProtoReflect.Descriptor instead.
 func (*UpdateOffsetRequest) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{31}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *UpdateOffsetRequest) GetGroup() *Resource {
@@ -2108,7 +2169,7 @@ type UpdateOffsetResponse struct {
 
 func (x *UpdateOffsetResponse) Reset() {
 	*x = UpdateOffsetResponse{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[32]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2120,7 +2181,7 @@ func (x *UpdateOffsetResponse) String() string {
 func (*UpdateOffsetResponse) ProtoMessage() {}
 
 func (x *UpdateOffsetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[32]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2133,7 +2194,7 @@ func (x *UpdateOffsetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateOffsetResponse.ProtoReflect.Descriptor instead.
 func (*UpdateOffsetResponse) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{32}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *UpdateOffsetResponse) GetStatus() *Status {
@@ -2153,7 +2214,7 @@ type GetOffsetRequest struct {
 
 func (x *GetOffsetRequest) Reset() {
 	*x = GetOffsetRequest{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[33]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2165,7 +2226,7 @@ func (x *GetOffsetRequest) String() string {
 func (*GetOffsetRequest) ProtoMessage() {}
 
 func (x *GetOffsetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[33]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2178,7 +2239,7 @@ func (x *GetOffsetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOffsetRequest.ProtoReflect.Descriptor instead.
 func (*GetOffsetRequest) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{33}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetOffsetRequest) GetGroup() *Resource {
@@ -2205,7 +2266,7 @@ type GetOffsetResponse struct {
 
 func (x *GetOffsetResponse) Reset() {
 	*x = GetOffsetResponse{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[34]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2217,7 +2278,7 @@ func (x *GetOffsetResponse) String() string {
 func (*GetOffsetResponse) ProtoMessage() {}
 
 func (x *GetOffsetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[34]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2230,7 +2291,7 @@ func (x *GetOffsetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOffsetResponse.ProtoReflect.Descriptor instead.
 func (*GetOffsetResponse) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{34}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *GetOffsetResponse) GetStatus() *Status {
@@ -2258,7 +2319,7 @@ type QueryOffsetRequest struct {
 
 func (x *QueryOffsetRequest) Reset() {
 	*x = QueryOffsetRequest{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[35]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2270,7 +2331,7 @@ func (x *QueryOffsetRequest) String() string {
 func (*QueryOffsetRequest) ProtoMessage() {}
 
 func (x *QueryOffsetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[35]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2283,7 +2344,7 @@ func (x *QueryOffsetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryOffsetRequest.ProtoReflect.Descriptor instead.
 func (*QueryOffsetRequest) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{35}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *QueryOffsetRequest) GetMessageQueue() *MessageQueue {
@@ -2317,7 +2378,7 @@ type QueryOffsetResponse struct {
 
 func (x *QueryOffsetResponse) Reset() {
 	*x = QueryOffsetResponse{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[36]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2329,7 +2390,7 @@ func (x *QueryOffsetResponse) String() string {
 func (*QueryOffsetResponse) ProtoMessage() {}
 
 func (x *QueryOffsetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[36]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2342,7 +2403,7 @@ func (x *QueryOffsetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryOffsetResponse.ProtoReflect.Descriptor instead.
 func (*QueryOffsetResponse) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{36}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *QueryOffsetResponse) GetStatus() *Status {
@@ -2370,7 +2431,7 @@ type RecallMessageRequest struct {
 
 func (x *RecallMessageRequest) Reset() {
 	*x = RecallMessageRequest{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[37]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2382,7 +2443,7 @@ func (x *RecallMessageRequest) String() string {
 func (*RecallMessageRequest) ProtoMessage() {}
 
 func (x *RecallMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[37]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2395,7 +2456,7 @@ func (x *RecallMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecallMessageRequest.ProtoReflect.Descriptor instead.
 func (*RecallMessageRequest) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{37}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *RecallMessageRequest) GetTopic() *Resource {
@@ -2422,7 +2483,7 @@ type RecallMessageResponse struct {
 
 func (x *RecallMessageResponse) Reset() {
 	*x = RecallMessageResponse{}
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[38]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2434,7 +2495,7 @@ func (x *RecallMessageResponse) String() string {
 func (*RecallMessageResponse) ProtoMessage() {}
 
 func (x *RecallMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[38]
+	mi := &file_apache_rocketmq_v2_service_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2447,7 +2508,7 @@ func (x *RecallMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecallMessageResponse.ProtoReflect.Descriptor instead.
 func (*RecallMessageResponse) Descriptor() ([]byte, []int) {
-	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{38}
+	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *RecallMessageResponse) GetStatus() *Status {
@@ -2560,6 +2621,8 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\x16EndTransactionResponse\x122\n" +
 	"\x06status\x18\x01 \x01(\v2\x1a.apache.rocketmq.v2.StatusR\x06status\"4\n" +
 	"\x1cPrintThreadStackTraceCommand\x12\x14\n" +
+	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"1\n" +
+	"\x19ReconnectEndpointsCommand\x12\x14\n" +
 	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"r\n" +
 	"\x10ThreadStackTrace\x12\x14\n" +
 	"\x05nonce\x18\x01 \x01(\tR\x05nonce\x121\n" +
@@ -2572,7 +2635,7 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"\x81\x01\n" +
 	"!RecoverOrphanedTransactionCommand\x125\n" +
 	"\amessage\x18\x01 \x01(\v2\x1b.apache.rocketmq.v2.MessageR\amessage\x12%\n" +
-	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\"\xbb\x05\n" +
+	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\"\xac\x06\n" +
 	"\x10TelemetryCommand\x127\n" +
 	"\x06status\x18\x01 \x01(\v2\x1a.apache.rocketmq.v2.StatusH\x01R\x06status\x88\x01\x01\x12:\n" +
 	"\bsettings\x18\x02 \x01(\v2\x1c.apache.rocketmq.v2.SettingsH\x00R\bsettings\x12T\n" +
@@ -2580,7 +2643,8 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\x15verify_message_result\x18\x04 \x01(\v2'.apache.rocketmq.v2.VerifyMessageResultH\x00R\x13verifyMessageResult\x12\x88\x01\n" +
 	"$recover_orphaned_transaction_command\x18\x05 \x01(\v25.apache.rocketmq.v2.RecoverOrphanedTransactionCommandH\x00R!recoverOrphanedTransactionCommand\x12z\n" +
 	" print_thread_stack_trace_command\x18\x06 \x01(\v20.apache.rocketmq.v2.PrintThreadStackTraceCommandH\x00R\x1cprintThreadStackTraceCommand\x12`\n" +
-	"\x16verify_message_command\x18\a \x01(\v2(.apache.rocketmq.v2.VerifyMessageCommandH\x00R\x14verifyMessageCommandB\t\n" +
+	"\x16verify_message_command\x18\a \x01(\v2(.apache.rocketmq.v2.VerifyMessageCommandH\x00R\x14verifyMessageCommand\x12o\n" +
+	"\x1breconnect_endpoints_command\x18\b \x01(\v2-.apache.rocketmq.v2.ReconnectEndpointsCommandH\x00R\x19reconnectEndpointsCommandB\t\n" +
 	"\acommandB\t\n" +
 	"\a_status\"c\n" +
 	"\x1eNotifyClientTerminationRequest\x127\n" +
@@ -2659,7 +2723,7 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\x17NotifyClientTermination\x122.apache.rocketmq.v2.NotifyClientTerminationRequest\x1a3.apache.rocketmq.v2.NotifyClientTerminationResponse\"\x00\x12\x84\x01\n" +
 	"\x17ChangeInvisibleDuration\x122.apache.rocketmq.v2.ChangeInvisibleDurationRequest\x1a3.apache.rocketmq.v2.ChangeInvisibleDurationResponse\"\x00\x12f\n" +
 	"\rRecallMessage\x12(.apache.rocketmq.v2.RecallMessageRequest\x1a).apache.rocketmq.v2.RecallMessageResponse\"\x00BP\n" +
-	"\x12apache.rocketmq.v2B\tMQServiceP\x01Z\x12apache/rocketmq/v2\xa0\x01\x01\xd8\x01\x01\xaa\x02\x12Apache.Rocketmq.V2b\x06proto3"
+	"\x12apache.rocketmq.v2B\tMQServiceP\x01Z\x12apache.rocketmq.v2\xa0\x01\x01\xd8\x01\x01\xaa\x02\x12Apache.Rocketmq.V2b\x06proto3"
 
 var (
 	file_apache_rocketmq_v2_service_proto_rawDescOnce sync.Once
@@ -2673,7 +2737,7 @@ func file_apache_rocketmq_v2_service_proto_rawDescGZIP() []byte {
 	return file_apache_rocketmq_v2_service_proto_rawDescData
 }
 
-var file_apache_rocketmq_v2_service_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_apache_rocketmq_v2_service_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_apache_rocketmq_v2_service_proto_goTypes = []any{
 	(*QueryRouteRequest)(nil),                       // 0: apache.rocketmq.v2.QueryRouteRequest
 	(*QueryRouteResponse)(nil),                      // 1: apache.rocketmq.v2.QueryRouteResponse
@@ -2695,148 +2759,150 @@ var file_apache_rocketmq_v2_service_proto_goTypes = []any{
 	(*EndTransactionRequest)(nil),                   // 17: apache.rocketmq.v2.EndTransactionRequest
 	(*EndTransactionResponse)(nil),                  // 18: apache.rocketmq.v2.EndTransactionResponse
 	(*PrintThreadStackTraceCommand)(nil),            // 19: apache.rocketmq.v2.PrintThreadStackTraceCommand
-	(*ThreadStackTrace)(nil),                        // 20: apache.rocketmq.v2.ThreadStackTrace
-	(*VerifyMessageCommand)(nil),                    // 21: apache.rocketmq.v2.VerifyMessageCommand
-	(*VerifyMessageResult)(nil),                     // 22: apache.rocketmq.v2.VerifyMessageResult
-	(*RecoverOrphanedTransactionCommand)(nil),       // 23: apache.rocketmq.v2.RecoverOrphanedTransactionCommand
-	(*TelemetryCommand)(nil),                        // 24: apache.rocketmq.v2.TelemetryCommand
-	(*NotifyClientTerminationRequest)(nil),          // 25: apache.rocketmq.v2.NotifyClientTerminationRequest
-	(*NotifyClientTerminationResponse)(nil),         // 26: apache.rocketmq.v2.NotifyClientTerminationResponse
-	(*ChangeInvisibleDurationRequest)(nil),          // 27: apache.rocketmq.v2.ChangeInvisibleDurationRequest
-	(*ChangeInvisibleDurationResponse)(nil),         // 28: apache.rocketmq.v2.ChangeInvisibleDurationResponse
-	(*PullMessageRequest)(nil),                      // 29: apache.rocketmq.v2.PullMessageRequest
-	(*PullMessageResponse)(nil),                     // 30: apache.rocketmq.v2.PullMessageResponse
-	(*UpdateOffsetRequest)(nil),                     // 31: apache.rocketmq.v2.UpdateOffsetRequest
-	(*UpdateOffsetResponse)(nil),                    // 32: apache.rocketmq.v2.UpdateOffsetResponse
-	(*GetOffsetRequest)(nil),                        // 33: apache.rocketmq.v2.GetOffsetRequest
-	(*GetOffsetResponse)(nil),                       // 34: apache.rocketmq.v2.GetOffsetResponse
-	(*QueryOffsetRequest)(nil),                      // 35: apache.rocketmq.v2.QueryOffsetRequest
-	(*QueryOffsetResponse)(nil),                     // 36: apache.rocketmq.v2.QueryOffsetResponse
-	(*RecallMessageRequest)(nil),                    // 37: apache.rocketmq.v2.RecallMessageRequest
-	(*RecallMessageResponse)(nil),                   // 38: apache.rocketmq.v2.RecallMessageResponse
-	(*Resource)(nil),                                // 39: apache.rocketmq.v2.Resource
-	(*Endpoints)(nil),                               // 40: apache.rocketmq.v2.Endpoints
-	(*Status)(nil),                                  // 41: apache.rocketmq.v2.Status
-	(*MessageQueue)(nil),                            // 42: apache.rocketmq.v2.MessageQueue
-	(*Message)(nil),                                 // 43: apache.rocketmq.v2.Message
-	(*Assignment)(nil),                              // 44: apache.rocketmq.v2.Assignment
-	(*FilterExpression)(nil),                        // 45: apache.rocketmq.v2.FilterExpression
-	(*durationpb.Duration)(nil),                     // 46: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),                   // 47: google.protobuf.Timestamp
-	(ClientType)(0),                                 // 48: apache.rocketmq.v2.ClientType
-	(TransactionResolution)(0),                      // 49: apache.rocketmq.v2.TransactionResolution
-	(TransactionSource)(0),                          // 50: apache.rocketmq.v2.TransactionSource
-	(*Settings)(nil),                                // 51: apache.rocketmq.v2.Settings
-	(QueryOffsetPolicy)(0),                          // 52: apache.rocketmq.v2.QueryOffsetPolicy
+	(*ReconnectEndpointsCommand)(nil),               // 20: apache.rocketmq.v2.ReconnectEndpointsCommand
+	(*ThreadStackTrace)(nil),                        // 21: apache.rocketmq.v2.ThreadStackTrace
+	(*VerifyMessageCommand)(nil),                    // 22: apache.rocketmq.v2.VerifyMessageCommand
+	(*VerifyMessageResult)(nil),                     // 23: apache.rocketmq.v2.VerifyMessageResult
+	(*RecoverOrphanedTransactionCommand)(nil),       // 24: apache.rocketmq.v2.RecoverOrphanedTransactionCommand
+	(*TelemetryCommand)(nil),                        // 25: apache.rocketmq.v2.TelemetryCommand
+	(*NotifyClientTerminationRequest)(nil),          // 26: apache.rocketmq.v2.NotifyClientTerminationRequest
+	(*NotifyClientTerminationResponse)(nil),         // 27: apache.rocketmq.v2.NotifyClientTerminationResponse
+	(*ChangeInvisibleDurationRequest)(nil),          // 28: apache.rocketmq.v2.ChangeInvisibleDurationRequest
+	(*ChangeInvisibleDurationResponse)(nil),         // 29: apache.rocketmq.v2.ChangeInvisibleDurationResponse
+	(*PullMessageRequest)(nil),                      // 30: apache.rocketmq.v2.PullMessageRequest
+	(*PullMessageResponse)(nil),                     // 31: apache.rocketmq.v2.PullMessageResponse
+	(*UpdateOffsetRequest)(nil),                     // 32: apache.rocketmq.v2.UpdateOffsetRequest
+	(*UpdateOffsetResponse)(nil),                    // 33: apache.rocketmq.v2.UpdateOffsetResponse
+	(*GetOffsetRequest)(nil),                        // 34: apache.rocketmq.v2.GetOffsetRequest
+	(*GetOffsetResponse)(nil),                       // 35: apache.rocketmq.v2.GetOffsetResponse
+	(*QueryOffsetRequest)(nil),                      // 36: apache.rocketmq.v2.QueryOffsetRequest
+	(*QueryOffsetResponse)(nil),                     // 37: apache.rocketmq.v2.QueryOffsetResponse
+	(*RecallMessageRequest)(nil),                    // 38: apache.rocketmq.v2.RecallMessageRequest
+	(*RecallMessageResponse)(nil),                   // 39: apache.rocketmq.v2.RecallMessageResponse
+	(*Resource)(nil),                                // 40: apache.rocketmq.v2.Resource
+	(*Endpoints)(nil),                               // 41: apache.rocketmq.v2.Endpoints
+	(*Status)(nil),                                  // 42: apache.rocketmq.v2.Status
+	(*MessageQueue)(nil),                            // 43: apache.rocketmq.v2.MessageQueue
+	(*Message)(nil),                                 // 44: apache.rocketmq.v2.Message
+	(*Assignment)(nil),                              // 45: apache.rocketmq.v2.Assignment
+	(*FilterExpression)(nil),                        // 46: apache.rocketmq.v2.FilterExpression
+	(*durationpb.Duration)(nil),                     // 47: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),                   // 48: google.protobuf.Timestamp
+	(ClientType)(0),                                 // 49: apache.rocketmq.v2.ClientType
+	(TransactionResolution)(0),                      // 50: apache.rocketmq.v2.TransactionResolution
+	(TransactionSource)(0),                          // 51: apache.rocketmq.v2.TransactionSource
+	(*Settings)(nil),                                // 52: apache.rocketmq.v2.Settings
+	(QueryOffsetPolicy)(0),                          // 53: apache.rocketmq.v2.QueryOffsetPolicy
 }
 var file_apache_rocketmq_v2_service_proto_depIdxs = []int32{
-	39, // 0: apache.rocketmq.v2.QueryRouteRequest.topic:type_name -> apache.rocketmq.v2.Resource
-	40, // 1: apache.rocketmq.v2.QueryRouteRequest.endpoints:type_name -> apache.rocketmq.v2.Endpoints
-	41, // 2: apache.rocketmq.v2.QueryRouteResponse.status:type_name -> apache.rocketmq.v2.Status
-	42, // 3: apache.rocketmq.v2.QueryRouteResponse.message_queues:type_name -> apache.rocketmq.v2.MessageQueue
-	43, // 4: apache.rocketmq.v2.SendMessageRequest.messages:type_name -> apache.rocketmq.v2.Message
-	41, // 5: apache.rocketmq.v2.SendResultEntry.status:type_name -> apache.rocketmq.v2.Status
-	41, // 6: apache.rocketmq.v2.SendMessageResponse.status:type_name -> apache.rocketmq.v2.Status
+	40, // 0: apache.rocketmq.v2.QueryRouteRequest.topic:type_name -> apache.rocketmq.v2.Resource
+	41, // 1: apache.rocketmq.v2.QueryRouteRequest.endpoints:type_name -> apache.rocketmq.v2.Endpoints
+	42, // 2: apache.rocketmq.v2.QueryRouteResponse.status:type_name -> apache.rocketmq.v2.Status
+	43, // 3: apache.rocketmq.v2.QueryRouteResponse.message_queues:type_name -> apache.rocketmq.v2.MessageQueue
+	44, // 4: apache.rocketmq.v2.SendMessageRequest.messages:type_name -> apache.rocketmq.v2.Message
+	42, // 5: apache.rocketmq.v2.SendResultEntry.status:type_name -> apache.rocketmq.v2.Status
+	42, // 6: apache.rocketmq.v2.SendMessageResponse.status:type_name -> apache.rocketmq.v2.Status
 	3,  // 7: apache.rocketmq.v2.SendMessageResponse.entries:type_name -> apache.rocketmq.v2.SendResultEntry
-	39, // 8: apache.rocketmq.v2.QueryAssignmentRequest.topic:type_name -> apache.rocketmq.v2.Resource
-	39, // 9: apache.rocketmq.v2.QueryAssignmentRequest.group:type_name -> apache.rocketmq.v2.Resource
-	40, // 10: apache.rocketmq.v2.QueryAssignmentRequest.endpoints:type_name -> apache.rocketmq.v2.Endpoints
-	41, // 11: apache.rocketmq.v2.QueryAssignmentResponse.status:type_name -> apache.rocketmq.v2.Status
-	44, // 12: apache.rocketmq.v2.QueryAssignmentResponse.assignments:type_name -> apache.rocketmq.v2.Assignment
-	39, // 13: apache.rocketmq.v2.ReceiveMessageRequest.group:type_name -> apache.rocketmq.v2.Resource
-	42, // 14: apache.rocketmq.v2.ReceiveMessageRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
-	45, // 15: apache.rocketmq.v2.ReceiveMessageRequest.filter_expression:type_name -> apache.rocketmq.v2.FilterExpression
-	46, // 16: apache.rocketmq.v2.ReceiveMessageRequest.invisible_duration:type_name -> google.protobuf.Duration
-	46, // 17: apache.rocketmq.v2.ReceiveMessageRequest.long_polling_timeout:type_name -> google.protobuf.Duration
-	41, // 18: apache.rocketmq.v2.ReceiveMessageResponse.status:type_name -> apache.rocketmq.v2.Status
-	43, // 19: apache.rocketmq.v2.ReceiveMessageResponse.message:type_name -> apache.rocketmq.v2.Message
-	47, // 20: apache.rocketmq.v2.ReceiveMessageResponse.delivery_timestamp:type_name -> google.protobuf.Timestamp
-	39, // 21: apache.rocketmq.v2.AckMessageRequest.group:type_name -> apache.rocketmq.v2.Resource
-	39, // 22: apache.rocketmq.v2.AckMessageRequest.topic:type_name -> apache.rocketmq.v2.Resource
+	40, // 8: apache.rocketmq.v2.QueryAssignmentRequest.topic:type_name -> apache.rocketmq.v2.Resource
+	40, // 9: apache.rocketmq.v2.QueryAssignmentRequest.group:type_name -> apache.rocketmq.v2.Resource
+	41, // 10: apache.rocketmq.v2.QueryAssignmentRequest.endpoints:type_name -> apache.rocketmq.v2.Endpoints
+	42, // 11: apache.rocketmq.v2.QueryAssignmentResponse.status:type_name -> apache.rocketmq.v2.Status
+	45, // 12: apache.rocketmq.v2.QueryAssignmentResponse.assignments:type_name -> apache.rocketmq.v2.Assignment
+	40, // 13: apache.rocketmq.v2.ReceiveMessageRequest.group:type_name -> apache.rocketmq.v2.Resource
+	43, // 14: apache.rocketmq.v2.ReceiveMessageRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
+	46, // 15: apache.rocketmq.v2.ReceiveMessageRequest.filter_expression:type_name -> apache.rocketmq.v2.FilterExpression
+	47, // 16: apache.rocketmq.v2.ReceiveMessageRequest.invisible_duration:type_name -> google.protobuf.Duration
+	47, // 17: apache.rocketmq.v2.ReceiveMessageRequest.long_polling_timeout:type_name -> google.protobuf.Duration
+	42, // 18: apache.rocketmq.v2.ReceiveMessageResponse.status:type_name -> apache.rocketmq.v2.Status
+	44, // 19: apache.rocketmq.v2.ReceiveMessageResponse.message:type_name -> apache.rocketmq.v2.Message
+	48, // 20: apache.rocketmq.v2.ReceiveMessageResponse.delivery_timestamp:type_name -> google.protobuf.Timestamp
+	40, // 21: apache.rocketmq.v2.AckMessageRequest.group:type_name -> apache.rocketmq.v2.Resource
+	40, // 22: apache.rocketmq.v2.AckMessageRequest.topic:type_name -> apache.rocketmq.v2.Resource
 	9,  // 23: apache.rocketmq.v2.AckMessageRequest.entries:type_name -> apache.rocketmq.v2.AckMessageEntry
-	41, // 24: apache.rocketmq.v2.AckMessageResultEntry.status:type_name -> apache.rocketmq.v2.Status
-	41, // 25: apache.rocketmq.v2.AckMessageResponse.status:type_name -> apache.rocketmq.v2.Status
+	42, // 24: apache.rocketmq.v2.AckMessageResultEntry.status:type_name -> apache.rocketmq.v2.Status
+	42, // 25: apache.rocketmq.v2.AckMessageResponse.status:type_name -> apache.rocketmq.v2.Status
 	11, // 26: apache.rocketmq.v2.AckMessageResponse.entries:type_name -> apache.rocketmq.v2.AckMessageResultEntry
-	39, // 27: apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest.group:type_name -> apache.rocketmq.v2.Resource
-	39, // 28: apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest.topic:type_name -> apache.rocketmq.v2.Resource
-	41, // 29: apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse.status:type_name -> apache.rocketmq.v2.Status
-	39, // 30: apache.rocketmq.v2.HeartbeatRequest.group:type_name -> apache.rocketmq.v2.Resource
-	48, // 31: apache.rocketmq.v2.HeartbeatRequest.client_type:type_name -> apache.rocketmq.v2.ClientType
-	41, // 32: apache.rocketmq.v2.HeartbeatResponse.status:type_name -> apache.rocketmq.v2.Status
-	39, // 33: apache.rocketmq.v2.EndTransactionRequest.topic:type_name -> apache.rocketmq.v2.Resource
-	49, // 34: apache.rocketmq.v2.EndTransactionRequest.resolution:type_name -> apache.rocketmq.v2.TransactionResolution
-	50, // 35: apache.rocketmq.v2.EndTransactionRequest.source:type_name -> apache.rocketmq.v2.TransactionSource
-	41, // 36: apache.rocketmq.v2.EndTransactionResponse.status:type_name -> apache.rocketmq.v2.Status
-	43, // 37: apache.rocketmq.v2.VerifyMessageCommand.message:type_name -> apache.rocketmq.v2.Message
-	43, // 38: apache.rocketmq.v2.RecoverOrphanedTransactionCommand.message:type_name -> apache.rocketmq.v2.Message
-	41, // 39: apache.rocketmq.v2.TelemetryCommand.status:type_name -> apache.rocketmq.v2.Status
-	51, // 40: apache.rocketmq.v2.TelemetryCommand.settings:type_name -> apache.rocketmq.v2.Settings
-	20, // 41: apache.rocketmq.v2.TelemetryCommand.thread_stack_trace:type_name -> apache.rocketmq.v2.ThreadStackTrace
-	22, // 42: apache.rocketmq.v2.TelemetryCommand.verify_message_result:type_name -> apache.rocketmq.v2.VerifyMessageResult
-	23, // 43: apache.rocketmq.v2.TelemetryCommand.recover_orphaned_transaction_command:type_name -> apache.rocketmq.v2.RecoverOrphanedTransactionCommand
+	40, // 27: apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest.group:type_name -> apache.rocketmq.v2.Resource
+	40, // 28: apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest.topic:type_name -> apache.rocketmq.v2.Resource
+	42, // 29: apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse.status:type_name -> apache.rocketmq.v2.Status
+	40, // 30: apache.rocketmq.v2.HeartbeatRequest.group:type_name -> apache.rocketmq.v2.Resource
+	49, // 31: apache.rocketmq.v2.HeartbeatRequest.client_type:type_name -> apache.rocketmq.v2.ClientType
+	42, // 32: apache.rocketmq.v2.HeartbeatResponse.status:type_name -> apache.rocketmq.v2.Status
+	40, // 33: apache.rocketmq.v2.EndTransactionRequest.topic:type_name -> apache.rocketmq.v2.Resource
+	50, // 34: apache.rocketmq.v2.EndTransactionRequest.resolution:type_name -> apache.rocketmq.v2.TransactionResolution
+	51, // 35: apache.rocketmq.v2.EndTransactionRequest.source:type_name -> apache.rocketmq.v2.TransactionSource
+	42, // 36: apache.rocketmq.v2.EndTransactionResponse.status:type_name -> apache.rocketmq.v2.Status
+	44, // 37: apache.rocketmq.v2.VerifyMessageCommand.message:type_name -> apache.rocketmq.v2.Message
+	44, // 38: apache.rocketmq.v2.RecoverOrphanedTransactionCommand.message:type_name -> apache.rocketmq.v2.Message
+	42, // 39: apache.rocketmq.v2.TelemetryCommand.status:type_name -> apache.rocketmq.v2.Status
+	52, // 40: apache.rocketmq.v2.TelemetryCommand.settings:type_name -> apache.rocketmq.v2.Settings
+	21, // 41: apache.rocketmq.v2.TelemetryCommand.thread_stack_trace:type_name -> apache.rocketmq.v2.ThreadStackTrace
+	23, // 42: apache.rocketmq.v2.TelemetryCommand.verify_message_result:type_name -> apache.rocketmq.v2.VerifyMessageResult
+	24, // 43: apache.rocketmq.v2.TelemetryCommand.recover_orphaned_transaction_command:type_name -> apache.rocketmq.v2.RecoverOrphanedTransactionCommand
 	19, // 44: apache.rocketmq.v2.TelemetryCommand.print_thread_stack_trace_command:type_name -> apache.rocketmq.v2.PrintThreadStackTraceCommand
-	21, // 45: apache.rocketmq.v2.TelemetryCommand.verify_message_command:type_name -> apache.rocketmq.v2.VerifyMessageCommand
-	39, // 46: apache.rocketmq.v2.NotifyClientTerminationRequest.group:type_name -> apache.rocketmq.v2.Resource
-	41, // 47: apache.rocketmq.v2.NotifyClientTerminationResponse.status:type_name -> apache.rocketmq.v2.Status
-	39, // 48: apache.rocketmq.v2.ChangeInvisibleDurationRequest.group:type_name -> apache.rocketmq.v2.Resource
-	39, // 49: apache.rocketmq.v2.ChangeInvisibleDurationRequest.topic:type_name -> apache.rocketmq.v2.Resource
-	46, // 50: apache.rocketmq.v2.ChangeInvisibleDurationRequest.invisible_duration:type_name -> google.protobuf.Duration
-	41, // 51: apache.rocketmq.v2.ChangeInvisibleDurationResponse.status:type_name -> apache.rocketmq.v2.Status
-	39, // 52: apache.rocketmq.v2.PullMessageRequest.group:type_name -> apache.rocketmq.v2.Resource
-	42, // 53: apache.rocketmq.v2.PullMessageRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
-	45, // 54: apache.rocketmq.v2.PullMessageRequest.filter_expression:type_name -> apache.rocketmq.v2.FilterExpression
-	46, // 55: apache.rocketmq.v2.PullMessageRequest.long_polling_timeout:type_name -> google.protobuf.Duration
-	41, // 56: apache.rocketmq.v2.PullMessageResponse.status:type_name -> apache.rocketmq.v2.Status
-	43, // 57: apache.rocketmq.v2.PullMessageResponse.message:type_name -> apache.rocketmq.v2.Message
-	39, // 58: apache.rocketmq.v2.UpdateOffsetRequest.group:type_name -> apache.rocketmq.v2.Resource
-	42, // 59: apache.rocketmq.v2.UpdateOffsetRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
-	41, // 60: apache.rocketmq.v2.UpdateOffsetResponse.status:type_name -> apache.rocketmq.v2.Status
-	39, // 61: apache.rocketmq.v2.GetOffsetRequest.group:type_name -> apache.rocketmq.v2.Resource
-	42, // 62: apache.rocketmq.v2.GetOffsetRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
-	41, // 63: apache.rocketmq.v2.GetOffsetResponse.status:type_name -> apache.rocketmq.v2.Status
-	42, // 64: apache.rocketmq.v2.QueryOffsetRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
-	52, // 65: apache.rocketmq.v2.QueryOffsetRequest.query_offset_policy:type_name -> apache.rocketmq.v2.QueryOffsetPolicy
-	47, // 66: apache.rocketmq.v2.QueryOffsetRequest.timestamp:type_name -> google.protobuf.Timestamp
-	41, // 67: apache.rocketmq.v2.QueryOffsetResponse.status:type_name -> apache.rocketmq.v2.Status
-	39, // 68: apache.rocketmq.v2.RecallMessageRequest.topic:type_name -> apache.rocketmq.v2.Resource
-	41, // 69: apache.rocketmq.v2.RecallMessageResponse.status:type_name -> apache.rocketmq.v2.Status
-	0,  // 70: apache.rocketmq.v2.MessagingService.QueryRoute:input_type -> apache.rocketmq.v2.QueryRouteRequest
-	15, // 71: apache.rocketmq.v2.MessagingService.Heartbeat:input_type -> apache.rocketmq.v2.HeartbeatRequest
-	2,  // 72: apache.rocketmq.v2.MessagingService.SendMessage:input_type -> apache.rocketmq.v2.SendMessageRequest
-	5,  // 73: apache.rocketmq.v2.MessagingService.QueryAssignment:input_type -> apache.rocketmq.v2.QueryAssignmentRequest
-	7,  // 74: apache.rocketmq.v2.MessagingService.ReceiveMessage:input_type -> apache.rocketmq.v2.ReceiveMessageRequest
-	10, // 75: apache.rocketmq.v2.MessagingService.AckMessage:input_type -> apache.rocketmq.v2.AckMessageRequest
-	13, // 76: apache.rocketmq.v2.MessagingService.ForwardMessageToDeadLetterQueue:input_type -> apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest
-	29, // 77: apache.rocketmq.v2.MessagingService.PullMessage:input_type -> apache.rocketmq.v2.PullMessageRequest
-	31, // 78: apache.rocketmq.v2.MessagingService.UpdateOffset:input_type -> apache.rocketmq.v2.UpdateOffsetRequest
-	33, // 79: apache.rocketmq.v2.MessagingService.GetOffset:input_type -> apache.rocketmq.v2.GetOffsetRequest
-	35, // 80: apache.rocketmq.v2.MessagingService.QueryOffset:input_type -> apache.rocketmq.v2.QueryOffsetRequest
-	17, // 81: apache.rocketmq.v2.MessagingService.EndTransaction:input_type -> apache.rocketmq.v2.EndTransactionRequest
-	24, // 82: apache.rocketmq.v2.MessagingService.Telemetry:input_type -> apache.rocketmq.v2.TelemetryCommand
-	25, // 83: apache.rocketmq.v2.MessagingService.NotifyClientTermination:input_type -> apache.rocketmq.v2.NotifyClientTerminationRequest
-	27, // 84: apache.rocketmq.v2.MessagingService.ChangeInvisibleDuration:input_type -> apache.rocketmq.v2.ChangeInvisibleDurationRequest
-	37, // 85: apache.rocketmq.v2.MessagingService.RecallMessage:input_type -> apache.rocketmq.v2.RecallMessageRequest
-	1,  // 86: apache.rocketmq.v2.MessagingService.QueryRoute:output_type -> apache.rocketmq.v2.QueryRouteResponse
-	16, // 87: apache.rocketmq.v2.MessagingService.Heartbeat:output_type -> apache.rocketmq.v2.HeartbeatResponse
-	4,  // 88: apache.rocketmq.v2.MessagingService.SendMessage:output_type -> apache.rocketmq.v2.SendMessageResponse
-	6,  // 89: apache.rocketmq.v2.MessagingService.QueryAssignment:output_type -> apache.rocketmq.v2.QueryAssignmentResponse
-	8,  // 90: apache.rocketmq.v2.MessagingService.ReceiveMessage:output_type -> apache.rocketmq.v2.ReceiveMessageResponse
-	12, // 91: apache.rocketmq.v2.MessagingService.AckMessage:output_type -> apache.rocketmq.v2.AckMessageResponse
-	14, // 92: apache.rocketmq.v2.MessagingService.ForwardMessageToDeadLetterQueue:output_type -> apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse
-	30, // 93: apache.rocketmq.v2.MessagingService.PullMessage:output_type -> apache.rocketmq.v2.PullMessageResponse
-	32, // 94: apache.rocketmq.v2.MessagingService.UpdateOffset:output_type -> apache.rocketmq.v2.UpdateOffsetResponse
-	34, // 95: apache.rocketmq.v2.MessagingService.GetOffset:output_type -> apache.rocketmq.v2.GetOffsetResponse
-	36, // 96: apache.rocketmq.v2.MessagingService.QueryOffset:output_type -> apache.rocketmq.v2.QueryOffsetResponse
-	18, // 97: apache.rocketmq.v2.MessagingService.EndTransaction:output_type -> apache.rocketmq.v2.EndTransactionResponse
-	24, // 98: apache.rocketmq.v2.MessagingService.Telemetry:output_type -> apache.rocketmq.v2.TelemetryCommand
-	26, // 99: apache.rocketmq.v2.MessagingService.NotifyClientTermination:output_type -> apache.rocketmq.v2.NotifyClientTerminationResponse
-	28, // 100: apache.rocketmq.v2.MessagingService.ChangeInvisibleDuration:output_type -> apache.rocketmq.v2.ChangeInvisibleDurationResponse
-	38, // 101: apache.rocketmq.v2.MessagingService.RecallMessage:output_type -> apache.rocketmq.v2.RecallMessageResponse
-	86, // [86:102] is the sub-list for method output_type
-	70, // [70:86] is the sub-list for method input_type
-	70, // [70:70] is the sub-list for extension type_name
-	70, // [70:70] is the sub-list for extension extendee
-	0,  // [0:70] is the sub-list for field type_name
+	22, // 45: apache.rocketmq.v2.TelemetryCommand.verify_message_command:type_name -> apache.rocketmq.v2.VerifyMessageCommand
+	20, // 46: apache.rocketmq.v2.TelemetryCommand.reconnect_endpoints_command:type_name -> apache.rocketmq.v2.ReconnectEndpointsCommand
+	40, // 47: apache.rocketmq.v2.NotifyClientTerminationRequest.group:type_name -> apache.rocketmq.v2.Resource
+	42, // 48: apache.rocketmq.v2.NotifyClientTerminationResponse.status:type_name -> apache.rocketmq.v2.Status
+	40, // 49: apache.rocketmq.v2.ChangeInvisibleDurationRequest.group:type_name -> apache.rocketmq.v2.Resource
+	40, // 50: apache.rocketmq.v2.ChangeInvisibleDurationRequest.topic:type_name -> apache.rocketmq.v2.Resource
+	47, // 51: apache.rocketmq.v2.ChangeInvisibleDurationRequest.invisible_duration:type_name -> google.protobuf.Duration
+	42, // 52: apache.rocketmq.v2.ChangeInvisibleDurationResponse.status:type_name -> apache.rocketmq.v2.Status
+	40, // 53: apache.rocketmq.v2.PullMessageRequest.group:type_name -> apache.rocketmq.v2.Resource
+	43, // 54: apache.rocketmq.v2.PullMessageRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
+	46, // 55: apache.rocketmq.v2.PullMessageRequest.filter_expression:type_name -> apache.rocketmq.v2.FilterExpression
+	47, // 56: apache.rocketmq.v2.PullMessageRequest.long_polling_timeout:type_name -> google.protobuf.Duration
+	42, // 57: apache.rocketmq.v2.PullMessageResponse.status:type_name -> apache.rocketmq.v2.Status
+	44, // 58: apache.rocketmq.v2.PullMessageResponse.message:type_name -> apache.rocketmq.v2.Message
+	40, // 59: apache.rocketmq.v2.UpdateOffsetRequest.group:type_name -> apache.rocketmq.v2.Resource
+	43, // 60: apache.rocketmq.v2.UpdateOffsetRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
+	42, // 61: apache.rocketmq.v2.UpdateOffsetResponse.status:type_name -> apache.rocketmq.v2.Status
+	40, // 62: apache.rocketmq.v2.GetOffsetRequest.group:type_name -> apache.rocketmq.v2.Resource
+	43, // 63: apache.rocketmq.v2.GetOffsetRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
+	42, // 64: apache.rocketmq.v2.GetOffsetResponse.status:type_name -> apache.rocketmq.v2.Status
+	43, // 65: apache.rocketmq.v2.QueryOffsetRequest.message_queue:type_name -> apache.rocketmq.v2.MessageQueue
+	53, // 66: apache.rocketmq.v2.QueryOffsetRequest.query_offset_policy:type_name -> apache.rocketmq.v2.QueryOffsetPolicy
+	48, // 67: apache.rocketmq.v2.QueryOffsetRequest.timestamp:type_name -> google.protobuf.Timestamp
+	42, // 68: apache.rocketmq.v2.QueryOffsetResponse.status:type_name -> apache.rocketmq.v2.Status
+	40, // 69: apache.rocketmq.v2.RecallMessageRequest.topic:type_name -> apache.rocketmq.v2.Resource
+	42, // 70: apache.rocketmq.v2.RecallMessageResponse.status:type_name -> apache.rocketmq.v2.Status
+	0,  // 71: apache.rocketmq.v2.MessagingService.QueryRoute:input_type -> apache.rocketmq.v2.QueryRouteRequest
+	15, // 72: apache.rocketmq.v2.MessagingService.Heartbeat:input_type -> apache.rocketmq.v2.HeartbeatRequest
+	2,  // 73: apache.rocketmq.v2.MessagingService.SendMessage:input_type -> apache.rocketmq.v2.SendMessageRequest
+	5,  // 74: apache.rocketmq.v2.MessagingService.QueryAssignment:input_type -> apache.rocketmq.v2.QueryAssignmentRequest
+	7,  // 75: apache.rocketmq.v2.MessagingService.ReceiveMessage:input_type -> apache.rocketmq.v2.ReceiveMessageRequest
+	10, // 76: apache.rocketmq.v2.MessagingService.AckMessage:input_type -> apache.rocketmq.v2.AckMessageRequest
+	13, // 77: apache.rocketmq.v2.MessagingService.ForwardMessageToDeadLetterQueue:input_type -> apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest
+	30, // 78: apache.rocketmq.v2.MessagingService.PullMessage:input_type -> apache.rocketmq.v2.PullMessageRequest
+	32, // 79: apache.rocketmq.v2.MessagingService.UpdateOffset:input_type -> apache.rocketmq.v2.UpdateOffsetRequest
+	34, // 80: apache.rocketmq.v2.MessagingService.GetOffset:input_type -> apache.rocketmq.v2.GetOffsetRequest
+	36, // 81: apache.rocketmq.v2.MessagingService.QueryOffset:input_type -> apache.rocketmq.v2.QueryOffsetRequest
+	17, // 82: apache.rocketmq.v2.MessagingService.EndTransaction:input_type -> apache.rocketmq.v2.EndTransactionRequest
+	25, // 83: apache.rocketmq.v2.MessagingService.Telemetry:input_type -> apache.rocketmq.v2.TelemetryCommand
+	26, // 84: apache.rocketmq.v2.MessagingService.NotifyClientTermination:input_type -> apache.rocketmq.v2.NotifyClientTerminationRequest
+	28, // 85: apache.rocketmq.v2.MessagingService.ChangeInvisibleDuration:input_type -> apache.rocketmq.v2.ChangeInvisibleDurationRequest
+	38, // 86: apache.rocketmq.v2.MessagingService.RecallMessage:input_type -> apache.rocketmq.v2.RecallMessageRequest
+	1,  // 87: apache.rocketmq.v2.MessagingService.QueryRoute:output_type -> apache.rocketmq.v2.QueryRouteResponse
+	16, // 88: apache.rocketmq.v2.MessagingService.Heartbeat:output_type -> apache.rocketmq.v2.HeartbeatResponse
+	4,  // 89: apache.rocketmq.v2.MessagingService.SendMessage:output_type -> apache.rocketmq.v2.SendMessageResponse
+	6,  // 90: apache.rocketmq.v2.MessagingService.QueryAssignment:output_type -> apache.rocketmq.v2.QueryAssignmentResponse
+	8,  // 91: apache.rocketmq.v2.MessagingService.ReceiveMessage:output_type -> apache.rocketmq.v2.ReceiveMessageResponse
+	12, // 92: apache.rocketmq.v2.MessagingService.AckMessage:output_type -> apache.rocketmq.v2.AckMessageResponse
+	14, // 93: apache.rocketmq.v2.MessagingService.ForwardMessageToDeadLetterQueue:output_type -> apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse
+	31, // 94: apache.rocketmq.v2.MessagingService.PullMessage:output_type -> apache.rocketmq.v2.PullMessageResponse
+	33, // 95: apache.rocketmq.v2.MessagingService.UpdateOffset:output_type -> apache.rocketmq.v2.UpdateOffsetResponse
+	35, // 96: apache.rocketmq.v2.MessagingService.GetOffset:output_type -> apache.rocketmq.v2.GetOffsetResponse
+	37, // 97: apache.rocketmq.v2.MessagingService.QueryOffset:output_type -> apache.rocketmq.v2.QueryOffsetResponse
+	18, // 98: apache.rocketmq.v2.MessagingService.EndTransaction:output_type -> apache.rocketmq.v2.EndTransactionResponse
+	25, // 99: apache.rocketmq.v2.MessagingService.Telemetry:output_type -> apache.rocketmq.v2.TelemetryCommand
+	27, // 100: apache.rocketmq.v2.MessagingService.NotifyClientTermination:output_type -> apache.rocketmq.v2.NotifyClientTerminationResponse
+	29, // 101: apache.rocketmq.v2.MessagingService.ChangeInvisibleDuration:output_type -> apache.rocketmq.v2.ChangeInvisibleDurationResponse
+	39, // 102: apache.rocketmq.v2.MessagingService.RecallMessage:output_type -> apache.rocketmq.v2.RecallMessageResponse
+	87, // [87:103] is the sub-list for method output_type
+	71, // [71:87] is the sub-list for method input_type
+	71, // [71:71] is the sub-list for extension type_name
+	71, // [71:71] is the sub-list for extension extendee
+	0,  // [0:71] is the sub-list for field type_name
 }
 
 func init() { file_apache_rocketmq_v2_service_proto_init() }
@@ -2852,29 +2918,30 @@ func file_apache_rocketmq_v2_service_proto_init() {
 		(*ReceiveMessageResponse_DeliveryTimestamp)(nil),
 	}
 	file_apache_rocketmq_v2_service_proto_msgTypes[15].OneofWrappers = []any{}
-	file_apache_rocketmq_v2_service_proto_msgTypes[20].OneofWrappers = []any{}
-	file_apache_rocketmq_v2_service_proto_msgTypes[24].OneofWrappers = []any{
+	file_apache_rocketmq_v2_service_proto_msgTypes[21].OneofWrappers = []any{}
+	file_apache_rocketmq_v2_service_proto_msgTypes[25].OneofWrappers = []any{
 		(*TelemetryCommand_Settings)(nil),
 		(*TelemetryCommand_ThreadStackTrace)(nil),
 		(*TelemetryCommand_VerifyMessageResult)(nil),
 		(*TelemetryCommand_RecoverOrphanedTransactionCommand)(nil),
 		(*TelemetryCommand_PrintThreadStackTraceCommand)(nil),
 		(*TelemetryCommand_VerifyMessageCommand)(nil),
+		(*TelemetryCommand_ReconnectEndpointsCommand)(nil),
 	}
-	file_apache_rocketmq_v2_service_proto_msgTypes[25].OneofWrappers = []any{}
-	file_apache_rocketmq_v2_service_proto_msgTypes[30].OneofWrappers = []any{
+	file_apache_rocketmq_v2_service_proto_msgTypes[26].OneofWrappers = []any{}
+	file_apache_rocketmq_v2_service_proto_msgTypes[31].OneofWrappers = []any{
 		(*PullMessageResponse_Status)(nil),
 		(*PullMessageResponse_Message)(nil),
 		(*PullMessageResponse_NextOffset)(nil),
 	}
-	file_apache_rocketmq_v2_service_proto_msgTypes[35].OneofWrappers = []any{}
+	file_apache_rocketmq_v2_service_proto_msgTypes[36].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_apache_rocketmq_v2_service_proto_rawDesc), len(file_apache_rocketmq_v2_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   39,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
