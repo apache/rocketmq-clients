@@ -33,13 +33,12 @@ import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.Status;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Service;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import com.google.common.util.concurrent.SettableFuture;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.Message;
@@ -159,7 +158,8 @@ public class ProducerImplTest extends TestBase {
         final ProducerImpl producer = createProducerWithTopic(FAKE_TOPIC_0);
         final List<MessageQueueImpl> candidates = Collections.singletonList(fakeMessageQueueImpl(FAKE_TOPIC_0));
         final List<PublishingMessageImpl> messages = Collections.singletonList(
-            new PublishingMessageImpl(fakeMessage(FAKE_TOPIC_0),fakeProducerSettings(), false));
+            new PublishingMessageImpl(fakeMessage(FAKE_TOPIC_0), fakeProducerSettings(), false)
+        );
         final SettableFuture<List<SendReceiptImpl>> future = SettableFuture.create();
         final SendReceiptImpl sendReceiptImpl = fakeSendReceiptImpl(candidates.get(0));
         // mock send0(Endpoints, List, MessageQueueImpl)
