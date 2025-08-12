@@ -458,3 +458,7 @@ func (p *defaultProducer) SetRequestTimeout(timeout time.Duration) {
 func (p *defaultProducer) IsEndpointUpdated() bool {
 	return p.cli.ReceiveReconnect
 }
+
+func (sc *defaultProducer) SetReceiveReconnect(receiveReconnect bool) {
+	sc.cli.ReceiveReconnect = receiveReconnect
+}
