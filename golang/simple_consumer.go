@@ -450,3 +450,7 @@ func (sc *defaultSimpleConsumer) Ack(ctx context.Context, messageView *MessageVi
 	sc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
 	return nil
 }
+
+func (sc *defaultSimpleConsumer) IsEndpointUpdated() bool {
+	return sc.cli.ReceiveReconnect
+}
