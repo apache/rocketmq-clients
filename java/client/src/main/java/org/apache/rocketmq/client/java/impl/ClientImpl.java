@@ -81,6 +81,7 @@ import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
 import org.apache.rocketmq.client.java.impl.consumer.ReceiveMessageResult;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
+import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.metrics.ClientMeterManager;
 import org.apache.rocketmq.client.java.metrics.MessageMeterInterceptor;
 import org.apache.rocketmq.client.java.metrics.Metric;
@@ -266,9 +267,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
 
-    public void filterMessage(MessageInterceptorContext context, ReceiveMessageResult result) {
+    public void filterMessage(MessageInterceptorContext context, ReceiveMessageResult result,
+        List<MessageViewImpl> filteredMessages) {
         try {
-            compositedMessageInterceptor.filterMessage(context, result);
+            compositedMessageInterceptor.filterMessage(context, result, filteredMessages);
         } catch (Throwable t) {
             // Should never reach here.
             log.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
@@ -426,7 +428,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * Triggered when {@link TopicRouteData} is fetched from remote.
      */
     public ListenableFuture<TopicRouteData> onTopicRouteDataFetched(String topic,
-    TopicRouteData topicRouteData) throws ClientException {
+        TopicRouteData topicRouteData) throws ClientException {
         final Set<Endpoints> routeEndpoints = topicRouteData
             .getMessageQueues().stream()
             .map(mq -> mq.getBroker().getEndpoints())
@@ -765,10 +767,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         } catch (ExecutionException e) {
             final Throwable cause = e.getCause();
             if (cause instanceof ClientException) {
-                throw (ClientException) cause;
+                throw (ClientException)cause;
             }
             if (cause instanceof RuntimeException) {
-                throw (RuntimeException) cause;
+                throw (RuntimeException)cause;
             }
             throw new ClientException(null == cause ? e : cause);
         }

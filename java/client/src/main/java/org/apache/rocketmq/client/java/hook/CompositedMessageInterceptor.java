@@ -24,6 +24,7 @@ import java.util.Map;
 
 import org.apache.rocketmq.client.java.impl.consumer.ReceiveMessageResult;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
+import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,7 +59,8 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
         context0.putAttribute(INTERCEPTOR_ATTRIBUTES_KEY, Attribute.create(attributeMap));
     }
 
-    public void filterMessage(MessageInterceptorContext context0, ReceiveMessageResult result) {
+    public void filterMessage(MessageInterceptorContext context0, ReceiveMessageResult result,
+        List<MessageViewImpl> filteredMessages) {
         for (int index = filterMessageHooks.size() - 1; index >= 0; index--) {
             final Map<Integer, Map<AttributeKey, Attribute>> attributeMap =
                 context0.getAttribute(INTERCEPTOR_ATTRIBUTES_KEY).get();
@@ -72,7 +74,7 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
             }
             FilterMessageHook filterMessageHook = filterMessageHooks.get(index);
             try {
-                filterMessageHook.filterMessage(context0, result);
+                filterMessageHook.filterMessage(context0, result, filteredMessages);
             } catch (Throwable t) {
                 log.error("Exception raised while handing messages", t);
             }
