@@ -33,6 +33,7 @@ import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.Status;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Service;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -44,6 +45,7 @@ import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.impl.ClientManagerImpl;
 import org.apache.rocketmq.client.java.message.MessageIdCodec;
+import org.apache.rocketmq.client.java.message.PublishingMessageImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
@@ -148,6 +150,25 @@ public class ProducerImplTest extends TestBase {
             Assert.assertTrue(t instanceof InternalErrorException);
         });
         verify(producer, times(2)).recallMessage0(any(), any());
+        producer.close();
+    }
+
+    @Test
+    public void testSend0InternalNormal() throws Exception {
+        final ProducerImpl producer = createProducerWithTopic(FAKE_TOPIC_0);
+        final List<MessageQueueImpl> candidates = Collections.singletonList(fakeMessageQueueImpl(FAKE_TOPIC_0));
+        final List<PublishingMessageImpl> messages = Collections.singletonList(
+            new PublishingMessageImpl(fakeMessage(FAKE_TOPIC_0), fakeProducerSettings(), false)
+        );
+        final SettableFuture<List<SendReceiptImpl>> future = SettableFuture.create();
+        final SendReceiptImpl sendReceiptImpl = fakeSendReceiptImpl(candidates.get(0));
+        // mock send0(Endpoints, List, MessageQueueImpl)
+        Mockito.doReturn(Futures.immediateFuture(Collections.singletonList(sendReceiptImpl)))
+            .when(producer).send0(any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
+        producer.send0(future, FAKE_TOPIC_0, org.apache.rocketmq.client.java.message.MessageType.NORMAL, candidates, messages, 1);
+        Assert.assertFalse(future.isCancelled());
+        Assert.assertEquals(1, future.get().size());
+        verify(producer, times(1)).send0(any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
         producer.close();
     }
 }
