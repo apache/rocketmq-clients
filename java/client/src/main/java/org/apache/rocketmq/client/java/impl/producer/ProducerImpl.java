@@ -488,7 +488,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         AttributeKey<MessageType> messageTypeKey = AttributeKey.create(MESSAGE_TYPE_CONTEXT);
         context.putAttribute(messageTypeKey, Attribute.create(messageType));
         // Add remoteAddr to context.
-        String remoteAddr = LoggingInterceptor.getRemoteAddr();
+        String remoteAddr = LoggingInterceptor.getInstance().getRemoteAddr();
         AttributeKey<String> remoteAddrKey = AttributeKey.create(REMOTE_ADDR_CONTEXT);
         context.putAttribute(remoteAddrKey, Attribute.create(remoteAddr));
 

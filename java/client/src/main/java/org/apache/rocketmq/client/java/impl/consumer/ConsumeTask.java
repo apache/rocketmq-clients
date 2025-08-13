@@ -68,7 +68,7 @@ public class ConsumeTask implements Callable<ConsumeResult> {
         MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.CONSUME);
 
         // Add remoteAddr to context.
-        String remoteAddr = LoggingInterceptor.getRemoteAddr();
+        String remoteAddr = LoggingInterceptor.getInstance().getRemoteAddr();
         AttributeKey<String> remoteAddrKey = AttributeKey.create(REMOTE_ADDR_CONTEXT);
         context.putAttribute(remoteAddrKey, Attribute.create(remoteAddr));
         // Add message view to context.

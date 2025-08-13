@@ -38,9 +38,9 @@ public class LoggingInterceptor implements ClientInterceptor {
     private static final Logger log = LoggerFactory.getLogger(LoggingInterceptor.class);
 
     private static final LoggingInterceptor INSTANCE = new LoggingInterceptor();
-    private static String remoteAddr = "";
+    private String remoteAddr = "";
 
-    public static String getRemoteAddr() {
+    public String getRemoteAddr() {
         return remoteAddr;
     }
 
