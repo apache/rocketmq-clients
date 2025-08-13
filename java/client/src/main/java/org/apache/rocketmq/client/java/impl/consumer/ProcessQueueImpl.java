@@ -248,12 +248,22 @@ class ProcessQueueImpl implements ProcessQueue {
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                     @Override
                     public void onSuccess(ReceiveMessageResult result) {
+                        // Filter message.
+                        List<MessageViewImpl> filteredMessages = new ArrayList<>();
+                        final MessageInterceptorContextImpl context0 =
+                            new MessageInterceptorContextImpl(context, MessageHookPointsStatus.OK);
+                        consumer.filterMessage(context0, result, filteredMessages);
+
+                        // Ack message while filtered.
+                        for (MessageViewImpl messageView : filteredMessages) {
+                            final ListenableFuture<Void> future = ackMessage(messageView);
+                            future.addListener(() -> evictCache(messageView), MoreExecutors.directExecutor());
+                        }
+
                         // Intercept after message reception.
                         final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
                             .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
                             .collect(Collectors.toList());
-                        final MessageInterceptorContextImpl context0 =
-                            new MessageInterceptorContextImpl(context, MessageHookPointsStatus.OK);
                         consumer.doAfter(context0, generalMessages);
 
                         try {
