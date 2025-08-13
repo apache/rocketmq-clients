@@ -95,12 +95,12 @@ import org.slf4j.LoggerFactory;
  */
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
 class ProducerImpl extends ClientImpl implements Producer {
-    private static final Logger log = LoggerFactory.getLogger(ProducerImpl.class);
+    static final AttributeKey<String>  REMOTE_ADDR_CONTEXT_KEY = AttributeKey.create("remoteAddr");
+    static final AttributeKey<List<SendReceiptImpl>> SEND_RECEIPTS_CONTEXT_KEY = AttributeKey.create("sendReceipts");
+    static final AttributeKey<Throwable> SEND_EXCEPTION_CONTEXT_KEY = AttributeKey.create("sendException");
+    static final AttributeKey<MessageType> MESSAGE_TYPE_CONTEXT_KEY = AttributeKey.create("messageType");
 
-    private static final String SEND_RECEIPTS_CONTEXT = "sendReceipts";
-    private static final String SEND_EXCEPTION_CONTEXT = "sendException";
-    private static final String MESSAGE_TYPE_CONTEXT = "messageType";
-    private static final String REMOTE_ADDR_CONTEXT = "remoteAddr";
+    private static final Logger log = LoggerFactory.getLogger(ProducerImpl.class);
 
     protected final PublishingSettings publishingSettings;
     final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataCache;
@@ -485,12 +485,10 @@ class ProducerImpl extends ClientImpl implements Producer {
         MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
 
         // Add message type to context.
-        AttributeKey<MessageType> messageTypeKey = AttributeKey.create(MESSAGE_TYPE_CONTEXT);
-        context.putAttribute(messageTypeKey, Attribute.create(messageType));
+        context.putAttribute(MESSAGE_TYPE_CONTEXT_KEY, Attribute.create(messageType));
         // Add remoteAddr to context.
         String remoteAddr = LoggingInterceptor.getInstance().getRemoteAddr();
-        AttributeKey<String> remoteAddrKey = AttributeKey.create(REMOTE_ADDR_CONTEXT);
-        context.putAttribute(remoteAddrKey, Attribute.create(remoteAddr));
+        context.putAttribute(REMOTE_ADDR_CONTEXT_KEY, Attribute.create(remoteAddr));
 
         doBefore(context, generalMessages);
 
@@ -508,8 +506,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                     MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                         MessageHookPointsStatus.ERROR);
                     // Add send exception to context.
-                    AttributeKey<Throwable> sendExceptionKey = AttributeKey.create(SEND_EXCEPTION_CONTEXT);
-                    context0.putAttribute(sendExceptionKey, Attribute.create(e));
+                    context0.putAttribute(SEND_EXCEPTION_CONTEXT_KEY, Attribute.create(e));
                     doAfter(context0, generalMessages);
                     return;
                 }
@@ -517,8 +514,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                 MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.OK);
                 // Add send receipts to context.
-                AttributeKey<List<SendReceiptImpl>> sendReceiptsKey = AttributeKey.create(SEND_RECEIPTS_CONTEXT);
-                context0.putAttribute(sendReceiptsKey, Attribute.create(sendReceipts));
+                context0.putAttribute(SEND_RECEIPTS_CONTEXT_KEY, Attribute.create(sendReceipts));
                 doAfter(context0, generalMessages);
 
                 // No need more attempts.
@@ -543,8 +539,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                 MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.ERROR);
                 // Add send exception to context.
-                AttributeKey<Throwable> sendExceptionKey = AttributeKey.create(SEND_EXCEPTION_CONTEXT);
-                context0.putAttribute(sendExceptionKey, Attribute.create(t));
+                context0.putAttribute(SEND_EXCEPTION_CONTEXT_KEY, Attribute.create(t));
                 doAfter(context0, generalMessages);
 
                 // Collect messageId(s) for logging.

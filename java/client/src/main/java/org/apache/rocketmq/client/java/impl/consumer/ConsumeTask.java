@@ -37,11 +37,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ConsumeTask implements Callable<ConsumeResult> {
-    private static final Logger log = LoggerFactory.getLogger(ConsumeTask.class);
+    static final AttributeKey<MessageViewImpl> MESSAGE_VIEW_CONTEXT_KEY = AttributeKey.create("messageView");
+    static final AttributeKey<String> REMOTE_ADDR_CONTEXT_KEY = AttributeKey.create("remoteAddr");
+    static final AttributeKey<Throwable> CONSUME_ERROR_CONTEXT_KEY = AttributeKey.create("consumeError");
 
-    private static final String MESSAGE_VIEW_CONTEXT = "messageView";
-    private static final String REMOTE_ADDR_CONTEXT = "remoteAddr";
-    private static final String CONSUME_ERROR_CONTEXT = "consumeError";
+    private static final Logger log = LoggerFactory.getLogger(ConsumeTask.class);
 
     private final ClientId clientId;
     private final MessageListener messageListener;
@@ -69,11 +69,9 @@ public class ConsumeTask implements Callable<ConsumeResult> {
 
         // Add remoteAddr to context.
         String remoteAddr = LoggingInterceptor.getInstance().getRemoteAddr();
-        AttributeKey<String> remoteAddrKey = AttributeKey.create(REMOTE_ADDR_CONTEXT);
-        context.putAttribute(remoteAddrKey, Attribute.create(remoteAddr));
+        context.putAttribute(REMOTE_ADDR_CONTEXT_KEY, Attribute.create(remoteAddr));
         // Add message view to context.
-        AttributeKey<MessageViewImpl> messageViewKey = AttributeKey.create(MESSAGE_VIEW_CONTEXT);
-        context.putAttribute(messageViewKey, Attribute.create(messageView));
+        context.putAttribute(MESSAGE_VIEW_CONTEXT_KEY, Attribute.create(messageView));
 
         messageInterceptor.doBefore(context, generalMessages);
         Throwable throwable = null;
@@ -91,8 +89,7 @@ public class ConsumeTask implements Callable<ConsumeResult> {
         context = new MessageInterceptorContextImpl(context, status);
         if (!ConsumeResult.SUCCESS.equals(consumeResult) && null != throwable) {
             // Add consume error to context.
-            AttributeKey<Throwable> consumeErrorKey = AttributeKey.create(CONSUME_ERROR_CONTEXT);
-            context.putAttribute(consumeErrorKey, Attribute.create(throwable));
+            context.putAttribute(CONSUME_ERROR_CONTEXT_KEY, Attribute.create(throwable));
         }
         messageInterceptor.doAfter(context, generalMessages);
         // Make sure that the return value is the subset of messageViews.
