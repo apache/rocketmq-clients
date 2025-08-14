@@ -17,10 +17,19 @@
 
 package golang
 
+import (
+	"sync"
+
+	"go.uber.org/atomic"
+)
+
 type simpleThreadPool struct {
-	name     string
-	tasks    chan func()
-	shutdown chan any
+	name      string
+	tasks     chan func()
+	shutdown  chan any
+	waitGroup sync.WaitGroup
+	once      sync.Once
+	running   atomic.Bool
 }
 
 func NewSimpleThreadPool(poolName string, taskSize int, threadNum int) *simpleThreadPool {
@@ -28,14 +37,21 @@ func NewSimpleThreadPool(poolName string, taskSize int, threadNum int) *simpleTh
 		name:     poolName,
 		tasks:    make(chan func(), taskSize),
 		shutdown: make(chan any),
+		running:  *atomic.NewBool(true),
 	}
 	for i := 0; i < threadNum; i++ {
+		r.waitGroup.Add(1)
 		go func() {
+			defer r.waitGroup.Done()
 			tp := r
 			for {
 				select {
 				case <-tp.shutdown:
 					sugarBaseLogger.Infof("routine pool is shutdown, name=%s", tp.name)
+					// complete all remaining tasks
+					for t := range tp.tasks {
+						t()
+					}
 					return
 				case t := <-tp.tasks:
 					t()
@@ -47,9 +63,24 @@ func NewSimpleThreadPool(poolName string, taskSize int, threadNum int) *simpleTh
 }
 
 func (tp *simpleThreadPool) Submit(task func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			// the running flag may have concurrency security, here is a fallback
+			sugarBaseLogger.Warnf("recover: simple thread pool [%s], task=%v, err=%v", tp.name, task, r)
+		}
+	}()
+	if !tp.running.Load() {
+		sugarBaseLogger.Warnf("simple thread pool [%s] is not running, task=%v", tp.name, task)
+		return
+	}
 	tp.tasks <- task
 }
 func (tp *simpleThreadPool) Shutdown() {
-	tp.shutdown <- 0
-	close(tp.shutdown)
+	tp.running.Store(false)
+	tp.once.Do(func() {
+		close(tp.shutdown)
+		// do not accept other task
+		close(tp.tasks)
+		tp.waitGroup.Wait()
+	})
 }

@@ -413,8 +413,13 @@ void PushConsumerImpl::nack(const Message& message, const std::function<void(con
   request.set_message_id(message.id());
   request.mutable_invisible_duration()->CopyFrom(
       google::protobuf::util::TimeUtil::MillisecondsToDuration(duration.count()));
+
+  auto cb =
+      [callback](const std::error_code& ec, const ChangeInvisibleDurationResponse& response) {
+        callback(ec);
+      };
   client_manager_->changeInvisibleDuration(target_host, metadata, request,
-                                           absl::ToChronoMilliseconds(client_config_.request_timeout), callback);
+                                           absl::ToChronoMilliseconds(client_config_.request_timeout), cb);
 }
 
 void PushConsumerImpl::forwardToDeadLetterQueue(const Message& message,

@@ -25,6 +25,7 @@ import (
 type ConsumeService interface {
 	consume(ProcessQueue, []*MessageView)
 	consumeWithDuration(*MessageView, time.Duration, func(ConsumerResult, error))
+	Shutdown() error
 }
 
 type baseConsumeService struct {
@@ -53,6 +54,11 @@ func (bcs *baseConsumeService) consumeWithDuration(messageView *MessageView, dur
 		return
 	}
 	time.AfterFunc(duration, func() { bcs.consumptionExecutor.Submit(task) })
+}
+
+func (bcs *baseConsumeService) Shutdown() error {
+	bcs.consumptionExecutor.Shutdown()
+	return nil
 }
 
 func (bcs *baseConsumeService) newConsumeTask(clientId string, messageListener MessageListener, messageView *MessageView, messageInterceptor MessageInterceptor, callback func(ConsumerResult, error)) func() {
@@ -150,7 +156,6 @@ func (fcs *fifoConsumeService) consumeIteratively(pq ProcessQueue, messageViewsP
 			sugarBaseLogger.Errorf("[Bug] Exception raised in consumption callback, clientId=%s", fcs.clientId)
 			return
 		}
-		fmt.Printf("ConsumerResult: %v\n", result)
 		pq.eraseFifoMessage(mv, result)
 		fcs.consumeIteratively(pq, messageViewsPtr, ptr+1)
 	})

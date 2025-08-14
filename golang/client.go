@@ -46,6 +46,7 @@ type Client interface {
 
 type isClient interface {
 	isClient()
+	SetRequestTimeout(timeout time.Duration)
 	wrapHeartbeatRequest() *v2.HeartbeatRequest
 	onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) error
 	onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error

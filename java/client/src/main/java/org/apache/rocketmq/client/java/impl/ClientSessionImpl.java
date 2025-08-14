@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.java.impl;
 
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
+import apache.rocketmq.v2.ReconnectEndpointsCommand;
 import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.TelemetryCommand;
@@ -154,6 +155,14 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                     log.info("Receive thread stack print command from remote, endpoints={}, clientId={}",
                         endpoints, clientId);
                     sessionHandler.onPrintThreadStackTraceCommand(endpoints, printThreadStackTraceCommand);
+                    break;
+                }
+                case RECONNECT_ENDPOINTS_COMMAND: {
+                    final ReconnectEndpointsCommand reconnectEndpointsCommand =
+                            command.getReconnectEndpointsCommand();
+                    log.info("Receive reconnect endpoints command from remote, endpoints={}, clientId={}",
+                            endpoints, clientId);
+                    sessionHandler.onReconnectEndpointsCommand(endpoints, reconnectEndpointsCommand);
                     break;
                 }
                 default:

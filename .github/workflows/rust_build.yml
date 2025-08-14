@@ -3,7 +3,7 @@ on:
   workflow_call:
 jobs:
   fmt:
-    name: code style check    
+    name: Code style check    
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -20,7 +20,7 @@ jobs:
       - name: Code format check
         run: cargo fmt --check
   clippy:
-    name: clippy
+    name: Clippy
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,10 +35,10 @@ jobs:
           toolchain: stable
           components: clippy
       # Run clippy
-      - name: clippy check
+      - name: Clippy check
         run: cargo clippy --all-features -- -D warnings
   doc:
-    name: doc check    
+    name: Doc check    
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -62,7 +62,7 @@ jobs:
         working-directory: ./rust
     strategy:
       matrix:
-        msrv: [1.70.0]
+        msrv: [1.74.0]
     name: MSRV ${{ matrix.msrv }} check
     steps:
       - uses: actions/checkout@v3
@@ -71,7 +71,7 @@ jobs:
       - name: Install cargo-msrv
         run: |
           cargo install cargo-msrv
-          cargo msrv --min ${{ matrix.msrv }}
+          cargo msrv verify --min ${{ matrix.msrv }}
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
@@ -82,8 +82,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macos-12, windows-2022]
-        msrv: [1.70]
+        os: [Ubuntu-22.04, MacOS-15, Windows-2022]
+        msrv: [1.74]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -93,9 +93,9 @@ jobs:
           toolchain: ${{ matrix.msrv }}
           components: clippy
       - name: Install protoc
-        uses: arduino/setup-protoc@v1
+        uses: arduino/setup-protoc@v3
         with:
-          version: "3.x"
+          version: "29.x"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
         env:

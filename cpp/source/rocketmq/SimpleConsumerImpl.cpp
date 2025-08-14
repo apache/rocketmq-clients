@@ -409,9 +409,9 @@ void SimpleConsumerImpl::ackAsync(const Message& message, AckCallback callback) 
                  absl::ToChronoMilliseconds(client_config_.request_timeout), callback);
 }
 
-void SimpleConsumerImpl::changeInvisibleDuration(const Message& message,
+void SimpleConsumerImpl::changeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                                  std::chrono::milliseconds duration,
-                                                 ChangeInvisibleDurationCallback callback) {
+                                                 const ChangeInvisibleDurationCallback callback) {
   Metadata metadata;
   Signature::sign(client_config_, metadata);
 
@@ -420,11 +420,18 @@ void SimpleConsumerImpl::changeInvisibleDuration(const Message& message,
   request.mutable_topic()->set_resource_namespace(resourceNamespace());
   request.mutable_topic()->set_name(message.topic());
   request.set_message_id(message.id());
-  request.set_receipt_handle(message.extension().receipt_handle);
+  request.set_receipt_handle(receipt_handle);
   auto d = google::protobuf::util::TimeUtil::MillisecondsToDuration(duration.count());
   request.mutable_invisible_duration()->CopyFrom(d);
 
-  manager()->changeInvisibleDuration(message.extension().target_endpoint, metadata, request, duration, callback);
+  auto cb =
+      [callback](const std::error_code& ec, const ChangeInvisibleDurationResponse& response) {
+    std::string server_receipt_handle = response.receipt_handle();
+    callback(ec, server_receipt_handle);
+  };
+
+  manager()->changeInvisibleDuration(
+      message.extension().target_endpoint, metadata, request, duration, cb);
 }
 
 ROCKETMQ_NAMESPACE_END

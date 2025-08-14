@@ -61,6 +61,11 @@ type defaultSimpleConsumer struct {
 	subTopicRouteDataResultCache sync.Map
 }
 
+func (sc *defaultSimpleConsumer) SetRequestTimeout(timeout time.Duration) {
+	sc.cli.opts.timeout = timeout
+	sc.scSettings.requestTimeout = sc.cli.opts.timeout
+}
+
 func (sc *defaultSimpleConsumer) isOn() bool {
 	return sc.cli.on.Load()
 }

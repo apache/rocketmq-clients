@@ -35,7 +35,7 @@ using ReceiveCallback = std::function<void(const std::error_code&, const std::ve
 
 using AckCallback = std::function<void(const std::error_code&)>;
 
-using ChangeInvisibleDurationCallback = std::function<void(const std::error_code&)>;
+using ChangeInvisibleDurationCallback = std::function<void(const std::error_code&, std::string& receipt_handle)>;
 
 class SimpleConsumerImpl;
 
@@ -60,9 +60,9 @@ public:
 
   void asyncAck(const Message& message, AckCallback callback);
 
-  void changeInvisibleDuration(const Message& message, std::chrono::milliseconds duration, std::error_code& ec);
+  void changeInvisibleDuration(const Message& message, std::string& receipt_handle, std::chrono::milliseconds duration, std::error_code& ec);
 
-  void asyncChangeInvisibleDuration(const Message& message,
+  void asyncChangeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                     std::chrono::milliseconds duration,
                                     ChangeInvisibleDurationCallback callback);
 

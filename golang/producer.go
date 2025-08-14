@@ -235,12 +235,6 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
 			return nil, err
 		}
-		// No need more attempts for transactional message.
-		if messageType == v2.MessageType_TRANSACTION {
-			p.cli.log.Errorf("failed to send transactional message finally, topic=%s, messageId(s)=%v,  maxAttempts=%d, attempt=%d, endpoints=%s, requestId=%s",
-				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
-			return nil, err
-		}
 		// Try to do more attempts.
 		nextAttempt := attempt + 1
 		// Retry immediately if the request is not throttled.
@@ -454,4 +448,9 @@ func (p *defaultProducer) onRecoverOrphanedTransactionCommand(endpoints *v2.Endp
 
 func (p *defaultProducer) onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error {
 	return nil
+}
+
+func (p *defaultProducer) SetRequestTimeout(timeout time.Duration) {
+	p.cli.opts.timeout = timeout
+	p.pSetting.requestTimeout = p.cli.opts.timeout
 }
