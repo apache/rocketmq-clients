@@ -22,10 +22,10 @@ import org.apache.rocketmq.client.apis.ClientException;
 
 public interface LitePushConsumer extends PushConsumer {
 
-    LitePushConsumer subscribeLite(Collection<String> liteTopics) throws ClientException;
+    void subscribeLite(Collection<String> liteTopics) throws ClientException;
 
     void subscribeLite(String liteTopic) throws ClientException;
 
-    LitePushConsumer unsubscribeLite(String liteTopic) throws ClientException;
+    void unsubscribeLite(String liteTopic) throws ClientException;
 
 }

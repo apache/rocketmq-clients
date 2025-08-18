@@ -34,16 +34,14 @@ import org.slf4j.LoggerFactory;
 
 public class LitePushConsumerSettings extends PushSubscriptionSettings {
     private static final Logger log = LoggerFactory.getLogger(LitePushConsumerSettings.class);
-
     // bindTopic for lite push consumer
     final Resource bindTopic;
-    // interested liteTopics
-    private final Set<String/*lite topic*/> interestSet = ConcurrentHashMap.newKeySet();
+    private final Set<String> liteTopicSet = ConcurrentHashMap.newKeySet();
     private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
     public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
         String bindTopic, String group) {
-        // to keep compatibility, lite push consumer subscribeLite ALL
+        // to keep compatibility, lite push consumer subscribe ALL
         super(configuration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, group,
             Collections.singletonMap(bindTopic, FilterExpression.SUB_ALL));
         this.bindTopic = new Resource(namespace, bindTopic);
@@ -51,24 +49,28 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         this.fifo = true;
     }
 
-    public boolean subscribeLite(String liteTopic) {
-        if (interestSet.add(liteTopic)) {
+    public boolean containsLiteTopic(String liteTopic) {
+        return liteTopicSet.contains(liteTopic);
+    }
+
+    public boolean addLiteTopic(String liteTopic) {
+        if (liteTopicSet.add(liteTopic)) {
             version.set(System.currentTimeMillis());
             return true;
         }
         return false;
     }
 
-    public boolean unsubscribeLite(String liteTopic) {
-        if (interestSet.remove(liteTopic)) {
+    public boolean removeLiteTopic(String liteTopic) {
+        if (liteTopicSet.remove(liteTopic)) {
             version.set(System.currentTimeMillis());
             return true;
         }
         return false;
     }
 
-    public Set<String/*lite topic*/> getInterestSet() {
-        return Collections.unmodifiableSet(interestSet);
+    public Set<String> getLiteTopicSet() {
+        return Collections.unmodifiableSet(liteTopicSet);
     }
 
     public long getVersion() {
@@ -117,7 +119,7 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
             .add("requestTimeout", requestTimeout)
             .add("bindTopic", bindTopic)
             .add("group", group)
-            .add("interestSet", interestSet)
+            .add("interestSet", liteTopicSet)
             .toString();
     }
 }

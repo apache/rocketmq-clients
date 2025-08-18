@@ -82,45 +82,43 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         }
     }
 
+    // todo 内部测试批量使用，不对外开放
     @Override
-    public LitePushConsumer subscribeLite(Collection<String> liteTopics) throws ClientException {
+    public void subscribeLite(Collection<String> liteTopics) throws ClientException {
         checkRunning();
-        Set<String> addedSet = new HashSet<>();
+        ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, liteTopics);
+        handleClientFuture(future);
         for (String liteTopic : liteTopics) {
-            if (litePushConsumerSettings.subscribeLite(liteTopic)) {
-                addedSet.add(liteTopic);
-            }
+            litePushConsumerSettings.addLiteTopic(liteTopic);
         }
-        if (!addedSet.isEmpty()) {
-            ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, addedSet);
-            handleClientFuture(future);
-        }
-        return this;
     }
 
     @Override
     public void subscribeLite(String liteTopic) throws ClientException {
         checkRunning();
-        if (litePushConsumerSettings.subscribeLite(liteTopic)) {
-            ListenableFuture<Void> future =
-                syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, Collections.singleton(liteTopic));
-            handleClientFuture(future);
+        if (litePushConsumerSettings.containsLiteTopic(liteTopic)) {
+            return;
         }
+        ListenableFuture<Void> future =
+            syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, Collections.singleton(liteTopic));
+        handleClientFuture(future);
+        litePushConsumerSettings.addLiteTopic(liteTopic);
     }
 
     @Override
-    public LitePushConsumer unsubscribeLite(String liteTopic) throws ClientException {
+    public void unsubscribeLite(String liteTopic) throws ClientException {
         checkRunning();
-        if (litePushConsumerSettings.unsubscribeLite(liteTopic)) {
-            ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_REMOVE,
-                Collections.singleton(liteTopic));
-            handleClientFuture(future);
+        if (!litePushConsumerSettings.containsLiteTopic(liteTopic)) {
+            return;
         }
-        return this;
+        ListenableFuture<Void> future =
+            syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_REMOVE, Collections.singleton(liteTopic));
+        handleClientFuture(future);
+        litePushConsumerSettings.removeLiteTopic(liteTopic);
     }
 
     private void syncAllLiteSubscription() throws ClientException {
-        final Set<String> set = litePushConsumerSettings.getInterestSet();
+        final Set<String> set = litePushConsumerSettings.getLiteTopicSet();
         ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.ALL_ADD, set);
         handleClientFuture(future);
         log.info("syncAllLiteSubscription: {}", set);
@@ -165,7 +163,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             return;
         }
 
-        litePushConsumerSettings.unsubscribeLite(liteTopic);
+        litePushConsumerSettings.removeLiteTopic(liteTopic);
     }
 
     @Override
