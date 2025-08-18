@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import apache.rocketmq.v2.Code;
 import com.google.common.base.MoreObjects;
 import java.util.Collections;
 import java.util.Set;
@@ -24,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
+import org.apache.rocketmq.client.java.exception.LiteSubscriptionQuotaExceededException;
 import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.misc.ClientId;
@@ -37,6 +39,8 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     // bindTopic for lite push consumer
     final Resource bindTopic;
     private final Set<String> liteTopicSet = ConcurrentHashMap.newKeySet();
+    // todo sync from remote
+    private final int liteTopicMax = 10000; // Assuming a maximum number of lite topics
     private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
     public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
@@ -53,12 +57,17 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         return liteTopicSet.contains(liteTopic);
     }
 
-    public boolean addLiteTopic(String liteTopic) {
-        if (liteTopicSet.add(liteTopic)) {
-            version.set(System.currentTimeMillis());
+    public boolean addLiteTopic(String liteTopic) throws LiteSubscriptionQuotaExceededException {
+        if (liteTopicSet.contains(liteTopic)) {
             return true;
         }
-        return false;
+        if (liteTopicSet.size() >= liteTopicMax) {
+            throw new LiteSubscriptionQuotaExceededException(
+                Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED_VALUE, null, "Lite subscription quota exceeded " + liteTopicMax);
+        }
+        liteTopicSet.add(liteTopic);
+        version.set(System.currentTimeMillis());
+        return true;
     }
 
     public boolean removeLiteTopic(String liteTopic) {
