@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.LiteSubscriptionAction;
 import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.ReceiveMessageRequest;
@@ -30,7 +31,6 @@ import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
@@ -39,6 +39,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
+import org.apache.rocketmq.client.java.exception.LiteSubscriptionQuotaExceededException;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -99,10 +100,19 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         if (litePushConsumerSettings.containsLiteTopic(liteTopic)) {
             return;
         }
+        checkQuota(1);
         ListenableFuture<Void> future =
             syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, Collections.singleton(liteTopic));
         handleClientFuture(future);
         litePushConsumerSettings.addLiteTopic(liteTopic);
+    }
+
+    private void checkQuota(int delta) throws LiteSubscriptionQuotaExceededException {
+        int liteQuota = litePushConsumerSettings.getLiteQuota();
+        if (litePushConsumerSettings.getLiteTopicSetSize() + delta > liteQuota) {
+            throw new LiteSubscriptionQuotaExceededException(
+                Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED_VALUE, null, "Lite subscription quota exceeded " + liteQuota);
+        }
     }
 
     @Override
@@ -118,6 +128,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     }
 
     private void syncAllLiteSubscription() throws ClientException {
+        checkQuota(0);
         final Set<String> set = litePushConsumerSettings.getLiteTopicSet();
         ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.ALL_ADD, set);
         handleClientFuture(future);

@@ -39,8 +39,10 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     // bindTopic for lite push consumer
     final Resource bindTopic;
     private final Set<String> liteTopicSet = ConcurrentHashMap.newKeySet();
-    // todo sync from remote
-    private final int liteTopicMax = 10000; // Assuming a maximum number of lite topics
+    /**
+     * client-side lite subscription quota limit
+     */
+    private int liteQuota = 5000;
     private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
     public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
@@ -57,13 +59,9 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         return liteTopicSet.contains(liteTopic);
     }
 
-    public boolean addLiteTopic(String liteTopic) throws LiteSubscriptionQuotaExceededException {
+    public boolean addLiteTopic(String liteTopic) {
         if (liteTopicSet.contains(liteTopic)) {
-            return true;
-        }
-        if (liteTopicSet.size() >= liteTopicMax) {
-            throw new LiteSubscriptionQuotaExceededException(
-                Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED_VALUE, null, "Lite subscription quota exceeded " + liteTopicMax);
+            return false;
         }
         liteTopicSet.add(liteTopic);
         version.set(System.currentTimeMillis());
@@ -82,6 +80,14 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         return Collections.unmodifiableSet(liteTopicSet);
     }
 
+    public int getLiteQuota() {
+        return liteQuota;
+    }
+
+    public int getLiteTopicSetSize() {
+        return liteTopicSet.size();
+    }
+
     public long getVersion() {
         return version.get();
     }
@@ -96,28 +102,14 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
      * 服务端处理完 client 发上去的 setting 之后，会写回同步
      * ClientActivity#processAndWriteClientSettings
      */
-    //    @Override
-    //    public void sync(apache.rocketmq.v2.Settings settings) {
-    //        final apache.rocketmq.v2.Settings.PubSubCase pubSubCase = settings.getPubSubCase();
-    //        if (!apache.rocketmq.v2.Settings.PubSubCase.INTEREST.equals(pubSubCase)) {
-    //            log.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
-    //                + "clientType={}", clientId, pubSubCase, clientType);
-    //            return;
-    //        }
-    //        if (settings.hasBackoffPolicy()) {
-    //            final RetryPolicy backoffPolicy = settings.getBackoffPolicy();
-    //            switch (backoffPolicy.getStrategyCase()) {
-    //                case EXPONENTIAL_BACKOFF:
-    //                    retryPolicy = ExponentialBackoffRetryPolicy.fromProtobuf(backoffPolicy);
-    //                    break;
-    //                case CUSTOMIZED_BACKOFF:
-    //                    retryPolicy = CustomizedBackoffRetryPolicy.fromProtobuf(backoffPolicy);
-    //                    break;
-    //                default:
-    //                    throw new IllegalArgumentException("Unrecognized backoff policy strategy.");
-    //            }
-    //        }
-    //    }
+    @Override
+    public void sync(apache.rocketmq.v2.Settings settings) {
+        super.sync(settings);
+        if (settings.hasLiteQuota()) {
+            this.liteQuota = settings.getLiteQuota();
+        }
+    }
+
     @ExcludeFromJacocoGeneratedReport
     @Override
     public String toString() {
