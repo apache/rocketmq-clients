@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.java.impl.consumer;
 
 import apache.rocketmq.v2.Subscription;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableSet;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,6 +43,7 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
      * client-side lite subscription quota limit
      */
     private int liteSubscriptionQuota = 3000;
+    private int maxLiteTopicSize = 64;
     private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
     public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
@@ -76,11 +78,15 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     }
 
     public Set<String> getLiteTopicSet() {
-        return Collections.unmodifiableSet(liteTopicSet);
+        return ImmutableSet.copyOf(liteTopicSet);
     }
 
     public int getLiteSubscriptionQuota() {
         return liteSubscriptionQuota;
+    }
+
+    public int getMaxLiteTopicSize() {
+        return maxLiteTopicSize;
     }
 
     public int getLiteTopicSetSize() {
@@ -103,6 +109,9 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         final Subscription subscription = settings.getSubscription();
         if (subscription.hasLiteSubscriptionQuota()) {
             this.liteSubscriptionQuota = subscription.getLiteSubscriptionQuota();
+        }
+        if (subscription.hasMaxLiteTopicSize()) {
+            this.maxLiteTopicSize = subscription.getMaxLiteTopicSize();
         }
     }
 
