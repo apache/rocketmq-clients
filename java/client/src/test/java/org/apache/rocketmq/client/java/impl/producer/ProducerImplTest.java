@@ -165,7 +165,8 @@ public class ProducerImplTest extends TestBase {
         // mock send0(Endpoints, List, MessageQueueImpl)
         Mockito.doReturn(Futures.immediateFuture(Collections.singletonList(sendReceiptImpl)))
             .when(producer).send0(any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
-        producer.send0(future, FAKE_TOPIC_0, org.apache.rocketmq.client.java.message.MessageType.NORMAL, candidates, messages, 1);
+        producer.send0(future, FAKE_TOPIC_0, org.apache.rocketmq.client.java.message.MessageType.NORMAL, candidates,
+            messages, 1);
         Assert.assertFalse(future.isCancelled());
         Assert.assertEquals(1, future.get().size());
         verify(producer, times(1)).send0(any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
