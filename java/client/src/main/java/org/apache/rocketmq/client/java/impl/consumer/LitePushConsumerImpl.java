@@ -100,18 +100,18 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         if (litePushConsumerSettings.containsLiteTopic(liteTopic)) {
             return;
         }
-        checkQuota(1);
+        checkLiteSubscriptionQuota(1);
         ListenableFuture<Void> future =
             syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, Collections.singleton(liteTopic));
         handleClientFuture(future);
         litePushConsumerSettings.addLiteTopic(liteTopic);
     }
 
-    private void checkQuota(int delta) throws LiteSubscriptionQuotaExceededException {
-        int liteQuota = litePushConsumerSettings.getLiteQuota();
-        if (litePushConsumerSettings.getLiteTopicSetSize() + delta > liteQuota) {
+    private void checkLiteSubscriptionQuota(int delta) throws LiteSubscriptionQuotaExceededException {
+        int quota = litePushConsumerSettings.getLiteSubscriptionQuota();
+        if (litePushConsumerSettings.getLiteTopicSetSize() + delta > quota) {
             throw new LiteSubscriptionQuotaExceededException(
-                Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED_VALUE, null, "Lite subscription quota exceeded " + liteQuota);
+                Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED_VALUE, null, "Lite subscription quota exceeded " + quota);
         }
     }
 
@@ -128,7 +128,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     }
 
     private void syncAllLiteSubscription() throws ClientException {
-        checkQuota(0);
+        checkLiteSubscriptionQuota(0);
         final Set<String> set = litePushConsumerSettings.getLiteTopicSet();
         ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.ALL_ADD, set);
         handleClientFuture(future);

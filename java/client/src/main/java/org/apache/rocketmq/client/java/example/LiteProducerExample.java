@@ -34,7 +34,7 @@ public class LiteProducerExample {
     public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
-        String liteTopic = "liteTopic3";
+        String liteTopic = "liteTopic3liteTopic3liteTopic3liteTopic3liteTopic3liteTopic3liteTopic3";
         final Producer producer = ProducerSingleton.getInstance(TOPIC);
         // Define your message body.
         byte[] body = "This is a LITE message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);

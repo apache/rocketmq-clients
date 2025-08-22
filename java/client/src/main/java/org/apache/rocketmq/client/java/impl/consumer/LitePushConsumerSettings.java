@@ -17,7 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import apache.rocketmq.v2.Code;
+import apache.rocketmq.v2.Subscription;
 import com.google.common.base.MoreObjects;
 import java.util.Collections;
 import java.util.Set;
@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
-import org.apache.rocketmq.client.java.exception.LiteSubscriptionQuotaExceededException;
 import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.misc.ClientId;
@@ -42,7 +41,7 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     /**
      * client-side lite subscription quota limit
      */
-    private int liteQuota = 5000;
+    private int liteSubscriptionQuota = 3000;
     private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
     public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
@@ -80,8 +79,8 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         return Collections.unmodifiableSet(liteTopicSet);
     }
 
-    public int getLiteQuota() {
-        return liteQuota;
+    public int getLiteSubscriptionQuota() {
+        return liteSubscriptionQuota;
     }
 
     public int getLiteTopicSetSize() {
@@ -94,19 +93,16 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
 
     @Override
     public boolean isFifo() {
-        // todo fifo 配置同步似乎有点问题，先这样写
+        // lite push consumer is fifo consumer
         return true;
     }
 
-    /**
-     * 服务端处理完 client 发上去的 setting 之后，会写回同步
-     * ClientActivity#processAndWriteClientSettings
-     */
     @Override
     public void sync(apache.rocketmq.v2.Settings settings) {
         super.sync(settings);
-        if (settings.hasLiteQuota()) {
-            this.liteQuota = settings.getLiteQuota();
+        final Subscription subscription = settings.getSubscription();
+        if (subscription.hasLiteSubscriptionQuota()) {
+            this.liteSubscriptionQuota = subscription.getLiteSubscriptionQuota();
         }
     }
 
@@ -115,11 +111,12 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     public String toString() {
         return MoreObjects.toStringHelper(this)
             .add("clientId", clientId)
+            .add("group", group)
             .add("clientType", clientType)
             .add("accessPoint", accessPoint)
             .add("requestTimeout", requestTimeout)
             .add("bindTopic", bindTopic)
-            .add("group", group)
+            .add("liteSubscriptionQuota", liteSubscriptionQuota)
             .add("interestSet", liteTopicSet)
             .toString();
     }

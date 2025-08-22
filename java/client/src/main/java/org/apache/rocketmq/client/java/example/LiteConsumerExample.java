@@ -76,7 +76,7 @@ public class LiteConsumerExample {
             e.printStackTrace();
         }
 
-//        litePushConsumer.removeLiteTopic("liteTopic1");
+//        litePushConsumer.unsubscribeLite("liteTopic1");
 
         // Block the main thread, no need for production environment.
         Thread.sleep(Long.MAX_VALUE);
