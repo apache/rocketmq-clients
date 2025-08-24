@@ -32,7 +32,8 @@ public class ReceiveMessageResult {
         this.messages = messages;
     }
 
-    public static ReceiveMessageResult createFilteredResult(ReceiveMessageResult original, List<MessageViewImpl> filteredMessages) {
+    public static ReceiveMessageResult createFilteredResult(ReceiveMessageResult original,
+        List<MessageViewImpl> filteredMessages) {
         return new ReceiveMessageResult(original.getEndpoints(), new ArrayList<>(filteredMessages));
     }
 

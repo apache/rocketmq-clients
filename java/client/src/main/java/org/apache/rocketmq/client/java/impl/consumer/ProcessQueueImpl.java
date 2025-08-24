@@ -291,7 +291,8 @@ class ProcessQueueImpl implements ProcessQueue {
 
                         try {
                             // Create new ReceiveMessageResult object
-                            ReceiveMessageResult filteredResult = ReceiveMessageResult.createFilteredResult(result, remainingMessages);
+                            ReceiveMessageResult filteredResult = ReceiveMessageResult.createFilteredResult(result,
+                                remainingMessages);
 
                             onReceiveMessageResult(filteredResult);
                         } catch (Throwable t) {
