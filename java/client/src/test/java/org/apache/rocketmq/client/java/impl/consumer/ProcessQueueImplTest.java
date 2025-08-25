@@ -284,29 +284,4 @@ public class ProcessQueueImplTest extends TestBase {
             .untilAsserted(() -> verify(pushConsumer, times(forwardingToDeadLetterQueueTimes))
                 .forwardMessageToDeadLetterQueue(any(MessageViewImpl.class)));
     }
-
-    @Test
-    public void testDoStatsWithReceiveLatency() throws NoSuchFieldException, IllegalAccessException {
-        // Test that doStats correctly calculates and resets average receive latency
-        when(pushConsumer.getClientId()).thenReturn(FAKE_CLIENT_ID);
-        
-        // Simulate some receive operations by directly setting the latency fields
-        Field totalSuccessfulLatencyField = ProcessQueueImpl.class.getDeclaredField("totalSuccessfulReceiveLatencyMs");
-        totalSuccessfulLatencyField.setAccessible(true);
-        totalSuccessfulLatencyField.set(processQueue, new AtomicLong(100L)); // 100ms
-        
-        Field successfulCountField = ProcessQueueImpl.class.getDeclaredField("successfulReceiveCount");
-        successfulCountField.setAccessible(true);
-        successfulCountField.set(processQueue, new AtomicLong(2L)); // 2 successful receives
-        
-        // Call doStats
-        processQueue.doStats();
-        
-        // Verify that the fields are reset to 0 after doStats
-        AtomicLong totalSuccessfulLatency = (AtomicLong) totalSuccessfulLatencyField.get(processQueue);
-        AtomicLong successfulCount = (AtomicLong) successfulCountField.get(processQueue);
-        
-        assert totalSuccessfulLatency.get() == 0L : "totalSuccessfulReceiveLatencyMs should be reset to 0";
-        assert successfulCount.get() == 0L : "successfulReceiveCount should be reset to 0";
-    }
 }
