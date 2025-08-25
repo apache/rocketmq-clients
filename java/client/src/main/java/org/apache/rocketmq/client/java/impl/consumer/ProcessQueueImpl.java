@@ -106,6 +106,12 @@ class ProcessQueueImpl implements ProcessQueue {
     private final AtomicLong receptionTimes;
     private final AtomicLong receivedMessagesQuantity;
 
+    // Add fields for tracking receive message latency
+    private final AtomicLong totalSuccessfulReceiveLatencyMs;
+    private final AtomicLong totalFailedReceiveLatencyMs;
+    private final AtomicLong successfulReceiveCount;
+    private final AtomicLong failedReceiveCount;
+
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long cacheFullNanoTime = Long.MIN_VALUE;
 
@@ -119,6 +125,10 @@ class ProcessQueueImpl implements ProcessQueue {
         this.cachedMessagesBytes = new AtomicLong();
         this.receptionTimes = new AtomicLong(0);
         this.receivedMessagesQuantity = new AtomicLong(0);
+        this.totalSuccessfulReceiveLatencyMs = new AtomicLong(0);
+        this.totalFailedReceiveLatencyMs = new AtomicLong(0);
+        this.successfulReceiveCount = new AtomicLong(0);
+        this.failedReceiveCount = new AtomicLong(0);
     }
 
     @Override
@@ -243,11 +253,18 @@ class ProcessQueueImpl implements ProcessQueue {
             final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.RECEIVE);
             consumer.doBefore(context, Collections.emptyList());
 
+            // Record the start time for latency measurement
+            final long receiveStartTimeMs = System.currentTimeMillis();
             final ListenableFuture<ReceiveMessageResult> future = consumer.receiveMessage(request, mq,
                 longPollingTimeout);
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                     @Override
                     public void onSuccess(ReceiveMessageResult result) {
+                        // Calculate and record receive latency for successful requests
+                        final long receiveLatencyMs = System.currentTimeMillis() - receiveStartTimeMs;
+                        totalSuccessfulReceiveLatencyMs.addAndGet(receiveLatencyMs);
+                        successfulReceiveCount.getAndIncrement();
+
                         // Intercept after message reception.
                         final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
                             .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
@@ -268,6 +285,11 @@ class ProcessQueueImpl implements ProcessQueue {
 
                     @Override
                     public void onFailure(Throwable t) {
+                        // Calculate and record receive latency for failed requests
+                        final long receiveLatencyMs = System.currentTimeMillis() - receiveStartTimeMs;
+                        totalFailedReceiveLatencyMs.addAndGet(receiveLatencyMs);
+                        failedReceiveCount.getAndIncrement();
+
                         String nextAttemptId = null;
                         if (t instanceof StatusRuntimeException) {
                             StatusRuntimeException exception = (StatusRuntimeException) t;
@@ -664,8 +686,22 @@ class ProcessQueueImpl implements ProcessQueue {
     public void doStats() {
         final long receptionTimes = this.receptionTimes.getAndSet(0);
         final long receivedMessagesQuantity = this.receivedMessagesQuantity.getAndSet(0);
+        
+        // Calculate average receive latency for successful and failed requests
+        final long totalSuccessfulLatencyMs = this.totalSuccessfulReceiveLatencyMs.getAndSet(0);
+        final long totalFailedLatencyMs = this.totalFailedReceiveLatencyMs.getAndSet(0);
+        final long successfulReceiveCount = this.successfulReceiveCount.getAndSet(0);
+        final long failedReceiveCount = this.failedReceiveCount.getAndSet(0);
+        final double averageSuccessfulReceiveLatencyMs = successfulReceiveCount > 0 ? 
+            (double) totalSuccessfulLatencyMs / successfulReceiveCount : 0.0;
+        final double averageFailedReceiveLatencyMs = failedReceiveCount > 0 ? 
+            (double) totalFailedLatencyMs / failedReceiveCount : 0.0;
+        
         log.info("Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}, "
-            + "cachedMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq, receptionTimes,
-            receivedMessagesQuantity, this.getCachedMessageCount(), this.getCachedMessageBytes());
+            + "cachedMessageCount={}, cachedMessageBytes={}, successfulReceiveCount={}, failedReceiveCount={}, "
+            + "averageSuccessfulReceiveLatencyMs={}, averageFailedReceiveLatencyMs={}", 
+            consumer.getClientId(), mq, receptionTimes, receivedMessagesQuantity, 
+            this.getCachedMessageCount(), this.getCachedMessageBytes(), successfulReceiveCount, failedReceiveCount,
+            averageSuccessfulReceiveLatencyMs, averageFailedReceiveLatencyMs);
     }
 }
