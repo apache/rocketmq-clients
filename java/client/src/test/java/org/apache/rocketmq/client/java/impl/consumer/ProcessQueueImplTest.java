@@ -284,4 +284,78 @@ public class ProcessQueueImplTest extends TestBase {
             .untilAsserted(() -> verify(pushConsumer, times(forwardingToDeadLetterQueueTimes))
                 .forwardMessageToDeadLetterQueue(any(MessageViewImpl.class)));
     }
+
+    @Test
+    public void testDoStatsWithReceiveLatency() throws NoSuchFieldException, IllegalAccessException {
+        // Test that doStats correctly calculates and resets average receive latency for both successful and failed requests
+        when(pushConsumer.getClientId()).thenReturn(FAKE_CLIENT_ID);
+        
+        // Simulate some receive operations by directly setting the latency fields
+        Field totalSuccessfulLatencyField = ProcessQueueImpl.class.getDeclaredField("totalSuccessfulReceiveLatencyMs");
+        totalSuccessfulLatencyField.setAccessible(true);
+        totalSuccessfulLatencyField.set(processQueue, new AtomicLong(200L)); // 200ms total for successful requests
+        
+        Field totalFailedLatencyField = ProcessQueueImpl.class.getDeclaredField("totalFailedReceiveLatencyMs");
+        totalFailedLatencyField.setAccessible(true);
+        totalFailedLatencyField.set(processQueue, new AtomicLong(150L)); // 150ms total for failed requests
+        
+        Field successfulCountField = ProcessQueueImpl.class.getDeclaredField("successfulReceiveCount");
+        successfulCountField.setAccessible(true);
+        successfulCountField.set(processQueue, new AtomicLong(4L)); // 4 successful receives
+        
+        Field failedCountField = ProcessQueueImpl.class.getDeclaredField("failedReceiveCount");
+        failedCountField.setAccessible(true);
+        failedCountField.set(processQueue, new AtomicLong(2L)); // 2 failed receives
+        
+        // Call doStats
+        processQueue.doStats();
+        
+        // Verify that all fields are reset to 0 after doStats
+        AtomicLong totalSuccessfulLatency = (AtomicLong) totalSuccessfulLatencyField.get(processQueue);
+        AtomicLong totalFailedLatency = (AtomicLong) totalFailedLatencyField.get(processQueue);
+        AtomicLong successfulCount = (AtomicLong) successfulCountField.get(processQueue);
+        AtomicLong failedCount = (AtomicLong) failedCountField.get(processQueue);
+        
+        assert totalSuccessfulLatency.get() == 0L : "totalSuccessfulReceiveLatencyMs should be reset to 0";
+        assert totalFailedLatency.get() == 0L : "totalFailedReceiveLatencyMs should be reset to 0";
+        assert successfulCount.get() == 0L : "successfulReceiveCount should be reset to 0";
+        assert failedCount.get() == 0L : "failedReceiveCount should be reset to 0";
+    }
+
+    @Test
+    public void testDoStatsWithZeroCounts() throws NoSuchFieldException, IllegalAccessException {
+        // Test that doStats handles zero counts correctly
+        when(pushConsumer.getClientId()).thenReturn(FAKE_CLIENT_ID);
+        
+        // Set all counts to 0
+        Field totalSuccessfulLatencyField = ProcessQueueImpl.class.getDeclaredField("totalSuccessfulReceiveLatencyMs");
+        totalSuccessfulLatencyField.setAccessible(true);
+        totalSuccessfulLatencyField.set(processQueue, new AtomicLong(0L));
+        
+        Field totalFailedLatencyField = ProcessQueueImpl.class.getDeclaredField("totalFailedReceiveLatencyMs");
+        totalFailedLatencyField.setAccessible(true);
+        totalFailedLatencyField.set(processQueue, new AtomicLong(0L));
+        
+        Field successfulCountField = ProcessQueueImpl.class.getDeclaredField("successfulReceiveCount");
+        successfulCountField.setAccessible(true);
+        successfulCountField.set(processQueue, new AtomicLong(0L));
+        
+        Field failedCountField = ProcessQueueImpl.class.getDeclaredField("failedReceiveCount");
+        failedCountField.setAccessible(true);
+        failedCountField.set(processQueue, new AtomicLong(0L));
+        
+        // Call doStats - should not throw exception
+        processQueue.doStats();
+        
+        // Verify that all fields are reset to 0
+        AtomicLong totalSuccessfulLatency = (AtomicLong) totalSuccessfulLatencyField.get(processQueue);
+        AtomicLong totalFailedLatency = (AtomicLong) totalFailedLatencyField.get(processQueue);
+        AtomicLong successfulCount = (AtomicLong) successfulCountField.get(processQueue);
+        AtomicLong failedCount = (AtomicLong) failedCountField.get(processQueue);
+        
+        assert totalSuccessfulLatency.get() == 0L : "totalSuccessfulReceiveLatencyMs should be reset to 0";
+        assert totalFailedLatency.get() == 0L : "totalFailedReceiveLatencyMs should be reset to 0";
+        assert successfulCount.get() == 0L : "successfulReceiveCount should be reset to 0";
+        assert failedCount.get() == 0L : "failedReceiveCount should be reset to 0";
+    }
 }
