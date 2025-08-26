@@ -287,17 +287,21 @@ public class ProcessQueueImplTest extends TestBase {
 
     @Test
     public void testDoStatsWithReceiveLatency() throws NoSuchFieldException, IllegalAccessException {
-        // Test that doStats correctly calculates and resets average receive latency for both successful and failed requests
+        // Test that doStats correctly calculates and resets correctly
         when(pushConsumer.getClientId()).thenReturn(FAKE_CLIENT_ID);
         
         // Simulate some receive operations by directly setting the latency fields
-        Field totalSuccessfulLatencyField = ProcessQueueImpl.class.getDeclaredField("totalSuccessfulReceiveLatencyMs");
+        Field totalSuccessfulLatencyField = ProcessQueueImpl.class
+            .getDeclaredField("totalSuccessfulReceiveLatencyMs");
         totalSuccessfulLatencyField.setAccessible(true);
-        totalSuccessfulLatencyField.set(processQueue, new AtomicLong(200L)); // 200ms total for successful requests
+        // 200ms total for successful requests
+        totalSuccessfulLatencyField.set(processQueue, new AtomicLong(200L));
         
-        Field totalFailedLatencyField = ProcessQueueImpl.class.getDeclaredField("totalFailedReceiveLatencyMs");
+        Field totalFailedLatencyField = ProcessQueueImpl.class
+            .getDeclaredField("totalFailedReceiveLatencyMs");
         totalFailedLatencyField.setAccessible(true);
-        totalFailedLatencyField.set(processQueue, new AtomicLong(150L)); // 150ms total for failed requests
+        // 150ms total for failed requests
+        totalFailedLatencyField.set(processQueue, new AtomicLong(150L)); 
         
         Field successfulCountField = ProcessQueueImpl.class.getDeclaredField("successfulReceiveCount");
         successfulCountField.setAccessible(true);
@@ -328,11 +332,13 @@ public class ProcessQueueImplTest extends TestBase {
         when(pushConsumer.getClientId()).thenReturn(FAKE_CLIENT_ID);
         
         // Set all counts to 0
-        Field totalSuccessfulLatencyField = ProcessQueueImpl.class.getDeclaredField("totalSuccessfulReceiveLatencyMs");
+        Field totalSuccessfulLatencyField = ProcessQueueImpl.class
+            .getDeclaredField("totalSuccessfulReceiveLatencyMs");
         totalSuccessfulLatencyField.setAccessible(true);
         totalSuccessfulLatencyField.set(processQueue, new AtomicLong(0L));
         
-        Field totalFailedLatencyField = ProcessQueueImpl.class.getDeclaredField("totalFailedReceiveLatencyMs");
+        Field totalFailedLatencyField = ProcessQueueImpl.class
+            .getDeclaredField("totalFailedReceiveLatencyMs");
         totalFailedLatencyField.setAccessible(true);
         totalFailedLatencyField.set(processQueue, new AtomicLong(0L));
         
