@@ -128,10 +128,11 @@ abstract class ConsumerImpl extends ClientImpl {
             .setResourceNamespace(clientConfiguration.getNamespace())
             .setName(messageView.getTopic())
             .build();
-        final AckMessageEntry entry = AckMessageEntry.newBuilder()
+        final AckMessageEntry.Builder builder = AckMessageEntry.newBuilder()
             .setMessageId(messageView.getMessageId().toString())
-            .setReceiptHandle(messageView.getReceiptHandle())
-            .build();
+            .setReceiptHandle(messageView.getReceiptHandle());
+        messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        final AckMessageEntry entry = builder.build();
         return AckMessageRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
             .addEntries(entry).build();
     }
