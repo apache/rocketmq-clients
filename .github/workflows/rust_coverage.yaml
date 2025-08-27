@@ -17,16 +17,12 @@ jobs:
           submodules: true
 
       - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          override: true
 
       - name: Install cargo-llvm-cov
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
 
       - name: Generate code coverage
         working-directory: ./rust
