@@ -259,7 +259,8 @@ class ProcessQueueImpl implements ProcessQueue {
 
                         // Only perform message filtering when enableMessageInterceptorFiltering is enabled.
                         if (consumer.isEnableMessageInterceptorFiltering()) {
-                            final List<MessageViewImpl> originalMessages = new ArrayList<>(result.getMessageViewImpls());
+                            final List<MessageViewImpl> originalMessages =
+                                new ArrayList<>(result.getMessageViewImpls());
 
                             final Set<MessageId> filteredMessageIds = generalMessages.stream()
                                 .filter(msg -> msg.getMessageId().isPresent())
@@ -293,8 +294,8 @@ class ProcessQueueImpl implements ProcessQueue {
 
                             try {
                                 // Create new ReceiveMessageResult with filtered messages.
-                                ReceiveMessageResult filteredResult = ReceiveMessageResult.createFilteredResult(result,
-                                    remainingMessages);
+                                ReceiveMessageResult filteredResult =
+                                    ReceiveMessageResult.createFilteredResult(result, remainingMessages);
                                 onReceiveMessageResult(filteredResult);
                             } catch (Throwable t) {
                                 // Should never reach here.
