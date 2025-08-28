@@ -179,6 +179,10 @@ class RpcClient:
             )
         )
 
+    def reconnect_endpoints(self, endpoints: RpcEndpoints):
+        self.__close_rpc_channel(endpoints)
+        self.retrieve_or_create_channel(endpoints)
+
     """ build stream_stream_call """
 
     def telemetry_stream(
