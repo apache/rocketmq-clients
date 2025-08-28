@@ -70,6 +70,7 @@ public class RpcClientImpl implements RpcClient {
     private static final int KEEP_ALIVE_TIME_MILLIS = 300 * 1000;
     private static final int KEEP_ALIVE_TIMEOUT_MILLIS = 30 * 1000;
     private static final int GRPC_MAX_MESSAGE_SIZE = Integer.MAX_VALUE;
+    private static final String GRPC_LB_POLICY_ROUND_ROBIN = "round_robin";
 
     private final ManagedChannel channel;
     private final MessagingServiceGrpc.MessagingServiceFutureStub futureStub;
@@ -86,7 +87,8 @@ public class RpcClientImpl implements RpcClient {
                 .keepAliveTimeout(KEEP_ALIVE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .keepAliveWithoutCalls(true)
                 .maxInboundMessageSize(GRPC_MAX_MESSAGE_SIZE)
-                .intercept(LoggingInterceptor.getInstance());
+                .intercept(LoggingInterceptor.getInstance())
+                .defaultLoadBalancingPolicy(GRPC_LB_POLICY_ROUND_ROBIN);
 
         if (sslEnabled) {
             final SslContextBuilder builder = GrpcSslContexts.forClient();
