@@ -37,13 +37,14 @@ use crate::pb::receive_message_response::Content;
 use crate::pb::{
     AckMessageRequest, Assignment, ChangeInvisibleDurationRequest,
     ForwardMessageToDeadLetterQueueRequest, QueryAssignmentRequest, ReceiveMessageRequest,
-    Resource,
+    Resource, Status,
 };
 use crate::session::RPCClient;
 #[double]
 use crate::session::Session;
 use crate::util::{
-    build_endpoints_by_message_queue, build_push_consumer_settings, handle_response_status,
+    build_endpoints_by_message_queue, build_push_consumer_settings, handle_receive_message_status,
+    handle_response_status,
 };
 use tracing::{debug, error, info, warn};
 
@@ -309,15 +310,20 @@ impl PushConsumer {
             &message_queue.to_pb_message_queue(),
             OPERATION_RECEIVE_MESSAGE,
         )?;
+        let mut status: Option<Status> = None;
+        let mut _delivery_timestamp: Option<prost_types::Timestamp> = None;
+
         for response in responses {
             if response.content.is_some() {
                 let content = response.content.unwrap();
                 match content {
-                    Content::Status(status) => {
-                        warn!("unhandled status message {:?}", status);
+                    Content::Status(response_status) => {
+                        // Store the status for later processing
+                        status = Some(response_status);
                     }
-                    Content::DeliveryTimestamp(_) => {
-                        warn!("unhandled delivery timestamp message");
+                    Content::DeliveryTimestamp(timestamp) => {
+                        // Store the delivery timestamp for later use
+                        _delivery_timestamp = Some(timestamp);
                     }
                     Content::Message(message) => {
                         messages.push(
@@ -332,6 +338,11 @@ impl PushConsumer {
                     }
                 }
             }
+        }
+
+        // Handle the status message properly
+        if let Some(status) = status {
+            handle_receive_message_status(&status, OPERATION_RECEIVE_MESSAGE)?;
         }
         Ok(messages)
     }
