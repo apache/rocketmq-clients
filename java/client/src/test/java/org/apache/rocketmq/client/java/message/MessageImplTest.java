@@ -104,7 +104,7 @@ public class MessageImplTest extends TestBase {
         Assert.assertEquals('f', currentBody[0]);
     }
 
-    @Test
+    @Test(expected = UnsupportedOperationException.class)
     public void testMessagePropertiesGetterImmutability() {
         byte[] body = sampleBody.clone();
 
@@ -116,9 +116,7 @@ public class MessageImplTest extends TestBase {
         final Message message = provider.newMessageBuilder().setTopic(sampleTopic)
             .setBody(body).addProperty(propertyKey, propertyValue).build();
         Assert.assertEquals(property, message.getProperties());
-        // Clear properties gotten.
         message.getProperties().clear();
-        Assert.assertEquals(property, message.getProperties());
     }
 
     @Test
