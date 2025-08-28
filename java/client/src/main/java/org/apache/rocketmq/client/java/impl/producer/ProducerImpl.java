@@ -463,7 +463,7 @@ class ProducerImpl extends ClientImpl implements Producer {
     /**
      * Warning: please DO NOT modify the signature of this method, it is used by OpenTelemetry instrumentation.
      */
-    protected void send0(SettableFuture<List<SendReceiptImpl>> future0, String topic, MessageType messageType,
+    private void send0(SettableFuture<List<SendReceiptImpl>> future0, String topic, MessageType messageType,
         final List<MessageQueueImpl> candidates, final List<PublishingMessageImpl> messages, final int attempt) {
         // Calculate the current message queue.
         final MessageQueueImpl mq = candidates.get(IntMath.mod(attempt - 1, candidates.size()));
