@@ -104,6 +104,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
     private final boolean enableFifoConsumeAccelerator;
+    private final boolean enableMessageInterceptorFiltering;
     private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
 
     /**
@@ -129,6 +130,14 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator) {
+        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
+            maxCacheMessageSizeInBytes, consumptionThreadCount, enableFifoConsumeAccelerator, false);
+    }
+
+    public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
+        Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
+        int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
+        boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.clientConfiguration = clientConfiguration;
         Resource groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
@@ -141,6 +150,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         this.maxCacheMessageCount = maxCacheMessageCount;
         this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
+        this.enableMessageInterceptorFiltering = enableMessageInterceptorFiltering;
 
         this.receptionTimes = new AtomicLong(0);
         this.receivedMessagesQuantity = new AtomicLong(0);
@@ -165,7 +175,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
         this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
-            maxCacheMessageSizeInBytes, consumptionThreadCount, true);
+            maxCacheMessageSizeInBytes, consumptionThreadCount, true, false);
     }
 
     @Override
@@ -625,5 +635,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     public ThreadPoolExecutor getConsumptionExecutor() {
         return consumptionExecutor;
+    }
+
+    public boolean isEnableMessageInterceptorFiltering() {
+        return enableMessageInterceptorFiltering;
     }
 }
