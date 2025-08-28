@@ -37,6 +37,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -256,13 +257,62 @@ class ProcessQueueImpl implements ProcessQueue {
                             new MessageInterceptorContextImpl(context, MessageHookPointsStatus.OK);
                         consumer.doAfter(context0, generalMessages);
 
-                        try {
-                            onReceiveMessageResult(result);
-                        } catch (Throwable t) {
-                            // Should never reach here.
-                            log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
-                                + "clientId={}", mq, endpoints, clientId, t);
-                            onReceiveMessageException(t, attemptId);
+                        // Only perform message filtering when enableMessageInterceptorFiltering is enabled.
+                        if (consumer.isEnableMessageInterceptorFiltering()) {
+                            final List<MessageViewImpl> originalMessages =
+                                new ArrayList<>(result.getMessageViewImpls());
+
+                            final Set<MessageId> filteredMessageIds = generalMessages.stream()
+                                .filter(msg -> msg.getMessageId().isPresent())
+                                .map(msg -> msg.getMessageId().get())
+                                .collect(Collectors.toSet());
+
+                            final List<MessageViewImpl> filteredOutMessages = new ArrayList<>();
+                            final List<MessageViewImpl> remainingMessages = new ArrayList<>();
+
+                            for (MessageViewImpl originalMsg : originalMessages) {
+                                if (filteredMessageIds.contains(originalMsg.getMessageId())) {
+                                    remainingMessages.add(originalMsg);
+                                } else {
+                                    filteredOutMessages.add(originalMsg);
+                                }
+                            }
+
+                            // Ack filtered out messages.
+                            if (!filteredOutMessages.isEmpty()) {
+                                log.info("Acking {} filtered out messages by interceptor, mq={}, clientId={}",
+                                    filteredOutMessages.size(), mq, consumer.getClientId());
+
+                                for (MessageViewImpl filteredOutMsg : filteredOutMessages) {
+                                    ListenableFuture<Void> ackFuture = ackMessage(filteredOutMsg);
+                                    ackFuture.addListener(() -> {
+                                        log.debug("Successfully acked filtered out message, messageId={}, topic={}",
+                                            filteredOutMsg.getMessageId(), filteredOutMsg.getTopic());
+                                    }, MoreExecutors.directExecutor());
+                                }
+                            }
+
+                            try {
+                                // Create new ReceiveMessageResult with filtered messages.
+                                ReceiveMessageResult filteredResult =
+                                    ReceiveMessageResult.createFilteredResult(result, remainingMessages);
+                                onReceiveMessageResult(filteredResult);
+                            } catch (Throwable t) {
+                                // Should never reach here.
+                                log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
+                                    + "clientId={}", mq, endpoints, clientId, t);
+                                onReceiveMessageException(t, attemptId);
+                            }
+                        } else {
+                            // When filtering is disabled, use original result directly to avoid performance overhead.
+                            try {
+                                onReceiveMessageResult(result);
+                            } catch (Throwable t) {
+                                // Should never reach here.
+                                log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
+                                    + "clientId={}", mq, endpoints, clientId, t);
+                                onReceiveMessageException(t, attemptId);
+                            }
                         }
                     }
 

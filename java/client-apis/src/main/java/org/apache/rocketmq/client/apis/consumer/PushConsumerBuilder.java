@@ -91,6 +91,15 @@ public interface PushConsumerBuilder {
     PushConsumerBuilder setEnableFifoConsumeAccelerator(boolean enableFifoConsumeAccelerator);
 
     /**
+     * Enable or disable message interceptor filtering functionality.
+     * When enabled, it supports client-side message filtering by message interceptors.
+     *
+     * @param enableMessageInterceptorFiltering whether to enable message interceptor filtering
+     * @return the consumer builder instance.
+     */
+    PushConsumerBuilder setEnableMessageInterceptorFiltering(boolean enableMessageInterceptorFiltering);
+
+    /**
      * Finalize the build of {@link PushConsumer} and start.
      *
      * <p>This method will block until the push consumer starts successfully.
