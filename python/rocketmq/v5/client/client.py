@@ -309,7 +309,10 @@ class Client:
         return self.__rpc_client.get_channel_io_loop()
 
     def _submit_callback(self, callback_result):
-        self.__client_callback_executor.submit(Client.__handle_callback, callback_result)
+        if self.__client_callback_executor is not None:
+            self.__client_callback_executor.submit(Client.__handle_callback, callback_result)
+        else:
+            logger.error(f"{self.__str__()} client callback executor is not running.")
 
     """ private """
 
