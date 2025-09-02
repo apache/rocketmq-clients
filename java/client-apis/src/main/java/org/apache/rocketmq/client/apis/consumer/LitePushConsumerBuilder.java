@@ -21,6 +21,9 @@ import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 
+/**
+ * Builder to config and start {@link LitePushConsumer}.
+ */
 public interface LitePushConsumerBuilder extends PushConsumerBuilder {
     LitePushConsumerBuilder bindTopic(String topic);
 

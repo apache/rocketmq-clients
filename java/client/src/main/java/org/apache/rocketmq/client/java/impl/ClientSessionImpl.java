@@ -47,7 +47,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
 
     private final ClientSessionHandler sessionHandler;
     private final Endpoints endpoints;
-    private final SettableFuture<Settings> future;
+    private final SettableFuture<Settings> settingsInitFuture;
     private volatile StreamObserver<TelemetryCommand> requestObserver;
 
     @SuppressWarnings("UnstableApiUsage")
@@ -55,8 +55,8 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
         throws ClientException {
         this.sessionHandler = sessionHandler;
         this.endpoints = endpoints;
-        this.future = SettableFuture.create();
-        Futures.withTimeout(future, SETTINGS_INITIALIZATION_TIMEOUT.plus(tolerance).toMillis(),
+        this.settingsInitFuture = SettableFuture.create();
+        Futures.withTimeout(settingsInitFuture, SETTINGS_INITIALIZATION_TIMEOUT.plus(tolerance).toMillis(),
             TimeUnit.MILLISECONDS, sessionHandler.getScheduler());
         this.requestObserver = sessionHandler.telemetry(endpoints, this);
     }
@@ -86,7 +86,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
 
     protected ListenableFuture<Settings> syncSettings() {
         this.syncSettings0();
-        return future;
+        return settingsInitFuture;
     }
 
     private void syncSettings0() {
@@ -130,7 +130,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                     final Settings settings = command.getSettings();
                     log.info("Receive settings from remote, endpoints={}, clientId={}", endpoints, clientId);
                     sessionHandler.onSettingsCommand(endpoints, settings);
-                    if (future.set(settings)) {
+                    if (settingsInitFuture.set(settings)) {
                         log.info("Init settings successfully, endpoints={}, clientId={}", endpoints, clientId);
                     }
                     break;
@@ -191,6 +191,8 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
             throwable);
         release();
         if (!sessionHandler.isRunning()) {
+            // first time to sync settings, forward the exception to upper layer
+            settingsInitFuture.setException(throwable);
             log.info("Session handler is not running, forgive to renew request observer, clientId={}, "
                 + "endpoints={}", clientId, endpoints);
             return;
