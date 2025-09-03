@@ -21,7 +21,7 @@ import com.google.common.base.MoreObjects;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -104,7 +104,7 @@ public class MessageImpl implements Message {
      */
     @Override
     public Map<String, String> getProperties() {
-        return Collections.unmodifiableMap(properties);
+        return new HashMap<>(properties);
     }
 
     /**

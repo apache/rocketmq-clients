@@ -32,7 +32,7 @@ import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.rocketmq.client.apis.message.MessageId;
@@ -119,7 +119,7 @@ public class MessageViewImpl implements MessageView {
      */
     @Override
     public Map<String, String> getProperties() {
-        return Collections.unmodifiableMap(properties);
+        return new HashMap<>(properties);
     }
 
     /**
