@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -87,6 +88,9 @@ func ParseAddress(address *v2.Address) string {
 }
 
 func ParseTarget(target string) (*v2.Endpoints, error) {
+	if strings.HasPrefix(target, "ip:///") {
+		target = strings.TrimPrefix(target, "ip:///")
+	}
 	ret := &v2.Endpoints{
 		Scheme: v2.AddressScheme_DOMAIN_NAME,
 	}
@@ -232,6 +236,28 @@ func GenClientID() string {
 	nextIdx := clientIdx.Inc() - 1
 	nanotime := time.Now().UnixNano() / 1000
 	return fmt.Sprintf("%s@%d@%d@%s", hostName, processID, nextIdx, strconv.FormatInt(nanotime, 36))
+}
+func EndpointsToString(endpoints *v2.Endpoints) string {
+	if endpoints == nil {
+		return ""
+	}
+	var sb strings.Builder
+	addresses := endpoints.GetAddresses()
+	sort.Slice(addresses, func(i, j int) bool {
+		ip1 := net.ParseIP(addresses[i].Host).String()
+		ip2 := net.ParseIP(addresses[j].Host).String()
+		if ip1 == ip2 {
+			return addresses[i].Port < addresses[j].Port
+		}
+		return ip1 < ip2
+	})
+	for i, addr := range addresses {
+		sb.WriteString(fmt.Sprintf("%s:%d", addr.Host, addr.Port))
+		if i != len(addresses)-1 {
+			sb.WriteString(";")
+		}
+	}
+	return sb.String()
 }
 
 func SelectAnAddress(endpoints *v2.Endpoints) *v2.Address {
