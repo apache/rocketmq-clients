@@ -70,6 +70,8 @@ type defaultPushConsumer struct {
 
 	stopping                        atomic.Bool
 	inflightRequestCountInterceptor *defultInflightRequestCountInterceptor
+
+	pushConsumerExtension PushConsumerExtension
 }
 
 func (pc *defaultPushConsumer) SetRequestTimeout(timeout time.Duration) {
@@ -167,53 +169,39 @@ func (pc *defaultPushConsumer) Unsubscribe(topic string) error {
 }
 
 func (pc *defaultPushConsumer) wrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, longPollingTimeout time.Duration) *v2.ReceiveMessageRequest {
-	return pc.wrapReceiveMessageRequestWithAttemptId(batchSize, messageQueue, filterExpression, longPollingTimeout, "")
-}
-
-func (pc *defaultPushConsumer) wrapReceiveMessageRequestWithAttemptId(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, longPollingTimeout time.Duration, attemptId string) *v2.ReceiveMessageRequest {
-	if len(attemptId) == 0 {
-		attemptId = uuid.New().String()
-	}
-	var filterType v2.FilterType
-	switch filterExpression.expressionType {
-	case SQL92:
-		filterType = v2.FilterType_SQL
-	case TAG:
-		filterType = v2.FilterType_TAG
-	default:
-		filterType = v2.FilterType_FILTER_TYPE_UNSPECIFIED
-	}
-
-	return &v2.ReceiveMessageRequest{
-		Group: &v2.Resource{
-			Name:              pc.groupName,
-			ResourceNamespace: pc.cli.config.NameSpace,
-		},
-		MessageQueue: messageQueue,
-		FilterExpression: &v2.FilterExpression{
-			Expression: filterExpression.expression,
-			Type:       filterType,
-		},
-		LongPollingTimeout: durationpb.New(longPollingTimeout),
-		BatchSize:          int32(batchSize),
-		AutoRenew:          true,
-		AttemptId:          &attemptId,
-	}
+	return pc.pushConsumerExtension.WrapReceiveMessageRequest(batchSize, messageQueue, filterExpression, longPollingTimeout)
 }
 
 func (pc *defaultPushConsumer) wrapAckMessageRequest(messageView *MessageView) *v2.AckMessageRequest {
-	return &v2.AckMessageRequest{
-		Group: pc.pcSettings.groupName,
-		Topic: &v2.Resource{
-			Name:              messageView.GetTopic(),
-			ResourceNamespace: pc.cli.config.NameSpace,
-		},
-		Entries: []*v2.AckMessageEntry{
-			{
-				MessageId:     messageView.GetMessageId(),
-				ReceiptHandle: messageView.GetReceiptHandle(),
+	if messageView.GetLiteTopic() == "" {
+		return &v2.AckMessageRequest{
+			Group: pc.pcSettings.groupName,
+			Topic: &v2.Resource{
+				Name:              messageView.GetTopic(),
+				ResourceNamespace: pc.cli.config.NameSpace,
 			},
-		},
+			Entries: []*v2.AckMessageEntry{
+				{
+					MessageId:     messageView.GetMessageId(),
+					ReceiptHandle: messageView.GetReceiptHandle(),
+				},
+			},
+		}
+	} else {
+		return &v2.AckMessageRequest{
+			Group: pc.pcSettings.groupName,
+			Topic: &v2.Resource{
+				Name:              messageView.GetTopic(),
+				ResourceNamespace: pc.cli.config.NameSpace,
+			},
+			Entries: []*v2.AckMessageEntry{
+				{
+					MessageId:     messageView.GetMessageId(),
+					ReceiptHandle: messageView.GetReceiptHandle(),
+					LiteTopic:     &messageView.liteTopic,
+				},
+			},
+		}
 	}
 }
 
@@ -307,13 +295,14 @@ func (pc *defaultPushConsumer) onVerifyMessageCommand(endpoints *v2.Endpoints, c
 }
 
 func (pc *defaultPushConsumer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
-	return &v2.HeartbeatRequest{
-		Group:      pc.pcSettings.groupName,
-		ClientType: v2.ClientType_SIMPLE_CONSUMER,
-	}
+	return pc.pushConsumerExtension.WrapHeartbeatRequest()
 }
 
 var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushConsumer, error) {
+	return newPushConsumer(config, opts...)
+}
+
+var newPushConsumer = func(config *Config, opts ...PushConsumerOption) (*defaultPushConsumer, error) {
 	copyOpt := defaultPushConsumerOptions
 	pcOpts := &copyOpt
 	for _, opt := range opts {
@@ -349,6 +338,7 @@ var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushCons
 		stopping:                        *atomic.NewBool(false),
 		inflightRequestCountInterceptor: NewDefultInflightRequestCountInterceptor(),
 	}
+	pc.pushConsumerExtension = pc
 	pc.cli.initTopics = make([]string, 0)
 	pcOpts.subscriptionExpressions.Range(func(key, value interface{}) bool {
 		pc.cli.initTopics = append(pc.cli.initTopics, key.(string))
@@ -717,4 +707,47 @@ func (pc *defaultPushConsumer) IsEndpointUpdated() bool {
 
 func (sc *defaultPushConsumer) SetReceiveReconnect(receiveReconnect bool) {
 	sc.cli.ReceiveReconnect = receiveReconnect
+}
+
+type PushConsumerExtension interface {
+	WrapReceiveMessageRequest(int, *v2.MessageQueue, *FilterExpression, time.Duration) *v2.ReceiveMessageRequest
+	WrapHeartbeatRequest() *v2.HeartbeatRequest
+}
+
+var _ = PushConsumerExtension(&defaultPushConsumer{})
+
+func (pc *defaultPushConsumer) WrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, longPollingTimeout time.Duration) *v2.ReceiveMessageRequest {
+	attemptId := uuid.New().String()
+	var filterType v2.FilterType
+	switch filterExpression.expressionType {
+	case SQL92:
+		filterType = v2.FilterType_SQL
+	case TAG:
+		filterType = v2.FilterType_TAG
+	default:
+		filterType = v2.FilterType_FILTER_TYPE_UNSPECIFIED
+	}
+
+	return &v2.ReceiveMessageRequest{
+		Group: &v2.Resource{
+			Name:              pc.groupName,
+			ResourceNamespace: pc.cli.config.NameSpace,
+		},
+		MessageQueue: messageQueue,
+		FilterExpression: &v2.FilterExpression{
+			Expression: filterExpression.expression,
+			Type:       filterType,
+		},
+		LongPollingTimeout: durationpb.New(longPollingTimeout),
+		BatchSize:          int32(batchSize),
+		AutoRenew:          true,
+		AttemptId:          &attemptId,
+	}
+}
+
+func (pc *defaultPushConsumer) WrapHeartbeatRequest() *v2.HeartbeatRequest {
+	return &v2.HeartbeatRequest{
+		Group:      pc.pcSettings.groupName,
+		ClientType: v2.ClientType_PUSH_CONSUMER,
+	}
 }

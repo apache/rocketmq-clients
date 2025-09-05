@@ -50,6 +50,7 @@ const (
 	MessagingService_NotifyClientTermination_FullMethodName         = "/apache.rocketmq.v2.MessagingService/NotifyClientTermination"
 	MessagingService_ChangeInvisibleDuration_FullMethodName         = "/apache.rocketmq.v2.MessagingService/ChangeInvisibleDuration"
 	MessagingService_RecallMessage_FullMethodName                   = "/apache.rocketmq.v2.MessagingService/RecallMessage"
+	MessagingService_SyncLiteSubscription_FullMethodName            = "/apache.rocketmq.v2.MessagingService/SyncLiteSubscription"
 )
 
 // MessagingServiceClient is the client API for MessagingService service.
@@ -163,6 +164,7 @@ type MessagingServiceClient interface {
 	// for delay message, should recall before delivery time, like the rollback operation of transaction message,
 	// for normal message, not supported for now.
 	RecallMessage(ctx context.Context, in *RecallMessageRequest, opts ...grpc.CallOption) (*RecallMessageResponse, error)
+	SyncLiteSubscription(ctx context.Context, in *SyncLiteSubscriptionRequest, opts ...grpc.CallOption) (*SyncLiteSubscriptionResponse, error)
 }
 
 type messagingServiceClient struct {
@@ -354,6 +356,16 @@ func (c *messagingServiceClient) RecallMessage(ctx context.Context, in *RecallMe
 	return out, nil
 }
 
+func (c *messagingServiceClient) SyncLiteSubscription(ctx context.Context, in *SyncLiteSubscriptionRequest, opts ...grpc.CallOption) (*SyncLiteSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SyncLiteSubscriptionResponse)
+	err := c.cc.Invoke(ctx, MessagingService_SyncLiteSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MessagingServiceServer is the server API for MessagingService service.
 // All implementations must embed UnimplementedMessagingServiceServer
 // for forward compatibility.
@@ -465,6 +477,7 @@ type MessagingServiceServer interface {
 	// for delay message, should recall before delivery time, like the rollback operation of transaction message,
 	// for normal message, not supported for now.
 	RecallMessage(context.Context, *RecallMessageRequest) (*RecallMessageResponse, error)
+	SyncLiteSubscription(context.Context, *SyncLiteSubscriptionRequest) (*SyncLiteSubscriptionResponse, error)
 	mustEmbedUnimplementedMessagingServiceServer()
 }
 
@@ -522,6 +535,9 @@ func (UnimplementedMessagingServiceServer) ChangeInvisibleDuration(context.Conte
 }
 func (UnimplementedMessagingServiceServer) RecallMessage(context.Context, *RecallMessageRequest) (*RecallMessageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RecallMessage not implemented")
+}
+func (UnimplementedMessagingServiceServer) SyncLiteSubscription(context.Context, *SyncLiteSubscriptionRequest) (*SyncLiteSubscriptionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SyncLiteSubscription not implemented")
 }
 func (UnimplementedMessagingServiceServer) mustEmbedUnimplementedMessagingServiceServer() {}
 func (UnimplementedMessagingServiceServer) testEmbeddedByValue()                          {}
@@ -807,6 +823,24 @@ func _MessagingService_RecallMessage_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MessagingService_SyncLiteSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SyncLiteSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MessagingServiceServer).SyncLiteSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MessagingService_SyncLiteSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessagingServiceServer).SyncLiteSubscription(ctx, req.(*SyncLiteSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MessagingService_ServiceDesc is the grpc.ServiceDesc for MessagingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -865,6 +899,10 @@ var MessagingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RecallMessage",
 			Handler:    _MessagingService_RecallMessage_Handler,
+		},
+		{
+			MethodName: "SyncLiteSubscription",
+			Handler:    _MessagingService_SyncLiteSubscription_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

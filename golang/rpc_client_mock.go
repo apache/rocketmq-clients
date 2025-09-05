@@ -103,6 +103,15 @@ func (m *MockRpcClient) ForwardMessageToDeadLetterQueue(ctx context.Context, req
 	return ret0, ret1
 }
 
+// SyncLiteSubscription mocks base method.
+func (m *MockRpcClient) SyncLiteSubscription(ctx context.Context, request *v2.SyncLiteSubscriptionRequest) (*v2.SyncLiteSubscriptionResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SyncLiteSubscription", ctx, request)
+	ret0, _ := ret[0].(*v2.SyncLiteSubscriptionResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
 // ForwardMessageToDeadLetterQueue indicates an expected call of ForwardMessageToDeadLetterQueue.
 func (mr *MockRpcClientMockRecorder) ForwardMessageToDeadLetterQueue(ctx, request interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()

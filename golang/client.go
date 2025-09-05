@@ -165,6 +165,8 @@ func (cs *defaultClientSession) handleTelemetryCommand(response *v2.TelemetryCom
 		cs.cli.onPrintThreadStackTraceCommand(cs.endpoints, c.PrintThreadStackTraceCommand)
 	case *v2.TelemetryCommand_ReconnectEndpointsCommand:
 		cs.cli.onReconnectEndpointsCommand(cs.endpoints, c.ReconnectEndpointsCommand)
+	case *v2.TelemetryCommand_NotifyUnsubscribeLiteCommand:
+		cs.cli.onNotifyUnsubscribeLiteCommand(cs.endpoints, c.NotifyUnsubscribeLiteCommand)
 	default:
 		return fmt.Errorf("receive unrecognized command from remote, endpoints=%v, command=%v, clientId=%s", cs.endpoints, command, cs.cli.clientID)
 	}
@@ -231,6 +233,7 @@ type defaultClient struct {
 	inited                        atomic.Bool
 	clientImpl                    isClient
 	ReceiveReconnect              bool
+	notifyUnsubscribeLiteFunc     func(*v2.NotifyUnsubscribeLiteCommand)
 }
 
 var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
@@ -711,6 +714,10 @@ func (cli *defaultClient) onVerifyMessageCommand(endpoints *v2.Endpoints, comman
 		target := utils.ParseAddress(address)
 		cli.telemeter(target, req)
 	}
+}
+
+func (cli *defaultClient) onNotifyUnsubscribeLiteCommand(endpoints *v2.Endpoints, command *v2.NotifyUnsubscribeLiteCommand) {
+	cli.notifyUnsubscribeLiteFunc(command)
 }
 
 func (cli *defaultClient) onPrintThreadStackTraceCommand(endpoints *v2.Endpoints, command *v2.PrintThreadStackTraceCommand) {

@@ -57,7 +57,7 @@ var NewPublishingMessage = func(msg *Message, namespace string, settings *produc
 	// Generate message id.
 	pMsg.messageId = GetMessageIdCodecInstance().NextMessageId().String()
 	// Normal message.
-	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && !txEnabled {
+	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && !txEnabled && msg.GetLiteTopic() != nil {
 		pMsg.messageType = v2.MessageType_NORMAL
 		return pMsg, nil
 	}
@@ -69,6 +69,11 @@ var NewPublishingMessage = func(msg *Message, namespace string, settings *produc
 	// Delay message.
 	if msg.GetDeliveryTimestamp() != nil && !txEnabled {
 		pMsg.messageType = v2.MessageType_DELAY
+		return pMsg, nil
+	}
+	// Lite message.
+	if msg.GetLiteTopic() != nil && !txEnabled {
+		pMsg.messageType = v2.MessageType_LITE
 		return pMsg, nil
 	}
 	// Transaction message.
@@ -112,6 +117,9 @@ func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
 	}
 	if pMsg.msg.messageGroup != nil {
 		msg.SystemProperties.MessageGroup = pMsg.msg.messageGroup
+	}
+	if pMsg.msg.liteTopic != nil {
+		msg.SystemProperties.LiteTopic = pMsg.msg.liteTopic
 	}
 	return msg, nil
 }
