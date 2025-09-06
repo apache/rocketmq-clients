@@ -45,6 +45,7 @@ func main() {
 	// log to console
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
+	rmq_client.EnableSsl = false
 	// In most case, you don't need to create many consumers, singleton pattern is more recommended.
 	pushConsumer, err := rmq_client.NewLitePushConsumer(&rmq_client.Config{
 		Endpoint:      Endpoint,
