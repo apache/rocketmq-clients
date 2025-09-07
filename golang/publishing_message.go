@@ -57,7 +57,7 @@ var NewPublishingMessage = func(msg *Message, namespace string, settings *produc
 	// Generate message id.
 	pMsg.messageId = GetMessageIdCodecInstance().NextMessageId().String()
 	// Normal message.
-	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && !txEnabled && msg.GetLiteTopic() != nil {
+	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && !txEnabled && msg.GetLiteTopic() == nil {
 		pMsg.messageType = v2.MessageType_NORMAL
 		return pMsg, nil
 	}
