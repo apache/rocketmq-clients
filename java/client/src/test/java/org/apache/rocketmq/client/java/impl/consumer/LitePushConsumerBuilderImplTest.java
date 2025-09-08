@@ -3,12 +3,14 @@ package org.apache.rocketmq.client.java.impl.consumer;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
+import org.apache.rocketmq.client.apis.consumer.LitePushConsumerBuilder;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 
@@ -126,5 +128,48 @@ public class LitePushConsumerBuilderImplTest extends TestBase {
 
         assertTrue(builder.subscriptionExpressions.containsKey(topic));
         assertEquals(new FilterExpression(), builder.subscriptionExpressions.get(topic));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testSetInvisibleDurationWithNull() {
+        final LitePushConsumerBuilderImpl builder = new LitePushConsumerBuilderImpl();
+        builder.setInvisibleDuration(null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetInvisibleDurationLessThanMinimum() {
+        final LitePushConsumerBuilderImpl builder = new LitePushConsumerBuilderImpl();
+        Duration lessThanMin = Duration.ofSeconds(30);
+        builder.setInvisibleDuration(lessThanMin);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetInvisibleDurationGreaterThanMaximum() {
+        final LitePushConsumerBuilderImpl builder = new LitePushConsumerBuilderImpl();
+        Duration greaterThanMax = Duration.ofHours(2);
+        builder.setInvisibleDuration(greaterThanMax);
+    }
+
+    @Test
+    public void testSetInvisibleDurationWithinRange() {
+        final LitePushConsumerBuilderImpl builder = new LitePushConsumerBuilderImpl();
+
+        // Test boundary value - minimum
+        Duration minDuration = LitePushConsumerBuilderImpl.MIN_INVISIBLE_DURATION;
+        LitePushConsumerBuilder result1 = builder.setInvisibleDuration(minDuration);
+        assertEquals(minDuration, builder.invisibleDuration);
+        assertEquals(builder, result1);
+
+        // Test boundary value - maximum
+        Duration maxDuration = LitePushConsumerBuilderImpl.MAX_INVISIBLE_DURATION;
+        LitePushConsumerBuilder result2 = builder.setInvisibleDuration(maxDuration);
+        assertEquals(maxDuration, builder.invisibleDuration);
+        assertEquals(builder, result2);
+
+        // Test intermediate value
+        Duration midDuration = Duration.ofMinutes(5);
+        LitePushConsumerBuilder result3 = builder.setInvisibleDuration(midDuration);
+        assertEquals(midDuration, builder.invisibleDuration);
+        assertEquals(builder, result3);
     }
 }

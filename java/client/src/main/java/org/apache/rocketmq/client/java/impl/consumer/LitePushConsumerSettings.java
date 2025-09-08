@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.java.impl.consumer;
 import apache.rocketmq.v2.Subscription;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,14 +45,17 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
      */
     private int liteSubscriptionQuota = 1200;
     private int maxLiteTopicSize = 64;
+    private final Duration invisibleDuration;
+
     private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
     public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
-        String bindTopic, String group) {
+        String bindTopic, String group, Duration invisibleDuration) {
         // to keep compatibility, lite push consumer subscribe ALL
         super(configuration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, group,
             Collections.singletonMap(bindTopic, FilterExpression.SUB_ALL));
         this.bindTopic = new Resource(namespace, bindTopic);
+        this.invisibleDuration = invisibleDuration;
         // lite push consumer is fifo consumer
         this.fifo = true;
     }
@@ -91,6 +95,10 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
 
     public int getLiteTopicSetSize() {
         return liteTopicSet.size();
+    }
+
+    public Duration getInvisibleDuration() {
+        return invisibleDuration;
     }
 
     public long getVersion() {

@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.apis.consumer;
 
+import java.time.Duration;
 import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
@@ -25,7 +26,10 @@ import org.apache.rocketmq.client.apis.ClientException;
  * Builder to config and start {@link LitePushConsumer}.
  */
 public interface LitePushConsumerBuilder extends PushConsumerBuilder {
-    LitePushConsumerBuilder bindTopic(String topic);
+
+    LitePushConsumerBuilder bindTopic(String bindTopic);
+
+    LitePushConsumerBuilder setInvisibleDuration(Duration invisibleDuration);
 
     @Override
     LitePushConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration);
