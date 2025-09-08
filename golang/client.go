@@ -641,6 +641,25 @@ func (cli *defaultClient) isRunning() bool {
 
 func (cli *defaultClient) Sign(ctx context.Context) context.Context {
 	now := time.Now().Format("20060102T150405Z")
+	if cli.config.Credentials == nil {
+		// if no credentials, do not sign
+		return metadata.AppendToOutgoingContext(ctx,
+			innerMD.LanguageKey,
+			innerMD.LanguageValue,
+			innerMD.ProtocolKey,
+			innerMD.ProtocolValue,
+			innerMD.RequestID,
+			uuid.New().String(),
+			innerMD.VersionKey,
+			innerMD.VersionValue,
+			innerMD.ClintID,
+			cli.clientID,
+			innerMD.NameSpace,
+			cli.config.NameSpace,
+			innerMD.DateTime,
+			now,
+		)
+	}
 	return metadata.AppendToOutgoingContext(ctx,
 		innerMD.LanguageKey,
 		innerMD.LanguageValue,

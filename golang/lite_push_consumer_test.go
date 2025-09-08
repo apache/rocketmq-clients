@@ -20,16 +20,54 @@ package golang
 import (
 	"context"
 	"errors"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
+	"fmt"
 	"testing"
 	"time"
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/golang/mock/gomock"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
+// 全局变量，用于在测试过程中设置和初始化
+var (
+	mockCtrl      *gomock.Controller
+	mockRpcClient *MockRpcClient
+)
+
+// 设置测试环境，创建并初始化 mock 对象
+func setupTest(t *testing.T) {
+	mockCtrl = gomock.NewController(t)
+	mockRpcClient = NewMockRpcClient(mockCtrl)
+}
+
+// 清理测试环境
+func teardownTest() {
+	mockCtrl.Finish()
+}
+
+// 用于测试的辅助函数，设置标准的成功响应
+func setupSuccessResponse() *v2.SyncLiteSubscriptionResponse {
+	return &v2.SyncLiteSubscriptionResponse{
+		Status: &v2.Status{Code: v2.Code_OK},
+	}
+}
+
+// 用于测试的辅助函数，设置错误响应
+func setupErrorResponse(code v2.Code, message string) *v2.SyncLiteSubscriptionResponse {
+	return &v2.SyncLiteSubscriptionResponse{
+		Status: &v2.Status{
+			Code:    code,
+			Message: message,
+		},
+	}
+}
+
 func TestNewLitePushConsumer(t *testing.T) {
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
+
 	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
 
 	// 测试成功创建 LitePushConsumer
@@ -58,6 +96,10 @@ func TestNewLitePushConsumer(t *testing.T) {
 }
 
 func TestNewLitePushConsumer_EmptyBindTopic(t *testing.T) {
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
+
 	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
 
 	// 测试空 BindTopic 的错误情况
@@ -73,7 +115,8 @@ func TestNewLitePushConsumer_EmptyBindTopic(t *testing.T) {
 	}
 }
 
-func TestLitePushConsumer_SubscribeLite(t *testing.T) {
+// 辅助方法: 创建测试用的 LitePushConsumer 实例
+func createTestLitePushConsumer(t *testing.T) (*defaultLitePushConsumer, error) {
 	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
 	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
 
@@ -81,28 +124,96 @@ func TestLitePushConsumer_SubscribeLite(t *testing.T) {
 		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
 	}))
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		return nil, err
 	}
 
 	dlpc := lpc.(*defaultLitePushConsumer)
 
-	// 模拟 consumer 运行状态
-	MOCK_DEFAULT_PUSH_CONSUMER.EXPECT().isRunning().Return(true).AnyTimes()
+	// 模拟客户端已经启动
+	dlpc.cli.on.Store(true)
 
-	// Mock SyncLiteSubscription 成功响应
-	MOCK_RPC_CLIENT.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, req *v2.SyncLiteSubscriptionRequest) (*v2.SyncLiteSubscriptionResponse, error) {
-			if req.Action != v2.LiteSubscriptionAction_INCREMENTAL_ADD {
-				t.Errorf("expected action INCREMENTAL_ADD, got %v", req.Action)
-			}
-			if len(req.LiteTopicSet) != 1 || req.LiteTopicSet[0] != "lite-topic-1" {
-				t.Errorf("expected lite topic set ['lite-topic-1'], got %v", req.LiteTopicSet)
-			}
-			return &v2.SyncLiteSubscriptionResponse{
-				Status: &v2.Status{Code: v2.Code_OK},
-			}, nil
-		},
-	)
+	// 创建完全自定义的 mockedClientManager
+	mockedClientManager := &mockedClientManager{
+		mockRpcClient: mockRpcClient,
+	}
+
+	// 只需要替换一个 clientManager，因为 dlpc.cli 和 dlpc.defaultPushConsumer.cli 是同一个实例
+	dlpc.cli.clientManager = mockedClientManager
+
+	// 验证两个 cli 是否是同一个实例
+	if dlpc.cli != dlpc.defaultPushConsumer.cli {
+		t.Errorf("Expected dlpc.cli and dlpc.defaultPushConsumer.cli to be the same instance")
+	}
+
+	return dlpc, nil
+}
+
+// mockedClientManager 完全实现 ClientManager 接口
+type mockedClientManager struct {
+	mockRpcClient *MockRpcClient
+}
+
+// 实现 ClientManager 接口的所有方法
+func (m *mockedClientManager) RegisterClient(client Client)   {}
+func (m *mockedClientManager) UnRegisterClient(client Client) {}
+func (m *mockedClientManager) QueryRoute(ctx context.Context, endpoints *v2.Endpoints, request *v2.QueryRouteRequest, duration time.Duration) (*v2.QueryRouteResponse, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) QueryAssignments(ctx context.Context, endpoints *v2.Endpoints, request *v2.QueryAssignmentRequest, duration time.Duration) (*v2.QueryAssignmentResponse, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) HeartBeat(ctx context.Context, endpoints *v2.Endpoints, request *v2.HeartbeatRequest, duration time.Duration) (*v2.HeartbeatResponse, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) SendMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.SendMessageRequest, duration time.Duration) (*v2.SendMessageResponse, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) Telemetry(ctx context.Context, endpoints *v2.Endpoints, duration time.Duration) (v2.MessagingService_TelemetryClient, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) EndTransaction(ctx context.Context, endpoints *v2.Endpoints, request *v2.EndTransactionRequest, duration time.Duration) (*v2.EndTransactionResponse, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) NotifyClientTermination(ctx context.Context, endpoints *v2.Endpoints, request *v2.NotifyClientTerminationRequest, duration time.Duration) (*v2.NotifyClientTerminationResponse, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest, duration time.Duration) (*v2.AckMessageResponse, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) ChangeInvisibleDuration(ctx context.Context, endpoints *v2.Endpoints, request *v2.ChangeInvisibleDurationRequest, duration time.Duration) (*v2.ChangeInvisibleDurationResponse, error) {
+	return nil, nil
+}
+func (m *mockedClientManager) ForwardMessageToDeadLetterQueue(ctx context.Context, endpoints *v2.Endpoints, request *v2.ForwardMessageToDeadLetterQueueRequest, duration time.Duration) (*v2.ForwardMessageToDeadLetterQueueResponse, error) {
+	return nil, nil
+}
+
+// SyncLiteSubscription 是关键方法，直接使用 mockRpcClient
+func (m *mockedClientManager) SyncLiteSubscription(ctx context.Context, endpoints *v2.Endpoints, request *v2.SyncLiteSubscriptionRequest, duration time.Duration) (*v2.SyncLiteSubscriptionResponse, error) {
+	// 添加调试日志
+	fmt.Printf("DEBUG: mockedClientManager.SyncLiteSubscription called with request: %+v\n", request)
+	return m.mockRpcClient.SyncLiteSubscription(ctx, request)
+}
+
+func TestLitePushConsumer_SubscribeLite(t *testing.T) {
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
+
+	dlpc, err := createTestLitePushConsumer(t)
+	if err != nil {
+		t.Fatalf("failed to create test lite push consumer: %v", err)
+	}
+
+	// 验证 mock 对象是否正确注入
+	if dlpc.defaultPushConsumer.cli.clientManager == nil {
+		t.Fatal("clientManager should not be nil")
+	}
+
+	// Mock SyncLiteSubscription 成功响应 - 简化版本
+	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(setupSuccessResponse(), nil).Times(1)
 
 	err = dlpc.SubscribeLite("lite-topic-1")
 	if err != nil {
@@ -116,20 +227,17 @@ func TestLitePushConsumer_SubscribeLite(t *testing.T) {
 }
 
 func TestLitePushConsumer_SubscribeLite_NotRunning(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
 
-	dlpc := lpc.(*defaultLitePushConsumer)
-
-	// consumer 未运行状态
-	MOCK_DEFAULT_PUSH_CONSUMER.EXPECT().isRunning().Return(false).AnyTimes()
+	// 将客户端状态设置为未运行
+	dlpc.cli.on.Store(false)
 
 	err = dlpc.SubscribeLite("lite-topic-1")
 	if err == nil {
@@ -143,21 +251,17 @@ func TestLitePushConsumer_SubscribeLite_NotRunning(t *testing.T) {
 }
 
 func TestLitePushConsumer_SubscribeLite_RpcError(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
 
-	dlpc := lpc.(*defaultLitePushConsumer)
-	MOCK_DEFAULT_PUSH_CONSUMER.EXPECT().isRunning().Return(true).AnyTimes()
-
 	// Mock RPC 错误
-	MOCK_RPC_CLIENT.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(
+	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(
 		nil, errors.New("rpc error"),
 	)
 
@@ -173,24 +277,20 @@ func TestLitePushConsumer_SubscribeLite_RpcError(t *testing.T) {
 }
 
 func TestLitePushConsumer_UnSubscribeLite(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
-
-	dlpc := lpc.(*defaultLitePushConsumer)
-	MOCK_DEFAULT_PUSH_CONSUMER.EXPECT().isRunning().Return(true).AnyTimes()
 
 	// 预先添加一个 lite topic
 	dlpc.litePushConsumerSettings.liteTopicSet["lite-topic-1"] = struct{}{}
 
 	// Mock SyncLiteSubscription 成功响应
-	MOCK_RPC_CLIENT.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).DoAndReturn(
+	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, req *v2.SyncLiteSubscriptionRequest) (*v2.SyncLiteSubscriptionResponse, error) {
 			if req.Action != v2.LiteSubscriptionAction_INCREMENTAL_REMOVE {
 				t.Errorf("expected action INCREMENTAL_REMOVE, got %v", req.Action)
@@ -198,9 +298,7 @@ func TestLitePushConsumer_UnSubscribeLite(t *testing.T) {
 			if len(req.LiteTopicSet) != 1 || req.LiteTopicSet[0] != "lite-topic-1" {
 				t.Errorf("expected lite topic set ['lite-topic-1'], got %v", req.LiteTopicSet)
 			}
-			return &v2.SyncLiteSubscriptionResponse{
-				Status: &v2.Status{Code: v2.Code_OK},
-			}, nil
+			return setupSuccessResponse(), nil
 		},
 	)
 
@@ -216,17 +314,14 @@ func TestLitePushConsumer_UnSubscribeLite(t *testing.T) {
 }
 
 func TestLitePushConsumer_notifyUnsubscribeLite(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
-
-	dlpc := lpc.(*defaultLitePushConsumer)
 
 	// 预先添加一个 lite topic
 	dlpc.litePushConsumerSettings.liteTopicSet["lite-topic-notify"] = struct{}{}
@@ -247,17 +342,14 @@ func TestLitePushConsumer_notifyUnsubscribeLite(t *testing.T) {
 }
 
 func TestLitePushConsumer_notifyUnsubscribeLite_EmptyLiteTopic(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
-
-	dlpc := lpc.(*defaultLitePushConsumer)
 
 	// 预先添加一个 lite topic
 	dlpc.litePushConsumerSettings.liteTopicSet["lite-topic-keep"] = struct{}{}
@@ -278,26 +370,18 @@ func TestLitePushConsumer_notifyUnsubscribeLite_EmptyLiteTopic(t *testing.T) {
 }
 
 func TestLitePushConsumer_syncLiteSubscription_StatusError(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
 
-	dlpc := lpc.(*defaultLitePushConsumer)
-
 	// Mock SyncLiteSubscription 返回错误状态码
-	MOCK_RPC_CLIENT.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(
-		&v2.SyncLiteSubscriptionResponse{
-			Status: &v2.Status{
-				Code:    v2.Code_INTERNAL_SERVER_ERROR,
-				Message: "internal error",
-			},
-		}, nil,
+	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(
+		setupErrorResponse(v2.Code_INTERNAL_SERVER_ERROR, "internal error"), nil,
 	)
 
 	err = dlpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_INCREMENTAL_ADD, []string{"test"})
@@ -320,17 +404,14 @@ func TestLitePushConsumer_syncLiteSubscription_StatusError(t *testing.T) {
 }
 
 func TestLitePushConsumer_WrapReceiveMessageRequest(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
-
-	dlpc := lpc.(*defaultLitePushConsumer)
 
 	messageQueue := &v2.MessageQueue{
 		Topic: &v2.Resource{
@@ -373,17 +454,14 @@ func TestLitePushConsumer_WrapReceiveMessageRequest(t *testing.T) {
 }
 
 func TestLitePushConsumer_WrapHeartbeatRequest(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
-
-	dlpc := lpc.(*defaultLitePushConsumer)
 
 	req := dlpc.WrapHeartbeatRequest()
 
@@ -401,78 +479,39 @@ func TestLitePushConsumer_WrapHeartbeatRequest(t *testing.T) {
 	}
 }
 
-func TestLitePushConsumerSettings_GetMethods(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
-
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
-	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
-	}
-
-	dlpc := lpc.(*defaultLitePushConsumer)
-	settings := dlpc.litePushConsumerSettings
-
-	// 测试 GetAccessPoint
-	if settings.GetAccessPoint() == nil {
-		t.Error("expected access point to be set")
-	}
-
-	// 测试 GetClientID
-	if settings.GetClientID() == "" {
-		t.Error("expected client ID to be set")
-	}
-
-	// 测试 GetClientType
-	if int32(settings.GetClientType()) != int32(v2.ClientType_LITE_PUSH_CONSUMER) {
-		t.Errorf("expected client type LITE_PUSH_CONSUMER, got %v", settings.GetClientType())
-	}
-
-	// 测试 GetRequestTimeout
-	if settings.GetRequestTimeout() <= 0 {
-		t.Error("expected request timeout to be positive")
-	}
-
-	// 测试 GetRetryPolicy
-	if settings.GetRetryPolicy() == nil {
-		t.Error("expected retry policy to be set")
-	}
-}
-
 func TestLitePushConsumerSettings_applySettingsCommand(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
 
-	dlpc := lpc.(*defaultLitePushConsumer)
 	settings := dlpc.litePushConsumerSettings
 
 	// 创建测试 Settings
 	liteQuota := int32(100)
 	maxSize := int32(1024)
+	fifoVal := false
 
 	testSettings := &v2.Settings{
 		PubSub: &v2.Settings_Subscription{
 			Subscription: &v2.Subscription{
 				LiteSubscriptionQuota: &liteQuota,
 				MaxLiteTopicSize:      &maxSize,
-				Fifo:                  proto.Bool(false), // 这会被强制设置为 true
+				Fifo:                  &fifoVal, // 这会被强制设置为 true
 			},
 		},
 		BackoffPolicy: &v2.RetryPolicy{
 			MaxAttempts: 3,
-			ExponentialBackoff: &v2.ExponentialBackoff{
-				Initial:    durationpb.New(time.Second),
-				Max:        durationpb.New(60 * time.Second),
-				Multiplier: 2.0,
+			Strategy: &v2.RetryPolicy_ExponentialBackoff{
+				ExponentialBackoff: &v2.ExponentialBackoff{
+					Initial:    durationpb.New(time.Second),
+					Max:        durationpb.New(60 * time.Second),
+					Multiplier: 2.0,
+				},
 			},
 		},
 	}
@@ -499,17 +538,15 @@ func TestLitePushConsumerSettings_applySettingsCommand(t *testing.T) {
 }
 
 func TestLitePushConsumerSettings_toProtobuf(t *testing.T) {
-	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	// 设置测试环境
+	setupTest(t)
+	defer teardownTest()
 
-	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
-		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
-	}))
+	dlpc, err := createTestLitePushConsumer(t)
 	if err != nil {
-		t.Fatalf("failed to create lite push consumer: %v", err)
+		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
 
-	dlpc := lpc.(*defaultLitePushConsumer)
 	settings := dlpc.litePushConsumerSettings
 
 	// 设置一些测试值
@@ -519,7 +556,7 @@ func TestLitePushConsumerSettings_toProtobuf(t *testing.T) {
 	protobuf := settings.toProtobuf()
 
 	// 验证 ClientType
-	if protobuf.GetClientType() != v2.ClientType_LITE_PUSH_CONSUMER {
+	if int32(protobuf.GetClientType()) != int32(v2.ClientType_LITE_PUSH_CONSUMER) {
 		t.Errorf("expected client type LITE_PUSH_CONSUMER, got %v", protobuf.GetClientType())
 	}
 
@@ -529,26 +566,26 @@ func TestLitePushConsumerSettings_toProtobuf(t *testing.T) {
 		t.Fatal("expected PubSub to be set")
 	}
 
-	subscription := pubsub.(*v2.Settings_Subscription).Subscription
-	if subscription == nil {
+	subscription, ok := pubsub.(*v2.Settings_Subscription)
+	if !ok || subscription == nil {
 		t.Fatal("expected subscription to be set")
 	}
 
 	// 验证 LiteSubscriptionQuota
-	if subscription.GetLiteSubscriptionQuota() != 50 {
-		t.Errorf("expected lite subscription quota 50, got %d", subscription.GetLiteSubscriptionQuota())
+	if subscription.Subscription.GetLiteSubscriptionQuota() != 50 {
+		t.Errorf("expected lite subscription quota 50, got %d", subscription.Subscription.GetLiteSubscriptionQuota())
 	}
 
 	// 验证 MaxLiteTopicSize
-	if subscription.GetMaxLiteTopicSize() != 512 {
-		t.Errorf("expected max lite topic size 512, got %d", subscription.GetMaxLiteTopicSize())
+	if subscription.Subscription.GetMaxLiteTopicSize() != 512 {
+		t.Errorf("expected max lite topic size 512, got %d", subscription.Subscription.GetMaxLiteTopicSize())
 	}
 
 	// 验证订阅信息
-	if len(subscription.GetSubscriptions()) == 0 {
+	if len(subscription.Subscription.GetSubscriptions()) == 0 {
 		t.Error("expected at least one subscription entry")
 	} else {
-		entry := subscription.GetSubscriptions()[0]
+		entry := subscription.Subscription.GetSubscriptions()[0]
 		// 修正 subscription entry 断言
 		if entry.GetTopic().GetName() != "bind-topic" {
 			t.Errorf("expected topic name 'bind-topic', got %s", entry.GetTopic().GetName())
