@@ -128,13 +128,20 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     public String toString() {
         return MoreObjects.toStringHelper(this)
             .add("clientId", clientId)
-            .add("group", group)
             .add("clientType", clientType)
             .add("accessPoint", accessPoint)
+            .add("retryPolicy", retryPolicy)
             .add("requestTimeout", requestTimeout)
+            .add("group", group)
+            .add("receiveBatchSize", receiveBatchSize)
+            .add("longPollingTimeout", longPollingTimeout)
+            // for lite
             .add("bindTopic", bindTopic)
             .add("liteSubscriptionQuota", liteSubscriptionQuota)
+            .add("maxLiteTopicSize", maxLiteTopicSize)
+            .add("invisibleDuration", invisibleDuration)
             .add("interestSet", liteTopicSet)
+            .add("version", version)
             .toString();
     }
 }
