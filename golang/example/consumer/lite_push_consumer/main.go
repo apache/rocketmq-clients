@@ -56,7 +56,7 @@ func main() {
 		},
 		NameSpace: NameSpace,
 	},
-		&rmq_client.LitePushConsumerConfig{BindTopic: Topic},
+		rmq_client.NewLitePushConsumerConfig(Topic, time.Second*30),
 		rmq_client.WithPushAwaitDuration(awaitDuration),
 		rmq_client.WithPushMessageListener(&rmq_client.FuncMessageListener{
 			Consume: func(mv *rmq_client.MessageView) rmq_client.ConsumerResult {

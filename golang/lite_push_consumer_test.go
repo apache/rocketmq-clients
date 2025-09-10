@@ -71,7 +71,7 @@ func TestNewLitePushConsumer(t *testing.T) {
 	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
 
 	// 测试成功创建 LitePushConsumer
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	liteConfig := &LitePushConsumerConfig{bindTopic: "bind-topic"}
 	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
 		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
 	}))
@@ -103,7 +103,7 @@ func TestNewLitePushConsumer_EmptyBindTopic(t *testing.T) {
 	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
 
 	// 测试空 BindTopic 的错误情况
-	liteConfig := &LitePushConsumerConfig{BindTopic: ""}
+	liteConfig := &LitePushConsumerConfig{bindTopic: ""}
 	_, err := NewLitePushConsumer(config, liteConfig)
 	if err == nil {
 		t.Fatal("expected error for empty bind topic, got nil")
@@ -118,7 +118,7 @@ func TestNewLitePushConsumer_EmptyBindTopic(t *testing.T) {
 // 辅助方法: 创建测试用的 LitePushConsumer 实例
 func createTestLitePushConsumer(t *testing.T) (*defaultLitePushConsumer, error) {
 	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	liteConfig := &LitePushConsumerConfig{BindTopic: "bind-topic"}
+	liteConfig := &LitePushConsumerConfig{bindTopic: "bind-topic"}
 
 	lpc, err := NewLitePushConsumer(config, liteConfig, WithPushMessageListener(&FuncMessageListener{
 		Consume: func(*MessageView) ConsumerResult { return SUCCESS },
@@ -439,7 +439,7 @@ func TestLitePushConsumer_WrapReceiveMessageRequest(t *testing.T) {
 		t.Errorf("expected batch size 5, got %d", req.GetBatchSize())
 	}
 
-	if !req.GetAutoRenew() {
+	if req.GetAutoRenew() {
 		t.Error("expected auto renew to be true for lite push consumer")
 	}
 

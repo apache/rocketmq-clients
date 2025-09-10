@@ -41,15 +41,26 @@ type defaultLitePushConsumer struct {
 }
 
 type LitePushConsumerConfig struct {
-	BindTopic string
+	bindTopic         string
+	invisibleDuration time.Duration
+}
+
+func NewLitePushConsumerConfig(bindTopic string, invisibleDuration time.Duration) *LitePushConsumerConfig {
+	return &LitePushConsumerConfig{
+		bindTopic:         bindTopic,
+		invisibleDuration: invisibleDuration,
+	}
 }
 
 var NewLitePushConsumer = func(config *Config, liteConfig *LitePushConsumerConfig, opts ...PushConsumerOption) (LitePushConsumer, error) {
-	if liteConfig.BindTopic == "" {
+	if liteConfig.bindTopic == "" {
 		return nil, errors.New("LitePushConsumerConfig.bindTopic is required")
 	}
 	filterExpressionMap := map[string]*FilterExpression{
-		liteConfig.BindTopic: SUB_ALL,
+		liteConfig.bindTopic: SUB_ALL,
+	}
+	if liteConfig == nil {
+		return nil, errors.New("LitePushConsumerConfig is required")
 	}
 	opts = append(opts, WithPushSubscriptionExpressions(filterExpressionMap))
 	if pushConsumer, err := newPushConsumer(config, opts...); err != nil {
@@ -57,11 +68,7 @@ var NewLitePushConsumer = func(config *Config, liteConfig *LitePushConsumerConfi
 	} else {
 		// force fifo
 		pushConsumer.pcSettings.isFifo = true
-		lpcSetting := &litePushConsumerSettings{
-			pushConsumerSettings: pushConsumer.pcSettings,
-			bingTopic:            liteConfig.BindTopic,
-			liteTopicSet:         map[string]struct{}{},
-		}
+		lpcSetting := newLitePushConsumerSettings(pushConsumer.pcSettings, liteConfig.bindTopic, liteConfig.invisibleDuration)
 		pushConsumer.pcSettings.clientType = v2.ClientType_LITE_PUSH_CONSUMER
 		lpcSetting.pushConsumerSettings.clientType = v2.ClientType_LITE_PUSH_CONSUMER
 		pushConsumer.cli.settings = lpcSetting
@@ -185,8 +192,9 @@ func (lpc *defaultLitePushConsumer) WrapReceiveMessageRequest(batchSize int, mes
 		MessageQueue:       messageQueue,
 		LongPollingTimeout: durationpb.New(longPollingTimeout),
 		BatchSize:          int32(batchSize),
-		AutoRenew:          true,
+		AutoRenew:          false,
 		AttemptId:          &attemptId,
+		InvisibleDuration:  durationpb.New(lpc.litePushConsumerSettings.invisibleDuration),
 	}
 }
 

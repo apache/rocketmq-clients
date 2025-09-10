@@ -127,7 +127,7 @@ func TestDefaultPushConsumer_wrapAckMessageRequest(t *testing.T) {
 
 func TestDefaultLitePushConsumer_Wraps(t *testing.T) {
 	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
-	lpc, err := NewLitePushConsumer(config, &LitePushConsumerConfig{BindTopic: "bind-topic"}, WithPushMessageListener(&FuncMessageListener{Consume: func(*MessageView) ConsumerResult { return SUCCESS }}))
+	lpc, err := NewLitePushConsumer(config, &LitePushConsumerConfig{bindTopic: "bind-topic"}, WithPushMessageListener(&FuncMessageListener{Consume: func(*MessageView) ConsumerResult { return SUCCESS }}))
 	if err != nil {
 		t.Fatalf("failed to create lite push consumer: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestDefaultLitePushConsumer_Wraps(t *testing.T) {
 	if req.GetGroup().GetName() != "test-group" {
 		t.Errorf("expected group name 'test-group', got %s", req.GetGroup().GetName())
 	}
-	if !req.GetAutoRenew() {
+	if req.GetAutoRenew() {
 		t.Error("expected auto renew to be true")
 	}
 

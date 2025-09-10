@@ -31,8 +31,20 @@ type litePushConsumerSettings struct {
 	*pushConsumerSettings
 	bingTopic             string
 	liteTopicSet          map[string]struct{}
-	liteSubscriptionQuota int32
+	liteSubscriptionQuota int32 // default 1200
 	maxLiteTopicSize      int32
+	invisibleDuration     time.Duration
+}
+
+func newLitePushConsumerSettings(settings *pushConsumerSettings, bindTopic string, invisibleDuration time.Duration) *litePushConsumerSettings {
+	return &litePushConsumerSettings{
+		pushConsumerSettings:  settings,
+		bingTopic:             bindTopic,
+		liteTopicSet:          map[string]struct{}{},
+		invisibleDuration:     invisibleDuration,
+		liteSubscriptionQuota: 1200,
+		maxLiteTopicSize:      64,
+	}
 }
 
 // GetAccessPoint implements ClientSettings
@@ -71,9 +83,13 @@ func (lpc *litePushConsumerSettings) applySettingsCommand(settings *v2.Settings)
 	var subscription = settings.GetSubscription()
 	if subscription.LiteSubscriptionQuota != nil {
 		lpc.liteSubscriptionQuota = *subscription.LiteSubscriptionQuota
+	} else {
+		lpc.liteSubscriptionQuota = 1200
 	}
 	if subscription.MaxLiteTopicSize != nil {
 		lpc.maxLiteTopicSize = *subscription.MaxLiteTopicSize
+	} else {
+		lpc.maxLiteTopicSize = 64
 	}
 	return nil
 }
