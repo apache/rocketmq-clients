@@ -60,7 +60,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             builder.consumptionThreadCount, builder.enableFifoConsumeAccelerator);
         this.litePushConsumerSettings = new LitePushConsumerSettings(builder.clientConfiguration,
             clientId, endpoints, builder.bindTopic,
-            builder.consumerGroup, builder.invisibleDuration);
+            builder.consumerGroup);
     }
 
     @Override
@@ -208,9 +208,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             .setLongPollingTimeout(Durations.fromNanos(longPollingTimeout.toNanos()))
             .setBatchSize(batchSize)
             .setAttemptId(attemptId)
-            // lite disable auto renew
-            .setAutoRenew(false)
-            .setInvisibleDuration(Durations.fromNanos(litePushConsumerSettings.getInvisibleDuration().toNanos()))
+            .setAutoRenew(true)
             .build();
     }
 

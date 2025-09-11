@@ -45,17 +45,15 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
      */
     private int liteSubscriptionQuota = 1200;
     private int maxLiteTopicSize = 64;
-    private final Duration invisibleDuration;
 
     private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
     public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
-        String bindTopic, String group, Duration invisibleDuration) {
+        String bindTopic, String group) {
         // to keep compatibility, lite push consumer subscribe ALL
         super(configuration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, group,
             Collections.singletonMap(bindTopic, FilterExpression.SUB_ALL));
         this.bindTopic = new Resource(namespace, bindTopic);
-        this.invisibleDuration = invisibleDuration;
         // lite push consumer is fifo consumer
         this.fifo = true;
     }
@@ -97,10 +95,6 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         return liteTopicSet.size();
     }
 
-    public Duration getInvisibleDuration() {
-        return invisibleDuration;
-    }
-
     public long getVersion() {
         return version.get();
     }
@@ -139,7 +133,6 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
             .add("bindTopic", bindTopic)
             .add("liteSubscriptionQuota", liteSubscriptionQuota)
             .add("maxLiteTopicSize", maxLiteTopicSize)
-            .add("invisibleDuration", invisibleDuration)
             .add("interestSet", liteTopicSet)
             .add("version", version)
             .toString();

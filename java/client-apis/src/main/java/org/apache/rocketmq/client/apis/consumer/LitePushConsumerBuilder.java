@@ -29,8 +29,6 @@ public interface LitePushConsumerBuilder extends PushConsumerBuilder {
 
     LitePushConsumerBuilder bindTopic(String bindTopic);
 
-    LitePushConsumerBuilder setInvisibleDuration(Duration invisibleDuration);
-
     @Override
     LitePushConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration);
 

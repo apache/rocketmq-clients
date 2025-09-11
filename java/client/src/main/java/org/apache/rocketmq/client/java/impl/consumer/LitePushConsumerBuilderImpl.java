@@ -20,7 +20,6 @@ package org.apache.rocketmq.client.java.impl.consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.time.Duration;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
@@ -32,11 +31,7 @@ import org.apache.rocketmq.client.apis.consumer.MessageListener;
 
 public class LitePushConsumerBuilderImpl extends PushConsumerBuilderImpl implements LitePushConsumerBuilder {
 
-    static final Duration MIN_INVISIBLE_DURATION = Duration.ofSeconds(60);
-    static final Duration MAX_INVISIBLE_DURATION = Duration.ofMinutes(60);
-
     String bindTopic = null;
-    Duration invisibleDuration = Duration.ofMinutes(5);
 
     @Override
     public LitePushConsumerBuilder bindTopic(String bindTopic) {
@@ -44,17 +39,6 @@ public class LitePushConsumerBuilderImpl extends PushConsumerBuilderImpl impleme
         this.bindTopic = bindTopic;
         // passing bindTopic through subscriptionExpressions to ClientImpl
         subscriptionExpressions.put(bindTopic, new FilterExpression());
-        return this;
-    }
-
-    @Override
-    public LitePushConsumerBuilder setInvisibleDuration(Duration invisibleDuration) {
-        checkNotNull(invisibleDuration, "invisibleDuration should not be null");
-        checkArgument(invisibleDuration.compareTo(MIN_INVISIBLE_DURATION) >= 0,
-            "invisibleDuration must be greater than %s", MIN_INVISIBLE_DURATION);
-        checkArgument(invisibleDuration.compareTo(MAX_INVISIBLE_DURATION) <= 0,
-            "invisibleDuration must be less than %s", MAX_INVISIBLE_DURATION);
-        this.invisibleDuration = invisibleDuration;
         return this;
     }
 
@@ -104,7 +88,6 @@ public class LitePushConsumerBuilderImpl extends PushConsumerBuilderImpl impleme
         checkNotNull(consumerGroup, "consumerGroup has not been set yet");
         checkNotNull(messageListener, "messageListener has not been set yet");
         checkNotNull(bindTopic, "bindTopic has not been set yet");
-        checkNotNull(invisibleDuration, "invisibleDuration has not been set yet");
         final LitePushConsumerImpl litePushConsumer = new LitePushConsumerImpl(this);
         litePushConsumer.startAsync().awaitRunning();
         return litePushConsumer;
