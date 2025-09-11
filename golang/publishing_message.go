@@ -118,8 +118,8 @@ func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
 	if pMsg.msg.messageGroup != nil {
 		msg.SystemProperties.MessageGroup = pMsg.msg.messageGroup
 	}
-	if pMsg.msg.liteTopic != nil {
-		msg.SystemProperties.LiteTopic = pMsg.msg.liteTopic
+	if pMsg.msg.LiteTopic != nil {
+		msg.SystemProperties.LiteTopic = pMsg.msg.LiteTopic
 	}
 	return msg, nil
 }

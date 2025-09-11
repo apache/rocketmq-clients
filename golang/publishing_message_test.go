@@ -43,7 +43,7 @@ func TestNewPublishingMessage_LiteMessage(t *testing.T) {
 	namespace := "ns-test"
 	pSetting := &producerSettings{}
 	msg := &Message{
-		liteTopic: ptrToString("lite-topic"),
+		LiteTopic: ptrToString("lite-topic"),
 	}
 	pMsg, err := NewPublishingMessage(msg, namespace, pSetting, false)
 	if err != nil {

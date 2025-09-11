@@ -76,7 +76,7 @@ type Message struct {
 	messageGroup *string
 	keys         []string
 	properties   map[string]string
-	liteTopic    *string
+	LiteTopic    *string
 
 	deliveryTimestamp  *time.Time
 	parentTraceContext *string
@@ -106,11 +106,11 @@ func (msg *Message) SetKeys(keys ...string) {
 }
 
 func (msg *Message) GetLiteTopic() *string {
-	return msg.liteTopic
+	return msg.LiteTopic
 }
 
 func (msg *Message) SetLiteTopic(liteTopic string) {
-	msg.liteTopic = &liteTopic
+	msg.LiteTopic = &liteTopic
 }
 
 func (msg *Message) getOrNewProperties() map[string]string {
