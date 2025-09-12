@@ -24,6 +24,7 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
 import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
 import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -88,7 +89,12 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     public void subscribeLite(Collection<String> liteTopics) throws ClientException {
         checkRunning();
         ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, liteTopics);
-        handleClientFuture(future);
+        try {
+            handleClientFuture(future);
+        } catch (ClientException e) {
+            log.error("Failed to subscribeLite: {}", liteTopics, e);
+            throw e;
+        }
         for (String liteTopic : liteTopics) {
             litePushConsumerSettings.addLiteTopic(liteTopic);
         }
@@ -104,7 +110,12 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         checkLiteSubscriptionQuota(1);
         ListenableFuture<Void> future =
             syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, Collections.singleton(liteTopic));
-        handleClientFuture(future);
+        try {
+            handleClientFuture(future);
+        } catch (ClientException e) {
+            log.error("Failed to subscribeLite: {}", liteTopic, e);
+            throw e;
+        }
         litePushConsumerSettings.addLiteTopic(liteTopic);
     }
 
@@ -137,7 +148,8 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         litePushConsumerSettings.removeLiteTopic(liteTopic);
     }
 
-    private void syncAllLiteSubscription() throws ClientException {
+    @VisibleForTesting
+    protected void syncAllLiteSubscription() throws ClientException {
         checkLiteSubscriptionQuota(0);
         final Set<String> set = litePushConsumerSettings.getLiteTopicSet();
         ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.ALL_ADD, set);
@@ -153,8 +165,6 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             .addAllLiteTopicSet(diff)
             .build();
         Endpoints endpoints = getEndpoints();
-        // todo 这两个有什么区别
-        //        final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
         return syncLiteSubscription0(endpoints, request);
     }
 
@@ -212,7 +222,8 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             .build();
     }
 
-    private void checkRunning() {
+    @VisibleForTesting
+    protected void checkRunning() {
         if (!this.isRunning()) {
             log.error("lite push consumer not running, state={}, clientId={}",
                 this.state(), clientId);
