@@ -94,7 +94,7 @@ public class ClientManagerImpl extends ClientManager {
 
     private static final Logger log = LoggerFactory.getLogger(ClientManagerImpl.class);
 
-    private final Client client;
+    protected final Client client;
 
     @GuardedBy("rpcClientTableLock")
     private final Map<Endpoints, RpcClient> rpcClientTable;
@@ -134,7 +134,7 @@ public class ClientManagerImpl extends ClientManager {
      *
      * @throws InterruptedException if the thread has been interrupted
      */
-    private void clearIdleRpcClients() throws InterruptedException {
+    protected void clearIdleRpcClients() throws InterruptedException {
         rpcClientTableLock.writeLock().lock();
         try {
             final Iterator<Map.Entry<Endpoints, RpcClient>> it = rpcClientTable.entrySet().iterator();
@@ -164,7 +164,7 @@ public class ClientManagerImpl extends ClientManager {
      * @param endpoints remote endpoints.
      * @return RPC client.
      */
-    private RpcClient getRpcClient(Endpoints endpoints) throws ClientException {
+    protected RpcClient getRpcClient(Endpoints endpoints) throws ClientException {
         RpcClient rpcClient;
         rpcClientTableLock.readLock().lock();
         try {
