@@ -148,7 +148,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
         this.isolated = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        this.clientManager = new ClientManagerImpl(this);
+        // Choose ClientManager implementation based on configuration
+        if (clientConfiguration.isConnectionPoolEnabled()) {
+            this.clientManager = new PooledClientManagerImpl(this);
+        } else {
+            this.clientManager = new ClientManagerImpl(this);
+        }
 
         final long clientIdIndex = clientId.getIndex();
         this.clientCallbackExecutor = new ThreadPoolExecutor(

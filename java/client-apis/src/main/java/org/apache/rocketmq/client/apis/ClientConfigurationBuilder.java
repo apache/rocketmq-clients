@@ -32,6 +32,7 @@ public class ClientConfigurationBuilder {
     private Duration requestTimeout = Duration.ofSeconds(3);
     private boolean sslEnabled = true;
     private String namespace = "";
+    private boolean connectionPoolEnabled = false;
 
     /**
      * Configure the access point with which the SDK should communicate.
@@ -94,6 +95,17 @@ public class ClientConfigurationBuilder {
     }
 
     /**
+     * Enable or disable the use of connection pool for RPC clients.
+     *
+     * @param connectionPoolEnabled A boolean value indicating whether connection pool should be enabled or not.
+     * @return The {@link ClientConfigurationBuilder} instance, to allow for method chaining.
+     */
+    public ClientConfigurationBuilder enableConnectionPool(boolean connectionPoolEnabled) {
+        this.connectionPoolEnabled = connectionPoolEnabled;
+        return this;
+    }
+
+    /**
      * Finalize the build of {@link ClientConfiguration}.
      *
      * @return the client configuration builder instance.
@@ -101,6 +113,6 @@ public class ClientConfigurationBuilder {
     public ClientConfiguration build() {
         checkNotNull(endpoints, "endpoints should not be null");
         checkNotNull(requestTimeout, "requestTimeout should not be null");
-        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled, namespace);
+        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled, namespace, connectionPoolEnabled);
     }
 }
