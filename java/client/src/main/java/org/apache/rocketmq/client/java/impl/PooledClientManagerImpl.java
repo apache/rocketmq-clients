@@ -48,10 +48,15 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
      * Global shared RPC client pool across all client instances.
      * Key: NormalizedEndpoints (order-independent), Value: PooledRpcClient wrapper
      */
-    @GuardedBy("globalRpcClientPoolLock")
-    private static final Map<NormalizedEndpoints, PooledRpcClient> globalRpcClientPool = new HashMap<>();
-    private static final ReadWriteLock globalRpcClientPoolLock = new ReentrantReadWriteLock();
+    @GuardedBy("GLOBAL_RPC_CLIENT_POOL_LOCK")
+    private static final Map<NormalizedEndpoints, PooledRpcClient> GLOBAL_RPC_CLIENT_POOL = new HashMap<>();
+    private static final ReadWriteLock GLOBAL_RPC_CLIENT_POOL_LOCK = new ReentrantReadWriteLock();
 
+    /**
+     * Cache for mapping Endpoints to NormalizedEndpoints to avoid repeated sorting.
+     */
+    private static final ConcurrentMap<Endpoints, NormalizedEndpoints> NORMALIZED_ENDPOINTS_CACHE =
+        new ConcurrentHashMap<>();
     /**
      * Local reference to pooled RPC clients used by this client manager instance.
      * This helps track which pooled clients this instance is using for cleanup purposes.
@@ -59,11 +64,6 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
      * Key: NormalizedEndpoints (order-independent), Value: PooledRpcClient wrapper
      */
     private final ConcurrentHashMap<NormalizedEndpoints, PooledRpcClient> localRpcClientRefs;
-
-    /**
-     * Cache for mapping Endpoints to NormalizedEndpoints to avoid repeated sorting.
-     */
-    private static final ConcurrentMap<Endpoints, NormalizedEndpoints> normalizedEndpointsCache = new ConcurrentHashMap<>();
 
     public PooledClientManagerImpl(Client client) {
         super(client);
@@ -117,7 +117,7 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
     @Override
     protected RpcClient getRpcClient(Endpoints endpoints) throws ClientException {
         // 优先从缓存获取 NormalizedEndpoints，避免重复排序
-        NormalizedEndpoints normalizedEndpoints = normalizedEndpointsCache.computeIfAbsent(
+        NormalizedEndpoints normalizedEndpoints = NORMALIZED_ENDPOINTS_CACHE.computeIfAbsent(
             endpoints, k -> new NormalizedEndpoints(k)
         );
 
@@ -135,12 +135,12 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
      * Slow path for getRpcClient when local cache miss occurs.
      * This method handles global pool lookup and connection creation.
      */
-    private RpcClient getRpcClientSlowPath(Endpoints endpoints, NormalizedEndpoints normalizedEndpoints) 
-            throws ClientException {
+    private RpcClient getRpcClientSlowPath(Endpoints endpoints, NormalizedEndpoints normalizedEndpoints)
+        throws ClientException {
         // Check global pool first
-        globalRpcClientPoolLock.readLock().lock();
+        GLOBAL_RPC_CLIENT_POOL_LOCK.readLock().lock();
         try {
-            PooledRpcClient pooledClient = globalRpcClientPool.get(normalizedEndpoints);
+            PooledRpcClient pooledClient = GLOBAL_RPC_CLIENT_POOL.get(normalizedEndpoints);
             if (pooledClient != null) {
                 // Add reference and store local reference
                 pooledClient.addReference();
@@ -148,14 +148,14 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
                 return pooledClient.getRpcClient();
             }
         } finally {
-            globalRpcClientPoolLock.readLock().unlock();
+            GLOBAL_RPC_CLIENT_POOL_LOCK.readLock().unlock();
         }
 
         // Need to create new connection - upgrade to write lock
-        globalRpcClientPoolLock.writeLock().lock();
+        GLOBAL_RPC_CLIENT_POOL_LOCK.writeLock().lock();
         try {
             // Double-check after acquiring write lock
-            PooledRpcClient pooledClient = globalRpcClientPool.get(normalizedEndpoints);
+            PooledRpcClient pooledClient = GLOBAL_RPC_CLIENT_POOL.get(normalizedEndpoints);
             if (pooledClient != null) {
                 pooledClient.addReference();
                 addLocalReference(normalizedEndpoints, pooledClient);
@@ -166,18 +166,18 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
             try {
                 RpcClient rpcClient = new RpcClientImpl(endpoints, getClient().isSslEnabled());
                 pooledClient = new PooledRpcClient(rpcClient);
-                globalRpcClientPool.put(normalizedEndpoints, pooledClient);
+                GLOBAL_RPC_CLIENT_POOL.put(normalizedEndpoints, pooledClient);
                 addLocalReference(normalizedEndpoints, pooledClient);
-                log.info("Created new pooled RPC client, endpoints={}, normalizedEndpoints={}, clientId={}", 
+                log.info("Created new pooled RPC client, endpoints={}, normalizedEndpoints={}, clientId={}",
                     endpoints, normalizedEndpoints, getClient().getClientId());
                 return pooledClient.getRpcClient();
             } catch (SSLException e) {
-                log.error("Failed to create pooled RPC client, endpoints={}, clientId={}", 
+                log.error("Failed to create pooled RPC client, endpoints={}, clientId={}",
                     endpoints, getClient().getClientId(), e);
                 throw new ClientException("Failed to generate RPC client", e);
             }
         } finally {
-            globalRpcClientPoolLock.writeLock().unlock();
+            GLOBAL_RPC_CLIENT_POOL_LOCK.writeLock().unlock();
         }
     }
 
@@ -190,9 +190,9 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
      */
     @Override
     protected void clearIdleRpcClients() throws InterruptedException {
-        globalRpcClientPoolLock.writeLock().lock();
+        GLOBAL_RPC_CLIENT_POOL_LOCK.writeLock().lock();
         try {
-            Iterator<Map.Entry<NormalizedEndpoints, PooledRpcClient>> it = globalRpcClientPool.entrySet().iterator();
+            Iterator<Map.Entry<NormalizedEndpoints, PooledRpcClient>> it = GLOBAL_RPC_CLIENT_POOL.entrySet().iterator();
             while (it.hasNext()) {
                 Map.Entry<NormalizedEndpoints, PooledRpcClient> entry = it.next();
                 NormalizedEndpoints normalizedEndpoints = entry.getKey();
@@ -200,7 +200,7 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
 
                 Duration idleDuration = pooledClient.getIdleDuration();
                 // Only remove if idle for too long AND no references
-                if (idleDuration.compareTo(RPC_CLIENT_MAX_IDLE_DURATION) > 0 && 
+                if (idleDuration.compareTo(RPC_CLIENT_MAX_IDLE_DURATION) > 0 &&
                     pooledClient.getReferenceCount() == 0) {
                     it.remove();
                     pooledClient.getRpcClient().shutdown();
@@ -209,7 +209,7 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
                 }
             }
         } finally {
-            globalRpcClientPoolLock.writeLock().unlock();
+            GLOBAL_RPC_CLIENT_POOL_LOCK.writeLock().unlock();
         }
     }
 
@@ -219,35 +219,36 @@ public class PooledClientManagerImpl extends ClientManagerImpl {
     @Override
     protected void shutDown() throws IOException {
         log.info("Begin to shutdown the pooled client manager, clientId={}", getClient().getClientId());
-        
+
         // Remove references from global pool
-        globalRpcClientPoolLock.writeLock().lock();
+        GLOBAL_RPC_CLIENT_POOL_LOCK.writeLock().lock();
         try {
             for (Map.Entry<NormalizedEndpoints, PooledRpcClient> entry : localRpcClientRefs.entrySet()) {
                 NormalizedEndpoints normalizedEndpoints = entry.getKey();
                 PooledRpcClient pooledClient = entry.getValue();
-                
+
                 int remainingRefs = pooledClient.removeReference();
-                log.debug("Removed reference for normalizedEndpoints={}, remaining references={}, clientId={}", 
+                log.debug("Removed reference for normalizedEndpoints={}, remaining references={}, clientId={}",
                     normalizedEndpoints, remainingRefs, getClient().getClientId());
-                
+
                 // If no more references, remove from global pool and shutdown
                 if (remainingRefs == 0) {
-                    globalRpcClientPool.remove(normalizedEndpoints);
+                    GLOBAL_RPC_CLIENT_POOL.remove(normalizedEndpoints);
                     try {
                         pooledClient.getRpcClient().shutdown();
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        log.warn("Interrupted while shutting down pooled RPC client, normalizedEndpoints={}, clientId={}", 
+                        log.warn("Interrupted while shutting down pooled RPC client, normalizedEndpoints={}, "
+                                + "clientId={}",
                             normalizedEndpoints, getClient().getClientId(), e);
                     }
-                    log.info("Shutdown pooled RPC client due to no references, normalizedEndpoints={}, clientId={}", 
+                    log.info("Shutdown pooled RPC client due to no references, normalizedEndpoints={}, clientId={}",
                         normalizedEndpoints, getClient().getClientId());
                 }
             }
             localRpcClientRefs.clear();
         } finally {
-            globalRpcClientPoolLock.writeLock().unlock();
+            GLOBAL_RPC_CLIENT_POOL_LOCK.writeLock().unlock();
         }
 
         // Call parent shutdown for other cleanup

@@ -86,6 +86,7 @@ public class ClientConfigurationBuilder {
 
     /**
      * Configure namespace for client
+     *
      * @param namespace namespace
      * @return The {@link ClientConfigurationBuilder} instance, to allow for method chaining.
      */
@@ -113,6 +114,7 @@ public class ClientConfigurationBuilder {
     public ClientConfiguration build() {
         checkNotNull(endpoints, "endpoints should not be null");
         checkNotNull(requestTimeout, "requestTimeout should not be null");
-        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled, namespace, connectionPoolEnabled);
+        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled, namespace,
+            connectionPoolEnabled);
     }
 }

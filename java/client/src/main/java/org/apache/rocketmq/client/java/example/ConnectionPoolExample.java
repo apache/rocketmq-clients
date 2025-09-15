@@ -29,40 +29,43 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Example demonstrating how to use connection pooling feature.
- * 
+ *
  * <p>Connection pooling allows multiple client instances to share RPC connections
  * to the same endpoints, reducing resource usage and improving efficiency when
  * you have multiple producers/consumers connecting to the same RocketMQ cluster.
  */
 public class ConnectionPoolExample {
     private static final Logger log = LoggerFactory.getLogger(ConnectionPoolExample.class);
-    
+
     private static final String ACCESS_KEY = "yourAccessKey";
     private static final String SECRET_KEY = "yourSecretKey";
     private static final String ENDPOINTS = "foobar.com:8080";
     private static final String TOPIC = "yourTopic";
 
+    private ConnectionPoolExample() {
+    }
+
     public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
-        
+
         // Example 1: Create producer WITHOUT connection pooling (default behavior)
         log.info("Creating producer without connection pooling...");
         Producer producerWithoutPool = createProducer(provider, false);
-        
+
         // Example 2: Create producer WITH connection pooling enabled
         log.info("Creating producer with connection pooling enabled...");
         Producer producerWithPool = createProducer(provider, true);
-        
+
         // Example 3: Create multiple producers with connection pooling
         // These will share the same underlying RPC connections
         log.info("Creating multiple producers with connection pooling...");
         Producer producer1 = createProducer(provider, true);
         Producer producer2 = createProducer(provider, true);
         Producer producer3 = createProducer(provider, true);
-        
+
         log.info("All producers created successfully!");
         log.info("Producers with connection pooling will share RPC connections to the same endpoints.");
-        
+
         // Clean up resources
         try {
             producerWithoutPool.close();
@@ -75,23 +78,23 @@ public class ConnectionPoolExample {
             log.error("Error closing producers", e);
         }
     }
-    
-    private static Producer createProducer(ClientServiceProvider provider, boolean enableConnectionPool) 
-            throws ClientException {
-        
+
+    private static Producer createProducer(ClientServiceProvider provider, boolean enableConnectionPool)
+        throws ClientException {
+
         SessionCredentialsProvider sessionCredentialsProvider =
             new StaticSessionCredentialsProvider(ACCESS_KEY, SECRET_KEY);
-            
+
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(ENDPOINTS)
             .setCredentialProvider(sessionCredentialsProvider)
             .enableConnectionPool(enableConnectionPool)  // Enable or disable connection pooling
             .build();
-            
+
         ProducerBuilder builder = provider.newProducerBuilder()
             .setClientConfiguration(clientConfiguration)
             .setTopics(TOPIC);
-            
+
         return builder.build();
     }
 }

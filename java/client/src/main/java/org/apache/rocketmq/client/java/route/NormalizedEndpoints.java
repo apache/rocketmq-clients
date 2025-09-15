@@ -17,16 +17,15 @@
 
 package org.apache.rocketmq.client.java.route;
 
+import com.google.common.base.Objects;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import com.google.common.base.Objects;
-
 /**
  * A normalized version of Endpoints that ensures consistent equality and hashing
  * regardless of the order of addresses. This is used as a key in connection pools
- * to ensure that endpoints with the same addresses (but in different order) 
+ * to ensure that endpoints with the same addresses (but in different order)
  * share the same connection.
  */
 public class NormalizedEndpoints {
@@ -70,7 +69,7 @@ public class NormalizedEndpoints {
         }
         NormalizedEndpoints that = (NormalizedEndpoints) o;
         return scheme == that.scheme &&
-               Objects.equal(sortedAddresses, that.sortedAddresses);
+            Objects.equal(sortedAddresses, that.sortedAddresses);
     }
 
     @Override
@@ -102,7 +101,9 @@ public class NormalizedEndpoints {
      * Comparator for Address objects to ensure consistent ordering.
      * Compares by host first, then by port.
      */
-    private static class AddressComparator implements Comparator<Address> {
+    private static class AddressComparator implements Comparator<Address>, java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+
         @Override
         public int compare(Address a1, Address a2) {
             int hostComparison = a1.getHost().compareTo(a2.getHost());
