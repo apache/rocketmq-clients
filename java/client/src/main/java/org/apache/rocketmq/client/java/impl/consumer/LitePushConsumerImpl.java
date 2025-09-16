@@ -214,7 +214,6 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         return ReceiveMessageRequest.newBuilder()
             .setGroup(getProtobufGroup())
             .setMessageQueue(mq.toProtobuf())
-            // .setFilterExpression(wrapFilterExpression(filterExpression))
             .setLongPollingTimeout(Durations.fromNanos(longPollingTimeout.toNanos()))
             .setBatchSize(batchSize)
             .setAttemptId(attemptId)
@@ -230,5 +229,4 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             throw new IllegalStateException("lite push consumer not running");
         }
     }
-
 }

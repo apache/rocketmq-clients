@@ -19,8 +19,10 @@ package org.apache.rocketmq.client.java.impl.consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.rocketmq.client.java.impl.consumer.ConsumerImpl.CONSUMER_GROUP_PATTERN;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
@@ -29,57 +31,72 @@ import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumerBuilder;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 
-public class LitePushConsumerBuilderImpl extends PushConsumerBuilderImpl implements LitePushConsumerBuilder {
+public class LitePushConsumerBuilderImpl implements LitePushConsumerBuilder {
 
-    String bindTopic = null;
+    protected String bindTopic = null;
+    // below is same as PushConsumerBuilderImpl
+    protected ClientConfiguration clientConfiguration = null;
+    protected String consumerGroup = null;
+    protected Map<String, FilterExpression> subscriptionExpressions = new ConcurrentHashMap<>();
+    protected MessageListener messageListener = null;
+    protected int maxCacheMessageCount = 1024;
+    protected int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
+    protected int consumptionThreadCount = 20;
+    protected boolean enableFifoConsumeAccelerator = false;
 
     @Override
     public LitePushConsumerBuilder bindTopic(String bindTopic) {
         checkArgument(StringUtils.isNotBlank(bindTopic), "bindTopic should not be blank");
         this.bindTopic = bindTopic;
-        // passing bindTopic through subscriptionExpressions to ClientImpl
-        subscriptionExpressions.put(bindTopic, new FilterExpression());
         return this;
     }
 
     @Override
-    public LitePushConsumerBuilder setSubscriptionExpressions(Map<String, FilterExpression> subscriptionExpressions) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public LitePushConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration) {
-        return (LitePushConsumerBuilder) super.setClientConfiguration(clientConfiguration);
+        this.clientConfiguration = checkNotNull(clientConfiguration, "clientConfiguration should not be null");
+        return this;
     }
 
     @Override
     public LitePushConsumerBuilder setConsumerGroup(String consumerGroup) {
-        return (LitePushConsumerBuilder) super.setConsumerGroup(consumerGroup);
+        checkNotNull(consumerGroup, "consumerGroup should not be null");
+        checkArgument(CONSUMER_GROUP_PATTERN.matcher(consumerGroup).matches(), "consumerGroup does not match the "
+            + "regex [regex=%s]", CONSUMER_GROUP_PATTERN.pattern());
+        this.consumerGroup = consumerGroup;
+        return this;
     }
 
     @Override
     public LitePushConsumerBuilder setMessageListener(MessageListener messageListener) {
-        return (LitePushConsumerBuilder) super.setMessageListener(messageListener);
+        this.messageListener = checkNotNull(messageListener, "messageListener should not be null");
+        return this;
     }
 
     @Override
     public LitePushConsumerBuilder setMaxCacheMessageCount(int maxCachedMessageCount) {
-        return (LitePushConsumerBuilder) super.setMaxCacheMessageCount(maxCachedMessageCount);
+        checkArgument(maxCachedMessageCount > 0, "maxCachedMessageCount should be positive");
+        this.maxCacheMessageCount = maxCachedMessageCount;
+        return this;
     }
 
     @Override
     public LitePushConsumerBuilder setMaxCacheMessageSizeInBytes(int maxCacheMessageSizeInBytes) {
-        return (LitePushConsumerBuilder) super.setMaxCacheMessageSizeInBytes(maxCacheMessageSizeInBytes);
+        checkArgument(maxCacheMessageSizeInBytes > 0, "maxCacheMessageSizeInBytes should be positive");
+        this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
+        return this;
     }
 
     @Override
     public LitePushConsumerBuilder setConsumptionThreadCount(int consumptionThreadCount) {
-        return (LitePushConsumerBuilder) super.setConsumptionThreadCount(consumptionThreadCount);
+        checkArgument(consumptionThreadCount > 0, "consumptionThreadCount should be positive");
+        this.consumptionThreadCount = consumptionThreadCount;
+        return this;
     }
 
     @Override
     public LitePushConsumerBuilder setEnableFifoConsumeAccelerator(boolean enableFifoConsumeAccelerator) {
-        return (LitePushConsumerBuilder) super.setEnableFifoConsumeAccelerator(enableFifoConsumeAccelerator);
+        this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
+        return this;
     }
 
     @Override
@@ -88,6 +105,8 @@ public class LitePushConsumerBuilderImpl extends PushConsumerBuilderImpl impleme
         checkNotNull(consumerGroup, "consumerGroup has not been set yet");
         checkNotNull(messageListener, "messageListener has not been set yet");
         checkNotNull(bindTopic, "bindTopic has not been set yet");
+        // passing bindTopic through subscriptionExpressions to ClientImpl
+        subscriptionExpressions.put(bindTopic, FilterExpression.SUB_ALL);
         final LitePushConsumerImpl litePushConsumer = new LitePushConsumerImpl(this);
         litePushConsumer.startAsync().awaitRunning();
         return litePushConsumer;

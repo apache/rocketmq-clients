@@ -17,42 +17,86 @@
 
 package org.apache.rocketmq.client.apis.consumer;
 
-import java.time.Duration;
-import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 
 /**
  * Builder to config and start {@link LitePushConsumer}.
  */
-public interface LitePushConsumerBuilder extends PushConsumerBuilder {
+public interface LitePushConsumerBuilder {
 
+    /**
+     * Set the bind topic for lite push consumer.
+     *
+     * @return the consumer builder instance.
+     */
     LitePushConsumerBuilder bindTopic(String bindTopic);
 
-    @Override
+    /**
+     * Set the client configuration for the consumer.
+     *
+     * @param clientConfiguration client's configuration.
+     * @return the consumer builder instance.
+     */
     LitePushConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration);
 
-    @Override
+    /**
+     * Set the load balancing group for the consumer.
+     *
+     * @param consumerGroup consumer load balancing group.
+     * @return the consumer builder instance.
+     */
     LitePushConsumerBuilder setConsumerGroup(String consumerGroup);
 
-    @Override
-    LitePushConsumerBuilder setSubscriptionExpressions(Map<String, FilterExpression> subscriptionExpressions);
-
-    @Override
+    /**
+     * Register message listener, all messages meet the subscription expression would across listener here.
+     *
+     * @param listener message listener.
+     * @return the consumer builder instance.
+     */
     LitePushConsumerBuilder setMessageListener(MessageListener listener);
 
-    @Override
+    /**
+     * Set the maximum number of messages cached locally.
+     *
+     * @param count message count.
+     * @return the consumer builder instance.
+     */
     LitePushConsumerBuilder setMaxCacheMessageCount(int count);
 
-    @Override
+    /**
+     * Set the maximum bytes of messages cached locally.
+     *
+     * @param bytes message size.
+     * @return the consumer builder instance.
+     */
     LitePushConsumerBuilder setMaxCacheMessageSizeInBytes(int bytes);
 
-    @Override
+    /**
+     * Set the consumption thread count in parallel.
+     *
+     * @param count thread count.
+     * @return the consumer builder instance.
+     */
     LitePushConsumerBuilder setConsumptionThreadCount(int count);
 
-    @Override
+    /**
+     * Set enable fifo consume accelerator. If enabled, the consumer will consume messages in parallel by messageGroup,
+     * it may increase the probability of repeatedly consuming the same message.
+     *
+     * @param enableFifoConsumeAccelerator  enable fifo parallel processing.
+     * @return the consumer builder instance.
+     */
     LitePushConsumerBuilder setEnableFifoConsumeAccelerator(boolean enableFifoConsumeAccelerator);
 
-    @Override
+    /**
+     * Finalize the build of {@link LitePushConsumer} and start.
+     *
+     * <p>This method will block until the push consumer starts successfully.
+     *
+     * <p>Especially, if this method is invoked more than once, different push consumers will be created and started.
+     *
+     * @return the lite push consumer instance.
+     */
     LitePushConsumer build() throws ClientException;
 }
