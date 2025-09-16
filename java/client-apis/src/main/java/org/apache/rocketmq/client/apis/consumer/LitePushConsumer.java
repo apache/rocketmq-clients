@@ -24,8 +24,6 @@ import org.apache.rocketmq.client.apis.ClientException;
 
 public interface LitePushConsumer extends Closeable {
 
-    void subscribeLite(Collection<String> liteTopics) throws ClientException;
-
     /**
      * Subscribe to a lite topic.
      *

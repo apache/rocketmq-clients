@@ -85,7 +85,6 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     }
 
     // todo 内部测试批量使用，不对外开放
-    @Override
     public void subscribeLite(Collection<String> liteTopics) throws ClientException {
         checkRunning();
         ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, liteTopics);
