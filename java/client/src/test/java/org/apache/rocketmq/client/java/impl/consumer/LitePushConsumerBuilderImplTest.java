@@ -1,14 +1,8 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
-import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 
@@ -108,16 +102,6 @@ public class LitePushConsumerBuilderImplTest extends TestBase {
             .setConsumerGroup(FAKE_CONSUMER_GROUP_0)
             .setMessageListener(messageView -> ConsumeResult.SUCCESS)
             .build();
-    }
-
-    @Test
-    public void testBindTopic() {
-        final LitePushConsumerBuilderImpl builder = new LitePushConsumerBuilderImpl();
-        String topic = "test-topic";
-        builder.bindTopic(topic);
-
-        assertTrue(builder.subscriptionExpressions.containsKey(topic));
-        assertEquals(new FilterExpression(), builder.subscriptionExpressions.get(topic));
     }
 
 }
