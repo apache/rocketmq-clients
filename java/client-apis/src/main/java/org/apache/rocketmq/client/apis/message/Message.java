@@ -73,12 +73,17 @@ public interface Message {
     Optional<String> getMessageGroup();
 
     /**
+     * Get the lite topic, which is used for lite topic message type.
+     *
+     * @return lite topic, which is optional, {@link Optional#empty()} means lite topic is not specified.
+     */
+    Optional<String> getLiteTopic();
+
+    /**
      * Get the expected delivery timestamp, which make sense only when topic type is delay.
      *
      * @return message expected delivery timestamp, which is optional, {@link Optional#empty()} means delivery
      * timestamp is not specified.
      */
     Optional<Long> getDeliveryTimestamp();
-
-    Optional<String> getLiteTopic();
 }

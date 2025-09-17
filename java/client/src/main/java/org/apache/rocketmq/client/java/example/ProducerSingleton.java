@@ -37,7 +37,7 @@ public class ProducerSingleton {
     private static volatile Producer TRANSACTIONAL_PRODUCER;
     private static final String ACCESS_KEY = "yourAccessKey";
     private static final String SECRET_KEY = "yourSecretKey";
-    private static final String ENDPOINTS = "127.0.0.1:8081";
+    private static final String ENDPOINTS = "foobar.com:8080";
 
     private ProducerSingleton() {
     }
@@ -53,7 +53,7 @@ public class ProducerSingleton {
             .setEndpoints(ENDPOINTS)
             // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
             // client configuration to solve the problem please if SSL is not essential.
-             .enableSsl(false)
+            // .enableSsl(false)
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
         final ProducerBuilder builder = provider.newProducerBuilder()

@@ -60,6 +60,11 @@ public interface ClientServiceProvider {
      */
     PushConsumerBuilder newPushConsumerBuilder();
 
+    /**
+     * Get the lite push consumer builder by the current provider.
+     *
+     * @return the lite push consumer builder instance.
+     */
     LitePushConsumerBuilder newLitePushConsumerBuilder();
 
     /**

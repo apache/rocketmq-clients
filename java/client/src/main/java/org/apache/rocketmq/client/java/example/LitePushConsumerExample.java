@@ -32,8 +32,8 @@ import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LiteConsumerExample {
-    private static final Logger log = LoggerFactory.getLogger(LiteConsumerExample.class);
+public class LitePushConsumerExample {
+    private static final Logger log = LoggerFactory.getLogger(LitePushConsumerExample.class);
 
     public static void main(String[] args) throws ClientException, InterruptedException, IOException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
@@ -49,13 +49,14 @@ public class LiteConsumerExample {
             .setEndpoints(endpoints)
             // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
             // client configuration to solve the problem please if SSL is not essential.
-            .enableSsl(false)
+            // .enableSsl(false)
             //            .setCredentialProvider(sessionCredentialsProvider)
             .build();
-        AtomicInteger atomicInteger = new AtomicInteger(0);
-        String tag = "yourMessageTagA";
-        FilterExpression filterExpression = new FilterExpression(tag, FilterExpressionType.TAG);
-        String consumerGroup = "group_quan_0";
+
+        String consumerGroup = "FooBarGroup";
+        String bindTopic = "topic_quan_0_0";
+        String liteTopic1 = "topic_quan_0_0";
+        String liteTopic2 = "topic_quan_0_0";
         // In most case, you don't need to create too many consumers, singleton pattern is recommended.
         LitePushConsumer litePushConsumer = provider.newLitePushConsumerBuilder()
             .setClientConfiguration(clientConfiguration)

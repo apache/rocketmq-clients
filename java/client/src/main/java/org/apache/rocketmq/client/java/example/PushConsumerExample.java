@@ -46,18 +46,18 @@ public class PushConsumerExample {
         SessionCredentialsProvider sessionCredentialsProvider =
             new StaticSessionCredentialsProvider(accessKey, secretKey);
 
-        String endpoints = "127.0.0.1:8081";
+        String endpoints = "foobar.com:8080";
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(endpoints)
             // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
             // client configuration to solve the problem please if SSL is not essential.
-             .enableSsl(false)
-//            .setCredentialProvider(sessionCredentialsProvider)
+            // .enableSsl(false)
+            .setCredentialProvider(sessionCredentialsProvider)
             .build();
         String tag = "yourMessageTagA";
         FilterExpression filterExpression = new FilterExpression(tag, FilterExpressionType.TAG);
-        String consumerGroup = "FooBarGroup";
-        String topic = "topic_quan_0_0";
+        String consumerGroup = "yourConsumerGroup";
+        String topic = "yourTopic";
         // In most case, you don't need to create too many consumers, singleton pattern is recommended.
         PushConsumer pushConsumer = provider.newPushConsumerBuilder()
             .setClientConfiguration(clientConfiguration)
@@ -67,7 +67,6 @@ public class PushConsumerExample {
             .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
             .setMessageListener(messageView -> {
                 // Handle the received message and return consume result.
-                System.out.printf("Consume message=%s %n", messageView);
                 log.info("Consume message={}", messageView);
                 return ConsumeResult.SUCCESS;
             })

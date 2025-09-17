@@ -35,7 +35,7 @@ public class ProducerNormalMessageExample {
     public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
-        String topic = "topic_quan";
+        String topic = "yourNormalTopic";
         final Producer producer = ProducerSingleton.getInstance(topic);
         // Define your message body.
         byte[] body = "This is a normal message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);
@@ -51,7 +51,6 @@ public class ProducerNormalMessageExample {
             .build();
         try {
             final SendReceipt sendReceipt = producer.send(message);
-            System.out.printf("Send message successfully, messageId=%s", sendReceipt.getMessageId());
             log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
         } catch (Throwable t) {
             log.error("Failed to send message", t);
