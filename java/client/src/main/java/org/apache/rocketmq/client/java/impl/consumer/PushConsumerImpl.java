@@ -94,13 +94,13 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     final AtomicLong consumptionErrorQuantity;
 
     private final PushSubscriptionSettings pushSubscriptionSettings;
-    protected final String consumerGroup;
+    private final String consumerGroup;
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
     private final ConcurrentMap<String /* topic */, Assignments> cacheAssignments;
-    protected final MessageListener messageListener;
+    private final MessageListener messageListener;
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
-    protected final boolean enableFifoConsumeAccelerator;
+    private final boolean enableFifoConsumeAccelerator;
     private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
 
     /**
@@ -112,7 +112,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      */
     private final AtomicLong receivedMessagesQuantity;
 
-    protected final ThreadPoolExecutor consumptionExecutor;
+    private final ThreadPoolExecutor consumptionExecutor;
     private final ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable;
     private ConsumeService consumeService;
 

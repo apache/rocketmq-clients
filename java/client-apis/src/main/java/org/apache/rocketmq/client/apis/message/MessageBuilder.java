@@ -88,6 +88,14 @@ public interface MessageBuilder {
     MessageBuilder setMessageGroup(String messageGroup);
 
     /**
+     * Set the lite topic for the message, which is optional.
+     *
+     * @param liteTopic lite topic for the message.
+     * @return the message builder instance.
+     */
+    MessageBuilder setLiteTopic(String liteTopic);
+
+    /**
      * Set the delivery timestamp for the message, which is optional.
      *
      * <p>Delivery timestamp and message group should not be set in the same message.
@@ -96,8 +104,6 @@ public interface MessageBuilder {
      * @return the message builder instance.
      */
     MessageBuilder setDeliveryTimestamp(long deliveryTimestamp);
-
-    MessageBuilder setLiteTopic(String liteTopic);
 
     /**
      * Add user property for the message.

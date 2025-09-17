@@ -49,7 +49,6 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         ClientId clientId,
         Endpoints endpoints
     ) {
-        // to keep compatibility, lite push consumer subscribe ALL
         super(builder.clientConfiguration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, builder.consumerGroup,
             builder.subscriptionExpressions);
         this.bindTopic = new Resource(namespace, builder.bindTopic);

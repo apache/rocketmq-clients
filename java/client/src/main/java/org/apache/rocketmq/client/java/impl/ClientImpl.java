@@ -467,6 +467,11 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             + "command={}", clientId, command);
     }
 
+    /**
+     * This method is invoked while request of unsubscribe lite topic is received from remote.
+     * @param endpoints remote endpoints.
+      * @param command  request of unsubscribe lite topic from remote.
+     */
     @Override
     public void onNotifyUnsubscribeLiteCommand(Endpoints endpoints, NotifyUnsubscribeLiteCommand command) {
 

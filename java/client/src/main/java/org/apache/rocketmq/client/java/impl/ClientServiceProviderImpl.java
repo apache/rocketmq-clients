@@ -39,20 +39,23 @@ public class ClientServiceProviderImpl implements ClientServiceProvider {
     }
 
     /**
-     * @see ClientServiceProvider#newMessageBuilder()
+     * @see ClientServiceProvider#newPushConsumerBuilder()
      */
     @Override
     public PushConsumerBuilder newPushConsumerBuilder() {
         return new PushConsumerBuilderImpl();
     }
 
+    /**
+     * @see ClientServiceProvider#newLitePushConsumerBuilder()
+     */
     @Override
     public LitePushConsumerBuilder newLitePushConsumerBuilder() {
         return new LitePushConsumerBuilderImpl();
     }
 
     /**
-     * @see ClientServiceProvider#newMessageBuilder()
+     * @see ClientServiceProvider#newSimpleConsumerBuilder()
      */
     @Override
     public SimpleConsumerBuilder newSimpleConsumerBuilder() {

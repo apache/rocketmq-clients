@@ -43,9 +43,9 @@ public class MessageImpl implements Message {
     @Nullable
     private final String messageGroup;
     @Nullable
-    private final Long deliveryTimestamp;
-    @Nullable
     private final String liteTopic;
+    @Nullable
+    private final Long deliveryTimestamp;
 
     private final Map<String, String> properties;
 

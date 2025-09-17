@@ -99,7 +99,7 @@ public class LitePushConsumerBuilderImpl implements LitePushConsumerBuilder {
         checkNotNull(messageListener, "messageListener has not been set yet");
         checkNotNull(bindTopic, "bindTopic has not been set yet");
         // passing bindTopic through subscriptionExpressions to ClientImpl
-        subscriptionExpressions = ImmutableMap.of(bindTopic, FilterExpression.SUB_ALL);;
+        subscriptionExpressions = ImmutableMap.of(bindTopic, FilterExpression.SUB_ALL);
         final LitePushConsumerImpl litePushConsumer = new LitePushConsumerImpl(this);
         litePushConsumer.startAsync().awaitRunning();
         return litePushConsumer;
