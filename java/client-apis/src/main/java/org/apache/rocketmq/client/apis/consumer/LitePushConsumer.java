@@ -19,7 +19,6 @@ package org.apache.rocketmq.client.apis.consumer;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Collection;
 import org.apache.rocketmq.client.apis.ClientException;
 
 public interface LitePushConsumer extends Closeable {

@@ -18,22 +18,21 @@
 package org.apache.rocketmq.client.java.example;
 
 import java.io.IOException;
-import java.util.Date;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
 import org.apache.rocketmq.client.apis.SessionCredentialsProvider;
 import org.apache.rocketmq.client.apis.StaticSessionCredentialsProvider;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
-import org.apache.rocketmq.client.apis.consumer.FilterExpression;
-import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class LitePushConsumerExample {
     private static final Logger log = LoggerFactory.getLogger(LitePushConsumerExample.class);
+
+    private LitePushConsumerExample() {
+    }
 
     public static void main(String[] args) throws ClientException, InterruptedException, IOException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
@@ -50,7 +49,7 @@ public class LitePushConsumerExample {
             // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
             // client configuration to solve the problem please if SSL is not essential.
             // .enableSsl(false)
-            //            .setCredentialProvider(sessionCredentialsProvider)
+            .setCredentialProvider(sessionCredentialsProvider)
             .build();
 
         String consumerGroup = "FooBarGroup";
@@ -65,8 +64,6 @@ public class LitePushConsumerExample {
             .setConsumerGroup(consumerGroup)
             .setMessageListener(messageView -> {
                 // Handle the received message and return consume result.
-                System.out.printf("[%s] [%s] Consume message=%s %n", new Date(), Thread.currentThread().getName(),
-                    messageView);
                 log.info("Consume message={}", messageView);
                 //                try {
                 //                    Thread.sleep(3000);

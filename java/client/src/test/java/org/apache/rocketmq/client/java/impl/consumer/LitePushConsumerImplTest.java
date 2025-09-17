@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.java.impl.consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,7 +76,7 @@ public class LitePushConsumerImplTest {
     }
 
     @Test(expected = IllegalStateException.class)
-    public void testSubscribeLite_NotRunning() throws ClientException {
+    public void testSubscribeLiteNotRunning() throws ClientException {
         String liteTopic = "testLiteTopic";
         doThrow(new IllegalStateException("not running")).when(consumer).checkRunning();
 
@@ -67,7 +84,7 @@ public class LitePushConsumerImplTest {
     }
 
     @Test
-    public void testSubscribeLite_AlreadySubscribed() throws ClientException {
+    public void testSubscribeLiteAlreadySubscribed() throws ClientException {
         String liteTopic = "testLiteTopic";
         doNothing().when(consumer).checkRunning();
         when(spySettings.containsLiteTopic(liteTopic)).thenReturn(true);
@@ -80,7 +97,7 @@ public class LitePushConsumerImplTest {
     }
 
     @Test
-    public void testSubscribeLite_QuotaExceededThenUnsubscribeAndSubscribeAgain() throws ClientException {
+    public void testSubscribeLiteQuotaExceededThenUnsubscribeAndSubscribeAgain() throws ClientException {
         String liteTopic1 = "testLiteTopic1";
         String liteTopic2 = "testLiteTopic2";
         doNothing().when(consumer).checkRunning();

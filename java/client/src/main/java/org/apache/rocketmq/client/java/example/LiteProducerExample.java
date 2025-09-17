@@ -27,10 +27,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class LiteProducerExample {
-    private static final Logger log = LoggerFactory.getLogger(LiteProducerExample.class);
+    static final Logger log = LoggerFactory.getLogger(LiteProducerExample.class);
     static final String TOPIC = "topic_quan_0_0";
     static final String LITE_TOPIC_PREFIX = "liteTopic_";
     static final int LITE_TOPIC_NUM = 5;
+
+    private LiteProducerExample() {
+
+    }
 
     public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
@@ -44,7 +48,7 @@ public class LiteProducerExample {
             final Message message = provider.newMessageBuilder()
                 // Set topic for the current message.
                 .setTopic(TOPIC)
-//                .setTopic("quan-broker-a")
+                //                .setTopic("quan-broker-a")
                 // Message secondary classifier of message besides topic.
                 .setTag(tag)
                 // Key(s) of the message, another way to mark message besides message id.
@@ -55,10 +59,8 @@ public class LiteProducerExample {
                 .build();
             try {
                 final SendReceipt sendReceipt = producer.send(message);
-                System.out.printf("Send message successfully, messageId=%s %n", sendReceipt.getMessageId());
                 log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
             } catch (Throwable t) {
-                System.out.println(t);
                 log.error("Failed to send message", t);
             }
         }

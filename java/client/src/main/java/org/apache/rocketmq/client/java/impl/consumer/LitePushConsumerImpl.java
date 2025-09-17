@@ -129,7 +129,9 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             throw new IllegalArgumentException("liteTopic is blank");
         }
         if (liteTopic.length() > litePushConsumerSettings.getMaxLiteTopicSize()) {
-            throw new IllegalArgumentException("liteTopic length exceeded max length " + litePushConsumerSettings.getMaxLiteTopicSize() + ", liteTopic: " + liteTopic);
+            String errorMessage = String.format("liteTopic length exceeded max length %d, liteTopic: %s",
+                litePushConsumerSettings.getMaxLiteTopicSize(), liteTopic);
+            throw new IllegalArgumentException(errorMessage);
         }
     }
 
@@ -184,8 +186,8 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         String group = command.getGroup();
         String brokerName = command.getBrokerName();
 
-        log.info("onNotifyUnsubscribeLiteCommand liteTopic={} topic={} group={} brokerName={}"
-            , liteTopic, topic, group, brokerName);
+        log.info("onNotifyUnsubscribeLiteCommand liteTopic={} topic={} group={} brokerName={}",
+            liteTopic, topic, group, brokerName);
 
         if (StringUtils.isBlank(liteTopic)) {
             return;

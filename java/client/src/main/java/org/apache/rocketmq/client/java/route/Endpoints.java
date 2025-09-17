@@ -49,6 +49,11 @@ public class Endpoints {
     private final String facade;
     private final List<Address> addresses;
 
+    /**
+     * Cache the hash code for the object
+     */
+    private int hash; // Default to 0
+
     public Endpoints(apache.rocketmq.v2.Endpoints endpoints) {
         this.addresses = new ArrayList<>();
         for (apache.rocketmq.v2.Address address : endpoints.getAddressesList()) {
@@ -199,11 +204,6 @@ public class Endpoints {
         return scheme == endpoints.scheme && Objects.equal(facade, endpoints.facade) &&
             Objects.equal(addresses, endpoints.addresses);
     }
-
-    /**
-     * Cache the hash code for the object
-     */
-    private int hash; // Default to 0
 
     @Override
     public int hashCode() {
