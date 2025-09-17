@@ -551,11 +551,16 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                 .setResourceNamespace(clientConfiguration.getNamespace())
                 .setName(messageView.getTopic())
                 .build();
-        return ForwardMessageToDeadLetterQueueRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
+
+        ForwardMessageToDeadLetterQueueRequest.Builder builder = ForwardMessageToDeadLetterQueueRequest.newBuilder()
+            .setGroup(getProtobufGroup())
+            .setTopic(topicResource)
             .setReceiptHandle(messageView.getReceiptHandle())
             .setMessageId(messageView.getMessageId().toString())
             .setDeliveryAttempt(messageView.getDeliveryAttempt())
-            .setMaxDeliveryAttempts(getRetryPolicy().getMaxAttempts()).build();
+            .setMaxDeliveryAttempts(getRetryPolicy().getMaxAttempts());
+        messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        return builder.build();
     }
 
     public RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse>
