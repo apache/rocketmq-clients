@@ -18,6 +18,8 @@
 package org.apache.rocketmq.client.java.example;
 
 import java.io.IOException;
+import java.util.Date;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
@@ -50,6 +52,7 @@ public class LiteConsumerExample {
             .enableSsl(false)
             //            .setCredentialProvider(sessionCredentialsProvider)
             .build();
+        AtomicInteger atomicInteger = new AtomicInteger(0);
         String tag = "yourMessageTagA";
         FilterExpression filterExpression = new FilterExpression(tag, FilterExpressionType.TAG);
         String consumerGroup = "group_quan_0";
@@ -59,24 +62,29 @@ public class LiteConsumerExample {
             .bindTopic(LiteProducerExample.TOPIC)
             // Set the consumer group name.
             .setConsumerGroup(consumerGroup)
-            //            .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
             .setMessageListener(messageView -> {
                 // Handle the received message and return consume result.
-                System.out.printf("Consume message=%s %n", messageView);
+                System.out.printf("[%s] [%s] Consume message=%s %n", new Date(), Thread.currentThread().getName(),
+                    messageView);
                 log.info("Consume message={}", messageView);
+                //                try {
+                //                    Thread.sleep(3000);
+                //                } catch (InterruptedException e) {
+                //                    throw new RuntimeException(e);
+                //                }
                 return ConsumeResult.SUCCESS;
             })
             .build();
 
-        try {
-            litePushConsumer.subscribeLite("liteTopic1");
-            litePushConsumer.subscribeLite("liteTopic2");
-            litePushConsumer.subscribeLite("liteTopic3");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        //        try {
+        //            for (int i = 0; i < LiteProducerExample.LITE_TOPIC_NUM; i++) {
+        //                litePushConsumer.subscribeLite(LiteProducerExample.LITE_TOPIC_PREFIX + i);
+        //            }
+        //        } catch (Exception e) {
+        //            e.printStackTrace();
+        //        }
 
-//        litePushConsumer.unsubscribeLite("liteTopic1");
+        //        litePushConsumer.unsubscribeLite("liteTopic1");
 
         // Block the main thread, no need for production environment.
         Thread.sleep(Long.MAX_VALUE);

@@ -32,14 +32,6 @@ public class LitePushConsumerBuilderImplTest extends TestBase {
         builder.bindTopic("");
     }
 
-    @Test(expected = UnsupportedOperationException.class)
-    public void testSetSubscriptionExpressions() {
-        final LitePushConsumerBuilderImpl builder = new LitePushConsumerBuilderImpl();
-        Map<String, FilterExpression> subscriptionExpressions = new HashMap<>();
-        subscriptionExpressions.put("topic", new FilterExpression());
-        builder.setSubscriptionExpressions(subscriptionExpressions);
-    }
-
     @Test(expected = NullPointerException.class)
     public void testSetClientConfigurationWithNull() {
         final LitePushConsumerBuilderImpl builder = new LitePushConsumerBuilderImpl();

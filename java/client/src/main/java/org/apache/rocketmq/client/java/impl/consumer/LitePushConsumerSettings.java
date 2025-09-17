@@ -20,13 +20,9 @@ package org.apache.rocketmq.client.java.impl.consumer;
 import apache.rocketmq.v2.Subscription;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
-import java.time.Duration;
-import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.rocketmq.client.apis.ClientConfiguration;
-import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.misc.ClientId;
@@ -48,12 +44,15 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
 
     private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
-    public LitePushConsumerSettings(ClientConfiguration configuration, ClientId clientId, Endpoints endpoints,
-        String bindTopic, String group) {
+    public LitePushConsumerSettings(
+        LitePushConsumerBuilderImpl builder,
+        ClientId clientId,
+        Endpoints endpoints
+    ) {
         // to keep compatibility, lite push consumer subscribe ALL
-        super(configuration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, group,
-            Collections.singletonMap(bindTopic, FilterExpression.SUB_ALL));
-        this.bindTopic = new Resource(namespace, bindTopic);
+        super(builder.clientConfiguration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, builder.consumerGroup,
+            builder.subscriptionExpressions);
+        this.bindTopic = new Resource(namespace, builder.bindTopic);
         // lite push consumer is fifo consumer
         this.fifo = true;
     }

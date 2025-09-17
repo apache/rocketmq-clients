@@ -52,22 +52,20 @@ import org.slf4j.LoggerFactory;
 public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushConsumer {
     private static final Logger log = LoggerFactory.getLogger(LitePushConsumerImpl.class);
 
-    private volatile ScheduledFuture<?> syncAllIntersetFuture;
+    private volatile ScheduledFuture<?> syncAllScheduledFuture;
     private final LitePushConsumerSettings litePushConsumerSettings;
 
     public LitePushConsumerImpl(LitePushConsumerBuilderImpl builder) {
         super(builder.clientConfiguration, builder.consumerGroup, builder.subscriptionExpressions,
             builder.messageListener, builder.maxCacheMessageCount, builder.maxCacheMessageSizeInBytes,
             builder.consumptionThreadCount, builder.enableFifoConsumeAccelerator);
-        this.litePushConsumerSettings = new LitePushConsumerSettings(builder.clientConfiguration,
-            clientId, endpoints, builder.bindTopic,
-            builder.consumerGroup);
+        this.litePushConsumerSettings = new LitePushConsumerSettings(builder, clientId, endpoints);
     }
 
     @Override
     protected void startUp() throws Exception {
         super.startUp();
-        syncAllIntersetFuture = getScheduler().scheduleWithFixedDelay(() -> {
+        syncAllScheduledFuture = getScheduler().scheduleWithFixedDelay(() -> {
             try {
                 syncAllLiteSubscription();
             } catch (Throwable t) {
@@ -79,8 +77,8 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     @Override
     protected void shutDown() throws InterruptedException {
         super.shutDown();
-        if (null != syncAllIntersetFuture) {
-            syncAllIntersetFuture.cancel(false);
+        if (null != syncAllScheduledFuture) {
+            syncAllScheduledFuture.cancel(false);
         }
     }
 

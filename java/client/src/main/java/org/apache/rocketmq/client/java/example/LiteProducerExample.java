@@ -29,12 +29,12 @@ import org.slf4j.LoggerFactory;
 public class LiteProducerExample {
     private static final Logger log = LoggerFactory.getLogger(LiteProducerExample.class);
     static final String TOPIC = "topic_quan_0_0";
-//    static final String TOPIC = "TopicXXX";
+    static final String LITE_TOPIC_PREFIX = "liteTopic_";
+    static final int LITE_TOPIC_NUM = 5;
 
     public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
-        String liteTopic = "liteTopic3";
         final Producer producer = ProducerSingleton.getInstance(TOPIC);
         // Define your message body.
         byte[] body = "This is a LITE message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);
@@ -44,12 +44,13 @@ public class LiteProducerExample {
             final Message message = provider.newMessageBuilder()
                 // Set topic for the current message.
                 .setTopic(TOPIC)
+//                .setTopic("quan-broker-a")
                 // Message secondary classifier of message besides topic.
                 .setTag(tag)
                 // Key(s) of the message, another way to mark message besides message id.
                 .setKeys("yourMessageKey-1ff69ada8e0e")
                 // lite topic
-                .setLiteTopic(liteTopic)
+                .setLiteTopic(LITE_TOPIC_PREFIX + (i % LITE_TOPIC_NUM))
                 .setBody(body)
                 .build();
             try {

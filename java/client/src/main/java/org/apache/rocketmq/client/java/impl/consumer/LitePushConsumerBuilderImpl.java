@@ -21,8 +21,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.rocketmq.client.java.impl.consumer.ConsumerImpl.CONSUMER_GROUP_PATTERN;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
@@ -37,7 +37,7 @@ public class LitePushConsumerBuilderImpl implements LitePushConsumerBuilder {
     // below is same as PushConsumerBuilderImpl
     protected ClientConfiguration clientConfiguration = null;
     protected String consumerGroup = null;
-    protected Map<String, FilterExpression> subscriptionExpressions = new ConcurrentHashMap<>();
+    protected Map<String, FilterExpression> subscriptionExpressions = null;
     protected MessageListener messageListener = null;
     protected int maxCacheMessageCount = 1024;
     protected int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
@@ -106,7 +106,7 @@ public class LitePushConsumerBuilderImpl implements LitePushConsumerBuilder {
         checkNotNull(messageListener, "messageListener has not been set yet");
         checkNotNull(bindTopic, "bindTopic has not been set yet");
         // passing bindTopic through subscriptionExpressions to ClientImpl
-        subscriptionExpressions.put(bindTopic, FilterExpression.SUB_ALL);
+        subscriptionExpressions = ImmutableMap.of(bindTopic, FilterExpression.SUB_ALL);;
         final LitePushConsumerImpl litePushConsumer = new LitePushConsumerImpl(this);
         litePushConsumer.startAsync().awaitRunning();
         return litePushConsumer;

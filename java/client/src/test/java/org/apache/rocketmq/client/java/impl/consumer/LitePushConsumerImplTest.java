@@ -1,37 +1,58 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import apache.rocketmq.v2.LiteSubscriptionAction;
+import com.google.common.util.concurrent.Futures;
+import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.exception.LiteSubscriptionQuotaExceededException;
+import org.apache.rocketmq.client.java.misc.ClientId;
+import org.apache.rocketmq.client.java.route.Endpoints;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 public class LitePushConsumerImplTest {
 
-    @Mock
-    private LitePushConsumerSettings mockSettings;
+    final String endpoints = "127.0.0.1:8080";
+
+    LitePushConsumerSettings spySettings;
 
     private LitePushConsumerImpl consumer;
 
     @Before
     public void setUp() {
+        ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder().setEndpoints(endpoints).build();
+
+        LitePushConsumerBuilderImpl litePushConsumerBuilder = new LitePushConsumerBuilderImpl();
+        litePushConsumerBuilder.setClientConfiguration(clientConfiguration);
+
+        LitePushConsumerSettings realSettings = new LitePushConsumerSettings(litePushConsumerBuilder, new ClientId(),
+            new Endpoints("127.0.0.1:8080"));
+
+        spySettings = Mockito.spy(realSettings);
+
         MockitoAnnotations.openMocks(this);
         consumer = mock(LitePushConsumerImpl.class, CALLS_REAL_METHODS);
         // Set final field litePushConsumerSettings using reflection
         try {
             java.lang.reflect.Field field = LitePushConsumerImpl.class.getDeclaredField("litePushConsumerSettings");
             field.setAccessible(true);
-            field.set(consumer, mockSettings);
+            field.set(consumer, spySettings);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -49,24 +70,39 @@ public class LitePushConsumerImplTest {
     public void testSubscribeLite_AlreadySubscribed() throws ClientException {
         String liteTopic = "testLiteTopic";
         doNothing().when(consumer).checkRunning();
-        when(mockSettings.containsLiteTopic(liteTopic)).thenReturn(true);
+        when(spySettings.containsLiteTopic(liteTopic)).thenReturn(true);
 
         consumer.subscribeLite(liteTopic);
 
         verify(consumer).checkRunning();
-        verify(mockSettings).containsLiteTopic(liteTopic);
+        verify(spySettings).containsLiteTopic(liteTopic);
         verify(consumer, never()).syncLiteSubscription(any(), any());
     }
 
-    @Test(expected = LiteSubscriptionQuotaExceededException.class)
-    public void testSubscribeLite_QuotaExceeded() throws ClientException {
-        String liteTopic = "testLiteTopic";
+    @Test
+    public void testSubscribeLite_QuotaExceededThenUnsubscribeAndSubscribeAgain() throws ClientException {
+        String liteTopic1 = "testLiteTopic1";
+        String liteTopic2 = "testLiteTopic2";
         doNothing().when(consumer).checkRunning();
-        when(mockSettings.containsLiteTopic(liteTopic)).thenReturn(false);
-        when(mockSettings.getMaxLiteTopicSize()).thenReturn(128);
-        when(mockSettings.getLiteSubscriptionQuota()).thenReturn(10);
-        when(mockSettings.getLiteTopicSetSize()).thenReturn(10); // Quota full
+        doReturn(Futures.immediateVoidFuture()).when(consumer)
+            .syncLiteSubscription(any(LiteSubscriptionAction.class), anyCollection());
+        when(spySettings.getLiteSubscriptionQuota()).thenReturn(1);
 
-        consumer.subscribeLite(liteTopic);
+        consumer.subscribeLite(liteTopic1);
+        assertThat(spySettings.getLiteTopicSetSize()).isEqualTo(1);
+
+        assertThatThrownBy(() -> consumer.subscribeLite(liteTopic2))
+            .isInstanceOf(LiteSubscriptionQuotaExceededException.class);
+        assertThat(spySettings.getLiteTopicSetSize()).isEqualTo(1);
+
+        consumer.unsubscribeLite(liteTopic1);
+        assertThat(spySettings.getLiteTopicSetSize()).isEqualTo(0);
+
+        consumer.subscribeLite(liteTopic2);
+        assertThat(spySettings.getLiteTopicSetSize()).isEqualTo(1);
+
+        verify(spySettings, times(1)).addLiteTopic(liteTopic1);
+        verify(spySettings, times(1)).removeLiteTopic(liteTopic1);
+        verify(spySettings, times(1)).addLiteTopic(liteTopic2);
     }
 }
