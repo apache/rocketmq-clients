@@ -42,7 +42,6 @@ import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
 import org.apache.rocketmq.client.java.exception.LiteSubscriptionQuotaExceededException;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
-import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.rpc.RpcFuture;
@@ -197,12 +196,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     }
 
     @Override
-    public Settings getSettings() {
-        return litePushConsumerSettings;
-    }
-
-    @Override
-    public PushSubscriptionSettings getPushConsumerSettings() {
+    public LitePushConsumerSettings getSettings() {
         return litePushConsumerSettings;
     }
 

@@ -62,7 +62,6 @@ import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
 import org.apache.rocketmq.client.java.impl.ClientType;
-import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
@@ -215,7 +214,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     private void waitingReceiveRequestFinished() {
         Duration maxWaitingTime = clientConfiguration.getRequestTimeout()
-            .plus(getPushConsumerSettings().getLongPollingTimeout());
+            .plus(getSettings().getLongPollingTimeout());
         long endTime = System.currentTimeMillis() + maxWaitingTime.toMillis();
         try {
             while (true) {
@@ -238,7 +237,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     protected ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
-        if (getPushConsumerSettings().isFifo()) {
+        if (getSettings().isFifo()) {
             log.info("Create FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
                 consumerGroup, clientId, enableFifoConsumeAccelerator);
             return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this,
@@ -254,10 +253,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     @Override
     public String getConsumerGroup() {
         return consumerGroup;
-    }
-
-    public PushSubscriptionSettings getPushConsumerSettings() {
-        return pushSubscriptionSettings;
     }
 
     /**
@@ -464,7 +459,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     }
 
     @Override
-    public Settings getSettings() {
+    public PushSubscriptionSettings getSettings() {
         return pushSubscriptionSettings;
     }
 
@@ -559,7 +554,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             .setMessageId(messageView.getMessageId().toString())
             .setDeliveryAttempt(messageView.getDeliveryAttempt())
             .setMaxDeliveryAttempts(getRetryPolicy().getMaxAttempts());
-        messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        if (ClientType.LITE_PUSH_CONSUMER == getSettings().getClientType()) {
+            messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        }
         return builder.build();
     }
 
@@ -613,7 +610,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     }
 
     public RetryPolicy getRetryPolicy() {
-        return getPushConsumerSettings().getRetryPolicy();
+        return getSettings().getRetryPolicy();
     }
 
     public ThreadPoolExecutor getConsumptionExecutor() {

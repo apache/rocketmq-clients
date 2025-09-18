@@ -54,6 +54,7 @@ import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.impl.ClientManager;
+import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
@@ -131,7 +132,9 @@ abstract class ConsumerImpl extends ClientImpl {
         final AckMessageEntry.Builder builder = AckMessageEntry.newBuilder()
             .setMessageId(messageView.getMessageId().toString())
             .setReceiptHandle(messageView.getReceiptHandle());
-        messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        if (ClientType.LITE_PUSH_CONSUMER == getSettings().getClientType()) {
+            messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        }
         final AckMessageEntry entry = builder.build();
         return AckMessageRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
             .addEntries(entry).build();
