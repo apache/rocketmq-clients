@@ -165,7 +165,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     @Override
     protected void startUp() throws Exception {
         try {
-            log.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
+            log.info("Begin to start the rocketmq {}, clientId={}", getSettings().getClientType(), clientId);
             GaugeObserver gaugeObserver = new ProcessQueueGaugeObserver(processQueueTable, clientId, consumerGroup);
             this.clientMeterManager.setGaugeObserver(gaugeObserver);
             super.startUp();
@@ -179,9 +179,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                     log.error("Exception raised while scanning the load assignments, clientId={}", clientId, t);
                 }
             }, 1, 5, TimeUnit.SECONDS);
-            log.info("The rocketmq push consumer starts successfully, clientId={}", clientId);
+            log.info("The rocketmq {} starts successfully, clientId={}", getSettings().getClientType(), clientId);
         } catch (Throwable t) {
-            log.error("Exception raised while starting the rocketmq push consumer, clientId={}", clientId, t);
+            log.error("Exception raised while starting the rocketmq {}, clientId={}",
+                getSettings().getClientType(), clientId, t);
             shutDown();
             throw t;
         }
@@ -198,7 +199,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      */
     @Override
     protected void shutDown() throws InterruptedException {
-        log.info("Begin to shutdown the rocketmq push consumer, clientId={}", clientId);
+        log.info("Begin to shutdown the rocketmq {}, clientId={}", getSettings().getClientType(), clientId);
         if (null != scanAssignmentsFuture) {
             scanAssignmentsFuture.cancel(false);
         }
@@ -209,7 +210,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         ExecutorServices.awaitTerminated(consumptionExecutor);
         TimeUnit.SECONDS.sleep(1);
         super.shutDown();
-        log.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
+        log.info("Shutdown the rocketmq {} successfully, clientId={}", getSettings().getClientType(), clientId);
     }
 
     private void waitingReceiveRequestFinished() {
