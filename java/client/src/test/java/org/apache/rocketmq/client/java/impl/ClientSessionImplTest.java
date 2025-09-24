@@ -258,9 +258,6 @@ public class ClientSessionImplTest extends TestBase {
             any(NotifyUnsubscribeLiteCommand.class));
         NotifyUnsubscribeLiteCommand command0 = NotifyUnsubscribeLiteCommand.newBuilder()
             .setLiteTopic("test-lite-topic")
-            .setTopic("test-topic")
-            .setGroup("test-group")
-            .setBrokerName("test-broker")
             .build();
         TelemetryCommand command = TelemetryCommand.newBuilder()
             .setNotifyUnsubscribeLiteCommand(command0).build();
