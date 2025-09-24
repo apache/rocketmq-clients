@@ -181,12 +181,9 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     @Override
     public void onNotifyUnsubscribeLiteCommand(Endpoints endpoints, NotifyUnsubscribeLiteCommand command) {
         String liteTopic = command.getLiteTopic();
-        String topic = command.getTopic();
-        String group = command.getGroup();
-        String brokerName = command.getBrokerName();
 
-        log.info("onNotifyUnsubscribeLiteCommand liteTopic={} topic={} group={} brokerName={}",
-            liteTopic, topic, group, brokerName);
+        log.info("notify unsubscribe lite liteTopic={} group={} bindTopic={}",
+            liteTopic, getConsumerGroup(), getSettings().bindTopic);
 
         if (StringUtils.isBlank(liteTopic)) {
             return;
