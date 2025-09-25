@@ -25,6 +25,7 @@ import org.apache.rocketmq.client.apis.SessionCredentialsProvider;
 import org.apache.rocketmq.client.apis.StaticSessionCredentialsProvider;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
+import org.apache.rocketmq.client.java.exception.LiteSubscriptionQuotaExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +44,7 @@ public class LitePushConsumerExample {
         SessionCredentialsProvider sessionCredentialsProvider =
             new StaticSessionCredentialsProvider(accessKey, secretKey);
 
-        String endpoints = "127.0.0.1:8081";
+        String endpoints = "foobar.com:8080";
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(endpoints)
             // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
@@ -51,38 +52,35 @@ public class LitePushConsumerExample {
             // .enableSsl(false)
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
-
-        String consumerGroup = "FooBarGroup";
-        String bindTopic = "topic_quan_0_0";
-        String liteTopic1 = "topic_quan_0_0";
-        String liteTopic2 = "topic_quan_0_0";
+        String consumerGroup = "yourConsumerGroup";
+        String topic = "yourParentTopic";
         // In most case, you don't need to create too many consumers, singleton pattern is recommended.
         LitePushConsumer litePushConsumer = provider.newLitePushConsumerBuilder()
             .setClientConfiguration(clientConfiguration)
-            .bindTopic(LiteProducerExample.TOPIC)
             // Set the consumer group name.
             .setConsumerGroup(consumerGroup)
+            // Bind to the parent topic
+            .bindTopic(topic)
             .setMessageListener(messageView -> {
                 // Handle the received message and return consume result.
                 log.info("Consume message={}", messageView);
-                //                try {
-                //                    Thread.sleep(3000);
-                //                } catch (InterruptedException e) {
-                //                    throw new RuntimeException(e);
-                //                }
                 return ConsumeResult.SUCCESS;
             })
             .build();
 
-        //        try {
-        //            for (int i = 0; i < LiteProducerExample.LITE_TOPIC_NUM; i++) {
-        //                litePushConsumer.subscribeLite(LiteProducerExample.LITE_TOPIC_PREFIX + i);
-        //            }
-        //        } catch (Exception e) {
-        //            e.printStackTrace();
-        //        }
-
-        //        litePushConsumer.unsubscribeLite("liteTopic1");
+        try {
+            litePushConsumer.subscribeLite("lite-topic-1");
+            litePushConsumer.subscribeLite("lite-topic-2");
+            litePushConsumer.subscribeLite("lite-topic-3");
+        } catch (LiteSubscriptionQuotaExceededException e) {
+            // 1. Evaluate and increase the lite topic resource limit.
+            // 2. Unsubscribe unused lite topics in time
+            // litePushConsumer.unsubscribeLite("lite-topic-3");
+            log.error("Lite subscription quota exceeded", e);
+        } catch (Throwable t) {
+            // should retry later
+            log.error("Failed to subscribe lite topic", t);
+        }
 
         // Block the main thread, no need for production environment.
         Thread.sleep(Long.MAX_VALUE);
