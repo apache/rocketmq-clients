@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.apis.consumer;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Set;
 import org.apache.rocketmq.client.apis.ClientException;
 
 public interface LitePushConsumer extends Closeable {
@@ -38,6 +39,13 @@ public interface LitePushConsumer extends Closeable {
      * @throws ClientException if an error occurs during unsubscription
      */
     void unsubscribeLite(String liteTopic) throws ClientException;
+
+    /**
+     * Get the lite topic immutable set.
+     *
+     * @return lite topic immutable set.
+     */
+    Set<String> getLiteTopicSet();
 
     /**
      * Get the load balancing group for the consumer.

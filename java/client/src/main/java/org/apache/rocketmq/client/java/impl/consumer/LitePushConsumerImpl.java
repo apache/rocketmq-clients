@@ -146,6 +146,11 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         litePushConsumerSettings.removeLiteTopic(liteTopic);
     }
 
+    @Override
+    public Set<String> getLiteTopicSet() {
+        return litePushConsumerSettings.getLiteTopicSet();
+    }
+
     @VisibleForTesting
     protected void syncAllLiteSubscription() throws ClientException {
         checkLiteSubscriptionQuota(0);
