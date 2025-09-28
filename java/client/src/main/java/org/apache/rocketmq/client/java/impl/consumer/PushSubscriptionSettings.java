@@ -60,7 +60,7 @@ public class PushSubscriptionSettings extends Settings {
         Map<String, FilterExpression> subscriptionExpression
     ) {
         super(configuration.getNamespace(), clientId, clientType, endpoints, configuration.getRequestTimeout());
-        this.group = new Resource(namespace, group);
+        this.group = new Resource(configuration.getNamespace(), group);
         this.subscriptionExpressions = subscriptionExpression;
     }
 

@@ -206,7 +206,7 @@ public interface RpcClient {
      * Sync lite subscription asynchronously.
      *
      * @param metadata gRPC request header metadata.
-     * @param request  sync lite subscription message request
+     * @param request  sync lite subscription request
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
      * @return invocation of response future.

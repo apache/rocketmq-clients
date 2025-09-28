@@ -84,7 +84,7 @@ public interface GeneralMessage {
     /**
      * Get the lite topic, which makes sense only when the topic type is LITE.
      *
-     * @return lite topic, which is optional, {@link Optional#empty()} means message group is not specified.
+     * @return lite topic, which is optional, {@link Optional#empty()} means lite topic is not specified.
      */
     Optional<String> getLiteTopic();
 
