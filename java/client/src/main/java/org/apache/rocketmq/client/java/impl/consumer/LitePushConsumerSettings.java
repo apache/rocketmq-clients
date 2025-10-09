@@ -52,8 +52,6 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         super(builder.clientConfiguration, clientId, ClientType.LITE_PUSH_CONSUMER, endpoints, builder.consumerGroup,
             builder.subscriptionExpressions);
         this.bindTopic = new Resource(namespace, builder.bindTopic);
-        // lite push consumer is fifo consumer
-        this.fifo = true;
     }
 
     public boolean containsLiteTopic(String liteTopic) {
@@ -95,12 +93,6 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
 
     public long getVersion() {
         return version.get();
-    }
-
-    @Override
-    public boolean isFifo() {
-        // lite push consumer is fifo consumer
-        return true;
     }
 
     @Override
