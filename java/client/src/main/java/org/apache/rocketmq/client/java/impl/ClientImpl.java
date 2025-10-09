@@ -474,7 +474,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     @Override
     public void onNotifyUnsubscribeLiteCommand(Endpoints endpoints, NotifyUnsubscribeLiteCommand command) {
-
+        log.warn("Ignore unsubscribe lite topic command from remote, which is not expected, clientId={}, "
+            + "command={}", clientId, command);
     }
 
     private void updateRouteCache() {
