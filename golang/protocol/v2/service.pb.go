@@ -892,6 +892,7 @@ type ForwardMessageToDeadLetterQueueRequest struct {
 	MessageId           string                 `protobuf:"bytes,4,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
 	DeliveryAttempt     int32                  `protobuf:"varint,5,opt,name=delivery_attempt,json=deliveryAttempt,proto3" json:"delivery_attempt,omitempty"`
 	MaxDeliveryAttempts int32                  `protobuf:"varint,6,opt,name=max_delivery_attempts,json=maxDeliveryAttempts,proto3" json:"max_delivery_attempts,omitempty"`
+	LiteTopic           *string                `protobuf:"bytes,7,opt,name=lite_topic,json=liteTopic,proto3,oneof" json:"lite_topic,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -966,6 +967,13 @@ func (x *ForwardMessageToDeadLetterQueueRequest) GetMaxDeliveryAttempts() int32 
 		return x.MaxDeliveryAttempts
 	}
 	return 0
+}
+
+func (x *ForwardMessageToDeadLetterQueueRequest) GetLiteTopic() string {
+	if x != nil && x.LiteTopic != nil {
+		return *x.LiteTopic
+	}
+	return ""
 }
 
 type ForwardMessageToDeadLetterQueueResponse struct {
@@ -1526,10 +1534,7 @@ func (x *RecoverOrphanedTransactionCommand) GetTransactionId() string {
 
 type NotifyUnsubscribeLiteCommand struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Group         string                 `protobuf:"bytes,1,opt,name=group,proto3" json:"group,omitempty"`
-	Topic         string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	LiteTopic     string                 `protobuf:"bytes,3,opt,name=liteTopic,proto3" json:"liteTopic,omitempty"`
-	BrokerName    string                 `protobuf:"bytes,4,opt,name=brokerName,proto3" json:"brokerName,omitempty"`
+	LiteTopic     string                 `protobuf:"bytes,1,opt,name=liteTopic,proto3" json:"liteTopic,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1564,30 +1569,9 @@ func (*NotifyUnsubscribeLiteCommand) Descriptor() ([]byte, []int) {
 	return file_apache_rocketmq_v2_service_proto_rawDescGZIP(), []int{25}
 }
 
-func (x *NotifyUnsubscribeLiteCommand) GetGroup() string {
-	if x != nil {
-		return x.Group
-	}
-	return ""
-}
-
-func (x *NotifyUnsubscribeLiteCommand) GetTopic() string {
-	if x != nil {
-		return x.Topic
-	}
-	return ""
-}
-
 func (x *NotifyUnsubscribeLiteCommand) GetLiteTopic() string {
 	if x != nil {
 		return x.LiteTopic
-	}
-	return ""
-}
-
-func (x *NotifyUnsubscribeLiteCommand) GetBrokerName() string {
-	if x != nil {
-		return x.BrokerName
 	}
 	return ""
 }
@@ -1770,6 +1754,7 @@ type TelemetryCommand_ReconnectEndpointsCommand struct {
 }
 
 type TelemetryCommand_NotifyUnsubscribeLiteCommand struct {
+	// Request client to unsubscribe lite topic.
 	NotifyUnsubscribeLiteCommand *NotifyUnsubscribeLiteCommand `protobuf:"bytes,9,opt,name=notify_unsubscribe_lite_command,json=notifyUnsubscribeLiteCommand,proto3,oneof"`
 }
 
@@ -2808,7 +2793,7 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\x06status\x18\x03 \x01(\v2\x1a.apache.rocketmq.v2.StatusR\x06status\"\x8d\x01\n" +
 	"\x12AckMessageResponse\x122\n" +
 	"\x06status\x18\x01 \x01(\v2\x1a.apache.rocketmq.v2.StatusR\x06status\x12C\n" +
-	"\aentries\x18\x02 \x03(\v2).apache.rocketmq.v2.AckMessageResultEntryR\aentries\"\xb5\x02\n" +
+	"\aentries\x18\x02 \x03(\v2).apache.rocketmq.v2.AckMessageResultEntryR\aentries\"\xe8\x02\n" +
 	"&ForwardMessageToDeadLetterQueueRequest\x122\n" +
 	"\x05group\x18\x01 \x01(\v2\x1c.apache.rocketmq.v2.ResourceR\x05group\x122\n" +
 	"\x05topic\x18\x02 \x01(\v2\x1c.apache.rocketmq.v2.ResourceR\x05topic\x12%\n" +
@@ -2816,7 +2801,10 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\n" +
 	"message_id\x18\x04 \x01(\tR\tmessageId\x12)\n" +
 	"\x10delivery_attempt\x18\x05 \x01(\x05R\x0fdeliveryAttempt\x122\n" +
-	"\x15max_delivery_attempts\x18\x06 \x01(\x05R\x13maxDeliveryAttempts\"]\n" +
+	"\x15max_delivery_attempts\x18\x06 \x01(\x05R\x13maxDeliveryAttempts\x12\"\n" +
+	"\n" +
+	"lite_topic\x18\a \x01(\tH\x00R\tliteTopic\x88\x01\x01B\r\n" +
+	"\v_lite_topic\"]\n" +
 	"'ForwardMessageToDeadLetterQueueResponse\x122\n" +
 	"\x06status\x18\x01 \x01(\v2\x1a.apache.rocketmq.v2.StatusR\x06status\"\x96\x01\n" +
 	"\x10HeartbeatRequest\x127\n" +
@@ -2853,14 +2841,9 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"\x81\x01\n" +
 	"!RecoverOrphanedTransactionCommand\x125\n" +
 	"\amessage\x18\x01 \x01(\v2\x1b.apache.rocketmq.v2.MessageR\amessage\x12%\n" +
-	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\"\x88\x01\n" +
-	"\x1cNotifyUnsubscribeLiteCommand\x12\x14\n" +
-	"\x05group\x18\x01 \x01(\tR\x05group\x12\x14\n" +
-	"\x05topic\x18\x02 \x01(\tR\x05topic\x12\x1c\n" +
-	"\tliteTopic\x18\x03 \x01(\tR\tliteTopic\x12\x1e\n" +
-	"\n" +
-	"brokerName\x18\x04 \x01(\tR\n" +
-	"brokerName\"\xa7\a\n" +
+	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\"<\n" +
+	"\x1cNotifyUnsubscribeLiteCommand\x12\x1c\n" +
+	"\tliteTopic\x18\x01 \x01(\tR\tliteTopic\"\xa7\a\n" +
 	"\x10TelemetryCommand\x127\n" +
 	"\x06status\x18\x01 \x01(\v2\x1a.apache.rocketmq.v2.StatusH\x01R\x06status\x88\x01\x01\x12:\n" +
 	"\bsettings\x18\x02 \x01(\v2\x1c.apache.rocketmq.v2.SettingsH\x00R\bsettings\x12T\n" +
@@ -2959,8 +2942,8 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\x17NotifyClientTermination\x122.apache.rocketmq.v2.NotifyClientTerminationRequest\x1a3.apache.rocketmq.v2.NotifyClientTerminationResponse\"\x00\x12\x84\x01\n" +
 	"\x17ChangeInvisibleDuration\x122.apache.rocketmq.v2.ChangeInvisibleDurationRequest\x1a3.apache.rocketmq.v2.ChangeInvisibleDurationResponse\"\x00\x12f\n" +
 	"\rRecallMessage\x12(.apache.rocketmq.v2.RecallMessageRequest\x1a).apache.rocketmq.v2.RecallMessageResponse\"\x00\x12{\n" +
-	"\x14SyncLiteSubscription\x12/.apache.rocketmq.v2.SyncLiteSubscriptionRequest\x1a0.apache.rocketmq.v2.SyncLiteSubscriptionResponse\"\x00Bk\n" +
-	"\x12apache.rocketmq.v2B\tMQServiceP\x01Z-apache/rocketmq-clients/golang/v5/protocol/v2\xa0\x01\x01\xd8\x01\x01\xaa\x02\x12Apache.Rocketmq.V2b\x06proto3"
+	"\x14SyncLiteSubscription\x12/.apache.rocketmq.v2.SyncLiteSubscriptionRequest\x1a0.apache.rocketmq.v2.SyncLiteSubscriptionResponse\"\x00Bv\n" +
+	"\x12apache.rocketmq.v2B\tMQServiceP\x01Z8github.com/apache/rocketmq-clients/golang/v5/protocol/v2\xa0\x01\x01\xd8\x01\x01\xaa\x02\x12Apache.Rocketmq.V2b\x06proto3"
 
 var (
 	file_apache_rocketmq_v2_service_proto_rawDescOnce sync.Once
@@ -3166,6 +3149,7 @@ func file_apache_rocketmq_v2_service_proto_init() {
 		(*ReceiveMessageResponse_DeliveryTimestamp)(nil),
 	}
 	file_apache_rocketmq_v2_service_proto_msgTypes[9].OneofWrappers = []any{}
+	file_apache_rocketmq_v2_service_proto_msgTypes[13].OneofWrappers = []any{}
 	file_apache_rocketmq_v2_service_proto_msgTypes[15].OneofWrappers = []any{}
 	file_apache_rocketmq_v2_service_proto_msgTypes[21].OneofWrappers = []any{}
 	file_apache_rocketmq_v2_service_proto_msgTypes[26].OneofWrappers = []any{

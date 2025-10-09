@@ -327,10 +327,7 @@ func TestLitePushConsumer_notifyUnsubscribeLite(t *testing.T) {
 	dlpc.litePushConsumerSettings.liteTopicSet["lite-topic-notify"] = struct{}{}
 
 	cmd := &v2.NotifyUnsubscribeLiteCommand{
-		LiteTopic:  "lite-topic-notify",
-		Topic:      "bind-topic",
-		Group:      "test-group",
-		BrokerName: "test-broker",
+		LiteTopic: "lite-topic-notify",
 	}
 
 	dlpc.notifyUnsubscribeLite(cmd)
@@ -355,10 +352,7 @@ func TestLitePushConsumer_notifyUnsubscribeLite_EmptyLiteTopic(t *testing.T) {
 	dlpc.litePushConsumerSettings.liteTopicSet["lite-topic-keep"] = struct{}{}
 
 	cmd := &v2.NotifyUnsubscribeLiteCommand{
-		LiteTopic:  "", // 空的 lite topic
-		Topic:      "bind-topic",
-		Group:      "test-group",
-		BrokerName: "test-broker",
+		LiteTopic: "", // 空的 lite topic
 	}
 
 	dlpc.notifyUnsubscribeLite(cmd)

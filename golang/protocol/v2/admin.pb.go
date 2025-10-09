@@ -195,8 +195,8 @@ const file_apache_rocketmq_v2_admin_proto_rawDesc = "" +
 	"\x16ChangeLogLevelResponse\x12\x16\n" +
 	"\x06remark\x18\x01 \x01(\tR\x06remark2r\n" +
 	"\x05Admin\x12i\n" +
-	"\x0eChangeLogLevel\x12).apache.rocketmq.v2.ChangeLogLevelRequest\x1a*.apache.rocketmq.v2.ChangeLogLevelResponse\"\x00Bl\n" +
-	"\x12apache.rocketmq.v2B\aMQAdminP\x01Z-apache/rocketmq-clients/golang/v5/protocol/v2\xa0\x01\x01\xd8\x01\x01\xf8\x01\x01\xaa\x02\x12Apache.Rocketmq.V2b\x06proto3"
+	"\x0eChangeLogLevel\x12).apache.rocketmq.v2.ChangeLogLevelRequest\x1a*.apache.rocketmq.v2.ChangeLogLevelResponse\"\x00Bw\n" +
+	"\x12apache.rocketmq.v2B\aMQAdminP\x01Z8github.com/apache/rocketmq-clients/golang/v5/protocol/v2\xa0\x01\x01\xd8\x01\x01\xf8\x01\x01\xaa\x02\x12Apache.Rocketmq.V2b\x06proto3"
 
 var (
 	file_apache_rocketmq_v2_admin_proto_rawDescOnce sync.Once

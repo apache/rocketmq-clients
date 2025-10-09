@@ -30,11 +30,10 @@ import (
 )
 
 const (
-	Topic      = "victory_lite_topic001"
-	LITE_TOPIC = "abc"
-	Endpoint   = "11.164.159.20:8081"
-	AccessKey  = "xxxxxx"
-	SecretKey  = "xxxxxx"
+	Topic     = "victory_lite_topic001"
+	Endpoint  = "11.167.131.190:8081"
+	AccessKey = "xxxxxx"
+	SecretKey = "xxxxxx"
 )
 
 func main() {
@@ -63,16 +62,16 @@ func main() {
 	// graceful stop producer
 	defer producer.GracefulStop()
 
-	for i := 0; i < 10; i++ {
+	liteTopics := []string{"00900", "00901", "00902"}
+	for i := 0; i < 2000; i++ {
 		// new a message
+		liteTopic := liteTopics[i%len(liteTopics)]
 		msg := &rmq_client.Message{
 			Topic: Topic,
 			Body:  []byte("this is a message : " + strconv.Itoa(i)),
 		}
 		// set keys and tag
-		msg.SetKeys("a", "b")
-		msg.SetTag("ab")
-		msg.SetLiteTopic(LITE_TOPIC)
+		msg.SetLiteTopic(liteTopic)
 		// send message in sync
 		resp, err := producer.Send(context.TODO(), msg)
 		if err != nil {

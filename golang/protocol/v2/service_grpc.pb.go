@@ -164,6 +164,7 @@ type MessagingServiceClient interface {
 	// for delay message, should recall before delivery time, like the rollback operation of transaction message,
 	// for normal message, not supported for now.
 	RecallMessage(ctx context.Context, in *RecallMessageRequest, opts ...grpc.CallOption) (*RecallMessageResponse, error)
+	// Sync lite subscription info, lite push consumer only
 	SyncLiteSubscription(ctx context.Context, in *SyncLiteSubscriptionRequest, opts ...grpc.CallOption) (*SyncLiteSubscriptionResponse, error)
 }
 
@@ -477,6 +478,7 @@ type MessagingServiceServer interface {
 	// for delay message, should recall before delivery time, like the rollback operation of transaction message,
 	// for normal message, not supported for now.
 	RecallMessage(context.Context, *RecallMessageRequest) (*RecallMessageResponse, error)
+	// Sync lite subscription info, lite push consumer only
 	SyncLiteSubscription(context.Context, *SyncLiteSubscriptionRequest) (*SyncLiteSubscriptionResponse, error)
 	mustEmbedUnimplementedMessagingServiceServer()
 }

@@ -20,11 +20,12 @@ package golang
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"time"
 )
 
 type LitePushConsumer interface {
@@ -99,10 +100,7 @@ func (lpc *defaultLitePushConsumer) startPushConsumer() error {
 
 func (lpc *defaultLitePushConsumer) notifyUnsubscribeLite(command *v2.NotifyUnsubscribeLiteCommand) {
 	liteTopic := command.LiteTopic
-	topic := command.Topic
-	group := command.Group
-	broker := command.GetBrokerName()
-	sugarBaseLogger.Infof("LitePushConsumer notifyUnsubscribeLite group:%s broker:%s topic:%s liteTopic:%s", group, broker, topic, liteTopic)
+	sugarBaseLogger.Infof("LitePushConsumer notifyUnsubscribeLite liteTopic:%s", liteTopic)
 	if liteTopic == "" {
 		return
 	}

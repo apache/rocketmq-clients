@@ -870,13 +870,13 @@ func (Language) EnumDescriptor() ([]byte, []int) {
 type LiteSubscriptionAction int32
 
 const (
-	// 增量增加
+	// incremental add
 	LiteSubscriptionAction_INCREMENTAL_ADD LiteSubscriptionAction = 0
-	// 增量删除
+	// incremental remove
 	LiteSubscriptionAction_INCREMENTAL_REMOVE LiteSubscriptionAction = 1
-	// 全量覆盖
+	// all add
 	LiteSubscriptionAction_ALL_ADD LiteSubscriptionAction = 3
-	// 全量删除
+	// add remove
 	LiteSubscriptionAction_ALL_REMOVE LiteSubscriptionAction = 4
 )
 
@@ -1696,7 +1696,7 @@ type SystemProperties struct {
 	OrphanedTransactionRecoveryDuration *durationpb.Duration `protobuf:"bytes,19,opt,name=orphaned_transaction_recovery_duration,json=orphanedTransactionRecoveryDuration,proto3,oneof" json:"orphaned_transaction_recovery_duration,omitempty"`
 	// Information to identify whether this message is from dead letter queue.
 	DeadLetterQueue *DeadLetterQueue `protobuf:"bytes,20,opt,name=dead_letter_queue,json=deadLetterQueue,proto3,oneof" json:"dead_letter_queue,omitempty"`
-	// lite topic for lite consumer
+	// lite topic
 	LiteTopic     *string `protobuf:"bytes,21,opt,name=lite_topic,json=liteTopic,proto3,oneof" json:"lite_topic,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2846,8 +2846,8 @@ const file_apache_rocketmq_v2_definition_proto_rawDesc = "" +
 	"\x11QueryOffsetPolicy\x12\r\n" +
 	"\tBEGINNING\x10\x00\x12\a\n" +
 	"\x03END\x10\x01\x12\r\n" +
-	"\tTIMESTAMP\x10\x02Bj\n" +
-	"\x12apache.rocketmq.v2B\bMQDomainP\x01Z-apache/rocketmq-clients/golang/v5/protocol/v2\xa0\x01\x01\xd8\x01\x01\xaa\x02\x12Apache.Rocketmq.V2b\x06proto3"
+	"\tTIMESTAMP\x10\x02Bu\n" +
+	"\x12apache.rocketmq.v2B\bMQDomainP\x01Z8github.com/apache/rocketmq-clients/golang/v5/protocol/v2\xa0\x01\x01\xd8\x01\x01\xaa\x02\x12Apache.Rocketmq.V2b\x06proto3"
 
 var (
 	file_apache_rocketmq_v2_definition_proto_rawDescOnce sync.Once

@@ -79,7 +79,7 @@ func main() {
 		return
 	}
 	//time.Sleep(time.Second * 60)
-	err = pushConsumer.SubscribeLite("abc")
+	err = pushConsumer.SubscribeLite("00900")
 	if err != nil {
 		log.Fatal(err)
 		return
