@@ -84,7 +84,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     // todo 内部测试批量使用，不对外开放
     public void subscribeLite(Collection<String> liteTopics) throws ClientException {
         checkRunning();
-        ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, liteTopics);
+        ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.PARTIAL_ADD, liteTopics);
         try {
             handleClientFuture(future);
         } catch (ClientException e) {
@@ -105,7 +105,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         validateLiteTopic(liteTopic);
         checkLiteSubscriptionQuota(1);
         ListenableFuture<Void> future =
-            syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_ADD, Collections.singleton(liteTopic));
+            syncLiteSubscription(LiteSubscriptionAction.PARTIAL_ADD, Collections.singleton(liteTopic));
         try {
             handleClientFuture(future);
         } catch (ClientException e) {
@@ -141,7 +141,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             return;
         }
         ListenableFuture<Void> future =
-            syncLiteSubscription(LiteSubscriptionAction.INCREMENTAL_REMOVE, Collections.singleton(liteTopic));
+            syncLiteSubscription(LiteSubscriptionAction.PARTIAL_REMOVE, Collections.singleton(liteTopic));
         handleClientFuture(future);
         litePushConsumerSettings.removeLiteTopic(liteTopic);
     }
@@ -155,7 +155,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     protected void syncAllLiteSubscription() throws ClientException {
         checkLiteSubscriptionQuota(0);
         final Set<String> set = litePushConsumerSettings.getLiteTopicSet();
-        ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.ALL_ADD, set);
+        ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.COMPLETE_ADD, set);
         handleClientFuture(future);
         log.info("syncAllLiteSubscription: {}", set);
     }
