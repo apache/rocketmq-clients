@@ -1100,7 +1100,8 @@ void ClientManagerImpl::changeInvisibleDuration(
     const Metadata& metadata,
     const ChangeInvisibleDurationRequest& request,
     std::chrono::milliseconds timeout,
-    const std::function<void(const std::error_code&)>& completion_callback) {
+    const std::function<void(const std::error_code&, const ChangeInvisibleDurationResponse&)>& completion_callback) {
+
   RpcClientSharedPtr client = getRpcClient(target_host);
   assert(client);
   auto invocation_context = new InvocationContext<ChangeInvisibleDurationResponse>();
@@ -1118,7 +1119,7 @@ void ClientManagerImpl::changeInvisibleDuration(
       SPDLOG_WARN("Failed to write Nack request to wire. gRPC-code: {}, gRPC-message: {}",
                   invocation_context->status.error_code(), invocation_context->status.error_message());
       std::error_code ec = ErrorCode::RequestTimeout;
-      completion_callback(ec);
+      completion_callback(ec, invocation_context->response);
       return;
     }
 
@@ -1185,7 +1186,7 @@ void ClientManagerImpl::changeInvisibleDuration(
         break;
       }
     }
-    completion_callback(ec);
+    completion_callback(ec, invocation_context->response);
   };
   invocation_context->callback = callback;
   client->asyncChangeInvisibleDuration(request, invocation_context);

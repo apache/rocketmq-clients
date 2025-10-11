@@ -53,9 +53,9 @@ public:
 
   void ackAsync(const Message& message, AckCallback callback);
 
-  void changeInvisibleDuration(const Message& message,
+  void changeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                std::chrono::milliseconds duration,
-                               ChangeInvisibleDurationCallback callback);
+                               const ChangeInvisibleDurationCallback callback);
 
   void withReceiveMessageTimeout(std::chrono::milliseconds receive_timeout) {
     long_polling_duration_ = receive_timeout;

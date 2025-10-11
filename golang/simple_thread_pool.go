@@ -54,7 +54,9 @@ func NewSimpleThreadPool(poolName string, taskSize int, threadNum int) *simpleTh
 					}
 					return
 				case t := <-tp.tasks:
-					t()
+					if t != nil {
+						t()
+					}
 				}
 			}
 		}()

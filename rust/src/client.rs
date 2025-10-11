@@ -24,10 +24,10 @@ use mockall_double::double;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use prost_types::Duration;
-use slog::{debug, error, info, o, warn, Logger};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
+use tracing::{debug, error, info, warn};
 
 use crate::conf::ClientOption;
 use crate::error::{ClientError, ErrorKind};
@@ -36,19 +36,18 @@ use crate::model::message::AckMessageEntry;
 use crate::pb;
 use crate::pb::receive_message_response::Content;
 use crate::pb::{
-    AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, Code,
-    FilterExpression, HeartbeatRequest, HeartbeatResponse, Message, MessageQueue,
-    NotifyClientTerminationRequest, QueryRouteRequest, ReceiveMessageRequest, Resource,
-    SendMessageRequest, TelemetryCommand,
+    AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, FilterExpression,
+    HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, NotifyClientTerminationRequest,
+    QueryRouteRequest, ReceiveMessageRequest, Resource, SendMessageRequest, Status,
+    TelemetryCommand,
 };
 use crate::session::RPCClient;
 #[double]
 use crate::session::Session;
-use crate::util::{handle_response_status, select_message_queue};
+use crate::util::{handle_receive_message_status, handle_response_status, select_message_queue};
 
 #[derive(Debug)]
 pub(crate) struct Client {
-    logger: Logger,
     option: ClientOption,
     session_manager: Arc<SessionManager>,
     route_manager: TopicRouteManager,
@@ -62,7 +61,6 @@ pub(crate) struct Client {
 #[derive(Debug, Clone)]
 pub(crate) struct TopicRouteManager {
     route_table: Arc<Mutex<HashMap<String /* topic */, RouteStatus>>>,
-    logger: Logger,
     access_endpoints: Endpoints,
     namespace: String,
 }
@@ -82,21 +80,16 @@ const OPERATION_ACK_MESSAGE: &str = "client.ack_message";
 #[automock]
 impl Client {
     pub(crate) fn new(
-        logger: &Logger,
         option: ClientOption,
         settings: TelemetryCommand,
     ) -> Result<Self, ClientError> {
         let id = Self::generate_client_id();
         let endpoints = Endpoints::from_url(option.access_url())
             .map_err(|e| e.with_operation(OPERATION_CLIENT_NEW))?;
-        let session_manager = SessionManager::new(logger, id.clone(), &option);
-        let route_manager = TopicRouteManager::new(
-            logger.clone(),
-            option.get_namespace().to_string(),
-            endpoints.clone(),
-        );
+        let session_manager = SessionManager::new(id.clone(), &option);
+        let route_manager =
+            TopicRouteManager::new(option.get_namespace().to_string(), endpoints.clone());
         Ok(Client {
-            logger: logger.new(o!("component" => "client")),
             option,
             session_manager: Arc::new(session_manager),
             route_manager,
@@ -124,7 +117,6 @@ impl Client {
         &mut self,
         telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command>,
     ) -> Result<(), ClientError> {
-        let logger = self.logger.clone();
         let session_manager = self.session_manager.clone();
 
         let group = self.option.group.clone();
@@ -157,7 +149,6 @@ impl Client {
                         let sessions = session_manager.get_all_sessions().await;
                         if sessions.is_err() {
                             error!(
-                                logger,
                                 "send heartbeat failed: failed to get sessions: {}",
                                 sessions.unwrap_err()
                             );
@@ -169,7 +160,6 @@ impl Client {
                             let response = Self::heart_beat_inner(session, &group, &namespace, &client_type).await;
                             if response.is_err() {
                                 error!(
-                                    logger,
                                     "send heartbeat failed: failed to send heartbeat rpc: {}",
                                     response.unwrap_err()
                                 );
@@ -179,45 +169,44 @@ impl Client {
                                 handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
                             if result.is_err() {
                                 error!(
-                                    logger,
                                     "send heartbeat failed: server return error: {}",
                                     result.unwrap_err()
                                 );
                                 continue;
                             }
-                            debug!(logger,"send heartbeat to server success, peer={}",peer);
+                            debug!("send heartbeat to server success, peer={}",peer);
                         }
                     },
                     _ = sync_settings_interval.tick() => {
                         let sessions = session_manager.get_all_sessions().await;
                         if sessions.is_err() {
-                            error!(logger, "sync settings failed: failed to get sessions: {}", sessions.unwrap_err());
+                            error!("sync settings failed: failed to get sessions: {}", sessions.unwrap_err());
                             continue;
                         }
                         for mut session in sessions.unwrap() {
                             let peer = session.peer().to_string();
                             let result = session.update_settings(settings.clone()).await;
                             if result.is_err() {
-                                error!(logger, "sync settings failed: failed to call rpc: {}", result.unwrap_err());
+                                error!("sync settings failed: failed to call rpc: {}", result.unwrap_err());
                                 continue;
                             }
-                            debug!(logger, "sync settings success, peer = {}", peer);
+                            debug!("sync settings success, peer = {}", peer);
                         }
 
                     },
                     _ = sync_route_timer.tick() => {
                         let result = route_manager.sync_route_data(&mut rpc_client).await;
                         if result.is_err() {
-                            error!(logger, "sync route failed: {}", result.unwrap_err());
+                            error!("sync route failed: {}", result.unwrap_err());
                         }
                     },
                     _ = &mut shutdown_rx => {
-                        info!(logger, "receive shutdown signal, stop heartbeat and telemetry tasks.");
+                        info!("receive shutdown signal, stop heartbeat and telemetry tasks.");
                         break;
                     }
                 }
             }
-            info!(logger, "heartbeat and telemetry task were stopped");
+            info!("heartbeat and telemetry task were stopped");
         });
         Ok(())
     }
@@ -411,20 +400,34 @@ impl Client {
         let responses = rpc_client.receive_message(request).await?;
 
         let mut messages = Vec::with_capacity(batch_size as usize);
+        let mut status: Option<Status> = None;
+        let mut delivery_timestamp: Option<prost_types::Timestamp> = None;
+
         for response in responses {
             match response.content.unwrap() {
-                Content::Status(status) => {
-                    if status.code() == Code::MessageNotFound {
-                        return Ok(vec![]);
-                    }
-                    handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
+                Content::Status(response_status) => {
+                    status = Some(response_status);
                 }
                 Content::Message(message) => {
                     messages.push(message);
                 }
-                Content::DeliveryTimestamp(_) => {}
+                Content::DeliveryTimestamp(timestamp) => {
+                    delivery_timestamp = Some(timestamp);
+                }
             }
         }
+
+        if let Some(status) = status {
+            handle_receive_message_status(&status, OPERATION_RECEIVE_MESSAGE)?;
+        }
+        if let Some(ref delivery_timestamp) = delivery_timestamp {
+            for message in &mut messages {
+                if let Some(system_properties) = message.system_properties.as_mut() {
+                    system_properties.delivery_timestamp = Some(delivery_timestamp.clone());
+                }
+            }
+        }
+
         Ok(messages)
     }
 
@@ -516,9 +519,8 @@ impl Client {
 }
 
 impl TopicRouteManager {
-    pub(crate) fn new(logger: Logger, namespace: String, access_endpoints: Endpoints) -> Self {
+    pub(crate) fn new(namespace: String, access_endpoints: Endpoints) -> Self {
         Self {
-            logger,
             namespace,
             access_endpoints,
             route_table: Arc::new(Mutex::new(HashMap::new())),
@@ -533,7 +535,7 @@ impl TopicRouteManager {
         {
             topics = self.route_table.lock().keys().cloned().collect();
         }
-        debug!(self.logger, "sync topic route of topics {:?}", topics);
+        debug!("sync topic route of topics {:?}", topics);
         for topic in topics {
             self.topic_route_inner(rpc_client, &topic).await?;
         }
@@ -545,7 +547,7 @@ impl TopicRouteManager {
         rpc_client: &mut T,
         topics: Vec<String>,
     ) -> Result<(), ClientError> {
-        debug!(self.logger, "sync topic route of topics {:?}.", topics);
+        debug!("sync topic route of topics {:?}.", topics);
         for topic in topics {
             self.topic_route_inner(rpc_client, topic.as_str()).await?;
         }
@@ -557,7 +559,7 @@ impl TopicRouteManager {
         rpc_client: &mut T,
         topic: &str,
     ) -> Result<Arc<Route>, ClientError> {
-        debug!(self.logger, "query route for topic={}", topic);
+        debug!("query route for topic={}", topic);
         let rx = match self
             .route_table
             .lock()
@@ -604,10 +606,7 @@ impl TopicRouteManager {
 
         // send result to all waiters
         if let Ok(route) = result {
-            debug!(
-                self.logger,
-                "query route for topic={} success: route={:?}", topic, route
-            );
+            debug!("query route for topic={} success: route={:?}", topic, route);
             let route = Arc::new(route);
             let mut route_table_lock = self.route_table.lock();
 
@@ -620,7 +619,7 @@ impl TopicRouteManager {
 
             let prev =
                 route_table_lock.insert(topic.to_owned(), RouteStatus::Found(Arc::clone(&route)));
-            info!(self.logger, "update route for topic={}", topic);
+            info!("update route for topic={}", topic);
 
             if let Some(RouteStatus::Querying(Some(mut v))) = prev {
                 for item in v.drain(..) {
@@ -630,10 +629,7 @@ impl TopicRouteManager {
             Ok(route)
         } else {
             let err = result.unwrap_err();
-            warn!(
-                self.logger,
-                "query route for topic={} failed: error={}", topic, err
-            );
+            warn!("query route for topic={} failed: error={}", topic, err);
             let mut route_table_lock = self.route_table.lock();
             // keep the existing route if error occurs.
             if let Some(RouteStatus::Found(prev)) = route_table_lock.get(topic) {
@@ -704,7 +700,6 @@ impl TopicRouteManager {
 
 #[derive(Debug)]
 pub(crate) struct SessionManager {
-    logger: Logger,
     client_id: String,
     option: ClientOption,
     session_map: tokio::sync::Mutex<HashMap<String, Session>>,
@@ -712,11 +707,9 @@ pub(crate) struct SessionManager {
 
 #[automock]
 impl SessionManager {
-    pub(crate) fn new(logger: &Logger, client_id: String, option: &ClientOption) -> Self {
-        let logger = logger.new(o!("component" => "session"));
+    pub(crate) fn new(client_id: String, option: &ClientOption) -> Self {
         let session_map = tokio::sync::Mutex::new(HashMap::new());
         SessionManager {
-            logger,
             client_id,
             option: option.clone(),
             session_map,
@@ -734,13 +727,7 @@ impl SessionManager {
         if session_map.contains_key(&endpoint_url) {
             Ok(session_map.get(&endpoint_url).unwrap().shadow_session())
         } else {
-            let mut session = Session::new(
-                &self.logger,
-                endpoints,
-                self.client_id.clone(),
-                &self.option,
-            )
-            .await?;
+            let mut session = Session::new(endpoints, self.client_id.clone(), &self.option).await?;
             session.start(settings, telemetry_command_tx).await?;
             let shadow_session = session.shadow_session();
             session_map.insert(endpoint_url.clone(), session);
@@ -777,7 +764,6 @@ pub(crate) mod tests {
     use crate::client::Client;
     use crate::conf::ClientOption;
     use crate::error::{ClientError, ErrorKind};
-    use crate::log::terminal_logger;
     use crate::model::common::{ClientType, Route};
     use crate::pb::{
         AckMessageEntry, AckMessageResponse, ChangeInvisibleDurationResponse, Code,
@@ -794,7 +780,6 @@ pub(crate) mod tests {
 
     fn new_route_manager_for_test() -> TopicRouteManager {
         TopicRouteManager {
-            logger: terminal_logger(),
             route_table: Arc::new(Mutex::new(HashMap::new())),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
             namespace: "".to_string(),
@@ -803,7 +788,6 @@ pub(crate) mod tests {
 
     fn new_session_manager() -> SessionManager {
         SessionManager::new(
-            &terminal_logger(),
             Client::generate_client_id(),
             &ClientOption {
                 group: Some("group".to_string()),
@@ -814,7 +798,6 @@ pub(crate) mod tests {
 
     fn new_client_for_test() -> Client {
         Client {
-            logger: terminal_logger(),
             option: ClientOption {
                 group: Some("group".to_string()),
                 ..Default::default()
@@ -832,7 +815,6 @@ pub(crate) mod tests {
     fn new_client_with_session_manager(session_manager: SessionManager) -> Client {
         let (tx, _) = mpsc::channel(16);
         Client {
-            logger: terminal_logger(),
             option: ClientOption::default(),
             session_manager: Arc::new(session_manager),
             route_manager: new_route_manager_for_test(),
@@ -853,11 +835,7 @@ pub(crate) mod tests {
 
     #[test]
     fn client_new() -> Result<(), ClientError> {
-        Client::new(
-            &terminal_logger(),
-            ClientOption::default(),
-            TelemetryCommand::default(),
-        )?;
+        Client::new(ClientOption::default(), TelemetryCommand::default())?;
         Ok(())
     }
 
@@ -870,7 +848,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn client_get_session() {
         let context = MockSession::new_context();
-        context.expect().returning(|_, _, _, _| {
+        context.expect().returning(|_, _, _| {
             let mut session = MockSession::default();
             session.expect_start().returning(|_, _| Ok(()));
             session
@@ -1182,8 +1160,8 @@ pub(crate) mod tests {
         assert!(receive_result.is_err());
 
         let error = receive_result.unwrap_err();
-        assert_eq!(error.kind, ErrorKind::Server);
-        assert_eq!(error.message, "server return an error");
+        assert_eq!(error.kind, ErrorKind::Config);
+        assert_eq!(error.message, "bad request");
         assert_eq!(error.operation, "client.receive_message");
     }
 
