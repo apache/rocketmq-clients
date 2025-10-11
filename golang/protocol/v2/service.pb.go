@@ -1534,7 +1534,7 @@ func (x *RecoverOrphanedTransactionCommand) GetTransactionId() string {
 
 type NotifyUnsubscribeLiteCommand struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	LiteTopic     string                 `protobuf:"bytes,1,opt,name=liteTopic,proto3" json:"liteTopic,omitempty"`
+	LiteTopic     string                 `protobuf:"bytes,1,opt,name=lite_topic,json=liteTopic,proto3" json:"lite_topic,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2610,7 +2610,7 @@ type SyncLiteSubscriptionRequest struct {
 	// consumer group
 	Group *Resource `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
 	// lite subscription set of lite topics
-	LiteTopicSet  []string `protobuf:"bytes,4,rep,name=liteTopicSet,proto3" json:"liteTopicSet,omitempty"`
+	LiteTopicSet  []string `protobuf:"bytes,4,rep,name=lite_topic_set,json=liteTopicSet,proto3" json:"lite_topic_set,omitempty"`
 	Version       *int64   `protobuf:"varint,5,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2650,7 +2650,7 @@ func (x *SyncLiteSubscriptionRequest) GetAction() LiteSubscriptionAction {
 	if x != nil {
 		return x.Action
 	}
-	return LiteSubscriptionAction_INCREMENTAL_ADD
+	return LiteSubscriptionAction_PARTIAL_ADD
 }
 
 func (x *SyncLiteSubscriptionRequest) GetTopic() *Resource {
@@ -2841,9 +2841,10 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"\x81\x01\n" +
 	"!RecoverOrphanedTransactionCommand\x125\n" +
 	"\amessage\x18\x01 \x01(\v2\x1b.apache.rocketmq.v2.MessageR\amessage\x12%\n" +
-	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\"<\n" +
-	"\x1cNotifyUnsubscribeLiteCommand\x12\x1c\n" +
-	"\tliteTopic\x18\x01 \x01(\tR\tliteTopic\"\xa7\a\n" +
+	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\"=\n" +
+	"\x1cNotifyUnsubscribeLiteCommand\x12\x1d\n" +
+	"\n" +
+	"lite_topic\x18\x01 \x01(\tR\tliteTopic\"\xa7\a\n" +
 	"\x10TelemetryCommand\x127\n" +
 	"\x06status\x18\x01 \x01(\v2\x1a.apache.rocketmq.v2.StatusH\x01R\x06status\x88\x01\x01\x12:\n" +
 	"\bsettings\x18\x02 \x01(\v2\x1c.apache.rocketmq.v2.SettingsH\x00R\bsettings\x12T\n" +
@@ -2912,12 +2913,12 @@ const file_apache_rocketmq_v2_service_proto_rawDesc = "" +
 	"\x15RecallMessageResponse\x122\n" +
 	"\x06status\x18\x01 \x01(\v2\x1a.apache.rocketmq.v2.StatusR\x06status\x12\x1d\n" +
 	"\n" +
-	"message_id\x18\x02 \x01(\tR\tmessageId\"\x98\x02\n" +
+	"message_id\x18\x02 \x01(\tR\tmessageId\"\x9a\x02\n" +
 	"\x1bSyncLiteSubscriptionRequest\x12B\n" +
 	"\x06action\x18\x01 \x01(\x0e2*.apache.rocketmq.v2.LiteSubscriptionActionR\x06action\x122\n" +
 	"\x05topic\x18\x02 \x01(\v2\x1c.apache.rocketmq.v2.ResourceR\x05topic\x122\n" +
-	"\x05group\x18\x03 \x01(\v2\x1c.apache.rocketmq.v2.ResourceR\x05group\x12\"\n" +
-	"\fliteTopicSet\x18\x04 \x03(\tR\fliteTopicSet\x12\x1d\n" +
+	"\x05group\x18\x03 \x01(\v2\x1c.apache.rocketmq.v2.ResourceR\x05group\x12$\n" +
+	"\x0elite_topic_set\x18\x04 \x03(\tR\fliteTopicSet\x12\x1d\n" +
 	"\aversion\x18\x05 \x01(\x03H\x00R\aversion\x88\x01\x01B\n" +
 	"\n" +
 	"\b_version\"R\n" +

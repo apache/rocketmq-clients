@@ -422,6 +422,7 @@ const (
 	ClientType_SIMPLE_CONSUMER         ClientType = 3
 	ClientType_PULL_CONSUMER           ClientType = 4
 	ClientType_LITE_PUSH_CONSUMER      ClientType = 5
+	ClientType_LITE_SIMPLE_CONSUMER    ClientType = 6
 )
 
 // Enum value maps for ClientType.
@@ -433,6 +434,7 @@ var (
 		3: "SIMPLE_CONSUMER",
 		4: "PULL_CONSUMER",
 		5: "LITE_PUSH_CONSUMER",
+		6: "LITE_SIMPLE_CONSUMER",
 	}
 	ClientType_value = map[string]int32{
 		"CLIENT_TYPE_UNSPECIFIED": 0,
@@ -441,6 +443,7 @@ var (
 		"SIMPLE_CONSUMER":         3,
 		"PULL_CONSUMER":           4,
 		"LITE_PUSH_CONSUMER":      5,
+		"LITE_SIMPLE_CONSUMER":    6,
 	}
 )
 
@@ -871,28 +874,28 @@ type LiteSubscriptionAction int32
 
 const (
 	// incremental add
-	LiteSubscriptionAction_INCREMENTAL_ADD LiteSubscriptionAction = 0
+	LiteSubscriptionAction_PARTIAL_ADD LiteSubscriptionAction = 0
 	// incremental remove
-	LiteSubscriptionAction_INCREMENTAL_REMOVE LiteSubscriptionAction = 1
+	LiteSubscriptionAction_PARTIAL_REMOVE LiteSubscriptionAction = 1
 	// all add
-	LiteSubscriptionAction_ALL_ADD LiteSubscriptionAction = 3
+	LiteSubscriptionAction_COMPLETE_ADD LiteSubscriptionAction = 2
 	// add remove
-	LiteSubscriptionAction_ALL_REMOVE LiteSubscriptionAction = 4
+	LiteSubscriptionAction_COMPLETE_REMOVE LiteSubscriptionAction = 3
 )
 
 // Enum value maps for LiteSubscriptionAction.
 var (
 	LiteSubscriptionAction_name = map[int32]string{
-		0: "INCREMENTAL_ADD",
-		1: "INCREMENTAL_REMOVE",
-		3: "ALL_ADD",
-		4: "ALL_REMOVE",
+		0: "PARTIAL_ADD",
+		1: "PARTIAL_REMOVE",
+		2: "COMPLETE_ADD",
+		3: "COMPLETE_REMOVE",
 	}
 	LiteSubscriptionAction_value = map[string]int32{
-		"INCREMENTAL_ADD":    0,
-		"INCREMENTAL_REMOVE": 1,
-		"ALL_ADD":            3,
-		"ALL_REMOVE":         4,
+		"PARTIAL_ADD":     0,
+		"PARTIAL_REMOVE":  1,
+		"COMPLETE_ADD":    2,
+		"COMPLETE_REMOVE": 3,
 	}
 )
 
@@ -2752,7 +2755,7 @@ const file_apache_rocketmq_v2_definition_proto_rawDesc = "" +
 	"\x17DIGEST_TYPE_UNSPECIFIED\x10\x00\x12\t\n" +
 	"\x05CRC32\x10\x01\x12\a\n" +
 	"\x03MD5\x10\x02\x12\b\n" +
-	"\x04SHA1\x10\x03*\x8a\x01\n" +
+	"\x04SHA1\x10\x03*\xa4\x01\n" +
 	"\n" +
 	"ClientType\x12\x1b\n" +
 	"\x17CLIENT_TYPE_UNSPECIFIED\x10\x00\x12\f\n" +
@@ -2760,7 +2763,8 @@ const file_apache_rocketmq_v2_definition_proto_rawDesc = "" +
 	"\rPUSH_CONSUMER\x10\x02\x12\x13\n" +
 	"\x0fSIMPLE_CONSUMER\x10\x03\x12\x11\n" +
 	"\rPULL_CONSUMER\x10\x04\x12\x16\n" +
-	"\x12LITE_PUSH_CONSUMER\x10\x05*<\n" +
+	"\x12LITE_PUSH_CONSUMER\x10\x05\x12\x18\n" +
+	"\x14LITE_SIMPLE_CONSUMER\x10\x06*<\n" +
 	"\bEncoding\x12\x18\n" +
 	"\x14ENCODING_UNSPECIFIED\x10\x00\x12\f\n" +
 	"\bIDENTITY\x10\x01\x12\b\n" +
@@ -2836,13 +2840,12 @@ const file_apache_rocketmq_v2_definition_proto_rawDesc = "" +
 	"\x12\b\n" +
 	"\x04DART\x10\v\x12\n" +
 	"\n" +
-	"\x06KOTLIN\x10\f*b\n" +
-	"\x16LiteSubscriptionAction\x12\x13\n" +
-	"\x0fINCREMENTAL_ADD\x10\x00\x12\x16\n" +
-	"\x12INCREMENTAL_REMOVE\x10\x01\x12\v\n" +
-	"\aALL_ADD\x10\x03\x12\x0e\n" +
-	"\n" +
-	"ALL_REMOVE\x10\x04*:\n" +
+	"\x06KOTLIN\x10\f*d\n" +
+	"\x16LiteSubscriptionAction\x12\x0f\n" +
+	"\vPARTIAL_ADD\x10\x00\x12\x12\n" +
+	"\x0ePARTIAL_REMOVE\x10\x01\x12\x10\n" +
+	"\fCOMPLETE_ADD\x10\x02\x12\x13\n" +
+	"\x0fCOMPLETE_REMOVE\x10\x03*:\n" +
 	"\x11QueryOffsetPolicy\x12\r\n" +
 	"\tBEGINNING\x10\x00\x12\a\n" +
 	"\x03END\x10\x01\x12\r\n" +
