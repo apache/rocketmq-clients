@@ -292,7 +292,7 @@ func TestLitePushConsumer_UnSubscribeLite(t *testing.T) {
 	// Mock SyncLiteSubscription 成功响应
 	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, req *v2.SyncLiteSubscriptionRequest) (*v2.SyncLiteSubscriptionResponse, error) {
-			if req.Action != v2.LiteSubscriptionAction_INCREMENTAL_REMOVE {
+			if req.Action != v2.LiteSubscriptionAction_PARTIAL_REMOVE {
 				t.Errorf("expected action INCREMENTAL_REMOVE, got %v", req.Action)
 			}
 			if len(req.LiteTopicSet) != 1 || req.LiteTopicSet[0] != "lite-topic-1" {
@@ -378,7 +378,7 @@ func TestLitePushConsumer_syncLiteSubscription_StatusError(t *testing.T) {
 		setupErrorResponse(v2.Code_INTERNAL_SERVER_ERROR, "internal error"), nil,
 	)
 
-	err = dlpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_INCREMENTAL_ADD, []string{"test"})
+	err = dlpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{"test"})
 	if err == nil {
 		t.Fatal("expected error for non-OK status code")
 	}

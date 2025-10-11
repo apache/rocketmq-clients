@@ -111,7 +111,7 @@ func (lpc *defaultLitePushConsumer) SubscribeLite(topic string) error {
 	if err := lpc.checkRunning(); err != nil {
 		return err
 	}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_INCREMENTAL_ADD, []string{topic}); err != nil {
+	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{topic}); err != nil {
 		sugarBaseLogger.Errorf("LitePushConsumer SubscribeLite topic:%s err:%v", topic, err)
 		return err
 	}
@@ -123,7 +123,7 @@ func (lpc *defaultLitePushConsumer) UnSubscribeLite(topic string) error {
 	if err := lpc.checkRunning(); err != nil {
 		return err
 	}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_INCREMENTAL_REMOVE, []string{topic}); err != nil {
+	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_REMOVE, []string{topic}); err != nil {
 		sugarBaseLogger.Errorf("LitePushConsumer UnSubscribeLite topic:%s err:%v", topic, err)
 		return err
 	}
@@ -147,7 +147,7 @@ func (lpc *defaultLitePushConsumer) syncAllLiteSubscription() {
 	if len(liteTopicSet) == 0 {
 		return
 	}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_ALL_ADD, liteTopicSet); err != nil {
+	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_COMPLETE_ADD, liteTopicSet); err != nil {
 		sugarBaseLogger.Errorf("LitePushConsumer syncAllLiteSubscription:%v,  err:%v", liteTopicSet, err)
 	}
 }
