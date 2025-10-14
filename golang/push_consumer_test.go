@@ -118,6 +118,59 @@ func TestDefaultPushConsumer_wrapAckMessageRequest(t *testing.T) {
 	}
 	req2 := pc.wrapAckMessageRequest(mvLite)
 	entry2 := req2.GetEntries()[0]
+	if entry2.GetLiteTopic() != "" {
+		t.Error("expected lite topic to be nil for normal message")
+	}
+}
+
+func TestDefaultPushConsumer_wrapAckMessageRequest_lite(t *testing.T) {
+	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
+	pc, err := newPushConsumer(config,
+		WithPushSubscriptionExpressions(map[string]*FilterExpression{"test-topic": NewFilterExpression("*")}),
+		WithPushMessageListener(&FuncMessageListener{Consume: func(*MessageView) ConsumerResult { return SUCCESS }}),
+	)
+	if err != nil {
+		t.Fatalf("failed to create push consumer: %v", err)
+	}
+	// LitePushConsumer for test
+	pc.pcSettings.clientType = v2.ClientType_LITE_PUSH_CONSUMER
+
+	// 普通消息
+	mv := &MessageView{
+		messageId:     "msg-123",
+		topic:         "test-topic",
+		ReceiptHandle: "receipt-123",
+	}
+	req := pc.wrapAckMessageRequest(mv)
+	if req.GetGroup().GetName() != pc.pcSettings.groupName.GetName() {
+		t.Errorf("expected group name %s, got %s", pc.pcSettings.groupName.GetName(), req.GetGroup().GetName())
+	}
+	if req.GetTopic().GetName() != "test-topic" {
+		t.Errorf("expected topic 'test-topic', got %s", req.GetTopic().GetName())
+	}
+	if len(req.GetEntries()) != 1 {
+		t.Errorf("expected 1 entry, got %d", len(req.GetEntries()))
+	}
+	entry := req.GetEntries()[0]
+	if entry.GetMessageId() != "msg-123" {
+		t.Errorf("expected message id 'msg-123', got %s", entry.GetMessageId())
+	}
+	if entry.GetReceiptHandle() != "receipt-123" {
+		t.Errorf("expected receipt handle 'receipt-123', got %s", entry.GetReceiptHandle())
+	}
+	if entry.GetLiteTopic() != "" {
+		t.Error("expected lite topic to be nil for normal message")
+	}
+
+	// Lite 消息
+	mvLite := &MessageView{
+		messageId:     "msg-456",
+		topic:         "test-topic",
+		ReceiptHandle: "receipt-456",
+		liteTopic:     "lite-topic-123",
+	}
+	req2 := pc.wrapAckMessageRequest(mvLite)
+	entry2 := req2.GetEntries()[0]
 	if entry2.GetLiteTopic() == "" {
 		t.Error("expected lite topic to be set")
 	} else if entry2.GetLiteTopic() != "lite-topic-123" {

@@ -173,7 +173,7 @@ func (pc *defaultPushConsumer) wrapReceiveMessageRequest(batchSize int, messageQ
 }
 
 func (pc *defaultPushConsumer) wrapAckMessageRequest(messageView *MessageView) *v2.AckMessageRequest {
-	if messageView.GetLiteTopic() == "" {
+	if messageView.GetLiteTopic() != "" && pc.pcSettings.GetClientType() == v2.ClientType_LITE_PUSH_CONSUMER {
 		return &v2.AckMessageRequest{
 			Group: pc.pcSettings.groupName,
 			Topic: &v2.Resource{
@@ -184,6 +184,7 @@ func (pc *defaultPushConsumer) wrapAckMessageRequest(messageView *MessageView) *
 				{
 					MessageId:     messageView.GetMessageId(),
 					ReceiptHandle: messageView.GetReceiptHandle(),
+					LiteTopic:     &messageView.liteTopic,
 				},
 			},
 		}
@@ -198,7 +199,6 @@ func (pc *defaultPushConsumer) wrapAckMessageRequest(messageView *MessageView) *
 				{
 					MessageId:     messageView.GetMessageId(),
 					ReceiptHandle: messageView.GetReceiptHandle(),
-					LiteTopic:     &messageView.liteTopic,
 				},
 			},
 		}

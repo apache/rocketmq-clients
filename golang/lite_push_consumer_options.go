@@ -38,10 +38,11 @@ type litePushConsumerSettings struct {
 
 func newLitePushConsumerSettings(settings *pushConsumerSettings, bindTopic string, invisibleDuration time.Duration) *litePushConsumerSettings {
 	return &litePushConsumerSettings{
-		pushConsumerSettings:  settings,
-		bingTopic:             bindTopic,
-		liteTopicSet:          map[string]struct{}{},
-		invisibleDuration:     invisibleDuration,
+		pushConsumerSettings: settings,
+		bingTopic:            bindTopic,
+		liteTopicSet:         map[string]struct{}{},
+		invisibleDuration:    invisibleDuration,
+		// default value
 		liteSubscriptionQuota: 1200,
 		maxLiteTopicSize:      64,
 	}
@@ -75,21 +76,21 @@ func (lpc *litePushConsumerSettings) GetRetryPolicy() *v2.RetryPolicy {
 // applySettingsCommand implements ClientSettings
 func (lpc *litePushConsumerSettings) applySettingsCommand(settings *v2.Settings) error {
 	if lpc.pushConsumerSettings.applySettingsCommand(settings) != nil {
-		sugarBaseLogger.Warnf("")
+		sugarBaseLogger.Warnf("litePushConsumerSettings applySettingsCommand failed")
 		return fmt.Errorf("litePushConsumerSettings applySettingsCommand failed")
 	}
 	// force fifo to true
 	lpc.pushConsumerSettings.isFifo = true
 	var subscription = settings.GetSubscription()
+	if subscription == nil {
+		sugarBaseLogger.Warnf("onSettingsCommand err = subscription is nil")
+		return fmt.Errorf("onSettingsCommand err = subscription is nil")
+	}
 	if subscription.LiteSubscriptionQuota != nil {
 		lpc.liteSubscriptionQuota = *subscription.LiteSubscriptionQuota
-	} else {
-		lpc.liteSubscriptionQuota = 1200
 	}
 	if subscription.MaxLiteTopicSize != nil {
 		lpc.maxLiteTopicSize = *subscription.MaxLiteTopicSize
-	} else {
-		lpc.maxLiteTopicSize = 64
 	}
 	return nil
 }
