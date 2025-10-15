@@ -58,21 +58,18 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
         return liteTopicSet.contains(liteTopic);
     }
 
-    public boolean addLiteTopic(String liteTopic) {
-        if (liteTopicSet.contains(liteTopic)) {
-            return false;
+    public void addLiteTopic(String liteTopic) {
+        if (!liteTopicSet.add(liteTopic)) {
+            return;
         }
-        liteTopicSet.add(liteTopic);
         version.set(System.currentTimeMillis());
-        return true;
     }
 
-    public boolean removeLiteTopic(String liteTopic) {
-        if (liteTopicSet.remove(liteTopic)) {
-            version.set(System.currentTimeMillis());
-            return true;
+    public void removeLiteTopic(String liteTopic) {
+        if (!liteTopicSet.remove(liteTopic)) {
+            return;
         }
-        return false;
+        version.set(System.currentTimeMillis());
     }
 
     public Set<String> getLiteTopicSet() {

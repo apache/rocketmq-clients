@@ -68,7 +68,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             try {
                 syncAllLiteSubscription();
             } catch (Throwable t) {
-                log.error("schedule syncAllLiteSubscription error, clientId={}", clientId, t);
+                log.error("Schedule syncAllLiteSubscription error, clientId={}", clientId, t);
             }
         }, 30, 30, TimeUnit.SECONDS);
     }
@@ -88,7 +88,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         try {
             handleClientFuture(future);
         } catch (ClientException e) {
-            log.error("Failed to subscribeLite: {}", liteTopics, e);
+            log.error("Failed to subscribeLite {}", liteTopics, e);
             throw e;
         }
         for (String liteTopic : liteTopics) {
@@ -109,10 +109,12 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         try {
             handleClientFuture(future);
         } catch (ClientException e) {
-            log.error("Failed to subscribeLite: {}", liteTopic, e);
+            log.error("Failed to subscribeLite {}", liteTopic, e);
             throw e;
         }
         litePushConsumerSettings.addLiteTopic(liteTopic);
+        log.info("SubscribeLite {}, topic={}, group={}, clientId={}",
+            liteTopic, litePushConsumerSettings.bindTopic.getName(), getConsumerGroup(), clientId);
     }
 
     private void checkLiteSubscriptionQuota(int delta) throws LiteSubscriptionQuotaExceededException {
@@ -142,8 +144,15 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         }
         ListenableFuture<Void> future =
             syncLiteSubscription(LiteSubscriptionAction.PARTIAL_REMOVE, Collections.singleton(liteTopic));
-        handleClientFuture(future);
+        try {
+            handleClientFuture(future);
+        } catch (ClientException e) {
+            log.error("Failed to unsubscribeLite {}", liteTopic, e);
+            throw e;
+        }
         litePushConsumerSettings.removeLiteTopic(liteTopic);
+        log.info("UnsubscribeLite {}, topic={}, group={}, clientId={}",
+            liteTopic, litePushConsumerSettings.bindTopic.getName(), getConsumerGroup(), clientId);
     }
 
     @Override
@@ -157,7 +166,6 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         final Set<String> set = litePushConsumerSettings.getLiteTopicSet();
         ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.COMPLETE_ADD, set);
         handleClientFuture(future);
-        log.info("syncAllLiteSubscription: {}", set);
     }
 
     protected ListenableFuture<Void> syncLiteSubscription(LiteSubscriptionAction action, Collection<String> diff) {
