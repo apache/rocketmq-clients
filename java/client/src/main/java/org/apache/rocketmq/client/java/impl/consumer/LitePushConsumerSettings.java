@@ -39,7 +39,7 @@ public class LitePushConsumerSettings extends PushSubscriptionSettings {
     /**
      * client-side lite subscription quota limit
      */
-    private int liteSubscriptionQuota = 1200;
+    private int liteSubscriptionQuota;
     private int maxLiteTopicSize = 64;
 
     private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
