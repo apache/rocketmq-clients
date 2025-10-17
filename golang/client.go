@@ -27,15 +27,16 @@ import (
 	"sync"
 	"time"
 
-	innerMD "github.com/apache/rocketmq-clients/golang/v5/metadata"
-	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
-	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
-	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
+
+	innerMD "github.com/apache/rocketmq-clients/golang/v5/metadata"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 )
 
 type Client interface {
@@ -59,7 +60,7 @@ type defaultClientSession struct {
 	cli              *defaultClient
 	timeout          time.Duration
 	recovering       bool
-	recoveryWaitTime time.Duration `default:"5s"`
+	recoveryWaitTime time.Duration
 }
 
 func NewDefaultClientSession(target string, cli *defaultClient) (*defaultClientSession, error) {
@@ -68,10 +69,11 @@ func NewDefaultClientSession(target string, cli *defaultClient) (*defaultClientS
 		return nil, err
 	}
 	cs := &defaultClientSession{
-		endpoints:  endpoints,
-		cli:        cli,
-		timeout:    365 * 24 * time.Hour,
-		recovering: false,
+		endpoints:        endpoints,
+		cli:              cli,
+		timeout:          365 * 24 * time.Hour,
+		recovering:       false,
+		recoveryWaitTime: 5 * time.Second,
 	}
 	cs.startUp()
 	return cs, nil
