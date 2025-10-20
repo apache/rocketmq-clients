@@ -26,6 +26,14 @@ public interface LitePushConsumer extends Closeable {
 
     /**
      * Subscribe to a lite topic.
+     * <p>
+     * The subscribeLite() method initiates network requests and performs quota verification, so it may fail.
+     * It's important to check the result of this call to ensure that the subscription was successfully added.
+     * Possible failure scenarios include:
+     * 1. Network request errors, which can be retried.
+     * 2. Quota verification failures, indicated by LiteSubscriptionQuotaExceededException. In this case,
+     *    evaluate whether the quota is insufficient and promptly unsubscribe from unused subscriptions
+     *    using unsubscribeLite() to free up resources.
      *
      * @param liteTopic the name of the lite topic to subscribe to
      * @throws ClientException if an error occurs during subscription
