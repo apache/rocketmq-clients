@@ -84,6 +84,7 @@ public class SimpleConsumerExample {
                 final MessageId messageId = message.getMessageId();
                 try {
                     consumer.ack(message);
+                    consumer.ack(message);
                     log.info("Message is acknowledged successfully, messageId={}", messageId);
                 } catch (Throwable t) {
                     log.error("Message is failed to be acknowledged, messageId={}", messageId, t);
