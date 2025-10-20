@@ -81,21 +81,6 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         }
     }
 
-    // todo 内部测试批量使用，不对外开放
-    public void subscribeLite(Collection<String> liteTopics) throws ClientException {
-        checkRunning();
-        ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.PARTIAL_ADD, liteTopics);
-        try {
-            handleClientFuture(future);
-        } catch (ClientException e) {
-            log.error("Failed to subscribeLite {}", liteTopics, e);
-            throw e;
-        }
-        for (String liteTopic : liteTopics) {
-            litePushConsumerSettings.addLiteTopic(liteTopic);
-        }
-    }
-
     @Override
     public void subscribeLite(String liteTopic) throws ClientException {
         checkRunning();

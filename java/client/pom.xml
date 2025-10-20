@@ -18,7 +18,7 @@
     <parent>
         <artifactId>rocketmq-client-java-parent</artifactId>
         <groupId>org.apache.rocketmq</groupId>
-        <version>5.1.0-lite-topic-SNAPSHOT</version>
+        <version>5.1.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 

@@ -26,7 +26,7 @@
     <groupId>org.apache.rocketmq</groupId>
     <artifactId>rocketmq-client-java-parent</artifactId>
     <packaging>pom</packaging>
-    <version>5.1.0-lite-topic-SNAPSHOT</version>
+    <version>5.1.0-SNAPSHOT</version>
     <modules>
         <module>client-apis</module>
         <module>client</module>
@@ -48,7 +48,7 @@
            ~  1. Whether it is essential, because the current shaded jar is fat enough.
            ~  2. Make sure that it is compatible with Java 8.
          -->
-        <rocketmq-proto.version>2.1.0-SNAPSHOT</rocketmq-proto.version>
+        <rocketmq-proto.version>2.1.0</rocketmq-proto.version>
         <annotations-api.version>1.3.5</annotations-api.version>
         <protobuf.version>3.24.4</protobuf.version>
         <grpc.version>1.50.0</grpc.version>
