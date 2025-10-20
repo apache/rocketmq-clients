@@ -19,7 +19,6 @@ package golang
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -184,13 +183,8 @@ func (cm *defaultClientManager) cleanRpcClient() {
 	}
 }
 func (cm *defaultClientManager) getRpcClient(endpoints *v2.Endpoints) (RpcClient, error) {
-	var target string
-	if endpoints.GetScheme() == v2.AddressScheme_IPv4 || endpoints.GetScheme() == v2.AddressScheme_IPv6 {
-		serviceName := utils.EndpointsToString(endpoints)
-		target = fmt.Sprintf("%s:///%s", DefaultScheme, serviceName)
-	} else {
-		target = utils.ParseAddress(utils.SelectAnAddress(endpoints))
-	}
+	target := utils.ParseAddress(utils.SelectAnAddress(endpoints))
+
 	cm.rpcClientTableLock.RLock()
 	item, ok := cm.rpcClientTable[target]
 	cm.rpcClientTableLock.RUnlock()

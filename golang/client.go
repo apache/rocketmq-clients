@@ -354,13 +354,15 @@ func (cli *defaultClient) getMessageQueues(ctx context.Context, topic string) ([
 	// telemeter to all messageQueues
 	endpointsSet := make(map[string]bool)
 	for _, messageQueue := range route {
-		target := utils.EndpointsToString(messageQueue.GetBroker().GetEndpoints())
-		if _, ok := endpointsSet[target]; ok {
-			continue
-		}
-		endpointsSet[target] = true
-		if err = cli.mustSyncSettingsToTargert(target); err != nil {
-			return nil, err
+		for _, address := range messageQueue.GetBroker().GetEndpoints().GetAddresses() {
+			target := utils.ParseAddress(address)
+			if _, ok := endpointsSet[target]; ok {
+				continue
+			}
+			endpointsSet[target] = true
+			if err = cli.mustSyncSettingsToTargert(target); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -405,12 +407,14 @@ func (cli *defaultClient) getTotalTargets() []string {
 	cli.router.Range(func(_, v interface{}) bool {
 		messageQueues := v.([]*v2.MessageQueue)
 		for _, messageQueue := range messageQueues {
-			target := utils.EndpointsToString(messageQueue.GetBroker().GetEndpoints())
-			if _, ok := endpointsSet[target]; ok {
-				continue
+			for _, address := range messageQueue.GetBroker().GetEndpoints().GetAddresses() {
+				target := utils.ParseAddress(address)
+				if _, ok := endpointsSet[target]; ok {
+					continue
+				}
+				endpointsSet[target] = true
+				endpoints = append(endpoints, target)
 			}
-			endpointsSet[target] = true
-			endpoints = append(endpoints, target)
 		}
 		return true
 	})
