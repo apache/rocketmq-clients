@@ -80,6 +80,13 @@ public interface MessageView {
     Optional<String> getMessageGroup();
 
     /**
+     * Get the lite topic, which makes sense only when the topic type is LITE.
+     *
+     * @return lite topic, which is optional, {@link Optional#empty()} means lite topic is not specified.
+     */
+    Optional<String> getLiteTopic();
+
+    /**
      * Get the expected delivery timestamp, which makes sense only when the topic type is delay.
      *
      * @return message expected delivery timestamp, which is optional, {@link Optional#empty()} means delivery

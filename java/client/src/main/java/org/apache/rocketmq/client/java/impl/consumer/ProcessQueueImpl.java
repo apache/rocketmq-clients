@@ -134,7 +134,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     @Override
     public boolean expired() {
-        final Duration longPollingTimeout = consumer.getPushConsumerSettings().getLongPollingTimeout();
+        final Duration longPollingTimeout = consumer.getSettings().getLongPollingTimeout();
         final Duration requestTimeout = consumer.getClientConfiguration().getRequestTimeout();
         final Duration maxIdleDuration = longPollingTimeout.plus(requestTimeout).multipliedBy(3);
         final Duration idleDuration = Duration.ofNanos(System.nanoTime() - activityNanoTime);
@@ -165,7 +165,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private int getReceptionBatchSize() {
         int bufferSize = consumer.cacheMessageCountThresholdPerQueue() - this.cachedMessagesCount();
         bufferSize = Math.max(bufferSize, 1);
-        return Math.min(bufferSize, consumer.getPushConsumerSettings().getReceiveBatchSize());
+        return Math.min(bufferSize, consumer.getSettings().getReceiveBatchSize());
     }
 
     @Override
@@ -235,7 +235,7 @@ class ProcessQueueImpl implements ProcessQueue {
         try {
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final int batchSize = this.getReceptionBatchSize();
-            final Duration longPollingTimeout = consumer.getPushConsumerSettings().getLongPollingTimeout();
+            final Duration longPollingTimeout = consumer.getSettings().getLongPollingTimeout();
             final ReceiveMessageRequest request = consumer.wrapReceiveMessageRequest(batchSize, mq, filterExpression,
                 longPollingTimeout, attemptId);
             activityNanoTime = System.nanoTime();

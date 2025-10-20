@@ -21,8 +21,6 @@ import apache.rocketmq.v2.AckMessageRequest;
 import apache.rocketmq.v2.AckMessageResponse;
 import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
-import apache.rocketmq.v2.ClientType;
-import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
 import com.google.common.math.IntMath;
@@ -152,12 +150,6 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     @Override
     public Map<String, FilterExpression> getSubscriptionExpressions() {
         return new HashMap<>(subscriptionExpressions);
-    }
-
-    @Override
-    public HeartbeatRequest wrapHeartbeatRequest() {
-        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
-            .setClientType(ClientType.SIMPLE_CONSUMER).build();
     }
 
     /**

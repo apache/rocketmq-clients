@@ -48,6 +48,7 @@ public class StatusChecker {
             case ILLEGAL_MESSAGE_TAG:
             case ILLEGAL_MESSAGE_KEY:
             case ILLEGAL_MESSAGE_GROUP:
+            case ILLEGAL_LITE_TOPIC:
             case ILLEGAL_MESSAGE_PROPERTY_KEY:
             case INVALID_TRANSACTION_ID:
             case ILLEGAL_MESSAGE_ID:
@@ -83,6 +84,10 @@ public class StatusChecker {
                 throw new PayloadEmptyException(codeNumber, requestId, statusMessage);
             case TOO_MANY_REQUESTS:
                 throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
+            case LITE_TOPIC_QUOTA_EXCEEDED:
+                throw new LiteTopicQuotaExceededException(codeNumber, requestId, statusMessage);
+            case LITE_SUBSCRIPTION_QUOTA_EXCEEDED:
+                throw new LiteSubscriptionQuotaExceededException(codeNumber, requestId, statusMessage);
             case REQUEST_HEADER_FIELDS_TOO_LARGE:
             case MESSAGE_PROPERTIES_TOO_LARGE:
                 throw new RequestHeaderFieldsTooLargeException(codeNumber, requestId, statusMessage);

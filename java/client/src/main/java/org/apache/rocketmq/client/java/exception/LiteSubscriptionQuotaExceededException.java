@@ -15,27 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java.impl;
+package org.apache.rocketmq.client.java.exception;
 
-public enum ClientType {
-    PRODUCER,
-    PUSH_CONSUMER,
-    LITE_PUSH_CONSUMER,
-    SIMPLE_CONSUMER;
+import org.apache.rocketmq.client.apis.ClientException;
 
-    public apache.rocketmq.v2.ClientType toProtobuf() {
-        if (PRODUCER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PRODUCER;
-        }
-        if (PUSH_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PUSH_CONSUMER;
-        }
-        if (LITE_PUSH_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.LITE_PUSH_CONSUMER;
-        }
-        if (SIMPLE_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.SIMPLE_CONSUMER;
-        }
-        return apache.rocketmq.v2.ClientType.CLIENT_TYPE_UNSPECIFIED;
+public class LiteSubscriptionQuotaExceededException extends ClientException {
+    public LiteSubscriptionQuotaExceededException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }

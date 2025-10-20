@@ -35,6 +35,7 @@ public class GeneralMessageImpl implements GeneralMessage {
     private final String tag;
     private final Collection<String> keys;
     private final String messageGroup;
+    private final String liteTopic;
     private final Long deliveryTimestamp;
     private final String bornHost;
     private final Long bornTimestamp;
@@ -58,6 +59,7 @@ public class GeneralMessageImpl implements GeneralMessage {
         this.tag = message.getTag().orElse(null);
         this.keys = message.getKeys();
         this.messageGroup = message.getMessageGroup().orElse(null);
+        this.liteTopic = message.getLiteTopic().orElse(null);
         this.deliveryTimestamp = message.getDeliveryTimestamp().orElse(null);
         this.bornHost = null;
         this.bornTimestamp = null;
@@ -92,6 +94,7 @@ public class GeneralMessageImpl implements GeneralMessage {
         this.tag = message.getTag().orElse(null);
         this.keys = message.getKeys();
         this.messageGroup = message.getMessageGroup().orElse(null);
+        this.liteTopic = message.getLiteTopic().orElse(null);
         this.deliveryTimestamp = message.getDeliveryTimestamp().orElse(null);
         this.bornHost = message.getBornHost();
         this.bornTimestamp = message.getBornTimestamp();
@@ -134,6 +137,11 @@ public class GeneralMessageImpl implements GeneralMessage {
     @Override
     public Optional<String> getMessageGroup() {
         return Optional.ofNullable(messageGroup);
+    }
+
+    @Override
+    public Optional<String> getLiteTopic() {
+        return Optional.ofNullable(liteTopic);
     }
 
     @Override
