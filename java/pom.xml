@@ -26,7 +26,7 @@
     <groupId>org.apache.rocketmq</groupId>
     <artifactId>rocketmq-client-java-parent</artifactId>
     <packaging>pom</packaging>
-    <version>5.1.0</version>
+    <version>5.1.1-SNAPSHOT</version>
     <modules>
         <module>client-apis</module>
         <module>client</module>
@@ -411,6 +411,6 @@
         <url>git@github.com:apache/rocketmq-clients.git</url>
         <connection>scm:git:git@github.com:apache/rocketmq-clients.git</connection>
         <developerConnection>scm:git:git@github.com:apache/rocketmq-clients.git</developerConnection>
-        <tag>rocketmq-client-java-parent-5.1.0</tag>
+        <tag>HEAD</tag>
     </scm>
 </project>
