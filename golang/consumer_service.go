@@ -107,6 +107,7 @@ type standardConsumeService struct {
 }
 type fifoConsumeService struct {
 	baseConsumeService
+	enableFifoConsumeAccelerator bool
 }
 
 func (scs *standardConsumeService) consume(pq ProcessQueue, messageViews []*MessageView) {
@@ -133,7 +134,35 @@ func NewStandardConsumeService(clientId string, messageListener MessageListener,
 }
 
 func (fcs *fifoConsumeService) consume(pq ProcessQueue, messageViews []*MessageView) {
-	fcs.consumeIteratively(pq, &messageViews, 0)
+	if !fcs.enableFifoConsumeAccelerator || len(messageViews) <= 1 {
+		fcs.consumeIteratively(pq, &messageViews, 0)
+		return
+	}
+	// Group messages by messageGroup
+	messageViewsGroupByMessageGroup := make(map[string][]*MessageView)
+	messageViewsWithoutMessageGroup := make([]*MessageView, 0)
+	for _, messageView := range messageViews {
+		messageGroup := messageView.GetMessageGroup()
+		if messageGroup != nil && *messageGroup != "" {
+			messageViewsGroupByMessageGroup[*messageGroup] = append(messageViewsGroupByMessageGroup[*messageGroup], messageView)
+		} else {
+			messageViewsWithoutMessageGroup = append(messageViewsWithoutMessageGroup, messageView)
+		}
+	}
+
+	groupNum := len(messageViewsGroupByMessageGroup)
+	if len(messageViewsWithoutMessageGroup) > 0 {
+		groupNum++
+	}
+	sugarBaseLogger.Debugf("FifoConsumeService parallel consume, messageViewsNum=%d, groupNum=%d", len(messageViews), groupNum)
+
+	// Consume messages in parallel by group
+	for _, group := range messageViewsGroupByMessageGroup {
+		fcs.consumeIteratively(pq, &group, 0)
+	}
+	if len(messageViewsWithoutMessageGroup) > 0 {
+		fcs.consumeIteratively(pq, &messageViewsWithoutMessageGroup, 0)
+	}
 }
 func (fcs *fifoConsumeService) consumeIteratively(pq ProcessQueue, messageViewsPtr *[]*MessageView, ptr int) {
 	if messageViewsPtr == nil {
@@ -161,8 +190,9 @@ func (fcs *fifoConsumeService) consumeIteratively(pq ProcessQueue, messageViewsP
 	})
 }
 
-func NewFiFoConsumeService(clientId string, messageListener MessageListener, consumptionExecutor *simpleThreadPool, messageInterceptor MessageInterceptor) *fifoConsumeService {
+func NewFiFoConsumeService(clientId string, messageListener MessageListener, consumptionExecutor *simpleThreadPool, messageInterceptor MessageInterceptor, enableFifoConsumeAccelerator bool) *fifoConsumeService {
 	return &fifoConsumeService{
-		*NewBaseConsumeService(clientId, messageListener, consumptionExecutor, messageInterceptor),
+		baseConsumeService:            *NewBaseConsumeService(clientId, messageListener, consumptionExecutor, messageInterceptor),
+		enableFifoConsumeAccelerator:  enableFifoConsumeAccelerator,
 	}
 }
