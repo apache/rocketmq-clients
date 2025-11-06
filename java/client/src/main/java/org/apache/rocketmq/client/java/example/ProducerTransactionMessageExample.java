@@ -45,6 +45,8 @@ public class ProducerTransactionMessageExample {
             return TransactionResolution.COMMIT;
         };
         // Get producer using singleton pattern.
+        // For transaction producers, it is essential to set topics to ensure the reliability of the transaction
+        // checker.
         final Producer producer = ProducerSingleton.getTransactionalInstance(checker, topic);
         final Transaction transaction = producer.beginTransaction();
         // Define your message body.
