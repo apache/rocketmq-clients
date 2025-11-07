@@ -343,7 +343,7 @@ func (dcmp *defaultClientMeterProvider) Reset(metric *v2.Metric) {
 		ocagent.WithInsecure(),
 		ocagent.WithTLSCredentials(credentials.NewTLS(defaultConnOptions.TLS)),
 		ocagent.WithAddress(agentAddr),
-		ocagent.WithGRPCDialOption(grpc.WithChainUnaryInterceptor(dcmp.invokeWithSign())),
+		ocagent.WithGRPCDialOption(grpc.WithStreamInterceptor(dcmp.invokeWithSign())),
 	)
 	if err != nil {
 		sugarBaseLogger.Errorf("exception raised when resetting message meter, clientId=%s", dcmp.client.GetClientID())
@@ -367,9 +367,9 @@ var NewDefaultClientMeterProvider = func(client *defaultClient) ClientMeterProvi
 
 var _ = ClientMeterProvider(&defaultClientMeterProvider{})
 
-func (dcmp *defaultClientMeterProvider) invokeWithSign() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+func (dcmp *defaultClientMeterProvider) invokeWithSign() grpc.StreamClientInterceptor {
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 		newCtx := dcmp.client.Sign(ctx)
-		return invoker(newCtx, method, req, reply, cc, opts...)
+		return streamer(newCtx, desc, cc, method, opts...)
 	}
 }
