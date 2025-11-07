@@ -60,6 +60,8 @@ public class ProducerSingleton {
             .setClientConfiguration(clientConfiguration)
             // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
             // the topic route before message publishing.
+            // For transaction producers, it is essential to set topics to ensure the reliability of the transaction
+            // checker.
             .setTopics(topics);
         if (checker != null) {
             // Set the transaction checker.
