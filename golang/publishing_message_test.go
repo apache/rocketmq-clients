@@ -17,7 +17,10 @@
 
 package golang
 
-import "testing"
+import (
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+	"testing"
+)
 
 func TestNewPublishingMessage(t *testing.T) {
 	namespace := "ns-test"
@@ -34,4 +37,23 @@ func TestNewPublishingMessage(t *testing.T) {
 	if v2Msg.GetTopic().GetResourceNamespace() != namespace {
 		t.Error("namespace not equal")
 	}
+}
+
+func TestNewPublishingMessage_LiteMessage(t *testing.T) {
+	namespace := "ns-test"
+	pSetting := &producerSettings{}
+	msg := &Message{
+		LiteTopic: ptrToString("lite-topic"),
+	}
+	pMsg, err := NewPublishingMessage(msg, namespace, pSetting, false)
+	if err != nil {
+		t.Error(err)
+	}
+	if pMsg.messageType != v2.MessageType_LITE {
+		t.Errorf("expected messageType to be LITE, got %v", pMsg.messageType)
+	}
+}
+
+func ptrToString(s string) *string {
+	return &s
 }
