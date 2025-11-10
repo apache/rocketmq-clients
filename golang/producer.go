@@ -26,9 +26,10 @@ import (
 
 	"go.uber.org/atomic"
 
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type Producer interface {
@@ -136,23 +137,23 @@ var NewProducer = func(config *Config, opts ...ProducerOption) (Producer, error)
 		return nil, err
 	}
 	p.pSetting = &producerSettings{
-		clientId:   p.cli.GetClientID(),
-		endpoints:  endpoints,
-		clientType: v2.ClientType_PRODUCER,
-		retryPolicy: &v2.RetryPolicy{
-			MaxAttempts: po.maxAttempts,
-			Strategy: &v2.RetryPolicy_ExponentialBackoff{
-				ExponentialBackoff: &v2.ExponentialBackoff{
-					Max:        durationpb.New(time.Duration(0)),
-					Initial:    durationpb.New(time.Duration(0)),
-					Multiplier: 1,
-				},
-			},
-		},
+		clientId:            p.cli.GetClientID(),
+		endpoints:           endpoints,
+		clientType:          v2.ClientType_PRODUCER,
 		requestTimeout:      p.cli.opts.timeout,
 		validateMessageType: *atomic.NewBool(true),
 		maxBodySizeBytes:    *atomic.NewInt32(4 * 1024 * 1024),
 	}
+	p.pSetting.retryPolicy.Store(&v2.RetryPolicy{
+		MaxAttempts: po.maxAttempts,
+		Strategy: &v2.RetryPolicy_ExponentialBackoff{
+			ExponentialBackoff: &v2.ExponentialBackoff{
+				Max:        durationpb.New(time.Duration(0)),
+				Initial:    durationpb.New(time.Duration(0)),
+				Multiplier: 1,
+			},
+		},
+	})
 	for _, topic := range po.topics {
 		topicResource := &v2.Resource{
 			Name:              topic,

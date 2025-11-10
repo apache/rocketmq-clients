@@ -24,8 +24,9 @@ import (
 
 	"go.uber.org/atomic"
 
-	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 )
 
 type producerOptions struct {
@@ -94,7 +95,7 @@ type producerSettings struct {
 	topics              sync.Map
 	endpoints           *v2.Endpoints
 	clientType          v2.ClientType
-	retryPolicy         *v2.RetryPolicy
+	retryPolicy         atomic.Value // *v2.RetryPolicy
 	requestTimeout      time.Duration
 	validateMessageType atomic.Bool
 	maxBodySizeBytes    atomic.Int32
@@ -110,7 +111,10 @@ func (ps *producerSettings) GetClientType() v2.ClientType {
 	return ps.clientType
 }
 func (ps *producerSettings) GetRetryPolicy() *v2.RetryPolicy {
-	return ps.retryPolicy
+	if v := ps.retryPolicy.Load(); v != nil {
+		return v.(*v2.RetryPolicy)
+	}
+	return nil
 }
 func (ps *producerSettings) GetRequestTimeout() time.Duration {
 	return ps.requestTimeout
@@ -152,17 +156,21 @@ func (ps *producerSettings) applySettingsCommand(settings *v2.Settings) error {
 	}
 	retryPolicy := settings.GetBackoffPolicy()
 	if retryPolicy != nil {
-		ps.retryPolicy.MaxAttempts = retryPolicy.GetMaxAttempts()
+		newRetryPolicy := &v2.RetryPolicy{}
+		newRetryPolicy.MaxAttempts = retryPolicy.GetMaxAttempts()
 		exponentialBackoff := retryPolicy.GetExponentialBackoff()
 		if exponentialBackoff != nil {
-			ps.retryPolicy.Strategy = &v2.RetryPolicy_ExponentialBackoff{
+			newRetryPolicy.Strategy = &v2.RetryPolicy_ExponentialBackoff{
 				ExponentialBackoff: &v2.ExponentialBackoff{
 					Max:        exponentialBackoff.GetMax(),
 					Initial:    exponentialBackoff.GetInitial(),
 					Multiplier: exponentialBackoff.GetMultiplier(),
 				},
 			}
+		} else if oldRetryPolicy := ps.GetRetryPolicy(); oldRetryPolicy != nil {
+			newRetryPolicy.Strategy = oldRetryPolicy.Strategy
 		}
+		ps.retryPolicy.Store(newRetryPolicy)
 	}
 	ps.validateMessageType.Store(v.Publishing.GetValidateMessageType())
 	ps.maxBodySizeBytes.Store(v.Publishing.GetMaxBodySize())
