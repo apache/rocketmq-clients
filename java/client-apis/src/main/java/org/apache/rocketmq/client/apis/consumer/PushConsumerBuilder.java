@@ -104,7 +104,7 @@ public interface PushConsumerBuilder {
      *
      * <p>This method will block until the push consumer starts successfully.
      *
-     * <p>Especially, if this method is invoked more than once, different push consumers will be created and started.
+     * <p>Especially, if this method is invoked more than once, different push consumer will be created and started.
      *
      * @return the push consumer instance.
      */
