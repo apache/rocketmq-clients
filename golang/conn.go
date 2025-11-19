@@ -21,10 +21,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/grpc/middleware/zaplog"
-	validator "github.com/go-playground/validator/v10"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -54,13 +54,11 @@ type clientConn struct {
 	cancel   context.CancelFunc
 	callOpts []grpc.CallOption
 	conn     *grpc.ClientConn
-	validate *validator.Validate
 }
 
 var NewClientConn = func(endpoint string, opts ...ConnOption) (ClientConn, error) {
 	client := &clientConn{
-		opts:     defaultConnOptions,
-		validate: validator.New(),
+		opts: defaultConnOptions,
 	}
 	if len(endpoint) == 0 {
 		return nil, ErrNoAvailableEndpoints
