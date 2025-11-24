@@ -83,7 +83,7 @@ export abstract class BaseClient {
   protected readonly requestTimeout: number;
   protected readonly topics = new Set<string>();
   protected readonly topicRouteCache = new Map<string, TopicRouteData>();
-  protected readonly logger: ILogger;
+  public readonly logger: ILogger;
   protected readonly rpcClientManager: RpcClientManager;
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
   #startupResolve?: () => void;
