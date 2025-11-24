@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.apis;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.time.Duration;
@@ -32,6 +33,7 @@ public class ClientConfigurationBuilder {
     private Duration requestTimeout = Duration.ofSeconds(3);
     private boolean sslEnabled = true;
     private String namespace = "";
+    private int maxStartupAttempts = 3;
 
     /**
      * Configure the access point with which the SDK should communicate.
@@ -94,6 +96,18 @@ public class ClientConfigurationBuilder {
     }
 
     /**
+     * Configure maxStartupAttempts for client
+     *
+     * @param maxStartupAttempts max attempt times when client startup
+     * @return The {@link ClientConfigurationBuilder} instance, to allow for method chaining.
+     */
+    public ClientConfigurationBuilder setMaxStartupAttempts(int maxStartupAttempts) {
+        checkArgument(maxStartupAttempts > 0, "maxStartupAttempts should more than 0");
+        this.maxStartupAttempts = maxStartupAttempts;
+        return this;
+    }
+
+    /**
      * Finalize the build of {@link ClientConfiguration}.
      *
      * @return the client configuration builder instance.
@@ -101,6 +115,7 @@ public class ClientConfigurationBuilder {
     public ClientConfiguration build() {
         checkNotNull(endpoints, "endpoints should not be null");
         checkNotNull(requestTimeout, "requestTimeout should not be null");
-        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled, namespace);
+        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled, namespace,
+            maxStartupAttempts);
     }
 }

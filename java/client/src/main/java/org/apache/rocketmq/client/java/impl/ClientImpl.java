@@ -186,12 +186,24 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         // Fetch topic route from remote.
         log.info("Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={}",
             clientId, topics);
-        for (String topic : topics) {
-            final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
-            future.get();
+        for (int attempt = 1; attempt <= clientConfiguration.getMaxStartupAttempts(); attempt++) {
+            try {
+                for (String topic : topics) {
+                    final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
+                    future.get();
+                }
+                log.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
+                    clientId, topics);
+                break;
+            } catch (Exception e) {
+                log.error("Fetch topics failed when client start, clientId={}, topics={}, attemptTime={}", clientId,
+                    topics, attempt, e);
+                if (attempt == clientConfiguration.getMaxStartupAttempts()) {
+                    throw new RuntimeException(
+                        String.format("Failed to fetch topics after %d attempts", attempt), e);
+                }
+            }
         }
-        log.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
-            clientId, topics);
         // Update route cache periodically.
         final ScheduledExecutorService scheduler = clientManager.getScheduler();
         this.updateRouteCacheFuture = scheduler.scheduleWithFixedDelay(() -> {
