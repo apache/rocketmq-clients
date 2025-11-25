@@ -17,11 +17,9 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import apache.rocketmq.v2.ClientType;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
-import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryAssignmentResponse;
 import apache.rocketmq.v2.Status;
@@ -63,11 +61,10 @@ import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
-import org.apache.rocketmq.client.java.impl.Settings;
+import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
-import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.metrics.GaugeObserver;
 import org.apache.rocketmq.client.java.misc.ExcludeFromJacocoGeneratedReport;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
@@ -95,7 +92,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     final AtomicLong consumptionOkQuantity;
     final AtomicLong consumptionErrorQuantity;
 
-    private final ClientConfiguration clientConfiguration;
     private final PushSubscriptionSettings pushSubscriptionSettings;
     private final String consumerGroup;
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
@@ -104,6 +100,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
     private final boolean enableFifoConsumeAccelerator;
+    private final boolean enableMessageInterceptorFiltering;
     private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
 
     /**
@@ -129,11 +126,17 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator) {
+        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
+            maxCacheMessageSizeInBytes, consumptionThreadCount, enableFifoConsumeAccelerator, false);
+    }
+
+    public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
+        Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
+        int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
+        boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
-        this.clientConfiguration = clientConfiguration;
-        Resource groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
-        this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration.getNamespace(), clientId,
-            endpoints, groupResource, clientConfiguration.getRequestTimeout(), subscriptionExpressions);
+        this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration, clientId,
+            ClientType.PUSH_CONSUMER, endpoints, consumerGroup, subscriptionExpressions);
         this.consumerGroup = consumerGroup;
         this.subscriptionExpressions = subscriptionExpressions;
         this.cacheAssignments = new ConcurrentHashMap<>();
@@ -141,6 +144,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         this.maxCacheMessageCount = maxCacheMessageCount;
         this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
+        this.enableMessageInterceptorFiltering = enableMessageInterceptorFiltering;
 
         this.receptionTimes = new AtomicLong(0);
         this.receivedMessagesQuantity = new AtomicLong(0);
@@ -165,13 +169,13 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
         this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
-            maxCacheMessageSizeInBytes, consumptionThreadCount, true);
+            maxCacheMessageSizeInBytes, consumptionThreadCount, true, false);
     }
 
     @Override
     protected void startUp() throws Exception {
         try {
-            log.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
+            log.info("Begin to start the rocketmq {}, clientId={}", getSettings().getClientType(), clientId);
             GaugeObserver gaugeObserver = new ProcessQueueGaugeObserver(processQueueTable, clientId, consumerGroup);
             this.clientMeterManager.setGaugeObserver(gaugeObserver);
             super.startUp();
@@ -185,9 +189,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                     log.error("Exception raised while scanning the load assignments, clientId={}", clientId, t);
                 }
             }, 1, 5, TimeUnit.SECONDS);
-            log.info("The rocketmq push consumer starts successfully, clientId={}", clientId);
+            log.info("The rocketmq {} starts successfully, clientId={}", getSettings().getClientType(), clientId);
         } catch (Throwable t) {
-            log.error("Exception raised while starting the rocketmq push consumer, clientId={}", clientId, t);
+            log.error("Exception raised while starting the rocketmq {}, clientId={}",
+                getSettings().getClientType(), clientId, t);
             shutDown();
             throw t;
         }
@@ -204,7 +209,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      */
     @Override
     protected void shutDown() throws InterruptedException {
-        log.info("Begin to shutdown the rocketmq push consumer, clientId={}", clientId);
+        log.info("Begin to shutdown the rocketmq {}, clientId={}", getSettings().getClientType(), clientId);
         if (null != scanAssignmentsFuture) {
             scanAssignmentsFuture.cancel(false);
         }
@@ -215,12 +220,12 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         ExecutorServices.awaitTerminated(consumptionExecutor);
         TimeUnit.SECONDS.sleep(1);
         super.shutDown();
-        log.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
+        log.info("Shutdown the rocketmq {} successfully, clientId={}", getSettings().getClientType(), clientId);
     }
 
     private void waitingReceiveRequestFinished() {
         Duration maxWaitingTime = clientConfiguration.getRequestTimeout()
-            .plus(pushSubscriptionSettings.getLongPollingTimeout());
+            .plus(getSettings().getLongPollingTimeout());
         long endTime = System.currentTimeMillis() + maxWaitingTime.toMillis();
         try {
             while (true) {
@@ -241,9 +246,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         }
     }
 
-    private ConsumeService createConsumeService() {
+    protected ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
-        if (pushSubscriptionSettings.isFifo()) {
+        if (getSettings().isFifo()) {
             log.info("Create FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
                 consumerGroup, clientId, enableFifoConsumeAccelerator);
             return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this,
@@ -259,10 +264,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     @Override
     public String getConsumerGroup() {
         return consumerGroup;
-    }
-
-    public PushSubscriptionSettings getPushConsumerSettings() {
-        return pushSubscriptionSettings;
     }
 
     /**
@@ -376,13 +377,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         return Optional.of(processQueue);
     }
 
-    @Override
-    public HeartbeatRequest wrapHeartbeatRequest() {
-        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
-            .setClientType(ClientType.PUSH_CONSUMER).build();
-    }
-
-
     @VisibleForTesting
     void syncProcessQueue(String topic, Assignments assignments, FilterExpression filterExpression) {
         Set<MessageQueueImpl> latest = new HashSet<>();
@@ -476,7 +470,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     }
 
     @Override
-    public Settings getSettings() {
+    public PushSubscriptionSettings getSettings() {
         return pushSubscriptionSettings;
     }
 
@@ -563,11 +557,18 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                 .setResourceNamespace(clientConfiguration.getNamespace())
                 .setName(messageView.getTopic())
                 .build();
-        return ForwardMessageToDeadLetterQueueRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
+
+        ForwardMessageToDeadLetterQueueRequest.Builder builder = ForwardMessageToDeadLetterQueueRequest.newBuilder()
+            .setGroup(getProtobufGroup())
+            .setTopic(topicResource)
             .setReceiptHandle(messageView.getReceiptHandle())
             .setMessageId(messageView.getMessageId().toString())
             .setDeliveryAttempt(messageView.getDeliveryAttempt())
-            .setMaxDeliveryAttempts(getRetryPolicy().getMaxAttempts()).build();
+            .setMaxDeliveryAttempts(getRetryPolicy().getMaxAttempts());
+        if (ClientType.LITE_PUSH_CONSUMER == getSettings().getClientType()) {
+            messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        }
+        return builder.build();
     }
 
     public RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse>
@@ -620,10 +621,14 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     }
 
     public RetryPolicy getRetryPolicy() {
-        return pushSubscriptionSettings.getRetryPolicy();
+        return getSettings().getRetryPolicy();
     }
 
     public ThreadPoolExecutor getConsumptionExecutor() {
         return consumptionExecutor;
+    }
+
+    public boolean isEnableMessageInterceptorFiltering() {
+        return enableMessageInterceptorFiltering;
     }
 }

@@ -49,6 +49,7 @@ public class PublishingMessageImpl extends MessageImpl {
         this.messageId = MessageIdCodec.getInstance().nextMessageId();
         // Normal message.
         if (!message.getMessageGroup().isPresent() &&
+            !message.getLiteTopic().isPresent() &&
             !message.getDeliveryTimestamp().isPresent() && !txEnabled) {
             messageType = MessageType.NORMAL;
             return;
@@ -56,6 +57,11 @@ public class PublishingMessageImpl extends MessageImpl {
         // Fifo message.
         if (message.getMessageGroup().isPresent() && !txEnabled) {
             messageType = MessageType.FIFO;
+            return;
+        }
+        // Lite message.
+        if (message.getLiteTopic().isPresent() && !txEnabled) {
+            messageType = MessageType.LITE;
             return;
         }
         // Delay message.
@@ -111,6 +117,7 @@ public class PublishingMessageImpl extends MessageImpl {
             .ifPresent(millis -> systemPropertiesBuilder.setDeliveryTimestamp(Timestamps.fromMillis(millis)));
         // Message group
         this.getMessageGroup().ifPresent(systemPropertiesBuilder::setMessageGroup);
+        this.getLiteTopic().ifPresent(systemPropertiesBuilder::setLiteTopic);
         final SystemProperties systemProperties = systemPropertiesBuilder.build();
         Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(getTopic()).build();
         return apache.rocketmq.v2.Message.newBuilder()

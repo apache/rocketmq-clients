@@ -37,6 +37,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -133,7 +134,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     @Override
     public boolean expired() {
-        final Duration longPollingTimeout = consumer.getPushConsumerSettings().getLongPollingTimeout();
+        final Duration longPollingTimeout = consumer.getSettings().getLongPollingTimeout();
         final Duration requestTimeout = consumer.getClientConfiguration().getRequestTimeout();
         final Duration maxIdleDuration = longPollingTimeout.plus(requestTimeout).multipliedBy(3);
         final Duration idleDuration = Duration.ofNanos(System.nanoTime() - activityNanoTime);
@@ -164,7 +165,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private int getReceptionBatchSize() {
         int bufferSize = consumer.cacheMessageCountThresholdPerQueue() - this.cachedMessagesCount();
         bufferSize = Math.max(bufferSize, 1);
-        return Math.min(bufferSize, consumer.getPushConsumerSettings().getReceiveBatchSize());
+        return Math.min(bufferSize, consumer.getSettings().getReceiveBatchSize());
     }
 
     @Override
@@ -234,7 +235,7 @@ class ProcessQueueImpl implements ProcessQueue {
         try {
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final int batchSize = this.getReceptionBatchSize();
-            final Duration longPollingTimeout = consumer.getPushConsumerSettings().getLongPollingTimeout();
+            final Duration longPollingTimeout = consumer.getSettings().getLongPollingTimeout();
             final ReceiveMessageRequest request = consumer.wrapReceiveMessageRequest(batchSize, mq, filterExpression,
                 longPollingTimeout, attemptId);
             activityNanoTime = System.nanoTime();
@@ -256,13 +257,62 @@ class ProcessQueueImpl implements ProcessQueue {
                             new MessageInterceptorContextImpl(context, MessageHookPointsStatus.OK);
                         consumer.doAfter(context0, generalMessages);
 
-                        try {
-                            onReceiveMessageResult(result);
-                        } catch (Throwable t) {
-                            // Should never reach here.
-                            log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
-                                + "clientId={}", mq, endpoints, clientId, t);
-                            onReceiveMessageException(t, attemptId);
+                        // Only perform message filtering when enableMessageInterceptorFiltering is enabled.
+                        if (consumer.isEnableMessageInterceptorFiltering()) {
+                            final List<MessageViewImpl> originalMessages =
+                                new ArrayList<>(result.getMessageViewImpls());
+
+                            final Set<MessageId> filteredMessageIds = generalMessages.stream()
+                                .filter(msg -> msg.getMessageId().isPresent())
+                                .map(msg -> msg.getMessageId().get())
+                                .collect(Collectors.toSet());
+
+                            final List<MessageViewImpl> filteredOutMessages = new ArrayList<>();
+                            final List<MessageViewImpl> remainingMessages = new ArrayList<>();
+
+                            for (MessageViewImpl originalMsg : originalMessages) {
+                                if (filteredMessageIds.contains(originalMsg.getMessageId())) {
+                                    remainingMessages.add(originalMsg);
+                                } else {
+                                    filteredOutMessages.add(originalMsg);
+                                }
+                            }
+
+                            // Ack filtered out messages.
+                            if (!filteredOutMessages.isEmpty()) {
+                                log.info("Acking {} filtered out messages by interceptor, mq={}, clientId={}",
+                                    filteredOutMessages.size(), mq, consumer.getClientId());
+
+                                for (MessageViewImpl filteredOutMsg : filteredOutMessages) {
+                                    ListenableFuture<Void> ackFuture = ackMessage(filteredOutMsg);
+                                    ackFuture.addListener(() -> {
+                                        log.debug("Successfully acked filtered out message, messageId={}, topic={}",
+                                            filteredOutMsg.getMessageId(), filteredOutMsg.getTopic());
+                                    }, MoreExecutors.directExecutor());
+                                }
+                            }
+
+                            try {
+                                // Create new ReceiveMessageResult with filtered messages.
+                                ReceiveMessageResult filteredResult =
+                                    ReceiveMessageResult.createFilteredResult(result, remainingMessages);
+                                onReceiveMessageResult(filteredResult);
+                            } catch (Throwable t) {
+                                // Should never reach here.
+                                log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
+                                    + "clientId={}", mq, endpoints, clientId, t);
+                                onReceiveMessageException(t, attemptId);
+                            }
+                        } else {
+                            // When filtering is disabled, use original result directly to avoid performance overhead.
+                            try {
+                                onReceiveMessageResult(result);
+                            } catch (Throwable t) {
+                                // Should never reach here.
+                                log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
+                                    + "clientId={}", mq, endpoints, clientId, t);
+                                onReceiveMessageException(t, attemptId);
+                            }
                         }
                     }
 

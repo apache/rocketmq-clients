@@ -17,21 +17,28 @@
 
 package org.apache.rocketmq.client.apis.consumer;
 
-import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 
 /**
- * Builder to config and start {@link PushConsumer}.
+ * Builder to config and start {@link LitePushConsumer}.
  */
-public interface PushConsumerBuilder {
+public interface LitePushConsumerBuilder {
+
+    /**
+     * Set the bind topic for lite push consumer.
+     *
+     * @return the consumer builder instance.
+     */
+    LitePushConsumerBuilder bindTopic(String bindTopic);
+
     /**
      * Set the client configuration for the consumer.
      *
      * @param clientConfiguration client's configuration.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration);
+    LitePushConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration);
 
     /**
      * Set the load balancing group for the consumer.
@@ -39,15 +46,7 @@ public interface PushConsumerBuilder {
      * @param consumerGroup consumer load balancing group.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setConsumerGroup(String consumerGroup);
-
-    /**
-     * Add {@link FilterExpression} for consumer.
-     *
-     * @param subscriptionExpressions subscriptions to add.
-     * @return the consumer builder instance.
-     */
-    PushConsumerBuilder setSubscriptionExpressions(Map<String, FilterExpression> subscriptionExpressions);
+    LitePushConsumerBuilder setConsumerGroup(String consumerGroup);
 
     /**
      * Register message listener, all messages meet the subscription expression would across listener here.
@@ -55,7 +54,7 @@ public interface PushConsumerBuilder {
      * @param listener message listener.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setMessageListener(MessageListener listener);
+    LitePushConsumerBuilder setMessageListener(MessageListener listener);
 
     /**
      * Set the maximum number of messages cached locally.
@@ -63,7 +62,7 @@ public interface PushConsumerBuilder {
      * @param count message count.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setMaxCacheMessageCount(int count);
+    LitePushConsumerBuilder setMaxCacheMessageCount(int count);
 
     /**
      * Set the maximum bytes of messages cached locally.
@@ -71,7 +70,7 @@ public interface PushConsumerBuilder {
      * @param bytes message size.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setMaxCacheMessageSizeInBytes(int bytes);
+    LitePushConsumerBuilder setMaxCacheMessageSizeInBytes(int bytes);
 
     /**
      * Set the consumption thread count in parallel.
@@ -79,34 +78,16 @@ public interface PushConsumerBuilder {
      * @param count thread count.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setConsumptionThreadCount(int count);
+    LitePushConsumerBuilder setConsumptionThreadCount(int count);
 
     /**
-     * Set enable fifo consume accelerator. If enabled, the consumer will consume messages in parallel by messageGroup,
-     * it may increase the probability of repeatedly consuming the same message.
-     *
-     * @param enableFifoConsumeAccelerator  enable fifo parallel processing.
-     * @return the consumer builder instance.
-     */
-    PushConsumerBuilder setEnableFifoConsumeAccelerator(boolean enableFifoConsumeAccelerator);
-
-    /**
-     * Enable or disable message interceptor filtering functionality.
-     * When enabled, it supports client-side message filtering by message interceptors.
-     *
-     * @param enableMessageInterceptorFiltering whether to enable message interceptor filtering
-     * @return the consumer builder instance.
-     */
-    PushConsumerBuilder setEnableMessageInterceptorFiltering(boolean enableMessageInterceptorFiltering);
-
-    /**
-     * Finalize the build of {@link PushConsumer} and start.
+     * Finalize the build of {@link LitePushConsumer} and start.
      *
      * <p>This method will block until the push consumer starts successfully.
      *
      * <p>Especially, if this method is invoked more than once, different push consumers will be created and started.
      *
-     * @return the push consumer instance.
+     * @return the lite push consumer instance.
      */
-    PushConsumer build() throws ClientException;
+    LitePushConsumer build() throws ClientException;
 }

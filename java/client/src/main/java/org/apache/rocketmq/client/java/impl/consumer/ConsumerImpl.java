@@ -24,6 +24,7 @@ import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.FilterType;
+import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.Message;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
@@ -53,6 +54,7 @@ import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.impl.ClientManager;
+import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
@@ -127,10 +129,13 @@ abstract class ConsumerImpl extends ClientImpl {
             .setResourceNamespace(clientConfiguration.getNamespace())
             .setName(messageView.getTopic())
             .build();
-        final AckMessageEntry entry = AckMessageEntry.newBuilder()
+        final AckMessageEntry.Builder builder = AckMessageEntry.newBuilder()
             .setMessageId(messageView.getMessageId().toString())
-            .setReceiptHandle(messageView.getReceiptHandle())
-            .build();
+            .setReceiptHandle(messageView.getReceiptHandle());
+        if (ClientType.LITE_PUSH_CONSUMER == getSettings().getClientType()) {
+            messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        }
+        final AckMessageEntry entry = builder.build();
         return AckMessageRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
             .addEntries(entry).build();
     }
@@ -266,5 +271,11 @@ abstract class ConsumerImpl extends ClientImpl {
             .setMessageQueue(mq.toProtobuf()).setFilterExpression(wrapFilterExpression(filterExpression))
             .setLongPollingTimeout(Durations.fromNanos(longPollingTimeout.toNanos()))
             .setBatchSize(batchSize).setAutoRenew(false).setInvisibleDuration(duration).build();
+    }
+
+    @Override
+    public HeartbeatRequest wrapHeartbeatRequest() {
+        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
+            .setClientType(getSettings().getClientType().toProtobuf()).build();
     }
 }

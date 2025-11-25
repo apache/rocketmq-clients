@@ -39,6 +39,8 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
+import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
+import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
 import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -355,6 +357,24 @@ public class ClientManagerImpl extends ClientManager {
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<RecallMessageResponse> future =
                 rpcClient.recallMessage(metadata, request, asyncWorker, duration);
+            return new RpcFuture<>(context, request, future);
+        } catch (Throwable t) {
+            return new RpcFuture<>(t);
+        }
+    }
+
+    @Override
+    public RpcFuture<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse> syncLiteSubscription(
+        Endpoints endpoints,
+        SyncLiteSubscriptionRequest request,
+        Duration duration
+    ) {
+        try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            final ListenableFuture<SyncLiteSubscriptionResponse> future =
+                rpcClient.syncLiteSubscription(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
             return new RpcFuture<>(t);

@@ -39,6 +39,8 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
+import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
+import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
 import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Metadata;
@@ -199,6 +201,18 @@ public interface RpcClient {
      */
     ListenableFuture<RecallMessageResponse> recallMessage(Metadata metadata,
         RecallMessageRequest request, Executor executor, Duration duration);
+
+    /**
+     * Sync lite subscription asynchronously.
+     *
+     * @param metadata gRPC request header metadata.
+     * @param request  sync lite subscription request
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @return invocation of response future.
+     */
+    ListenableFuture<SyncLiteSubscriptionResponse> syncLiteSubscription(Metadata metadata,
+        SyncLiteSubscriptionRequest request, Executor executor, Duration duration);
 
     /**
      * Start a streaming request and get the request observer.

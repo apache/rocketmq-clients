@@ -23,6 +23,8 @@ use rocketmq::Producer;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     // It's recommended to specify the topics that applications will publish messages to
     // because the producer will prefetch topic routes for them on start and fail fast in case they do not exist
     let mut producer_option = ProducerOption::default();

@@ -50,6 +50,7 @@ type isClient interface {
 	wrapHeartbeatRequest() *v2.HeartbeatRequest
 	onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) error
 	onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error
+	IsEndpointUpdated() bool
 }
 type defaultClientSession struct {
 	endpoints        *v2.Endpoints
@@ -162,6 +163,8 @@ func (cs *defaultClientSession) handleTelemetryCommand(response *v2.TelemetryCom
 		cs.cli.onVerifyMessageCommand(cs.endpoints, c.VerifyMessageCommand)
 	case *v2.TelemetryCommand_PrintThreadStackTraceCommand:
 		cs.cli.onPrintThreadStackTraceCommand(cs.endpoints, c.PrintThreadStackTraceCommand)
+	case *v2.TelemetryCommand_ReconnectEndpointsCommand:
+		cs.cli.onReconnectEndpointsCommand(cs.endpoints, c.ReconnectEndpointsCommand)
 	default:
 		return fmt.Errorf("receive unrecognized command from remote, endpoints=%v, command=%v, clientId=%s", cs.endpoints, command, cs.cli.clientID)
 	}
@@ -227,6 +230,7 @@ type defaultClient struct {
 	on                            atomic.Bool
 	inited                        atomic.Bool
 	clientImpl                    isClient
+	ReceiveReconnect              bool
 }
 
 var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
@@ -348,15 +352,13 @@ func (cli *defaultClient) getMessageQueues(ctx context.Context, topic string) ([
 	// telemeter to all messageQueues
 	endpointsSet := make(map[string]bool)
 	for _, messageQueue := range route {
-		for _, address := range messageQueue.GetBroker().GetEndpoints().GetAddresses() {
-			target := utils.ParseAddress(address)
-			if _, ok := endpointsSet[target]; ok {
-				continue
-			}
-			endpointsSet[target] = true
-			if err = cli.mustSyncSettingsToTargert(target); err != nil {
-				return nil, err
-			}
+		target := utils.EndpointsToString(messageQueue.GetBroker().GetEndpoints())
+		if _, ok := endpointsSet[target]; ok {
+			continue
+		}
+		endpointsSet[target] = true
+		if err = cli.mustSyncSettingsToTargert(target); err != nil {
+			return nil, err
 		}
 	}
 
@@ -401,14 +403,12 @@ func (cli *defaultClient) getTotalTargets() []string {
 	cli.router.Range(func(_, v interface{}) bool {
 		messageQueues := v.([]*v2.MessageQueue)
 		for _, messageQueue := range messageQueues {
-			for _, address := range messageQueue.GetBroker().GetEndpoints().GetAddresses() {
-				target := utils.ParseAddress(address)
-				if _, ok := endpointsSet[target]; ok {
-					continue
-				}
-				endpointsSet[target] = true
-				endpoints = append(endpoints, target)
+			target := utils.EndpointsToString(messageQueue.GetBroker().GetEndpoints())
+			if _, ok := endpointsSet[target]; ok {
+				continue
 			}
+			endpointsSet[target] = true
+			endpoints = append(endpoints, target)
 		}
 		return true
 	})
@@ -736,4 +736,7 @@ func (cli *defaultClient) onPrintThreadStackTraceCommand(endpoints *v2.Endpoints
 			cli.telemeter(target, req)
 		}
 	}(nonce)
+}
+func (cli *defaultClient) onReconnectEndpointsCommand(endpoints *v2.Endpoints, command *v2.ReconnectEndpointsCommand) {
+	cli.ReceiveReconnect = true
 }

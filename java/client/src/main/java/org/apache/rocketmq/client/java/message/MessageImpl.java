@@ -33,7 +33,10 @@ import org.apache.rocketmq.client.apis.message.Message;
  * @see Message
  */
 public class MessageImpl implements Message {
+
     protected final Collection<String> keys;
+
+    protected final Map<String, String> properties;
 
     final byte[] body;
     private final String topic;
@@ -43,24 +46,23 @@ public class MessageImpl implements Message {
     @Nullable
     private final String messageGroup;
     @Nullable
+    private final String liteTopic;
+    @Nullable
     private final Long deliveryTimestamp;
-
-    private final Map<String, String> properties;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exception or
      * logging warnings already, so we avoid repeating args check here.
      */
-    MessageImpl(String topic, byte[] body, @Nullable String tag, Collection<String> keys,
-        @Nullable String messageGroup, @Nullable Long deliveryTimestamp,
-        Map<String, String> properties) {
-        this.topic = topic;
-        this.body = body;
-        this.tag = tag;
-        this.messageGroup = messageGroup;
-        this.deliveryTimestamp = deliveryTimestamp;
-        this.keys = keys;
-        this.properties = properties;
+    MessageImpl(MessageBuilderImpl builder) {
+        this.topic = builder.topic;
+        this.body = builder.body;
+        this.tag = builder.tag;
+        this.messageGroup = builder.messageGroup;
+        this.liteTopic = builder.liteTopic;
+        this.deliveryTimestamp = builder.deliveryTimestamp;
+        this.keys = builder.keys;
+        this.properties = builder.properties;
     }
 
     MessageImpl(Message message) {
@@ -78,6 +80,7 @@ public class MessageImpl implements Message {
         this.tag = message.getTag().orElse(null);
         this.messageGroup = message.getMessageGroup().orElse(null);
         this.deliveryTimestamp = message.getDeliveryTimestamp().orElse(null);
+        this.liteTopic = message.getLiteTopic().orElse(null);
         this.keys = message.getKeys();
         this.properties = message.getProperties();
     }
@@ -136,6 +139,11 @@ public class MessageImpl implements Message {
     @Override
     public Optional<String> getMessageGroup() {
         return Optional.ofNullable(messageGroup);
+    }
+
+    @Override
+    public Optional<String> getLiteTopic() {
+        return Optional.ofNullable(liteTopic);
     }
 
     @Override

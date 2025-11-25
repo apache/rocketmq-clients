@@ -388,8 +388,8 @@ func (pc *defaultPushConsumer) Start() error {
 
 	threadPool := NewSimpleThreadPool("MessageConsumption", int(pc.pcOpts.maxCacheMessageCount), int(pc.pcOpts.consumptionThreadCount))
 	if pc.pcSettings.isFifo {
-		pc.consumerService = NewFiFoConsumeService(pc.cli.clientID, pc.pcOpts.messageListener, threadPool, pc.cli)
-		pc.cli.log.Infof("Create FIFO consume service, consumerGroup=%s, clientId=%s", pc.cli.config.ConsumerGroup, pc.cli.clientID)
+		pc.consumerService = NewFiFoConsumeService(pc.cli.clientID, pc.pcOpts.messageListener, threadPool, pc.cli, pc.pcOpts.enableFifoConsumeAccelerator)
+		pc.cli.log.Infof("Create FIFO consume service, consumerGroup=%s, clientId=%s, enableFifoConsumeAccelerator=%t", pc.cli.config.ConsumerGroup, pc.cli.clientID, pc.pcOpts.enableFifoConsumeAccelerator)
 	} else {
 		pc.consumerService = NewStandardConsumeService(pc.cli.clientID, pc.pcOpts.messageListener, threadPool, pc.cli)
 		pc.cli.log.Infof("Create standard consume service, consumerGroup=%s, clientId=%s", pc.cli.config.ConsumerGroup, pc.cli.clientID)
@@ -709,4 +709,12 @@ func (dirci *defultInflightRequestCountInterceptor) doAfter(messageHookPoints Me
 
 func (dirci *defultInflightRequestCountInterceptor) getInflightReceiveRequestCount() int64 {
 	return dirci.inflightReceiveRequestCount.Load()
+}
+
+func (pc *defaultPushConsumer) IsEndpointUpdated() bool {
+	return pc.cli.ReceiveReconnect
+}
+
+func (sc *defaultPushConsumer) SetReceiveReconnect(receiveReconnect bool) {
+	sc.cli.ReceiveReconnect = receiveReconnect
 }

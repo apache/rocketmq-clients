@@ -28,6 +28,7 @@ import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.RecallMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.SendMessageRequest;
+import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
 import io.grpc.Metadata;
 import java.time.Duration;
 import org.apache.rocketmq.client.java.misc.ClientId;
@@ -144,4 +145,13 @@ public class ClientManagerImplTest extends TestBase {
         CLIENT_MANAGER.recallMessage(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
+
+    @Test
+    public void testSyncLiteSubscription() {
+        SyncLiteSubscriptionRequest request = SyncLiteSubscriptionRequest.newBuilder().build();
+        CLIENT_MANAGER.syncLiteSubscription(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.syncLiteSubscription(null, request, Duration.ofSeconds(1));
+        // Expect no exception thrown.
+    }
+
 }

@@ -24,6 +24,7 @@ import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.HeartbeatResponse;
 import apache.rocketmq.v2.MessageQueue;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
+import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
@@ -463,6 +464,17 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     public void onRecoverOrphanedTransactionCommand(Endpoints endpoints, RecoverOrphanedTransactionCommand command) {
         log.warn("Ignore orphaned transaction recovery command from remote, which is not expected, clientId={}, "
+            + "command={}", clientId, command);
+    }
+
+    /**
+     * This method is invoked while request of unsubscribe lite topic is received from remote.
+     * @param endpoints remote endpoints.
+      * @param command  request of unsubscribe lite topic from remote.
+     */
+    @Override
+    public void onNotifyUnsubscribeLiteCommand(Endpoints endpoints, NotifyUnsubscribeLiteCommand command) {
+        log.warn("Ignore unsubscribe lite topic command from remote, which is not expected, clientId={}, "
             + "command={}", clientId, command);
     }
 

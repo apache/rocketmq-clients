@@ -55,21 +55,23 @@ func (l *FuncMessageListener) consume(msg *MessageView) ConsumerResult {
 var _ = MessageListener(&FuncMessageListener{})
 
 type pushConsumerOptions struct {
-	subscriptionExpressions    *sync.Map
-	awaitDuration              time.Duration
-	maxCacheMessageCount       int32
-	maxCacheMessageSizeInBytes int64
-	consumptionThreadCount     int32
-	messageListener            MessageListener
-	clientFunc                 NewClientFunc
+	subscriptionExpressions         *sync.Map
+	awaitDuration                   time.Duration
+	maxCacheMessageCount            int32
+	maxCacheMessageSizeInBytes      int64
+	consumptionThreadCount          int32
+	messageListener                 MessageListener
+	clientFunc                      NewClientFunc
+	enableFifoConsumeAccelerator    bool
 }
 
 var defaultPushConsumerOptions = pushConsumerOptions{
-	clientFunc:                 NewClient,
-	awaitDuration:              0,
-	maxCacheMessageCount:       1024,
-	maxCacheMessageSizeInBytes: 64 * 1024 * 1024,
-	consumptionThreadCount:     20,
+	clientFunc:                    NewClient,
+	awaitDuration:                 0,
+	maxCacheMessageCount:          1024,
+	maxCacheMessageSizeInBytes:    64 * 1024 * 1024,
+	consumptionThreadCount:        20,
+	enableFifoConsumeAccelerator:   false,
 }
 
 // A ConsumerOption sets options such as tag, etc.
@@ -133,6 +135,14 @@ func WithPushConsumptionThreadCount(consumptionThreadCount int32) PushConsumerOp
 func WithPushMessageListener(messageListener MessageListener) PushConsumerOption {
 	return newFuncPushConsumerOption(func(o *pushConsumerOptions) {
 		o.messageListener = messageListener
+	})
+}
+
+// WithPushEnableFifoConsumeAccelerator sets enable fifo consume accelerator.
+// If enabled, the consumer will consume messages in parallel by messageGroup,
+func WithPushEnableFifoConsumeAccelerator(enableFifoConsumeAccelerator bool) PushConsumerOption {
+	return newFuncPushConsumerOption(func(o *pushConsumerOptions) {
+		o.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator
 	})
 }
 

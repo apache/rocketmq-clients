@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
+import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
 import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Settings;
@@ -241,4 +242,27 @@ public class ClientSessionImplTest extends TestBase {
         Mockito.verify(requestObserver, times(1)).onCompleted();
         Mockito.verify(sessionHandler, times(1)).getScheduler();
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testOnNextWithNotifyUnsubscribeLiteCommand() throws ClientException {
+        final Endpoints endpoints = fakeEndpoints();
+        final ClientSessionHandler sessionHandler = Mockito.mock(ClientSessionHandler.class);
+        Mockito.when(sessionHandler.getScheduler()).thenReturn(new ScheduledThreadPoolExecutor(1));
+        final StreamObserver<TelemetryCommand> requestObserver = Mockito.mock(StreamObserver.class);
+        Mockito.doReturn(requestObserver).when(sessionHandler).telemetry(any(Endpoints.class),
+            any(StreamObserver.class));
+        final ClientSessionImpl clientSession = new ClientSessionImpl(sessionHandler, Duration.ofSeconds(3), endpoints);
+        Mockito.doReturn(FAKE_CLIENT_ID).when(sessionHandler).getClientId();
+        Mockito.doNothing().when(sessionHandler).onNotifyUnsubscribeLiteCommand(any(Endpoints.class),
+            any(NotifyUnsubscribeLiteCommand.class));
+        NotifyUnsubscribeLiteCommand command0 = NotifyUnsubscribeLiteCommand.newBuilder()
+            .setLiteTopic("test-lite-topic")
+            .build();
+        TelemetryCommand command = TelemetryCommand.newBuilder()
+            .setNotifyUnsubscribeLiteCommand(command0).build();
+        clientSession.onNext(command);
+        Mockito.verify(sessionHandler, times(1)).onNotifyUnsubscribeLiteCommand(eq(endpoints), eq(command0));
+    }
+
 }

@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.java.message;
 public enum MessageType {
     NORMAL,
     FIFO,
+    LITE,
     DELAY,
     TRANSACTION;
 
@@ -29,6 +30,8 @@ public enum MessageType {
                 return MessageType.NORMAL;
             case FIFO:
                 return MessageType.FIFO;
+            case LITE:
+                return MessageType.LITE;
             case DELAY:
                 return MessageType.DELAY;
             case TRANSACTION:
@@ -45,6 +48,8 @@ public enum MessageType {
                 return apache.rocketmq.v2.MessageType.NORMAL;
             case FIFO:
                 return apache.rocketmq.v2.MessageType.FIFO;
+            case LITE:
+                return apache.rocketmq.v2.MessageType.LITE;
             case DELAY:
                 return apache.rocketmq.v2.MessageType.DELAY;
             case TRANSACTION:

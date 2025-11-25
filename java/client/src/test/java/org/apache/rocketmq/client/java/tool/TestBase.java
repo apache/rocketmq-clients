@@ -183,7 +183,7 @@ public class TestBase {
         final byte[] body = RandomUtils.nextBytes(bodySize);
         Map<String, String> properties = new HashMap<>();
         List<String> keys = new ArrayList<>();
-        return new MessageViewImpl(messageId, FAKE_TOPIC_0, body, null, null, null,
+        return new MessageViewImpl(messageId, FAKE_TOPIC_0, body, null, null, null, null,
             keys, properties, FAKE_HOST_0, 1, 1, mq, FAKE_RECEIPT_HANDLE_0, 1, corrupted,
             System.currentTimeMillis());
     }
@@ -232,8 +232,12 @@ public class TestBase {
     }
 
     protected MessageQueue fakePbMessageQueue0(Resource topicResource) {
-        return MessageQueue.newBuilder().setTopic(topicResource).setBroker(fakePbBroker0())
-            .setPermission(Permission.READ_WRITE).build();
+        return MessageQueue.newBuilder()
+            .setTopic(topicResource)
+            .setBroker(fakePbBroker0())
+            .setPermission(Permission.READ_WRITE)
+            .addAcceptMessageTypes(MessageType.NORMAL)
+            .build();
     }
 
     protected MessageQueue fakePbMessageQueue1(Resource topicResource) {

@@ -55,6 +55,10 @@ public abstract class Settings {
         return retryPolicy;
     }
 
+    public ClientType getClientType() {
+        return clientType;
+    }
+
     @ExcludeFromJacocoGeneratedReport
     @Override
     public String toString() {
