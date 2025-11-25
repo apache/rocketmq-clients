@@ -32,6 +32,7 @@ csharp/examples/bin/
 csharp/rocketmq-client-csharp/bin/
 csharp/tests/bin/
 csharp/rocketmq-client.sln.DotSettings.user
+.vs/
 
 # Rust
 rust/target

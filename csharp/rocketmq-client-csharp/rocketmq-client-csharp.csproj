@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <PackageId>RocketMQ.Client</PackageId>
         <PackageVersion>5.2.0-rc1</PackageVersion>
@@ -6,7 +6,7 @@
 
         <Authors>RocketMQ Authors</Authors>
         <Company>Apache Software Foundation</Company>
-        <TargetFrameworks>net6.0;net8.0;</TargetFrameworks>
+        <TargetFrameworks>net8.0;net10.0;</TargetFrameworks>
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
         <RootNamespace>Org.Apache.Rocketmq</RootNamespace>
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -34,7 +34,6 @@
         <PackageReference Include="OpenTelemetry" Version="1.3.1" />
         <PackageReference Include="OpenTelemetry.Api" Version="1.3.1" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.3.1" />
-        <PackageReference Include="ParallelExtensionsExtras" Version="1.2.0" />
 
         <Protobuf Include="..\..\protos\apache\rocketmq\v2\definition.proto" ProtoRoot="..\..\protos" GrpcServices="Client" />
         <Protobuf Include="..\..\protos\apache\rocketmq\v2\service.proto" ProtoRoot="..\..\protos" GrpcServices="Both" />

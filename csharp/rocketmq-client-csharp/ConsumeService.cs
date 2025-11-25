@@ -72,7 +72,7 @@ namespace Org.Apache.Rocketmq
                 }
                 catch (Exception e)
                 {
-                    Logger.LogError(e, $"Error while consuming message, clientId={ClientId}");
+                    Logger.LogError(e, "Error while consuming message, clientId={ClientId}", ClientId);
                     tcs.SetException(e);
                 }
             }, _consumptionCtsToken);
