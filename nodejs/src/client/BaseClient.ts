@@ -23,6 +23,8 @@ import {
   Status,
   ClientType,
   Code,
+  Resource,
+  LiteSubscriptionAction, // Added LiteSubscriptionAction
 } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
   QueryRouteRequest,
@@ -33,6 +35,7 @@ import {
   ThreadStackTrace,
   HeartbeatRequest,
   NotifyClientTerminationRequest,
+  SyncLiteSubscriptionRequest,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { createResource, getRequestDateTime, sign } from '../util';
 import { TopicRouteData, Endpoints } from '../route';
@@ -44,6 +47,7 @@ import { SessionCredentials } from './SessionCredentials';
 import { RpcClientManager } from './RpcClientManager';
 import { TelemetrySession } from './TelemetrySession';
 import { ClientId } from './ClientId';
+import { SubscriptionEntry } from '../consumer/SubscriptionEntry';
 
 const debug = debuglog('rocketmq-client-nodejs:client:BaseClient');
 
@@ -386,5 +390,20 @@ export abstract class BaseClient {
     telemetryCommand.setThreadStackTrace(new ThreadStackTrace().setThreadStackTrace('mock stack').setNonce(nonce));
     telemetryCommand.setStatus(new Status().setCode(Code.OK));
     this.telemetry(endpoints, telemetryCommand);
+  }
+
+  async syncLiteSubscription(group: Resource, subscriptions: Map<string, SubscriptionEntry>) {
+    const request = new SyncLiteSubscriptionRequest();
+    request.setGroup(group);
+    const topicNames: string[] = [];
+    for (const entry of subscriptions.values()) {
+      topicNames.push(entry.topic);
+    }
+    request.setLiteTopicSetList(topicNames);
+    // Assuming ADD for initial implementation, will need to handle REMOVE later.
+    request.setAction(LiteSubscriptionAction.COMPLETE_ADD);
+    for (const endpoints of this.getTotalRouteEndpoints()) {
+      await this.rpcClientManager.syncLiteSubscription(endpoints, request, this.requestTimeout);
+    }
   }
 }
