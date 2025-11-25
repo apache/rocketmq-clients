@@ -24,6 +24,7 @@ export interface MessageOptions {
   properties?: Map<string, string>;
   delay?: number;
   deliveryTimestamp?: Date;
+  liteTopic?: string;
 }
 
 export class Message {
@@ -34,6 +35,7 @@ export class Message {
   keys: string[];
   properties?: Map<string, string>;
   deliveryTimestamp?: Date;
+  liteTopic?: string;
 
   constructor(options: MessageOptions) {
     this.topic = options.topic;
@@ -42,6 +44,7 @@ export class Message {
     this.messageGroup = options.messageGroup;
     this.keys = options.keys ?? [];
     this.properties = options.properties;
+    this.liteTopic = options.liteTopic;
     let deliveryTimestamp = options.deliveryTimestamp;
     if (options.delay && !deliveryTimestamp) {
       deliveryTimestamp = new Date(Date.now() + options.delay);

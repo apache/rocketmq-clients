@@ -72,14 +72,14 @@ export class PushConsumer extends Consumer {
           for (const assignment of assignments) {
               assignment.topic.name = topic;
           }
-        this.syncProcessQueue(topic, assignments, filterExpression);
+        this.syncProcessQueue(assignments, filterExpression);
       } catch (error) {
         this.logger.error(`Failed to scan assignments for topic ${topic}`, error);
       }
     }
   }
 
-  private syncProcessQueue(topic: string, assignments: any[], filterExpression: FilterExpression) {
+  private syncProcessQueue(assignments: any[], filterExpression: FilterExpression) {
     const latest = new Set<string>();
     for (const assignment of assignments) {
      /*  if (assignment.topic.name !== topic) {
