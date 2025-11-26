@@ -24,7 +24,7 @@ import {
   GetOffsetRequest,
   HeartbeatRequest, NotifyClientTerminationRequest, PullMessageRequest,
   QueryAssignmentRequest, QueryOffsetRequest, QueryRouteRequest,
-  ReceiveMessageRequest, SendMessageRequest, UpdateOffsetRequest,
+  ReceiveMessageRequest, SendMessageRequest, SyncLiteSubscriptionRequest, UpdateOffsetRequest,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../route';
 import { ILogger } from './Logger';
@@ -163,6 +163,12 @@ export class RpcClientManager {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
     return await rpcClient.changeInvisibleDuration(request, metadata, duration);
+  }
+
+  async syncLiteSubscription(endpoints: Endpoints, request: SyncLiteSubscriptionRequest, duration: number) {
+    const rpcClient = this.#getRpcClient(endpoints);
+    const metadata = this.#baseClient.getRequestMetadata();
+    return await rpcClient.syncLiteSubscription(request, metadata, duration);
   }
 
   async notifyClientTermination(endpoints: Endpoints, request: NotifyClientTerminationRequest, duration: number) {
