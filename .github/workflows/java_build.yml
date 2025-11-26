@@ -28,11 +28,11 @@ jobs:
     steps:
       - name: Checkout Current Repository
         uses: actions/checkout@v3
-      # Use JDK 17.
-      - name: Use JDK 17
+      # Use JDK 21.
+      - name: Use JDK 21
         uses: actions/setup-java@v3
         with:
-          java-version: 17
+          java-version: 21
           distribution: "adopt"
       # Build the code of the current repository, skipping tests and code style checks.
       - name: Build Current Repository
@@ -66,10 +66,10 @@ jobs:
         run: |
           sed -i 's/org\.apache\.rocketmq:rocketmq-client-java:[^"]*/org.apache.rocketmq:rocketmq-client-java:${{ steps.get_version.outputs.version }}/' instrumentation/rocketmq/rocketmq-client/rocketmq-client-5.0/testing/build.gradle.kts
       # Use JDK 17.
-      - name: Use JDK 17
+      - name: Use JDK 21
         uses: actions/setup-java@v3
         with:
-          java-version: 17
+          java-version: 21
           distribution: "adopt"
           cache: gradle
       # Build the rocketmq opentelemetry test.
