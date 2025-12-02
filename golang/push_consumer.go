@@ -309,7 +309,7 @@ func (pc *defaultPushConsumer) onVerifyMessageCommand(endpoints *v2.Endpoints, c
 func (pc *defaultPushConsumer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 	return &v2.HeartbeatRequest{
 		Group:      pc.pcSettings.groupName,
-		ClientType: v2.ClientType_SIMPLE_CONSUMER,
+		ClientType: v2.ClientType_PUSH_CONSUMER,
 	}
 }
 
