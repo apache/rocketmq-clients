@@ -34,7 +34,7 @@ type simpleConsumerOptions struct {
 
 var defaultSimpleConsumerOptions = simpleConsumerOptions{
 	clientFunc:            NewClient,
-	maxReceiveConcurrency: 100, // default 100 concurrent Receive requests
+	maxReceiveConcurrency: 20, // default 20 concurrent Receive requests
 }
 
 // A ConsumerOption sets options such as tag, etc.
