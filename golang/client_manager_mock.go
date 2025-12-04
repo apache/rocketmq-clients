@@ -232,6 +232,16 @@ func (m *MockClientManager) UnRegisterClient(client Client) {
 	m.ctrl.Call(m, "UnRegisterClient", client)
 }
 
+// SyncLiteSubscription mocks base method.
+func (m *MockClientManager) SyncLiteSubscription(ctx context.Context, endpoints *v2.Endpoints,
+	request *v2.SyncLiteSubscriptionRequest, duration time.Duration) (*v2.SyncLiteSubscriptionResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SyncLiteSubscription", ctx, endpoints, request, duration)
+	ret0, _ := ret[0].(*v2.SyncLiteSubscriptionResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
 // UnRegisterClient indicates an expected call of UnRegisterClient.
 func (mr *MockClientManagerMockRecorder) UnRegisterClient(client interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
