@@ -29,10 +29,12 @@ type simpleConsumerOptions struct {
 	subscriptionExpressions map[string]*FilterExpression
 	awaitDuration           time.Duration
 	clientFunc              NewClientFunc
+	maxReceiveConcurrency   int
 }
 
 var defaultSimpleConsumerOptions = simpleConsumerOptions{
-	clientFunc: NewClient,
+	clientFunc:            NewClient,
+	maxReceiveConcurrency: 20, // default 20 concurrent Receive requests
 }
 
 // A ConsumerOption sets options such as tag, etc.
@@ -75,6 +77,14 @@ func WithSimpleSubscriptionExpressions(subscriptionExpressions map[string]*Filte
 func WithSimpleAwaitDuration(awaitDuration time.Duration) SimpleConsumerOption {
 	return newFuncSimpleConsumerOption(func(o *simpleConsumerOptions) {
 		o.awaitDuration = awaitDuration
+	})
+}
+
+// WithSimpleReceiveRateLimit sets the maximum concurrency for Receive requests (by clientID dimension)
+// maxConcurrency: maximum number of concurrent Receive requests allowed, default is 100
+func WithSimpleReceiveRateLimit(maxConcurrency int) SimpleConsumerOption {
+	return newFuncSimpleConsumerOption(func(o *simpleConsumerOptions) {
+		o.maxReceiveConcurrency = maxConcurrency
 	})
 }
 
