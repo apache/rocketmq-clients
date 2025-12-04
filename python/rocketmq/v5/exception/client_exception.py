@@ -22,9 +22,13 @@ class ClientException(Exception):
 
     def __str__(self):
         if self.__code is not None:
-            return f"response code:{self.__code}, error message:{super().__str__()}"
+            return f"{self.__code}, {super().__str__()}"
         else:
-            return f"error message:{super().__str__()}"
+            return f"{super().__str__()}"
+
+    @property
+    def code(self):
+        return self.__code
 
 
 class BadRequestException(ClientException):

@@ -33,7 +33,10 @@ class ConcurrentMap:
     def remove(self, key):
         with self._lock:
             if key in self._map:
+                old = self._map[key]
                 del self._map[key]
+                return old
+            return None
 
     def update(self, m):
         with self._lock:

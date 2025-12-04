@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
 from rocketmq.grpc_protocol import (AddressScheme, Broker, Code, Endpoints,
                                     MessageType, Permission, Resource, Status,
                                     definition_pb2)
@@ -22,7 +20,7 @@ from rocketmq.grpc_protocol.service_pb2 import ReceiveMessageResponse  # noqa
 from rocketmq.grpc_protocol.service_pb2 import SendMessageResponse  # noqa
 from rocketmq.v5.client import ClientConfiguration, Credentials
 from rocketmq.v5.model import Message, MessageQueue, SendReceipt
-from rocketmq.v5.util import ClientId, MessageIdCodec
+from rocketmq.v5.util import ClientId, MessageIdCodec, Misc
 
 
 class TestBase:
@@ -76,7 +74,7 @@ class TestBase:
         msg.system_properties.message_id = MessageIdCodec().next_message_id()
         msg.body = TestBase.FAKE_MESSAGE_BODY
         msg.system_properties.born_host = TestBase.FAKE_HOST_0
-        msg.system_properties.born_timestamp.seconds = int(time.time() * 1000)
+        msg.system_properties.born_timestamp.seconds = Misc.current_mills()
         msg.system_properties.delivery_timestamp.seconds = (
             msg.system_properties.born_timestamp.seconds - 10
         )

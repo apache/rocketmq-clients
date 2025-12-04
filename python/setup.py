@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from rocketmq.v5.util import Misc
 from setuptools import find_packages, setup
 
 setup(
     name='rocketmq-python-client',
-    version='5.0.6',
+    version=Misc.SDK_VERSION,
     packages=find_packages(),
     install_requires=[
         "grpcio>=1.5.0",

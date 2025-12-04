@@ -131,7 +131,7 @@ class RpcStreamStreamCall:
                         # read a response for send setting result
                         if res is not None and res.status.code == Code.OK:
                             logger.debug(
-                                f"{ self.__handler.__str__()} sync setting success. response status code: {res.status.code}"
+                                f"{ self.__handler} sync setting success. response status code: {res.status.code}"
                             )
                             if (
                                 res.settings is not None
@@ -139,6 +139,8 @@ class RpcStreamStreamCall:
                             ):
                                 # reset metrics if needed
                                 self.__handler.reset_metric(res.settings.metric)
+                                # sync setting
+                                self.__handler.reset_setting(res.settings)
                     elif res.HasField("recover_orphaned_transaction_command"):
                         # sever check for a transaction message
                         if self.__handler is not None:
@@ -151,11 +153,11 @@ class RpcStreamStreamCall:
                             )
             except AioRpcError as e:
                 logger.warn(
-                    f"{ self.__handler.__str__()} read stream from endpoints {self.__endpoints.__str__()} occurred AioRpcError. code: {e.code()}, message: {e.details()}"
+                    f"{ self.__handler} read stream from endpoints {self.__endpoints} occurred AioRpcError. code: {e.code()}, message: {e.details()}"
                 )
             except Exception as e:
                 logger.error(
-                    f"{ self.__handler.__str__()} read stream from endpoints {self.__endpoints.__str__()} exception, {e}"
+                    f"{ self.__handler} read stream from endpoints {self.__endpoints} exception, {e}"
                 )
 
     async def stream_write(self, req):
@@ -193,13 +195,13 @@ class RpcChannel:
                 self.__telemetry_stream_stream_call.close()
                 self.__telemetry_stream_stream_call = None
                 logger.info(
-                    f"channel[{self.__endpoints.__str__()}] close stream_stream_call success."
+                    f"channel[{self.__endpoints}] close stream_stream_call success."
                 )
             if self.channel_state() is not ChannelConnectivity.SHUTDOWN:
                 # close grpc channel
                 asyncio.run_coroutine_threadsafe(self.__async_channel.close(), loop)
                 self.__async_channel = None
-                logger.info(f"channel[{self.__endpoints.__str__()}] close success.")
+                logger.info(f"channel[{self.__endpoints}] close success.")
             self.__async_stub = None
             self.__endpoints = None
             self.__update_time = None
@@ -239,11 +241,11 @@ class RpcChannel:
                     )
                 self.__async_stub = MessagingServiceStub(self.__async_channel)
                 logger.info(
-                    f"create_aio_channel to [{self.__endpoints.__str__()}] success. channel state:{self.__async_channel.get_state()}"
+                    f"create_aio_channel to [{self.__endpoints}] success. channel state:{self.__async_channel.get_state()}"
                 )
         except Exception as e:
             logger.error(
-                f"create_aio_channel to [{self.__endpoints.__str__()}] exception: {e}"
+                f"create_aio_channel to [{self.__endpoints}] exception: {e}"
             )
             raise e
 

@@ -53,11 +53,10 @@ if __name__ == '__main__':
                 send_result_future = producer.send_async(msg)
                 send_result_future.add_done_callback(handle_send_result)
         except Exception as e:
-            print(f"producer{producer.__str__()} send message raise exception: {e}")
-            producer.shutdown()
+            print(f"{producer} raise exception: {e}")
     except Exception as e:
-        print(f"{producer.__str__()} startup raise exception: {e}")
-        producer.shutdown()
+        print(f"{producer} startup raise exception: {e}")
 
     input("Please Enter to Stop the Application.")
     producer.shutdown()
+    print(f"{producer} shutdown.")

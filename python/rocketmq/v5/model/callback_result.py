@@ -18,13 +18,15 @@ from enum import Enum
 
 class CallbackResultType(Enum):
     ASYNC_SEND_CALLBACK_RESULT = 1
-    ASYNC_RECEIVE_CALLBACK_RESULT = 2
-    ASYNC_ACK_CALLBACK_RESULT = 3
-    ASYNC_CHANGE_INVISIBLE_DURATION_RESULT = 4
-    ASYNC_SEND_CALLBACK_EXCEPTION = 5
-    ASYNC_RECEIVE_CALLBACK_EXCEPTION = 6
-    ASYNC_ACK_CALLBACK_EXCEPTION = 7
+    ASYNC_SEND_CALLBACK_EXCEPTION = 2
+    ASYNC_RECEIVE_CALLBACK_RESULT = 3
+    ASYNC_RECEIVE_CALLBACK_EXCEPTION = 4
+    ASYNC_ACK_CALLBACK_RESULT = 5
+    ASYNC_ACK_CALLBACK_EXCEPTION = 6
+    ASYNC_CHANGE_INVISIBLE_DURATION_RESULT = 7
     ASYNC_CHANGE_INVISIBLE_DURATION_EXCEPTION = 8
+    ASYNC_RECALL_MESSAGE_RESULT = 9
+    ASYNC_RECALL_MESSAGE_EXCEPTION = 10
     END_CALLBACK_THREAD_RESULT = 100
 
 
@@ -88,6 +90,16 @@ class CallbackResult:
     def end_callback_thread_result():
         callback_result = CallbackResult()
         callback_result.__result_type = CallbackResultType.END_CALLBACK_THREAD_RESULT
+        return callback_result
+
+    @staticmethod
+    def recall_message_callback_result(future, result, success=True):
+        callback_result = CallbackResult.callback_result(future, result, success)
+        callback_result.__result_type = (
+            CallbackResultType.ASYNC_RECALL_MESSAGE_RESULT
+            if success
+            else CallbackResultType.ASYNC_RECALL_MESSAGE_EXCEPTION
+        )
         return callback_result
 
     """ @property """

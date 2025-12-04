@@ -59,6 +59,23 @@ class AtomicInteger:
             self._value -= 1
             return old_value
 
+    def add_and_get(self, delta):
+        with self._lock:
+            self._value += delta
+            return self._value
+
+    def get_and_add(self, delta):
+        with self._lock:
+            old = self._value
+            self._value += delta
+            return old
+
+    def subtract_and_get(self, delta):
+        return self.add_and_get(-delta)
+
+    def get_and_subtract(self, delta):
+        return self.get_and_add(-delta)
+
     def compare_and_set(self, expect, update):
         with self._lock:
             if self._value == expect:
