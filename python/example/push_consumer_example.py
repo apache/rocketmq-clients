@@ -14,7 +14,18 @@
 # limitations under the License.
 
 from rocketmq import (ClientConfiguration, Credentials, FilterExpression,
-                      SimpleConsumer)
+                      Message)
+from rocketmq.v5.consumer import PushConsumer
+from rocketmq.v5.consumer.message_listener import (ConsumeResult,
+                                                   MessageListener)
+
+
+class TestMessageListener(MessageListener):
+
+    def consume(self, message: Message) -> ConsumeResult:
+        print(f"consume message, topic:{message.topic}, message_id: {message.message_id}.")
+        return ConsumeResult.SUCCESS
+
 
 if __name__ == '__main__':
     endpoints = "foobar.com:8080"
@@ -29,29 +40,17 @@ if __name__ == '__main__':
     consumer_group = "consumer-group"
     # in most case, you don't need to create too many consumers, singleton pattern is recommended
     # close the simple consumer when you don't need it anymore
-    simple_consumer = SimpleConsumer(config, consumer_group, {topic: FilterExpression()})
+    push_consumer = PushConsumer(config, consumer_group, TestMessageListener(), {topic: FilterExpression()})
+
     try:
-        simple_consumer.startup()
+        push_consumer.startup()
         try:
-            # subscribe topic
-            # simple_consumer.subscribe(topic)
-            # use tag filter
-            # simple_consumer.subscribe(topic, FilterExpression("tag"))
-            while True:
-                try:
-                    # max message num for each long polling and message invisible duration after it is received
-                    messages = simple_consumer.receive(32, 15)
-                    if messages is not None:
-                        for msg in messages:
-                            simple_consumer.ack(msg)
-                            print(f"{simple_consumer} ack message:[{msg.message_id}].")
-                except Exception as e:
-                    print(f"{simple_consumer} receive or ack message raise exception: {e}")
+            input("Please Enter to Stop the Application.\r\n")
         except Exception as e:
-            print(f"{simple_consumer} raise exception: {e}")
-            simple_consumer.shutdown()
-            print(f"{simple_consumer} shutdown.")
+            print(f"{push_consumer} raise exception: {e}")
+            push_consumer.shutdown()
+            print(f"{push_consumer} shutdown.")
     except Exception as e:
-        print(f"{simple_consumer} startup raise exception: {e}")
-        simple_consumer.shutdown()
-        print(f"{simple_consumer} shutdown.")
+        print(f"{push_consumer} startup raise exception: {e}")
+        push_consumer.shutdown()
+        print(f"{push_consumer} shutdown.")

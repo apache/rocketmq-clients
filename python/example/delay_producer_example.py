@@ -39,12 +39,14 @@ if __name__ == '__main__':
             # delay 10 seconds
             msg.delivery_timestamp = int(time.time()) + 10
             res = producer.send(msg)
-            print(f"{producer.__str__()} send message success. {res}")
+            print(f"{producer} send message success. {res}")
             producer.shutdown()
-            print(f"{producer.__str__()} shutdown.")
+            print(f"{producer} shutdown.")
         except Exception as e:
-            print(f"normal producer example raise exception: {e}")
+            print(f"{producer} raise exception: {e}")
             producer.shutdown()
+            print(f"{producer} shutdown.")
     except Exception as e:
-        print(f"{producer.__str__()} startup raise exception: {e}")
+        print(f"{producer} startup raise exception: {e}")
         producer.shutdown()
+        print(f"{producer} shutdown.")

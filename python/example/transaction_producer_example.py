@@ -39,7 +39,7 @@ if __name__ == '__main__':
     try:
         producer.startup()
     except Exception as e:
-        print(f"{producer.__str__()} startup raise exception: {e}")
+        print(f"{producer} startup raise exception: {e}")
 
     try:
         transaction = producer.begin_transaction()
@@ -54,18 +54,21 @@ if __name__ == '__main__':
         # user property for the message
         msg.add_property("send", "transaction")
         res = producer.send(msg, transaction)
-        print(f"send message: {res}")
+        print(f"{producer} send message success. {res}")
         if check_from_server:
             # wait for server check in TransactionChecker's check
             input("Please Enter to Stop the Application.\r\n")
             producer.shutdown()
+            print(f"{producer} shutdown.")
         else:
             # direct commit or rollback
             transaction.commit()
-            print(f"producer commit message:{transaction.message_id}")
+            print(f"{producer} commit message:{transaction.message_id}")
             # transaction.rollback()
-            # print(f"producer rollback message:{transaction.message_id}")
+            # print(f"{producer} rollback message:{transaction.message_id}")
             producer.shutdown()
+            print(f"{producer} shutdown.")
     except Exception as e:
-        print(f"transaction producer{producer.__str__()} example raise exception: {e}")
+        print(f"transaction producer{producer} example raise exception: {e}")
         producer.shutdown()
+        print(f"{producer} shutdown.")

@@ -13,26 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rocketmq.grpc_protocol import TransactionResolution
+import abc
+from enum import Enum
 
-from .v5.client import ClientConfiguration, Credentials
-from .v5.consumer import (ConsumeResult, MessageListener, PushConsumer,
-                          SimpleConsumer)
-from .v5.model import FilterExpression, Message, SendReceipt
-from .v5.producer import Producer, Transaction, TransactionChecker
+from rocketmq.v5.model import Message
 
-__all__ = [
-    "Producer",
-    "TransactionChecker",
-    "Transaction",
-    "TransactionResolution", # noqa
-    "SimpleConsumer",
-    "PushConsumer",
-    "MessageListener",
-    "ConsumeResult",
-    "Message",
-    "FilterExpression",
-    "SendReceipt",
-    "ClientConfiguration",
-    "Credentials",
-]
+
+class ConsumeResult(Enum):
+    SUCCESS = 0  # Consume message successfully.
+    FAILURE = 1  # Failed to consume message.
+
+
+class MessageListener(metaclass=abc.ABCMeta):
+
+    @abc.abstractmethod
+    def consume(self, message: Message) -> ConsumeResult:
+        pass

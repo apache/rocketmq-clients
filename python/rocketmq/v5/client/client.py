@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import functools
 import os
 import threading
@@ -30,6 +29,8 @@ from rocketmq.v5.log import logger
 from rocketmq.v5.model import TopicRouteData
 from rocketmq.v5.util import (ClientId, ConcurrentMap, MessagingResultChecker,
                               Misc, Signature)
+
+from .scheduler import ClientScheduler
 
 
 class Client:
@@ -50,10 +51,6 @@ class Client:
         self.__heartbeat_scheduler = None
         self.__sync_setting_scheduler = None
         self.__clear_idle_rpc_channels_scheduler = None
-        self.__topic_route_scheduler_threading_event = None
-        self.__heartbeat_scheduler_threading_event = None
-        self.__sync_setting_scheduler_threading_event = None
-        self.__clear_idle_rpc_channels_threading_event = None
         if topics is not None:
             self.__topics = set(
                 filter(lambda topic: Misc.is_valid_topic(topic), topics)
@@ -62,16 +59,16 @@ class Client:
             self.__topics = set()
         self.__client_callback_executor = None
         self.__is_running = False
-        self.__client_thread_task_enabled = False
         self.__had_shutdown = False
 
     def startup(self):
         try:
-            if self.__had_shutdown is True:
+            if self.__had_shutdown:
                 raise Exception(
-                    f"client:{self.__client_id} had shutdown, can't startup again."
+                    f"{self} had shutdown, can't startup again."
                 )
 
+            self._pre_start()
             try:
                 # pre update topic route for producer or consumer
                 for topic in self.__topics:
@@ -82,22 +79,24 @@ class Client:
                     f"update topic exception when client startup, ignore it, try it again in scheduler. exception: {e}"
                 )
             self.__start_scheduler()
-            self.__start_async_rpc_callback_handler()
+            self.__start_async_rpc_callback_executor()
+            self._on_start()
             self.__is_running = True
-            self._start_success()
         except Exception as e:
             self.__is_running = False
             self.__stop_client_threads()
-            self._start_failure()
-            logger.error(f"client:{self.__client_id} startup exception:  {e}")
+            self._on_start_failure()
+            logger.error(f"{self} startup exception:  {e}")
             raise e
 
     def shutdown(self):
-        if self.is_running is False:
-            raise IllegalStateException(f"client:{self.__client_id} is not running.")
+        if not self.is_running:
+            raise IllegalStateException(f"{self} is not running.")
 
-        if self.__had_shutdown is True:
-            raise IllegalStateException(f"client:{self.__client_id} had shutdown.")
+        if self.__had_shutdown:
+            raise IllegalStateException(f"{self} had shutdown.")
+
+        self._pre_shutdown()
 
         try:
             self.__stop_client_threads()
@@ -108,16 +107,34 @@ class Client:
             self.__had_shutdown = True
             self.__is_running = False
         except Exception as e:
-            logger.error(f"{self.__str__()} shutdown exception: {e}")
+            logger.error(f"{self} shutdown exception: {e}")
             raise e
+
+    # sync setting #
+
+    def reset_setting(self, settings):
+        pass
+
+    # metrics #
+
+    def reset_metric(self, metric):
+        self.__client_metrics.reset_metrics(metric)
 
     """ abstract """
 
-    def _start_success(self):
+    def _pre_start(self):
+        """each subclass implements its own actions before startup"""
+        pass
+
+    def _on_start(self):
         """each subclass implements its own actions after a successful startup"""
         pass
 
-    def _start_failure(self):
+    def _pre_shutdown(self):
+        """each subclass implements its own actions before shutdown"""
+        pass
+
+    def _on_start_failure(self):
         """each subclass implements its own actions after a startup failure"""
         pass
 
@@ -143,137 +160,72 @@ class Client:
         # start 4 schedulers in different threads, each thread use the same asyncio event loop.
         try:
             # update topic route every 30 seconds
-            self.__client_thread_task_enabled = True
-            self.__topic_route_scheduler = threading.Thread(
-                target=self.__schedule_update_topic_route_cache,
-                name="update_topic_route_schedule_thread",
-            )
-            self.__topic_route_scheduler_threading_event = threading.Event()
-            self.__topic_route_scheduler.start()
+            self.__topic_route_scheduler = ClientScheduler(f"{self.__client_id}_update_topic_route_schedule_thread", self.__do_update_topic_route_cache, 10, 30,
+                                                           self._rpc_channel_io_loop())
+            self.__topic_route_scheduler.start_scheduler()
             logger.info("start topic route scheduler success.")
 
             # send heartbeat to all endpoints every 10 seconds
-            self.__heartbeat_scheduler = threading.Thread(
-                target=self.__schedule_heartbeat, name="heartbeat_schedule_thread"
-            )
-            self.__heartbeat_scheduler_threading_event = threading.Event()
-            self.__heartbeat_scheduler.start()
+            self.__heartbeat_scheduler = ClientScheduler(f"{self.__client_id}_heartbeat_schedule_thread", self.__do_heartbeat, 1, 10,
+                                                         self._rpc_channel_io_loop())
+            self.__heartbeat_scheduler.start_scheduler()
             logger.info("start heartbeat scheduler success.")
 
-            # send client setting to all endpoints every 5 seconds
-            self.__sync_setting_scheduler = threading.Thread(
-                target=self.__schedule_update_setting,
-                name="sync_setting_schedule_thread",
-            )
-            self.__sync_setting_scheduler_threading_event = threading.Event()
-            self.__sync_setting_scheduler.start()
+            # send client setting to all endpoints every 5 minutes
+            self.__sync_setting_scheduler = ClientScheduler(f"{self.__client_id}_sync_setting_schedule_thread", self.__do_update_setting, 1, 300,
+                                                            self._rpc_channel_io_loop())
+            self.__sync_setting_scheduler.start_scheduler()
             logger.info("start sync setting scheduler success.")
 
             # clear unused grpc channel(>30 minutes) every 60 seconds
-            self.__clear_idle_rpc_channels_scheduler = threading.Thread(
-                target=self.__schedule_clear_idle_rpc_channels,
-                name="clear_idle_rpc_channel_schedule_thread",
-            )
-            self.__clear_idle_rpc_channels_threading_event = threading.Event()
-            self.__clear_idle_rpc_channels_scheduler.start()
+            self.__clear_idle_rpc_channels_scheduler = ClientScheduler(f"{self.__client_id}_clear_idle_rpc_channel_schedule_thread", self.__do_clear_idle_rpc_channels, 5, 60,
+                                                                       self._rpc_channel_io_loop())
+            self.__clear_idle_rpc_channels_scheduler.start_scheduler()
             logger.info("start clear idle rpc channels scheduler success.")
         except Exception as e:
             logger.info(f"start scheduler exception: {e}")
             self.__stop_client_threads()
             raise e
 
-    def __schedule_update_topic_route_cache(self):
-        asyncio.set_event_loop(self._rpc_channel_io_loop())
-        while True:
-            if self.__client_thread_task_enabled is True:
-                self.__topic_route_scheduler_threading_event.wait(30)
-                logger.debug(f"{self.__str__()} run update topic route in scheduler.")
-                # update topic route for each topic in cache
-                topics = self.__topic_route_cache.keys()
-                for topic in topics:
-                    try:
-                        if self.__client_thread_task_enabled is True:
-                            self.__update_topic_route_async(topic)
-                    except Exception as e:
-                        logger.error(
-                            f"{self.__str__()} scheduler update topic:{topic} route raise exception: {e}"
-                        )
-            else:
-                break
-        logger.info(
-            f"{self.__str__()} stop scheduler for update topic route cache success."
+    # schedule task #
+
+    def __do_update_topic_route_cache(self):
+        logger.debug(f"{self} run update topic route in scheduler.")
+        # update topic route for each topic in cache
+        topics = self.__topic_route_cache.keys()
+        for topic in topics:
+            self.__update_topic_route_async(topic)
+
+    def __do_heartbeat(self):
+        logger.debug(f"{self} run send heartbeat in scheduler.")
+        all_endpoints = self.__get_all_endpoints().values()
+        for endpoints in all_endpoints:
+            self.__heartbeat_async(endpoints)
+
+    def __do_update_setting(self):
+        logger.debug(f"{self} run update setting in scheduler.")
+        all_endpoints = self.__get_all_endpoints().values()
+        for endpoints in all_endpoints:
+            self.__setting_write(endpoints)
+
+    def __do_clear_idle_rpc_channels(self):
+        logger.debug(
+            f"{self} run scheduler for clear idle rpc channels."
         )
-
-    def __schedule_heartbeat(self):
-        asyncio.set_event_loop(self._rpc_channel_io_loop())
-        while True:
-            if self.__client_thread_task_enabled is True:
-                self.__heartbeat_scheduler_threading_event.wait(10)
-                logger.debug(f"{self.__str__()} run send heartbeat in scheduler.")
-                all_endpoints = self.__get_all_endpoints().values()
-                try:
-                    for endpoints in all_endpoints:
-                        if self.__client_thread_task_enabled is True:
-                            self.__heartbeat_async(endpoints)
-                except Exception as e:
-                    logger.error(
-                        f"{self.__str__()} scheduler send heartbeat raise exception: {e}"
-                    )
-            else:
-                break
-        logger.info(f"{self.__str__()} stop scheduler for heartbeat success.")
-
-    def __schedule_update_setting(self):
-        asyncio.set_event_loop(self._rpc_channel_io_loop())
-        while True:
-            if self.__client_thread_task_enabled is True:
-                logger.debug(f"{self.__str__()} run update setting in scheduler.")
-                try:
-                    all_endpoints = self.__get_all_endpoints().values()
-                    for endpoints in all_endpoints:
-                        if self.__client_thread_task_enabled is True:
-                            self.__setting_write(endpoints)
-                except Exception as e:
-                    logger.error(
-                        f"{self.__str__()} scheduler set setting raise exception: {e}"
-                    )
-                self.__sync_setting_scheduler_threading_event.wait(300)
-            else:
-                break
-        logger.info(f"{self.__str__()} stop scheduler for update setting success.")
-
-    def __schedule_clear_idle_rpc_channels(self):
-        while True:
-            if self.__client_thread_task_enabled is True:
-                self.__clear_idle_rpc_channels_threading_event.wait(60)
-                logger.debug(
-                    f"{self.__str__()} run scheduler for clear idle rpc channels."
-                )
-                try:
-                    if self.__client_thread_task_enabled is True:
-                        self.__rpc_client.clear_idle_rpc_channels()
-                except Exception as e:
-                    logger.error(
-                        f"{self.__str__()} run scheduler for clear idle rpc channels: {e}"
-                    )
-            else:
-                break
-        logger.info(
-            f"{self.__str__()} stop scheduler for clear idle rpc channels success."
-        )
+        self.__rpc_client.clear_idle_rpc_channels()
 
     """ callback handler for async method """
 
-    def __start_async_rpc_callback_handler(self):
+    def __start_async_rpc_callback_executor(self):
         # to handle callback when using async method such as send_async(), receive_async().
         # switches user's callback thread from RpcClient's _io_loop_thread to client's client_callback_worker_thread
         try:
             workers = os.cpu_count()
             self.__client_callback_executor = ThreadPoolExecutor(max_workers=workers,
-                                                                 thread_name_prefix=f"client_callback_worker-{self.__client_id}")
-            logger.info(f"{self.__str__()} start callback executor success. max_workers:{workers}")
+                                                                 thread_name_prefix=f"client_callback_worker_{self.__client_id}")
+            logger.info(f"{self} start callback executor success. max_workers:{workers}")
         except Exception as e:
-            logger.error(f"{self.__str__()} start async rpc callback raise exception: {e}")
+            logger.error(f"{self} start async rpc callback raise exception: {e}")
             raise e
 
     @staticmethod
@@ -292,7 +244,7 @@ class Client:
         else:
             route = self.__update_topic_route(topic)
             if route is not None:
-                logger.info(f"{self.__str__()} update topic:{topic} route success.")
+                logger.info(f"{self} update topic:{topic} route success.")
                 self.__topics.add(topic)
                 return route
             else:
@@ -365,14 +317,13 @@ class Client:
             if res.status.code == Code.OK:
                 topic_route = TopicRouteData(res.message_queues)
                 logger.info(
-                    f"{self.__str__()} update topic:{topic} route, route info: {topic_route.__str__()}"
+                    f"{self} update topic:{topic} route, route info: {topic_route}"
                 )
                 # if topic route has new endpoint, connect
                 self.__check_topic_route_endpoints_changed(topic, topic_route)
                 self.__topic_route_cache.put(topic, topic_route)
                 # producer or consumer update its queue selector
                 self._update_queue_selector(topic, topic_route)
-                return topic_route
         else:
             raise Exception(f"query topic route exception, topic:{topic}")
 
@@ -394,20 +345,20 @@ class Client:
             res = future.result()
             if res is not None and res.status.code == Code.OK:
                 logger.info(
-                    f"{self.__str__()} send heartbeat to {endpoints.__str__()} success."
+                    f"{self} send heartbeat to {endpoints} success."
                 )
             else:
                 if res is not None:
                     logger.error(
-                        f"{self.__str__()} send heartbeat to {endpoints.__str__()} error, code:{res.status.code}, message:{res.status.message}."
+                        f"{self} send heartbeat to {endpoints} error, code:{res.status.code}, message:{res.status.message}."
                     )
                 else:
                     logger.error(
-                        f"{self.__str__()} send heartbeat to {endpoints.__str__()} error, response is none."
+                        f"{self} send heartbeat to {endpoints} error, response is none."
                     )
         except Exception as e:
             logger.error(
-                f"{self.__str__()} send heartbeat to {endpoints.__str__()} exception, e: {e}"
+                f"{self} send heartbeat to {endpoints} exception, e: {e}"
             )
             raise e
 
@@ -420,50 +371,45 @@ class Client:
             )
         except Exception as e:
             logger.error(
-                f"{self.__str__()} rebuild stream_steam_call to {endpoints.__str__()} exception: {e}"
+                f"{self} rebuild stream_steam_call to {endpoints} exception: {e}"
                 if rebuild
-                else f"{self.__str__()} create stream_steam_call to {endpoints.__str__()} exception: {e}"
+                else f"{self} create stream_steam_call to {endpoints} exception: {e}"
             )
 
     def __setting_write(self, endpoints):
         req = self._sync_setting_req(endpoints)
         callback = functools.partial(self.__setting_write_callback, endpoints=endpoints)
         future = self.__rpc_client.telemetry_write_async(endpoints, req)
-        logger.debug(f"{self.__str__()} send setting to {endpoints.__str__()}, {req}")
+        logger.debug(f"{self} send setting to {endpoints}, {req}")
         future.add_done_callback(callback)
 
     def __setting_write_callback(self, future, endpoints):
         try:
             future.result()
             logger.info(
-                f"{self.__str__()} send setting to {endpoints.__str__()} success."
+                f"{self} send setting to {endpoints} success."
             )
         except InvalidStateError as e:
             logger.warn(
-                f"{self.__str__()} send setting to {endpoints.__str__()} occurred InvalidStateError: {e}"
+                f"{self} send setting to {endpoints} occurred InvalidStateError: {e}"
             )
             self.__retrieve_telemetry_stream_stream_call(endpoints, rebuild=True)
         except AioRpcError as e:
             logger.warn(
-                f"{self.__str__()} send setting to {endpoints.__str__()} occurred AioRpcError: {e}"
+                f"{self} send setting to {endpoints} occurred AioRpcError: {e}"
             )
             self.__retrieve_telemetry_stream_stream_call(endpoints, rebuild=True)
         except Exception as e:
             logger.error(
-                f"{self.__str__()} send setting to {endpoints.__str__()} exception: {e}"
+                f"{self} send setting to {endpoints} exception: {e}"
             )
             self.__retrieve_telemetry_stream_stream_call(endpoints, rebuild=True)
-
-    # metrics #
-
-    def reset_metric(self, metric):
-        self.__client_metrics.reset_metrics(metric)
 
     # client termination #
 
     def __client_termination(self, endpoints):
         req = self._notify_client_termination_req()
-        future = self.__rpc_client.notify_client_termination(
+        future = self.__rpc_client.notify_client_termination_async(
             endpoints,
             req,
             metadata=self._sign(),
@@ -484,15 +430,15 @@ class Client:
         old_route = self.__topic_route_cache.get(topic)
         if old_route is None or old_route != route:
             logger.info(
-                f"topic:{topic} route changed for {self.__str__()}. old route is {old_route}, new route is {route}"
+                f"topic:{topic} route changed for {self}. old route is {old_route}, new route is {route}"
             )
         all_endpoints = self.__get_all_endpoints()  # the existing endpoints
         topic_route_endpoints = (
             route.all_endpoints()
         )  # the latest endpoints for topic route
         diff = set(topic_route_endpoints.keys()).difference(
-            set(all_endpoints.keys())
-        )  # the diff between existing and latest
+            set(all_endpoints.keys())  # the diff between existing and latest
+        )
         # create grpc channel, stream_stream_call for new endpoints, send setting to new endpoints
         for address in diff:
             endpoints = topic_route_endpoints[address]
@@ -508,39 +454,21 @@ class Client:
                 logger.error(f"notify client termination to {endpoints} exception: {e}")
 
     def __stop_client_threads(self):
-        self.__client_thread_task_enabled = False
-        if self.__topic_route_scheduler is not None:
-            if self.__topic_route_scheduler_threading_event is not None:
-                self.__topic_route_scheduler_threading_event.set()
-                self.__topic_route_scheduler.join()
-
-        if self.__heartbeat_scheduler is not None:
-            if self.__heartbeat_scheduler_threading_event is not None:
-                self.__heartbeat_scheduler_threading_event.set()
-                self.__heartbeat_scheduler.join()
-
-        if self.__sync_setting_scheduler is not None:
-            if self.__sync_setting_scheduler_threading_event is not None:
-                self.__sync_setting_scheduler_threading_event.set()
-                self.__sync_setting_scheduler.join()
-
-        if self.__clear_idle_rpc_channels_scheduler is not None:
-            if self.__clear_idle_rpc_channels_threading_event is not None:
-                self.__clear_idle_rpc_channels_threading_event.set()
-                self.__clear_idle_rpc_channels_scheduler.join()
-
-        if self.__client_callback_executor is not None:
+        if self.__topic_route_scheduler:
+            self.__topic_route_scheduler.stop_scheduler()
+            self.__topic_route_scheduler = None
+        if self.__heartbeat_scheduler:
+            self.__heartbeat_scheduler.stop_scheduler()
+            self.__heartbeat_scheduler = None
+        if self.__sync_setting_scheduler:
+            self.__sync_setting_scheduler.stop_scheduler()
+            self.__sync_setting_scheduler = None
+        if self.__clear_idle_rpc_channels_scheduler:
+            self.__clear_idle_rpc_channels_scheduler.stop_scheduler()
+            self.__clear_idle_rpc_channels_scheduler = None
+        if self.__client_callback_executor:
             self.__client_callback_executor.shutdown()
-
-        self.__topic_route_scheduler = None
-        self.__topic_route_scheduler_threading_event = None
-        self.__heartbeat_scheduler = None
-        self.__heartbeat_scheduler_threading_event = None
-        self.__sync_setting_scheduler = None
-        self.__sync_setting_scheduler_threading_event = None
-        self.__clear_idle_rpc_channels_scheduler = None
-        self.__clear_idle_rpc_channels_threading_event = None
-        self.__client_callback_executor = None
+            self.__client_callback_executor = None
 
     """ property """
 

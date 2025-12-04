@@ -23,27 +23,33 @@ if __name__ == '__main__':
     config = ClientConfiguration(endpoints, credentials)
     # with namespace
     # config = ClientConfiguration(endpoints, credentials, "namespace")
-    topic = "fifo-topic"
+    topic = "fifo-test-topic"
     producer = Producer(config, (topic,))
 
     try:
         producer.startup()
         try:
-            msg = Message()
-            # topic for the current message
-            msg.topic = topic
-            msg.body = "hello, rocketmq.".encode('utf-8')
-            # secondary classifier of message besides topic
-            msg.tag = "rocketmq-send-fifo-message"
-            # message group decides the message delivery order
-            msg.message_group = "your-message-group0"
-            res = producer.send(msg)
-            print(f"{producer.__str__()} send message success. {res}")
+            for i in range(1, 10):
+                msg = Message()
+                # topic for the current message
+                msg.topic = topic
+                msg.body = "hello, rocketmq.".encode('utf-8')
+                # secondary classifier of message besides topic
+                msg.tag = "rocketmq-send-fifo-message"
+                # message group decides the message delivery order
+                if i % 2 != 0:
+                    msg.message_group = "1"
+                else:
+                    msg.message_group = "2"
+                res = producer.send(msg)
+                print(f"{producer} send message success. {res}")
             producer.shutdown()
-            print(f"{producer.__str__()} shutdown.")
+            print(f"{producer} shutdown.")
         except Exception as e:
-            print(f"normal producer example raise exception: {e}")
+            print(f"{producer} raise exception: {e}")
             producer.shutdown()
+            print(f"{producer} shutdown.")
     except Exception as e:
-        print(f"{producer.__str__()} startup raise exception: {e}")
+        print(f"{producer} startup raise exception: {e}")
         producer.shutdown()
+        print(f"{producer} shutdown.")

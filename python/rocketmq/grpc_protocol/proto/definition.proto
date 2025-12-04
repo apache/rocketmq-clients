@@ -377,6 +377,8 @@ enum Code {
   PAYLOAD_TOO_LARGE = 41300;
   // Message body size exceeds the threshold.
   MESSAGE_BODY_TOO_LARGE = 41301;
+  // Message body is empty.
+  MESSAGE_BODY_EMPTY = 41302;
 
   // Generic code for use cases where pre-conditions are not met.
   // For example, if a producer instance is used to publish messages without prior start() invocation,

@@ -32,7 +32,7 @@ def consume_message(consumer, message):
 
 def receive_callback(receive_result_future, consumer):
     messages = receive_result_future.result()
-    print(f"{consumer.__str__()} receive {len(messages)} messages.")
+    print(f"{consumer} receive {len(messages)} messages.")
     for msg in messages:
         try:
             # consume message in other thread, don't block the async receive thread
@@ -50,9 +50,10 @@ if __name__ == '__main__':
     # with namespace
     # config = ClientConfiguration(endpoints, credentials, "namespace")
     topic = "topic"
+    consumer_group = "consumer-group"
     # in most case, you don't need to create too many consumers, singleton pattern is recommended
     # close the simple consumer when you don't need it anymore
-    simple_consumer = SimpleConsumer(config, "consumer-group")
+    simple_consumer = SimpleConsumer(config, consumer_group)
     try:
         simple_consumer.startup()
         try:
@@ -66,10 +67,12 @@ if __name__ == '__main__':
                     future = simple_consumer.receive_async(32, 15)
                     future.add_done_callback(functools.partial(receive_callback, consumer=simple_consumer))
                 except Exception as e:
-                    print(f"{simple_consumer.__str__()} receive topic:{topic} raise exception: {e}")
+                    print(f"{simple_consumer} raise exception: {e}")
         except Exception as e:
-            print(f"{simple_consumer.__str__()} subscribe topic:{topic} raise exception: {e}")
+            print(f"{simple_consumer} exception: {e}")
             simple_consumer.shutdown()
+            print(f"{simple_consumer} shutdown.")
     except Exception as e:
-        print(f"{simple_consumer.__str__()} startup raise exception: {e}")
+        print(f"{simple_consumer} startup raise exception: {e}")
         simple_consumer.shutdown()
+        print(f"{simple_consumer} shutdown.")

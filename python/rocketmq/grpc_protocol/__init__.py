@@ -14,17 +14,18 @@
 # limitations under the License.
 
 from .definition_pb2 import (Address, AddressScheme, Broker,  # noqa
-                             ClientType, Code, DigestType, Encoding, Endpoints,
-                             FilterType, Language, MessageType, Metric,
-                             Permission, Publishing, Resource, Settings,
-                             Status, Subscription, TransactionResolution,
-                             TransactionSource)
+                             ClientType, Code, DigestType, Encoding, Endpoints, # noqa
+                             FilterType, Language, MessageType, Metric, # noqa
+                             Permission, Publishing, Resource, Settings, # noqa
+                             Status, Subscription, TransactionResolution, # noqa
+                             TransactionSource) # noqa
 from .service_pb2 import (AckMessageEntry, AckMessageRequest,  # noqa
-                          ChangeInvisibleDurationRequest,
-                          EndTransactionRequest, HeartbeatRequest,
-                          NotifyClientTerminationRequest, QueryRouteRequest,
-                          ReceiveMessageRequest, SendMessageRequest,
-                          TelemetryCommand)
+                          ChangeInvisibleDurationRequest, # noqa
+                          EndTransactionRequest, HeartbeatRequest, # noqa
+                          NotifyClientTerminationRequest, QueryRouteRequest, # noqa
+                          ReceiveMessageRequest, SendMessageRequest, # noqa
+                          TelemetryCommand, RecallMessageRequest, QueryAssignmentRequest, # noqa
+                          ForwardMessageToDeadLetterQueueRequest) # noqa
 from .service_pb2_grpc import MessagingServiceStub
 
 __all__ = [
@@ -58,5 +59,8 @@ __all__ = [
     "ReceiveMessageRequest", # noqa
     "SendMessageRequest", # noqa
     "TelemetryCommand", # noqa
+    "RecallMessageRequest", # noqa
+    "QueryAssignmentRequest", # noqa
+    "ForwardMessageToDeadLetterQueueRequest", # noqa
     "MessagingServiceStub",
 ]

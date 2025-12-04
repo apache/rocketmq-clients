@@ -15,11 +15,13 @@
 
 import gzip
 import socket
+import time
 import zlib
 from hashlib import md5, sha1
 from platform import system, version
 from re import compile
 
+from google.protobuf.timestamp_pb2 import Timestamp
 from rocketmq.grpc_protocol import Language
 from rocketmq.v5.log import logger
 
@@ -29,7 +31,7 @@ class Misc:
     __OS_NAME = None
     TOPIC_PATTERN = compile(r"^[%a-zA-Z0-9_-]+$")
     CONSUMER_GROUP_PATTERN = compile(r"^[%a-zA-Z0-9_-]+$")
-    SDK_VERSION = "5.0.6"
+    SDK_VERSION = "5.0.8"
 
     @staticmethod
     def sdk_language():
@@ -97,13 +99,25 @@ class Misc:
                 return None
             os_version = version()  # os system version
             Misc.__OS_NAME = f"{os_name} {os_version}" if os_version else os_name
-
         return Misc.__OS_NAME
 
     @staticmethod
     def is_valid_topic(topic):
-        return bool(Misc.TOPIC_PATTERN.match(topic))
+        if not bool(Misc.TOPIC_PATTERN.match(topic)):
+            logger.warn(f"{topic} dose not match the regex [regex={Misc.TOPIC_PATTERN}]")
+            return False
+        return True
 
     @staticmethod
     def is_valid_consumer_group(topic):
         return bool(Misc.CONSUMER_GROUP_PATTERN.match(topic))
+
+    @staticmethod
+    def to_mills(timestamp: Timestamp):
+        if not timestamp:
+            return 0
+        return timestamp.seconds * 1000 + timestamp.nanos // 1_000_000
+
+    @staticmethod
+    def current_mills():
+        return time.time_ns() // 1_000_000

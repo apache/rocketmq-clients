@@ -15,9 +15,11 @@
 
 from .client import Client
 from .client_configuration import ClientConfiguration, Credentials
+from .scheduler import ClientScheduler
 
 __all__ = [
     "Client",
     "ClientConfiguration",
     "Credentials",
+    "ClientScheduler",
 ]

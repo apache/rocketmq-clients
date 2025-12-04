@@ -62,8 +62,22 @@ class MessageQueue:
         )
         return ret
 
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, MessageQueue):
+            return NotImplemented
+        if self.__broker_name < other.__broker_name:
+            return True
+        elif self.__broker_id < other.__broker_id:
+            return True
+        elif self.__queue_id < other.__queue_id:
+            return True
+        return False
+
     def __str__(self):
         return f"{self.__broker_name}.{self.__topic}.{self.__queue_id}"
+
+    def __hash__(self):
+        return hash((self.__broker_name, self.__topic, self.__queue_id))
 
     def message_queue0(self):
         # to grpc MessageQueue
@@ -96,6 +110,10 @@ class MessageQueue:
     @property
     def accept_message_types(self):
         return self.__accept_message_types
+
+    @property
+    def topic(self):
+        return self.__topic
 
 
 class TopicRouteData:
