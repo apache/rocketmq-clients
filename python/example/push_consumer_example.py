@@ -54,4 +54,3 @@ if __name__ == '__main__':
         print(f"{push_consumer} startup raise exception: {e}")
         push_consumer.shutdown()
         print(f"{push_consumer} shutdown.")
-
