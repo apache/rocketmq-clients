@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 import {
   Settings as SettingsPB,
   ClientType,
@@ -27,21 +25,23 @@ import { Settings, UserAgent } from '../client';
 import { createDuration, createResource } from '../util';
 import { FilterExpression } from './FilterExpression';
 
-export class SimpleSubscriptionSettings extends Settings {
-  readonly longPollingTimeout: number;
+export class PushSubscriptionSettings extends Settings {
   readonly group: string;
   readonly subscriptionExpressions: Map<string, FilterExpression>;
+  readonly maxCacheMessageCount: number;
+  readonly maxCacheMessageSizeInBytes: number;
 
-  constructor(namespace: string, clientId: string, accessPoint: Endpoints, group: string, requestTimeout: number, longPollingTimeout: number, subscriptionExpressions: Map<string, FilterExpression>) {
-    super(namespace, clientId, ClientType.SIMPLE_CONSUMER, accessPoint, requestTimeout);
-    this.longPollingTimeout = longPollingTimeout;
+  constructor(namespace: string, clientId: string, accessPoint: Endpoints, group: string, requestTimeout: number, subscriptionExpressions: Map<string, FilterExpression>, maxCacheMessageCount: number, maxCacheMessageSizeInBytes: number) {
+    super(namespace, clientId, ClientType.PUSH_CONSUMER, accessPoint, requestTimeout);
     this.group = group;
     this.subscriptionExpressions = subscriptionExpressions;
+    this.maxCacheMessageCount = maxCacheMessageCount;
+    this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
   }
+
   toProtobuf(): SettingsPB {
     const subscription = new Subscription()
-      .setGroup(createResource(this.group))
-      .setLongPollingTimeout(createDuration(this.longPollingTimeout));
+      .setGroup(createResource(this.group));
 
     for (const [ topic, filterExpression ] of this.subscriptionExpressions.entries()) {
       subscription.addSubscriptions()
