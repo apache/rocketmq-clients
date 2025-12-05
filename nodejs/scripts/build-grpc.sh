@@ -19,8 +19,7 @@ ARCH=$(uname -m)
 
 # Proto buf generation
 PWD=$(pwd)
-PATH_ROOT=$(dirname "$PWD")
-PATH_PROTO_ROOT="${PATH_ROOT}/protos"
+PATH_PROTO_ROOT="${PWD}/protos"
 PATH_PROTO_OUTPUT="${PWD}/proto"
 PATH_PROTO_OUTPUT_ROCKETMQ_V2="${PWD}/proto/apache/rocketmq/v2"
 
@@ -51,7 +50,6 @@ generateGrpc() {
     --ts_out="grpc_js:$PATH_PROTO_OUTPUT" \
     --grpc_out="grpc_js:$PATH_PROTO_OUTPUT" \
     "$PATH_PROTO/$PATH_FILE"
-  cp "$PATH_PROTO/$PATH_FILE" "${PATH_PROTO_OUTPUT_ROCKETMQ_V2}/"
 }
 
 echo ""
