@@ -55,7 +55,7 @@ class Message:
             self.__message_id = message.system_properties.message_id
             self.__body = self.__uncompress_body(message)
             self.__tag = message.system_properties.tag
-            if not message.system_properties.message_group:
+            if message.system_properties.message_group:
                 self.__message_group = message.system_properties.message_group
             self.__born_host = message.system_properties.born_host
             self.__born_timestamp = Misc.to_mills(message.system_properties.born_timestamp)
