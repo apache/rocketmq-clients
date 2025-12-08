@@ -22,6 +22,7 @@ from platform import system, version
 from re import compile
 
 from google.protobuf.timestamp_pb2 import Timestamp
+
 from rocketmq.grpc_protocol import Language
 from rocketmq.v5.log import logger
 
@@ -31,7 +32,7 @@ class Misc:
     __OS_NAME = None
     TOPIC_PATTERN = compile(r"^[%a-zA-Z0-9_-]+$")
     CONSUMER_GROUP_PATTERN = compile(r"^[%a-zA-Z0-9_-]+$")
-    SDK_VERSION = "5.0.8"
+    SDK_VERSION = "5.0.9"
 
     @staticmethod
     def sdk_language():
