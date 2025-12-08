@@ -22,7 +22,6 @@ from platform import system, version
 from re import compile
 
 from google.protobuf.timestamp_pb2 import Timestamp
-
 from rocketmq.grpc_protocol import Language
 from rocketmq.v5.log import logger
 

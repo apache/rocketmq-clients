@@ -20,7 +20,6 @@ from asyncio import InvalidStateError
 from concurrent.futures import ThreadPoolExecutor
 
 from grpc.aio import AioRpcError
-
 from rocketmq.grpc_protocol import ClientType, Code, QueryRouteRequest
 from rocketmq.v5.client.connection import RpcClient
 from rocketmq.v5.client.metrics import ClientMetrics
