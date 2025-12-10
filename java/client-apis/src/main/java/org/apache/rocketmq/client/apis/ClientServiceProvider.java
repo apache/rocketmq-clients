@@ -32,7 +32,7 @@ import org.apache.rocketmq.client.apis.producer.ProducerBuilder;
 public interface ClientServiceProvider {
 
     /**
-     * To avoid potential concurrency issues, the {@link ServiceLoader} logic
+     * To avoid potential concurrency issues, the {@link #loadService()} logic
      * has been changed to use lazy initialization with caching:
      * <p>
      * 1. Lazy loading + caching:
