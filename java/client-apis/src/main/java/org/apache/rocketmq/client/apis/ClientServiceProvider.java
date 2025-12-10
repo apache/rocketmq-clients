@@ -50,6 +50,10 @@ public interface ClientServiceProvider {
 
     class Holder {
         static volatile ClientServiceProvider INSTANCE;
+
+        private Holder() {
+            // prevents instantiation
+        }
     }
 
     static ClientServiceProvider loadService() {
