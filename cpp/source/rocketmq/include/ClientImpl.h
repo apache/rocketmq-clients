@@ -102,6 +102,10 @@ public:
     client_config_.withSsl = with_ssl;
   }
 
+  void withCallbackThreads(std::uint32_t callback_threads) {
+    client_config_.callback_threads = callback_threads;
+  }
+
   void withFifoConsumeAccelerator(bool fifo_consume_accelerator) {
     client_config_.subscriber.fifo_consume_accelerator = fifo_consume_accelerator;
   }

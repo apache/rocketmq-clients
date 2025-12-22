@@ -108,7 +108,9 @@ void ClientImpl::start() {
   client_config_.client_id = clientId();
   if (!client_manager_) {
     client_manager_ = std::make_shared<ClientManagerImpl>(
-        client_config_.resource_namespace, client_config_.withSsl);
+        client_config_.resource_namespace,
+        client_config_.withSsl,
+        client_config_.callback_threads);
     client_manager_->start();
   }
 
@@ -118,6 +120,11 @@ void ClientImpl::start() {
     return;
   }
 
+  // A gRPC I/O thread pool is created upon establishing a connection.
+  //   - https://github.com/grpc/grpc/issues/28642
+  //   - https://github.com/grpc/grpc/pull/31662
+  // The source code initializes the number of I/O threads as follows:
+  //   int num_io_threads = grpc_core::Clamp(gpr_cpu_num_cores() / 2, 2u, 16u);
   while (true) {
     createSession(endpoint, false);
     {

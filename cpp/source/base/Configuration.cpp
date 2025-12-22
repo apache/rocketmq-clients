@@ -48,6 +48,11 @@ ConfigurationBuilder& ConfigurationBuilder::withSsl(bool with_ssl) {
   return *this;
 }
 
+ConfigurationBuilder& ConfigurationBuilder::withCallbackThreads(std::uint32_t callback_threads){
+  configuration_.callback_threads_ = callback_threads;
+  return *this;
+}
+
 Configuration ConfigurationBuilder::build() {
   return std::move(configuration_);
 }

@@ -51,6 +51,10 @@ public:
     return tls_;
   }
 
+  std::uint32_t callbackThreads() const {
+    return callback_threads_;
+  }
+
 protected:
   friend class ConfigurationBuilder;
 
@@ -62,6 +66,7 @@ private:
   CredentialsProviderPtr    credentials_provider_;
   std::chrono::milliseconds request_timeout_{ConfigurationDefaults::RequestTimeout};
   bool tls_ = true;
+  std::uint32_t callback_threads_{2};
 };
 
 class ConfigurationBuilder {
@@ -75,6 +80,8 @@ public:
   ConfigurationBuilder& withRequestTimeout(std::chrono::milliseconds request_timeout);
 
   ConfigurationBuilder& withSsl(bool with_ssl);
+
+  ConfigurationBuilder& withCallbackThreads(std::uint32_t callback_threads);
 
   Configuration build();
 

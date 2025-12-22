@@ -44,10 +44,11 @@ PushConsumer PushConsumerBuilder::build() {
   impl->consumeThreadPoolSize(consume_thread_);
   impl->withNameServerResolver(std::make_shared<StaticNameServerResolver>(configuration_.endpoints()));
   impl->withResourceNamespace(configuration_.resourceNamespace());
-  impl->withSsl(configuration_.withSsl());
   impl->withCredentialsProvider(configuration_.credentialsProvider());
   impl->withRequestTimeout(configuration_.requestTimeout());
   impl->withFifoConsumeAccelerator(fifo_consume_accelerator_);
+  impl->withCallbackThreads(configuration_.callbackThreads());
+  impl->withSsl(configuration_.withSsl());
   impl->start();
   return PushConsumer(impl);
 }
