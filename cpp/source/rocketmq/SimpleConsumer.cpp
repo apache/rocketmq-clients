@@ -133,6 +133,7 @@ SimpleConsumer SimpleConsumerBuilder::build() {
   simple_consumer.impl_->withResourceNamespace(configuration_.resourceNamespace());
   simple_consumer.impl_->withCredentialsProvider(configuration_.credentialsProvider());
   simple_consumer.impl_->withReceiveMessageTimeout(await_duration_);
+  simple_consumer.impl_->withCallbackThreads(configuration_.callbackThreads());
   simple_consumer.impl_->withSsl(configuration_.withSsl());
 
   for (const auto& entry : subscriptions_) {

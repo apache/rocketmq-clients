@@ -32,7 +32,6 @@
 #include "ReceiveMessageContext.h"
 #include "RpcClient.h"
 #include "RpcClientImpl.h"
-#include "Scheduler.h"
 #include "SchedulerImpl.h"
 #include "UtilAll.h"
 #include "google/protobuf/util/time_util.h"
@@ -42,11 +41,11 @@
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-ClientManagerImpl::ClientManagerImpl(std::string resource_namespace, bool with_ssl)
-    : scheduler_(std::make_shared<SchedulerImpl>()),
+ClientManagerImpl::ClientManagerImpl(std::string resource_namespace, bool with_ssl, int thread_count)
+    : scheduler_(std::make_shared<SchedulerImpl>(2)),
       resource_namespace_(std::move(resource_namespace)),
       state_(State::CREATED),
-      callback_thread_pool_(absl::make_unique<ThreadPoolImpl>(std::thread::hardware_concurrency())),
+      callback_thread_pool_(absl::make_unique<ThreadPoolImpl>(thread_count)),
       with_ssl_(with_ssl) {
 
   certificate_verifier_ = grpc::experimental::ExternalCertificateVerifier::Create<InsecureCertificateVerifier>();

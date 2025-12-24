@@ -48,7 +48,7 @@ public:
    * effectively.
    * @param resource_namespace Abstract resource namespace, in which this client manager lives.
    */
-  explicit ClientManagerImpl(std::string resource_namespace, bool with_ssl = true);
+  explicit ClientManagerImpl(std::string resource_namespace, bool with_ssl = true, int thread_count = 1);
 
   ~ClientManagerImpl() override;
 

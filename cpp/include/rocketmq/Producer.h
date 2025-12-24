@@ -94,7 +94,7 @@ class ProducerBuilder {
 public:
   ProducerBuilder();
 
-  ProducerBuilder& withConfiguration(Configuration configuration);
+  ProducerBuilder& withConfiguration(const Configuration& configuration);
 
   ProducerBuilder& withTopics(const std::vector<std::string>& topics);
 
