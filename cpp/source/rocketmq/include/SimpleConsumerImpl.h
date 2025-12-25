@@ -66,7 +66,7 @@ protected:
 
 private:
   absl::flat_hash_map<std::string, FilterExpression> subscriptions_ GUARDED_BY(subscriptions_mtx_);
-  absl::Mutex subscriptions_mtx_;
+  mutable absl::Mutex subscriptions_mtx_;
 
   absl::flat_hash_map<std::string, std::vector<rmq::Assignment>> topic_assignments_ GUARDED_BY(topic_assignments_mtx_);
   absl::Mutex topic_assignments_mtx_;
@@ -92,6 +92,8 @@ private:
   void wrapAckRequest(const Message& message, AckMessageRequest& request);
 
   void removeAssignmentsByTopic(const std::string& topic) LOCKS_EXCLUDED(topic_assignments_mtx_, assignments_mtx_);
+
+  absl::optional<FilterExpression> getFilterExpression(const std::string &topic) const;
 };
 
 ROCKETMQ_NAMESPACE_END

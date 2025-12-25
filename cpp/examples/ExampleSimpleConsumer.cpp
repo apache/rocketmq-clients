@@ -40,7 +40,9 @@ int main(int argc, char* argv[]) {
   logger.setLevel(Level::Info);
   logger.init();
 
+  // Subscribe with Tag or SQL92 to filter messages on the server side
   std::string tag = "*";
+  // auto filter_expression = new FilterExpression("a = 1", ExpressionType::SQL92);
 
   CredentialsProviderPtr credentials_provider;
   if (!FLAGS_access_key.empty() && !FLAGS_access_secret.empty()) {
@@ -57,6 +59,7 @@ int main(int argc, char* argv[]) {
                                                     .withSsl(FLAGS_tls)
                                                     .build())
                              .subscribe(FLAGS_topic, tag)
+                             // .subscribe(FLAGS_topic, *filter_expression)
                              .withAwaitDuration(std::chrono::seconds(10))
                              .build();
   std::size_t total = 0;
