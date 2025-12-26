@@ -94,6 +94,90 @@ func TestParseTarget(t *testing.T) {
 	} else if !CompareEndpoints(endpointsExpect, endpoints) {
 		t.Errorf("Expected endpoints: %v, but got: %v", endpointsExpect, endpoints)
 	}
+
+	endpointIpv6Expect := &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv6,
+		Addresses: []*v2.Address{
+			{
+				Host: "fe80::1ff:fe23:4567:890a",
+				Port: 80,
+			},
+			{
+				Host: "2001:db8:abcd:12:1234:5678:9abc:def0",
+				Port: 80,
+			},
+		},
+	}
+	endpointIpv6s, err := ParseTarget("[fe80::1ff:fe23:4567:890a]:80;[2001:db8:abcd:12:1234:5678:9abc:def0]:80")
+	if err != nil {
+		t.Error(err)
+	} else if !CompareEndpoints(endpointIpv6Expect, endpointIpv6s) {
+		t.Errorf("Expected endpoints: %v, but got: %v", endpointIpv6Expect, endpointIpv6s)
+	}
+
+	endpointIpv6sWithHttpExpect := &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv6,
+		Addresses: []*v2.Address{
+			{
+				Host: "fe80::1ff:fe23:4567:890a",
+				Port: 80,
+			},
+		},
+	}
+	endpointIpv6sWithHttp, err := ParseTarget("http://[fe80::1ff:fe23:4567:890a]:80")
+	if err != nil {
+		t.Error(err)
+	} else if !CompareEndpoints(endpointIpv6sWithHttpExpect, endpointIpv6sWithHttp) {
+		t.Errorf("Expected endpoints: %v, but got: %v", endpointIpv6sWithHttpExpect, endpointIpv6sWithHttp)
+	}
+
+	endpointWithDomainExpect := &v2.Endpoints{
+		Scheme: v2.AddressScheme_DOMAIN_NAME,
+		Addresses: []*v2.Address{
+			{
+				Host: "rocketmq-xxxxx.rocketmq.com",
+				Port: 80,
+			},
+		},
+	}
+	endpointWithDomain, err := ParseTarget("rocketmq-xxxxx.rocketmq.com:80")
+	if err != nil {
+		t.Error(err)
+	} else if !CompareEndpoints(endpointWithDomainExpect, endpointWithDomain) {
+		t.Errorf("Expected endpoints: %v, but got: %v", endpointWithDomain, endpointWithDomain)
+	}
+}
+
+func TestEndpointsToString(t *testing.T) {
+	endpoints := &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv4,
+		Addresses: []*v2.Address{
+			{
+				Host: "127.0.0.1",
+				Port: 80,
+			},
+		},
+	}
+	expected := "127.0.0.1:80"
+	actual := EndpointsToString(endpoints)
+	if actual != expected {
+		t.Errorf("Expected %s, but got %s", expected, actual)
+	}
+
+	endpointsIpv6 := &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv6,
+		Addresses: []*v2.Address{
+			{
+				Host: "fe80::1ff:fe23:4567:890a",
+				Port: 80,
+			},
+		},
+	}
+	ipv6Actual := EndpointsToString(endpointsIpv6)
+	endpointsIpv6Expected := "[fe80::1ff:fe23:4567:890a]:80"
+	if ipv6Actual != endpointsIpv6Expected {
+		t.Errorf("Expected %s, but got %s", endpointsIpv6Expected, ipv6Actual)
+	}
 }
 
 func TestMatchMessageType(t *testing.T) {
