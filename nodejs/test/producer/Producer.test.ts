@@ -17,7 +17,9 @@
 
 import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
-import { NotFoundException, Producer, SimpleConsumer } from '../../src';
+import {
+  NotFoundException, Producer, SimpleConsumer, LitePushConsumer, ConsumeResult, MessageView,
+} from '../../src';
 import { TransactionResolution } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { topics, endpoints, sessionCredentials, consumerGroup, namespace } from '../helper';
 
@@ -288,6 +290,51 @@ describe('test/producer/Producer.test.ts', () => {
       // console.log(message);
       assert.equal(message.properties.get('__transactionId__'), receipt.transactionId);
       await simpleConsumer.ack(message);
+    });
+
+    it('should send message with liteTopic', async () => {
+      const topic = topics.normal;
+      const liteTopic = `lite-topic-${randomUUID()}`;
+      const tag = `nodejs-unittest-tag-${randomUUID()}`;
+
+      producer = new Producer({
+        endpoints,
+        namespace,
+        sessionCredentials,
+        topics: [topic],
+      });
+      await producer.startup();
+
+      let receivedMessage: MessageView | null = null;
+      const messageReceivedPromise = new Promise<void>(resolve => {
+        const mockMessageListener = async (message: MessageView): Promise<ConsumeResult> => {
+          receivedMessage = message;
+          resolve();
+          return ConsumeResult.SUCCESS;
+        };
+        const litePushConsumer = new LitePushConsumer({
+          endpoints,
+          namespace,
+          sessionCredentials,
+          consumerGroup,
+        }, mockMessageListener);
+        litePushConsumer.startup();
+        litePushConsumer.subscribeLite(liteTopic, tag);
+      });
+
+      const receipt = await producer.send({
+        topic,
+        tag,
+        liteTopic,
+        body: Buffer.from(JSON.stringify({ hello: 'world' })),
+      });
+      assert(receipt.messageId);
+
+      await messageReceivedPromise;
+
+      assert(receivedMessage, 'Message should not be null');
+      assert.equal((receivedMessage as MessageView).messageId, receipt.messageId);
+      assert.equal((receivedMessage as MessageView).body.toString(), '{"hello":"world"}');
     });
   });
 });

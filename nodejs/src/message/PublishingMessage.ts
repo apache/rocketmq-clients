@@ -86,6 +86,9 @@ export class PublishingMessage extends Message {
     if (this.messageGroup) {
       systemProperties.setMessageGroup(this.messageGroup);
     }
+    if (this.liteTopic) {
+      systemProperties.setLiteTopic(this.liteTopic);
+    }
 
     const resource = createResource(this.topic);
     resource.setResourceNamespace(namespace);

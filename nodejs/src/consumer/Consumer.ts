@@ -28,6 +28,11 @@ import { BaseClient, BaseClientOptions } from '../client';
 import { createDuration, createResource } from '../util';
 import { FilterExpression } from './FilterExpression';
 
+export enum ConsumeResult {
+  SUCCESS,
+  FAILURE,
+}
+
 export interface ConsumerOptions extends BaseClientOptions {
   consumerGroup: string;
 }
