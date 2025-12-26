@@ -41,11 +41,11 @@ ProcessQueueImpl::ProcessQueueImpl(rmq::MessageQueue message_queue, FilterExpres
       invisible_time_(MixAll::millisecondsOf(MixAll::DEFAULT_INVISIBLE_TIME_)),
       simple_name_(simpleNameOf(message_queue_)), consumer_(std::move(consumer)),
       client_manager_(std::move(client_instance)), cached_message_quantity_(0), cached_message_memory_(0) {
-  SPDLOG_DEBUG("Created ProcessQueue={}", simpleName());
+  SPDLOG_DEBUG("Created ProcessQueue={}", simple_name_);
 }
 
 ProcessQueueImpl::~ProcessQueueImpl() {
-  SPDLOG_INFO("ProcessQueue={} should have been re-balanced away, thus, is destructed", simpleName());
+  SPDLOG_INFO("ProcessQueue={} should have been re-balanced away, thus, is destructed", simple_name_);
 }
 
 void ProcessQueueImpl::callback(std::shared_ptr<AsyncReceiveMessageCallback> callback) {
@@ -120,7 +120,7 @@ void ProcessQueueImpl::popMessage(std::string& attempt_id) {
 
   std::weak_ptr<AsyncReceiveMessageCallback> cb{receive_callback_};
   auto callback =
-      [cb, &attempt_id](const std::error_code& ec, const ReceiveMessageResult& result) {
+      [cb, attempt_id](const std::error_code& ec, const ReceiveMessageResult& result) {
     std::shared_ptr<AsyncReceiveMessageCallback> receive_cb = cb.lock();
     if (receive_cb) {
       receive_cb->onCompletion(ec, attempt_id, result);

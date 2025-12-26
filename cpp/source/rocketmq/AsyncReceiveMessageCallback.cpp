@@ -36,7 +36,7 @@ AsyncReceiveMessageCallback::AsyncReceiveMessageCallback(std::weak_ptr<ProcessQu
 }
 
 void AsyncReceiveMessageCallback::onCompletion(
-    const std::error_code& ec, std::string& attempt_id, const ReceiveMessageResult& result) {
+    const std::error_code& ec, const std::string& attempt_id, const ReceiveMessageResult& result) {
 
   std::shared_ptr<ProcessQueue> process_queue = process_queue_.lock();
   if (!process_queue) {
@@ -76,7 +76,7 @@ void AsyncReceiveMessageCallback::onCompletion(
 
 const char* AsyncReceiveMessageCallback::RECEIVE_LATER_TASK_NAME = "receive-later-task";
 
-void AsyncReceiveMessageCallback::checkThrottleThenReceive(std::string attempt_id) {
+void AsyncReceiveMessageCallback::checkThrottleThenReceive(const std::string& attempt_id) {
   auto process_queue = process_queue_.lock();
   if (!process_queue) {
     SPDLOG_WARN("Process queue should have been destructed");
@@ -94,7 +94,7 @@ void AsyncReceiveMessageCallback::checkThrottleThenReceive(std::string attempt_i
   }
 }
 
-void AsyncReceiveMessageCallback::receiveMessageLater(std::chrono::milliseconds delay, std::string& attempt_id) {
+void AsyncReceiveMessageCallback::receiveMessageLater(std::chrono::milliseconds delay, const std::string& attempt_id) {
   auto process_queue = process_queue_.lock();
   if (!process_queue) {
     return;
@@ -103,7 +103,7 @@ void AsyncReceiveMessageCallback::receiveMessageLater(std::chrono::milliseconds 
   auto client_instance = process_queue->getClientManager();
   std::weak_ptr<AsyncReceiveMessageCallback> receive_callback_weak_ptr(shared_from_this());
 
-  auto task = [receive_callback_weak_ptr, &attempt_id]() {
+  auto task = [receive_callback_weak_ptr, attempt_id]() {
     auto async_receive_ptr = receive_callback_weak_ptr.lock();
     if (async_receive_ptr) {
       async_receive_ptr->checkThrottleThenReceive(attempt_id);
@@ -114,7 +114,7 @@ void AsyncReceiveMessageCallback::receiveMessageLater(std::chrono::milliseconds 
       task, RECEIVE_LATER_TASK_NAME, delay, std::chrono::seconds(0));
 }
 
-void AsyncReceiveMessageCallback::receiveMessageImmediately(std::string& attempt_id) {
+void AsyncReceiveMessageCallback::receiveMessageImmediately(const std::string& attempt_id) {
   auto process_queue_shared_ptr = process_queue_.lock();
   if (!process_queue_shared_ptr) {
     SPDLOG_INFO("ProcessQueue has been released. Ignore further receive message request-response cycles");
@@ -128,8 +128,9 @@ void AsyncReceiveMessageCallback::receiveMessageImmediately(std::string& attempt
     return;
   }
 
+  std::string attempt_id_copy = attempt_id;
   impl->receiveMessage(process_queue_shared_ptr->messageQueue(),
-                       process_queue_shared_ptr->getFilterExpression(), attempt_id);
+                       process_queue_shared_ptr->getFilterExpression(), attempt_id_copy);
 }
 
 ROCKETMQ_NAMESPACE_END
