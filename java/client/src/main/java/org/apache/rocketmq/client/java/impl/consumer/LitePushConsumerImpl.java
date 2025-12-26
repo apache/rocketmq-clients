@@ -40,6 +40,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
+import org.apache.rocketmq.client.apis.consumer.OffsetOption;
 import org.apache.rocketmq.client.java.exception.LiteSubscriptionQuotaExceededException;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -83,6 +84,11 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
 
     @Override
     public void subscribeLite(String liteTopic) throws ClientException {
+        subscribeLite(liteTopic, null);
+    }
+
+    @Override
+    public void subscribeLite(String liteTopic, OffsetOption offsetOption) throws ClientException {
         checkRunning();
         if (litePushConsumerSettings.containsLiteTopic(liteTopic)) {
             return;
@@ -90,7 +96,8 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         validateLiteTopic(liteTopic);
         checkLiteSubscriptionQuota(1);
         ListenableFuture<Void> future =
-            syncLiteSubscription(LiteSubscriptionAction.PARTIAL_ADD, Collections.singleton(liteTopic));
+            syncLiteSubscription(LiteSubscriptionAction.PARTIAL_ADD,
+                Collections.singleton(liteTopic), offsetOption);
         try {
             handleClientFuture(future);
         } catch (ClientException e) {
@@ -128,7 +135,8 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
             return;
         }
         ListenableFuture<Void> future =
-            syncLiteSubscription(LiteSubscriptionAction.PARTIAL_REMOVE, Collections.singleton(liteTopic));
+            syncLiteSubscription(LiteSubscriptionAction.PARTIAL_REMOVE,
+                Collections.singleton(liteTopic), null);
         try {
             handleClientFuture(future);
         } catch (ClientException e) {
@@ -149,19 +157,57 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     protected void syncAllLiteSubscription() throws ClientException {
         checkLiteSubscriptionQuota(0);
         final Set<String> set = litePushConsumerSettings.getLiteTopicSet();
-        ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.COMPLETE_ADD, set);
+        ListenableFuture<Void> future = syncLiteSubscription(LiteSubscriptionAction.COMPLETE_ADD, set, null);
         handleClientFuture(future);
     }
 
-    protected ListenableFuture<Void> syncLiteSubscription(LiteSubscriptionAction action, Collection<String> diff) {
-        SyncLiteSubscriptionRequest request = SyncLiteSubscriptionRequest.newBuilder()
+    protected ListenableFuture<Void> syncLiteSubscription(
+        LiteSubscriptionAction action,
+        Collection<String> diff,
+        OffsetOption offsetOption
+    ) {
+        SyncLiteSubscriptionRequest.Builder builder = SyncLiteSubscriptionRequest.newBuilder()
             .setAction(action)
             .setTopic(litePushConsumerSettings.bindTopic.toProtobuf())
             .setGroup(litePushConsumerSettings.group.toProtobuf())
-            .addAllLiteTopicSet(diff)
-            .build();
+            .addAllLiteTopicSet(diff);
+        if (offsetOption != null) {
+            builder.setOffsetOption(toProtobufOffsetOption(offsetOption));
+        }
         Endpoints endpoints = getEndpoints();
-        return syncLiteSubscription0(endpoints, request);
+        return syncLiteSubscription0(endpoints, builder.build());
+    }
+
+    protected apache.rocketmq.v2.OffsetOption toProtobufOffsetOption(OffsetOption offsetOption) {
+        apache.rocketmq.v2.OffsetOption.Builder protoBuilder = apache.rocketmq.v2.OffsetOption.newBuilder();
+        switch (offsetOption.getType()) {
+            case POLICY:
+                protoBuilder.setPolicy(toProtobufPolicy(offsetOption.getValue()));
+                break;
+            case OFFSET:
+                protoBuilder.setOffset(offsetOption.getValue());
+                break;
+            case TAIL_N:
+                protoBuilder.setTailN(offsetOption.getValue());
+                break;
+            case TIMESTAMP:
+                protoBuilder.setTimestamp(offsetOption.getValue());
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown OffsetOption type: " + offsetOption.getType());
+        }
+        return protoBuilder.build();
+    }
+
+    protected apache.rocketmq.v2.OffsetOption.Policy toProtobufPolicy(long policyValue) {
+        if (policyValue == OffsetOption.POLICY_LAST_VALUE) {
+            return apache.rocketmq.v2.OffsetOption.Policy.LAST;
+        } else if (policyValue == OffsetOption.POLICY_MIN_VALUE) {
+            return apache.rocketmq.v2.OffsetOption.Policy.MIN;
+        } else if (policyValue == OffsetOption.POLICY_MAX_VALUE) {
+            return apache.rocketmq.v2.OffsetOption.Policy.MAX;
+        }
+        throw new IllegalArgumentException("Unknown policy type: " + policyValue);
     }
 
     protected ListenableFuture<Void> syncLiteSubscription0(Endpoints endpoints, SyncLiteSubscriptionRequest request) {
