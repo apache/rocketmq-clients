@@ -439,9 +439,17 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 				nextAttemptId = request.GetAttemptId()
 			}
 			dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, MessageHookPointsStatus_ERROR)
-			dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%d, "+
-				"nextAttemptId=%s, clientId=%s, err=%w", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
-				clientId, err)
+
+			rpcError, ok := AsErrRpcStatus(err)
+			if ok && rpcError.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND) {
+				dpq.consumer.cli.log.Infof("latest message not found, mq=%s, endpoints=%v, attemptId=%s, "+
+					"nextAttemptId=%s, clientId=%s, err=%v", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
+					clientId, err)
+			} else {
+				dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%s, "+
+					"nextAttemptId=%s, clientId=%s, err=%v", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
+					clientId, err)
+			}
 
 			dpq.onReceiveMessageException(err, nextAttemptId)
 		}
