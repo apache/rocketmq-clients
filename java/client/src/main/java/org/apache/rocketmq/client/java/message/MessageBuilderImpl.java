@@ -41,6 +41,7 @@ public class MessageBuilderImpl implements MessageBuilder {
     protected String messageGroup = null;
     protected String liteTopic = null;
     protected Long deliveryTimestamp = null;
+    protected Integer priority = null;
     protected Collection<String> keys = new HashSet<>();
     protected final Map<String, String> properties = new HashMap<>();
 
@@ -100,6 +101,7 @@ public class MessageBuilderImpl implements MessageBuilder {
     public MessageBuilder setMessageGroup(String messageGroup) {
         checkArgument(null == deliveryTimestamp, "messageGroup and deliveryTimestamp should not be set at same time");
         checkArgument(null == liteTopic, "messageGroup and liteTopic should not be set at same time");
+        checkArgument(null == priority, "messageGroup and priority should not be set at same time");
         checkArgument(StringUtils.isNotBlank(messageGroup), "messageGroup should not be blank");
         this.messageGroup = messageGroup;
         return this;
@@ -109,6 +111,7 @@ public class MessageBuilderImpl implements MessageBuilder {
     public MessageBuilder setLiteTopic(String liteTopic) {
         checkArgument(null == deliveryTimestamp, "liteTopic and deliveryTimestamp should not be set at same time");
         checkArgument(null == messageGroup, "liteTopic and messageGroup should not be set at same time");
+        checkArgument(null == priority, "liteTopic and priority should not be set at same time");
         checkArgument(StringUtils.isNotBlank(liteTopic), "liteTopic should not be blank");
         this.liteTopic = liteTopic;
         return this;
@@ -121,7 +124,21 @@ public class MessageBuilderImpl implements MessageBuilder {
     public MessageBuilder setDeliveryTimestamp(long deliveryTimestamp) {
         checkArgument(null == messageGroup, "deliveryTimestamp and messageGroup should not be set at same time");
         checkArgument(null == liteTopic, "deliveryTimestamp and liteTopic should not be set at same time");
+        checkArgument(null == priority, "deliveryTimestamp and priority should not be set at same time");
         this.deliveryTimestamp = deliveryTimestamp;
+        return this;
+    }
+
+    /**
+     * See {@link MessageBuilder#setPriority(int)}
+     */
+    @Override
+    public MessageBuilder setPriority(int priority) {
+        checkArgument(null == deliveryTimestamp, "priority and deliveryTimestamp should not be set at same time");
+        checkArgument(null == messageGroup, "priority and messageGroup should not be set at same time");
+        checkArgument(null == liteTopic, "priority and liteTopic should not be set at same time");
+        checkArgument(priority >= 0, "priority must be greater than or equal to 0");
+        this.priority = priority;
         return this;
     }
 

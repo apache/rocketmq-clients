@@ -49,6 +49,8 @@ public class MessageImpl implements Message {
     private final String liteTopic;
     @Nullable
     private final Long deliveryTimestamp;
+    @Nullable
+    private final Integer priority;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exception or
@@ -61,6 +63,7 @@ public class MessageImpl implements Message {
         this.messageGroup = builder.messageGroup;
         this.liteTopic = builder.liteTopic;
         this.deliveryTimestamp = builder.deliveryTimestamp;
+        this.priority = builder.priority;
         this.keys = builder.keys;
         this.properties = builder.properties;
     }
@@ -81,6 +84,7 @@ public class MessageImpl implements Message {
         this.messageGroup = message.getMessageGroup().orElse(null);
         this.deliveryTimestamp = message.getDeliveryTimestamp().orElse(null);
         this.liteTopic = message.getLiteTopic().orElse(null);
+        this.priority = message.getPriority().orElse(null);
         this.keys = message.getKeys();
         this.properties = message.getProperties();
     }
@@ -134,6 +138,14 @@ public class MessageImpl implements Message {
     }
 
     /**
+     * @see Message#getPriority()
+     */
+    @Override
+    public Optional<Integer> getPriority() {
+        return Optional.ofNullable(priority);
+    }
+
+    /**
      * @see Message#getMessageGroup()
      */
     @Override
@@ -152,7 +164,9 @@ public class MessageImpl implements Message {
             .add("topic", topic)
             .add("tag", tag)
             .add("messageGroup", messageGroup)
+            .add("liteTopic", liteTopic)
             .add("deliveryTimestamp", deliveryTimestamp)
+            .add("priority", priority)
             .add("keys", keys)
             .add("properties", properties)
             .toString();

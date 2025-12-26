@@ -22,6 +22,7 @@ public enum MessageType {
     FIFO,
     LITE,
     DELAY,
+    PRIORITY,
     TRANSACTION;
 
     public static MessageType fromProtobuf(apache.rocketmq.v2.MessageType messageType) {
@@ -36,6 +37,8 @@ public enum MessageType {
                 return MessageType.DELAY;
             case TRANSACTION:
                 return MessageType.TRANSACTION;
+            case PRIORITY:
+                return MessageType.PRIORITY;
             case MESSAGE_TYPE_UNSPECIFIED:
             default:
                 throw new IllegalArgumentException("Message type is not specified");
@@ -54,6 +57,8 @@ public enum MessageType {
                 return apache.rocketmq.v2.MessageType.DELAY;
             case TRANSACTION:
                 return apache.rocketmq.v2.MessageType.TRANSACTION;
+            case PRIORITY:
+                return apache.rocketmq.v2.MessageType.PRIORITY;
             default:
                 return apache.rocketmq.v2.MessageType.MESSAGE_TYPE_UNSPECIFIED;
         }

@@ -106,6 +106,13 @@ public interface MessageBuilder {
     MessageBuilder setDeliveryTimestamp(long deliveryTimestamp);
 
     /**
+     * Set the priority for the message, which is optional.
+     * @param priority non-negative number in the range [0, N], regarded as highest priority if exceeds N
+     * @return the message builder instance.
+     */
+    MessageBuilder setPriority(int priority);
+
+    /**
      * Add user property for the message.
      *
      * @param key   single property key.

@@ -53,6 +53,7 @@ public class MessageViewImpl implements MessageView {
     private final String messageGroup;
     private final String liteTopic;
     private final Long deliveryTimestamp;
+    private final Integer priority;
     private final Collection<String> keys;
     private final Map<String, String> properties;
     private final String bornHost;
@@ -68,7 +69,7 @@ public class MessageViewImpl implements MessageView {
 
     public MessageViewImpl(MessageId messageId, String topic, byte[] body, String tag,
         String messageGroup, String liteTopic,
-        Long deliveryTimestamp, Collection<String> keys, Map<String, String> properties,
+        Long deliveryTimestamp, Integer priority, Collection<String> keys, Map<String, String> properties,
         String bornHost, long bornTimestamp, int deliveryAttempt, MessageQueueImpl messageQueue,
         String receiptHandle, long offset, boolean corrupted,
         Long transportDeliveryTimestamp) {
@@ -79,6 +80,7 @@ public class MessageViewImpl implements MessageView {
         this.messageGroup = messageGroup;
         this.liteTopic = liteTopic;
         this.deliveryTimestamp = deliveryTimestamp;
+        this.priority = priority;
         this.keys = checkNotNull(keys, "keys should not be null");
         this.properties = checkNotNull(properties, "properties should not be null");
         this.bornHost = checkNotNull(bornHost, "bornHost should not be null");
@@ -163,6 +165,14 @@ public class MessageViewImpl implements MessageView {
     @Override
     public Optional<Long> getDeliveryTimestamp() {
         return Optional.ofNullable(deliveryTimestamp);
+    }
+
+    /**
+     * @see MessageView#getPriority()
+     */
+    @Override
+    public Optional<Integer> getPriority() {
+        return Optional.ofNullable(priority);
     }
 
     /**
@@ -303,6 +313,7 @@ public class MessageViewImpl implements MessageView {
         String liteTopic = systemProperties.hasLiteTopic() ? systemProperties.getLiteTopic() : null;
         Long deliveryTimestamp = systemProperties.hasDeliveryTimestamp() ?
             Timestamps.toMillis(systemProperties.getDeliveryTimestamp()) : null;
+        Integer priority = systemProperties.hasPriority() ? systemProperties.getPriority() : null;
         final ProtocolStringList keys = systemProperties.getKeysList();
         final String bornHost = systemProperties.getBornHost();
         final long bornTimestamp = Timestamps.toMillis(systemProperties.getBornTimestamp());
@@ -310,7 +321,7 @@ public class MessageViewImpl implements MessageView {
         final long offset = systemProperties.getQueueOffset();
         final Map<String, String> properties = message.getUserPropertiesMap();
         final String receiptHandle = systemProperties.getReceiptHandle();
-        return new MessageViewImpl(messageId, topic, body, tag, messageGroup, liteTopic, deliveryTimestamp,
+        return new MessageViewImpl(messageId, topic, body, tag, messageGroup, liteTopic, deliveryTimestamp, priority,
             keys, properties, bornHost, bornTimestamp, deliveryAttempt,
             mq, receiptHandle, offset, corrupted, transportDeliveryTimestamp);
     }
@@ -329,6 +340,7 @@ public class MessageViewImpl implements MessageView {
             .add("messageGroup", messageGroup)
             .add("liteTopic", liteTopic)
             .add("deliveryTimestamp", deliveryTimestamp)
+            .add("priority", priority)
             .add("properties", properties)
             .toString();
     }

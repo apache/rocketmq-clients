@@ -97,6 +97,13 @@ public interface GeneralMessage {
     Optional<Long> getDeliveryTimestamp();
 
     /**
+     * Get the priority of the message, which makes sense only when topic type is priority.
+     *
+     * @return message priority, which is optional, {@link Optional#empty()} means priority is not specified.
+     */
+    Optional<Integer> getPriority();
+
+    /**
      * Get the born host of the message.
      *
      * @return born host of the message, which is optional, {@link Optional#empty()} means born host is not specified.
