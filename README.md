@@ -28,6 +28,7 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 | Push consumer with concurrent message listener |   ✅   |   ✅   |   ✅   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
 | Push consumer with FIFO message listener       |   ✅   |   ✅   |   ✅   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
 | Push consumer with FIFO consume accelerator    |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |   🚧    |    🚧    |   🚧   |
+| Priority Message                               |   ✅   |   🚧   |   🚧   |   🚧    |   🚧   |   🚧    |    🚧    |   🚧   |
 
 ## Prerequisite and Build
 

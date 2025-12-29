@@ -28,6 +28,7 @@
 | Push consumer with concurrent message listener |   ✅   |   ✅   |   ✅   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
 | Push consumer with FIFO message listener       |   ✅   |   ✅   |   ✅   |   🚧    |   ✅   |   🚧    |    🚧    |   🚧   |
 | Push consumer with FIFO consume accelerator    |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |   🚧    |    🚧    |   🚧   |
+| Priority Message                               |   ✅   |   🚧   |   🚧   |   🚧    |   🚧   |   🚧    |    🚧    |   🚧   |
 
 ## 先决条件和构建
 
