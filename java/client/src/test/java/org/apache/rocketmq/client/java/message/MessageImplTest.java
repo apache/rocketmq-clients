@@ -130,6 +130,8 @@ public class MessageImplTest extends TestBase {
         assertArrayEquals(FAKE_MESSAGE_BODY, bytes);
         assertFalse(message.getDeliveryTimestamp().isPresent());
         assertFalse(message.getMessageGroup().isPresent());
+        assertFalse(message.getLiteTopic().isPresent());
+        assertFalse(message.getPriority().isPresent());
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -146,6 +148,48 @@ public class MessageImplTest extends TestBase {
             .build();
         assertTrue(message.getLiteTopic().isPresent());
         assertEquals("liteTopicA", message.getLiteTopic().get());
+    }
+
+    @Test
+    public void testPrioritySetter() {
+        final Message message =
+            provider.newMessageBuilder().setPriority(1).setTopic(FAKE_TOPIC_0).setBody(FAKE_MESSAGE_BODY).build();
+        assertTrue(message.getPriority().isPresent());
+        assertEquals(1, (int) message.getPriority().get());
+
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setPriority(-1));
+    }
+
+    @Test
+    public void testMessageTypeConflict() {
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setDeliveryTimestamp(System.currentTimeMillis()).setMessageGroup("HW"));
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setDeliveryTimestamp(System.currentTimeMillis()).setLiteTopic("HW"));
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setDeliveryTimestamp(System.currentTimeMillis()).setPriority(1));
+
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setMessageGroup("HW").setLiteTopic("HW"));
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setMessageGroup("HW").setDeliveryTimestamp(System.currentTimeMillis()));
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setMessageGroup("HW").setPriority(1));
+
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setLiteTopic("HW").setMessageGroup("HW"));
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setLiteTopic("HW").setDeliveryTimestamp(System.currentTimeMillis()));
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setLiteTopic("HW").setPriority(1));
+
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setPriority(1).setDeliveryTimestamp(System.currentTimeMillis()));
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setPriority(1).setLiteTopic("HW"));
+        Assert.assertThrows(IllegalArgumentException.class, () ->
+            provider.newMessageBuilder().setPriority(1).setMessageGroup("HW"));
     }
 
 }

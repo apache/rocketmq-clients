@@ -177,6 +177,39 @@ public class GeneralMessageImplTest extends TestBase {
     }
 
     @Test
+    public void testMessagePriority() {
+        String topic = "testTopic";
+        byte[] body = "foobar".getBytes(StandardCharsets.UTF_8);
+        int priority = 1;
+
+        final Message message = new MessageBuilderImpl()
+            .setTopic(topic)
+            .setBody(body)
+            .setPriority(priority)
+            .build();
+
+        final GeneralMessageImpl generalMessage = new GeneralMessageImpl(message);
+        assertFalse(generalMessage.getMessageId().isPresent());
+        assertEquals(topic, generalMessage.getTopic());
+        assertEquals(ByteBuffer.wrap(body), generalMessage.getBody());
+        assertFalse(generalMessage.getTag().isPresent());
+        assertEquals(0, generalMessage.getKeys().size());
+
+        assertTrue(generalMessage.getPriority().isPresent());
+        assertEquals(priority, (int) generalMessage.getPriority().get());
+
+        assertFalse(generalMessage.getMessageGroup().isPresent());
+        assertFalse(generalMessage.getBornHost().isPresent());
+        assertFalse(generalMessage.getBornTimestamp().isPresent());
+        assertFalse(generalMessage.getDeliveryAttempt().isPresent());
+        assertFalse(generalMessage.getLiteTopic().isPresent());
+        assertFalse(generalMessage.getDecodeTimestamp().isPresent());
+        assertFalse(generalMessage.getTransportDeliveryTimestamp().isPresent());
+
+        assertFalse(generalMessage.getDeliveryTimestamp().isPresent());
+    }
+
+    @Test
     public void testMessageView() {
         MessageId messageId = MessageIdCodec.getInstance().nextMessageId();
         String topic = "testTopic";
@@ -185,6 +218,7 @@ public class GeneralMessageImplTest extends TestBase {
         String messageGroup = "messageGroup0";
         String liteTopic = "liteTopic0";
         long deliveryTimestamp = System.currentTimeMillis();
+        int priority = 1;
         List<String> keys = new ArrayList<>();
         keys.add("keyA");
         Map<String, String> properties = new HashMap<>();
@@ -200,7 +234,7 @@ public class GeneralMessageImplTest extends TestBase {
 
         final MessageViewImpl messageView = new MessageViewImpl(messageId, topic, body, tag,
             messageGroup, liteTopic,
-            deliveryTimestamp, keys, properties, bornHost, bornTimestamp, deliveryAttempt, mq, receiptHandle,
+            deliveryTimestamp, priority, keys, properties, bornHost, bornTimestamp, deliveryAttempt, mq, receiptHandle,
             offset, corrupted, transportDeliveryTimestamp);
         final GeneralMessageImpl generalMessage = new GeneralMessageImpl(messageView);
         assertTrue(generalMessage.getMessageId().isPresent());
@@ -217,6 +251,8 @@ public class GeneralMessageImplTest extends TestBase {
         assertEquals(liteTopic, generalMessage.getLiteTopic().get());
         assertTrue(generalMessage.getDeliveryTimestamp().isPresent());
         assertEquals(deliveryTimestamp, (long) generalMessage.getDeliveryTimestamp().get());
+        assertTrue(generalMessage.getPriority().isPresent());
+        assertEquals(priority, (int) generalMessage.getPriority().get());
         assertTrue(generalMessage.getBornHost().isPresent());
         assertEquals(bornHost, generalMessage.getBornHost().get());
         assertTrue(generalMessage.getBornTimestamp().isPresent());

@@ -183,7 +183,7 @@ public class TestBase {
         final byte[] body = RandomUtils.nextBytes(bodySize);
         Map<String, String> properties = new HashMap<>();
         List<String> keys = new ArrayList<>();
-        return new MessageViewImpl(messageId, FAKE_TOPIC_0, body, null, null, null, null,
+        return new MessageViewImpl(messageId, FAKE_TOPIC_0, body, null, null, null, null, null,
             keys, properties, FAKE_HOST_0, 1, 1, mq, FAKE_RECEIPT_HANDLE_0, 1, corrupted,
             System.currentTimeMillis());
     }
