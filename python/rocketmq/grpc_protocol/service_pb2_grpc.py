@@ -117,6 +117,11 @@ class MessagingServiceStub(object):
                 request_serializer=service__pb2.RecallMessageRequest.SerializeToString,
                 response_deserializer=service__pb2.RecallMessageResponse.FromString,
                 )
+        self.SyncLiteSubscription = channel.unary_unary(
+                '/apache.rocketmq.v2.MessagingService/SyncLiteSubscription',
+                request_serializer=service__pb2.SyncLiteSubscriptionRequest.SerializeToString,
+                response_deserializer=service__pb2.SyncLiteSubscriptionResponse.FromString,
+                )
 
 
 class MessagingServiceServicer(object):
@@ -308,6 +313,13 @@ class MessagingServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SyncLiteSubscription(self, request, context):
+        """Sync lite subscription info, lite push consumer only
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_MessagingServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -390,6 +402,11 @@ def add_MessagingServiceServicer_to_server(servicer, server):
                     servicer.RecallMessage,
                     request_deserializer=service__pb2.RecallMessageRequest.FromString,
                     response_serializer=service__pb2.RecallMessageResponse.SerializeToString,
+            ),
+            'SyncLiteSubscription': grpc.unary_unary_rpc_method_handler(
+                    servicer.SyncLiteSubscription,
+                    request_deserializer=service__pb2.SyncLiteSubscriptionRequest.FromString,
+                    response_serializer=service__pb2.SyncLiteSubscriptionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -680,5 +697,22 @@ class MessagingService(object):
         return grpc.experimental.unary_unary(request, target, '/apache.rocketmq.v2.MessagingService/RecallMessage',
             service__pb2.RecallMessageRequest.SerializeToString,
             service__pb2.RecallMessageResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SyncLiteSubscription(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/apache.rocketmq.v2.MessagingService/SyncLiteSubscription',
+            service__pb2.SyncLiteSubscriptionRequest.SerializeToString,
+            service__pb2.SyncLiteSubscriptionResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

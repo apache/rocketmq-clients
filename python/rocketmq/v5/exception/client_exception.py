@@ -21,7 +21,7 @@ class ClientException(Exception):
         self.__code = code
 
     def __str__(self):
-        if self.__code is not None:
+        if self.__code:
             return f"{self.__code}, {super().__str__()}"
         else:
             return f"{super().__str__()}"
@@ -32,69 +32,59 @@ class ClientException(Exception):
 
 
 class BadRequestException(ClientException):
-
-    def __init__(self, message, code):
-        super().__init__(message, code)
+    pass
 
 
 class UnauthorizedException(ClientException):
-
-    def __init__(self, message, code):
-        super().__init__(message, code)
+    pass
 
 
 class PaymentRequiredException(ClientException):
-
-    def __init__(self, message, code):
-        super().__init__(message, code)
+    pass
 
 
 class ForbiddenException(ClientException):
-
-    def __init__(self, message, code):
-        super().__init__(message, code)
+    pass
 
 
 class NotFoundException(ClientException):
-
-    def __init__(self, message, code):
-        super().__init__(message, code)
+    pass
 
 
 class PayloadTooLargeException(ClientException):
+    pass
 
-    def __init__(self, message, code):
-        super().__init__(message, code)
+
+class PayloadEmptyException(ClientException):
+    pass
 
 
 class TooManyRequestsException(ClientException):
+    pass
 
-    def __init__(self, message, code):
-        super().__init__(message, code)
+
+class LiteTopicQuotaExceededException(ClientException):
+    pass
+
+
+class LiteSubscriptionQuotaExceededException(ClientException):
+    pass
 
 
 class RequestHeaderFieldsTooLargeException(ClientException):
-
-    def __init__(self, message, code):
-        super().__init__(message, code)
+    pass
 
 
 class InternalErrorException(ClientException):
-
-    def __init__(self, message, code):
-        super().__init__(message, code)
+    pass
 
 
 class ProxyTimeoutException(ClientException):
-
-    def __init__(self, message, code):
-        super().__init__(message, code)
+    pass
 
 
 class UnsupportedException(ClientException):
-
-    def __init__(self, message, code=None):
-        super().__init__(message, code)
+    pass
 
 
 class IllegalArgumentException(ClientException):

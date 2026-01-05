@@ -57,7 +57,7 @@ class Consumer(Client):
         self._consumer_group = consumer_group
         # <String /* topic */, FilterExpression>
         self._subscriptions = ConcurrentMap()
-        if subscription is not None:
+        if subscription:
             self._subscriptions.update(subscription)
 
     def subscribe(self, topic, filter_expression: FilterExpression = None):
@@ -94,14 +94,16 @@ class Consumer(Client):
             self._subscriptions.remove(topic)
             self._remove_unused_topic_route_data(topic)
 
-    def ack(self, message: Message):
+    """ protect """
+
+    def _ack(self, message: Message):
         try:
             future = self.__ack(message)
             self.__handle_ack_result(future)
         except Exception as e:
             raise e
 
-    def ack_async(self, message: Message):
+    def _ack_async(self, message: Message):
         try:
             future = self.__ack(message)
             ret_future = Future()
@@ -113,14 +115,14 @@ class Consumer(Client):
         except Exception as e:
             raise e
 
-    def change_invisible_duration(self, message: Message, invisible_duration):
+    def _change_invisible_duration(self, message: Message, invisible_duration):
         try:
             future = self.__change_invisible_duration(message, invisible_duration)
             self.__handle_change_invisible_result(future, message)
         except Exception as e:
             raise e
 
-    def change_invisible_duration_async(self, message: Message, invisible_duration):
+    def _change_invisible_duration_async(self, message: Message, invisible_duration):
         try:
             future = self.__change_invisible_duration(message, invisible_duration)
             ret_future = Future()
@@ -131,8 +133,6 @@ class Consumer(Client):
             return ret_future
         except Exception as e:
             raise e
-
-    """ protect """
 
     def _receive(self, queue, req, timeout):
         try:
@@ -170,8 +170,9 @@ class Consumer(Client):
         req.group.name = self._consumer_group
         req.group.resource_namespace = self.client_configuration.namespace
         req.message_queue.CopyFrom(queue.message_queue0())
-        req.filter_expression.type = filter_expression.filter_type
-        req.filter_expression.expression = filter_expression.expression
+        if filter_expression:
+            req.filter_expression.type = filter_expression.filter_type
+            req.filter_expression.expression = filter_expression.expression
         req.batch_size = max_message_num
         if invisible_duration:
             req.invisible_duration.seconds = invisible_duration
@@ -250,6 +251,8 @@ class Consumer(Client):
         msg_entry = AckMessageEntry()
         msg_entry.message_id = message.message_id
         msg_entry.receipt_handle = message.receipt_handle
+        if self.client_type == ClientType.LITE_PUSH_CONSUMER:
+            msg_entry.lite_topic = message.lite_topic
         req.entries.append(msg_entry)
         return req
 

@@ -72,6 +72,10 @@ class SimpleConsumer(Consumer):
         super().shutdown()
         logger.info(f"shutdown {self} success.")
 
+    def reset_setting(self, settings):
+        if not self._init_settings_event.is_set():
+            self._init_settings_event.set()
+
     def _on_start(self):
         logger.info(f"{self} start success.")
 
@@ -88,6 +92,20 @@ class SimpleConsumer(Consumer):
         if queue_selector is None:
             return
         queue_selector.update(topic_route)
+
+    """ public """
+
+    def ack(self, message):
+        self._ack(message)
+
+    def ack_async(self, message):
+        self._ack_async(message)
+
+    def change_invisible_duration(self, message, invisible_duration):
+        self._change_invisible_duration(message, invisible_duration)
+
+    def change_invisible_duration_async(self, message, invisible_duration):
+        self._change_invisible_duration_async(message, invisible_duration)
 
     """ private """
 

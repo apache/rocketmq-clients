@@ -24,11 +24,11 @@ from rocketmq.grpc_protocol import (ClientType, Code,
                                     QueryAssignmentRequest)
 from rocketmq.v5.client import ClientConfiguration, ClientScheduler
 from rocketmq.v5.consumer.consumer import Consumer
-from rocketmq.v5.consumer.consumption import Consumption
-from rocketmq.v5.consumer.fifo_consumption import FifoConsumption
-from rocketmq.v5.consumer.message_listener import (ConsumeResult,
-                                                   MessageListener)
-from rocketmq.v5.exception import BadRequestException, IllegalStateException
+from rocketmq.v5.consumer.push.consumption import Consumption
+from rocketmq.v5.consumer.push.fifo_consumption import FifoConsumption
+from rocketmq.v5.consumer.push.message_listener import (ConsumeResult,
+                                                        MessageListener)
+from rocketmq.v5.exception import BadRequestException
 from rocketmq.v5.log import logger
 from rocketmq.v5.model.assignment import Assignments
 from rocketmq.v5.model.process_queue import ProcessQueue
@@ -39,6 +39,7 @@ from rocketmq.v5.util import ConcurrentMap, MessagingResultChecker
 class PushConsumer(Consumer):
 
     ACK_MESSAGE_FAILURE_BACKOFF_DELAY = 1
+    DEFAULT_CONSUME_ATTEMPTS = 17
     RECEIVE_RETRY_DELAY = 1
 
     def __init__(
@@ -50,12 +51,13 @@ class PushConsumer(Consumer):
         max_cache_message_count=1024,
         max_cache_message_size=64 * 1024 * 1024,  # in bytes, 64MB default
         consumption_thread_count=20,
-        tls_enable=False
+        tls_enable=False,
+        client_type=ClientType.PUSH_CONSUMER
     ):
         super().__init__(
             client_configuration,
             consumer_group,
-            ClientType.PUSH_CONSUMER,
+            client_type,
             subscription,
             tls_enable
         )
@@ -73,10 +75,14 @@ class PushConsumer(Consumer):
         self.__receive_batch_size = 32
         self.__long_polling_timeout = 30  # seconds
 
-    def set_listener(self, message_listener: MessageListener):
-        self.__message_listener = message_listener
-
     """ override """
+
+    def unsubscribe(self, topic):
+        super().unsubscribe(topic)
+        for message_queue, process_queue in self.__process_queues.items():
+            if message_queue.topic == topic:
+                self.__drop_message_queue(message_queue)
+        self.__assignments.remove(topic)
 
     def shutdown(self):
         logger.info(f"begin to to shutdown {self}.")
@@ -85,28 +91,34 @@ class PushConsumer(Consumer):
         logger.info(f"shutdown {self} success.")
 
     def reset_setting(self, settings):
-        self.__long_polling_timeout = settings.subscription.long_polling_timeout.seconds
-        self.__configure_consumer_consumption(settings)
+        if settings:
+            self.__long_polling_timeout = settings.subscription.long_polling_timeout.seconds
+            self.__configure_consumer_consumption(settings)
+            if not self._init_settings_event.is_set():
+                self._init_settings_event.set()
 
     def reset_metric(self, metric):
         super().reset_metric(metric)
         self.__register_process_queues_gauges()
 
-    def _sync_setting_req(self, endpoints):
-        req = super()._sync_setting_req(endpoints)
-        req.settings.subscription.long_polling_timeout.seconds = self.__long_polling_timeout
-        return req
+    # def _sync_setting_req(self, endpoints):
+    #     req = super()._sync_setting_req(endpoints)
+    #     req.settings.subscription.long_polling_timeout.seconds = self.__long_polling_timeout
+    #     return req
 
     def _pre_start(self):
         if not self.__message_listener:
-            logger.error("message listener has not been set yet")
-            raise IllegalStateException(f"{self}'s message listener has not been set yet.")
+            raise Exception("messageListener has not been set yet.")
+
+        if not self._subscriptions.keys():
+            raise Exception("subscription expressions have not been set yet.")
 
     def _on_start(self):
         try:
             self.__start_async_executor()
             self.__scan_assignment_scheduler = ClientScheduler(f"{self.client_id}_scan_assignment_schedule_thread", self.__scan_assignment, 1, 5, self._rpc_channel_io_loop())
             self.__scan_assignment_scheduler.start_scheduler()
+            logger.info("start scan assignment scheduler success.")
             logger.info(f"{self} start success.")
         except Exception as e:
             logger.error(f"{self} on start error, {e}")
@@ -128,10 +140,11 @@ class PushConsumer(Consumer):
             raise e
 
     def __configure_consumer_consumption(self, settings):
-        if settings.backoff_policy.WhichOneof("strategy") == "customized_backoff":
-            backoff_policy = CustomizedBackoffRetryPolicy(settings.backoff_policy)
+        use_customized_backoff = settings.backoff_policy.WhichOneof("strategy") == "customized_backoff"
+        if use_customized_backoff:
+            backoff_policy = CustomizedBackoffRetryPolicy(settings.backoff_policy, PushConsumer.DEFAULT_CONSUME_ATTEMPTS)
         else:
-            backoff_policy = CustomizedBackoffRetryPolicy(None)
+            backoff_policy = CustomizedBackoffRetryPolicy(None, PushConsumer.DEFAULT_CONSUME_ATTEMPTS)
 
         if not self.__consumption:
             self.__fifo = settings.subscription.fifo
@@ -143,8 +156,10 @@ class PushConsumer(Consumer):
                 self.__consumption = FifoConsumption(self.__message_listener, self.__consumption_thread_count,
                                                      self.__on_fifo_consumption_result,
                                                      self.client_id, backoff_policy)
+            logger.info(f"configure {self} consumption success, fifo: {self.__fifo}")
         else:
-            self.__consumption.backoff_policy = backoff_policy
+            if use_customized_backoff and self.__consumption.backoff_policy != backoff_policy:
+                self.__consumption.backoff_policy = backoff_policy
 
     # assignment #
 
@@ -183,12 +198,14 @@ class PushConsumer(Consumer):
             else:
                 existed = self.__assignments.get(topic)
                 if existed == new_assignments:
+                    self.__drop_expired_message_queue()
                     return
                 else:
                     # topic route changed
                     removed_message_queues = Assignments.diff_queues(existed, new_assignments)
                     self.__drop_message_queues(removed_message_queues)
                     new_message_queues = Assignments.diff_queues(new_assignments, existed)
+                    self.__assignments.put(topic, new_assignments)
             self.__drop_expired_message_queue()
             self.__process_message_queues(new_message_queues)
         except Exception as e:
@@ -210,7 +227,7 @@ class PushConsumer(Consumer):
             logger.error(f"queue: {message_queue} end receive, because consumer is not running.")
             return
         if process_queue.dropped:
-            logger.error(f"queue: {message_queue} end receive, because queue is dropped. ")
+            logger.info(f"queue: {message_queue} end receive, because queue is dropped. ")
             return
         if not attempt_id:
             attempt_id = self.__generate_attempt_id()
@@ -276,14 +293,14 @@ class PushConsumer(Consumer):
         # in consume thread
         try:
             if consume_result == ConsumeResult.SUCCESS:
-                self.ack(message)
+                self._ack(message)
             else:
                 delivery_attempt = message.delivery_attempt
                 if self.__consumption.backoff_policy:
                     invisible_duration = self.__consumption.backoff_policy.get_next_attempt_delay(delivery_attempt)
                 else:
                     invisible_duration = 30
-                self.change_invisible_duration(message, invisible_duration)
+                self._change_invisible_duration(message, invisible_duration)
             self.__evict_message(message, message_queue)
         except Exception as e:
             logger.error(f"ack or nack raise exception, {e}")
@@ -322,6 +339,8 @@ class PushConsumer(Consumer):
         req.message_id = message.message_id
         req.delivery_attempt = message.delivery_attempt
         req.max_delivery_attempts = self.__consumption.backoff_policy.max_attempts
+        if self.client_type == ClientType.LITE_PUSH_CONSUMER:
+            req.lite_topic = message.lite_topic
         return req
 
     def __forward_message_to_dead_letter_queue(self, message):
@@ -349,11 +368,14 @@ class PushConsumer(Consumer):
         for message_queue, process_queue in self.__process_queues.items():
             self.__execute_receive(message_queue, process_queue)
 
+    def __drop_message_queue(self, dropped_message_queue):
+        dropped_process_queue = self.__process_queues.remove(dropped_message_queue)
+        if dropped_process_queue:
+            dropped_process_queue.drop()
+
     def __drop_message_queues(self, dropped_message_queues):
         for dropped_message_queue in dropped_message_queues:
-            dropped_process_queue = self.__process_queues.remove(dropped_message_queue)
-            if dropped_process_queue:
-                dropped_process_queue.drop()
+            self.__drop_message_queue(dropped_message_queue)
 
     def __drop_expired_message_queue(self):
         expired_message_queue = [
@@ -378,7 +400,7 @@ class PushConsumer(Consumer):
         if process_queue:
             process_queue.evict_message(message)
 
-    def __aggregate_process_queues_by_topic(self, attr_name: str):
+    def __aggregate_process_queues_by_attr_name(self, attr_name: str):
         topic_values = {}
         for message_queue, process_queue in self.__process_queues.items():
             topic = message_queue.topic
@@ -397,10 +419,10 @@ class PushConsumer(Consumer):
         ]
 
     def __process_queues_cached_count(self):
-        return self.__aggregate_process_queues_by_topic("cached_messages_count")
+        return self.__aggregate_process_queues_by_attr_name("cached_messages_count")
 
     def __process_queues_cached_bytes(self):
-        return self.__aggregate_process_queues_by_topic("cached_messages_bytes")
+        return self.__aggregate_process_queues_by_attr_name("cached_messages_bytes")
 
     def __register_process_queues_gauges(self):
         self.client_metrics.create_push_consumer_process_queue_observable_gauge(

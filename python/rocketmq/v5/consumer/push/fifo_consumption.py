@@ -18,9 +18,8 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
-from rocketmq.v5.consumer.message_listener import ConsumeResult
+from rocketmq.v5.consumer.push.message_listener import ConsumeResult
 from rocketmq.v5.log import logger
-from rocketmq.v5.model.retry_policy import RetryPolicy
 
 
 class FifoConsumption:
@@ -90,12 +89,8 @@ class FifoConsumption:
             return consume_result
 
         # reconsume
-        if self.__backoff_policy:
-            max_attempts = self.__backoff_policy.max_attempts
-            attempt_delay = self.__backoff_policy.get_next_attempt_delay(attempt)
-        else:
-            max_attempts = RetryPolicy.DEFAULT_MAX_ATTEMPTS
-            attempt_delay = RetryPolicy.DEFAULT_RECONSUME_DELAY
+        max_attempts = self.__backoff_policy.max_attempts
+        attempt_delay = self.__backoff_policy.get_next_attempt_delay(attempt)
         if attempt >= max_attempts:
             return consume_result
         time.sleep(attempt_delay)

@@ -60,6 +60,7 @@ class Client:
         self.__client_callback_executor = None
         self.__is_running = False
         self.__had_shutdown = False
+        self._init_settings_event = threading.Event()
 
     def startup(self):
         try:
@@ -71,12 +72,15 @@ class Client:
             self._pre_start()
             try:
                 # pre update topic route for producer or consumer
-                for topic in self.__topics:
-                    self.__update_topic_route(topic)
+                if self.__topics:
+                    for topic in self.__topics:
+                        if not self.__update_topic_route(topic):
+                            raise Exception("update topic raise exception when client startup")
+                    self._init_settings_event.wait()
             except Exception as e:
                 # ignore this exception and retrieve again when calling send or receive
                 logger.warn(
-                    f"update topic exception when client startup, ignore it, try it again in scheduler. exception: {e}"
+                    f"update topic raise exception when client startup, ignore it, try it again in scheduler. exception: {e}"
                 )
             self.__start_scheduler()
             self.__start_async_rpc_callback_executor()
@@ -104,6 +108,7 @@ class Client:
             self.__rpc_client.stop()
             self.__topic_route_cache.clear()
             self.__topics.clear()
+            self._init_settings_event = None
             self.__had_shutdown = True
             self.__is_running = False
         except Exception as e:
@@ -239,11 +244,13 @@ class Client:
 
     def _retrieve_topic_route_data(self, topic):
         route = self.__topic_route_cache.get(topic)
-        if route is not None:
+        if route:
+            if topic not in self.__topics:
+                self.__topics.add(topic)
             return route
         else:
             route = self.__update_topic_route(topic)
-            if route is not None:
+            if route:
                 logger.info(f"{self} update topic:{topic} route success.")
                 self.__topics.add(topic)
                 return route
@@ -299,9 +306,9 @@ class Client:
             res = future.result()
             self.__handle_topic_route_res(res, topic)
         except Exception as e:
-            raise e
+            logger.error(f"query topic raise exception, {e}")
         finally:
-            if event is not None:
+            if event:
                 event.set()
 
     def __topic_route_req(self, topic):
@@ -312,7 +319,7 @@ class Client:
         return req
 
     def __handle_topic_route_res(self, res, topic):
-        if res is not None:
+        if res:
             MessagingResultChecker.check(res.status)
             if res.status.code == Code.OK:
                 topic_route = TopicRouteData(res.message_queues)
@@ -343,12 +350,12 @@ class Client:
     def __heartbeat_callback(self, future, endpoints):
         try:
             res = future.result()
-            if res is not None and res.status.code == Code.OK:
+            if res and res.status.code == Code.OK:
                 logger.info(
                     f"{self} send heartbeat to {endpoints} success."
                 )
             else:
-                if res is not None:
+                if res:
                     logger.error(
                         f"{self} send heartbeat to {endpoints} error, code:{res.status.code}, message:{res.status.message}."
                     )
@@ -469,6 +476,7 @@ class Client:
         if self.__client_callback_executor:
             self.__client_callback_executor.shutdown()
             self.__client_callback_executor = None
+            logger.info("stop client callback executor.")
 
     """ property """
 

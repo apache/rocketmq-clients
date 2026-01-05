@@ -72,7 +72,7 @@ class ProcessQueue:
     def expired(self, long_polling_timeout, request_timeout):
         max_idle_duration = (long_polling_timeout + request_timeout) * 3
         idle_duration = int(time.time()) - self.__active_time
-        if idle_duration < 0:
+        if idle_duration - max_idle_duration < 0:
             return False
         after_cache_full_duration = int(time.time()) - self.__cache_full_time
         if after_cache_full_duration - max_idle_duration < 0:
