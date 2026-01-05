@@ -16,9 +16,8 @@
 import functools
 from concurrent.futures import ThreadPoolExecutor
 
+from rocketmq.v5.consumer.push.message_listener import ConsumeResult
 from rocketmq.v5.log import logger
-
-from .message_listener import ConsumeResult
 
 
 class Consumption:

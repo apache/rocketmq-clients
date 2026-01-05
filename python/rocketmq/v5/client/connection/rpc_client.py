@@ -28,6 +28,7 @@ from rocketmq.grpc_protocol import (AckMessageRequest,
                                     QueryAssignmentRequest, QueryRouteRequest,
                                     RecallMessageRequest,
                                     ReceiveMessageRequest, SendMessageRequest,
+                                    SyncLiteSubscriptionRequest,
                                     TelemetryCommand)
 from rocketmq.v5.client.connection import RpcChannel, RpcEndpoints
 from rocketmq.v5.log import logger
@@ -193,12 +194,14 @@ class RpcClient:
         return RpcClient.__run_message_service_async(
             self.__forward_message_to_dead_letter_queue_async_0(endpoints, req, metadata=metadata, timeout=timeout))
 
-    """ build stream_stream_call """
+    def sync_lite_subscription_async(self, endpoints: RpcEndpoints, req: SyncLiteSubscriptionRequest, metadata, timeout=3):
+        return RpcClient.__run_message_service_async(
+            self.__sync_lite_subscription_0(endpoints, req, metadata=metadata, timeout=timeout))
 
     def telemetry_stream(
         self, endpoints: RpcEndpoints, client, metadata, rebuild, timeout=3000
     ):
-        # assert asyncio.get_running_loop() == RpcClient._io_loop
+        # build grpc stream_stream_call
         try:
             channel = self.retrieve_or_create_channel(endpoints)
             stream = channel.async_stub.Telemetry(
@@ -297,6 +300,10 @@ class RpcClient:
                                                              timeout=3):
         return await self.retrieve_or_create_channel(endpoints).async_stub.ForwardMessageToDeadLetterQueue(req, metadata=metadata,
                                                                                                            timeout=timeout)
+
+    async def __sync_lite_subscription_0(self, endpoints: RpcEndpoints,
+                                         req: SyncLiteSubscriptionRequest, metadata, timeout=3):
+        return await self.retrieve_or_create_channel(endpoints).async_stub.SyncLiteSubscription(req, metadata=metadata, timeout=timeout)
 
     async def __create_channel_async(self, endpoints: RpcEndpoints):
         return self.retrieve_or_create_channel(endpoints)

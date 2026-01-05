@@ -129,21 +129,18 @@ class RpcStreamStreamCall:
                     res = await self.__stream_stream_call.read()
                     if res.HasField("settings"):
                         # read a response for send setting result
-                        if res is not None and res.status.code == Code.OK:
+                        if res and res.status.code == Code.OK:
                             logger.debug(
                                 f"{ self.__handler} sync setting success. response status code: {res.status.code}"
                             )
-                            if (
-                                res.settings is not None
-                                and res.settings.metric is not None
-                            ):
+                            if res.settings and res.settings.metric:
                                 # reset metrics if needed
                                 self.__handler.reset_metric(res.settings.metric)
                                 # sync setting
                                 self.__handler.reset_setting(res.settings)
                     elif res.HasField("recover_orphaned_transaction_command"):
                         # sever check for a transaction message
-                        if self.__handler is not None:
+                        if self.__handler:
                             transaction_id = (
                                 res.recover_orphaned_transaction_command.transaction_id
                             )
@@ -161,14 +158,14 @@ class RpcStreamStreamCall:
                 )
 
     async def stream_write(self, req):
-        if self.__stream_stream_call is not None:
+        if self.__stream_stream_call:
             try:
                 await self.__stream_stream_call.write(req)
             except Exception as e:
                 raise e
 
     def close(self):
-        if self.__stream_stream_call is not None:
+        if self.__stream_stream_call:
             self.__stream_stream_call.cancel()
 
 
@@ -189,9 +186,9 @@ class RpcChannel:
         self.__create_aio_channel()
 
     def close_channel(self, loop):
-        if self.__async_channel is not None:
+        if self.__async_channel:
             # close stream_stream_call
-            if self.__telemetry_stream_stream_call is not None:
+            if self.__telemetry_stream_stream_call:
                 self.__telemetry_stream_stream_call.close()
                 self.__telemetry_stream_stream_call = None
                 logger.info(
@@ -220,7 +217,7 @@ class RpcChannel:
 
     def __create_aio_channel(self):
         try:
-            if self.__endpoints is None:
+            if not self.__endpoints:
                 raise IllegalArgumentException(
                     "create_aio_channel exception, endpoints is None"
                 )

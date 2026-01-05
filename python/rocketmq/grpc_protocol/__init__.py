@@ -15,7 +15,7 @@
 
 from .definition_pb2 import (Address, AddressScheme, Broker,  # noqa
                              ClientType, Code, DigestType, Encoding, Endpoints, # noqa
-                             FilterType, Language, MessageType, Metric, # noqa
+                             FilterType, Language, LiteSubscriptionAction, MessageType, Metric, # noqa
                              Permission, Publishing, Resource, Settings, # noqa
                              Status, Subscription, TransactionResolution, # noqa
                              TransactionSource) # noqa
@@ -24,7 +24,8 @@ from .service_pb2 import (AckMessageEntry, AckMessageRequest,  # noqa
                           EndTransactionRequest, HeartbeatRequest, # noqa
                           NotifyClientTerminationRequest, QueryRouteRequest, # noqa
                           ReceiveMessageRequest, SendMessageRequest, # noqa
-                          TelemetryCommand, RecallMessageRequest, QueryAssignmentRequest, # noqa
+                          SyncLiteSubscriptionRequest, TelemetryCommand, # noqa
+                          RecallMessageRequest, QueryAssignmentRequest, # noqa
                           ForwardMessageToDeadLetterQueueRequest) # noqa
 from .service_pb2_grpc import MessagingServiceStub
 
@@ -61,6 +62,8 @@ __all__ = [
     "TelemetryCommand", # noqa
     "RecallMessageRequest", # noqa
     "QueryAssignmentRequest", # noqa
+    "SyncLiteSubscriptionRequest", # noqa
+    "LiteSubscriptionAction", # noqa
     "ForwardMessageToDeadLetterQueueRequest", # noqa
     "MessagingServiceStub",
 ]

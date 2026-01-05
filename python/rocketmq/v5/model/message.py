@@ -24,6 +24,7 @@ class Message:
     def __init__(self):
         self.__body = None
         self.__topic = None
+        self.__lite_topic = None
         self.__namespace = None
         self.__message_id = None
         self.__tag = None
@@ -51,6 +52,8 @@ class Message:
         try:
             self.__message_body_check_sum(message)
             self.__topic = message.topic.name
+            if message.system_properties.lite_topic:
+                self.__lite_topic = message.system_properties.lite_topic
             self.__namespace = message.topic.resource_namespace
             self.__message_id = message.system_properties.message_id
             self.__body = self.__uncompress_body(message)
@@ -89,14 +92,14 @@ class Message:
                 if message.system_properties.body_digest.checksum != md5_sum:
                     self.__corrupted = True
                     logger.error(
-                        f"(body_check_sum exception, topic: {message.topic.name}, message_id: {message.system_properties.message_id} {message.digest.checksum} != crc32_sum {md5_sum}"
+                        f"(body_check_sum exception, topic: {message.topic.name}, message_id: {message.system_properties.message_id} {message.digest.checksum} != md5_checksum {md5_sum}"
                     )
             elif message.system_properties.body_digest.type == DigestType.SHA1:
                 sha1_sum = Misc.sha1_checksum(message.body)
                 if message.system_properties.body_digest.checksum != sha1_sum:
                     self.__corrupted = True
                     logger.error(
-                        f"(body_check_sum exception, topic: {message.topic.name}, message_id: {message.system_properties.message_id} {message.digest.checksum} != crc32_sum {sha1_sum}"
+                        f"(body_check_sum exception, topic: {message.topic.name}, message_id: {message.system_properties.message_id} {message.digest.checksum} != sha1_checksum {sha1_sum}"
                     )
             else:
                 logger.error(
@@ -129,6 +132,10 @@ class Message:
     @property
     def topic(self):
         return self.__topic
+
+    @property
+    def lite_topic(self):
+        return self.__lite_topic
 
     @property
     def namespace(self):
@@ -195,50 +202,58 @@ class Message:
         return self.__corrupted
 
     @body.setter
-    def body(self, body):
-        if body is None or body.strip() == "":
-            raise IllegalArgumentException("body should not be blank")
+    def body(self, body: bytes):
+        if not body:
+            raise IllegalArgumentException("body should not be blank.")
         self.__body = body
 
     @topic.setter
-    def topic(self, topic):
-        if topic is None or topic.strip() == "":
-            raise IllegalArgumentException("topic has not been set yet")
+    def topic(self, topic: str):
+        if not topic or not topic.strip():
+            raise IllegalArgumentException("topic has not been set yet.")
         if Misc.is_valid_topic(topic):
             self.__topic = topic
         else:
-            raise IllegalArgumentException(
-                f"topic does not match the regex [regex={Misc.TOPIC_PATTERN}]"
-            )
+            raise IllegalArgumentException(f"topic does not match the regex [regex={Misc.TOPIC_PATTERN}].")
+
+    @lite_topic.setter
+    def lite_topic(self, lite_topic: str):
+        if not lite_topic or not lite_topic.strip():
+            raise IllegalArgumentException("lite_topic has not been set yet.")
+        if self.__message_group:
+            raise IllegalArgumentException("lite_topic and message_group should not be set at same time.")
+        if self.__delivery_timestamp:
+            raise IllegalArgumentException("lite_topic and delivery_timestamp should not be set at same time.")
+        self.__lite_topic = lite_topic
 
     @message_id.setter
     def message_id(self, message_id):
         self.__message_id = message_id
 
     @tag.setter
-    def tag(self, tag):
-        if tag is None or tag.strip() == "":
-            raise IllegalArgumentException("tag should not be blank")
+    def tag(self, tag: str):
+        if not tag or not tag.strip():
+            raise IllegalArgumentException("tag should not be blank.")
         if "|" in tag:
-            raise IllegalArgumentException('tag should not contain "|"')
+            raise IllegalArgumentException('tag should not contain "|".')
         self.__tag = tag
 
     @message_group.setter
-    def message_group(self, message_group):
-        if self.__delivery_timestamp is not None:
-            raise IllegalArgumentException(
-                "deliveryTimestamp and messageGroup should not be set at same time"
-            )
-        if message_group is None or len(message_group) == 0:
-            raise IllegalArgumentException("messageGroup should not be blank")
+    def message_group(self, message_group: str):
+        if not message_group or not message_group.strip():
+            raise IllegalArgumentException("message_group should not be blank.")
+        if self.__delivery_timestamp:
+            raise IllegalArgumentException("delivery_timestamp and message_group should not be set at same time.")
+        if self.__lite_topic:
+            raise IllegalArgumentException("lite_topic and message_group should not be set at same time.")
         self.__message_group = message_group
 
     @delivery_timestamp.setter
-    def delivery_timestamp(self, delivery_timestamp):
-        if self.__message_group is not None:
-            raise IllegalArgumentException(
-                "deliveryTimestamp and messageGroup should not be set at same time"
-            )
+    def delivery_timestamp(self, delivery_timestamp: int):
+        if self.__message_group:
+            raise IllegalArgumentException("delivery_timestamp and message_group should not be set at same time.")
+        if self.__lite_topic:
+            raise IllegalArgumentException("lite_topic and delivery_timestamp should not be set at same time.")
         self.__delivery_timestamp = delivery_timestamp
 
     @transport_delivery_timestamp.setter
@@ -246,10 +261,10 @@ class Message:
         self.__transport_delivery_timestamp = transport_delivery_timestamp
 
     @keys.setter
-    def keys(self, *keys):
+    def keys(self, *keys: str):
         for key in keys:
-            if not key or key.strip() == "":
-                raise IllegalArgumentException("key should not be blank")
+            if not key or not key.strip():
+                raise IllegalArgumentException("key should not be blank.")
         self.__keys.update(set(keys))
 
     @receipt_handle.setter
@@ -264,11 +279,11 @@ class Message:
     def endpoints(self, endpoints):
         self.__endpoints = endpoints
 
-    def add_property(self, key, value):
-        if key is None or key.strip() == "":
-            raise IllegalArgumentException("key should not be blank")
-        if value is None or value.strip() == "":
-            raise IllegalArgumentException("value should not be blank")
+    def add_property(self, key: str, value: str):
+        if not key or not key.strip():
+            raise IllegalArgumentException("key should not be blank.")
+        if not value or not value.strip():
+            raise IllegalArgumentException("value should not be blank.")
         self.__properties[key] = value
 
     @staticmethod
@@ -281,5 +296,7 @@ class Message:
             return "DELAY"
         elif message_type == 4:
             return "TRANSACTION"
+        elif message_type == 5:
+            return "LITE"
         else:
             return "MESSAGE_TYPE_UNSPECIFIED"

@@ -14,13 +14,13 @@
 # limitations under the License.
 
 from rocketmq import (ClientConfiguration, ConsumeResult, Credentials,
-                      FilterExpression, Message, MessageListener, PushConsumer)
+                      LitePushConsumer, Message, MessageListener)
 
 
-class TestMessageListener(MessageListener):
+class LiteTopicTestMessageListener(MessageListener):
 
     def consume(self, message: Message) -> ConsumeResult:
-        print(f"consume message, topic:{message.topic}, message_group:{message.message_group}, message_id: {message.message_id}.")
+        print(f"consume message, topic:{message.topic}, lite_topic:{message.lite_topic}, message_id: {message.message_id}.")
         return ConsumeResult.SUCCESS
 
 
@@ -33,22 +33,22 @@ if __name__ == '__main__':
     config = ClientConfiguration(endpoints, credentials)
     # with namespace
     # config = ClientConfiguration(endpoints, credentials, "namespace")
-    topic = "topic"
-    consumer_group = "consumer_group"
-    # in most case, you don't need to create too many consumers, singleton pattern is recommended
-    # close the push consumer when you don't need it anymore
-    push_consumer = PushConsumer(config, consumer_group, TestMessageListener(), {topic: FilterExpression(), })
+    bind_topic = "topic"
+    consumer_group = "consumer-group"
+    # A LitePushConsumer can only be bound to one topic
+    lite_push_consumer = LitePushConsumer(config, consumer_group, bind_topic, LiteTopicTestMessageListener())
 
     try:
-        push_consumer.startup()
+        lite_push_consumer.startup()
+        for i in range(0, 10):
+            lite_push_consumer.subscribe_lite("lite-test-" + str(i))
         try:
             input("Please Enter to Stop the Application.\r\n")
         except Exception as e:
-            print(f"{push_consumer} raise exception: {e}")
-            push_consumer.shutdown()
-            print(f"{push_consumer} shutdown.")
+            print(f"{lite_push_consumer} raise exception: {e}")
+            lite_push_consumer.shutdown()
+            print(f"{lite_push_consumer} shutdown.")
     except Exception as e:
-        print(f"{push_consumer} startup raise exception: {e}")
-        if push_consumer.is_running:
-            push_consumer.shutdown()
-        print(f"{push_consumer} shutdown.")
+        print(f"{lite_push_consumer} startup raise exception: {e}")
+        lite_push_consumer.shutdown()
+        print(f"{lite_push_consumer} shutdown.")

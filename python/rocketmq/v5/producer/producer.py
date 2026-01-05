@@ -33,6 +33,7 @@ from rocketmq.v5.exception import (ClientException, IllegalArgumentException,
                                    TooManyRequestsException)
 from rocketmq.v5.log import logger
 from rocketmq.v5.model import CallbackResult, Message, SendReceipt
+from rocketmq.v5.model.retry_policy import ExponentialBackoffRetryPolicy
 from rocketmq.v5.util import (ConcurrentMap, MessageIdCodec,
                               MessagingResultChecker, Misc)
 
@@ -125,7 +126,9 @@ class TransactionChecker(metaclass=abc.ABCMeta):
 
 
 class Producer(Client):
-    MAX_SEND_ATTEMPTS = 3  # max retry times when send failed
+
+    DEFAULT_MAX_SEND_ATTEMPTS = 3  # default max retry times when send failed
+    DEFAULT_MAX_BODY_SIZE = 4 * 1024 * 1024  # default max message body size
 
     def __init__(
         self, client_configuration, topics=None, checker=None, tls_enable=False
@@ -137,6 +140,12 @@ class Producer(Client):
             checker  # checker for transaction message, handle checking from server
         )
         self.__transaction_check_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="transaction_check_thread")
+        self.__max_body_size = Producer.DEFAULT_MAX_BODY_SIZE
+        self.__validate_message_type = True
+        self.__backoff_policy = ExponentialBackoffRetryPolicy(
+            None,
+            Producer.DEFAULT_MAX_SEND_ATTEMPTS
+        )
 
     def __str__(self):
         return f"{ClientType.Name(self.client_type)} client_id:{self.client_id}"
@@ -149,7 +158,7 @@ class Producer(Client):
 
         self.__wrap_sending_message(message, False if transaction is None else True)
         topic_queue = self.__select_send_queue(message)
-        if message.message_type not in topic_queue.accept_message_types:
+        if self.__validate_message_type and message.message_type not in topic_queue.accept_message_types:
             raise IllegalArgumentException(
                 f"current message type not match with queue accept message types, topic:{message.topic}, message_type:{Message.message_type_desc(message.message_type)}, queue access type:{topic_queue.accept_message_types_desc()}"
             )
@@ -264,6 +273,19 @@ class Producer(Client):
 
     """ override """
 
+    def reset_setting(self, settings):
+        self.__max_body_size = settings.publishing.max_body_size
+        self.__validate_message_type = settings.publishing.validate_message_type
+        use_exponential = settings and settings.backoff_policy and settings.backoff_policy.WhichOneof("strategy") == "exponential_backoff"
+        new_policy = ExponentialBackoffRetryPolicy(
+            settings.backoff_policy if use_exponential else None,
+            Producer.DEFAULT_MAX_SEND_ATTEMPTS
+        )
+        if use_exponential and self.__backoff_policy != new_policy:
+            self.__backoff_policy = new_policy
+        if not self._init_settings_event.is_set():
+            self._init_settings_event.set()
+
     def _on_start(self):
         logger.info(f"{self} start success.")
 
@@ -355,7 +377,7 @@ class Producer(Client):
             retry_exception_future = self.__check_send_retry_condition(
                 message, topic_queue, attempt, e
             )
-            if retry_exception_future is not None:
+            if retry_exception_future:
                 # end retry with exception
                 self.client_metrics.send_after(send_metric_context, False)
                 raise retry_exception_future.exception()
@@ -435,7 +457,7 @@ class Producer(Client):
 
     def __check_send_retry_condition(self, message, topic_queue, attempt, e):
         end_retry = False
-        if attempt > Producer.MAX_SEND_ATTEMPTS:
+        if attempt > self.__backoff_policy.max_attempts:
             logger.error(
                 f"{self} failed to send message to {topic_queue.endpoints}, because of run out of attempt times, topic:{message.topic}, message_id:{message.message_id},  message_type:{message.message_type}, attempt:{attempt}"
             )
@@ -465,7 +487,7 @@ class Producer(Client):
             msg = req.messages.add()
             msg.topic.name = message.topic
             msg.topic.resource_namespace = self.client_configuration.namespace
-            if message.body is None or len(message.body) == 0:
+            if not message.body or len(message.body) == 0:
                 raise IllegalArgumentException("message body is none.")
             max_body_size = 4 * 1024 * 1024  # max body size is 4m
             if len(message.body) > max_body_size:
@@ -474,20 +496,23 @@ class Producer(Client):
                 )
 
             msg.body = message.body
-            if message.tag is not None:
+            if message.lite_topic:
+                msg.system_properties.lite_topic = message.lite_topic
+            if message.tag:
                 msg.system_properties.tag = message.tag
-            if message.keys is not None:
+            if message.keys:
                 msg.system_properties.keys.extend(message.keys)
-            if message.properties is not None:
+            if message.properties:
                 msg.user_properties.update(message.properties)
             msg.system_properties.message_id = message.message_id
             msg.system_properties.message_type = message.message_type
             msg.system_properties.born_timestamp.seconds = int(time.time())
             msg.system_properties.born_host = Misc.get_local_ip()
             msg.system_properties.body_encoding = Encoding.IDENTITY
-            if message.message_group is not None:
+
+            if message.message_group:
                 msg.system_properties.message_group = message.message_group
-            if message.delivery_timestamp is not None:
+            if message.delivery_timestamp:
                 msg.system_properties.delivery_timestamp.seconds = (
                     message.delivery_timestamp
                 )
@@ -497,22 +522,26 @@ class Producer(Client):
 
     def __send_message_type(self, message: Message, is_transaction=False):
         if (
-            message.message_group is None
-            and message.delivery_timestamp is None
-            and is_transaction is False
+            not message.message_group
+            and not message.lite_topic
+            and not message.delivery_timestamp
+            and not is_transaction
         ):
             return MessageType.NORMAL
 
-        if message.message_group is not None and is_transaction is False:
+        if message.message_group and not is_transaction:
             return MessageType.FIFO
 
-        if message.delivery_timestamp is not None and is_transaction is False:
+        if message.lite_topic and not is_transaction:
+            return MessageType.LITE
+
+        if message.delivery_timestamp and not is_transaction:
             return MessageType.DELAY
 
         if (
-            message.message_group is None
-            and message.delivery_timestamp is None
-            and is_transaction is True
+            not message.message_group
+            and not message.delivery_timestamp
+            and is_transaction
         ):
             return MessageType.TRANSACTION
 
@@ -595,7 +624,7 @@ class Producer(Client):
     def __server_transaction_check_callback(self, future, message, transaction_id, result):
         try:
             res = future.result()
-            if res is not None and res.status.code == Code.OK:
+            if res and res.status.code == Code.OK:
                 if result == TransactionResolution.COMMIT:
                     logger.debug(
                         f"{self} commit message. message_id: {message.message_id}, transaction_id: {transaction_id}, res: {res}"

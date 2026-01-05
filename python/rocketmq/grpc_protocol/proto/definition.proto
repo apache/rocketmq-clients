@@ -146,6 +146,9 @@ enum MessageType {
   // Messages that are transactional. Only committed messages are delivered to
   // subscribers.
   TRANSACTION = 4;
+
+  // lite topic
+  LITE = 5;
 }
 
 enum DigestType {
@@ -186,6 +189,8 @@ enum ClientType {
   PUSH_CONSUMER = 2;
   SIMPLE_CONSUMER = 3;
   PULL_CONSUMER = 4;
+  LITE_PUSH_CONSUMER = 5;
+  LITE_SIMPLE_CONSUMER = 6;
 }
 
 enum Encoding {
@@ -270,6 +275,9 @@ message SystemProperties {
 
   // Information to identify whether this message is from dead letter queue.
   optional DeadLetterQueue dead_letter_queue = 20;
+
+  // lite topic
+  optional string lite_topic = 21;
 }
 
 message DeadLetterQueue {
@@ -348,6 +356,8 @@ enum Code {
   ILLEGAL_POLLING_TIME = 40018;
   // Offset is illegal.
   ILLEGAL_OFFSET = 40019;
+  // Format of lite topic is illegal.
+  ILLEGAL_LITE_TOPIC = 40020;
 
   // Generic code indicates that the client request lacks valid authentication
   // credentials for the requested resource.
@@ -388,6 +398,10 @@ enum Code {
   // Generic code indicates that too many requests are made in short period of duration.
   // Requests are throttled.
   TOO_MANY_REQUESTS = 42900;
+
+  // LiteTopic related quota exceeded
+  LITE_TOPIC_QUOTA_EXCEEDED = 42901;
+  LITE_SUBSCRIPTION_QUOTA_EXCEEDED = 42902;
 
   // Generic code for the case that the server is unwilling to process the request because its header fields are too large.
   // The request may be resubmitted after reducing the size of the request header fields.
@@ -548,6 +562,21 @@ message Subscription {
   // Long-polling timeout for `ReceiveMessageRequest`, which is essential for
   // push consumer.
   optional google.protobuf.Duration long_polling_timeout = 5;
+
+  // Only lite push consumer
+  // client-side lite subscription quota limit
+  optional int32 lite_subscription_quota = 6;
+
+  // Only lite push consumer
+  // Maximum length limit for lite topic
+  optional int32 max_lite_topic_size = 7;
+}
+
+enum LiteSubscriptionAction {
+  PARTIAL_ADD = 0;
+  PARTIAL_REMOVE = 1;
+  COMPLETE_ADD = 2;
+  COMPLETE_REMOVE = 3;
 }
 
 message Metric {
