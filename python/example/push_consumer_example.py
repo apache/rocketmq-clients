@@ -20,7 +20,7 @@ from rocketmq import (ClientConfiguration, ConsumeResult, Credentials,
 class TestMessageListener(MessageListener):
 
     def consume(self, message: Message) -> ConsumeResult:
-        print(f"consume message, topic:{message.topic}, message_group:{message.message_group}, message_id: {message.message_id}.")
+        print(f"consume message, topic:{message.topic}, message_id: {message.message_id}.")
         return ConsumeResult.SUCCESS
 
 
