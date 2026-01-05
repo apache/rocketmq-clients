@@ -290,6 +290,17 @@ void SimpleConsumerImpl::refreshAssignments() {
   }
 }
 
+absl::optional<FilterExpression> SimpleConsumerImpl::getFilterExpression(const std::string &topic) const {
+  {
+    absl::MutexLock lk(&subscriptions_mtx_);
+    auto it = subscriptions_.find(topic);
+    if (it != subscriptions_.end()) {
+      return absl::make_optional(it->second);
+    }
+    return absl::nullopt;
+  }
+}
+
 void SimpleConsumerImpl::receive(std::size_t limit,
                                  std::chrono::milliseconds invisible_duration,
                                  ReceiveCallback callback) {
@@ -331,8 +342,24 @@ void SimpleConsumerImpl::receive(std::size_t limit,
   request.mutable_message_queue()->CopyFrom(assignment.message_queue());
   request.set_batch_size((int32_t) limit);
 
-  request.mutable_filter_expression()->set_type(rmq::FilterType::TAG);
-  request.mutable_filter_expression()->set_expression("*");
+  auto filter_expression = request.mutable_filter_expression();
+  auto&& optional = getFilterExpression(assignment.message_queue().topic().name());
+  if (optional.has_value()) {
+    auto expression = optional.value();
+    switch (expression.type_) {
+      case TAG:
+        filter_expression->set_type(rmq::FilterType::TAG);
+        filter_expression->set_expression(expression.content_);
+        break;
+      case SQL92:
+        filter_expression->set_type(rmq::FilterType::SQL);
+        filter_expression->set_expression(expression.content_);
+        break;
+    }
+  } else {
+    filter_expression->set_type(rmq::FilterType::TAG);
+    filter_expression->set_expression("*");
+  }
 
   auto invisible_duration_request =
       google::protobuf::util::TimeUtil::MillisecondsToDuration(invisible_duration.count());

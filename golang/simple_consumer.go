@@ -59,6 +59,7 @@ type defaultSimpleConsumer struct {
 	subscriptionExpressionsLock  sync.RWMutex
 	subscriptionExpressions      *map[string]*FilterExpression
 	subTopicRouteDataResultCache sync.Map
+	receiveRateLimiter           *receiveRateLimiter
 }
 
 func (sc *defaultSimpleConsumer) SetRequestTimeout(timeout time.Duration) {
@@ -318,6 +319,13 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	if err != nil {
 		return nil, err
 	}
+
+	// Apply rate limiting
+	if err = sc.receiveRateLimiter.acquire(ctx); err != nil {
+		return nil, fmt.Errorf("failed to acquire rate limit permit: %w", err)
+	}
+	defer sc.receiveRateLimiter.release()
+
 	request := sc.wrapReceiveMessageRequest(int(maxMessageNum), selectMessageQueue, filterExpression, invisibleDuration)
 	timeout := sc.scOpts.awaitDuration + sc.cli.opts.timeout
 	return sc.receiveMessage(ctx, request, selectMessageQueue, timeout)
@@ -365,6 +373,7 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 
 		awaitDuration:           scOpts.awaitDuration,
 		subscriptionExpressions: &scOpts.subscriptionExpressions,
+		receiveRateLimiter:      newReceiveRateLimiter(scOpts.maxReceiveConcurrency),
 	}
 
 	sc.cli.initTopics = make([]string, 0)

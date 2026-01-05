@@ -62,6 +62,7 @@ struct ClientConfig {
   SubscriberConfig subscriber;
   Metric metric;
   bool withSsl;
+  std::uint32_t callback_threads{2};
   std::unique_ptr<opencensus::trace::Sampler> sampler_;
 };
 
