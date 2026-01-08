@@ -133,11 +133,12 @@ class RpcStreamStreamCall:
                             logger.debug(
                                 f"{ self.__handler} sync setting success. response status code: {res.status.code}"
                             )
-                            if res.settings and res.settings.metric:
-                                # reset metrics if needed
-                                self.__handler.reset_metric(res.settings.metric)
-                                # sync setting
+                            if res.settings:
+                                # sync setting first to ensure consumer initialization
                                 self.__handler.reset_setting(res.settings)
+                                if res.settings.metric:
+                                    # reset metrics if needed
+                                    self.__handler.reset_metric(res.settings.metric)
                     elif res.HasField("recover_orphaned_transaction_command"):
                         # sever check for a transaction message
                         if self.__handler:
