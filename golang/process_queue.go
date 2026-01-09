@@ -414,7 +414,7 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 	endpoints := dpq.mq.Broker.Endpoints
 	batchSize := dpq.getReceptionBatchSize()
 	longPollingTimeout := dpq.consumer.pcSettings.longPollingTimeout
-	request := dpq.consumer.wrapReceiveMessageRequest(int(batchSize), dpq.mq, dpq.filterExpression, longPollingTimeout)
+	request := dpq.consumer.pushConsumerExtension.WrapReceiveMessageRequest(int(batchSize), dpq.mq, dpq.filterExpression, longPollingTimeout)
 
 	startTime := time.Now()
 	dpq.activityNanoTime.Store(startTime.UnixNano())
@@ -439,6 +439,7 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 				nextAttemptId = request.GetAttemptId()
 			}
 			dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, MessageHookPointsStatus_ERROR)
+			// add some check to skip no message
 			dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%d, "+
 				"nextAttemptId=%s, clientId=%s, err=%w", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
 				clientId, err)

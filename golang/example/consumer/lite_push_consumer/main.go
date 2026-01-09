@@ -19,12 +19,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 	"log"
 	"os"
 	"time"
 
 	rmq_client "github.com/apache/rocketmq-clients/golang/v5"
-	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 	Endpoint      = "11.167.131.190:8081"
 	AccessKey     = "xxxxxx"
 	SecretKey     = "xxxxxx"
-	NameSpace     = "xxxxxx"
+	NameSpace     = ""
 )
 
 var (
@@ -45,8 +45,9 @@ func main() {
 	// log to console
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
+	rmq_client.EnableSsl = false
 	// In most case, you don't need to create many consumers, singleton pattern is more recommended.
-	pushConsumer, err := rmq_client.NewPushConsumer(&rmq_client.Config{
+	pushConsumer, err := rmq_client.NewLitePushConsumer(&rmq_client.Config{
 		Endpoint:      Endpoint,
 		ConsumerGroup: ConsumerGroup,
 		Credentials: &credentials.SessionCredentials{
@@ -55,13 +56,11 @@ func main() {
 		},
 		NameSpace: NameSpace,
 	},
+		rmq_client.NewLitePushConsumerConfig(Topic, time.Second*30),
 		rmq_client.WithPushAwaitDuration(awaitDuration),
-		rmq_client.WithPushSubscriptionExpressions(map[string]*rmq_client.FilterExpression{
-			Topic: rmq_client.SUB_ALL,
-		}),
 		rmq_client.WithPushMessageListener(&rmq_client.FuncMessageListener{
 			Consume: func(mv *rmq_client.MessageView) rmq_client.ConsumerResult {
-				fmt.Println(mv)
+				fmt.Println("received message:", mv.GetMessageId(), mv.GetTopic(), mv.GetLiteTopic(), mv.GetProperties())
 				// ack message
 				return rmq_client.SUCCESS
 			},
@@ -71,14 +70,23 @@ func main() {
 	)
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
 	// start pushConsumer
 	err = pushConsumer.Start()
 	if err != nil {
 		log.Fatal(err)
+		return
+	}
+	//time.Sleep(time.Second * 60)
+	err = pushConsumer.SubscribeLite("00900")
+	if err != nil {
+		log.Fatal(err)
+		return
 	}
 	// graceful stop pushConsumer
 	defer pushConsumer.GracefulStop()
 	// run for a while
-	time.Sleep(time.Minute * 100)
+	ch := make(chan struct{})
+	<-ch
 }
