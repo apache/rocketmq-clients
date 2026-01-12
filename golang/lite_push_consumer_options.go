@@ -19,6 +19,7 @@ package golang
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
@@ -29,9 +30,9 @@ var _ = ClientSettings(&litePushConsumerSettings{})
 
 type litePushConsumerSettings struct {
 	*pushConsumerSettings
-	bingTopic             string
-	liteTopicSet          map[string]struct{}
-	liteSubscriptionQuota int32 // default 1200
+	bindTopic             string
+	liteTopicSet          *sync.Map
+	liteSubscriptionQuota int32
 	maxLiteTopicSize      int32
 	invisibleDuration     time.Duration
 }
@@ -39,11 +40,11 @@ type litePushConsumerSettings struct {
 func newLitePushConsumerSettings(settings *pushConsumerSettings, bindTopic string, invisibleDuration time.Duration) *litePushConsumerSettings {
 	return &litePushConsumerSettings{
 		pushConsumerSettings: settings,
-		bingTopic:            bindTopic,
-		liteTopicSet:         map[string]struct{}{},
+		bindTopic:            bindTopic,
+		liteTopicSet:         &sync.Map{},
 		invisibleDuration:    invisibleDuration,
 		// default value
-		liteSubscriptionQuota: 1200,
+		liteSubscriptionQuota: 2000,
 		maxLiteTopicSize:      64,
 	}
 }

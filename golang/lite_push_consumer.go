@@ -54,14 +54,14 @@ func NewLitePushConsumerConfig(bindTopic string, invisibleDuration time.Duration
 }
 
 var NewLitePushConsumer = func(config *Config, liteConfig *LitePushConsumerConfig, opts ...PushConsumerOption) (LitePushConsumer, error) {
+	if liteConfig == nil {
+		return nil, errors.New("LitePushConsumerConfig is required")
+	}
 	if liteConfig.bindTopic == "" {
 		return nil, errors.New("LitePushConsumerConfig.bindTopic is required")
 	}
 	filterExpressionMap := map[string]*FilterExpression{
 		liteConfig.bindTopic: SUB_ALL,
-	}
-	if liteConfig == nil {
-		return nil, errors.New("LitePushConsumerConfig is required")
 	}
 	opts = append(opts, WithPushSubscriptionExpressions(filterExpressionMap))
 	if pushConsumer, err := newPushConsumer(config, opts...); err != nil {
@@ -104,7 +104,7 @@ func (lpc *defaultLitePushConsumer) notifyUnsubscribeLite(command *v2.NotifyUnsu
 	if liteTopic == "" {
 		return
 	}
-	delete(lpc.litePushConsumerSettings.liteTopicSet, liteTopic)
+	lpc.litePushConsumerSettings.liteTopicSet.Delete(liteTopic)
 }
 
 func (lpc *defaultLitePushConsumer) SubscribeLite(topic string) error {
@@ -115,7 +115,7 @@ func (lpc *defaultLitePushConsumer) SubscribeLite(topic string) error {
 		sugarBaseLogger.Errorf("LitePushConsumer SubscribeLite topic:%s err:%v", topic, err)
 		return err
 	}
-	lpc.litePushConsumerSettings.liteTopicSet[topic] = struct{}{}
+	lpc.litePushConsumerSettings.liteTopicSet.Store(topic, struct{}{})
 	return nil
 }
 
@@ -127,7 +127,7 @@ func (lpc *defaultLitePushConsumer) UnSubscribeLite(topic string) error {
 		sugarBaseLogger.Errorf("LitePushConsumer UnSubscribeLite topic:%s err:%v", topic, err)
 		return err
 	}
-	delete(lpc.litePushConsumerSettings.liteTopicSet, topic)
+	lpc.litePushConsumerSettings.liteTopicSet.Delete(topic)
 	return nil
 }
 
@@ -140,10 +140,13 @@ func (lpc *defaultLitePushConsumer) checkRunning() error {
 }
 
 func (lpc *defaultLitePushConsumer) syncAllLiteSubscription() {
-	var liteTopicSet = make([]string, 0, len(lpc.litePushConsumerSettings.liteTopicSet))
-	for k := range lpc.litePushConsumerSettings.liteTopicSet {
-		liteTopicSet = append(liteTopicSet, k)
-	}
+	liteTopicSet := make([]string, 0, lpc.litePushConsumerSettings.maxLiteTopicSize)
+	lpc.litePushConsumerSettings.liteTopicSet.Range(func(key, value interface{}) bool {
+		if liteTopic, ok := key.(string); ok {
+			liteTopicSet = append(liteTopicSet, liteTopic)
+		}
+		return true
+	})
 	if len(liteTopicSet) == 0 {
 		return
 	}
@@ -157,7 +160,7 @@ func (lpc *defaultLitePushConsumer) syncLiteSubscription(context context.Context
 	request := v2.SyncLiteSubscriptionRequest{
 		Action: action,
 		Topic: &v2.Resource{
-			Name:              lpc.litePushConsumerSettings.bingTopic,
+			Name:              lpc.litePushConsumerSettings.bindTopic,
 			ResourceNamespace: lpc.cli.config.NameSpace,
 		},
 		Group:        lpc.litePushConsumerSettings.groupName,
