@@ -35,10 +35,18 @@ public interface LitePushConsumer extends Closeable {
      *    evaluate whether the quota is insufficient and promptly unsubscribe from unused subscriptions
      *    using unsubscribeLite() to free up resources.
      *
-     * @param liteTopic the name of the lite topic to subscribe to
+     * @param liteTopic the name of the lite topic to subscribe
      * @throws ClientException if an error occurs during subscription
      */
     void subscribeLite(String liteTopic) throws ClientException;
+
+    /**
+     *  Subscribe to a lite topic with consumeFromOption to specify the consume from offset.
+     * @param liteTopic the name of the lite topic to subscribe
+     * @param offsetOption the consume from offset
+     * @throws ClientException if an error occurs during subscription
+     */
+    void subscribeLite(String liteTopic, OffsetOption offsetOption) throws ClientException;
 
     /**
      * Unsubscribe from a lite topic.
