@@ -21,7 +21,6 @@
 #include <system_error>
 #include <utility>
 
-#include "UniqueIdGenerator.h"
 #include "AsyncReceiveMessageCallback.h"
 #include "MetadataConstants.h"
 #include "Protocol.h"
@@ -183,16 +182,6 @@ void ProcessQueueImpl::wrapFilterExpression(rmq::FilterExpression* filter_expres
   }
 }
 
-void generateAttemptId(std::string& attempt_id) {
-  const std::string unique_id = UniqueIdGenerator::instance().next();
-  if (unique_id.size() < 34) {
-    return;
-  }
-  attempt_id = fmt::format(
-      "{}-{}-{}-{}-{}", unique_id.substr(0, 8), unique_id.substr(8, 4),
-      unique_id.substr(12, 4), unique_id.substr(16, 4), unique_id.substr(20, 12));
-}
-
 void ProcessQueueImpl::wrapPopMessageRequest(absl::flat_hash_map<std::string, std::string>& metadata,
                                              rmq::ReceiveMessageRequest& request, std::string& attempt_id) {
   std::shared_ptr<PushConsumerImpl> consumer = consumer_.lock();
@@ -216,7 +205,7 @@ void ProcessQueueImpl::wrapPopMessageRequest(absl::flat_hash_map<std::string, st
   request.mutable_invisible_duration()->set_nanos(nano_seconds);
 
   if (attempt_id.empty()) {
-    generateAttemptId(attempt_id);
+    attempt_id = UniqueIdGenerator::nextUuidV4Std();
   }
   request.set_attempt_id(attempt_id);
 }

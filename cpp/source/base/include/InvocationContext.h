@@ -40,7 +40,7 @@ ROCKETMQ_NAMESPACE_BEGIN
  *   async_stream.h
  */
 struct BaseInvocationContext {
-  BaseInvocationContext() : request_id_(UniqueIdGenerator::instance().next()) {
+  BaseInvocationContext() : request_id_(UniqueIdGenerator::nextUuidV4Std()) {
     context.AddMetadata(MetadataConstants::REQUEST_ID_KEY, request_id_);
   }
 
