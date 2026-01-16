@@ -18,6 +18,7 @@ from rocketmq import ClientConfiguration, Credentials, Message, Producer
 if __name__ == '__main__':
     endpoints = "foobar.com:8080"
     credentials = Credentials()
+
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
@@ -39,13 +40,16 @@ if __name__ == '__main__':
             msg.keys = "send_sync"
             # user property for the message
             msg.add_property("send", "sync")
-            res = producer.send(msg)
-            print(f"{producer.__str__()} send message success. {res}")
+            for i in range(0, 10):
+                res = producer.send(msg)
+                print(f"{producer} send message success. {res}")
             producer.shutdown()
-            print(f"{producer.__str__()} shutdown.")
+            print(f"{producer} shutdown.")
         except Exception as e:
-            print(f"normal producer example raise exception: {e}")
+            print(f"{producer} raise exception: {e}")
             producer.shutdown()
+            print(f"{producer} shutdown.")
     except Exception as e:
-        print(f"{producer.__str__()} startup raise exception: {e}")
+        print(f"{producer} startup raise exception: {e}")
         producer.shutdown()
+        print(f"{producer} shutdown.")

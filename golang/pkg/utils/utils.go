@@ -91,37 +91,72 @@ func ParseTarget(target string) (*v2.Endpoints, error) {
 	if strings.HasPrefix(target, "ip:///") {
 		target = strings.TrimPrefix(target, "ip:///")
 	}
+
 	ret := &v2.Endpoints{
 		Scheme: v2.AddressScheme_DOMAIN_NAME,
 	}
+
 	addressRawList := strings.Split(target, ";")
-	for _, path := range addressRawList {
-		if len(path) == 0 {
+	for _, item := range addressRawList {
+		item = strings.TrimSpace(item)
+		if item == "" {
 			continue
 		}
+
+		var hostPort string
+
+		if idx := strings.Index(item, "://"); idx != -1 {
+			u, err := url.Parse(item)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse URL %q: %w", item, err)
+			}
+			if u.Host == "" {
+				return nil, fmt.Errorf("URL missing host: %q", item)
+			}
+			hostPort = u.Host
+		} else {
+			hostPort = item
+		}
+
+		host, portStr, err := net.SplitHostPort(hostPort)
+		if err != nil {
+			return nil, fmt.Errorf("invalid host:port in %q (from %q): %w", hostPort, item, err)
+		}
+
+		port, err := strconv.ParseInt(portStr, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port in %q: %w", portStr, err)
+		}
+
+		ip := net.ParseIP(host)
+		var addrScheme v2.AddressScheme
+		if ip != nil {
+			if ip.To4() != nil {
+				addrScheme = v2.AddressScheme_IPv4
+			} else {
+				addrScheme = v2.AddressScheme_IPv6
+			}
+		} else {
+			addrScheme = v2.AddressScheme_DOMAIN_NAME
+		}
+
 		address := &v2.Address{
-			Host: "",
-			Port: 80,
-		}
-		if u, err := url.Parse(path); err != nil {
-			address.Host = path
-			ret.Scheme = v2.AddressScheme_IPv4
-		} else {
-			if u.Host != "" {
-				address.Host = u.Host
-			}
-		}
-		paths := strings.Split(path, ":")
-		if len(paths) > 1 {
-			if port, err2 := strconv.ParseInt(paths[1], 10, 32); err2 == nil {
-				address.Port = int32(port)
-			}
-			address.Host = paths[0]
-		} else {
-			return nil, fmt.Errorf("parse target failed, target=%s", target)
+			Host: host,
+			Port: int32(port),
 		}
 		ret.Addresses = append(ret.Addresses, address)
+
+		if addrScheme == v2.AddressScheme_IPv6 {
+			ret.Scheme = v2.AddressScheme_IPv6
+		} else if ret.Scheme == v2.AddressScheme_DOMAIN_NAME && addrScheme == v2.AddressScheme_IPv4 {
+			ret.Scheme = v2.AddressScheme_IPv4
+		}
 	}
+
+	if len(ret.Addresses) == 0 {
+		return nil, fmt.Errorf("no valid addresses found in target: %q", target)
+	}
+
 	return ret, nil
 }
 
@@ -252,7 +287,7 @@ func EndpointsToString(endpoints *v2.Endpoints) string {
 		return ip1 < ip2
 	})
 	for i, addr := range addresses {
-		sb.WriteString(fmt.Sprintf("%s:%d", addr.Host, addr.Port))
+		sb.WriteString(net.JoinHostPort(addr.Host, fmt.Sprintf("%d", addr.Port)))
 		if i != len(addresses)-1 {
 			sb.WriteString(";")
 		}

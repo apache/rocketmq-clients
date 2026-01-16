@@ -21,7 +21,6 @@
 #include <system_error>
 #include <utility>
 
-#include "UniqueIdGenerator.h"
 #include "AsyncReceiveMessageCallback.h"
 #include "MetadataConstants.h"
 #include "Protocol.h"
@@ -41,11 +40,11 @@ ProcessQueueImpl::ProcessQueueImpl(rmq::MessageQueue message_queue, FilterExpres
       invisible_time_(MixAll::millisecondsOf(MixAll::DEFAULT_INVISIBLE_TIME_)),
       simple_name_(simpleNameOf(message_queue_)), consumer_(std::move(consumer)),
       client_manager_(std::move(client_instance)), cached_message_quantity_(0), cached_message_memory_(0) {
-  SPDLOG_DEBUG("Created ProcessQueue={}", simpleName());
+  SPDLOG_DEBUG("Created ProcessQueue={}", simple_name_);
 }
 
 ProcessQueueImpl::~ProcessQueueImpl() {
-  SPDLOG_INFO("ProcessQueue={} should have been re-balanced away, thus, is destructed", simpleName());
+  SPDLOG_INFO("ProcessQueue={} should have been re-balanced away, thus, is destructed", simple_name_);
 }
 
 void ProcessQueueImpl::callback(std::shared_ptr<AsyncReceiveMessageCallback> callback) {
@@ -120,7 +119,7 @@ void ProcessQueueImpl::popMessage(std::string& attempt_id) {
 
   std::weak_ptr<AsyncReceiveMessageCallback> cb{receive_callback_};
   auto callback =
-      [cb, &attempt_id](const std::error_code& ec, const ReceiveMessageResult& result) {
+      [cb, attempt_id](const std::error_code& ec, const ReceiveMessageResult& result) {
     std::shared_ptr<AsyncReceiveMessageCallback> receive_cb = cb.lock();
     if (receive_cb) {
       receive_cb->onCompletion(ec, attempt_id, result);
@@ -183,16 +182,6 @@ void ProcessQueueImpl::wrapFilterExpression(rmq::FilterExpression* filter_expres
   }
 }
 
-void generateAttemptId(std::string& attempt_id) {
-  const std::string unique_id = UniqueIdGenerator::instance().next();
-  if (unique_id.size() < 34) {
-    return;
-  }
-  attempt_id = fmt::format(
-      "{}-{}-{}-{}-{}", unique_id.substr(0, 8), unique_id.substr(8, 4),
-      unique_id.substr(12, 4), unique_id.substr(16, 4), unique_id.substr(20, 12));
-}
-
 void ProcessQueueImpl::wrapPopMessageRequest(absl::flat_hash_map<std::string, std::string>& metadata,
                                              rmq::ReceiveMessageRequest& request, std::string& attempt_id) {
   std::shared_ptr<PushConsumerImpl> consumer = consumer_.lock();
@@ -216,7 +205,7 @@ void ProcessQueueImpl::wrapPopMessageRequest(absl::flat_hash_map<std::string, st
   request.mutable_invisible_duration()->set_nanos(nano_seconds);
 
   if (attempt_id.empty()) {
-    generateAttemptId(attempt_id);
+    attempt_id = UniqueIdGenerator::nextUuidV4Std();
   }
   request.set_attempt_id(attempt_id);
 }

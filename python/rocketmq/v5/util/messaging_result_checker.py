@@ -15,7 +15,11 @@
 
 from rocketmq.grpc_protocol import Code, Status
 from rocketmq.v5.exception import (BadRequestException, ForbiddenException,
-                                   InternalErrorException, NotFoundException,
+                                   IllegalStateException,
+                                   InternalErrorException,
+                                   LiteSubscriptionQuotaExceededException,
+                                   LiteTopicQuotaExceededException,
+                                   NotFoundException, PayloadEmptyException,
                                    PayloadTooLargeException,
                                    PaymentRequiredException,
                                    ProxyTimeoutException,
@@ -29,6 +33,9 @@ class MessagingResultChecker:
 
     @staticmethod
     def check(status: Status):
+        if not status or not status.code:
+            raise IllegalStateException("response is illegal.")
+
         code = status.code
         message = status.message
 
@@ -42,6 +49,7 @@ class MessagingResultChecker:
             or code == Code.ILLEGAL_MESSAGE_TAG
             or code == Code.ILLEGAL_MESSAGE_KEY
             or code == Code.ILLEGAL_MESSAGE_GROUP
+            or code == Code.ILLEGAL_LITE_TOPIC
             or code == Code.ILLEGAL_MESSAGE_PROPERTY_KEY
             or code == Code.INVALID_TRANSACTION_ID
             or code == Code.ILLEGAL_MESSAGE_ID
@@ -72,8 +80,14 @@ class MessagingResultChecker:
             raise NotFoundException(message, code)
         elif code == Code.PAYLOAD_TOO_LARGE or code == Code.MESSAGE_BODY_TOO_LARGE:
             raise PayloadTooLargeException(message, code)
+        elif code == Code.MESSAGE_BODY_EMPTY:
+            raise PayloadEmptyException(message, code)
         elif code == Code.TOO_MANY_REQUESTS:
             raise TooManyRequestsException(message, code)
+        elif code == Code.LITE_TOPIC_QUOTA_EXCEEDED:
+            raise LiteTopicQuotaExceededException(message, code)
+        elif code == Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED:
+            raise LiteSubscriptionQuotaExceededException(message, code)
         elif (
             code == Code.REQUEST_HEADER_FIELDS_TOO_LARGE
             or code == Code.MESSAGE_PROPERTIES_TOO_LARGE

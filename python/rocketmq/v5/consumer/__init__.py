@@ -13,8 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .simple_consumer import SimpleConsumer
+from .push import (ConsumeResult, LitePushConsumer, MessageListener,
+                   PushConsumer)
+from .simple import SimpleConsumer
 
 __all__ = [
     "SimpleConsumer",
+    "PushConsumer",
+    "LitePushConsumer",
+    "MessageListener",
+    "ConsumeResult",
 ]

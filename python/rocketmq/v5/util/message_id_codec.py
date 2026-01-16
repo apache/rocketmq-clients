@@ -107,10 +107,6 @@ class MessageIdCodec:
             + buffer.hex().upper()
         )
 
-    @staticmethod
-    def decode(message_id):
-        return message_id
-
     """ private """
 
     def __delta_time(self):

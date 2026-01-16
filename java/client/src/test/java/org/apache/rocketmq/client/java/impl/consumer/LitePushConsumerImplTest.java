@@ -35,14 +35,17 @@ import apache.rocketmq.v2.LiteSubscriptionAction;
 import com.google.common.util.concurrent.Futures;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.consumer.OffsetOption;
 import org.apache.rocketmq.client.java.exception.LiteSubscriptionQuotaExceededException;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnitRunner;
 
+@RunWith(MockitoJUnitRunner.class)
 public class LitePushConsumerImplTest {
 
     final String endpoints = "127.0.0.1:8080";
@@ -63,7 +66,6 @@ public class LitePushConsumerImplTest {
 
         spySettings = Mockito.spy(realSettings);
 
-        MockitoAnnotations.openMocks(this);
         consumer = mock(LitePushConsumerImpl.class, CALLS_REAL_METHODS);
         // Set final field litePushConsumerSettings using reflection
         try {
@@ -93,7 +95,7 @@ public class LitePushConsumerImplTest {
 
         verify(consumer).checkRunning();
         verify(spySettings).containsLiteTopic(liteTopic);
-        verify(consumer, never()).syncLiteSubscription(any(), any());
+        verify(consumer, never()).syncLiteSubscription(any(), any(), any());
     }
 
     @Test
@@ -102,7 +104,7 @@ public class LitePushConsumerImplTest {
         String liteTopic2 = "testLiteTopic2";
         doNothing().when(consumer).checkRunning();
         doReturn(Futures.immediateVoidFuture()).when(consumer)
-            .syncLiteSubscription(any(LiteSubscriptionAction.class), anyCollection());
+            .syncLiteSubscription(any(LiteSubscriptionAction.class), anyCollection(), any());
         when(spySettings.getLiteSubscriptionQuota()).thenReturn(1);
 
         consumer.subscribeLite(liteTopic1);
@@ -121,5 +123,81 @@ public class LitePushConsumerImplTest {
         verify(spySettings, times(1)).addLiteTopic(liteTopic1);
         verify(spySettings, times(1)).removeLiteTopic(liteTopic1);
         verify(spySettings, times(1)).addLiteTopic(liteTopic2);
+    }
+
+    @Test
+    public void testToProtobufOffsetOptionWithPolicy() {
+        OffsetOption offsetOption = OffsetOption.LAST_OFFSET;
+        apache.rocketmq.v2.OffsetOption protobufOffsetOption = consumer.toProtobufOffsetOption(offsetOption);
+        assertThat(protobufOffsetOption.hasPolicy()).isTrue();
+        assertThat(protobufOffsetOption.getPolicy()).isEqualTo(apache.rocketmq.v2.OffsetOption.Policy.LAST);
+        assertThat(protobufOffsetOption.hasOffset()).isFalse();
+        assertThat(protobufOffsetOption.hasTailN()).isFalse();
+        assertThat(protobufOffsetOption.hasTimestamp()).isFalse();
+    }
+
+    @Test
+    public void testToProtobufOffsetOptionWithOffset() {
+        long offsetValue = 100L;
+        OffsetOption offsetOption = OffsetOption.ofOffset(offsetValue);
+        apache.rocketmq.v2.OffsetOption protobufOffsetOption = consumer.toProtobufOffsetOption(offsetOption);
+        assertThat(protobufOffsetOption.hasOffset()).isTrue();
+        assertThat(protobufOffsetOption.getOffset()).isEqualTo(offsetValue);
+        assertThat(protobufOffsetOption.hasPolicy()).isFalse();
+        assertThat(protobufOffsetOption.hasTailN()).isFalse();
+        assertThat(protobufOffsetOption.hasTimestamp()).isFalse();
+    }
+
+    @Test
+    public void testToProtobufOffsetOptionWithTailN() {
+        long tailNValue = 5L;
+        OffsetOption offsetOption = OffsetOption.ofTailN(tailNValue);
+        apache.rocketmq.v2.OffsetOption protobufOffsetOption = consumer.toProtobufOffsetOption(offsetOption);
+        assertThat(protobufOffsetOption.hasTailN()).isTrue();
+        assertThat(protobufOffsetOption.getTailN()).isEqualTo(tailNValue);
+        assertThat(protobufOffsetOption.hasPolicy()).isFalse();
+        assertThat(protobufOffsetOption.hasOffset()).isFalse();
+        assertThat(protobufOffsetOption.hasTimestamp()).isFalse();
+    }
+
+    @Test
+    public void testToProtobufOffsetOptionWithTimestamp() {
+        long timestampValue = System.currentTimeMillis();
+        OffsetOption offsetOption = OffsetOption.ofTimestamp(timestampValue);
+        apache.rocketmq.v2.OffsetOption protobufOffsetOption = consumer.toProtobufOffsetOption(offsetOption);
+        assertThat(protobufOffsetOption.hasTimestamp()).isTrue();
+        assertThat(protobufOffsetOption.getTimestamp()).isEqualTo(timestampValue);
+        assertThat(protobufOffsetOption.hasPolicy()).isFalse();
+        assertThat(protobufOffsetOption.hasOffset()).isFalse();
+        assertThat(protobufOffsetOption.hasTailN()).isFalse();
+    }
+
+    @Test
+    public void testToProtobufPolicyWithLast() {
+        long policyValue = OffsetOption.POLICY_LAST_VALUE;
+        apache.rocketmq.v2.OffsetOption.Policy policy = consumer.toProtobufPolicy(policyValue);
+        assertThat(policy).isEqualTo(apache.rocketmq.v2.OffsetOption.Policy.LAST);
+    }
+
+    @Test
+    public void testToProtobufPolicyWithMin() {
+        long policyValue = OffsetOption.POLICY_MIN_VALUE;
+        apache.rocketmq.v2.OffsetOption.Policy policy = consumer.toProtobufPolicy(policyValue);
+        assertThat(policy).isEqualTo(apache.rocketmq.v2.OffsetOption.Policy.MIN);
+    }
+
+    @Test
+    public void testToProtobufPolicyWithMax() {
+        long policyValue = OffsetOption.POLICY_MAX_VALUE;
+        apache.rocketmq.v2.OffsetOption.Policy policy = consumer.toProtobufPolicy(policyValue);
+        assertThat(policy).isEqualTo(apache.rocketmq.v2.OffsetOption.Policy.MAX);
+    }
+
+    @Test
+    public void testToProtobufPolicyWithUnknownValue() {
+        long unknownPolicyValue = 999L;
+        assertThatThrownBy(() -> consumer.toProtobufPolicy(unknownPolicyValue))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Unknown policy type");
     }
 }

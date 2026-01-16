@@ -21,10 +21,15 @@ from concurrent.futures import Future
 from grpc import ChannelConnectivity
 from rocketmq.grpc_protocol import (AckMessageRequest,
                                     ChangeInvisibleDurationRequest,
-                                    EndTransactionRequest, HeartbeatRequest,
+                                    EndTransactionRequest,
+                                    ForwardMessageToDeadLetterQueueRequest,
+                                    HeartbeatRequest,
                                     NotifyClientTerminationRequest,
-                                    QueryRouteRequest, ReceiveMessageRequest,
-                                    SendMessageRequest, TelemetryCommand)
+                                    QueryAssignmentRequest, QueryRouteRequest,
+                                    RecallMessageRequest,
+                                    ReceiveMessageRequest, SendMessageRequest,
+                                    SyncLiteSubscriptionRequest,
+                                    TelemetryCommand)
 from rocketmq.v5.client.connection import RpcChannel, RpcEndpoints
 from rocketmq.v5.log import logger
 from rocketmq.v5.util import ConcurrentMap
@@ -46,19 +51,17 @@ class RpcClient:
                     target=RpcClient.__init_io_loop,
                     args=(initialized_event,),
                     name="channel_io_loop_thread",
+                    daemon=True
                 )
-                RpcClient._io_loop_thread.daemon = True
                 RpcClient._io_loop_thread.start()
                 # waiting for thread start success
                 initialized_event.wait()
         self.channels = ConcurrentMap()
-        self.__clean_idle_channel_scheduler = None
-        self.__clean_idle_channel_scheduler_threading_event = None
         self.__enable_retrieve_channel = True
         self.__tls_enable = tls_enable
 
     def retrieve_or_create_channel(self, endpoints: RpcEndpoints):
-        if self.__enable_retrieve_channel is False:
+        if not self.__enable_retrieve_channel:
             raise Exception("RpcClient is not running.")
         try:
             # get or create a new grpc channel
@@ -85,7 +88,7 @@ class RpcClient:
         if len(idle_endpoints) > 0:
             with RpcClient._channel_lock:
                 for endpoints in idle_endpoints:
-                    logger.info(f"remove idle channel {endpoints.__str__()}")
+                    logger.info(f"remove idle channel {endpoints}")
                     self.__close_rpc_channel(endpoints)
                     self.channels.remove(endpoints)
 
@@ -166,7 +169,7 @@ class RpcClient:
             self.__end_transaction_0(endpoints, req, metadata=metadata, timeout=timeout)
         )
 
-    def notify_client_termination(
+    def notify_client_termination_async(
         self,
         endpoints: RpcEndpoints,
         req: NotifyClientTerminationRequest,
@@ -179,12 +182,26 @@ class RpcClient:
             )
         )
 
-    """ build stream_stream_call """
+    def recall_message_async(self, endpoints: RpcEndpoints, req: RecallMessageRequest, metadata, timeout=3):
+        return RpcClient.__run_message_service_async(
+            self.__recall_message_0(endpoints, req, metadata=metadata, timeout=timeout))
+
+    def query_assignment_async(self, endpoints: RpcEndpoints, req: QueryAssignmentRequest, metadata, timeout=3):
+        return RpcClient.__run_message_service_async(
+            self.__query_assignment_0(endpoints, req, metadata=metadata, timeout=timeout))
+
+    def forward_message_to_dead_letter_queue_async(self, endpoints: RpcEndpoints, req: ForwardMessageToDeadLetterQueueRequest, metadata, timeout=3):
+        return RpcClient.__run_message_service_async(
+            self.__forward_message_to_dead_letter_queue_async_0(endpoints, req, metadata=metadata, timeout=timeout))
+
+    def sync_lite_subscription_async(self, endpoints: RpcEndpoints, req: SyncLiteSubscriptionRequest, metadata, timeout=3):
+        return RpcClient.__run_message_service_async(
+            self.__sync_lite_subscription_0(endpoints, req, metadata=metadata, timeout=timeout))
 
     def telemetry_stream(
         self, endpoints: RpcEndpoints, client, metadata, rebuild, timeout=3000
     ):
-        # assert asyncio.get_running_loop() == RpcClient._io_loop
+        # build grpc stream_stream_call
         try:
             channel = self.retrieve_or_create_channel(endpoints)
             stream = channel.async_stub.Telemetry(
@@ -196,9 +213,9 @@ class RpcClient:
                 RpcClient.get_channel_io_loop(),
             )
             logger.info(
-                f"{client.__str__()} rebuild stream_steam_call to {endpoints.__str__()}."
+                f"{client} rebuild stream_steam_call to {endpoints}."
                 if rebuild
-                else f"{client.__str__()} create stream_steam_call to {endpoints.__str__()}."
+                else f"{client} create stream_steam_call to {endpoints}."
             )
             return channel
         except Exception as e:
@@ -270,6 +287,24 @@ class RpcClient:
             endpoints
         ).async_stub.NotifyClientTermination(req, metadata=metadata, timeout=timeout)
 
+    async def __recall_message_0(self, endpoints: RpcEndpoints, req: RecallMessageRequest, metadata, timeout=3):
+        return await self.retrieve_or_create_channel(endpoints).async_stub.RecallMessage(req, metadata=metadata,
+                                                                                         timeout=timeout)
+
+    async def __query_assignment_0(self, endpoints: RpcEndpoints, req: QueryAssignmentRequest, metadata, timeout=3):
+        return await self.retrieve_or_create_channel(endpoints).async_stub.QueryAssignment(req, metadata=metadata,
+                                                                                           timeout=timeout)
+
+    async def __forward_message_to_dead_letter_queue_async_0(self, endpoints: RpcEndpoints,
+                                                             req: ForwardMessageToDeadLetterQueueRequest, metadata,
+                                                             timeout=3):
+        return await self.retrieve_or_create_channel(endpoints).async_stub.ForwardMessageToDeadLetterQueue(req, metadata=metadata,
+                                                                                                           timeout=timeout)
+
+    async def __sync_lite_subscription_0(self, endpoints: RpcEndpoints,
+                                         req: SyncLiteSubscriptionRequest, metadata, timeout=3):
+        return await self.retrieve_or_create_channel(endpoints).async_stub.SyncLiteSubscription(req, metadata=metadata, timeout=timeout)
+
     async def __create_channel_async(self, endpoints: RpcEndpoints):
         return self.retrieve_or_create_channel(endpoints)
 
@@ -291,7 +326,7 @@ class RpcClient:
                 channel.close_channel(RpcClient.get_channel_io_loop())
                 self.channels.remove(endpoints)
             except Exception as e:
-                logger.error(f"close channel {endpoints.__str__()} error: {e}")
+                logger.error(f"close channel {endpoints} error: {e}")
                 raise e
 
     @staticmethod

@@ -414,7 +414,7 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 	endpoints := dpq.mq.Broker.Endpoints
 	batchSize := dpq.getReceptionBatchSize()
 	longPollingTimeout := dpq.consumer.pcSettings.longPollingTimeout
-	request := dpq.consumer.wrapReceiveMessageRequest(int(batchSize), dpq.mq, dpq.filterExpression, longPollingTimeout)
+	request := dpq.consumer.pushConsumerExtension.WrapReceiveMessageRequest(int(batchSize), dpq.mq, dpq.filterExpression, longPollingTimeout)
 
 	startTime := time.Now()
 	dpq.activityNanoTime.Store(startTime.UnixNano())

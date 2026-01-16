@@ -76,14 +76,15 @@ ProducerBuilder Producer::newBuilder() {
   return {};
 }
 
-ProducerBuilder::ProducerBuilder() : impl_(std::make_shared<ProducerImpl>()){};
+ProducerBuilder::ProducerBuilder() : impl_(std::make_shared<ProducerImpl>()){}
 
-ProducerBuilder& ProducerBuilder::withConfiguration(Configuration configuration) {
+ProducerBuilder& ProducerBuilder::withConfiguration(const Configuration& configuration) {
   auto name_server_resolver = std::make_shared<StaticNameServerResolver>(configuration.endpoints());
   impl_->withNameServerResolver(std::move(name_server_resolver));
   impl_->withResourceNamespace(configuration.resourceNamespace());
   impl_->withCredentialsProvider(configuration.credentialsProvider());
   impl_->withRequestTimeout(configuration.requestTimeout());
+  impl_->withCallbackThreads(configuration.callbackThreads());
   impl_->withSsl(configuration.withSsl());
   return *this;
 }

@@ -48,8 +48,7 @@ __LOG_CONFIG = {
     },
 }
 
-if not os.path.exists(__DIR):
-    os.makedirs(__DIR)
+os.makedirs(__DIR, exist_ok=True)
 
 logging.config.dictConfig(__LOG_CONFIG)
 logger = logging.getLogger("rocketmq-python-client")

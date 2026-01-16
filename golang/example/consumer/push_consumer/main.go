@@ -28,9 +28,9 @@ import (
 )
 
 const (
-	ConsumerGroup = "xxxxxx"
-	Topic         = "xxxxxx"
-	Endpoint      = "xxxxxx"
+	ConsumerGroup = "victory_lite_group001"
+	Topic         = "victory_lite_topic001"
+	Endpoint      = "11.167.131.190:8081"
 	AccessKey     = "xxxxxx"
 	SecretKey     = "xxxxxx"
 	NameSpace     = "xxxxxx"

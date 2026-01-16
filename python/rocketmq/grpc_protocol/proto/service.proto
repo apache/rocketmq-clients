@@ -66,6 +66,8 @@ message SendResultEntry {
   string message_id = 2;
   string transaction_id = 3;
   int64 offset = 4;
+  // Unique handle to identify message to recall, support delay message for now.
+  string recall_handle = 5;
 }
 
 message SendMessageResponse {
@@ -112,6 +114,7 @@ message ReceiveMessageResponse {
 message AckMessageEntry {
   string message_id = 1;
   string receipt_handle = 2;
+  optional string lite_topic = 3;
 }
 
 message AckMessageRequest {
@@ -146,6 +149,7 @@ message ForwardMessageToDeadLetterQueueRequest {
   string message_id = 4;
   int32 delivery_attempt = 5;
   int32 max_delivery_attempts = 6;
+  optional string lite_topic = 7;
 }
 
 message ForwardMessageToDeadLetterQueueResponse { Status status = 1; }
@@ -170,6 +174,8 @@ message EndTransactionResponse { Status status = 1; }
 
 message PrintThreadStackTraceCommand { string nonce = 1; }
 
+message ReconnectEndpointsCommand { string nonce = 1; }
+
 message ThreadStackTrace {
   string nonce = 1;
   optional string thread_stack_trace = 2;
@@ -187,6 +193,10 @@ message VerifyMessageResult {
 message RecoverOrphanedTransactionCommand {
   Message message = 1;
   string transaction_id = 2;
+}
+
+message NotifyUnsubscribeLiteCommand {
+  string lite_topic = 1;
 }
 
 message TelemetryCommand {
@@ -214,6 +224,12 @@ message TelemetryCommand {
 
     // Request client to verify the consumption of the appointed message.
     VerifyMessageCommand verify_message_command = 7;
+
+    // Request client to reconnect server use the latest endpoints.
+    ReconnectEndpointsCommand reconnect_endpoints_command = 8;
+
+    // Request client to unsubscribe lite topic.
+    NotifyUnsubscribeLiteCommand notify_unsubscribe_lite_command = 9;
   }
 }
 
@@ -291,6 +307,32 @@ message QueryOffsetRequest {
 message QueryOffsetResponse {
   Status status = 1;
   int64 offset = 2;
+}
+
+message RecallMessageRequest {
+  Resource topic = 1;
+  // Refer to SendResultEntry.
+  string recall_handle = 2;
+}
+
+message RecallMessageResponse {
+  Status status = 1;
+  string message_id = 2;
+}
+
+message SyncLiteSubscriptionRequest {
+  LiteSubscriptionAction action = 1;
+  // bindTopic for lite push consumer
+  Resource topic = 2;
+  // consumer group
+  Resource group = 3;
+  // lite subscription set of lite topics
+  repeated string lite_topic_set = 4;
+  optional int64 version = 5;
+}
+
+message SyncLiteSubscriptionResponse {
+  Status status = 1;
 }
 
 // For all the RPCs in MessagingService, the following error handling policies
@@ -416,4 +458,14 @@ service MessagingService {
   // ChangeInvisibleDuration to lengthen invisible duration.
   rpc ChangeInvisibleDuration(ChangeInvisibleDurationRequest) returns (ChangeInvisibleDurationResponse) {
   }
+
+  // Recall a message,
+  // for delay message, should recall before delivery time, like the rollback operation of transaction message,
+  // for normal message, not supported for now.
+  rpc RecallMessage(RecallMessageRequest) returns (RecallMessageResponse) {
+  }
+
+  // Sync lite subscription info, lite push consumer only
+  rpc SyncLiteSubscription(SyncLiteSubscriptionRequest) returns (SyncLiteSubscriptionResponse) {}
+
 }
