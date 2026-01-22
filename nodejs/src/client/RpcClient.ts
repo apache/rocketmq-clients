@@ -56,7 +56,12 @@ export class RpcClient {
   constructor(endpoints: Endpoints, sslEnabled: boolean) {
     const address = endpoints.getGrpcTarget();
     const grpcCredentials = sslEnabled ? ChannelCredentials.createSsl() : ChannelCredentials.createInsecure();
-    this.#client = new MessagingServiceClient(address, grpcCredentials);
+    const channelOptions = {
+      'grpc.keepalive_time_ms': 300000,
+      'grpc.keepalive_timeout_ms': 30000,
+      'grpc.keepalive_permit_without_calls': 1,
+    } as const;
+    this.#client = new MessagingServiceClient(address, grpcCredentials, channelOptions);
   }
 
   #getAndActivityRpcClient() {
