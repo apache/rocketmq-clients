@@ -62,7 +62,7 @@ class RpcClient:
 
     def retrieve_or_create_channel(self, endpoints: RpcEndpoints):
         if not self.__enable_retrieve_channel:
-            raise Exception("RpcClient is not running.")
+            raise Terminate("RpcClient is not running.")
         try:
             # get or create a new grpc channel
             channel = self.__get_channel(endpoints)
@@ -74,7 +74,7 @@ class RpcClient:
                     channel.create_channel(RpcClient.get_channel_io_loop())
                     self.__put_channel(endpoints, channel)
             return channel
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"retrieve or create channel exception: {e}")
             raise e
 
@@ -218,7 +218,7 @@ class RpcClient:
                 else f"{client} create stream_steam_call to {endpoints}."
             )
             return channel
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     """ MessageService.stub impl """
@@ -325,7 +325,7 @@ class RpcClient:
             try:
                 channel.close_channel(RpcClient.get_channel_io_loop())
                 self.channels.remove(endpoints)
-            except Exception as e:
+            except Terminate as e:
                 logger.error(f"close channel {endpoints} error: {e}")
                 raise e
 
@@ -341,7 +341,7 @@ class RpcClient:
             initialized_event.set()
             logger.info("start io loop thread success.")
             loop.run_forever()
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"start io loop thread exception: {e}")
 
     @staticmethod
@@ -351,7 +351,7 @@ class RpcClient:
             return asyncio.run_coroutine_threadsafe(
                 func, RpcClient.get_channel_io_loop()
             )
-        except Exception as e:
+        except Terminate as e:
             future = Future()
             future.set_exception(e)
             return future

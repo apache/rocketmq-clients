@@ -153,7 +153,7 @@ class RpcStreamStreamCall:
                 logger.warn(
                     f"{ self.__handler} read stream from endpoints {self.__endpoints} occurred AioRpcError. code: {e.code()}, message: {e.details()}"
                 )
-            except Exception as e:
+            except Terminate as e:
                 logger.error(
                     f"{ self.__handler} read stream from endpoints {self.__endpoints} exception, {e}"
                 )
@@ -162,7 +162,7 @@ class RpcStreamStreamCall:
         if self.__stream_stream_call:
             try:
                 await self.__stream_stream_call.write(req)
-            except Exception as e:
+            except Terminate as e:
                 raise e
 
     def close(self):
@@ -241,7 +241,7 @@ class RpcChannel:
                 logger.info(
                     f"create_aio_channel to [{self.__endpoints}] success. channel state:{self.__async_channel.get_state()}"
                 )
-        except Exception as e:
+        except Terminate as e:
             logger.error(
                 f"create_aio_channel to [{self.__endpoints}] exception: {e}"
             )

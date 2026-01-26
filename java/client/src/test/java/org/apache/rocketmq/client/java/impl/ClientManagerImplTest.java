@@ -42,7 +42,7 @@ public class ClientManagerImplTest extends TestBase {
     private static ClientManagerImpl CLIENT_MANAGER;
 
     @BeforeClass
-    public static void setUp() throws Exception {
+    public static void setUp() throws Terminate {
         Client client = Mockito.mock(Client.class);
         final Metadata metadata = new Metadata();
         Mockito.doReturn(metadata).when(client).sign();

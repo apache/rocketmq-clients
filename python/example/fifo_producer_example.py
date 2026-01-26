@@ -45,11 +45,11 @@ if __name__ == '__main__':
                 print(f"{producer} send message success. {res}")
             producer.shutdown()
             print(f"{producer} shutdown.")
-        except Exception as e:
+        except Terminate as e:
             print(f"{producer} raise exception: {e}")
             producer.shutdown()
             print(f"{producer} shutdown.")
-    except Exception as e:
+    except Terminate as e:
         print(f"{producer} startup raise exception: {e}")
         producer.shutdown()
         print(f"{producer} shutdown.")

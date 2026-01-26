@@ -73,7 +73,7 @@ class Message:
             if not message.user_properties:
                 self.__properties.update(message.user_properties)
             return self
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     """ private """
@@ -106,7 +106,7 @@ class Message:
                     f"unsupported message body digest algorithm, {message.system_properties.body_digest.type},"
                     f" {message.topic.name}, {message.system_properties.message_id}"
                 )
-        except Exception as e:
+        except Terminate as e:
             self.__corrupted = True
             logger.error(
                 f"(body_check_sum exception, topic: {message.topic.name}, message_id: {message.system_properties.message_id}, {e}"
@@ -119,7 +119,7 @@ class Message:
         elif message.system_properties.body_encoding == Encoding.IDENTITY:
             return message.body
         else:
-            raise Exception(
+            raise Terminate(
                 f"unsupported message encoding algorithm, {message.system_properties.body_encoding}, {message.topic}, {message.system_properties.message_id}"
             )
 

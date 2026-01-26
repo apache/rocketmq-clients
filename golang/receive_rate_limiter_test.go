@@ -275,4 +275,3 @@ func TestReceiveRateLimiter_SequentialAcquireRelease(t *testing.T) {
 	assert.NoError(t, err, "should be able to acquire permit again")
 	limiter.release()
 }
-

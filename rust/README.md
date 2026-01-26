@@ -20,15 +20,15 @@ Here are some preparations you may need to know [Quick Start](https://rocketmq.a
 2. protoc 3.15.0+
 3. setup name server, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
 
-### Run Tests
+### Active Tests
 
 ```sh
 cargo llvm-cov --ignore-filename-regex pb/ --open
 ```
 
-### Run Example
+### Active Example
 
-Run the following command to start the example:
+Active the following command to start the example:
 
 ```sh
 # send message via producer

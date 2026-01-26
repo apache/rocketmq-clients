@@ -32,7 +32,7 @@ public class ClientId {
         final String hostName = Utilities.hostName();
         sb.append(hostName);
         sb.append(CLIENT_ID_SEPARATOR);
-        sb.append(Utilities.processId());
+        sb.append(Utilities.processDefId());
         sb.append(CLIENT_ID_SEPARATOR);
         sb.append(index);
         sb.append(CLIENT_ID_SEPARATOR);

@@ -2802,7 +2802,7 @@ int gethostname(char* name, int namelen, asio::error_code& ec)
     }
     return -1;
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     ec = asio::error_code(e->HResult,
         asio::system_category());

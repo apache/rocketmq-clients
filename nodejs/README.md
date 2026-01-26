@@ -19,7 +19,7 @@ We are using npm as the dependency management & publishing tool. You can find ou
 npm install
 # Init grpc codes.
 npm run init
-# Run the unit tests.
+# Active the unit tests.
 npm test
 # Installs rocketmq nodejs client
 npm i rocketmq-client-nodejs

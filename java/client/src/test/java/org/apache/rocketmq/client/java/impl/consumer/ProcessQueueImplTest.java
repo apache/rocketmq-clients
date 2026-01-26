@@ -161,7 +161,7 @@ public class ProcessQueueImplTest extends TestBase {
         final MessageViewImpl messageView = fakeMessageViewImpl(2, false);
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
-        RpcFuture<AckMessageRequest, AckMessageResponse> future0 = new RpcFuture<>(new Exception());
+        RpcFuture<AckMessageRequest, AckMessageResponse> future0 = new RpcFuture<>(new Terminate());
         when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future0);
         processQueue.eraseMessage(messageView, ConsumeResult.SUCCESS);
         int ackTimes = 3;
@@ -178,7 +178,7 @@ public class ProcessQueueImplTest extends TestBase {
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
         RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future0 =
-            new RpcFuture<>(new Exception());
+            new RpcFuture<>(new Terminate());
         when(pushConsumer.changeInvisibleDuration(any(MessageViewImpl.class), any(Duration.class))).thenReturn(future0);
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
         when(retryPolicy.getNextAttemptDelay(anyInt())).thenReturn(Duration.ofSeconds(1));
@@ -271,7 +271,7 @@ public class ProcessQueueImplTest extends TestBase {
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
         RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse> future0 =
-            new RpcFuture<>(new Exception());
+            new RpcFuture<>(new Terminate());
         when(pushConsumer.forwardMessageToDeadLetterQueue(any(MessageViewImpl.class))).thenReturn(future0);
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
         when(retryPolicy.getMaxAttempts()).thenReturn(1);
