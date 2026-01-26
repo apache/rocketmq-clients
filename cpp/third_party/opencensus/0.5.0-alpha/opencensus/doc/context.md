@@ -68,7 +68,7 @@ void MyOpStart() {
   const Span& span = ::opencensus::trace::GetCurrentSpan();
   span.AddAnnotation("Starting AsyncOp.");
   AsyncOp op;
-  op.Run(/* on_done = */ Context::Current()::Wrap(MyOpResume));
+  op.Active(/* on_done = */ Context::Current()::Wrap(MyOpResume));
 }
 
 void MyOpResume() {

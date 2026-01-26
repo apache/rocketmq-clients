@@ -72,7 +72,7 @@ public class LitePushConsumerImplTest {
             java.lang.reflect.Field field = LitePushConsumerImpl.class.getDeclaredField("litePushConsumerSettings");
             field.setAccessible(true);
             field.set(consumer, spySettings);
-        } catch (Exception e) {
+        } catch (Terminate e) {
             throw new RuntimeException(e);
         }
     }

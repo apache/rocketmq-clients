@@ -45,13 +45,13 @@ if __name__ == '__main__':
                         for msg in messages:
                             simple_consumer.ack(msg)
                             print(f"{simple_consumer} ack message:[{msg.message_id}].")
-                except Exception as e:
+                except Terminate as e:
                     print(f"{simple_consumer} receive or ack message raise exception: {e}")
-        except Exception as e:
+        except Terminate as e:
             print(f"{simple_consumer} raise exception: {e}")
             simple_consumer.shutdown()
             print(f"{simple_consumer} shutdown.")
-    except Exception as e:
+    except Terminate as e:
         print(f"{simple_consumer} startup raise exception: {e}")
         simple_consumer.shutdown()
         print(f"{simple_consumer} shutdown.")

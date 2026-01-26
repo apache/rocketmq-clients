@@ -180,7 +180,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * Start the rocketmq client and do some preparatory work.
      */
     @Override
-    protected void startUp() throws Exception {
+    protected void startUp() throws Terminate {
         log.info("Begin to start the rocketmq client, clientId={}", clientId);
         this.clientManager.startAsync().awaitRunning();
         // Fetch topic route from remote.
@@ -195,7 +195,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                 log.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
                     clientId, topics);
                 break;
-            } catch (Exception e) {
+            } catch (Terminate e) {
                 log.error("Fetch topics failed when client start, clientId={}, topics={}, attemptTime={}", clientId,
                     topics, attempt, e);
                 if (attempt == clientConfiguration.getMaxStartupAttempts()) {
@@ -210,7 +210,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             try {
                 updateRouteCache();
             } catch (Throwable t) {
-                log.error("Exception raised while updating topic route cache, clientId={}", clientId, t);
+                log.error("Terminate raised while updating topic route cache, clientId={}", clientId, t);
             }
         }, 10, 30, TimeUnit.SECONDS);
         log.info("The rocketmq client starts successfully, clientId={}", clientId);
@@ -256,7 +256,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             compositedMessageInterceptor.doBefore(context, generalMessages);
         } catch (Throwable t) {
             // Should never reach here.
-            log.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
+            log.error("[Bug] Terminate raised while handling messages, clientId={}", clientId, t);
         }
     }
 
@@ -266,7 +266,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             compositedMessageInterceptor.doAfter(context, generalMessages);
         } catch (Throwable t) {
             // Should never reach here.
-            log.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
+            log.error("[Bug] Terminate raised while handling messages, clientId={}", clientId, t);
         }
     }
 
@@ -327,7 +327,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         try {
             telemetryCommandExecutor.submit(task);
         } catch (Throwable t) {
-            log.error("[Bug] Exception raised while submitting task to print thread stack trace, endpoints={}, "
+            log.error("[Bug] Terminate raised while submitting task to print thread stack trace, endpoints={}, "
                 + "nonce={}, clientId={}", endpoints, nonce, clientId, t);
         }
     }
@@ -527,7 +527,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             }
         } catch (Throwable t) {
             // Should never reach here.
-            log.error("[Bug] Exception raised while notifying client's termination, clientId={}", clientId, t);
+            log.error("[Bug] Terminate raised while notifying client's termination, clientId={}", clientId, t);
         }
     }
 
@@ -616,7 +616,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             // Should never reach here.
-            log.error("[Bug] Exception raised while preparing heartbeat, endpoints={}, clientId={}", endpoints,
+            log.error("[Bug] Terminate raised while preparing heartbeat, endpoints={}, clientId={}", endpoints,
                 clientId, t);
         }
     }
@@ -727,7 +727,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                     }
                 } catch (Throwable t) {
                     // Should never reach here.
-                    log.error("[Bug] Exception raised while update route data, topic={}, clientId={}", topic,
+                    log.error("[Bug] Terminate raised while update route data, topic={}, clientId={}", topic,
                         clientId, t);
                 } finally {
                     inflightRouteFutureLock.unlock();

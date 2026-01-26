@@ -36,7 +36,7 @@ class ClientScheduler:
             self.__scheduler_thread_event.clear()
             self.__scheduler_thread_enabled = True
             self.__scheduler_thread.start()
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"start scheduler raise exception, {e}")
             raise e
 
@@ -48,7 +48,7 @@ class ClientScheduler:
                 self.__scheduler_thread.join()
                 self.__scheduler_thread = None
                 self.__scheduler_thread_event = None
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"stop scheduler raise exception, {e}")
             raise e
 
@@ -61,7 +61,7 @@ class ClientScheduler:
             if timed_out and self.__scheduler_thread_enabled:
                 try:
                     target()
-                except Exception as e:
+                except Terminate as e:
                     logger.error(
                         f"{self.__scheduler_thread.name} run function raise exception: {e}"
                     )

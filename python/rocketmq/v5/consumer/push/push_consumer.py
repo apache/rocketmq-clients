@@ -108,10 +108,10 @@ class PushConsumer(Consumer):
 
     def _pre_start(self):
         if not self.__message_listener:
-            raise Exception("messageListener has not been set yet.")
+            raise Terminate("messageListener has not been set yet.")
 
         if not self._subscriptions.keys():
-            raise Exception("subscription expressions have not been set yet.")
+            raise Terminate("subscription expressions have not been set yet.")
 
     def _on_start(self):
         try:
@@ -120,7 +120,7 @@ class PushConsumer(Consumer):
             self.__scan_assignment_scheduler.start_scheduler()
             logger.info("start scan assignment scheduler success.")
             logger.info(f"{self} start success.")
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"{self} on start error, {e}")
             raise e
 
@@ -135,7 +135,7 @@ class PushConsumer(Consumer):
             logger.info(f"{self} new receive message executor success.")
             self.__ack_or_nack_result_executor = ThreadPoolExecutor(thread_name_prefix=f"{self.client_id}_ack_or_nack_result_thread")
             logger.info(f"{self} new message consumption result executor success.")
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"{self} start async executor raise exception, {e}")
             raise e
 
@@ -177,7 +177,7 @@ class PushConsumer(Consumer):
                         queue.endpoints, req, metadata=self._sign(), timeout=self.client_configuration.request_timeout
                     )
                     future.add_done_callback(functools.partial(self.__handle_assignment_result, topic=topic))
-            except Exception as e:
+            except Terminate as e:
                 logger.error(f"scan topic: {topic} assignment raise exception. {e}")
 
     def __handle_assignment_result(self, future, topic):
@@ -186,7 +186,7 @@ class PushConsumer(Consumer):
             assignment_result = future.result()
             MessagingResultChecker.check(assignment_result.status)
             self.__update_topic_assignment(assignment_result.assignments, topic)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"handle query topic: {topic} assignment response raise exception. {e}")
 
     def __update_topic_assignment(self, assignments, topic):
@@ -208,7 +208,7 @@ class PushConsumer(Consumer):
                     self.__assignments.put(topic, new_assignments)
             self.__drop_expired_message_queue()
             self.__process_message_queues(new_message_queues)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"update topic: {topic}, assignment: {assignments} raise exception, {e}")
 
     def __query_assignment_req(self, topic, queue):
@@ -247,7 +247,7 @@ class PushConsumer(Consumer):
             req = self._receive_req(message_queue.topic, message_queue, max_message_num, True,
                                     long_polling_timeout=self.__long_polling_timeout, attempt_id=attempt_id)
             return self._receive(message_queue, req, self.__long_polling_timeout + self.client_configuration.request_timeout)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"{self} receive message error, {e}")
             raise e
 
@@ -262,7 +262,7 @@ class PushConsumer(Consumer):
                 process_queue.cache_messages(messages)
                 self.__consumption.execute_consume(messages, message_queue, self.consumer_group, self.client_metrics)
             self.__execute_receive(message_queue, process_queue)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"{self} process received message raise exception, {e}")
             self.__execute_receive_later(message_queue, process_queue, attempt_id)
 
@@ -276,7 +276,7 @@ class PushConsumer(Consumer):
         """ callback for Consumption """
         try:
             self.__ack_or_nack(consume_result, message, message_queue)
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def __on_fifo_consumption_result(self, consume_result, message, message_queue):
@@ -286,7 +286,7 @@ class PushConsumer(Consumer):
                 self.__discard_fifo_message(message, message_queue)
             else:
                 self.__ack_or_nack(consume_result, message, message_queue, fifo=True)
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def __ack_or_nack(self, consume_result, message, message_queue, fifo=False):
@@ -302,7 +302,7 @@ class PushConsumer(Consumer):
                     invisible_duration = 30
                 self._change_invisible_duration(message, invisible_duration)
             self.__evict_message(message, message_queue)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"ack or nack raise exception, {e}")
             if isinstance(e, BadRequestException) and e.code == Code.INVALID_RECEIPT_HANDLE:
                 logger.error(f"{self} failed to ack message due to the invalid receipt handle, forgive to retry, topic: {message.topic}, message_id: {message.message_id}")
@@ -322,7 +322,7 @@ class PushConsumer(Consumer):
     def __discard_fifo_message(self, message, message_queue):
         try:
             self.__forward_message_to_dead_letter_queue(message)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"discard message raise exception, topic: {message.topic}, message_id: {message.message_id}, {e}")
             time.sleep(1)
             self.__discard_fifo_message(message, message_queue)
@@ -356,7 +356,7 @@ class PushConsumer(Consumer):
                 f"consumer[{self._consumer_group}] forward message to dead letter queue response, {res.status}"
             )
             MessagingResultChecker.check(res.status)
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     # process queue #

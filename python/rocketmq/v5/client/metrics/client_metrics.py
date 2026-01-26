@@ -82,7 +82,7 @@ class ClientMetrics:
                     measurements.append(Measurement(value=item["value"], attributes=item["attributes"],
                                                     time_unix_nano=0, instrument=None, context=None)) # noqa
                 return measurements
-            except Exception as e:
+            except Terminate as e:
                 logger.error(f"failed to observe metric '{name}': {e}")
                 return []
 
@@ -229,7 +229,7 @@ class ClientMetrics:
             try:
                 self.__meter_provider.shutdown()
                 self.__meter_provider = None
-            except Exception as e:
+            except Terminate as e:
                 logger.error(f"meter provider shutdown exception:{e}")
 
     def __meter_provider_start(self):
@@ -259,7 +259,7 @@ class ClientMetrics:
             )
             # define the histogram instruments
             self.__create_instrument()
-        except Exception as e:
+        except Terminate as e:
             logger.error(
                 f"client:{self.__client_id} start meter provider exception: {e}"
             )
@@ -315,5 +315,5 @@ class ClientMetrics:
             return
         try:
             metric_instruments.record(amount, context.attributes)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"failed to record metric '{context.metric_type}': {e}")

@@ -219,7 +219,7 @@ std::size_t winrt_ssocket_service_base::do_get_endpoint(
       return addr_len;
     }
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     ec = asio::error_code(e->HResult,
         asio::system_category());
@@ -275,7 +275,7 @@ asio::error_code winrt_ssocket_service_base::do_set_option(
       ec = asio::error::invalid_argument;
     }
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     ec = asio::error_code(e->HResult,
         asio::system_category());
@@ -332,7 +332,7 @@ void winrt_ssocket_service_base::do_get_option(
       ec = asio::error::invalid_argument;
     }
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     ec = asio::error_code(e->HResult,
         asio::system_category());
@@ -379,7 +379,7 @@ asio::error_code winrt_ssocket_service_base::do_connect(
             winrt_utils::string(addr_string)),
           winrt_utils::string(port)), ec);
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     ec = asio::error_code(e->HResult,
         asio::system_category());
@@ -435,7 +435,7 @@ void winrt_ssocket_service_base::start_connect_op(
             winrt_utils::string(addr_string)),
           winrt_utils::string(port)), op);
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     op->ec_ = asio::error_code(
         e->HResult, asio::system_category());
@@ -474,7 +474,7 @@ std::size_t winrt_ssocket_service_base::do_send(
     return async_manager_.sync(
         impl.socket_->OutputStream->WriteAsync(bufs.buffers()[0]), ec);
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     ec = asio::error_code(e->HResult,
         asio::system_category());
@@ -515,7 +515,7 @@ void winrt_ssocket_service_base::start_send_op(
     async_manager_.async(
         impl.socket_->OutputStream->WriteAsync(bufs.buffers()[0]), op);
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     op->ec_ = asio::error_code(e->HResult,
         asio::system_category());
@@ -564,7 +564,7 @@ std::size_t winrt_ssocket_service_base::do_receive(
 
     return bytes_transferred;
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     ec = asio::error_code(e->HResult,
         asio::system_category());
@@ -608,7 +608,7 @@ void winrt_ssocket_service_base::start_receive_op(
           bufs.buffers()[0], bufs.buffers()[0]->Capacity,
           Windows::Storage::Streams::InputStreamOptions::Partial), op);
   }
-  catch (Platform::Exception^ e)
+  catch (Platform::Terminate^ e)
   {
     op->ec_ = asio::error_code(e->HResult,
         asio::system_category());

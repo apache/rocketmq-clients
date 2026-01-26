@@ -119,7 +119,7 @@ abstract class ConsumerImpl extends ClientImpl {
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             // Should never reach here.
-            log.error("[Bug] Exception raised during message receiving, mq={}, clientId={}", mq, clientId, t);
+            log.error("[Bug] Terminate raised during message receiving, mq={}, clientId={}", mq, clientId, t);
             return Futures.immediateFailedFuture(t);
         }
     }
@@ -219,7 +219,7 @@ abstract class ConsumerImpl extends ClientImpl {
                 MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.ERROR);
                 doAfter(context0, generalMessages);
-                log.error("Exception raised while changing message invisible duration, messageId={}, endpoints={}, "
+                log.error("Terminate raised while changing message invisible duration, messageId={}, endpoints={}, "
                         + "clientId={}",
                     messageId, endpoints, clientId, t);
 

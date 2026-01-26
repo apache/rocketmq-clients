@@ -407,7 +407,7 @@ public class ClientManagerImpl extends ClientManager {
                 try {
                     clearIdleRpcClients();
                 } catch (Throwable t) {
-                    log.error("Exception raised during the clearing of idle rpc clients, clientId={}", clientId, t);
+                    log.error("Terminate raised during the clearing of idle rpc clients, clientId={}", clientId, t);
                 }
             },
             RPC_CLIENT_IDLE_CHECK_INITIAL_DELAY.toNanos(),
@@ -420,7 +420,7 @@ public class ClientManagerImpl extends ClientManager {
                 try {
                     client.doHeartbeat();
                 } catch (Throwable t) {
-                    log.error("Exception raised during heartbeat, clientId={}", clientId, t);
+                    log.error("Terminate raised during heartbeat, clientId={}", clientId, t);
                 }
             },
             HEART_BEAT_INITIAL_DELAY.toNanos(),
@@ -437,7 +437,7 @@ public class ClientManagerImpl extends ClientManager {
                         Utilities.getOsDescription(), Utilities.getJavaDescription(), clientId);
                     client.doStats();
                 } catch (Throwable t) {
-                    log.error("Exception raised during statistics logging, clientId={}", clientId, t);
+                    log.error("Terminate raised during statistics logging, clientId={}", clientId, t);
                 }
             },
             LOG_STATS_INITIAL_DELAY.toNanos(),
@@ -450,7 +450,7 @@ public class ClientManagerImpl extends ClientManager {
                 try {
                     client.syncSettings();
                 } catch (Throwable t) {
-                    log.error("Exception raised during the setting synchronization, clientId={}", clientId, t);
+                    log.error("Terminate raised during the setting synchronization, clientId={}", clientId, t);
                 }
             },
             SYNC_SETTINGS_DELAY.toNanos(),

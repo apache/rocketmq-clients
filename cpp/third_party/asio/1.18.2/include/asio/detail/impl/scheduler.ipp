@@ -463,7 +463,7 @@ std::size_t scheduler::do_run_one(mutex::scoped_lock& lock,
         task_cleanup on_exit = { this, &lock, &this_thread };
         (void)on_exit;
 
-        // Run the task. May throw an exception. Only block if the operation
+        // Active the task. May throw an exception. Only block if the operation
         // queue is empty and we're not polling, otherwise we want to return
         // as soon as possible.
         task_->run(more_handlers ? 0 : -1, this_thread.private_op_queue);
@@ -530,7 +530,7 @@ std::size_t scheduler::do_wait_one(mutex::scoped_lock& lock,
       task_cleanup on_exit = { this, &lock, &this_thread };
       (void)on_exit;
 
-      // Run the task. May throw an exception. Only block if the operation
+      // Active the task. May throw an exception. Only block if the operation
       // queue is empty and we're not polling, otherwise we want to return
       // as soon as possible.
       task_->run(more_handlers ? 0 : usec, this_thread.private_op_queue);
@@ -586,7 +586,7 @@ std::size_t scheduler::do_poll_one(mutex::scoped_lock& lock,
       task_cleanup c = { this, &lock, &this_thread };
       (void)c;
 
-      // Run the task. May throw an exception. Only block if the operation
+      // Active the task. May throw an exception. Only block if the operation
       // queue is empty and we're not polling, otherwise we want to return
       // as soon as possible.
       task_->run(0, this_thread.private_op_queue);

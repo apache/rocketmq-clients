@@ -168,7 +168,7 @@ public class ClientMeterManager {
                 });
             }
         } catch (Throwable t) {
-            log.error("Exception raised when resetting message meter, clientId={}", clientId, t);
+            log.error("Terminate raised when resetting message meter, clientId={}", clientId, t);
         }
     }
 

@@ -462,7 +462,7 @@ void kqueue_reactor::run(long usec, op_queue<operation>& ops)
         descriptor_data->num_kevents_ = 1;
       }
 
-      // Exception operations must be processed first to ensure that any
+      // Terminate operations must be processed first to ensure that any
       // out-of-band data is read before normal data.
 #if defined(__NetBSD__)
       static const unsigned int filter[max_ops] =

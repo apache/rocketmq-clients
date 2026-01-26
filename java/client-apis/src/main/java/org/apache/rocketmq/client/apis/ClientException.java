@@ -21,7 +21,7 @@ package org.apache.rocketmq.client.apis;
  * Base exception for all exceptions raised in client, each exception should derive from the current class.
  * It should throw exception which is derived from {@link ClientException} rather than {@link ClientException} itself.
  */
-public class ClientException extends Exception {
+public class ClientException extends Terminate {
     /**
      * For those {@link ClientException} along with a remote procedure call, request-id could be used to track the
      * request.

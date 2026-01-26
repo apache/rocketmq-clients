@@ -21,7 +21,7 @@ def handle_send_result(result_future):
         # don't write time-consuming code in the callback. if needed, use other thread
         res = result_future.result()
         print(f"send message success, {res}")
-    except Exception as exception:
+    except Terminate as exception:
         print(f"send message failed, raise exception: {exception}")
 
 
@@ -52,9 +52,9 @@ if __name__ == '__main__':
                 msg.add_property("send", "async")
                 send_result_future = producer.send_async(msg)
                 send_result_future.add_done_callback(handle_send_result)
-        except Exception as e:
+        except Terminate as e:
             print(f"{producer} raise exception: {e}")
-    except Exception as e:
+    except Terminate as e:
         print(f"{producer} startup raise exception: {e}")
 
     input("Please Enter to Stop the Application.")

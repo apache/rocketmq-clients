@@ -171,7 +171,7 @@ public class ClientSessionImplTest extends TestBase {
         Mockito.doReturn(FAKE_CLIENT_ID).when(sessionHandler).getClientId();
         Mockito.doReturn(true).when(sessionHandler).isRunning();
         Mockito.doReturn(SCHEDULER).when(sessionHandler).getScheduler();
-        final Exception e = new Exception();
+        final Terminate e = new Terminate();
         clientSession.onError(e);
         Mockito.verify(sessionHandler, times(1)).isRunning();
         Mockito.verify(requestObserver, times(1)).onCompleted();
@@ -191,7 +191,7 @@ public class ClientSessionImplTest extends TestBase {
         final ClientSessionImpl clientSession = new ClientSessionImpl(sessionHandler, Duration.ofSeconds(3), endpoints);
         Mockito.doReturn(FAKE_CLIENT_ID).when(sessionHandler).getClientId();
         Mockito.doReturn(false).when(sessionHandler).isRunning();
-        final Exception e = new Exception();
+        final Terminate e = new Terminate();
         clientSession.onError(e);
         Mockito.verify(sessionHandler, times(1)).isRunning();
         Mockito.verify(requestObserver, times(1)).onCompleted();

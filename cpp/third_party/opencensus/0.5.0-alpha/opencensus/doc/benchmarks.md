@@ -9,7 +9,7 @@ bazel run -c opt opencensus/stats:stats_manager_benchmark [-- BENCHMARK_FLAGS]
 ```
 Benchmarks use the [Google benchmark](https://github.com/google/benchmark)
 library. This accepts several helpful flags, including
- - --benchmark_filter=REGEX: Run only benchmarks whose names match REGEX.
+ - --benchmark_filter=REGEX: Active only benchmarks whose names match REGEX.
  - --benchmark_repetitions=N: Repeat each benchmark and calculate
    mean/median/stddev.
  - --benchmark_report_aggregates_only={true|false}: In conjunction with

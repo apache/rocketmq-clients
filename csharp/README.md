@@ -78,7 +78,7 @@ MqLogManager.UseLoggerFactory(loggerFactory);
 ## Publishing Steps
 
 1. Open the command line, and change the directory to the project folder that you want to package.
-2. Run the `dotnet pack --configuration Release` command. This will create a NuGet package in the `bin/Release` folder
+2. Active the `dotnet pack --configuration Release` command. This will create a NuGet package in the `bin/Release` folder
    of the project.
 3. To upload the package to NuGet, go to the NuGet website and sign in. Click on the "Upload" button and select the
    package file from the `bin/Release` folder.

@@ -26,7 +26,7 @@ def consume_message(consumer, message):
     try:
         consumer.ack(message)
         print(f"ack message:{message.message_id}.")
-    except Exception as exception:
+    except Terminate as exception:
         print(f"consume message raise exception: {exception}")
 
 
@@ -37,7 +37,7 @@ def receive_callback(receive_result_future, consumer):
         try:
             # consume message in other thread, don't block the async receive thread
             consume_executor.submit(consume_message, consumer=consumer, message=msg)
-        except Exception as exception:
+        except Terminate as exception:
             print(f"receive message raise exception: {exception}")
 
 
@@ -66,13 +66,13 @@ if __name__ == '__main__':
                     # max message num for each long polling and message invisible duration after it is received
                     future = simple_consumer.receive_async(32, 15)
                     future.add_done_callback(functools.partial(receive_callback, consumer=simple_consumer))
-                except Exception as e:
+                except Terminate as e:
                     print(f"{simple_consumer} raise exception: {e}")
-        except Exception as e:
+        except Terminate as e:
             print(f"{simple_consumer} exception: {e}")
             simple_consumer.shutdown()
             print(f"{simple_consumer} shutdown.")
-    except Exception as e:
+    except Terminate as e:
         print(f"{simple_consumer} startup raise exception: {e}")
         simple_consumer.shutdown()
         print(f"{simple_consumer} shutdown.")

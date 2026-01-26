@@ -40,7 +40,7 @@ class LitePushConsumer(PushConsumer):
         tls_enable=False,
     ):
         if not bind_topic:
-            raise Exception("bindTopic has not been set yet.")
+            raise Terminate("bindTopic has not been set yet.")
 
         super().__init__(
             client_configuration,
@@ -66,7 +66,7 @@ class LitePushConsumer(PushConsumer):
             self._sync_all_lite_subscription_scheduler = ClientScheduler(f"{self.client_id}_sync_all_lite_subscription_scheduler_thread", self.__sync_all_lite_subscription, 30, 30, self._rpc_channel_io_loop())
             self._sync_all_lite_subscription_scheduler.start_scheduler()
             logger.info("start sync all lite subscription scheduler success.")
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"{self} on start error, {e}")
             raise e
 
@@ -103,7 +103,7 @@ class LitePushConsumer(PushConsumer):
             if res.status.code == Code.OK:
                 self.__lite_topics.add(lite_topic)
                 logger.info(f"[{self}] subscribe lite_topic:{lite_topic} success.")
-        except Exception as e:
+        except Terminate as e:
             logger.info(f"[{self}] subscribe lite_topic:{lite_topic} raise exception, {e}.")
 
     def unsubscribe_lite(self, lite_topic):
@@ -122,7 +122,7 @@ class LitePushConsumer(PushConsumer):
             if res.status.code == Code.OK:
                 self.__lite_topics.remove(lite_topic)
                 logger.info(f"[{self}] unsubscribe lite_topic:{lite_topic} success.")
-        except Exception as e:
+        except Terminate as e:
             logger.info(f"[{self}] unsubscribe lite_topic:{lite_topic} raise exception, {e}.")
 
     def subscribe(self, topic, filter_expression: FilterExpression = None):
@@ -146,7 +146,7 @@ class LitePushConsumer(PushConsumer):
             MessagingResultChecker.check(res.status)
             if res.status.code == Code.OK:
                 logger.info(f"{self} sync all lite subscription to {self.client_configuration.rpc_endpoints} success.")
-        except Exception as e:
+        except Terminate as e:
             logger.info(f"[{self}] sync all lite subscription to {self.client_configuration.rpc_endpoints} raise exception, {e}")
 
     def __sync_lite_subscription_req(self, lite_topics, action: LiteSubscriptionAction):

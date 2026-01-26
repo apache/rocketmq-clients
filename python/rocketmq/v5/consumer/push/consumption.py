@@ -44,7 +44,7 @@ class Consumption:
                 client_metrics.consume_after(consume_context, False)
                 self.__consume_result_callback(ConsumeResult.FAILURE, message, message_queue)
             consume_result = self.__message_listener.consume(message)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"message listener raised an exception while consuming messages, topic: {message.topic}, message_id: {message.message_id}, {e}")
             consume_result = ConsumeResult.FAILURE
         client_metrics.consume_after(consume_context, consume_result == ConsumeResult.SUCCESS)

@@ -80,7 +80,7 @@ public abstract class ConsumeService {
                 @Override
                 public void onFailure(Throwable t) {
                     // Should never reach here.
-                    log.error("[Bug] Exception raised while submitting scheduled consumption task, clientId={}",
+                    log.error("[Bug] Terminate raised while submitting scheduled consumption task, clientId={}",
                         clientId, t);
                 }
             }, MoreExecutors.directExecutor());

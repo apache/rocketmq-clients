@@ -92,14 +92,14 @@ public class FifoConsumeAcceleratorTest extends GrpcServerIntegrationTest {
     }
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() throws Terminate {
         serverImpl = new MockServerImpl(topic);
         setUpServer(serverImpl, port);
         serverImpl.setPort(port);
     }
 
     @Test
-    public void test() throws Exception {
+    public void test() throws Terminate {
         List<String> consumeList = new CopyOnWriteArrayList<>();
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
         SessionCredentialsProvider sessionCredentialsProvider = new StaticSessionCredentialsProvider("", "");

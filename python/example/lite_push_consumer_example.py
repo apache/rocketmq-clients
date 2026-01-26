@@ -44,11 +44,11 @@ if __name__ == '__main__':
             lite_push_consumer.subscribe_lite("lite-test-" + str(i))
         try:
             input("Please Enter to Stop the Application.\r\n")
-        except Exception as e:
+        except Terminate as e:
             print(f"{lite_push_consumer} raise exception: {e}")
             lite_push_consumer.shutdown()
             print(f"{lite_push_consumer} shutdown.")
-    except Exception as e:
+    except Terminate as e:
         print(f"{lite_push_consumer} startup raise exception: {e}")
         lite_push_consumer.shutdown()
         print(f"{lite_push_consumer} shutdown.")

@@ -259,7 +259,7 @@ void select_reactor::run(long usec, op_queue<operation>& ops)
     fd_sets_[write_op].perform(op_queue_[connect_op], ops);
 #endif // defined(ASIO_WINDOWS) || defined(__CYGWIN__)
 
-    // Exception operations must be processed first to ensure that any
+    // Terminate operations must be processed first to ensure that any
     // out-of-band data is read before normal data.
     for (int i = max_select_ops - 1; i >= 0; --i)
       fd_sets_[i].perform(op_queue_[i], ops);

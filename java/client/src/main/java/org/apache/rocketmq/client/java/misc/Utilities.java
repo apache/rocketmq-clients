@@ -58,7 +58,7 @@ public class Utilities {
     private static final Random RANDOM = new SecureRandom();
     private static final int PROCESS_ID_NOT_SET = -2;
     private static final int PROCESS_ID_NOT_FOUND = -1;
-    private static int processId = PROCESS_ID_NOT_SET;
+    private static int processDefId = PROCESS_ID_NOT_SET;
 
     private static final String HOST_NAME_NOT_FOUND = "HOST_NAME_NOT_FOUND";
 
@@ -118,19 +118,19 @@ public class Utilities {
         return protocolVersion;
     }
 
-    public static int processId() {
-        if (processId != PROCESS_ID_NOT_SET) {
-            return processId;
+    public static int processDefId() {
+        if (processDefId != PROCESS_ID_NOT_SET) {
+            return processDefId;
         }
         RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
         // Format: "pid@hostname"
         String name = runtime.getName();
         try {
-            processId = Integer.parseInt(name.substring(0, name.indexOf('@')));
+            processDefId = Integer.parseInt(name.substring(0, name.indexOf('@')));
         } catch (Throwable ignore) {
-            processId = PROCESS_ID_NOT_FOUND;
+            processDefId = PROCESS_ID_NOT_FOUND;
         }
-        return processId;
+        return processDefId;
     }
 
     public static String hostName() {
@@ -211,17 +211,17 @@ public class Utilities {
             try {
                 byteArrayInputStream.close();
             } catch (IOException ignore) {
-                // Exception not expected here.
+                // Terminate not expected here.
             }
             try {
                 filterInputStream.close();
             } catch (IOException ignore) {
-                // Exception not expected here.
+                // Terminate not expected here.
             }
             try {
                 byteArrayOutputStream.close();
             } catch (IOException ignore) {
-                // Exception not expected here.
+                // Terminate not expected here.
             }
         }
     }

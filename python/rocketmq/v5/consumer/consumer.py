@@ -80,7 +80,7 @@ class Consumer(Client):
                     else FilterExpression()
                 ),
             )
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"subscribe raise exception: {e}")
             raise e
 
@@ -100,7 +100,7 @@ class Consumer(Client):
         try:
             future = self.__ack(message)
             self.__handle_ack_result(future)
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def _ack_async(self, message: Message):
@@ -112,14 +112,14 @@ class Consumer(Client):
             )
             future.add_done_callback(ack_callback)
             return ret_future
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def _change_invisible_duration(self, message: Message, invisible_duration):
         try:
             future = self.__change_invisible_duration(message, invisible_duration)
             self.__handle_change_invisible_result(future, message)
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def _change_invisible_duration_async(self, message: Message, invisible_duration):
@@ -131,7 +131,7 @@ class Consumer(Client):
             )
             future.add_done_callback(change_invisible_callback)
             return ret_future
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def _receive(self, queue, req, timeout):
@@ -144,7 +144,7 @@ class Consumer(Client):
                 self._rpc_channel_io_loop(),
             )
             return self.__handle_receive_message_response(read_future.result(), queue)
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def _receive_async(self, queue, req, timeout, ret_future):
@@ -161,7 +161,7 @@ class Consumer(Client):
             )
             read_future.add_done_callback(handle_send_receipt_callback)
             return ret_future
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def _receive_req(self, topic, queue, max_message_num, auto_renew, invisible_duration=None, long_polling_timeout=None, attempt_id=None):
@@ -195,7 +195,7 @@ class Consumer(Client):
                     )
                     responses.append(res)
             return responses
-        except Exception as e:
+        except Terminate as e:
             logger.error(
                 f"consumer:{self._consumer_group} receive message exception: {e}"
             )
@@ -234,7 +234,7 @@ class Consumer(Client):
             self._submit_callback(
                 CallbackResult.async_receive_callback_result(ret_future, messages)
             )
-        except Exception as e:
+        except Terminate as e:
             self._submit_callback(
                 CallbackResult.async_receive_callback_result(ret_future, e, False)
             )
@@ -268,7 +268,7 @@ class Consumer(Client):
                 metadata=self._sign(),
                 timeout=self.client_configuration.request_timeout,
             )
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def __handle_ack_result(self, future, ret_future=None):
@@ -282,7 +282,7 @@ class Consumer(Client):
                 self._submit_callback(
                     CallbackResult.async_ack_callback_result(ret_future, None)
                 )
-        except Exception as e:
+        except Terminate as e:
             if ret_future is None:
                 raise e
             else:
@@ -315,7 +315,7 @@ class Consumer(Client):
                 metadata=self._sign(),
                 timeout=self.client_configuration.request_timeout,
             )
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def __handle_change_invisible_result(self, future, message, ret_future=None):
@@ -332,7 +332,7 @@ class Consumer(Client):
                         ret_future, None
                     )
                 )
-        except Exception as e:
+        except Terminate as e:
             if ret_future is None:
                 raise e
             else:

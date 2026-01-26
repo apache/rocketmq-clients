@@ -68,7 +68,7 @@ class ClientConfiguration:
                     ad.host = address.split(":")[0]
                     ad.port = int(address.split(":")[1])
                 return endpoints
-            except Exception as e:
+            except Terminate as e:
                 logger.error(
                     f"client configuration parse {endpoints_str} exception: {e}"
                 )

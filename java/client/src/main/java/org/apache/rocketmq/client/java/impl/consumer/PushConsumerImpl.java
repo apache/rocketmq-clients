@@ -173,7 +173,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     }
 
     @Override
-    protected void startUp() throws Exception {
+    protected void startUp() throws Terminate {
         try {
             log.info("Begin to start the rocketmq {}, clientId={}", getSettings().getClientType(), clientId);
             GaugeObserver gaugeObserver = new ProcessQueueGaugeObserver(processQueueTable, clientId, consumerGroup);
@@ -186,12 +186,12 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                 try {
                     scanAssignments();
                 } catch (Throwable t) {
-                    log.error("Exception raised while scanning the load assignments, clientId={}", clientId, t);
+                    log.error("Terminate raised while scanning the load assignments, clientId={}", clientId, t);
                 }
             }, 1, 5, TimeUnit.SECONDS);
             log.info("The rocketmq {} starts successfully, clientId={}", getSettings().getClientType(), clientId);
         } catch (Throwable t) {
-            log.error("Exception raised while starting the rocketmq {}, clientId={}",
+            log.error("Terminate raised while starting the rocketmq {}, clientId={}",
                 getSettings().getClientType(), clientId, t);
             shutDown();
             throw t;
@@ -240,7 +240,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                 }
                 TimeUnit.MILLISECONDS.sleep(100);
             }
-        } catch (Exception e) {
+        } catch (Terminate e) {
             log.error("Unexpected exception while waiting for the inflight receive requests to be finished, "
                 + "clientId={}", clientId, e);
         }
@@ -459,13 +459,13 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
                     @Override
                     public void onFailure(Throwable t) {
-                        log.error("Exception raised while scanning the assignments, topic={}, clientId={}", topic,
+                        log.error("Terminate raised while scanning the assignments, topic={}, clientId={}", topic,
                             clientId, t);
                     }
                 }, MoreExecutors.directExecutor());
             }
         } catch (Throwable t) {
-            log.error("Exception raised while scanning the assignments for all topics, clientId={}", clientId, t);
+            log.error("Terminate raised while scanning the assignments for all topics, clientId={}", clientId, t);
         }
     }
 

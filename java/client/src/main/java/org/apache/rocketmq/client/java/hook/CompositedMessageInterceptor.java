@@ -51,7 +51,7 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
             try {
                 interceptor.doBefore(context, messages);
             } catch (Throwable t) {
-                log.error("Exception raised while handing messages", t);
+                log.error("Terminate raised while handing messages", t);
             }
             final Map<AttributeKey, Attribute> attributes = context.getAttributes();
             attributeMap.put(index, attributes);
@@ -76,7 +76,7 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
             try {
                 interceptor.doAfter(context, messages);
             } catch (Throwable t) {
-                log.error("Exception raised while handing messages", t);
+                log.error("Terminate raised while handing messages", t);
             }
         }
     }

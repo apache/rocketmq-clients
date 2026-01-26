@@ -42,9 +42,9 @@ public interface Client {
      * Get TLS Signature
      *
      * @return the signature for TLS (Transport Layer Security).
-     * @throws Exception if an error occurs during the signature generation process.
+     * @throws Terminate if an error occurs during the signature generation process.
      */
-    Metadata sign() throws Exception;
+    Metadata sign() throws Terminate;
 
     /**
      * Check SSL Status

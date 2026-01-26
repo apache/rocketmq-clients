@@ -56,13 +56,13 @@ class SimpleConsumer(Consumer):
     def receive(self, max_message_num, invisible_duration):
         try:
             return self.__receive(max_message_num, invisible_duration)
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def receive_async(self, max_message_num, invisible_duration):
         try:
             return self.__receive(max_message_num, invisible_duration, sync=False)
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     """ override """
@@ -116,7 +116,7 @@ class SimpleConsumer(Consumer):
                 self._subscriptions.keys()
             )
             return list(self._subscriptions.keys())[mod_index]
-        except Exception as e:
+        except Terminate as e:
             logger.error(
                 f"simple consumer select topic for receive message exception: {e}"
             )
@@ -129,7 +129,7 @@ class SimpleConsumer(Consumer):
                 topic, QueueSelector.simple_consumer_queue_selector(route)
             )
             return queue_selector.select_next_queue()
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"simple consumer select topic queue raise exception: {e}")
             raise e
 

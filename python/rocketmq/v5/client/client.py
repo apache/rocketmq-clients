@@ -65,7 +65,7 @@ class Client:
     def startup(self):
         try:
             if self.__had_shutdown:
-                raise Exception(
+                raise Terminate(
                     f"{self} had shutdown, can't startup again."
                 )
 
@@ -75,9 +75,9 @@ class Client:
                 if self.__topics:
                     for topic in self.__topics:
                         if not self.__update_topic_route(topic):
-                            raise Exception("update topic raise exception when client startup")
+                            raise Terminate("update topic raise exception when client startup")
                     self._init_settings_event.wait()
-            except Exception as e:
+            except Terminate as e:
                 # ignore this exception and retrieve again when calling send or receive
                 logger.warn(
                     f"update topic raise exception when client startup, ignore it, try it again in scheduler. exception: {e}"
@@ -86,7 +86,7 @@ class Client:
             self.__start_async_rpc_callback_executor()
             self._on_start()
             self.__is_running = True
-        except Exception as e:
+        except Terminate as e:
             self.__is_running = False
             self.__stop_client_threads()
             self._on_start_failure()
@@ -111,7 +111,7 @@ class Client:
             self._init_settings_event = None
             self.__had_shutdown = True
             self.__is_running = False
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"{self} shutdown exception: {e}")
             raise e
 
@@ -187,7 +187,7 @@ class Client:
                                                                        self._rpc_channel_io_loop())
             self.__clear_idle_rpc_channels_scheduler.start_scheduler()
             logger.info("start clear idle rpc channels scheduler success.")
-        except Exception as e:
+        except Terminate as e:
             logger.info(f"start scheduler exception: {e}")
             self.__stop_client_threads()
             raise e
@@ -229,7 +229,7 @@ class Client:
             self.__client_callback_executor = ThreadPoolExecutor(max_workers=workers,
                                                                  thread_name_prefix=f"client_callback_worker_{self.__client_id}")
             logger.info(f"{self} start callback executor success. max_workers:{workers}")
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"{self} start async rpc callback raise exception: {e}")
             raise e
 
@@ -255,7 +255,7 @@ class Client:
                 self.__topics.add(topic)
                 return route
             else:
-                raise Exception(f"failed to fetch topic:{topic} route.")
+                raise Terminate(f"failed to fetch topic:{topic} route.")
 
     def _remove_unused_topic_route_data(self, topic):
         self.__topic_route_cache.remove(topic)
@@ -305,7 +305,7 @@ class Client:
         try:
             res = future.result()
             self.__handle_topic_route_res(res, topic)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"query topic raise exception, {e}")
         finally:
             if event:
@@ -332,7 +332,7 @@ class Client:
                 # producer or consumer update its queue selector
                 self._update_queue_selector(topic, topic_route)
         else:
-            raise Exception(f"query topic route exception, topic:{topic}")
+            raise Terminate(f"query topic route exception, topic:{topic}")
 
     # heartbeat #
 
@@ -363,7 +363,7 @@ class Client:
                     logger.error(
                         f"{self} send heartbeat to {endpoints} error, response is none."
                     )
-        except Exception as e:
+        except Terminate as e:
             logger.error(
                 f"{self} send heartbeat to {endpoints} exception, e: {e}"
             )
@@ -376,7 +376,7 @@ class Client:
             self.__rpc_client.telemetry_stream(
                 endpoints, self, self._sign(), rebuild, timeout=60 * 60 * 24 * 365
             )
-        except Exception as e:
+        except Terminate as e:
             logger.error(
                 f"{self} rebuild stream_steam_call to {endpoints} exception: {e}"
                 if rebuild
@@ -406,7 +406,7 @@ class Client:
                 f"{self} send setting to {endpoints} occurred AioRpcError: {e}"
             )
             self.__retrieve_telemetry_stream_stream_call(endpoints, rebuild=True)
-        except Exception as e:
+        except Terminate as e:
             logger.error(
                 f"{self} send setting to {endpoints} exception: {e}"
             )
@@ -457,7 +457,7 @@ class Client:
         for endpoints in all_endpoints.values():
             try:
                 self.__client_termination(endpoints)
-            except Exception as e:
+            except Terminate as e:
                 logger.error(f"notify client termination to {endpoints} exception: {e}")
 
     def __stop_client_threads(self):
