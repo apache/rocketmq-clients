@@ -75,4 +75,4 @@ jobs:
       # Build the rocketmq opentelemetry test.
       - name: Build OpenTelemetry Instrumentation Test
         run: |
-          ./gradlew :instrumentation:rocketmq:rocketmq-client:rocketmq-client-5.0:javaagent:test -i
+          ./gradlew :instrumentation:rocketmq:rocketmq-client-5.0:javaagent:test -i
