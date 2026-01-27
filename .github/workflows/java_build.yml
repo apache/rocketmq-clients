@@ -61,6 +61,10 @@ jobs:
       - name: Print Current Version
         run: |
           echo "Current Version: ${{ steps.get_version.outputs.version }}"
+      # Print the current version.
+      - name: Print Current Version
+        run: |
+          ls
       # Replace the RocketMQ client version.
       - name: Replace RocketMQ Client Version
         run: |
