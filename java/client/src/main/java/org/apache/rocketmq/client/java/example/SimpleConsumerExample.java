@@ -72,6 +72,8 @@ public class SimpleConsumerExample {
             // Set the subscription for the consumer.
             .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
             .build();
+        // You can calculate the number of messages that need to be received each time
+        // and the invisible time based on the estimated processing time of each message.
         // Max message num for each long polling.
         int maxMessageNum = 16;
         // Set message invisible duration after it is received.
