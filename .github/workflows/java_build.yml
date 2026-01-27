@@ -61,14 +61,10 @@ jobs:
       - name: Print Current Version
         run: |
           echo "Current Version: ${{ steps.get_version.outputs.version }}"
-      # Print the current version.
-      - name: Print Current Version
-        run: |
-          ls
       # Replace the RocketMQ client version.
       - name: Replace RocketMQ Client Version
         run: |
-          sed -i 's/org\.apache\.rocketmq:rocketmq-client-java:[^"]*/org.apache.rocketmq:rocketmq-client-java:${{ steps.get_version.outputs.version }}/' instrumentation/rocketmq/rocketmq-client/rocketmq-client-5.0/testing/build.gradle.kts
+          sed -i 's/org\.apache\.rocketmq:rocketmq-client-java:[^"]*/org.apache.rocketmq:rocketmq-client-java:${{ steps.get_version.outputs.version }}/' instrumentation/rocketmq/rocketmq-client-5.0/testing/build.gradle.kts
       # Use JDK 17.
       - name: Use JDK 21
         uses: actions/setup-java@v3
