@@ -60,7 +60,7 @@
         <future-coverter-java8-guava.version>1.2.0</future-coverter-java8-guava.version>
 
         <junit.version>4.13.2</junit.version>
-        <assertj-core.version>2.6.0</assertj-core.version>
+        <assertj-core.version>3.27.7</assertj-core.version>
         <mockito-core.version>3.10.0</mockito-core.version>
         <awaitility.version>4.1.0</awaitility.version>
         <bcpkix.version>1.77</bcpkix.version>
