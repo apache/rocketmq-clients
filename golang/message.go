@@ -76,6 +76,7 @@ type Message struct {
 	messageGroup *string
 	keys         []string
 	properties   map[string]string
+	LiteTopic    *string
 
 	deliveryTimestamp  *time.Time
 	parentTraceContext *string
@@ -102,6 +103,14 @@ func (msg *Message) GetKeys() []string {
 
 func (msg *Message) SetKeys(keys ...string) {
 	msg.keys = keys
+}
+
+func (msg *Message) GetLiteTopic() *string {
+	return msg.LiteTopic
+}
+
+func (msg *Message) SetLiteTopic(liteTopic string) {
+	msg.LiteTopic = &liteTopic
 }
 
 func (msg *Message) getOrNewProperties() map[string]string {
@@ -183,6 +192,7 @@ type MessageView struct {
 	deliveryAttempt             int32
 	decodeStopwatch             *time.Time
 	deliveryTimestampFromRemote *timestamppb.Timestamp
+	liteTopic                   string
 
 	offset        int64
 	ReceiptHandle string
@@ -267,6 +277,9 @@ func fromProtobuf_MessageView2(message *v2.Message, messageQueue *v2.MessageQueu
 		bornTimestamp := systemProperties.GetBornTimestamp().AsTime()
 		mv.bornTimestamp = &bornTimestamp
 	}
+	if systemProperties.GetLiteTopic() != "" {
+		mv.liteTopic = systemProperties.GetLiteTopic()
+	}
 	mv.deliveryTimestampFromRemote = deliveryTimestampFromRemote
 	decodeStopwatch := time.Now()
 	mv.decodeStopwatch = &decodeStopwatch
@@ -302,6 +315,10 @@ func (msg *MessageView) GetMessageId() string {
 
 func (msg *MessageView) GetTopic() string {
 	return msg.topic
+}
+
+func (msg *MessageView) GetLiteTopic() string {
+	return msg.liteTopic
 }
 
 func (msg *MessageView) GetBody() []byte {
