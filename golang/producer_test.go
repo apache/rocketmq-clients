@@ -20,6 +20,7 @@ package golang
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -66,7 +67,8 @@ func TestProducer(t *testing.T) {
 	p, err := NewProducer(&Config{
 		Endpoint:    endpoints,
 		Credentials: &credentials.SessionCredentials{},
-	})
+	}, WithAsyncWorkers(5),
+		WithAsyncQueueSize(100))
 	if err != nil {
 		t.Error(err)
 	}
@@ -117,14 +119,28 @@ func TestProducer(t *testing.T) {
 			Entries: []*v2.SendResultEntry{{}},
 		}, nil).AnyTimes()
 
-		done := make(chan bool)
-		p.SendAsync(context.TODO(), msg, func(ctx context.Context, sr []*SendReceipt, err error) {
-			if err != nil {
-				t.Error(err)
-			}
-			done <- true
-		})
-		<-done
+		var wg sync.WaitGroup
+		msgNumbers := 5
+		wg.Add(msgNumbers)
+		for i := 0; i < msgNumbers; i++ {
+			p.SendAsync(context.TODO(), msg, func(ctx context.Context, sr []*SendReceipt, err error) {
+				if err != nil {
+					t.Error(err)
+				}
+				wg.Done()
+			})
+		}
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timeout waiting for async callback")
+		}
 	})
 	t.Run("send transaction message and commit", func(t *testing.T) {
 		MOCK_RPC_CLIENT.EXPECT().SendMessage(gomock.Any(), gomock.Any()).Return(&v2.SendMessageResponse{
