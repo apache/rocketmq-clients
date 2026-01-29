@@ -121,7 +121,7 @@ class ProducerImpl extends ClientImpl implements Producer {
     }
 
     @Override
-    protected void startUp() throws Exception {
+    protected void startUp() throws Terminate {
         try {
             log.info("Begin to start the rocketmq producer, clientId={}", clientId);
             super.startUp();
@@ -178,14 +178,14 @@ class ProducerImpl extends ClientImpl implements Producer {
                     endTransaction(endpoints, generalMessage, messageView.getMessageId(),
                         transactionId, resolution, TransactionSource.SOURCE_SERVER_CHECK);
                 } catch (Throwable t) {
-                    log.error("Exception raised while ending the transaction, messageId={}, transactionId={}, "
+                    log.error("Terminate raised while ending the transaction, messageId={}, transactionId={}, "
                         + "endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
                 }
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while checking the transaction, messageId={}, transactionId={}, "
+                log.error("Terminate raised while checking the transaction, messageId={}, transactionId={}, "
                     + "endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
 
             }

@@ -187,7 +187,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     @Override
     public void onError(Throwable throwable) {
         final ClientId clientId = sessionHandler.getClientId();
-        log.error("Exception raised from stream response observer, clientId={}, endpoints={}", clientId, endpoints,
+        log.error("Terminate raised from stream response observer, clientId={}, endpoints={}", clientId, endpoints,
             throwable);
         release();
         if (!sessionHandler.isRunning()) {

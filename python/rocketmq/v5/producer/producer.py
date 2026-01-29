@@ -105,7 +105,7 @@ class Transaction:
                 )
                 raise ClientException(res.status.message, res.status.code)
             return res
-        except Exception as e:
+        except Terminate as e:
             logger.error(
                 f"end transaction error, topic:{self.__message.topic}, message_id:{self.__send_receipt.message_id}, transaction_id:{self.__send_receipt.transaction_id}, transactionResolution:{result}: {e}"
             )
@@ -166,7 +166,7 @@ class Producer(Client):
         if transaction is None:
             try:
                 return self.__send(message, topic_queue)
-            except Exception as e:
+            except Terminate as e:
                 logger.error(f"send message exception, topic: {message.topic}, e: {e}")
                 raise e
         else:
@@ -178,7 +178,7 @@ class Producer(Client):
                 return send_receipt
             except IllegalArgumentException as e:
                 raise e
-            except Exception as e:
+            except Terminate as e:
                 logger.error(
                     f"send transaction message exception, topic: {message.topic}, e: {e}"
                 )
@@ -199,7 +199,7 @@ class Producer(Client):
 
         try:
             return self.__send_async(message, topic_queue)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"send message exception, topic: {message.topic}, {e}")
             raise e
 
@@ -209,7 +209,7 @@ class Producer(Client):
         try:
             future = self.__recall_message(topic, recall_handle)
             return self.__handle_recall_result(future)
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def recall_message_async(self, topic, recall_handle: str):
@@ -221,7 +221,7 @@ class Producer(Client):
             )
             future.add_done_callback(recall_message_callback)
             return ret_future
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     # transaction #
@@ -268,7 +268,7 @@ class Producer(Client):
                 raise IllegalArgumentException("No transaction checker registered.")
             message = Message().fromProtobuf(msg)
             self.__transaction_check_executor.submit(self.__server_transaction_check, endpoints, message, transaction_id)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"on_recover_orphaned_transaction_command exception: {e}")
 
     """ override """
@@ -372,7 +372,7 @@ class Producer(Client):
             )
             self.client_metrics.send_after(send_metric_context, True)
             return send_receipt
-        except Exception as e:
+        except Terminate as e:
             attempt += 1
             retry_exception_future = self.__check_send_retry_condition(
                 message, topic_queue, attempt, e
@@ -425,7 +425,7 @@ class Producer(Client):
             self._submit_callback(
                 CallbackResult.async_send_callback_result(ret_future, send_receipt)
             )
-        except Exception as e:
+        except Terminate as e:
             attempt += 1
             retry_exception_future = self.__check_send_retry_condition(
                 message, topic_queue, attempt, e
@@ -517,7 +517,7 @@ class Producer(Client):
                     message.delivery_timestamp
                 )
             return req
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def __send_message_type(self, message: Message, is_transaction=False):
@@ -563,7 +563,7 @@ class Producer(Client):
                 return queue_selector.select_next_queue()
             else:
                 return queue_selector.select_queue_by_hash_key(message.message_group)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"producer select topic:{message.topic} queue raise exception, {e}")
             raise e
 
@@ -581,7 +581,7 @@ class Producer(Client):
                 metadata=self._sign(),
                 timeout=self.client_configuration.request_timeout,
             )
-        except Exception as e:
+        except Terminate as e:
             raise e
 
     def __recall_message_req(self, topic, recall_handle: str):
@@ -601,7 +601,7 @@ class Producer(Client):
                 )
             else:
                 return res.message_id
-        except Exception as e:
+        except Terminate as e:
             if ret_future is None:
                 raise e
             else:
@@ -635,10 +635,10 @@ class Producer(Client):
                     )
             else:
                 if result == TransactionResolution.COMMIT:
-                    raise Exception(f"{self} commit message: {message.message_id} raise exception")
+                    raise Terminate(f"{self} commit message: {message.message_id} raise exception")
                 elif result == TransactionResolution.ROLLBACK:
-                    raise Exception(f"{self} rollback message: {message.message_id} raise exception")
-        except Exception as e:
+                    raise Terminate(f"{self} rollback message: {message.message_id} raise exception")
+        except Terminate as e:
             logger.error(f"server transaction check raise exception, {e}")
 
     def __server_transaction_check(self, endpoints, message, transaction_id):
@@ -647,5 +647,5 @@ class Producer(Client):
             req = self.__end_transaction_req(message, transaction_id, result, TransactionSource.SOURCE_SERVER_CHECK)
             future = self.rpc_client.end_transaction_async(endpoints, req, metadata=self._sign(), timeout=self.client_configuration.request_timeout)
             future.add_done_callback(functools.partial(self.__server_transaction_check_callback, message=message, transaction_id=transaction_id, result=result))
-        except Exception as e:
+        except Terminate as e:
             raise e

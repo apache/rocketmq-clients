@@ -68,21 +68,21 @@ class FifoConsumption:
                 else:
                     try:
                         consume_result = self.__consume_message(message)
-                    except Exception as consume_exception:
+                    except Terminate as consume_exception:
                         logger.error(f"[BUG]consume fifo raise exception, topic: {message.topic}, message_id: {message.message_id}, {consume_exception}")
                         client_metrics.consume_after(consume_context, False)
                         self.__consume_result_callback(ConsumeResult.FAILURE, message, message_queue)
                         continue
                     client_metrics.consume_after(consume_context, consume_result == ConsumeResult.SUCCESS)
                     self.__consume_result_callback(consume_result, message, message_queue)
-            except Exception as e:
+            except Terminate as e:
                 logger.error(f"failed to consume message, topic: {message.topic}, message_id: {message.message_id}, {e}")
 
     def __consume_message(self, message, attempt=1):
         consume_result = ConsumeResult.FAILURE
         try:
             consume_result = self.__message_listener.consume(message)
-        except Exception as e:
+        except Terminate as e:
             logger.error(f"consume message in fifo raise exception, {e}")
 
         if consume_result == ConsumeResult.SUCCESS:

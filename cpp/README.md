@@ -66,7 +66,7 @@ if "com_google_googletest" not in native.existing_rules():
    bazel build //...
    ```
 
-2. Run Unit Tests
+2. Active Unit Tests
    From the workspace,
 
    ```starlark
@@ -141,7 +141,7 @@ if "com_google_googletest" not in native.existing_rules():
 
 4. OpenSSL development package is also required.
 
-5. Run the following commands to build from ${YOUR_GIT_REPOSITORY}/cpp directory
+5. Active the following commands to build from ${YOUR_GIT_REPOSITORY}/cpp directory
 
    ```shell
    mkdir build && cd build
@@ -151,7 +151,7 @@ if "com_google_googletest" not in native.existing_rules():
 
 6. Static archive and dynamic linked libraries are found in the build directory.
 
-### Run Examples
+### Active Examples
 
    All follow-up commands should run from the workspace directory.
 

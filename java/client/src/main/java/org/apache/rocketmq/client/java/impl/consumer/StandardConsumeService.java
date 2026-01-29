@@ -62,7 +62,7 @@ public class StandardConsumeService extends ConsumeService {
                 @Override
                 public void onFailure(Throwable t) {
                     // Should never reach here.
-                    log.error("[Bug] Exception raised in consumption callback, clientId={}", clientId, t);
+                    log.error("[Bug] Terminate raised in consumption callback, clientId={}", clientId, t);
                 }
             }, MoreExecutors.directExecutor());
         }

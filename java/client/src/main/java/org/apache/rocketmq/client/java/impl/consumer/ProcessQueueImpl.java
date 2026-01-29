@@ -299,7 +299,7 @@ class ProcessQueueImpl implements ProcessQueue {
                                 onReceiveMessageResult(filteredResult);
                             } catch (Throwable t) {
                                 // Should never reach here.
-                                log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
+                                log.error("[Bug] Terminate raised while handling receive result, mq={}, endpoints={}, "
                                     + "clientId={}", mq, endpoints, clientId, t);
                                 onReceiveMessageException(t, attemptId);
                             }
@@ -309,7 +309,7 @@ class ProcessQueueImpl implements ProcessQueue {
                                 onReceiveMessageResult(result);
                             } catch (Throwable t) {
                                 // Should never reach here.
-                                log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
+                                log.error("[Bug] Terminate raised while handling receive result, mq={}, endpoints={}, "
                                     + "clientId={}", mq, endpoints, clientId, t);
                                 onReceiveMessageException(t, attemptId);
                             }
@@ -330,7 +330,7 @@ class ProcessQueueImpl implements ProcessQueue {
                             new MessageInterceptorContextImpl(context, MessageHookPointsStatus.ERROR);
                         consumer.doAfter(context0, Collections.emptyList());
 
-                        log.error("Exception raised during message reception, mq={}, endpoints={}, attemptId={}, " +
+                        log.error("Terminate raised during message reception, mq={}, endpoints={}, attemptId={}, " +
                                 "nextAttemptId={}, clientId={}", mq, endpoints, request.getAttemptId(), nextAttemptId,
                             clientId, t);
                         onReceiveMessageException(t, nextAttemptId);
@@ -339,7 +339,7 @@ class ProcessQueueImpl implements ProcessQueue {
             receptionTimes.getAndIncrement();
             consumer.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
-            log.error("Exception raised during message reception, mq={}, clientId={}", mq, clientId, t);
+            log.error("Terminate raised during message reception, mq={}, clientId={}", mq, clientId, t);
             onReceiveMessageException(t, attemptId);
         }
     }
@@ -489,7 +489,7 @@ class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
-                log.error("Exception raised while changing invisible duration, would retry later, clientId={}, "
+                log.error("Terminate raised while changing invisible duration, would retry later, clientId={}, "
                         + "consumerGroup={}, messageId={}, mq={}, endpoints={}", clientId, consumerGroup,
                     messageId, mq, endpoints, t);
                 changeInvisibleDurationLater(messageView, duration, 1 + attempt, future0);
@@ -592,7 +592,7 @@ class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
-                log.error("Exception raised while forward message to DLQ, would attempt to re-forward later, " +
+                log.error("Terminate raised while forward message to DLQ, would attempt to re-forward later, " +
                         "clientId={}, consumerGroup={}, attempt={}, messageId={}, mq={}", clientId, consumerGroup,
                     attempt, messageId, mq, t);
                 forwardToDeadLetterQueueLater(messageView, 1 + attempt, future0);
@@ -669,7 +669,7 @@ class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
-                log.error("Exception raised while acknowledging message, clientId={}, consumerGroup={}, "
+                log.error("Terminate raised while acknowledging message, clientId={}, consumerGroup={}, "
                         + "would attempt to re-ack later, attempt={}, messageId={}, mq={}, endpoints={}", clientId,
                     consumerGroup, attempt, messageId, mq, endpoints, t);
                 ackMessageLater(messageView, 1 + attempt, future0);

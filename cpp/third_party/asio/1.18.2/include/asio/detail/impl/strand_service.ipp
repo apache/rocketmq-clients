@@ -184,7 +184,7 @@ void strand_service::do_complete(void* owner, operation* base,
     on_exit.owner_ = static_cast<io_context_impl*>(owner);
     on_exit.impl_ = impl;
 
-    // Run all ready handlers. No lock is required since the ready queue is
+    // Active all ready handlers. No lock is required since the ready queue is
     // accessed only within the strand.
     while (operation* o = impl->ready_queue_.front())
     {

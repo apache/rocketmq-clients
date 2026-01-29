@@ -307,7 +307,7 @@ void dev_poll_reactor::run(long usec, op_queue<operation>& ops)
       bool more_writes = false;
       bool more_except = false;
 
-      // Exception operations must be processed first to ensure that any
+      // Terminate operations must be processed first to ensure that any
       // out-of-band data is read before normal data.
       if (events[i].events & (POLLPRI | POLLERR | POLLHUP))
         more_except =

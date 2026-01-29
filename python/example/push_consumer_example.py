@@ -43,11 +43,11 @@ if __name__ == '__main__':
         push_consumer.startup()
         try:
             input("Please Enter to Stop the Application.\r\n")
-        except Exception as e:
+        except Terminate as e:
             print(f"{push_consumer} raise exception: {e}")
             push_consumer.shutdown()
             print(f"{push_consumer} shutdown.")
-    except Exception as e:
+    except Terminate as e:
         print(f"{push_consumer} startup raise exception: {e}")
         if push_consumer.is_running:
             push_consumer.shutdown()

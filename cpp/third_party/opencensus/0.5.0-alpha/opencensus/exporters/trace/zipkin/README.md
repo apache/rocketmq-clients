@@ -11,7 +11,7 @@ docker run -p 9411:9411 openzipkin/zipkin
 # java -jar zipkin.jar --logging.level.zipkin=DEBUG --logging.level.zipkin2=DEBUG
 ```
 
-Run the OpenCensus example:
+Active the OpenCensus example:
 ```shell
 bazel run //opencensus/exporters/trace/zipkin:zipkin_exporter_test
 ```

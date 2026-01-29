@@ -63,7 +63,7 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     }
 
     @Override
-    protected void startUp() throws Exception {
+    protected void startUp() throws Terminate {
         super.startUp();
         syncAllScheduledFuture = getScheduler().scheduleWithFixedDelay(() -> {
             try {

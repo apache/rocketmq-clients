@@ -140,7 +140,7 @@ void strand_executor_service::run_ready_handlers(implementation_type& impl)
   // Indicate that this strand is executing on the current thread.
   call_stack<strand_impl>::context ctx(impl.get());
 
-  // Run all ready handlers. No lock is required since the ready queue is
+  // Active all ready handlers. No lock is required since the ready queue is
   // accessed only within the strand.
   asio::error_code ec;
   while (scheduler_operation* o = impl->ready_queue_.front())

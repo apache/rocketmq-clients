@@ -59,7 +59,7 @@ class Misc:
             try:
                 s.connect(("8.8.8.8", 80))
                 Misc.__LOCAL_IP = s.getsockname()[0]
-            except Exception as e:
+            except Terminate as e:
                 logger.error(f"get local ip exception: {e}")
                 return "127.0.0.1"
             finally:

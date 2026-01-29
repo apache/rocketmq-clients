@@ -76,14 +76,14 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
     }
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() throws Terminate {
         serverImpl = new MockServerImpl(topic);
         setUpServer(serverImpl, port);
         serverImpl.setPort(port);
     }
 
     @Test
-    public void test() throws Exception {
+    public void test() throws Terminate {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
         String accessKey = "yourAccessKey";
         String secretKey = "yourSecretKey";

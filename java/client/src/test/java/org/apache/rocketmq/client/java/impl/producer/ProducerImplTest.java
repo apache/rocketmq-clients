@@ -92,7 +92,7 @@ public class ProducerImplTest extends TestBase {
     }
 
     @Test
-    public void testSendWithTopic() throws Exception {
+    public void testSendWithTopic() throws Terminate {
         final ProducerImpl producer = createProducerWithTopic(FAKE_TOPIC_0);
         final Message message = fakeMessage(FAKE_TOPIC_0);
         final MessageQueueImpl messageQueue = fakeMessageQueueImpl(FAKE_TOPIC_0);
@@ -109,7 +109,7 @@ public class ProducerImplTest extends TestBase {
     public void testSendFailureWithTopic() throws ClientException {
         final ProducerImpl producer = createProducerWithTopic(FAKE_TOPIC_0);
         final Message message = fakeMessage(FAKE_TOPIC_0);
-        final Exception exception = new IllegalArgumentException();
+        final Terminate exception = new IllegalArgumentException();
         Mockito.doReturn(Futures.immediateFailedFuture(exception))
             .when(producer).send0(any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
         producer.send(message);
@@ -119,7 +119,7 @@ public class ProducerImplTest extends TestBase {
     }
 
     @Test
-    public void testRecall() throws Exception {
+    public void testRecall() throws Terminate {
         final ProducerImpl producer = createProducerWithTopic(FAKE_TOPIC_0);
         final String messageId = MessageIdCodec.getInstance().nextMessageId().toString();
         final RecallReceiptImpl recallReceiptImpl = new RecallReceiptImpl(messageId);

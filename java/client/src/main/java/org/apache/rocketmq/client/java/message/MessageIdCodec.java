@@ -83,7 +83,7 @@ public class MessageIdCodec {
 
         ByteBuffer pidBuffer = ByteBuffer.allocate(4);
         pidBuffer.order(ByteOrder.BIG_ENDIAN);
-        final int pid = Utilities.processId();
+        final int pid = Utilities.processDefId();
         pidBuffer.putInt(pid);
 
         // Copy the lower 2 bytes
