@@ -44,9 +44,9 @@ import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
 import org.apache.rocketmq.client.apis.message.MessageView;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
+import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
-import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
 import org.apache.rocketmq.client.java.rpc.RpcFuture;
@@ -56,30 +56,22 @@ import org.slf4j.LoggerFactory;
 /**
  * Implementation of {@link SimpleConsumer}
  */
-@SuppressWarnings("UnstableApiUsage")
 class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     private static final Logger log = LoggerFactory.getLogger(SimpleConsumerImpl.class);
 
     private final SimpleSubscriptionSettings simpleSubscriptionSettings;
-    private final String consumerGroup;
     private final Duration awaitDuration;
-
     private final AtomicInteger topicIndex;
-
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
     private final ConcurrentMap<String /* topic */, SubscriptionLoadBalancer> subscriptionRouteDataCache;
 
-    public SimpleConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup, Duration awaitDuration,
-        Map<String, FilterExpression> subscriptionExpressions) {
+    public SimpleConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
+        Duration awaitDuration, Map<String, FilterExpression> subscriptionExpressions) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
-        Resource groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
-        this.simpleSubscriptionSettings = new SimpleSubscriptionSettings(clientConfiguration.getNamespace(), clientId,
-            endpoints, groupResource, clientConfiguration.getRequestTimeout(), awaitDuration, subscriptionExpressions);
-        this.consumerGroup = consumerGroup;
+        this.simpleSubscriptionSettings = new SimpleSubscriptionSettings(clientConfiguration, clientId,
+            clientType(), endpoints, consumerGroup, awaitDuration, subscriptionExpressions);
         this.awaitDuration = awaitDuration;
-
         this.topicIndex = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
-
         this.subscriptionExpressions = subscriptionExpressions;
         this.subscriptionRouteDataCache = new ConcurrentHashMap<>();
     }
@@ -87,11 +79,12 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     @Override
     protected void startUp() throws Exception {
         try {
-            log.info("Begin to start the rocketmq simple consumer, clientId={}", clientId);
+            log.info("Begin to start the rocketmq {}, clientId={}", clientType(), clientId);
             super.startUp();
-            log.info("The rocketmq simple consumer starts successfully, clientId={}", clientId);
+            log.info("The rocketmq {} starts successfully, clientId={}", clientType(), clientId);
         } catch (Throwable t) {
-            log.error("Failed to start the rocketmq simple consumer, try to shutdown it, clientId={}", clientId, t);
+            log.error("Failed to start the rocketmq {}, try to shutdown it, clientId={}",
+                clientType(), clientId, t);
             shutDown();
             throw t;
         }
@@ -99,17 +92,9 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
 
     @Override
     protected void shutDown() throws InterruptedException {
-        log.info("Begin to shutdown the rocketmq simple consumer, clientId={}", clientId);
+        log.info("Begin to shutdown the rocketmq {}, clientId={}", clientType(), clientId);
         super.shutDown();
-        log.info("Shutdown the rocketmq simple consumer successfully, clientId={}", clientId);
-    }
-
-    /**
-     * @see SimpleConsumer#getConsumerGroup()
-     */
-    @Override
-    public String getConsumerGroup() {
-        return consumerGroup;
+        log.info("Shutdown the rocketmq {} successfully, clientId={}", clientType(), clientId);
     }
 
     /**
@@ -117,12 +102,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
      */
     @Override
     public SimpleConsumer subscribe(String topic, FilterExpression filterExpression) throws ClientException {
-        // Check consumer status.
-        if (!this.isRunning()) {
-            log.error("Unable to add subscription because simple consumer is not running, state={}, clientId={}",
-                this.state(), clientId);
-            throw new IllegalStateException("Simple consumer is not running now");
-        }
+        checkRunning();
         final ListenableFuture<TopicRouteData> future = getRouteData(topic);
         handleClientFuture(future);
         subscriptionExpressions.put(topic, filterExpression);
@@ -134,12 +114,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
      */
     @Override
     public SimpleConsumer unsubscribe(String topic) {
-        // Check consumer status.
-        if (!this.isRunning()) {
-            log.error("Unable to remove subscription because simple consumer is not running, state={}, "
-                + "clientId={}", this.state(), clientId);
-            throw new IllegalStateException("Simple consumer is not running now");
-        }
+        checkRunning();
         subscriptionExpressions.remove(topic);
         return this;
     }
@@ -172,8 +147,8 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
 
     public ListenableFuture<List<MessageView>> receive0(int maxMessageNum, Duration invisibleDuration) {
         if (!this.isRunning()) {
-            log.error("Unable to receive message because simple consumer is not running, state={}, clientId={}",
-                this.state(), clientId);
+            log.error("Unable to receive message because {} is not running, state={}, clientId={}",
+                clientType(), state(), clientId);
             final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
             return Futures.immediateFailedFuture(e);
         }
@@ -222,8 +197,8 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     private ListenableFuture<Void> ack0(MessageView messageView) {
         // Check consumer status.
         if (!this.isRunning()) {
-            log.error("Unable to ack message because simple consumer is not running, state={}, clientId={}",
-                this.state(), clientId);
+            log.error("Unable to ack message because {} is not running, state={}, clientId={}",
+                clientType(), this.state(), clientId);
             final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
             return Futures.immediateFailedFuture(e);
         }
@@ -262,8 +237,8 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     public ListenableFuture<Void> changeInvisibleDuration0(MessageView messageView, Duration invisibleDuration) {
         // Check consumer status.
         if (!this.isRunning()) {
-            log.error("Unable to change invisible duration because simple consumer is not running, state={}, "
-                + "clientId={}", this.state(), clientId);
+            log.error("Unable to change invisible duration because {} is not running, state={}, clientId={}",
+                clientType(), this.state(), clientId);
             final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
             return Futures.immediateFailedFuture(e);
         }
@@ -284,9 +259,6 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         }, MoreExecutors.directExecutor());
     }
 
-    /**
-     * @see SimpleConsumer#close()
-     */
     @Override
     public void close() {
         this.stopAsync().awaitTerminated();
@@ -297,7 +269,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         return simpleSubscriptionSettings;
     }
 
-    private SubscriptionLoadBalancer updateSubscriptionLoadBalancer(String topic, TopicRouteData topicRouteData) {
+    protected SubscriptionLoadBalancer updateSubscriptionLoadBalancer(String topic, TopicRouteData topicRouteData) {
         SubscriptionLoadBalancer subscriptionLoadBalancer = subscriptionRouteDataCache.get(topic);
         subscriptionLoadBalancer = null == subscriptionLoadBalancer ? new SubscriptionLoadBalancer(topicRouteData) :
             subscriptionLoadBalancer.update(topicRouteData);
@@ -318,4 +290,10 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         return Futures.transform(getRouteData(topic), topicRouteData -> updateSubscriptionLoadBalancer(topic,
             topicRouteData), MoreExecutors.directExecutor());
     }
+
+    @Override
+    protected ClientType clientType() {
+        return ClientType.SIMPLE_CONSUMER;
+    }
+
 }
