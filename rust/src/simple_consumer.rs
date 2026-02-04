@@ -65,6 +65,15 @@ impl SimpleConsumer {
                 Self::OPERATION_NEW_SIMPLE_CONSUMER,
             ));
         }
+        // Use namespace from SimpleConsumerOption if set, otherwise fall back to ClientOption
+        let namespace = if option.namespace().is_empty() {
+            client_option.get_namespace().to_string()
+        } else {
+            option.namespace().to_string()
+        };
+        // Update option with resolved namespace for settings
+        let mut option = option;
+        option.set_namespace(&namespace);
 
         let client_option = ClientOption {
             client_type: ClientType::SimpleConsumer,
