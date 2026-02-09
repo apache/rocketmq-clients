@@ -30,12 +30,14 @@ class Message:
         self.__tag = None
         self.__message_group = None
         self.__delivery_timestamp = None
+        self.__priority = None
         self.__transport_delivery_timestamp = None
         self.__decode_message_timestamp = None
         self.__keys = set()
         self.__properties = dict()
         self.__born_host = None
         self.__born_timestamp = None
+        self.__store_timestamp = None
         self.__delivery_attempt = None
         self.__receipt_handle = None
         self.__message_type = None
@@ -44,34 +46,46 @@ class Message:
 
     def __str__(self) -> str:
         return (
-            f"topic:{self.__topic}, tag:{self.__tag}, messageGroup:{self.__message_group}, "
-            f"deliveryTimestamp:{self.__delivery_timestamp}, keys:{self.__keys}, properties:{self.__properties}"
+            f"topic:{self.__topic}, tag:{self.__tag}, message_group:{self.__message_group}, lite_topic:{self.__lite_topic}, "
+            f"priority:{self.__priority}, delivery_timestamp:{self.__delivery_timestamp}, keys:{self.__keys}, properties:{self.__properties}"
         )
 
     def fromProtobuf(self, message: definition_pb2.Message):  # noqa
         try:
             self.__message_body_check_sum(message)
             self.__topic = message.topic.name
-            if message.system_properties.lite_topic:
-                self.__lite_topic = message.system_properties.lite_topic
             self.__namespace = message.topic.resource_namespace
-            self.__message_id = message.system_properties.message_id
             self.__body = self.__uncompress_body(message)
-            self.__tag = message.system_properties.tag
-            if message.system_properties.message_group:
-                self.__message_group = message.system_properties.message_group
-            self.__born_host = message.system_properties.born_host
+            if message.user_properties:
+                self.__properties.update(message.user_properties)
+
+            ## system_properties
+            self.__message_id = message.system_properties.message_id
+            self.__message_type = message.system_properties.message_type
             self.__born_timestamp = Misc.to_mills(message.system_properties.born_timestamp)
-            self.__delivery_attempt = message.system_properties.delivery_attempt
+            self.__born_host = message.system_properties.born_host
+
+            if message.system_properties.tag:
+                self.__tag = message.system_properties.tag
+            if message.system_properties.keys:
+                self.__keys.update(message.system_properties.keys)
+            if message.system_properties.store_timestamp:
+                self.__store_timestamp = Misc.to_mills(message.system_properties.store_timestamp)
             if message.system_properties.delivery_timestamp:
                 self.__delivery_timestamp = Misc.to_mills(message.system_properties.delivery_timestamp)
+            if message.system_properties.receipt_handle:
+                self.__receipt_handle = message.system_properties.receipt_handle
+            if message.system_properties.lite_topic:
+                self.__lite_topic = message.system_properties.lite_topic
+            if message.system_properties.message_group:
+                self.__message_group = message.system_properties.message_group
+            if message.system_properties.delivery_attempt:
+                self.__delivery_attempt = message.system_properties.delivery_attempt
+            if message.system_properties.priority is not None:
+                self.__priority = message.system_properties.priority
+
+            ## decode time
             self.__decode_message_timestamp = Misc.current_mills()
-            self.__receipt_handle = message.system_properties.receipt_handle
-            self.__message_type = message.system_properties.message_type
-            if not message.system_properties.keys:
-                self.__keys.update(message.system_properties.keys)
-            if not message.user_properties:
-                self.__properties.update(message.user_properties)
             return self
         except Exception as e:
             raise e
@@ -136,6 +150,10 @@ class Message:
     @property
     def lite_topic(self):
         return self.__lite_topic
+
+    @property
+    def priority(self):
+        return self.__priority
 
     @property
     def namespace(self):
@@ -224,7 +242,21 @@ class Message:
             raise IllegalArgumentException("lite_topic and message_group should not be set at same time.")
         if self.__delivery_timestamp:
             raise IllegalArgumentException("lite_topic and delivery_timestamp should not be set at same time.")
+        if self.__priority:
+            raise IllegalArgumentException("lite_topic and priority should not be set at same time.")
         self.__lite_topic = lite_topic
+
+    @priority.setter
+    def priority(self, priority: int):
+        if priority < 0:
+            raise IllegalArgumentException("priority must be greater than or equal to 0.")
+        if self.__delivery_timestamp:
+            raise IllegalArgumentException("priority and delivery_timestamp should not be set at same time.")
+        if self.__message_group:
+            raise IllegalArgumentException("priority and message_group should not be set at same time.")
+        if self.__lite_topic:
+            raise IllegalArgumentException("priority and lite_topic should not be set at same time.")
+        self.__priority = priority
 
     @message_id.setter
     def message_id(self, message_id):
@@ -243,9 +275,11 @@ class Message:
         if not message_group or not message_group.strip():
             raise IllegalArgumentException("message_group should not be blank.")
         if self.__delivery_timestamp:
-            raise IllegalArgumentException("delivery_timestamp and message_group should not be set at same time.")
+            raise IllegalArgumentException("message_group and delivery_timestamp should not be set at same time.")
         if self.__lite_topic:
-            raise IllegalArgumentException("lite_topic and message_group should not be set at same time.")
+            raise IllegalArgumentException("message_group and lite_topic should not be set at same time.")
+        if self.__priority:
+            raise IllegalArgumentException("message_group and priority should not be set at same time.")
         self.__message_group = message_group
 
     @delivery_timestamp.setter
@@ -253,7 +287,9 @@ class Message:
         if self.__message_group:
             raise IllegalArgumentException("delivery_timestamp and message_group should not be set at same time.")
         if self.__lite_topic:
-            raise IllegalArgumentException("lite_topic and delivery_timestamp should not be set at same time.")
+            raise IllegalArgumentException("delivery_timestamp and lite_topic should not be set at same time.")
+        if self.__priority:
+            raise IllegalArgumentException("delivery_timestamp and priority should not be set at same time.")
         self.__delivery_timestamp = delivery_timestamp
 
     @transport_delivery_timestamp.setter
@@ -298,5 +334,7 @@ class Message:
             return "TRANSACTION"
         elif message_type == 5:
             return "LITE"
+        elif message_type == 6:
+            return "PRIORITY"
         else:
             return "MESSAGE_TYPE_UNSPECIFIED"

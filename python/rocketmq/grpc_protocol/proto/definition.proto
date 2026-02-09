@@ -149,6 +149,9 @@ enum MessageType {
 
   // lite topic
   LITE = 5;
+
+  // Messages that lower prioritised ones may need to wait for higher priority messages to be processed first
+  PRIORITY = 6;
 }
 
 enum DigestType {
@@ -278,6 +281,9 @@ message SystemProperties {
 
   // lite topic
   optional string lite_topic = 21;
+
+  // Priority of message, which is optional
+  optional int32 priority = 22;
 }
 
 message DeadLetterQueue {
@@ -596,4 +602,19 @@ enum QueryOffsetPolicy {
 
   // Use this option if time-based seek is targeted.
   TIMESTAMP = 2;
+}
+
+message OffsetOption {
+  oneof offset_type {
+    Policy policy = 1;
+    int64 offset = 2;
+    int64 tail_n = 3;
+    int64 timestamp = 4;
+  }
+
+  enum Policy {
+    LAST = 0;
+    MIN = 1;
+    MAX = 2;
+  }
 }

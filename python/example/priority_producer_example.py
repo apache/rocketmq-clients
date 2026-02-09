@@ -23,7 +23,7 @@ if __name__ == '__main__':
     config = ClientConfiguration(endpoints, credentials)
     # with namespace
     # config = ClientConfiguration(endpoints, credentials, "namespace")
-    topic = "topic"
+    topic = "priority-topic"
     producer = Producer(config, (topic,))
 
     try:
@@ -37,9 +37,9 @@ if __name__ == '__main__':
             msg.tag = "tag"
             # key(s) of the message, another way to mark message besides message id
             msg.keys = "keys"
-            # user property for the message
-            msg.add_property("key", "value")
             for i in range(0, 10):
+                # priority of message
+                msg.priority = i
                 res = producer.send(msg)
                 print(f"{producer} send message success. {res}")
             producer.shutdown()

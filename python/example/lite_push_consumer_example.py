@@ -20,14 +20,13 @@ from rocketmq import (ClientConfiguration, ConsumeResult, Credentials,
 class LiteTopicTestMessageListener(MessageListener):
 
     def consume(self, message: Message) -> ConsumeResult:
-        print(f"consume message, topic:{message.topic}, lite_topic:{message.lite_topic}, message_id: {message.message_id}.")
+        print(f"consume message, {message}.")
         return ConsumeResult.SUCCESS
 
 
 if __name__ == '__main__':
     endpoints = "foobar.com:8080"
     credentials = Credentials()
-
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
