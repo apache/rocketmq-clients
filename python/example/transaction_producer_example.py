@@ -20,7 +20,7 @@ from rocketmq import (ClientConfiguration, Credentials, Message, Producer,
 class TestChecker(TransactionChecker):
 
     def check(self, message: Message) -> TransactionResolution:
-        print(f"do TestChecker check, topic:{message.topic}, message_id: {message.message_id}, commit message.")
+        print(f"do TestChecker check, {message}, commit message.")
         return TransactionResolution.COMMIT
 
 
@@ -49,10 +49,6 @@ if __name__ == '__main__':
         msg.body = "hello, rocketmq.".encode('utf-8')
         # secondary classifier of message besides topic
         msg.tag = "rocketmq-send-transaction-message"
-        # key(s) of the message, another way to mark message besides message id
-        msg.keys = "send_transaction"
-        # user property for the message
-        msg.add_property("send", "transaction")
         res = producer.send(msg, transaction)
         print(f"{producer} send message success. {res}")
         if check_from_server:
