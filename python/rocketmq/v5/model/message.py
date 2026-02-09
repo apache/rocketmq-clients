@@ -59,7 +59,7 @@ class Message:
             if message.user_properties:
                 self.__properties.update(message.user_properties)
 
-            ## system_properties
+            # system_properties
             self.__message_id = message.system_properties.message_id
             self.__message_type = message.system_properties.message_type
             self.__born_timestamp = Misc.to_mills(message.system_properties.born_timestamp)
@@ -84,7 +84,7 @@ class Message:
             if message.system_properties.priority is not None:
                 self.__priority = message.system_properties.priority
 
-            ## decode time
+            # decode time
             self.__decode_message_timestamp = Misc.current_mills()
             return self
         except Exception as e:
