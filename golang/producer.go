@@ -42,9 +42,11 @@ type Producer interface {
 }
 
 type defaultProducer struct {
-	po       producerOptions
-	pSetting *producerSettings
-	cli      *defaultClient
+	po               producerOptions
+	pSetting         *producerSettings
+	cli              *defaultClient
+	asyncWorkersOnce sync.Once
+	producerExecutor *simpleThreadPool
 
 	checker                        *TransactionChecker
 	isolated                       sync.Map
@@ -344,13 +346,18 @@ func (p *defaultProducer) SendAsync(ctx context.Context, msg *Message, f func(co
 	if !p.isOn() {
 		f(ctx, nil, fmt.Errorf("producer is not running"))
 	}
-	go func() {
+
+	p.asyncWorkersOnce.Do(func() {
+		p.producerExecutor = NewSimpleThreadPool("MessageAsyncSender", p.po.asyncQueueSize, p.po.asyncWorkers)
+	})
+
+	p.producerExecutor.Submit(func() {
 		msgs := []*UnifiedMessage{{
 			msg: msg,
 		}}
 		resp, err := p.send0(ctx, msgs, false)
 		f(ctx, resp, err)
-	}()
+	})
 }
 
 func (p *defaultProducer) SendWithTransaction(ctx context.Context, msg *Message, transaction Transaction) ([]*SendReceipt, error) {
@@ -377,6 +384,9 @@ func (p *defaultProducer) SendWithTransaction(ctx context.Context, msg *Message,
 }
 
 func (p *defaultProducer) GracefulStop() error {
+	if p.producerExecutor != nil {
+		p.producerExecutor.Shutdown()
+	}
 	return p.cli.GracefulStop()
 }
 
