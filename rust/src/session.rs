@@ -245,7 +245,11 @@ impl Session {
             "x-mq-protocol-version",
             AsciiMetadataValue::from_static(PROTOCOL_VERSION),
         );
-
+        // Add namespace header
+        if !self.option.namespace.is_empty() {
+            let _ = AsciiMetadataValue::try_from(&self.option.namespace)
+                .map(|v| metadata.insert("x-mq-namespace", v));
+        }
         let date_time_result = OffsetDateTime::now_local();
         let date_time = if let Ok(result) = date_time_result {
             result
