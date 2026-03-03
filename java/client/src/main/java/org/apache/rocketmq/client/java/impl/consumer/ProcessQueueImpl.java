@@ -345,6 +345,10 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     public boolean isCacheFull() {
+        if (consumer.isConsumerCacheFull()) {
+            return true;
+        }
+
         final int cacheMessageCountThresholdPerQueue = consumer.cacheMessageCountThresholdPerQueue();
         final long actualMessagesQuantity = this.cachedMessagesCount();
         final ClientId clientId = consumer.getClientId();

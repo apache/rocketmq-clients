@@ -631,4 +631,16 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     public boolean isEnableMessageInterceptorFiltering() {
         return enableMessageInterceptorFiltering;
     }
+
+    public boolean isConsumerCacheFull() {
+        long cachedMessageCount = processQueueTable.values().stream()
+            .mapToLong(ProcessQueue::getCachedMessageCount)
+            .sum();
+        if (cachedMessageCount > maxCacheMessageCount) {
+            log.warn("Consumer total cached messages quantity exceeds the threshold, threshold={}, actual={}," +
+                " clientId={}", maxCacheMessageCount, cachedMessageCount, clientId);
+            return true;
+        }
+        return false;
+    }
 }
