@@ -99,6 +99,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final MessageListener messageListener;
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
+    private final int maxCacheMessageCountEachQueue;
     private final boolean enableFifoConsumeAccelerator;
     private final boolean enableMessageInterceptorFiltering;
     private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
@@ -127,13 +128,14 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator) {
         this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
-            maxCacheMessageSizeInBytes, consumptionThreadCount, enableFifoConsumeAccelerator, false);
+            maxCacheMessageSizeInBytes, consumptionThreadCount, enableFifoConsumeAccelerator, false, -1);
     }
 
     public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
-        boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering) {
+        boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering,
+        int maxCacheMessageCountEachQueue) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration, clientId,
             ClientType.PUSH_CONSUMER, endpoints, consumerGroup, subscriptionExpressions);
@@ -143,6 +145,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         this.messageListener = messageListener;
         this.maxCacheMessageCount = maxCacheMessageCount;
         this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
+        this.maxCacheMessageCountEachQueue = maxCacheMessageCountEachQueue;
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
         this.enableMessageInterceptorFiltering = enableMessageInterceptorFiltering;
 
@@ -163,13 +166,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
         this.inflightRequestCountInterceptor = new InflightRequestCountInterceptor();
         this.addMessageInterceptor(inflightRequestCountInterceptor);
-    }
-
-    public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
-        Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
-        int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
-        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
-            maxCacheMessageSizeInBytes, consumptionThreadCount, true, false);
     }
 
     @Override
@@ -500,6 +496,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         // All process queues are removed, no need to cache messages.
         if (size <= 0) {
             return 0;
+        }
+        // If a per-queue limit is explicitly configured, use it directly.
+        if (maxCacheMessageCountEachQueue > 0) {
+            return maxCacheMessageCountEachQueue;
         }
         return Math.max(1, maxCacheMessageCount / size);
     }
