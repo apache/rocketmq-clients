@@ -69,9 +69,9 @@ public interface PushConsumerBuilder {
      * Set the maximum number of messages cached per individual {@link ProcessQueue}.
      *
      * <p>When set to a positive value, the per-queue limit takes precedence over the global limit
-     * distributed by queue count. A value of {@code -1} means no explicit per-queue limit
-     * is set and the global limit ({@link #setMaxCacheMessageCount(int)}) divided by the number of
-     * queues will be used instead.
+     * distributed by queue count if the per-queue limit is greater than that. A value of {@code -1}
+     * means no explicit per-queue limits set and the global limit ({@link #setMaxCacheMessageCount(int)})
+     * divided by the number of queues will be used instead.
      *
      * @param count maximum cached message count per queue, or {@code -1} to use the derived global limit.
      * @return the consumer builder instance.
