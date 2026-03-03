@@ -499,7 +499,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         }
         // If a per-queue limit is explicitly configured, use it directly.
         if (maxCacheMessageCountEachQueue > 0) {
-            return maxCacheMessageCountEachQueue;
+            return Math.max(maxCacheMessageCountEachQueue, maxCacheMessageCount / size);
         }
         return Math.max(1, maxCacheMessageCount / size);
     }
