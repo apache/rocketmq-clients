@@ -76,7 +76,7 @@ public interface PushConsumerBuilder {
      * @param count maximum cached message count per queue, or {@code -1} to use the derived global limit.
      * @return the consumer builder instance.
      */
-    PushConsumerBuilder setMaxCacheMessageCountEachQueue(int count);
+    PushConsumerBuilder setMaxCacheMessageCountPerQueue(int count);
 
     /**
      * Set the maximum bytes of messages cached locally.

@@ -40,7 +40,7 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     private MessageListener messageListener = null;
     private int maxCacheMessageCount = 1024;
     private int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
-    private int maxCacheMessageCountEachQueue = 256;
+    private int maxCacheMessageCountPerQueue = 256;
     private int consumptionThreadCount = 20;
     private boolean enableFifoConsumeAccelerator = false;
     private boolean enableMessageInterceptorFiltering = false;
@@ -107,13 +107,13 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     }
 
     /**
-     * @see PushConsumerBuilder#setMaxCacheMessageCountEachQueue(int)
+     * @see PushConsumerBuilder#setMaxCacheMessageCountPerQueue(int)
      */
     @Override
-    public PushConsumerBuilder setMaxCacheMessageCountEachQueue(int maxCacheMessageCountEachQueue) {
-        checkArgument(maxCacheMessageCountEachQueue > 0 || maxCacheMessageCountEachQueue == -1,
-            "maxCacheMessageCountEachQueue should be positive or -1 (disabled)");
-        this.maxCacheMessageCountEachQueue = maxCacheMessageCountEachQueue;
+    public PushConsumerBuilder setMaxCacheMessageCountPerQueue(int maxCacheMessageCountPerQueue) {
+        checkArgument(maxCacheMessageCountPerQueue > 0 || maxCacheMessageCountPerQueue == -1,
+            "maxCacheMessageCountPerQueue should be positive or -1 (disabled)");
+        this.maxCacheMessageCountPerQueue = maxCacheMessageCountPerQueue;
         return this;
     }
 
@@ -156,7 +156,7 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
         final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, consumerGroup,
             subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
             consumptionThreadCount, enableFifoConsumeAccelerator, enableMessageInterceptorFiltering,
-            maxCacheMessageCountEachQueue);
+            maxCacheMessageCountPerQueue);
         pushConsumer.startAsync().awaitRunning();
         return pushConsumer;
     }

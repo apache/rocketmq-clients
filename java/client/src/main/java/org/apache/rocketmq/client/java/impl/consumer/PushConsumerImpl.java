@@ -99,7 +99,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final MessageListener messageListener;
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
-    private final int maxCacheMessageCountEachQueue;
+    private final int maxCacheMessageCountPerQueue;
     private final boolean enableFifoConsumeAccelerator;
     private final boolean enableMessageInterceptorFiltering;
     private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
@@ -135,7 +135,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering,
-        int maxCacheMessageCountEachQueue) {
+        int maxCacheMessageCountPerQueue) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration, clientId,
             ClientType.PUSH_CONSUMER, endpoints, consumerGroup, subscriptionExpressions);
@@ -145,7 +145,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         this.messageListener = messageListener;
         this.maxCacheMessageCount = maxCacheMessageCount;
         this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
-        this.maxCacheMessageCountEachQueue = maxCacheMessageCountEachQueue;
+        this.maxCacheMessageCountPerQueue = maxCacheMessageCountPerQueue;
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
         this.enableMessageInterceptorFiltering = enableMessageInterceptorFiltering;
 
@@ -497,8 +497,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         if (size <= 0) {
             return 0;
         }
-        if (maxCacheMessageCountEachQueue > 0) {
-            return Math.max(maxCacheMessageCountEachQueue, maxCacheMessageCount / size);
+        if (maxCacheMessageCountPerQueue > 0) {
+            return Math.max(maxCacheMessageCountPerQueue, maxCacheMessageCount / size);
         }
         return Math.max(1, maxCacheMessageCount / size);
     }
