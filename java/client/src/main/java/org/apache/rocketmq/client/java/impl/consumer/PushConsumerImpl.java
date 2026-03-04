@@ -99,6 +99,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final MessageListener messageListener;
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
+    private final int maxCacheMessageCountPerQueue;
     private final boolean enableFifoConsumeAccelerator;
     private final boolean enableMessageInterceptorFiltering;
     private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
@@ -127,13 +128,14 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator) {
         this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
-            maxCacheMessageSizeInBytes, consumptionThreadCount, enableFifoConsumeAccelerator, false);
+            maxCacheMessageSizeInBytes, consumptionThreadCount, enableFifoConsumeAccelerator, false, -1);
     }
 
     public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
-        boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering) {
+        boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering,
+        int maxCacheMessageCountPerQueue) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration, clientId,
             ClientType.PUSH_CONSUMER, endpoints, consumerGroup, subscriptionExpressions);
@@ -143,6 +145,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         this.messageListener = messageListener;
         this.maxCacheMessageCount = maxCacheMessageCount;
         this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
+        this.maxCacheMessageCountPerQueue = maxCacheMessageCountPerQueue;
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
         this.enableMessageInterceptorFiltering = enableMessageInterceptorFiltering;
 
@@ -163,13 +166,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
         this.inflightRequestCountInterceptor = new InflightRequestCountInterceptor();
         this.addMessageInterceptor(inflightRequestCountInterceptor);
-    }
-
-    public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
-        Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
-        int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
-        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
-            maxCacheMessageSizeInBytes, consumptionThreadCount, true, false);
     }
 
     @Override
@@ -501,6 +497,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         if (size <= 0) {
             return 0;
         }
+        if (maxCacheMessageCountPerQueue > 0) {
+            return Math.max(maxCacheMessageCountPerQueue, maxCacheMessageCount / size);
+        }
         return Math.max(1, maxCacheMessageCount / size);
     }
 
@@ -630,5 +629,17 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     public boolean isEnableMessageInterceptorFiltering() {
         return enableMessageInterceptorFiltering;
+    }
+
+    public boolean isConsumerCacheFull() {
+        long cachedMessageCount = processQueueTable.values().stream()
+            .mapToLong(ProcessQueue::getCachedMessageCount)
+            .sum();
+        if (cachedMessageCount > maxCacheMessageCount) {
+            log.warn("Consumer total cached messages quantity exceeds the threshold, threshold={}, actual={}," +
+                " clientId={}", maxCacheMessageCount, cachedMessageCount, clientId);
+            return true;
+        }
+        return false;
     }
 }

@@ -163,9 +163,7 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private int getReceptionBatchSize() {
-        int bufferSize = consumer.cacheMessageCountThresholdPerQueue() - this.cachedMessagesCount();
-        bufferSize = Math.max(bufferSize, 1);
-        return Math.min(bufferSize, consumer.getSettings().getReceiveBatchSize());
+        return Math.max(consumer.getSettings().getReceiveBatchSize(), 1);
     }
 
     @Override
@@ -345,6 +343,10 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     public boolean isCacheFull() {
+        if (consumer.isConsumerCacheFull()) {
+            return true;
+        }
+
         final int cacheMessageCountThresholdPerQueue = consumer.cacheMessageCountThresholdPerQueue();
         final long actualMessagesQuantity = this.cachedMessagesCount();
         final ClientId clientId = consumer.getClientId();

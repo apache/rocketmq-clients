@@ -59,9 +59,9 @@ public class ConsumerImplTest extends TestBase {
         int maxCacheMessageCount = 8;
         int maxCacheMessageSizeInBytes = 1024;
         int consumptionThreadCount = 4;
-        PushConsumerImpl pushConsumer = Mockito.spy(new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
-            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
-            consumptionThreadCount));
+        PushConsumerImpl pushConsumer = Mockito.spy(new PushConsumerImpl(clientConfiguration,
+            FAKE_CONSUMER_GROUP_0, subscriptionExpressions, messageListener, maxCacheMessageCount,
+            maxCacheMessageSizeInBytes, consumptionThreadCount, true, false, -1));
         final ClientManager clientManager = Mockito.mock(ClientManager.class);
         Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
         int receivedMessageCount = 1;
@@ -84,9 +84,9 @@ public class ConsumerImplTest extends TestBase {
         int maxCacheMessageCount = 8;
         int maxCacheMessageSizeInBytes = 1024;
         int consumptionThreadCount = 4;
-        PushConsumerImpl pushConsumer = Mockito.spy(new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
-            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
-            consumptionThreadCount));
+        PushConsumerImpl pushConsumer = Mockito.spy(new PushConsumerImpl(clientConfiguration,
+            FAKE_CONSUMER_GROUP_0, subscriptionExpressions, messageListener, maxCacheMessageCount,
+            maxCacheMessageSizeInBytes, consumptionThreadCount, true, false, -1));
         final ClientManager clientManager = Mockito.mock(ClientManager.class);
         Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
         final RpcFuture<AckMessageRequest, AckMessageResponse> future =
@@ -105,9 +105,9 @@ public class ConsumerImplTest extends TestBase {
         int maxCacheMessageCount = 8;
         int maxCacheMessageSizeInBytes = 1024;
         int consumptionThreadCount = 4;
-        PushConsumerImpl pushConsumer = Mockito.spy(new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
-            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
-            consumptionThreadCount));
+        PushConsumerImpl pushConsumer = Mockito.spy(new PushConsumerImpl(clientConfiguration,
+            FAKE_CONSUMER_GROUP_0, subscriptionExpressions, messageListener, maxCacheMessageCount,
+            maxCacheMessageSizeInBytes, consumptionThreadCount, true, false, -1));
         final ClientManager clientManager = Mockito.mock(ClientManager.class);
         Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
         final RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future =

@@ -55,9 +55,9 @@ public class PushConsumerImplTest extends TestBase {
         .setEndpoints(FAKE_ENDPOINTS).build();
 
     @Spy
-    private final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
-        subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
-        consumptionThreadCount);
+    private final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration,
+        FAKE_CONSUMER_GROUP_0, subscriptionExpressions, messageListener, maxCacheMessageCount,
+        maxCacheMessageSizeInBytes, consumptionThreadCount, true, false, -1);
 
 
     @Test(expected = IllegalStateException.class)
