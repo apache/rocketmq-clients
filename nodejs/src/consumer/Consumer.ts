@@ -108,4 +108,22 @@ export abstract class Consumer extends BaseClient {
     StatusChecker.check(response.status);
     return response.receiptHandle;
   }
+
+  /**
+   * Expose public methods for ProcessQueue to access RPC operations
+   */
+  async ackMessageViaRpc(endpoints: any, request: AckMessageRequest, timeout: number) {
+    const res = await this.rpcClientManager.ackMessage(endpoints, request, timeout);
+    return res;
+  }
+
+  async changeInvisibleDurationViaRpc(endpoints: any, request: ChangeInvisibleDurationRequest, timeout: number) {
+    const res = await this.rpcClientManager.changeInvisibleDuration(endpoints, request, timeout);
+    return res;
+  }
+
+  async forwardMessageToDeadLetterQueueViaRpc(endpoints: any, request: any, timeout: number) {
+    const res = await this.rpcClientManager.forwardMessageToDeadLetterQueue(endpoints, request, timeout);
+    return res;
+  }
 }

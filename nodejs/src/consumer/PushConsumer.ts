@@ -15,12 +15,7 @@
  * limitations under the License.
  */
 
-import { ClientType, Code } from '../../proto/apache/rocketmq/v2/definition_pb';
-import {
-  AckMessageResponse,
-  ChangeInvisibleDurationResponse,
-  ForwardMessageToDeadLetterQueueResponse,
-} from '../../proto/apache/rocketmq/v2/service_pb';
+import { ClientType } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
   AckMessageRequest,
   ChangeInvisibleDurationRequest,
@@ -150,6 +145,10 @@ export class PushConsumer extends Consumer {
   }
 
   // --- Public methods for ProcessQueue access ---
+
+  get requestTimeoutValue(): number {
+    return this.requestTimeout;
+  }
 
   getPushConsumerSettings(): PushSubscriptionSettings {
     return this.#pushSubscriptionSettings;

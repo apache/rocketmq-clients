@@ -59,7 +59,7 @@ export class ProcessQueue {
 
   expired(): boolean {
     const longPollingTimeout = this.#consumer.getPushConsumerSettings().getLongPollingTimeout();
-    const requestTimeout = this.#consumer.requestTimeout;
+    const requestTimeout = this.#consumer.requestTimeoutValue;
     const maxIdleDuration = (longPollingTimeout + requestTimeout) * 3;
     const idleDuration = Date.now() - this.#activityTime;
     if (idleDuration < maxIdleDuration) {
@@ -185,10 +185,10 @@ export class ProcessQueue {
   async #ackMessage(messageView: MessageView, attempt = 1): Promise<void> {
     try {
       const endpoints = messageView.endpoints;
-      const response = await this.#consumer.rpcClientManager.ackMessage(
+      const response = await this.#consumer.ackMessageViaRpc(
         endpoints,
         this.#consumer.wrapAckMessageRequest(messageView),
-        this.#consumer.requestTimeout,
+        this.#consumer.requestTimeoutValue,
       );
       const status = response.getStatus()?.toObject();
       if (status?.code === Code.INVALID_RECEIPT_HANDLE) {
@@ -218,10 +218,10 @@ export class ProcessQueue {
   async #changeInvisibleDuration(messageView: MessageView, duration: number, attempt = 1): Promise<void> {
     try {
       const endpoints = messageView.endpoints;
-      const response = await this.#consumer.rpcClientManager.changeInvisibleDuration(
+      const response = await this.#consumer.changeInvisibleDurationViaRpc(
         endpoints,
         this.#consumer.wrapChangeInvisibleDurationRequest(messageView, duration),
-        this.#consumer.requestTimeout,
+        this.#consumer.requestTimeoutValue,
       );
       const status = response.getStatus()?.toObject();
       if (status?.code === Code.INVALID_RECEIPT_HANDLE) {
@@ -264,10 +264,10 @@ export class ProcessQueue {
   async #forwardToDeadLetterQueue(messageView: MessageView, attempt = 1): Promise<void> {
     try {
       const endpoints = messageView.endpoints;
-      const response = await this.#consumer.rpcClientManager.forwardMessageToDeadLetterQueue(
+      const response = await this.#consumer.forwardMessageToDeadLetterQueueViaRpc(
         endpoints,
         this.#consumer.wrapForwardMessageToDeadLetterQueueRequest(messageView),
-        this.#consumer.requestTimeout,
+        this.#consumer.requestTimeoutValue,
       );
       const status = response.getStatus()?.toObject();
       if (status?.code !== Code.OK) {
