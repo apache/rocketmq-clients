@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-export * from './Consumer';
-export * from './FilterExpression';
-export * from './SimpleConsumer';
-export * from './SimpleSubscriptionSettings';
-export * from './SubscriptionLoadBalancer';
-export * from './ConsumeResult';
-export * from './MessageListener';
-export * from './Assignment';
-export * from './Assignments';
-export * from './PushSubscriptionSettings';
-export * from './ConsumeTask';
-export * from './ConsumeService';
-export * from './StandardConsumeService';
-export * from './FifoConsumeService';
-export * from './ProcessQueue';
-export * from './PushConsumer';
+import { MessageQueue } from '../route';
+
+export class Assignment {
+  readonly messageQueue: MessageQueue;
+
+  constructor(messageQueue: MessageQueue) {
+    this.messageQueue = messageQueue;
+  }
+
+  equals(other: Assignment): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.messageQueue === other.messageQueue ||
+      (this.messageQueue.queueId === other.messageQueue.queueId &&
+       this.messageQueue.topic.name === other.messageQueue.topic.name &&
+       this.messageQueue.broker.name === other.messageQueue.broker.name);
+  }
+
+  toString(): string {
+    return `Assignment{messageQueue=${JSON.stringify(this.messageQueue)}}`;
+  }
+}

@@ -15,19 +15,32 @@
  * limitations under the License.
  */
 
-export * from './Consumer';
-export * from './FilterExpression';
-export * from './SimpleConsumer';
-export * from './SimpleSubscriptionSettings';
-export * from './SubscriptionLoadBalancer';
-export * from './ConsumeResult';
-export * from './MessageListener';
-export * from './Assignment';
-export * from './Assignments';
-export * from './PushSubscriptionSettings';
-export * from './ConsumeTask';
-export * from './ConsumeService';
-export * from './StandardConsumeService';
-export * from './FifoConsumeService';
-export * from './ProcessQueue';
-export * from './PushConsumer';
+import { Assignment } from './Assignment';
+
+export class Assignments {
+  readonly #assignmentList: Assignment[];
+
+  constructor(assignmentList: Assignment[]) {
+    this.#assignmentList = assignmentList;
+  }
+
+  getAssignmentList(): Assignment[] {
+    return this.#assignmentList;
+  }
+
+  equals(other?: Assignments): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    if (this.#assignmentList.length !== other.#assignmentList.length) return false;
+    for (let i = 0; i < this.#assignmentList.length; i++) {
+      if (!this.#assignmentList[i].equals(other.#assignmentList[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  toString(): string {
+    return `Assignments{assignmentList=[${this.#assignmentList.map(a => a.toString()).join(', ')}]}`;
+  }
+}

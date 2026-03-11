@@ -15,19 +15,30 @@
  * limitations under the License.
  */
 
-export * from './Consumer';
-export * from './FilterExpression';
-export * from './SimpleConsumer';
-export * from './SimpleSubscriptionSettings';
-export * from './SubscriptionLoadBalancer';
-export * from './ConsumeResult';
-export * from './MessageListener';
-export * from './Assignment';
-export * from './Assignments';
-export * from './PushSubscriptionSettings';
-export * from './ConsumeTask';
-export * from './ConsumeService';
-export * from './StandardConsumeService';
-export * from './FifoConsumeService';
-export * from './ProcessQueue';
-export * from './PushConsumer';
+import { MessageView } from '../message';
+import { ConsumeService } from './ConsumeService';
+import { MessageListener } from './MessageListener';
+import type { ProcessQueue } from './ProcessQueue';
+
+export class StandardConsumeService extends ConsumeService {
+  constructor(clientId: string, messageListener: MessageListener) {
+    super(clientId, messageListener);
+  }
+
+  consume(pq: ProcessQueue, messageViews: MessageView[]): void {
+    for (const messageView of messageViews) {
+      if (messageView.corrupted) {
+        pq.discardMessage(messageView);
+        continue;
+      }
+
+      this.consumeMessage(messageView)
+        .then(result => {
+          pq.eraseMessage(messageView, result);
+        })
+        .catch(() => {
+          // Should never reach here.
+        });
+    }
+  }
+}

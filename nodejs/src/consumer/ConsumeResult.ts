@@ -15,19 +15,7 @@
  * limitations under the License.
  */
 
-export * from './Consumer';
-export * from './FilterExpression';
-export * from './SimpleConsumer';
-export * from './SimpleSubscriptionSettings';
-export * from './SubscriptionLoadBalancer';
-export * from './ConsumeResult';
-export * from './MessageListener';
-export * from './Assignment';
-export * from './Assignments';
-export * from './PushSubscriptionSettings';
-export * from './ConsumeTask';
-export * from './ConsumeService';
-export * from './StandardConsumeService';
-export * from './FifoConsumeService';
-export * from './ProcessQueue';
-export * from './PushConsumer';
+export enum ConsumeResult {
+  SUCCESS = 'SUCCESS',
+  FAILURE = 'FAILURE',
+}

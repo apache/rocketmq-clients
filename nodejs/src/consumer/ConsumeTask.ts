@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-export * from './Consumer';
-export * from './FilterExpression';
-export * from './SimpleConsumer';
-export * from './SimpleSubscriptionSettings';
-export * from './SubscriptionLoadBalancer';
-export * from './ConsumeResult';
-export * from './MessageListener';
-export * from './Assignment';
-export * from './Assignments';
-export * from './PushSubscriptionSettings';
-export * from './ConsumeTask';
-export * from './ConsumeService';
-export * from './StandardConsumeService';
-export * from './FifoConsumeService';
-export * from './ProcessQueue';
-export * from './PushConsumer';
+import { MessageView } from '../message';
+import { ConsumeResult } from './ConsumeResult';
+import { MessageListener } from './MessageListener';
+
+export class ConsumeTask {
+  readonly #clientId: string;
+  readonly #messageListener: MessageListener;
+  readonly #messageView: MessageView;
+
+  constructor(clientId: string, messageListener: MessageListener, messageView: MessageView) {
+    this.#clientId = clientId;
+    this.#messageListener = messageListener;
+    this.#messageView = messageView;
+  }
+
+  async call(): Promise<ConsumeResult> {
+    try {
+      const result = await this.#messageListener.consume(this.#messageView);
+      return result;
+    } catch (e) {
+      // Message listener raised an exception while consuming messages
+      return ConsumeResult.FAILURE;
+    }
+  }
+}
