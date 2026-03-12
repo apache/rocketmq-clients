@@ -85,11 +85,16 @@ export class PushConsumer extends Consumer {
   }
 
   async startup() {
+    this.logger.info('Begin to start the rocketmq push consumer, clientId=%s, consumerGroup=%s',
+      this.clientId, this.consumerGroup);
     await super.startup();
+    this.logger.info('Super startup completed, clientId=%s', this.clientId);
     this.#consumeService = this.#createConsumeService();
     // Start scanning assignments periodically
+    this.logger.info('Starting assignment scanning, clientId=%s', this.clientId);
     setTimeout(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_DELAY);
     this.#scanAssignmentTimer = setInterval(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_PERIOD);
+    this.logger.info('Push consumer started successfully, clientId=%s', this.clientId);
   }
 
   async shutdown() {
@@ -246,17 +251,24 @@ export class PushConsumer extends Consumer {
 
   #scanAssignments() {
     try {
+      this.logger.debug?.('Scanning assignments, clientId=%s, subscriptionCount=%d',
+        this.clientId, this.#subscriptionExpressions.size);
       for (const [topic, filterExpression] of this.#subscriptionExpressions) {
         const existed = this.#cacheAssignments.get(topic);
         this.#queryAssignment(topic)
           .then(latest => {
+            this.logger.debug?.('Query assignment result, topic=%s, clientId=%s, assignmentCount=%d',
+              topic, this.clientId, latest.getAssignmentList().length);
             if (latest.getAssignmentList().length === 0) {
               if (!existed || existed.getAssignmentList().length === 0) {
+                this.logger.warn('No assignments available for topic=%s, clientId=%s', topic, this.clientId);
                 return;
               }
             }
 
             if (!latest.equals(existed)) {
+              this.logger.info('Assignments changed, topic=%s, clientId=%s, newAssignmentCount=%d',
+                topic, this.clientId, latest.getAssignmentList().length);
               this.#syncProcessQueue(topic, latest, filterExpression);
               this.#cacheAssignments.set(topic, latest);
               return;

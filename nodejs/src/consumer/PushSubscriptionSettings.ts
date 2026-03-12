@@ -67,7 +67,7 @@ export class PushSubscriptionSettings extends Settings {
     const subscription = new Subscription()
       .setGroup(createResource(this.#group));
 
-    for (const [topic, filterExpression] of this.#subscriptionExpressions.entries()) {
+    for (const [ topic, filterExpression ] of this.#subscriptionExpressions.entries()) {
       subscription.addSubscriptions()
         .setTopic(createResource(topic))
         .setExpression(filterExpression.toProtobuf());
@@ -87,8 +87,8 @@ export class PushSubscriptionSettings extends Settings {
     }
     const subscription = settings.getSubscription();
     if (subscription) {
-      this.#fifo = subscription.getFifo();
-      this.#receiveBatchSize = subscription.getReceiveBatchSize();
+      this.#fifo = subscription.getFifo() ?? false;
+      this.#receiveBatchSize = subscription.getReceiveBatchSize() ?? 32;
       const longPollingTimeout = subscription.getLongPollingTimeout();
       if (longPollingTimeout) {
         this.#longPollingTimeout = longPollingTimeout.getSeconds() * 1000 +

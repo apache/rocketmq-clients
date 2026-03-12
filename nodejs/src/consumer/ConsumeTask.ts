@@ -20,12 +20,10 @@ import { ConsumeResult } from './ConsumeResult';
 import { MessageListener } from './MessageListener';
 
 export class ConsumeTask {
-  readonly #clientId: string;
   readonly #messageListener: MessageListener;
   readonly #messageView: MessageView;
 
-  constructor(clientId: string, messageListener: MessageListener, messageView: MessageView) {
-    this.#clientId = clientId;
+  constructor(_clientId: string, messageListener: MessageListener, messageView: MessageView) {
     this.#messageListener = messageListener;
     this.#messageView = messageView;
   }
