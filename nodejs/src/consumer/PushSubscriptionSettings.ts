@@ -41,10 +41,14 @@ export class PushSubscriptionSettings extends Settings {
     consumerGroup: string,
     requestTimeout: number,
     subscriptionExpressions: Map<string, FilterExpression>,
+    longPollingTimeout?: number,
   ) {
     super(namespace, clientId, ClientType.PUSH_CONSUMER, accessPoint, requestTimeout);
     this.#group = consumerGroup;
     this.#subscriptionExpressions = subscriptionExpressions;
+    if (longPollingTimeout !== undefined) {
+      this.#longPollingTimeout = longPollingTimeout;
+    }
   }
 
   isFifo(): boolean {

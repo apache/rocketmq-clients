@@ -49,6 +49,7 @@ export interface PushConsumerOptions extends ConsumerOptions {
   messageListener: MessageListener;
   maxCacheMessageCount?: number;
   maxCacheMessageSizeInBytes?: number;
+  longPollingTimeout?: number;  // 长轮询超时时间（毫秒），默认 30000ms
 }
 
 export class PushConsumer extends Consumer {
@@ -188,7 +189,8 @@ export class PushConsumer extends Consumer {
       .setFilterExpression(filterExpression.toProtobuf())
       .setLongPollingTimeout(createDuration(longPollingTimeout))
       .setBatchSize(batchSize)
-      .setAutoRenew(false);
+      .setAutoRenew(false)
+      .setInvisibleDuration(createDuration(longPollingTimeout));
     if (attemptId) {
       request.setAttemptId(attemptId);
     }

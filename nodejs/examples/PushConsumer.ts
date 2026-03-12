@@ -93,6 +93,9 @@ async function main() {
     maxCacheMessageCount: 1024,         // Max cached messages per queue, default 1024
     maxCacheMessageSizeInBytes: 67108864, // Max cached bytes per queue (64MB), default 64MB
     
+    // Long polling timeout configuration (optional)
+    longPollingTimeout: 30000,          // Long polling timeout in milliseconds, default 30000ms
+    
     // Request timeout configuration (optional)
     requestTimeout: 3000,               // Request timeout in milliseconds, default 3000ms
     
