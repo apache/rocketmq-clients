@@ -71,6 +71,18 @@ export class Producer extends BaseClient {
     this.#checker = options.checker;
   }
 
+  async startup() {
+    this.logger.info('Begin to start the rocketmq producer, clientId=%s', this.clientId);
+    await super.startup();
+    this.logger.info('The rocketmq producer starts successfully, clientId=%s', this.clientId);
+  }
+
+  async shutdown() {
+    this.logger.info('Begin to shutdown the rocketmq producer, clientId=%s', this.clientId);
+    await super.shutdown();
+    this.logger.info('Shutdown the rocketmq producer successfully, clientId=%s', this.clientId);
+  }
+
   get publishingSettings() {
     return this.#publishingSettings;
   }
@@ -158,21 +170,21 @@ export class Producer extends BaseClient {
       topics.add(message.topic);
     }
     if (topics.size > 1) {
-      throw new TypeError(`Messages to send have different topics=${JSON.stringify(topics)}`);
+      throw new TypeError(`Messages to send have different topics=${JSON.stringify(Array.from(topics))}`);
     }
     const topic = pubMessages[0].topic;
     const messageType = pubMessages[0].messageType;
     const messageGroup = pubMessages[0].messageGroup;
     const messageTypes = new Set(pubMessages.map(m => m.messageType));
     if (messageTypes.size > 1) {
-      throw new TypeError(`Messages to send have different types=${JSON.stringify(messageTypes)}`);
+      throw new TypeError(`Messages to send have different types=${JSON.stringify(Array.from(messageTypes))}`);
     }
 
     // Message group must be same if message type is FIFO, or no need to proceed.
     if (messageType === MessageType.FIFO) {
       const messageGroups = new Set(pubMessages.map(m => m.messageGroup!));
       if (messageGroups.size > 1) {
-        throw new TypeError(`FIFO messages to send have message groups, messageGroups=${JSON.stringify(messageGroups)}`);
+        throw new TypeError(`FIFO messages to send have message groups, messageGroups=${JSON.stringify(Array.from(messageGroups))}`);
       }
     }
 
@@ -223,42 +235,42 @@ export class Producer extends BaseClient {
       sendReceipts = SendReceipt.processResponseInvocation(mq, response);
     } catch (err) {
       const messageIds = messages.map(m => m.messageId);
-      // Isolate endpoints because of sending failure.
+      // Isolate endpoints because of sending failure
       this.#isolate(endpoints);
       if (attempt >= maxAttempts) {
-        // No need more attempts.
-        this.logger.error('Failed to send message(s) finally, run out of attempt times, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+        // No more attempts
+        this.logger.error('Failed to send message(s) finally, run out of attempt times, maxAttempts=%d, attempt=%d, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
           maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         throw err;
       }
-      // No need more attempts for transactional message.
+      // No more attempts for transactional message
       if (messageType === MessageType.TRANSACTION) {
-        this.logger.error('Failed to send transactional message finally, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+        this.logger.error('Failed to send transactional message finally, maxAttempts=%d, attempt=%d, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
           maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         throw err;
       }
-      // Try to do more attempts.
+      // Try next attempt
       const nextAttempt = 1 + attempt;
-      // Retry immediately if the request is not throttled.
+      // Retry immediately if the request is not throttled
       if (!(err instanceof TooManyRequestsException)) {
-        this.logger.warn('Failed to send message, would attempt to resend right now, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+        this.logger.warn('Failed to send message, would attempt to resend right now, maxAttempts=%d, attempt=%d, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
           maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         return this.#send0(topic, messageType, candidates, messages, nextAttempt);
       }
       const delay = this.#getRetryPolicy().getNextAttemptDelay(nextAttempt);
-      this.logger.warn('Failed to send message due to too many requests, would attempt to resend after %sms, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+      this.logger.warn('Failed to send message due to too many requests, would attempt to resend after %dms, maxAttempts=%d, attempt=%d, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
         delay, maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
       await setTimeout(delay);
       return this.#send0(topic, messageType, candidates, messages, nextAttempt);
     }
 
-    // Resend message(s) successfully.
+    // Resend message(s) successfully
     if (attempt > 1) {
       const messageIds = sendReceipts.map(r => r.messageId);
-      this.logger.info('Resend message successfully, topic=%s, messageId(s)=%j, maxAttempts=%s, attempt=%s, endpoints=%s, clientId=%s',
+      this.logger.info('Resend message successfully, topic=%s, messageId(s)=%s, maxAttempts=%d, attempt=%d, endpoints=%s, clientId=%s',
         topic, messageIds, maxAttempts, attempt, endpoints, this.clientId);
     }
-    // Send message(s) successfully on first attempt, return directly.
+    // Send message(s) successfully on first attempt, return directly
     return sendReceipts;
   }
 
