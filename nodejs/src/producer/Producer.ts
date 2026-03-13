@@ -89,6 +89,11 @@ export class Producer extends BaseClient {
 
   beginTransaction() {
     assert(this.#checker, 'Transaction checker should not be null');
+    // Check producer status before beginning transaction
+    if (!this.isRunning()) {
+      this.logger.error('Unable to begin a transaction because producer is not running, clientId=%s', this.clientId);
+      throw new Error('Producer is not running now');
+    }
     return new Transaction(this);
   }
 
@@ -163,6 +168,12 @@ export class Producer extends BaseClient {
   }
 
   async #send(messages: MessageOptions[], txEnabled: boolean) {
+    // Check producer status before message publishing
+    if (!this.isRunning()) {
+      this.logger.error('Unable to send message because producer is not running, clientId=%s', this.clientId);
+      throw new Error('Producer is not running now');
+    }
+
     const pubMessages: PublishingMessage[] = [];
     const topics = new Set<string>();
     for (const message of messages) {

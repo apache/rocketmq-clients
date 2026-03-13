@@ -89,6 +89,7 @@ export abstract class BaseClient {
   #startupResolve?: () => void;
   #startupReject?: (err: Error) => void;
   #timers: NodeJS.Timeout[] = [];
+  #running = false;
 
   constructor(options: BaseClientOptions) {
     this.logger = options.logger ?? getDefaultLogger();
@@ -160,10 +161,16 @@ export abstract class BaseClient {
       this.#startupReject = undefined;
       this.#startupResolve = undefined;
     }
+    this.#running = true;
+  }
+
+  isRunning(): boolean {
+    return this.#running;
   }
 
   async shutdown() {
     this.logger.info('Begin to shutdown the rocketmq client, clientId=%s', this.clientId);
+    this.#running = false;
     while (this.#timers.length > 0) {
       const timer = this.#timers.pop();
       clearInterval(timer);
