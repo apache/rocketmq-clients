@@ -49,7 +49,14 @@ export interface PushConsumerOptions extends ConsumerOptions {
   messageListener: MessageListener;
   maxCacheMessageCount?: number;
   maxCacheMessageSizeInBytes?: number;
-  longPollingTimeout?: number;  // 长轮询超时时间（毫秒），默认 30000ms
+  longPollingTimeout?: number;
+}
+
+class ConsumeMetrics {
+  receptionTimes = 0;
+  receivedMessagesQuantity = 0;
+  consumptionOkQuantity = 0;
+  consumptionErrorQuantity = 0;
 }
 
 export class PushConsumer extends Consumer {
@@ -60,6 +67,7 @@ export class PushConsumer extends Consumer {
   readonly #maxCacheMessageCount: number;
   readonly #maxCacheMessageSizeInBytes: number;
   readonly #processQueueTable = new Map<string /* mq key */, { mq: MessageQueue; pq: ProcessQueue }>();
+  readonly #metrics = new ConsumeMetrics();
   #consumeService!: ConsumeService;
   #scanAssignmentTimer?: NodeJS.Timeout;
 
@@ -67,7 +75,7 @@ export class PushConsumer extends Consumer {
     options.topics = Array.from(options.subscriptions.keys());
     super(options);
 
-    for (const [topic, filter] of options.subscriptions.entries()) {
+    for (const [ topic, filter ] of options.subscriptions.entries()) {
       if (typeof filter === 'string') {
         this.#subscriptionExpressions.set(topic, new FilterExpression(filter));
       } else {
@@ -99,20 +107,27 @@ export class PushConsumer extends Consumer {
   }
 
   async shutdown() {
+    this.logger.info('Begin to shutdown the rocketmq push consumer, clientId=%s', this.clientId);
+    // Stop scanning assignments
     if (this.#scanAssignmentTimer) {
       clearInterval(this.#scanAssignmentTimer);
       this.#scanAssignmentTimer = undefined;
     }
     // Drop all process queues
+    this.logger.info('Dropping all process queues, clientId=%s, queueCount=%d',
+      this.clientId, this.#processQueueTable.size);
     for (const { pq } of this.#processQueueTable.values()) {
       pq.drop();
       pq.abort();
     }
     this.#processQueueTable.clear();
+    // Shutdown consume service
     if (this.#consumeService) {
+      this.logger.info('Shutting down consume service, clientId=%s', this.clientId);
       this.#consumeService.abort();
     }
     await super.shutdown();
+    this.logger.info('Push consumer has been shutdown successfully, clientId=%s', this.clientId);
   }
 
   protected getSettings() {
@@ -130,6 +145,7 @@ export class PushConsumer extends Consumer {
       .setGroup(createResource(this.consumerGroup));
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected onTopicRouteDataUpdate(_topic: string, _topicRouteData: TopicRouteData) {
     // No-op for push consumer; assignments are queried separately
   }
@@ -174,6 +190,58 @@ export class PushConsumer extends Consumer {
 
   getClientId(): string {
     return this.clientId;
+  }
+
+  // --- Metrics access ---
+
+  getReceptionTimes(): number {
+    return this.#metrics.receptionTimes;
+  }
+
+  getReceivedMessagesQuantity(): number {
+    return this.#metrics.receivedMessagesQuantity;
+  }
+
+  getConsumptionOkQuantity(): number {
+    return this.#metrics.consumptionOkQuantity;
+  }
+
+  getConsumptionErrorQuantity(): number {
+    return this.#metrics.consumptionErrorQuantity;
+  }
+
+  incrementReceptionTimes() {
+    this.#metrics.receptionTimes++;
+  }
+
+  incrementReceivedMessagesQuantity(count: number) {
+    this.#metrics.receivedMessagesQuantity += count;
+  }
+
+  incrementConsumptionOkQuantity() {
+    this.#metrics.consumptionOkQuantity++;
+  }
+
+  incrementConsumptionErrorQuantity() {
+    this.#metrics.consumptionErrorQuantity++;
+  }
+
+  // --- Statistics ---
+
+  doStats() {
+    const receptionTimes = this.#metrics.receptionTimes;
+    this.#metrics.receptionTimes = 0;
+    const receivedMessagesQuantity = this.#metrics.receivedMessagesQuantity;
+    this.#metrics.receivedMessagesQuantity = 0;
+    const consumptionOkQuantity = this.#metrics.consumptionOkQuantity;
+    this.#metrics.consumptionOkQuantity = 0;
+    const consumptionErrorQuantity = this.#metrics.consumptionErrorQuantity;
+    this.#metrics.consumptionErrorQuantity = 0;
+
+    this.logger.info('clientId=%s, consumerGroup=%s, receptionTimes=%d, receivedMessagesQuantity=%d, '
+      + 'consumptionOkQuantity=%d, consumptionErrorQuantity=%d',
+    this.clientId, this.consumerGroup, receptionTimes, receivedMessagesQuantity,
+    consumptionOkQuantity, consumptionErrorQuantity);
   }
 
   wrapPushReceiveMessageRequest(
@@ -254,7 +322,7 @@ export class PushConsumer extends Consumer {
     try {
       this.logger.debug?.('Scanning assignments, clientId=%s, subscriptionCount=%d',
         this.clientId, this.#subscriptionExpressions.size);
-      for (const [topic, filterExpression] of this.#subscriptionExpressions) {
+      for (const [ topic, filterExpression ] of this.#subscriptionExpressions) {
         const existed = this.#cacheAssignments.get(topic);
         this.#queryAssignment(topic)
           .then(latest => {
@@ -262,19 +330,23 @@ export class PushConsumer extends Consumer {
               topic, this.clientId, latest.getAssignmentList().length);
             if (latest.getAssignmentList().length === 0) {
               if (!existed || existed.getAssignmentList().length === 0) {
-                this.logger.warn('No assignments available for topic=%s, clientId=%s', topic, this.clientId);
+                this.logger.info('Acquired empty assignments from remote, would scan later, topic=%s, '
+                  + 'clientId=%s', topic, this.clientId);
                 return;
               }
+              this.logger.warn('Attention!!! acquired empty assignments from remote, but existed assignments'
+                + ' is not empty, topic=%s, clientId=%s', topic, this.clientId);
             }
 
             if (!latest.equals(existed)) {
-              this.logger.info('Assignments changed, topic=%s, clientId=%s, newAssignmentCount=%d',
-                topic, this.clientId, latest.getAssignmentList().length);
+              this.logger.info('Assignments of topic=%s has changed, %j => %j, clientId=%s', topic, existed,
+                latest, this.clientId);
               this.#syncProcessQueue(topic, latest, filterExpression);
               this.#cacheAssignments.set(topic, latest);
               return;
             }
-
+            this.logger.debug?.('Assignments of topic=%s remains the same, assignments=%j, clientId=%s', topic,
+              existed, this.clientId);
             // Process queue may be dropped, need to be synchronized anyway.
             this.#syncProcessQueue(topic, latest, filterExpression);
           })
@@ -324,15 +396,19 @@ export class PushConsumer extends Consumer {
 
     // Find active message queues
     const activeMqKeys = new Set<string>();
-    for (const [mqKey, { mq, pq }] of this.#processQueueTable) {
+    for (const [ mqKey, { mq, pq }] of this.#processQueueTable) {
       if (mq.topic.name !== topic) {
         continue;
       }
       if (!latestMqKeys.has(mqKey)) {
+        this.logger.info('Drop message queue according to the latest assignmentList, mq=%s@%s@%s, clientId=%s',
+          mq.topic.name, mq.broker.name, mq.queueId, this.clientId);
         this.#dropProcessQueue(mqKey);
         continue;
       }
       if (pq.expired()) {
+        this.logger.warn('Drop message queue because it is expired, mq=%s@%s@%s, clientId=%s',
+          mq.topic.name, mq.broker.name, mq.queueId, this.clientId);
         this.#dropProcessQueue(mqKey);
         continue;
       }
@@ -347,6 +423,9 @@ export class PushConsumer extends Consumer {
       }
       const processQueue = this.#createProcessQueue(assignment.messageQueue, filterExpression);
       if (processQueue) {
+        this.logger.info('Start to fetch message from remote, mq=%s@%s@%s, clientId=%s',
+          assignment.messageQueue.topic.name, assignment.messageQueue.broker.name,
+          assignment.messageQueue.queueId, this.clientId);
         processQueue.fetchMessageImmediately();
       }
     }
