@@ -99,6 +99,10 @@ export class Producer extends BaseClient {
 
   async endTransaction(endpoints: Endpoints, message: Message, messageId: string,
     transactionId: string, resolution: TransactionResolution) {
+    const resolutionStr = resolution === TransactionResolution.COMMIT ? 'COMMIT' : 'ROLLBACK';
+    this.logger.info('Begin to end transaction, messageId=%s, transactionId=%s, resolution=%s, clientId=%s',
+      messageId, transactionId, resolutionStr, this.clientId);
+
     const request = new EndTransactionRequest()
       .setMessageId(messageId)
       .setTransactionId(transactionId)
@@ -106,6 +110,9 @@ export class Producer extends BaseClient {
       .setResolution(resolution);
     const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
     StatusChecker.check(response.getStatus()?.toObject());
+
+    this.logger.info('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, clientId=%s',
+      messageId, transactionId, resolutionStr, this.clientId);
   }
 
   async onRecoverOrphanedTransactionCommand(endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {
@@ -160,11 +167,17 @@ export class Producer extends BaseClient {
       return sendReceipts[0];
     }
 
-    const publishingMessage = transaction.tryAddMessage(message);
-    const sendReceipts = await this.#send([ message ], true);
-    const sendReceipt = sendReceipts[0];
-    transaction.tryAddReceipt(publishingMessage, sendReceipt);
-    return sendReceipt;
+    // Send transactional message
+    try {
+      const publishingMessage = transaction.tryAddMessage(message);
+      const sendReceipts = await this.#send([ message ], true);
+      const sendReceipt = sendReceipts[0];
+      transaction.tryAddReceipt(publishingMessage, sendReceipt);
+      return sendReceipt;
+    } catch (err) {
+      this.logger.error('Failed to send transactional message, clientId=%s, error=%s', this.clientId, err);
+      throw err;
+    }
   }
 
   async #send(messages: MessageOptions[], txEnabled: boolean) {
