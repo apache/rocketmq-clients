@@ -189,8 +189,7 @@ export class PushConsumer extends Consumer {
       .setFilterExpression(filterExpression.toProtobuf())
       .setLongPollingTimeout(createDuration(longPollingTimeout))
       .setBatchSize(batchSize)
-      .setAutoRenew(false)
-      .setInvisibleDuration(createDuration(longPollingTimeout));
+      .setAutoRenew(true);
     if (attemptId) {
       request.setAttemptId(attemptId);
     }
