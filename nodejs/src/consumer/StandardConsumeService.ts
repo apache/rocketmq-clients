@@ -15,22 +15,30 @@
  * limitations under the License.
  */
 
-import path from 'node:path';
-import { homedir } from 'node:os';
-import { EggLogger } from 'egg-logger';
+import { MessageView } from '../message';
+import { ConsumeService } from './ConsumeService';
+import { MessageListener } from './MessageListener';
+import type { ProcessQueue } from './ProcessQueue';
 
-export interface ILogger {
-  info(...args: any[]): void;
-  warn(...args: any[]): void;
-  error(...args: any[]): void;
-  debug?(...args: any[]): void;
-  close?(...args: any[]): void;
-}
+export class StandardConsumeService extends ConsumeService {
+  constructor(clientId: string, messageListener: MessageListener) {
+    super(clientId, messageListener);
+  }
 
-export function getDefaultLogger() {
-  const file = path.join(homedir(), 'logs/rocketmq/rocketmq_client_nodejs.log');
-  return new EggLogger({
-    file,
-    level: 'INFO',
-  });
+  consume(pq: ProcessQueue, messageViews: MessageView[]): void {
+    for (const messageView of messageViews) {
+      if (messageView.corrupted) {
+        pq.discardMessage(messageView);
+        continue;
+      }
+
+      this.consumeMessage(messageView)
+        .then(result => {
+          pq.eraseMessage(messageView, result);
+        })
+        .catch(() => {
+          // Should never reach here.
+        });
+    }
+  }
 }

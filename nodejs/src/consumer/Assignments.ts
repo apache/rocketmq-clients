@@ -15,22 +15,32 @@
  * limitations under the License.
  */
 
-import path from 'node:path';
-import { homedir } from 'node:os';
-import { EggLogger } from 'egg-logger';
+import { Assignment } from './Assignment';
 
-export interface ILogger {
-  info(...args: any[]): void;
-  warn(...args: any[]): void;
-  error(...args: any[]): void;
-  debug?(...args: any[]): void;
-  close?(...args: any[]): void;
-}
+export class Assignments {
+  readonly #assignmentList: Assignment[];
 
-export function getDefaultLogger() {
-  const file = path.join(homedir(), 'logs/rocketmq/rocketmq_client_nodejs.log');
-  return new EggLogger({
-    file,
-    level: 'INFO',
-  });
+  constructor(assignmentList: Assignment[]) {
+    this.#assignmentList = assignmentList;
+  }
+
+  getAssignmentList(): Assignment[] {
+    return this.#assignmentList;
+  }
+
+  equals(other?: Assignments): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    if (this.#assignmentList.length !== other.#assignmentList.length) return false;
+    for (let i = 0; i < this.#assignmentList.length; i++) {
+      if (!this.#assignmentList[i].equals(other.#assignmentList[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  toString(): string {
+    return `Assignments{assignmentList=[${this.#assignmentList.map(a => a.toString()).join(', ')}]}`;
+  }
 }
