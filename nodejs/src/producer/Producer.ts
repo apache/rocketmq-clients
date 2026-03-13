@@ -21,6 +21,7 @@ import {
   ClientType,
   MessageType,
   TransactionResolution,
+  TransactionSource,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
   EndTransactionRequest,
@@ -98,21 +99,23 @@ export class Producer extends BaseClient {
   }
 
   async endTransaction(endpoints: Endpoints, message: Message, messageId: string,
-    transactionId: string, resolution: TransactionResolution) {
+    transactionId: string, resolution: TransactionResolution, source: TransactionSource = TransactionSource.SOURCE_CLIENT) {
     const resolutionStr = resolution === TransactionResolution.COMMIT ? 'COMMIT' : 'ROLLBACK';
-    this.logger.info('Begin to end transaction, messageId=%s, transactionId=%s, resolution=%s, clientId=%s',
-      messageId, transactionId, resolutionStr, this.clientId);
+    const sourceStr = TransactionSource[source];
+    this.logger.info('Begin to end transaction, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
+      messageId, transactionId, resolutionStr, sourceStr, this.clientId);
 
     const request = new EndTransactionRequest()
       .setMessageId(messageId)
       .setTransactionId(transactionId)
       .setTopic(createResource(message.topic).setResourceNamespace(this.namespace))
-      .setResolution(resolution);
+      .setResolution(resolution)
+      .setSource(source);
     const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
     StatusChecker.check(response.getStatus()?.toObject());
 
-    this.logger.info('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, clientId=%s',
-      messageId, transactionId, resolutionStr, this.clientId);
+    this.logger.info('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
+      messageId, transactionId, resolutionStr, sourceStr, this.clientId);
   }
 
   async onRecoverOrphanedTransactionCommand(endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {
@@ -138,7 +141,9 @@ export class Producer extends BaseClient {
       if (resolution === null || resolution === TransactionResolution.TRANSACTION_RESOLUTION_UNSPECIFIED) {
         return;
       }
-      await this.endTransaction(endpoints, messageView, messageId, transactionId, resolution);
+      // Use SOURCE_SERVER_CHECK for transaction recovery
+      await this.endTransaction(endpoints, messageView, messageId, transactionId, resolution,
+        TransactionSource.SOURCE_SERVER_CHECK);
       this.logger.info('Recover orphaned transaction message success, transactionId=%s, resolution=%s, messageId=%s, clientId=%s',
         transactionId, resolution, messageId, this.clientId);
     } catch (err) {
