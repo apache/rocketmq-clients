@@ -29,7 +29,6 @@ import apache.rocketmq.v2.Message;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
-import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.Status;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -58,21 +57,22 @@ import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
-abstract class ConsumerImpl extends ClientImpl {
+@SuppressWarnings({"NullableProblems"})
+public abstract class ConsumerImpl extends ClientImpl {
     static final Pattern CONSUMER_GROUP_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
     private static final Logger log = LoggerFactory.getLogger(ConsumerImpl.class);
-    private final String consumerGroup;
+    protected final Resource groupResource;
 
     ConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup, Set<String> topics) {
         super(clientConfiguration, topics);
-        this.consumerGroup = consumerGroup;
+        this.groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -125,14 +125,14 @@ abstract class ConsumerImpl extends ClientImpl {
     }
 
     private AckMessageRequest wrapAckMessageRequest(MessageViewImpl messageView) {
-        final Resource topicResource = Resource.newBuilder()
+        final apache.rocketmq.v2.Resource topicResource = apache.rocketmq.v2.Resource.newBuilder()
             .setResourceNamespace(clientConfiguration.getNamespace())
             .setName(messageView.getTopic())
             .build();
         final AckMessageEntry.Builder builder = AckMessageEntry.newBuilder()
             .setMessageId(messageView.getMessageId().toString())
             .setReceiptHandle(messageView.getReceiptHandle());
-        if (ClientType.LITE_PUSH_CONSUMER == getSettings().getClientType()) {
+        if (isLiteConsumer()) {
             messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
         }
         final AckMessageEntry entry = builder.build();
@@ -140,16 +140,21 @@ abstract class ConsumerImpl extends ClientImpl {
             .addEntries(entry).build();
     }
 
-    private ChangeInvisibleDurationRequest wrapChangeInvisibleDuration(MessageViewImpl messageView,
+    protected ChangeInvisibleDurationRequest wrapChangeInvisibleDuration(MessageViewImpl messageView,
         Duration invisibleDuration) {
-        final Resource topicResource = Resource.newBuilder()
+        final apache.rocketmq.v2.Resource topicResource = apache.rocketmq.v2.Resource.newBuilder()
             .setResourceNamespace(clientConfiguration.getNamespace())
             .setName(messageView.getTopic()).build();
-        return ChangeInvisibleDurationRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
+        ChangeInvisibleDurationRequest.Builder builder = ChangeInvisibleDurationRequest.newBuilder()
+            .setGroup(getProtobufGroup())
+            .setTopic(topicResource)
             .setReceiptHandle(messageView.getReceiptHandle())
             .setInvisibleDuration(Durations.fromNanos(invisibleDuration.toNanos()))
-            .setMessageId(messageView.getMessageId().toString()).build();
-
+            .setMessageId(messageView.getMessageId().toString());
+        if (isLiteConsumer()) {
+            messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        }
+        return builder.build();
     }
 
     protected RpcFuture<AckMessageRequest, AckMessageResponse> ackMessage(MessageViewImpl messageView) {
@@ -228,11 +233,8 @@ abstract class ConsumerImpl extends ClientImpl {
         return future;
     }
 
-    protected Resource getProtobufGroup() {
-        return Resource.newBuilder()
-            .setResourceNamespace(clientConfiguration.getNamespace())
-            .setName(consumerGroup)
-            .build();
+    protected apache.rocketmq.v2.Resource getProtobufGroup() {
+        return groupResource.toProtobuf();
     }
 
     @Override
@@ -276,6 +278,21 @@ abstract class ConsumerImpl extends ClientImpl {
     @Override
     public HeartbeatRequest wrapHeartbeatRequest() {
         return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
-            .setClientType(getSettings().getClientType().toProtobuf()).build();
+            .setClientType(clientType().toProtobuf()).build();
+    }
+
+    /**
+     * Get client type for this client instance
+     *
+     * @return corresponding ClientType
+     */
+    protected abstract ClientType clientType();
+
+    public boolean isLiteConsumer() {
+        return ClientType.LITE_PUSH_CONSUMER == clientType() || ClientType.LITE_SIMPLE_CONSUMER == clientType();
+    }
+
+    public String getConsumerGroup() {
+        return groupResource.getName();
     }
 }

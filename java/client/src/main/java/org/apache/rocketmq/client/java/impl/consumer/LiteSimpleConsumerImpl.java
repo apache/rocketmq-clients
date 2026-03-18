@@ -19,26 +19,31 @@ package org.apache.rocketmq.client.java.impl.consumer;
 
 import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.Settings;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
+import org.apache.rocketmq.client.apis.consumer.LiteSimpleConsumer;
 import org.apache.rocketmq.client.apis.consumer.OffsetOption;
+import org.apache.rocketmq.client.apis.message.MessageView;
 import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.Endpoints;
+import org.apache.rocketmq.client.java.route.MessageQueueImpl;
+import org.apache.rocketmq.client.java.route.TopicRouteData;
 
-public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushConsumer {
+public class LiteSimpleConsumerImpl extends SimpleConsumerImpl implements LiteSimpleConsumer {
 
     private final LiteSubscriptionManager liteSubscriptionManager;
 
-    public LitePushConsumerImpl(LitePushConsumerBuilderImpl builder) {
+    public LiteSimpleConsumerImpl(LiteSimpleConsumerBuilderImpl builder) {
         super(builder.clientConfiguration, builder.consumerGroup,
-            builder.subscriptionExpressions, builder.messageListener,
-            builder.maxCacheMessageCount, builder.maxCacheMessageSizeInBytes,
-            builder.consumptionThreadCount, false);
+            builder.awaitDuration, builder.subscriptionExpressions);
         this.liteSubscriptionManager = new LiteSubscriptionManager(this,
             new Resource(builder.clientConfiguration.getNamespace(), builder.bindTopic),
-            groupResource);
+            new Resource(builder.clientConfiguration.getNamespace(), getConsumerGroup()));
     }
 
     @Override
@@ -80,7 +85,36 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
 
     @Override
     protected ClientType clientType() {
-        return ClientType.LITE_PUSH_CONSUMER;
+        return ClientType.LITE_SIMPLE_CONSUMER;
     }
 
+    @Override
+    protected SubscriptionLoadBalancer updateSubscriptionLoadBalancer(String topic, TopicRouteData topicRouteData) {
+        // For lite consumers, we only need routes to brokers, so keep only the first readable queue
+        final TopicRouteData liteTopicRouteData = new TopicRouteData(
+            topicRouteData.getMessageQueues().stream()
+                // find the first readable queue
+                .filter(SubscriptionLoadBalancer::isReadableMasterQueue)
+                .findFirst()
+                .map(MessageQueueImpl::toProtobuf)
+                .map(Collections::singletonList)
+                .orElse(Collections.emptyList())
+        );
+        return super.updateSubscriptionLoadBalancer(topic, liteTopicRouteData);
+    }
+
+    @Override
+    public CompletableFuture<List<MessageView>> receiveAsync(int maxMessageNum, Duration invisibleDuration) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> ackAsync(MessageView messageView) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> changeInvisibleDurationAsync(MessageView messageView, Duration invisibleDuration) {
+        throw new UnsupportedOperationException();
+    }
 }

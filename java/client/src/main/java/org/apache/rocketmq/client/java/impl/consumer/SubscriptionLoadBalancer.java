@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.math.IntMath;
 import java.util.List;
@@ -31,14 +30,15 @@ import org.apache.rocketmq.client.java.route.TopicRouteData;
 
 @Immutable
 public class SubscriptionLoadBalancer {
+
+    /**
+     * Message queues to receive message.
+     */
+    protected final ImmutableList<MessageQueueImpl> messageQueues;
     /**
      * Index for round-robin.
      */
     private final AtomicInteger index;
-    /**
-     * Message queues to receive message.
-     */
-    private final ImmutableList<MessageQueueImpl> messageQueues;
 
     public SubscriptionLoadBalancer(TopicRouteData topicRouteData) {
         this(new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE)), topicRouteData);
@@ -47,13 +47,19 @@ public class SubscriptionLoadBalancer {
     private SubscriptionLoadBalancer(AtomicInteger index, TopicRouteData topicRouteData) {
         this.index = index;
         final List<MessageQueueImpl> mqs = topicRouteData.getMessageQueues().stream()
-            .filter((Predicate<MessageQueueImpl>) mq -> mq.getPermission().isReadable() &&
-                Utilities.MASTER_BROKER_ID == mq.getBroker().getId())
+            .filter(SubscriptionLoadBalancer::isReadableMasterQueue)
             .collect(Collectors.toList());
         if (mqs.isEmpty()) {
             throw new IllegalArgumentException("No readable message queue found, topiRouteData=" + topicRouteData);
         }
         this.messageQueues = ImmutableList.<MessageQueueImpl>builder().addAll(mqs).build();
+    }
+
+    /**
+     * Check if the message queue is readable and belongs to master broker.
+     */
+    public static boolean isReadableMasterQueue(MessageQueueImpl mq) {
+        return mq.getPermission().isReadable() && Utilities.MASTER_BROKER_ID == mq.getBroker().getId();
     }
 
     SubscriptionLoadBalancer update(TopicRouteData topicRouteData) {
