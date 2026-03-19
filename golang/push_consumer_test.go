@@ -233,3 +233,67 @@ func TestDefaultLitePushConsumer_Wraps(t *testing.T) {
 		t.Errorf("expected client type LITE_PUSH_CONSUMER, got %v", hb.GetClientType())
 	}
 }
+
+// TestNewConsumerResultSuspend tests the NewConsumerResultSuspend function
+func TestNewConsumerResultSuspend(t *testing.T) {
+	tests := []struct {
+		name        string
+		suspendTime time.Duration
+		wantType    ConsumerResultType
+		wantPanic   bool
+	}{
+		{
+			name:        "valid suspend time - exactly minSuspendTime",
+			suspendTime: minSuspendTime,
+			wantType:    ConsumerResultTypeSuspend,
+			wantPanic:   false,
+		},
+		{
+			name:        "valid suspend time - 1 second",
+			suspendTime: 1 * time.Second,
+			wantType:    ConsumerResultTypeSuspend,
+			wantPanic:   false,
+		},
+		{
+			name:        "invalid suspend time - less than minSuspendTime",
+			suspendTime: 10 * time.Millisecond,
+			wantType:    ConsumerResultTypeSuspend,
+			wantPanic:   true,
+		},
+		{
+			name:        "invalid suspend time - negative",
+			suspendTime: -1 * time.Millisecond,
+			wantType:    ConsumerResultTypeSuspend,
+			wantPanic:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.wantPanic {
+				defer func() {
+					if r := recover(); r == nil {
+						t.Errorf("NewConsumerResultSuspend() should have panicked for suspendTime=%v", tt.suspendTime)
+					}
+				}()
+				NewConsumerResultSuspend(tt.suspendTime)
+			} else {
+				result := NewConsumerResultSuspend(tt.suspendTime)
+				if result.Type != tt.wantType {
+					t.Errorf("NewConsumerResultSuspend() Type = %v, want %v", result.Type, tt.wantType)
+				}
+			}
+		})
+	}
+}
+
+// TestPredefinedConsumerResults tests the predefined SUCCESS and FAILURE constants
+func TestPredefinedConsumerResults(t *testing.T) {
+	if SUCCESS.Type != ConsumerResultTypeSuccess {
+		t.Errorf("SUCCESS.Type = %v, want %v", SUCCESS.Type, ConsumerResultTypeSuccess)
+	}
+
+	if FAILURE.Type != ConsumerResultTypeFailure {
+		t.Errorf("FAILURE.Type = %v, want %v", FAILURE.Type, ConsumerResultTypeFailure)
+	}
+}
