@@ -269,11 +269,18 @@ export class ProcessQueue {
         this.#consumer.wrapForwardMessageToDeadLetterQueueRequest(messageView),
         this.#consumer.requestTimeoutValue,
       );
-      const status = response.getStatus()?.toObject();
-      if (status?.code !== Code.OK) {
+      const status = response.getStatus();
+      if (!status) {
+        throw new Error('Missing status in forward to dead letter queue response');
+      }
+      const statusObj = status.toObject();
+      if (statusObj.code !== Code.OK) {
         await this.#forwardToDeadLetterQueueLater(messageView, attempt + 1);
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error).message === 'Missing status in forward to dead letter queue response') {
+        throw err; // Re-throw critical error
+      }
       await this.#forwardToDeadLetterQueueLater(messageView, attempt + 1);
     }
   }

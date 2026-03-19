@@ -98,12 +98,23 @@ export class PushConsumer extends Consumer {
       this.clientId, this.consumerGroup);
     await super.startup();
     this.logger.info('Super startup completed, clientId=%s', this.clientId);
-    this.#consumeService = this.#createConsumeService();
-    // Start scanning assignments periodically
-    this.logger.info('Starting assignment scanning, clientId=%s', this.clientId);
-    setTimeout(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_DELAY);
-    this.#scanAssignmentTimer = setInterval(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_PERIOD);
-    this.logger.info('Push consumer started successfully, clientId=%s', this.clientId);
+    try {
+      this.#consumeService = this.#createConsumeService();
+      // Start scanning assignments periodically
+      this.logger.info('Starting assignment scanning, clientId=%s', this.clientId);
+      setTimeout(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_DELAY);
+      this.#scanAssignmentTimer = setInterval(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_PERIOD);
+      this.logger.info('Push consumer started successfully, clientId=%s', this.clientId);
+    } catch (err) {
+      this.logger.error('Failed to start push consumer, cleaning up resources, clientId=%s, error=%s',
+        this.clientId, err);
+      // Clean up timers if initialization fails
+      if (this.#scanAssignmentTimer) {
+        clearInterval(this.#scanAssignmentTimer);
+        this.#scanAssignmentTimer = undefined;
+      }
+      throw err;
+    }
   }
 
   async shutdown() {
@@ -377,7 +388,11 @@ export class PushConsumer extends Consumer {
     const response = await this.rpcClientManager.queryAssignment(
       endpoints, request, this.requestTimeout,
     );
-    StatusChecker.check(response.getStatus()?.toObject());
+    const status = response.getStatus();
+    if (!status) {
+      throw new Error('Missing status in query assignment response');
+    }
+    StatusChecker.check(status.toObject());
 
     const assignmentList = response.getAssignmentsList().map(assignment => {
       const mqPb = assignment.getMessageQueue()!;
