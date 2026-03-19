@@ -15,22 +15,9 @@
  * limitations under the License.
  */
 
-import path from 'node:path';
-import { homedir } from 'node:os';
-import { EggLogger } from 'egg-logger';
+import { MessageView } from '../message';
+import { ConsumeResult } from './ConsumeResult';
 
-export interface ILogger {
-  info(...args: any[]): void;
-  warn(...args: any[]): void;
-  error(...args: any[]): void;
-  debug?(...args: any[]): void;
-  close?(...args: any[]): void;
-}
-
-export function getDefaultLogger() {
-  const file = path.join(homedir(), 'logs/rocketmq/rocketmq_client_nodejs.log');
-  return new EggLogger({
-    file,
-    level: 'INFO',
-  });
+export interface MessageListener {
+  consume(messageView: MessageView): ConsumeResult | Promise<ConsumeResult>;
 }

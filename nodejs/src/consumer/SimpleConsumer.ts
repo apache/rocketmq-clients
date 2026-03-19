@@ -25,6 +25,8 @@ import { SimpleSubscriptionSettings } from './SimpleSubscriptionSettings';
 import { SubscriptionLoadBalancer } from './SubscriptionLoadBalancer';
 import { Consumer, ConsumerOptions } from './Consumer';
 
+const RANDOM_INDEX = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+
 export interface SimpleConsumerOptions extends ConsumerOptions {
   /**
    * support tag string as filter, e.g.:
@@ -46,7 +48,7 @@ export class SimpleConsumer extends Consumer {
   readonly #subscriptionExpressions = new Map<string, FilterExpression>();
   readonly #subscriptionRouteDataCache = new Map<string, SubscriptionLoadBalancer>();
   readonly #awaitDuration: number;
-  #topicIndex = 0;
+  #topicIndex = RANDOM_INDEX;
 
   constructor(options: SimpleConsumerOptions) {
     options.topics = Array.from(options.subscriptions.keys());
@@ -113,8 +115,16 @@ export class SimpleConsumer extends Consumer {
   }
 
   async receive(maxMessageNum = 10, invisibleDuration = 15000) {
+    if (maxMessageNum <= 0) {
+      throw new Error(`maxMessageNum must be greater than 0, but got ${maxMessageNum}`);
+    }
+
     const topic = this.#nextTopic();
-    const filterExpression = this.#subscriptionExpressions.get(topic)!;
+    const filterExpression = this.#subscriptionExpressions.get(topic);
+    if (!filterExpression) {
+      throw new Error(`No subscription found for topic=${topic}, please subscribe first`);
+    }
+
     const loadBalancer = await this.#getSubscriptionLoadBalancer(topic);
     const mq = loadBalancer.takeMessageQueue();
     const request = this.wrapReceiveMessageRequest(maxMessageNum, mq, filterExpression,
@@ -126,15 +136,18 @@ export class SimpleConsumer extends Consumer {
     await this.ackMessage(message);
   }
 
-  async changeInvisibleDuration0(message: MessageView, invisibleDuration: number) {
-    await this.changeInvisibleDuration0(message, invisibleDuration);
+  async changeInvisibleDuration(message: MessageView, invisibleDuration: number) {
+    const response = await this.invisibleDuration(message, invisibleDuration);
+    // Refresh receipt handle manually
+    (message as any).receiptHandle = response;
   }
 
   #nextTopic() {
     const topics = Array.from(this.#subscriptionExpressions.keys());
-    if (this.#topicIndex >= topics.length) {
-      this.#topicIndex = 0;
+    if (topics.length === 0) {
+      throw new Error('No subscriptions available to receive messages');
     }
-    return topics[this.#topicIndex++];
+    const index = Math.abs(this.#topicIndex++ % topics.length);
+    return topics[index];
   }
 }

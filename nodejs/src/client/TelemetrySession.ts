@@ -31,6 +31,8 @@ export class TelemetrySession {
     this.#endpoints = endpoints;
     this.#baseClient = baseClient;
     this.#logger = logger;
+    this.#logger.info('Creating telemetry session, endpoints=%s, clientId=%s',
+      endpoints, baseClient.clientId);
     this.#renewStream(true);
   }
 
@@ -51,12 +53,22 @@ export class TelemetrySession {
   }
 
   #renewStream(inited: boolean) {
-    this.#stream = this.#baseClient.createTelemetryStream(this.#endpoints);
-    this.#stream.on('data', this.#onData.bind(this));
-    this.#stream.once('error', this.#onError.bind(this));
-    this.#stream.once('end', this.#onEnd.bind(this));
-    if (!inited) {
-      this.syncSettings();
+    try {
+      this.#logger.debug?.('Creating telemetry stream, endpoints=%s, clientId=%s, inited=%s',
+        this.#endpoints, this.#baseClient.clientId, inited);
+      this.#stream = this.#baseClient.createTelemetryStream(this.#endpoints);
+      this.#stream.on('data', this.#onData.bind(this));
+      this.#stream.once('error', this.#onError.bind(this));
+      this.#stream.once('end', this.#onEnd.bind(this));
+      if (!inited) {
+        this.#logger.info('Syncing settings to new stream, endpoints=%s, clientId=%s',
+          this.#endpoints, this.#baseClient.clientId);
+        this.syncSettings();
+      }
+    } catch (err) {
+      this.#logger.error('Failed to create telemetry stream, endpoints=%s, clientId=%s, error=%s',
+        this.#endpoints, this.#baseClient.clientId, err);
+      throw err;
     }
   }
 

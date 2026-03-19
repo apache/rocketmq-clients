@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-import path from 'node:path';
-import { homedir } from 'node:os';
-import { EggLogger } from 'egg-logger';
+import { MessageQueue } from '../route';
 
-export interface ILogger {
-  info(...args: any[]): void;
-  warn(...args: any[]): void;
-  error(...args: any[]): void;
-  debug?(...args: any[]): void;
-  close?(...args: any[]): void;
-}
+export class Assignment {
+  readonly messageQueue: MessageQueue;
 
-export function getDefaultLogger() {
-  const file = path.join(homedir(), 'logs/rocketmq/rocketmq_client_nodejs.log');
-  return new EggLogger({
-    file,
-    level: 'INFO',
-  });
+  constructor(messageQueue: MessageQueue) {
+    this.messageQueue = messageQueue;
+  }
+
+  equals(other: Assignment): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.messageQueue === other.messageQueue ||
+      (this.messageQueue.queueId === other.messageQueue.queueId &&
+       this.messageQueue.topic.name === other.messageQueue.topic.name &&
+       this.messageQueue.broker.name === other.messageQueue.broker.name);
+  }
+
+  toString(): string {
+    return `Assignment{messageQueue=${JSON.stringify(this.messageQueue)}}`;
+  }
 }

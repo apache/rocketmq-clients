@@ -346,6 +346,8 @@ enum Code {
   CLIENT_ID_REQUIRED = 40017;
   // Polling time is illegal.
   ILLEGAL_POLLING_TIME = 40018;
+  // Offset is illegal.
+  ILLEGAL_OFFSET = 40019;
 
   // Generic code indicates that the client request lacks valid authentication
   // credentials for the requested resource.
@@ -365,6 +367,8 @@ enum Code {
   TOPIC_NOT_FOUND = 40402;
   // Consumer group resource does not exist.
   CONSUMER_GROUP_NOT_FOUND = 40403;
+  // Offset not found from server.
+  OFFSET_NOT_FOUND = 40404;
 
   // Generic code representing client side timeout when connecting to, reading data from, or write data to server.
   REQUEST_TIMEOUT = 40800;
@@ -373,6 +377,8 @@ enum Code {
   PAYLOAD_TOO_LARGE = 41300;
   // Message body size exceeds the threshold.
   MESSAGE_BODY_TOO_LARGE = 41301;
+  // Message body is empty.
+  MESSAGE_BODY_EMPTY = 41302;
 
   // Generic code for use cases where pre-conditions are not met.
   // For example, if a producer instance is used to publish messages without prior start() invocation,

@@ -66,6 +66,8 @@ message SendResultEntry {
   string message_id = 2;
   string transaction_id = 3;
   int64 offset = 4;
+  // Unique handle to identify message to recall, support delay message for now.
+  string recall_handle = 5;
 }
 
 message SendMessageResponse {
@@ -97,6 +99,7 @@ message ReceiveMessageRequest {
   // For message auto renew and clean
   bool auto_renew = 6;
   optional google.protobuf.Duration long_polling_timeout = 7;
+  optional string attempt_id = 8;
 }
 
 message ReceiveMessageResponse {
@@ -169,6 +172,8 @@ message EndTransactionResponse { Status status = 1; }
 
 message PrintThreadStackTraceCommand { string nonce = 1; }
 
+message ReconnectEndpointsCommand { string nonce = 1; }
+
 message ThreadStackTrace {
   string nonce = 1;
   optional string thread_stack_trace = 2;
@@ -213,6 +218,9 @@ message TelemetryCommand {
 
     // Request client to verify the consumption of the appointed message.
     VerifyMessageCommand verify_message_command = 7;
+
+    // Request client to reconnect server use the latest endpoints.
+    ReconnectEndpointsCommand reconnect_endpoints_command = 8;
   }
 }
 
@@ -290,6 +298,17 @@ message QueryOffsetRequest {
 message QueryOffsetResponse {
   Status status = 1;
   int64 offset = 2;
+}
+
+message RecallMessageRequest {
+  Resource topic = 1;
+  // Refer to SendResultEntry.
+  string recall_handle = 2;
+}
+
+message RecallMessageResponse {
+  Status status = 1;
+  string message_id = 2;
 }
 
 // For all the RPCs in MessagingService, the following error handling policies
@@ -377,12 +396,19 @@ service MessagingService {
   rpc ForwardMessageToDeadLetterQueue(ForwardMessageToDeadLetterQueueRequest)
       returns (ForwardMessageToDeadLetterQueueResponse) {}
 
+  // PullMessage and ReceiveMessage RPCs serve a similar purpose,
+  // which is to attempt to get messages from the server, but with different semantics.
   rpc PullMessage(PullMessageRequest) returns (stream PullMessageResponse) {}
 
+  // Update the consumption progress of the designated queue of the
+  // consumer group to the remote.
   rpc UpdateOffset(UpdateOffsetRequest) returns (UpdateOffsetResponse) {}
 
+  // Query the consumption progress of the designated queue of the
+  // consumer group to the remote.
   rpc GetOffset(GetOffsetRequest) returns (GetOffsetResponse) {}
 
+  // Query the offset of the designated queue by the query offset policy.
   rpc QueryOffset(QueryOffsetRequest) returns (QueryOffsetResponse) {}
 
   // Commits or rollback one transactional message.
@@ -407,5 +433,11 @@ service MessagingService {
   // not capable of processing the message timely, it may use
   // ChangeInvisibleDuration to lengthen invisible duration.
   rpc ChangeInvisibleDuration(ChangeInvisibleDurationRequest) returns (ChangeInvisibleDurationResponse) {
+  }
+
+  // Recall a message,
+  // for delay message, should recall before delivery time, like the rollback operation of transaction message,
+  // for normal message, not supported for now.
+  rpc RecallMessage(RecallMessageRequest) returns (RecallMessageResponse) {
   }
 }
