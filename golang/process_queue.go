@@ -71,6 +71,8 @@ func (dpq *defaultProcessQueue) discardFifoMessage(mv *MessageView) {
 }
 
 func (dpq *defaultProcessQueue) eraseFifoMessage(mv *MessageView, result ConsumerResult) {
+	result = dpq.convertSuspendResultIfNeeded(result)
+
 	retryPolicy := dpq.consumer.pcSettings.GetRetryPolicy()
 	maxAttempts := retryPolicy.MaxAttempts
 	attempt := mv.GetMessageCommon().deliveryAttempt
@@ -78,7 +80,8 @@ func (dpq *defaultProcessQueue) eraseFifoMessage(mv *MessageView, result Consume
 	service := dpq.consumer.consumerService
 	clientId := dpq.consumer.cli.clientID
 
-	if result == FAILURE && attempt < maxAttempts {
+	// Handle FAILURE result with retry
+	if result.Type == ConsumerResultTypeFailure && attempt < maxAttempts {
 		nextAttemptDelay := utils.GetNextAttemptDelay(retryPolicy, int(attempt))
 		mv.deliveryAttempt += 1
 		attempt = mv.deliveryAttempt
@@ -91,16 +94,36 @@ func (dpq *defaultProcessQueue) eraseFifoMessage(mv *MessageView, result Consume
 		return
 	}
 
-	if result != SUCCESS {
-		dpq.consumer.cli.log.Infof("Failed to consume fifo message finally, run out of attempt times, maxAttempts=%d, "+
-			"attempt=%d, mq=%s, messageId=%s, clientId=%s", maxAttempts, attempt, dpq.mqstr, messageId, clientId)
-	}
-	// Ack message or forward it to DLQ depends on consumption result.
-	if result == SUCCESS {
+	// Handle SUCCESS result
+	if result.Type == ConsumerResultTypeSuccess {
 		dpq.ackMessage(mv, func(error) { dpq.evictCacheMessage(mv) })
-	} else {
-		dpq.forwardToDeadLetterQueue(mv, func(error) { dpq.evictCacheMessage(mv) })
+		return
 	}
+
+	// Handle SUSPEND result
+	if result.Type == ConsumerResultTypeSuspend {
+		dpq.consumer.cli.log.Infof("Suspend consumption, consumerGroup=%s, topic=%s, liteTopic=%s, messageId=%s, suspendTime=%v",
+			dpq.consumer.groupName, mv.topic, mv.GetLiteTopic(), messageId, result.suspendTime)
+		dpq.changeInvisibleDuration(mv, result.suspendTime, 1, func(error) { dpq.evictCacheMessage(mv) })
+		return
+	}
+
+	// Handle FAILURE result without retry (final failure)
+	dpq.consumer.cli.log.Infof("Failed to consume fifo message finally, run out of attempt times, maxAttempts=%d, "+
+		"attempt=%d, mq=%s, messageId=%s, clientId=%s", maxAttempts, attempt, dpq.mqstr, messageId, clientId)
+	dpq.forwardToDeadLetterQueue(mv, func(error) { dpq.evictCacheMessage(mv) })
+}
+
+func (dpq *defaultProcessQueue) convertSuspendResultIfNeeded(result ConsumerResult) ConsumerResult {
+	if result.Type == ConsumerResultTypeSuspend {
+		if dpq.consumer.pcSettings.clientType != v2.ClientType_LITE_PUSH_CONSUMER {
+			dpq.consumer.cli.log.Warnf("Only LitePushConsumer supports ConsumeResultSuspend! "+
+				"Convert to FAILURE, consumerGroup=%s, consumerType=%v",
+				dpq.consumer.groupName, dpq.consumer.pcSettings.clientType)
+			return FAILURE
+		}
+	}
+	return result
 }
 
 func (dpq *defaultProcessQueue) forwardToDeadLetterQueue(mv *MessageView, callback func(error)) {
@@ -162,14 +185,14 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueueLater(mv *MessageView, a
 }
 
 func (dpq *defaultProcessQueue) eraseMessage(mv *MessageView, consumeResult ConsumerResult) {
-	if consumeResult == SUCCESS {
+	consumeResult = dpq.convertSuspendResultIfNeeded(consumeResult)
+	if consumeResult.Type == ConsumerResultTypeSuccess || consumeResult.Type == ConsumerResultTypeSuspend {
 		dpq.consumer.consumptionOkQuantity.Inc()
 		dpq.ackMessage(mv, func(error) { dpq.evictCacheMessage(mv) })
 	} else {
 		dpq.consumer.consumptionErrorQuantity.Inc()
 		dpq.nackMessage(mv, func(error) { dpq.evictCacheMessage(mv) })
 	}
-
 }
 
 func (dpq *defaultProcessQueue) discardMessage(mv *MessageView) {

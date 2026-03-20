@@ -26,18 +26,43 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-type ConsumerResult int8
+// ConsumerResultType represents the type of consumer result
+type ConsumerResultType int8
 
 const (
-	/**
-	 * Consume message successfully.
-	 */
-	SUCCESS ConsumerResult = 0
-	/**
-	 * Failed to consume message.
-	 */
-	FAILURE ConsumerResult = 1
+	// ConsumerResultTypeSuccess represents successful consumption
+	ConsumerResultTypeSuccess ConsumerResultType = 0
+	// ConsumerResultTypeFailure represents failed consumption
+	ConsumerResultTypeFailure ConsumerResultType = 1
+	// ConsumerResultTypeSuspend represents suspended consumption
+	ConsumerResultTypeSuspend ConsumerResultType = 2
 )
+
+// Predefined consumer results for backward compatibility
+var (
+	SUCCESS = ConsumerResult{Type: ConsumerResultTypeSuccess}
+	FAILURE = ConsumerResult{Type: ConsumerResultTypeFailure}
+)
+
+// Minimum suspend time allowed
+const minSuspendTime = 50 * time.Millisecond
+
+// NewConsumerResultSuspend creates a new ConsumerResult with the specified suspend time
+func NewConsumerResultSuspend(suspendTime time.Duration) ConsumerResult {
+	if suspendTime < minSuspendTime {
+		panic(fmt.Sprintf("suspend time cannot be less than %v, got %v", minSuspendTime, suspendTime))
+	}
+	return ConsumerResult{
+		Type:        ConsumerResultTypeSuspend,
+		suspendTime: suspendTime,
+	}
+}
+
+// ConsumerResult represents the result of message consumption
+type ConsumerResult struct {
+	Type        ConsumerResultType
+	suspendTime time.Duration
+}
 
 type MessageListener interface {
 	consume(*MessageView) ConsumerResult
@@ -55,23 +80,23 @@ func (l *FuncMessageListener) consume(msg *MessageView) ConsumerResult {
 var _ = MessageListener(&FuncMessageListener{})
 
 type pushConsumerOptions struct {
-	subscriptionExpressions         *sync.Map
-	awaitDuration                   time.Duration
-	maxCacheMessageCount            int32
-	maxCacheMessageSizeInBytes      int64
-	consumptionThreadCount          int32
-	messageListener                 MessageListener
-	clientFunc                      NewClientFunc
-	enableFifoConsumeAccelerator    bool
+	subscriptionExpressions      *sync.Map
+	awaitDuration                time.Duration
+	maxCacheMessageCount         int32
+	maxCacheMessageSizeInBytes   int64
+	consumptionThreadCount       int32
+	messageListener              MessageListener
+	clientFunc                   NewClientFunc
+	enableFifoConsumeAccelerator bool
 }
 
 var defaultPushConsumerOptions = pushConsumerOptions{
-	clientFunc:                    NewClient,
-	awaitDuration:                 0,
-	maxCacheMessageCount:          1024,
-	maxCacheMessageSizeInBytes:    64 * 1024 * 1024,
-	consumptionThreadCount:        20,
-	enableFifoConsumeAccelerator:   false,
+	clientFunc:                   NewClient,
+	awaitDuration:                0,
+	maxCacheMessageCount:         1024,
+	maxCacheMessageSizeInBytes:   64 * 1024 * 1024,
+	consumptionThreadCount:       20,
+	enableFifoConsumeAccelerator: false,
 }
 
 // A ConsumerOption sets options such as tag, etc.

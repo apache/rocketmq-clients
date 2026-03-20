@@ -107,27 +107,27 @@ func (lpc *defaultLitePushConsumer) notifyUnsubscribeLite(command *v2.NotifyUnsu
 	lpc.litePushConsumerSettings.liteTopicSet.Delete(liteTopic)
 }
 
-func (lpc *defaultLitePushConsumer) SubscribeLite(topic string) error {
+func (lpc *defaultLitePushConsumer) SubscribeLite(liteTopic string) error {
 	if err := lpc.checkRunning(); err != nil {
 		return err
 	}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{topic}); err != nil {
-		sugarBaseLogger.Errorf("LitePushConsumer SubscribeLite topic:%s err:%v", topic, err)
+	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{liteTopic}); err != nil {
+		sugarBaseLogger.Errorf("LitePushConsumer SubscribeLite liteTopic:%s err:%v", liteTopic, err)
 		return err
 	}
-	lpc.litePushConsumerSettings.liteTopicSet.Store(topic, struct{}{})
+	lpc.litePushConsumerSettings.liteTopicSet.Store(liteTopic, struct{}{})
 	return nil
 }
 
-func (lpc *defaultLitePushConsumer) UnSubscribeLite(topic string) error {
+func (lpc *defaultLitePushConsumer) UnSubscribeLite(liteTopic string) error {
 	if err := lpc.checkRunning(); err != nil {
 		return err
 	}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_REMOVE, []string{topic}); err != nil {
-		sugarBaseLogger.Errorf("LitePushConsumer UnSubscribeLite topic:%s err:%v", topic, err)
+	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_REMOVE, []string{liteTopic}); err != nil {
+		sugarBaseLogger.Errorf("LitePushConsumer UnSubscribeLite liteTopic:%s err:%v", liteTopic, err)
 		return err
 	}
-	lpc.litePushConsumerSettings.liteTopicSet.Delete(topic)
+	lpc.litePushConsumerSettings.liteTopicSet.Delete(liteTopic)
 	return nil
 }
 
@@ -147,9 +147,10 @@ func (lpc *defaultLitePushConsumer) syncAllLiteSubscription() {
 		}
 		return true
 	})
-	if len(liteTopicSet) == 0 {
-		return
-	}
+	// Sync subscription even when liteTopicSet is empty to keep server state consistent
+	//if len(liteTopicSet) == 0 {
+	//	return
+	//}
 	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_COMPLETE_ADD, liteTopicSet); err != nil {
 		sugarBaseLogger.Errorf("LitePushConsumer syncAllLiteSubscription:%v,  err:%v", liteTopicSet, err)
 	}
