@@ -17,7 +17,7 @@
 
 /**
  * PushConsumer Example
- * 
+ *
  * This example demonstrates how to use PushConsumer to consume messages.
  * PushConsumer is a push-mode consumer that actively pulls messages from the server
  * and pushes them to the listener for processing.
@@ -51,7 +51,6 @@ async function main() {
       try {
         // TODO: Add your business logic here
         await doBusinessLogic(messageView);
-        
         // Return success to indicate message has been consumed successfully
         return ConsumeResult.SUCCESS;
       } catch (error) {
@@ -66,39 +65,30 @@ async function main() {
   const pushConsumer = new PushConsumer({
     // Basic configuration
     namespace: process.env.ROCKETMQ_NAMESPACE || 'yourNamespace', // Namespace
-    endpoints: ENDPOINT,        // RocketMQ server endpoint
-    
+    endpoints: ENDPOINT,
     // Authentication credentials (optional)
     sessionCredentials: {
-      accessKey: ACCESS_KEY,    // AccessKey for authentication
-      accessSecret: SECRET_KEY, // SecretKey for authentication
+      accessKey: ACCESS_KEY,
+      accessSecret: SECRET_KEY,
       // securityToken: 'yourSecurityToken', // SecurityToken, optional
     },
-    
     // Consumer group configuration
     consumerGroup: 'yourConsumerGroup',
-    
     // Subscription configuration: Map<topic, filterExpression>
     // filterExpression can be a string (TAG expression) or FilterExpression object
     subscriptions: new Map([
-      ['yourTopic1', '*'],              // Subscribe to all TAGs
-      ['yourTopic2', 'TagA || TagB'],   // Subscribe to specific TAGs
+      [ 'yourTopic1', '*' ],
       // ['yourTopic3', new FilterExpression('yourSqlExpression', FilterType.SQL92)],
     ]),
-    
     // Message listener
-    messageListener: messageListener,
-    
+    messageListener,
     // Cache configuration (optional)
-    maxCacheMessageCount: 1024,         // Max cached messages per queue, default 1024
+    maxCacheMessageCount: 1024,
     maxCacheMessageSizeInBytes: 67108864, // Max cached bytes per queue (64MB), default 64MB
-    
     // Long polling timeout configuration (optional)
-    longPollingTimeout: 30000,          // Long polling timeout in milliseconds, default 30000ms
-    
+    longPollingTimeout: 30000,
     // Request timeout configuration (optional)
-    requestTimeout: 3000,               // Request timeout in milliseconds, default 3000ms
-    
+    requestTimeout: 3000,
     // Logger configuration (optional)
     // logger: yourCustomLogger,        // Custom logger
   });
@@ -121,7 +111,6 @@ async function main() {
 
     // Keep program running, waiting for messages
     console.log('\nPress Ctrl+C to exit...');
-    
     // Graceful shutdown handling
     process.on('SIGINT', async () => {
       console.log('\nShutting down PushConsumer...');
@@ -130,6 +119,7 @@ async function main() {
     });
 
     // Keep program running
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     await new Promise(() => {});
   } catch (error) {
     console.error('Failed to start PushConsumer:', error);
@@ -139,10 +129,10 @@ async function main() {
 }
 
 // Business logic processing function example
-async function doBusinessLogic(messageView: MessageView): Promise<void> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function doBusinessLogic(_messageView: MessageView): Promise<void> {
   // Simulate asynchronous business processing
   await new Promise(resolve => setTimeout(resolve, 100));
-  
   // Implement your business logic here
   // For example:
   // - Parse message content

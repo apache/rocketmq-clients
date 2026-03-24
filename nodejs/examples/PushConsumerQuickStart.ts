@@ -17,7 +17,7 @@
 
 /**
  * PushConsumer Quick Start Example
- * 
+ *
  * The simplest way to use PushConsumer
  */
 
@@ -29,19 +29,15 @@ async function quickStart() {
     namespace: process.env.ROCKETMQ_NAMESPACE || '', // Namespace, can be empty string
     endpoints: process.env.ROCKETMQ_ENDPOINT || 'localhost:8080',
     consumerGroup: 'yourConsumerGroup',
-    
     // Subscribe to topic and TAG
     subscriptions: new Map([
-      ['yourTopic', '*'],  // Subscribe to yourTopic, receive all TAGs
+      [ 'yourTopic', '*' ],
     ]),
-    
     // Message listener - this is the core processing logic
     messageListener: {
       async consume(messageView: MessageView): Promise<ConsumeResult> {
         console.log('Received message:', messageView.body.toString('utf-8'));
-        
         // TODO: Process your business logic here
-        
         return ConsumeResult.SUCCESS;
       },
     },
@@ -51,8 +47,8 @@ async function quickStart() {
     // Start consumer
     await pushConsumer.startup();
     console.log('PushConsumer started, waiting for messages...');
-    
     // Keep running
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     await new Promise(() => {});
   } catch (error) {
     console.error('Error:', error);
