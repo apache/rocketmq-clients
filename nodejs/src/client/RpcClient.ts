@@ -40,6 +40,8 @@ import {
   QueryOffsetResponse,
   QueryRouteRequest,
   QueryRouteResponse,
+  RecallMessageRequest,
+  RecallMessageResponse,
   ReceiveMessageRequest,
   ReceiveMessageResponse,
   SendMessageRequest,
@@ -237,6 +239,17 @@ export class RpcClient {
     const deadline = this.#getDeadline(duration);
     return new Promise<ChangeInvisibleDurationResponse>((resolve, reject) => {
       client.changeInvisibleDuration(request, metadata, { deadline }, (e, res) => {
+        if (e) return reject(e);
+        resolve(res);
+      });
+    });
+  }
+
+  async recallMessage(request: RecallMessageRequest, metadata: Metadata, duration: number) {
+    const client = this.#getAndActivityRpcClient();
+    const deadline = this.#getDeadline(duration);
+    return new Promise<RecallMessageResponse>((resolve, reject) => {
+      client.recallMessage(request, metadata, { deadline }, (e, res) => {
         if (e) return reject(e);
         resolve(res);
       });

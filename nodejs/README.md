@@ -65,6 +65,45 @@ const receipt = await producer.send({
 console.log(receipt);
 ```
 
+### Delay Message with Recall
+
+Send and recall a delayed message:
+
+```ts
+import { Producer } from 'rocketmq-client-nodejs';
+
+const producer = new Producer({
+  endpoints: '127.0.0.1:8081',
+});
+await producer.startup();
+
+// Send a delay message (will be delivered after 10 seconds)
+const receipt = await producer.send({
+  topic: 'DelayTopic',
+  tag: 'delay-recall',
+  delay: 10000, // 10 seconds delay
+  body: Buffer.from('This is a delayed message'),
+});
+
+console.log('Message sent:', {
+  messageId: receipt.messageId,
+  recallHandle: receipt.recallHandle, // Handle for recalling the message
+});
+
+// Recall the message before it's delivered (within 10 seconds)
+try {
+  const recallReceipt = await producer.recallMessage(
+    'DelayTopic',
+    receipt.recallHandle
+  );
+  console.log('Message recalled successfully:', recallReceipt.messageId);
+} catch (error) {
+  console.error('Failed to recall message:', error);
+}
+
+await producer.shutdown();
+```
+
 SimpleConsumer
 
 ```ts
@@ -86,6 +125,50 @@ for (const message of messages) {
 }
 ```
 
+### Push Consumer
+
+PushConsumer actively pulls messages from the server and pushes them to the listener for processing:
+
+```ts
+import { PushConsumer, ConsumeResult, type MessageView } from 'rocketmq-client-nodejs';
+
+// Create PushConsumer instance
+const pushConsumer = new PushConsumer({
+  namespace: '', // Namespace, can be empty string
+  endpoints: '127.0.0.1:8081',
+  consumerGroup: 'yourConsumerGroup',
+  
+  // Subscribe to topic and TAG
+  subscriptions: new Map([
+    ['yourTopic', '*'],  // Subscribe to yourTopic, receive all TAGs
+  ]),
+  
+  // Message listener - core processing logic
+  messageListener: {
+    async consume(messageView: MessageView): Promise<ConsumeResult> {
+      console.log('Received message:', messageView.body.toString('utf-8'));
+      
+      // TODO: Process your business logic here
+      
+      return ConsumeResult.SUCCESS; // Return SUCCESS after successful processing
+    },
+  },
+});
+
+try {
+  // Start consumer
+  await pushConsumer.startup();
+  console.log('PushConsumer started, waiting for messages...');
+  
+  // Keep running, waiting for messages
+  await new Promise(() => {});
+} catch (error) {
+  console.error('Error:', error);
+  await pushConsumer.shutdown();
+  throw error;
+}
+```
+
 ## Current Progress
 
 ### Message Type
@@ -99,5 +182,5 @@ for (const message of messages) {
 
 - [x] PRODUCER
 - [x] SIMPLE_CONSUMER
+- [x] PUSH_CONSUMER
 - [ ] PULL_CONSUMER
-- [ ] PUSH_CONSUMER

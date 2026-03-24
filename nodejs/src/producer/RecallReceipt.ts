@@ -15,10 +15,18 @@
  * limitations under the License.
  */
 
-export * from './Producer';
-export * from './PublishingLoadBalancer';
-export * from './PublishingSettings';
-export * from './RecallReceipt';
-export * from './SendReceipt';
-// export * from './Transaction';
-export * from './TransactionChecker';
+/**
+ * Represents the receipt returned after successfully recalling a scheduled/delayed message.
+ * Contains the message ID of the recalled message.
+ */
+export class RecallReceipt {
+  readonly messageId: string;
+
+  constructor(messageId: string) {
+    this.messageId = messageId;
+  }
+
+  toString(): string {
+    return `RecallReceipt{messageId='${this.messageId}'}`;
+  }
+}

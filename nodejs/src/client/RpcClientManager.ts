@@ -25,6 +25,7 @@ import {
   HeartbeatRequest, NotifyClientTerminationRequest, PullMessageRequest,
   QueryAssignmentRequest, QueryOffsetRequest, QueryRouteRequest,
   ReceiveMessageRequest, SendMessageRequest, UpdateOffsetRequest,
+  RecallMessageRequest,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../route';
 import { ILogger } from './Logger';
@@ -169,5 +170,11 @@ export class RpcClientManager {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
     return await rpcClient.notifyClientTermination(request, metadata, duration);
+  }
+
+  async recallMessage(endpoints: Endpoints, request: RecallMessageRequest, duration: number) {
+    const rpcClient = this.#getRpcClient(endpoints);
+    const metadata = this.#baseClient.getRequestMetadata();
+    return await rpcClient.recallMessage(request, metadata, duration);
   }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import assert from 'node:assert';
+import assert = require('node:assert');
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import {
   RetryPolicy as RetryPolicyPB,

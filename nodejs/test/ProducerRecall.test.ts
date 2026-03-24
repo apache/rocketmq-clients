@@ -15,10 +15,14 @@
  * limitations under the License.
  */
 
-export * from './Producer';
-export * from './PublishingLoadBalancer';
-export * from './PublishingSettings';
-export * from './RecallReceipt';
-export * from './SendReceipt';
-// export * from './Transaction';
-export * from './TransactionChecker';
+import { strict as assert } from 'node:assert';
+import { RecallReceipt } from '../src/producer/RecallReceipt';
+
+describe('RecallReceipt', () => {
+  it('should create recall receipt with messageId', () => {
+    const messageId = 'test-message-id-12345';
+    const receipt = new RecallReceipt(messageId);
+    assert.strictEqual(receipt.messageId, messageId);
+    assert.ok(receipt.toString().includes(messageId));
+  });
+});
