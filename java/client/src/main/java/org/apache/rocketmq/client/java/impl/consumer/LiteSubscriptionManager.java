@@ -64,6 +64,7 @@ public class LiteSubscriptionManager {
     }
 
     public void startUp() {
+        syncAllLiteSubscription(); // syncAll after startup for subscribeLite("*")
         consumerImpl.getScheduler()
             .scheduleWithFixedDelay(this::syncAllLiteSubscription, 30, 30, TimeUnit.SECONDS);
     }
