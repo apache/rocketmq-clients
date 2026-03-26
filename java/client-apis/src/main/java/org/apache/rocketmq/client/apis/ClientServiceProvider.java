@@ -77,6 +77,11 @@ public interface ClientServiceProvider {
         if (iterators.hasNext()) {
             return iterators.next();
         }
+        final ServiceLoader<ClientServiceProvider> fallbackLoaders = ServiceLoader.load(ClientServiceProvider.class, ClientServiceProvider.class.getClassLoader());
+        final Iterator<ClientServiceProvider> fallbackIterators = fallbackLoaders.iterator();
+        if (fallbackIterators.hasNext()) {
+            return fallbackIterators.next();
+        }
         throw new UnsupportedOperationException("Client service provider not found");
     }
 
