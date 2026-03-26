@@ -2,11 +2,10 @@
   "extends": "@eggjs/tsconfig",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
-    "rootDir": ".",
+    "rootDir": "./src",
     "outDir": "./dist",
     "moduleResolution": "Node"
   },
-  "include": [ "src", "examples" ],
+  "include": [ "src" ],
   "exclude": [ "node_modules" ]
 }
