@@ -19,11 +19,13 @@ package org.apache.rocketmq.client.java.impl;
 
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumerBuilder;
+import org.apache.rocketmq.client.apis.consumer.LiteSimpleConsumerBuilder;
 import org.apache.rocketmq.client.apis.consumer.PushConsumerBuilder;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumerBuilder;
 import org.apache.rocketmq.client.apis.message.MessageBuilder;
 import org.apache.rocketmq.client.apis.producer.ProducerBuilder;
 import org.apache.rocketmq.client.java.impl.consumer.LitePushConsumerBuilderImpl;
+import org.apache.rocketmq.client.java.impl.consumer.LiteSimpleConsumerBuilderImpl;
 import org.apache.rocketmq.client.java.impl.consumer.PushConsumerBuilderImpl;
 import org.apache.rocketmq.client.java.impl.consumer.SimpleConsumerBuilderImpl;
 import org.apache.rocketmq.client.java.impl.producer.ProducerBuilderImpl;
@@ -52,6 +54,11 @@ public class ClientServiceProviderImpl implements ClientServiceProvider {
     @Override
     public LitePushConsumerBuilder newLitePushConsumerBuilder() {
         return new LitePushConsumerBuilderImpl();
+    }
+
+    @Override
+    public LiteSimpleConsumerBuilder newLiteSimpleConsumerBuilder() {
+        return new LiteSimpleConsumerBuilderImpl();
     }
 
     /**

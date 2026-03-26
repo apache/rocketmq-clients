@@ -18,7 +18,6 @@ from rocketmq import ClientConfiguration, Credentials, Message, Producer
 if __name__ == '__main__':
     endpoints = "foobar.com:8080"
     credentials = Credentials()
-
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
@@ -36,7 +35,7 @@ if __name__ == '__main__':
             msg.body = "hello, rocketmq.".encode('utf-8')
             for i in range(0, 10):
                 # set lite_topic
-                msg.lite_topic("lite-test-" + str(i))
+                msg.lite_topic = "lite-test-" + str(i)
                 res = producer.send(msg)
                 print(f"{producer} send message success. {res}")
             producer.shutdown()

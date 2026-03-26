@@ -89,6 +89,7 @@ export abstract class BaseClient {
   #startupResolve?: () => void;
   #startupReject?: (err: Error) => void;
   #timers: NodeJS.Timeout[] = [];
+  #running = false;
 
   constructor(options: BaseClientOptions) {
     this.logger = options.logger ?? getDefaultLogger();
@@ -125,8 +126,11 @@ export abstract class BaseClient {
   }
 
   async #startup() {
+    this.logger.info('Begin to execute startup flow, clientId=%s, topics=%d',
+      this.clientId, this.topics.size);
     // fetch topic route
     await this.updateRoutes();
+    this.logger.info('Topic routes updated, clientId=%s', this.clientId);
     // update topic route every 30s
     this.#timers.push(setInterval(async () => {
       this.updateRoutes();
@@ -146,19 +150,27 @@ export abstract class BaseClient {
     // doStats()
 
     if (this.topics.size > 0) {
+      this.logger.info('Waiting for first onSettingsCommand, clientId=%s', this.clientId);
       // wait for this first onSettingsCommand call
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       await new Promise<void>((resolve, reject) => {
         this.#startupReject = reject;
         this.#startupResolve = resolve;
       });
+      this.logger.info('Received first onSettingsCommand, clientId=%s', this.clientId);
       this.#startupReject = undefined;
       this.#startupResolve = undefined;
     }
+    this.#running = true;
+  }
+
+  isRunning(): boolean {
+    return this.#running;
   }
 
   async shutdown() {
     this.logger.info('Begin to shutdown the rocketmq client, clientId=%s', this.clientId);
+    this.#running = false;
     while (this.#timers.length > 0) {
       const timer = this.#timers.pop();
       clearInterval(timer);
@@ -351,6 +363,8 @@ export abstract class BaseClient {
   }
 
   onSettingsCommand(_endpoints: Endpoints, settings: SettingsPB) {
+    this.logger.info('Received settings command, clientId=%s, settings=%j',
+      this.clientId, settings.toObject());
     // final Metric metric = new Metric(settings.getMetric());
     // clientMeterManager.reset(metric);
     this.getSettings().sync(settings);

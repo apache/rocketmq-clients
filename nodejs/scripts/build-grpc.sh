@@ -56,8 +56,23 @@ generateGrpc() {
 
 echo ""
 echo "Removing old Proto Files: ${PATH_PROTO_OUTPUT}"
-rm -rf $PATH_PROTO_OUTPUT
-mkdir -p $PATH_PROTO_OUTPUT
+
+TARGET_DIR=$PATH_PROTO_OUTPUT
+
+if [ -z "$TARGET_DIR" ]; then
+  echo "Usage: $0 <directory>"
+  exit 1
+fi
+
+if [ ! -d "$TARGET_DIR" ]; then
+  echo "Error: Directory $TARGET_DIR does not exist."
+  exit 1
+fi
+
+echo "Removing .ts and .js files in $TARGET_DIR"
+find "$TARGET_DIR" -type f \( -name "*.ts" -o -name "*.js" \) -exec rm -f {} \;
+
+echo "DONE"
 
 echo ""
 echo "Compiling gRPC files"

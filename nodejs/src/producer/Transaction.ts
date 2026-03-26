@@ -50,21 +50,37 @@ export class Transaction {
     if (this.#messageSendReceiptMap.size === 0) {
       throw new TypeError('Transactional message has not been sent yet');
     }
+
+    const logger = (this.#producer as any).logger;
+    logger.info('Begin to commit transaction, messageCount=%d, clientId=%s',
+      this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
+
     for (const [ messageId, sendReceipt ] of this.#messageSendReceiptMap.entries()) {
       const publishingMessage = this.#messageMap.get(messageId)!;
       await this.#producer.endTransaction(sendReceipt.endpoints, publishingMessage,
         sendReceipt.messageId, sendReceipt.transactionId, TransactionResolution.COMMIT);
     }
+
+    logger.info('Commit transaction successfully, messageCount=%d, clientId=%s',
+      this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
   }
 
   async rollback() {
     if (this.#messageSendReceiptMap.size === 0) {
       throw new TypeError('Transactional message has not been sent yet');
     }
+
+    const logger = (this.#producer as any).logger;
+    logger.info('Begin to rollback transaction, messageCount=%d, clientId=%s',
+      this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
+
     for (const [ messageId, sendReceipt ] of this.#messageSendReceiptMap.entries()) {
       const publishingMessage = this.#messageMap.get(messageId)!;
       await this.#producer.endTransaction(sendReceipt.endpoints, publishingMessage,
         sendReceipt.messageId, sendReceipt.transactionId, TransactionResolution.ROLLBACK);
     }
+
+    logger.info('Rollback transaction successfully, messageCount=%d, clientId=%s',
+      this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
   }
 }

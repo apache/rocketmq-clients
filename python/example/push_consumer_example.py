@@ -20,21 +20,20 @@ from rocketmq import (ClientConfiguration, ConsumeResult, Credentials,
 class TestMessageListener(MessageListener):
 
     def consume(self, message: Message) -> ConsumeResult:
-        print(f"consume message, topic:{message.topic}, message_id: {message.message_id}.")
+        print(f"consume message, {message}.")
         return ConsumeResult.SUCCESS
 
 
 if __name__ == '__main__':
     endpoints = "foobar.com:8080"
     credentials = Credentials()
-
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
     # with namespace
     # config = ClientConfiguration(endpoints, credentials, "namespace")
     topic = "topic"
-    consumer_group = "consumer_group"
+    consumer_group = "consumer-group"
     # in most case, you don't need to create too many consumers, singleton pattern is recommended
     # close the push consumer when you don't need it anymore
     push_consumer = PushConsumer(config, consumer_group, TestMessageListener(), {topic: FilterExpression(), })

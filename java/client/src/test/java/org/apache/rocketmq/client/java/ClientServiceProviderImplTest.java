@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
 import org.apache.rocketmq.client.java.impl.consumer.LitePushConsumerBuilderImpl;
+import org.apache.rocketmq.client.java.impl.consumer.LiteSimpleConsumerBuilderImpl;
 import org.apache.rocketmq.client.java.impl.consumer.PushConsumerBuilderImpl;
 import org.apache.rocketmq.client.java.impl.consumer.SimpleConsumerBuilderImpl;
 import org.apache.rocketmq.client.java.impl.producer.ProducerBuilderImpl;
@@ -44,6 +45,12 @@ public class ClientServiceProviderImplTest {
     public void testNewLitePushConsumerBuilder() {
         assertEquals(LitePushConsumerBuilderImpl.class,
             ClientServiceProvider.loadService().newLitePushConsumerBuilder().getClass());
+    }
+
+    @Test
+    public void testNewLiteSimpleConsumerBuilder() {
+        assertEquals(LiteSimpleConsumerBuilderImpl.class,
+            ClientServiceProvider.loadService().newLiteSimpleConsumerBuilder().getClass());
     }
 
     @Test

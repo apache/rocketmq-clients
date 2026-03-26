@@ -19,7 +19,6 @@ from rocketmq import (ClientConfiguration, Credentials, FilterExpression,
 if __name__ == '__main__':
     endpoints = "foobar.com:8080"
     credentials = Credentials()
-
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)

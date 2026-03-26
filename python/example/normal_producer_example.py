@@ -18,7 +18,6 @@ from rocketmq import ClientConfiguration, Credentials, Message, Producer
 if __name__ == '__main__':
     endpoints = "foobar.com:8080"
     credentials = Credentials()
-
     # if auth enable
     # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
@@ -35,11 +34,11 @@ if __name__ == '__main__':
             msg.topic = topic
             msg.body = "hello, rocketmq.".encode('utf-8')
             # secondary classifier of message besides topic
-            msg.tag = "rocketmq-send-message"
+            msg.tag = "tag"
             # key(s) of the message, another way to mark message besides message id
-            msg.keys = "send_sync"
+            msg.keys = "keys"
             # user property for the message
-            msg.add_property("send", "sync")
+            msg.add_property("key", "value")
             for i in range(0, 10):
                 res = producer.send(msg)
                 print(f"{producer} send message success. {res}")

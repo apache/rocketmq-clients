@@ -94,7 +94,7 @@ import org.apache.rocketmq.client.java.rpc.Signature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
+@SuppressWarnings({"NullableProblems"})
 public abstract class ClientImpl extends AbstractIdleService implements Client, ClientSessionHandler,
     MessageInterceptor {
     private static final Logger log = LoggerFactory.getLogger(ClientImpl.class);
@@ -175,7 +175,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             new ThreadFactoryImpl("CommandExecutor", clientIdIndex));
     }
 
-
     /**
      * Start the rocketmq client and do some preparatory work.
      */
@@ -205,8 +204,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             }
         }
         // Update route cache periodically.
-        final ScheduledExecutorService scheduler = clientManager.getScheduler();
-        this.updateRouteCacheFuture = scheduler.scheduleWithFixedDelay(() -> {
+        updateRouteCacheFuture = getScheduler().scheduleWithFixedDelay(() -> {
             try {
                 updateRouteCache();
             } catch (Throwable t) {
@@ -341,7 +339,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * @param settings  settings received from remote.
      */
     @Override
-    public final void onSettingsCommand(Endpoints endpoints, apache.rocketmq.v2.Settings settings) {
+    public void onSettingsCommand(Endpoints endpoints, apache.rocketmq.v2.Settings settings) {
         final Metric metric = new Metric(settings.getMetric());
         clientMeterManager.reset(metric);
         this.getSettings().sync(settings);
@@ -420,7 +418,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * Triggered when {@link TopicRouteData} is fetched from remote.
      */
     public ListenableFuture<TopicRouteData> onTopicRouteDataFetched(String topic,
-    TopicRouteData topicRouteData) throws ClientException {
+        TopicRouteData topicRouteData) throws ClientException {
         final Set<Endpoints> routeEndpoints = topicRouteData
             .getMessageQueues().stream()
             .map(mq -> mq.getBroker().getEndpoints())
@@ -481,8 +479,9 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     /**
      * This method is invoked while request of unsubscribe lite topic is received from remote.
+     *
      * @param endpoints remote endpoints.
-      * @param command  request of unsubscribe lite topic from remote.
+     * @param command   request of unsubscribe lite topic from remote.
      */
     @Override
     public void onNotifyUnsubscribeLiteCommand(Endpoints endpoints, NotifyUnsubscribeLiteCommand command) {
@@ -762,7 +761,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         return clientManager.getScheduler();
     }
 
-    protected <T> T handleClientFuture(ListenableFuture<T> future) throws ClientException {
+    public <T> T handleClientFuture(ListenableFuture<T> future) throws ClientException {
         try {
             return future.get();
         } catch (InterruptedException e) {
@@ -786,5 +785,14 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     protected String serviceName() {
         return super.serviceName() + "-" + clientId.getIndex();
+    }
+
+    public void checkRunning() {
+        if (!isRunning()) {
+            String msg = String.format("Client not running, state=%s, clientId=%s",
+                state(), clientId);
+            log.error(msg);
+            throw new IllegalStateException(msg);
+        }
     }
 }

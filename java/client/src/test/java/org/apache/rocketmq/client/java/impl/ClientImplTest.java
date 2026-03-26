@@ -144,4 +144,18 @@ public class ClientImplTest extends TestBase {
             verify(observer, times(1)).onNext(any(TelemetryCommand.class));
         }
     }
+
+    @Test
+    public void testCheckRunningWhenRunning() {
+        final ClientImpl client = createClient();
+        doReturn(true).when(client).isRunning();
+        client.checkRunning();
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testCheckRunningWhenNotRunning() {
+        final ClientImpl client = createClient();
+        doReturn(false).when(client).isRunning();
+        client.checkRunning();
+    }
 }

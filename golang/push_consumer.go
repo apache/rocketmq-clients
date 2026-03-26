@@ -105,6 +105,14 @@ func (pc *defaultPushConsumer) changeInvisibleDuration0(context context.Context,
 		InvisibleDuration: durationpb.New(invisibleDuration),
 		MessageId:         messageView.GetMessageId(),
 	}
+
+	// Set LiteTopic only for lite consumer
+	if messageView.GetLiteTopic() != "" && pc.pcSettings.GetClientType() == v2.ClientType_LITE_PUSH_CONSUMER {
+		request.LiteTopic = &messageView.liteTopic
+		suspend := true
+		request.Suspend = &suspend
+	}
+
 	watchTime := time.Now()
 	resp, err := pc.cli.clientManager.ChangeInvisibleDuration(ctx, endpoints, request, pc.pcSettings.requestTimeout)
 	duration := time.Since(watchTime)
@@ -173,35 +181,23 @@ func (pc *defaultPushConsumer) wrapReceiveMessageRequest(batchSize int, messageQ
 }
 
 func (pc *defaultPushConsumer) wrapAckMessageRequest(messageView *MessageView) *v2.AckMessageRequest {
+	entry := &v2.AckMessageEntry{
+		MessageId:     messageView.GetMessageId(),
+		ReceiptHandle: messageView.GetReceiptHandle(),
+	}
+
+	// Set LiteTopic only for lite consumer
 	if messageView.GetLiteTopic() != "" && pc.pcSettings.GetClientType() == v2.ClientType_LITE_PUSH_CONSUMER {
-		return &v2.AckMessageRequest{
-			Group: pc.pcSettings.groupName,
-			Topic: &v2.Resource{
-				Name:              messageView.GetTopic(),
-				ResourceNamespace: pc.cli.config.NameSpace,
-			},
-			Entries: []*v2.AckMessageEntry{
-				{
-					MessageId:     messageView.GetMessageId(),
-					ReceiptHandle: messageView.GetReceiptHandle(),
-					LiteTopic:     &messageView.liteTopic,
-				},
-			},
-		}
-	} else {
-		return &v2.AckMessageRequest{
-			Group: pc.pcSettings.groupName,
-			Topic: &v2.Resource{
-				Name:              messageView.GetTopic(),
-				ResourceNamespace: pc.cli.config.NameSpace,
-			},
-			Entries: []*v2.AckMessageEntry{
-				{
-					MessageId:     messageView.GetMessageId(),
-					ReceiptHandle: messageView.GetReceiptHandle(),
-				},
-			},
-		}
+		entry.LiteTopic = &messageView.liteTopic
+	}
+
+	return &v2.AckMessageRequest{
+		Group: pc.pcSettings.groupName,
+		Topic: &v2.Resource{
+			Name:              messageView.GetTopic(),
+			ResourceNamespace: pc.cli.config.NameSpace,
+		},
+		Entries: []*v2.AckMessageEntry{entry},
 	}
 }
 
@@ -378,8 +374,13 @@ func (pc *defaultPushConsumer) Start() error {
 
 	threadPool := NewSimpleThreadPool("MessageConsumption", int(pc.pcOpts.maxCacheMessageCount), int(pc.pcOpts.consumptionThreadCount))
 	if pc.pcSettings.isFifo {
-		pc.consumerService = NewFiFoConsumeService(pc.cli.clientID, pc.pcOpts.messageListener, threadPool, pc.cli, pc.pcOpts.enableFifoConsumeAccelerator)
-		pc.cli.log.Infof("Create FIFO consume service, consumerGroup=%s, clientId=%s, enableFifoConsumeAccelerator=%t", pc.cli.config.ConsumerGroup, pc.cli.clientID, pc.pcOpts.enableFifoConsumeAccelerator)
+		if pc.pcSettings.GetClientType() == v2.ClientType_LITE_PUSH_CONSUMER {
+			pc.consumerService = NewLiteFifoConsumeService(pc.cli.clientID, pc.pcOpts.messageListener, threadPool, pc.cli, pc.pcOpts.enableFifoConsumeAccelerator)
+			pc.cli.log.Infof("Create Lite FIFO consume service, consumerGroup=%s, clientId=%s, enableFifoConsumeAccelerator=%t", pc.cli.config.ConsumerGroup, pc.cli.clientID, pc.pcOpts.enableFifoConsumeAccelerator)
+		} else {
+			pc.consumerService = NewFiFoConsumeService(pc.cli.clientID, pc.pcOpts.messageListener, threadPool, pc.cli, pc.pcOpts.enableFifoConsumeAccelerator)
+			pc.cli.log.Infof("Create FIFO consume service, consumerGroup=%s, clientId=%s, enableFifoConsumeAccelerator=%t", pc.cli.config.ConsumerGroup, pc.cli.clientID, pc.pcOpts.enableFifoConsumeAccelerator)
+		}
 	} else {
 		pc.consumerService = NewStandardConsumeService(pc.cli.clientID, pc.pcOpts.messageListener, threadPool, pc.cli)
 		pc.cli.log.Infof("Create standard consume service, consumerGroup=%s, clientId=%s", pc.cli.config.ConsumerGroup, pc.cli.clientID)
@@ -601,7 +602,7 @@ func (pc *defaultPushConsumer) ack0(ctx context.Context, messageView *MessageVie
 }
 
 func (pc *defaultPushConsumer) wrapForwardMessageToDeadLetterQueueRequest(messageView *MessageView) *v2.ForwardMessageToDeadLetterQueueRequest {
-	return &v2.ForwardMessageToDeadLetterQueueRequest{
+	request := &v2.ForwardMessageToDeadLetterQueueRequest{
 		Group: pc.pcSettings.groupName,
 		Topic: &v2.Resource{
 			Name:              messageView.GetTopic(),
@@ -612,6 +613,13 @@ func (pc *defaultPushConsumer) wrapForwardMessageToDeadLetterQueueRequest(messag
 		DeliveryAttempt:     messageView.GetDeliveryAttempt(),
 		MaxDeliveryAttempts: pc.pcSettings.GetRetryPolicy().MaxAttempts,
 	}
+
+	// Set LiteTopic only for lite consumer
+	if messageView.GetLiteTopic() != "" && pc.pcSettings.GetClientType() == v2.ClientType_LITE_PUSH_CONSUMER {
+		request.LiteTopic = &messageView.liteTopic
+	}
+
+	return request
 }
 
 func (pc *defaultPushConsumer) ForwardMessageToDeadLetterQueue(ctx context.Context, messageView *MessageView) error {

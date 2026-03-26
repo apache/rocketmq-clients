@@ -47,6 +47,8 @@ public class LitePushConsumerBuilderImpl implements LitePushConsumerBuilder {
     public LitePushConsumerBuilder bindTopic(String bindTopic) {
         checkArgument(StringUtils.isNotBlank(bindTopic), "bindTopic should not be blank");
         this.bindTopic = bindTopic;
+        // Default subscription: (bindTopic, *) for code reuse.
+        this.subscriptionExpressions = ImmutableMap.of(bindTopic, FilterExpression.SUB_ALL);
         return this;
     }
 
@@ -98,8 +100,6 @@ public class LitePushConsumerBuilderImpl implements LitePushConsumerBuilder {
         checkNotNull(consumerGroup, "consumerGroup has not been set yet");
         checkNotNull(messageListener, "messageListener has not been set yet");
         checkNotNull(bindTopic, "bindTopic has not been set yet");
-        // passing bindTopic through subscriptionExpressions to ClientImpl
-        subscriptionExpressions = ImmutableMap.of(bindTopic, FilterExpression.SUB_ALL);
         final LitePushConsumerImpl litePushConsumer = new LitePushConsumerImpl(this);
         litePushConsumer.startAsync().awaitRunning();
         return litePushConsumer;

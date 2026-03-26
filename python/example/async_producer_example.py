@@ -45,9 +45,9 @@ if __name__ == '__main__':
                 msg.topic = topic
                 msg.body = "hello, rocketmq.".encode('utf-8')
                 # secondary classifier of message besides topic
-                msg.tag = "rocketmq-send-message"
+                msg.tag = "tag"
                 # key(s) of the message, another way to mark message besides message id
-                msg.keys = "send_async"
+                msg.keys = "keys"
                 # user property for the message
                 msg.add_property("send", "async")
                 send_result_future = producer.send_async(msg)

@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.java.impl.ClientType;
@@ -41,16 +42,23 @@ import org.slf4j.LoggerFactory;
 public class SimpleSubscriptionSettings extends Settings {
     private static final Logger log = LoggerFactory.getLogger(SimpleSubscriptionSettings.class);
 
-    private final Resource group;
-    private final Duration longPollingTimeout;
-    private final Map<String, FilterExpression> subscriptionExpressions;
+    protected final Resource group;
+    protected final Duration longPollingTimeout;
+    protected final Map<String, FilterExpression> subscriptionExpressions;
 
-    public SimpleSubscriptionSettings(String namespace, ClientId clientId, Endpoints endpoints, Resource group,
-        Duration requestTimeout, Duration longPollingTimeout, Map<String, FilterExpression> subscriptionExpression) {
-        super(namespace, clientId, ClientType.SIMPLE_CONSUMER, endpoints, requestTimeout);
-        this.group = group;
-        this.subscriptionExpressions = subscriptionExpression;
+    public SimpleSubscriptionSettings(
+        ClientConfiguration configuration,
+        ClientId clientId,
+        ClientType clientType,
+        Endpoints endpoints,
+        String group,
+        Duration longPollingTimeout,
+        Map<String, FilterExpression> subscriptionExpression
+    ) {
+        super(configuration.getNamespace(), clientId, clientType, endpoints, configuration.getRequestTimeout());
+        this.group = new Resource(configuration.getNamespace(), group);
         this.longPollingTimeout = longPollingTimeout;
+        this.subscriptionExpressions = subscriptionExpression;
     }
 
     @Override

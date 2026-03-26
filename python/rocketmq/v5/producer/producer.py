@@ -498,6 +498,8 @@ class Producer(Client):
             msg.body = message.body
             if message.lite_topic:
                 msg.system_properties.lite_topic = message.lite_topic
+            if message.priority is not None and message.priority >= 0:
+                msg.system_properties.priority = message.priority
             if message.tag:
                 msg.system_properties.tag = message.tag
             if message.keys:
@@ -525,6 +527,7 @@ class Producer(Client):
             not message.message_group
             and not message.lite_topic
             and not message.delivery_timestamp
+            and message.priority is None
             and not is_transaction
         ):
             return MessageType.NORMAL
@@ -538,9 +541,14 @@ class Producer(Client):
         if message.delivery_timestamp and not is_transaction:
             return MessageType.DELAY
 
+        if message.priority is not None and message.priority >= 0 and not is_transaction:
+            return MessageType.PRIORITY
+
         if (
             not message.message_group
             and not message.delivery_timestamp
+            and not message.lite_topic
+            and message.priority is None
             and is_transaction
         ):
             return MessageType.TRANSACTION
@@ -550,7 +558,7 @@ class Producer(Client):
             f"{self} set send message type exception, message: {str(message)}"
         )
         raise IllegalArgumentException(
-            "transactional message should not set messageGroup or deliveryTimestamp"
+            "transactional message should not set message_group, delivery_timestamp, lite_topic and priority"
         )
 
     def __select_send_queue(self, message):

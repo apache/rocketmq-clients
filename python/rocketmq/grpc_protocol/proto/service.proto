@@ -252,6 +252,10 @@ message ChangeInvisibleDurationRequest {
 
   // For message tracing
   string message_id = 5;
+
+  optional string lite_topic = 6;
+  // If true, server will not increment the retry times for this message
+  optional bool suspend = 7;
 }
 
 message ChangeInvisibleDurationResponse {
@@ -329,6 +333,7 @@ message SyncLiteSubscriptionRequest {
   // lite subscription set of lite topics
   repeated string lite_topic_set = 4;
   optional int64 version = 5;
+  optional OffsetOption offset_option = 6;
 }
 
 message SyncLiteSubscriptionResponse {

@@ -22,6 +22,20 @@ import (
 	"time"
 )
 
+var (
+	messageGroupExtractor = func(mv *MessageView) string {
+		messageGroup := mv.GetMessageGroup()
+		if messageGroup != nil {
+			return *messageGroup
+		}
+		return ""
+	}
+
+	liteTopicExtractor = func(mv *MessageView) string {
+		return mv.GetLiteTopic()
+	}
+)
+
 type ConsumeService interface {
 	consume(ProcessQueue, []*MessageView)
 	consumeWithDuration(*MessageView, time.Duration, func(ConsumerResult, error))
@@ -93,7 +107,8 @@ func (bcs *baseConsumeService) newConsumeTask(clientId string, messageListener M
 		}()
 		duration := time.Since(startTime)
 		status := MessageHookPointsStatus_ERROR
-		if consumeResult == SUCCESS {
+		// Check if result is SUCCESS or SUSPEND (considered as successful)
+		if consumeResult.Type == ConsumerResultTypeSuccess || consumeResult.Type == ConsumerResultTypeSuspend {
 			status = MessageHookPointsStatus_OK
 		}
 		messageInterceptor.doAfter(MessageHookPoints_CONSUME, []*MessageCommon{messageView.GetMessageCommon()}, duration, status)
@@ -101,6 +116,7 @@ func (bcs *baseConsumeService) newConsumeTask(clientId string, messageListener M
 }
 
 var _ = ConsumeService(&standardConsumeService{})
+var _ = ConsumeService(&liteFifoConsumeService{})
 
 type standardConsumeService struct {
 	baseConsumeService
@@ -133,37 +149,50 @@ func NewStandardConsumeService(clientId string, messageListener MessageListener,
 	}
 }
 
+// groupMessageBy groups messages by applying the provided groupKeyExtractor function
+// It returns two maps: grouped messages and messages without a group key
+func groupMessageBy(messageViews []*MessageView, groupKeyExtractor func(*MessageView) string) (map[string][]*MessageView, []*MessageView) {
+	messageViewsGroupByGroupKey := make(map[string][]*MessageView)
+	messageViewsWithoutGroupKey := make([]*MessageView, 0)
+
+	for _, messageView := range messageViews {
+		groupKey := groupKeyExtractor(messageView)
+		if groupKey != "" {
+			messageViewsGroupByGroupKey[groupKey] = append(messageViewsGroupByGroupKey[groupKey], messageView)
+		} else {
+			messageViewsWithoutGroupKey = append(messageViewsWithoutGroupKey, messageView)
+		}
+	}
+
+	groupNum := len(messageViewsGroupByGroupKey)
+	if len(messageViewsWithoutGroupKey) > 0 {
+		groupNum++
+	}
+	sugarBaseLogger.Debugf("FifoConsumeService parallel consume, messageViewsNum=%d, groupNum=%d", len(messageViews), groupNum)
+
+	return messageViewsGroupByGroupKey, messageViewsWithoutGroupKey
+}
+
 func (fcs *fifoConsumeService) consume(pq ProcessQueue, messageViews []*MessageView) {
 	if !fcs.enableFifoConsumeAccelerator || len(messageViews) <= 1 {
 		fcs.consumeIteratively(pq, &messageViews, 0)
 		return
 	}
-	// Group messages by messageGroup
-	messageViewsGroupByMessageGroup := make(map[string][]*MessageView)
-	messageViewsWithoutMessageGroup := make([]*MessageView, 0)
-	for _, messageView := range messageViews {
-		messageGroup := messageView.GetMessageGroup()
-		if messageGroup != nil && *messageGroup != "" {
-			messageViewsGroupByMessageGroup[*messageGroup] = append(messageViewsGroupByMessageGroup[*messageGroup], messageView)
-		} else {
-			messageViewsWithoutMessageGroup = append(messageViewsWithoutMessageGroup, messageView)
-		}
-	}
 
-	groupNum := len(messageViewsGroupByMessageGroup)
-	if len(messageViewsWithoutMessageGroup) > 0 {
-		groupNum++
-	}
-	sugarBaseLogger.Debugf("FifoConsumeService parallel consume, messageViewsNum=%d, groupNum=%d", len(messageViews), groupNum)
+	messageViewsGroupByGroupKey, messageViewsWithoutGroupKey := groupMessageBy(
+		messageViews,
+		messageGroupExtractor,
+	)
 
 	// Consume messages in parallel by group
-	for _, group := range messageViewsGroupByMessageGroup {
+	for _, group := range messageViewsGroupByGroupKey {
 		fcs.consumeIteratively(pq, &group, 0)
 	}
-	if len(messageViewsWithoutMessageGroup) > 0 {
-		fcs.consumeIteratively(pq, &messageViewsWithoutMessageGroup, 0)
+	if len(messageViewsWithoutGroupKey) > 0 {
+		fcs.consumeIteratively(pq, &messageViewsWithoutGroupKey, 0)
 	}
 }
+
 func (fcs *fifoConsumeService) consumeIteratively(pq ProcessQueue, messageViewsPtr *[]*MessageView, ptr int) {
 	if messageViewsPtr == nil {
 		sugarBaseLogger.Errorf("[Bug] messageViews is nil when consumeIteratively")
@@ -192,7 +221,82 @@ func (fcs *fifoConsumeService) consumeIteratively(pq ProcessQueue, messageViewsP
 
 func NewFiFoConsumeService(clientId string, messageListener MessageListener, consumptionExecutor *simpleThreadPool, messageInterceptor MessageInterceptor, enableFifoConsumeAccelerator bool) *fifoConsumeService {
 	return &fifoConsumeService{
-		baseConsumeService:            *NewBaseConsumeService(clientId, messageListener, consumptionExecutor, messageInterceptor),
-		enableFifoConsumeAccelerator:  enableFifoConsumeAccelerator,
+		baseConsumeService:           *NewBaseConsumeService(clientId, messageListener, consumptionExecutor, messageInterceptor),
+		enableFifoConsumeAccelerator: enableFifoConsumeAccelerator,
+	}
+}
+
+// liteFifoConsumeService is a fifoConsumeService that used for lite push consumer
+type liteFifoConsumeService struct {
+	baseConsumeService
+	enableFifoConsumeAccelerator bool
+}
+
+func (lcs *liteFifoConsumeService) consume(pq ProcessQueue, messageViews []*MessageView) {
+	if !lcs.enableFifoConsumeAccelerator || len(messageViews) <= 1 {
+		lcs.consumeIteratively(pq, &messageViews, 0)
+		return
+	}
+
+	messageViewsGroupByGroupKey, messageViewsWithoutGroupKey := groupMessageBy(
+		messageViews,
+		liteTopicExtractor,
+	)
+
+	for _, group := range messageViewsGroupByGroupKey {
+		lcs.consumeIteratively(pq, &group, 0)
+	}
+	if len(messageViewsWithoutGroupKey) > 0 {
+		lcs.consumeIteratively(pq, &messageViewsWithoutGroupKey, 0)
+	}
+}
+
+func (lcs *liteFifoConsumeService) consumeIteratively(pq ProcessQueue, messageViewsPtr *[]*MessageView, ptr int) {
+	if messageViewsPtr == nil {
+		sugarBaseLogger.Errorf("[Bug] messageViews is nil when consumeIteratively")
+		return
+	}
+	messageViews := *messageViewsPtr
+	if ptr >= len(messageViews) {
+		return
+	}
+	mv := messageViews[ptr]
+	if mv.isCorrupted() {
+		sugarBaseLogger.Errorf("Message is corrupted for FIFO consumption, prepare to discard it, mq=%s, messageId=%s, clientId=%s", pq.getMessageQueue().String(), mv.GetMessageId(), lcs.clientId)
+		pq.discardFifoMessage(mv)
+		lcs.consumeIteratively(pq, messageViewsPtr, ptr+1)
+		return
+	}
+	lcs.consumeImmediately(mv, func(result ConsumerResult, err error) {
+		if err != nil {
+			sugarBaseLogger.Errorf("[Bug] Exception raised in consumption callback, clientId=%s", lcs.clientId)
+			return
+		}
+		pq.eraseFifoMessage(mv, result)
+		if result.Type == ConsumerResultTypeSuspend {
+			// Suspend all messages with the same liteTopic in this batch
+			newMsgList := make([]*MessageView, 0)
+			for i := ptr + 1; i < len(messageViews); i++ {
+				msgView := messageViews[i]
+				if msgView.GetLiteTopic() == mv.GetLiteTopic() {
+					pq.eraseFifoMessage(msgView, result)
+				} else {
+					newMsgList = append(newMsgList, msgView)
+				}
+			}
+			// Continue processing remaining messages with different liteTopic
+			if len(newMsgList) > 0 {
+				lcs.consumeIteratively(pq, &newMsgList, 0)
+			}
+		} else {
+			lcs.consumeIteratively(pq, messageViewsPtr, ptr+1)
+		}
+	})
+}
+
+func NewLiteFifoConsumeService(clientId string, messageListener MessageListener, consumptionExecutor *simpleThreadPool, messageInterceptor MessageInterceptor, enableFifoConsumeAccelerator bool) *liteFifoConsumeService {
+	return &liteFifoConsumeService{
+		baseConsumeService:           *NewBaseConsumeService(clientId, messageListener, consumptionExecutor, messageInterceptor),
+		enableFifoConsumeAccelerator: enableFifoConsumeAccelerator,
 	}
 }
