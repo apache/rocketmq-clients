@@ -30,11 +30,12 @@ export class FifoConsumeService extends ConsumeService {
   }
 
   consume(pq: ProcessQueue, messageViews: MessageView[]): void {
-    if (this.#enableAccelerator) {
-      this.#consumeWithAccelerator(pq, messageViews);
-    } else {
+    // Use iterative consumption when accelerator is disabled or only one message
+    if (!this.#enableAccelerator || messageViews.length <= 1) {
       this.#consumeIteratively(pq, messageViews, 0);
+      return;
     }
+    this.#consumeWithAccelerator(pq, messageViews);
   }
 
   /**
@@ -64,9 +65,14 @@ export class FifoConsumeService extends ConsumeService {
       }
     }
 
+    // Log parallel consumption info
+    const groupCount = groupedMessages.size + (ungroupedMessages.length > 0 ? 1 : 0);
+    console.debug('FifoConsumeService parallel consume, messageViewsNum=%d, groupNum=%d',
+      messageViews.length, groupCount);
+
     // Process grouped messages (each group sequentially, groups in parallel)
-    for (const [ messageGroup, messages ] of groupedMessages.entries()) {
-      this.#processMessageGroup(pq, messageGroup, messages);
+    for (const [ , messages ] of groupedMessages.entries()) {
+      this.#processMessageGroup(pq, messages);
     }
 
     // Process ungrouped messages in parallel
@@ -82,8 +88,9 @@ export class FifoConsumeService extends ConsumeService {
   /**
    * Process messages within the same group sequentially
    */
-  async #processMessageGroup(pq: ProcessQueue, messageGroup: string, messages: MessageView[]): Promise<void> {
+  async #processMessageGroup(pq: ProcessQueue, messages: MessageView[]): Promise<void> {
     // Check if there's already processing happening for this group
+    const messageGroup = messages[0]?.messageGroup || 'NO_GROUP';
     const existingPromise = this.#groupProcessing.get(messageGroup);
     const processTask = (async () => {
       // Wait for previous processing to complete if any

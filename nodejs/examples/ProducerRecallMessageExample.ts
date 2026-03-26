@@ -25,7 +25,7 @@
  * 4. The message will be canceled and won't be delivered to consumers
  */
 
-import { Producer } from '..';
+import { Producer } from '../src';
 import { topics, endpoints, sessionCredentials, namespace } from './ProducerSingleton';
 
 (async () => {
@@ -40,7 +40,7 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
     console.log('Producer started successfully');
 
     // Send delay messages
-    const sendReceipts = [];
+    const sendReceipts: any[] = [];
     for (let i = 0; i < 5; i++) {
       const receipt = await producer.send({
         topic: topics.delay,
@@ -74,7 +74,7 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
           recalledMessageId: recallReceipt.messageId,
         });
       } catch (error) {
-        console.error(`✗ Failed to recall message ${i}:`, error.message);
+        console.error(`✗ Failed to recall message ${i}:`, (error as Error).message);
       }
     }
 

@@ -27,17 +27,18 @@ async function quickStart() {
   // Create PushConsumer instance
   const pushConsumer = new PushConsumer({
     namespace: process.env.ROCKETMQ_NAMESPACE || '', // Namespace, can be empty string
-    endpoints: process.env.ROCKETMQ_ENDPOINT || 'localhost:8080',
-    consumerGroup: 'yourConsumerGroup',
+    endpoints: process.env.ROCKETMQ_ENDPOINT || '127.0.0.1:8080',
+    consumerGroup: 'GID-time',
     // Subscribe to topic and TAG
     subscriptions: new Map([
-      [ 'yourTopic', '*' ],
+      [ 'time-topic', '*' ],
     ]),
     // Message listener - this is the core processing logic
     messageListener: {
       async consume(messageView: MessageView): Promise<ConsumeResult> {
         console.log('Received message:', messageView.body.toString('utf-8'));
         // TODO: Process your business logic here
+        console.log('Received messageId :', messageView.messageId);
         return ConsumeResult.SUCCESS;
       },
     },

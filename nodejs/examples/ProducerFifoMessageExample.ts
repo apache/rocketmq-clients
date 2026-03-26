@@ -27,23 +27,16 @@
  * - Message group is required for FIFO ordering
  */
 import { Producer } from '../src';
-
-// Get configuration from environment variables
-const ACCESS_KEY = process.env.ROCKETMQ_ACCESS_KEY || 'yourAccessKey';
-const SECRET_KEY = process.env.ROCKETMQ_SECRET_KEY || 'yourSecretKey';
-const ENDPOINT = process.env.ROCKETMQ_ENDPOINT || 'localhost:8080';
+import { topics, endpoints, sessionCredentials, namespace } from './ProducerSingleton';
 
 async function main() {
   console.log('========== Producer FIFO Message Example ==========');
 
   // Create producer instance
   const producer = new Producer({
-    namespace: process.env.ROCKETMQ_NAMESPACE || 'yourNamespace',
-    endpoints: ENDPOINT,
-    sessionCredentials: {
-      accessKey: ACCESS_KEY,
-      accessSecret: SECRET_KEY,
-    },
+    namespace,
+    endpoints,
+    sessionCredentials,
     maxAttempts: 3,
   });
 
@@ -83,7 +76,7 @@ async function main() {
     console.log('\nSending non-FIFO messages (no messageGroup)...');
     for (let i = 0; i < 3; i++) {
       const receipt = await producer.send({
-        topic: 'yourFifoTopic',
+        topic: topics.fifo,
         tag: 'non-fifo',
         body: Buffer.from(JSON.stringify({
           type: 'NON_FIFO',
@@ -119,7 +112,7 @@ async function sendFifoMessages(
     const messageData = messages[i];
     
     const receipt = await producer.send({
-      topic: 'yourFifoTopic',
+      topic: topics.fifo,
       tag: 'fifo-message',
       body: Buffer.from(JSON.stringify({
         sequence: i + 1,

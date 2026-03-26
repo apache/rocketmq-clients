@@ -12,11 +12,7 @@
 
 import { PushConsumer, ConsumeResult } from '../src';
 import type { MessageView } from '../src';
-
-// Get configuration from environment variables
-const ACCESS_KEY = process.env.ROCKETMQ_ACCESS_KEY || 'yourAccessKey';
-const SECRET_KEY = process.env.ROCKETMQ_SECRET_KEY || 'yourSecretKey';
-const ENDPOINT = process.env.ROCKETMQ_ENDPOINT || 'localhost:8080';
+import { consumerGroup, endpoints, sessionCredentials, namespace, topics } from './ProducerSingleton';
 
 async function main() {
   console.log('========== PushConsumer with FIFO Message Example ==========');
@@ -66,24 +62,18 @@ async function main() {
 
   // 2. Configure PushConsumer for FIFO consumption
   const pushConsumer = new PushConsumer({
-    // Basic configuration
-    namespace: process.env.ROCKETMQ_NAMESPACE || 'yourNamespace',
-    endpoints: ENDPOINT,
-
-    // Authentication credentials (optional)
-    sessionCredentials: {
-      accessKey: ACCESS_KEY,
-      accessSecret: SECRET_KEY,
-    },
+    namespace,
+    endpoints,
+    sessionCredentials,
 
     // Consumer group configuration
     // IMPORTANT: Use a dedicated consumer group for FIFO consumption
-    consumerGroup: 'yourFifoConsumerGroup',
+    consumerGroup,
 
     // Subscription configuration
     // FIFO consumption is enabled when topic receives FIFO messages
     subscriptions: new Map([
-      [ 'yourFifoTopic', '*' ], // Subscribe to FIFO topic
+      [ topics.fifo, '*' ], // Subscribe to FIFO topic
     ]),
 
     // Message listener
@@ -99,6 +89,12 @@ async function main() {
 
     // Request timeout configuration
     requestTimeout: 3000,
+
+    // FIFO consume accelerator configuration
+    // When enabled, messages with different messageGroups are consumed in parallel
+    // while messages within the same messageGroup are consumed sequentially
+    // This improves throughput while maintaining FIFO ordering within each group
+    enableFifoConsumeAccelerator: true,
   });
 
   try {

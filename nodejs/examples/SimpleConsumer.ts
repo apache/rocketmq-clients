@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { SimpleConsumer } from '..';
+import { SimpleConsumer } from '../src';
 
 import { topics, endpoints, sessionCredentials, namespace, tag, consumerGroup } from './ProducerSingleton';
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import assert = require('node:assert');
+import assert from 'node:assert';
 import { setTimeout } from 'node:timers/promises';
 import {
   ClientType,
