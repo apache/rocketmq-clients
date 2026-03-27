@@ -78,6 +78,23 @@ public abstract class ConsumerImpl extends ClientImpl {
     @SuppressWarnings("SameParameterValue")
     protected ListenableFuture<ReceiveMessageResult> receiveMessage(ReceiveMessageRequest request,
         MessageQueueImpl mq, Duration awaitDuration) {
+        return receiveMessage(request, mq, awaitDuration, null);
+    }
+
+    /**
+     * Receive messages from the specified queue with optional load balancer feedback.
+     *
+     * <p>When a {@link SubscriptionLoadBalancer} is provided, the receive result will be fed back
+     * to the load balancer to track empty queues, enabling the skip scheduling optimization.
+     *
+     * @param request            the receive message request
+     * @param mq                 the message queue to receive from
+     * @param awaitDuration      the long-polling await duration
+     * @param loadBalancer       optional load balancer for empty-queue tracking, may be null
+     * @return future of receive message result
+     */
+    protected ListenableFuture<ReceiveMessageResult> receiveMessage(ReceiveMessageRequest request,
+        MessageQueueImpl mq, Duration awaitDuration, SubscriptionLoadBalancer loadBalancer) {
         List<MessageViewImpl> messages = new ArrayList<>();
         try {
             final Endpoints endpoints = mq.getBroker().getEndpoints();
@@ -112,6 +129,13 @@ public abstract class ConsumerImpl extends ClientImpl {
                 for (Message message : messageList) {
                     final MessageViewImpl view = MessageViewImpl.fromProtobuf(message, mq, transportDeliveryTimestamp);
                     messages.add(view);
+                }
+                if (loadBalancer != null) {
+                    if (messageList.isEmpty()) {
+                        loadBalancer.markEmptyResult(mq);
+                    } else {
+                        loadBalancer.markNonEmptyResult(mq);
+                    }
                 }
                 StatusChecker.check(status, future);
                 final ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(endpoints, messages);
