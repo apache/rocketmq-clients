@@ -19,14 +19,17 @@ import { MessageView } from '../message';
 import { ConsumeService } from './ConsumeService';
 import { MessageListener } from './MessageListener';
 import type { ProcessQueue } from './ProcessQueue';
+import { ILogger, getDefaultLogger } from '../client/Logger';
 
 export class FifoConsumeService extends ConsumeService {
   readonly #enableAccelerator: boolean;
   readonly #groupProcessing = new Map<string /* messageGroup */, Promise<void>>();
+  readonly #logger: ILogger;
 
   constructor(clientId: string, messageListener: MessageListener, enableAccelerator?: boolean) {
     super(clientId, messageListener);
     this.#enableAccelerator = enableAccelerator ?? false;
+    this.#logger = getDefaultLogger();
   }
 
   consume(pq: ProcessQueue, messageViews: MessageView[]): void {
@@ -67,7 +70,7 @@ export class FifoConsumeService extends ConsumeService {
 
     // Log parallel consumption info
     const groupCount = groupedMessages.size + (ungroupedMessages.length > 0 ? 1 : 0);
-    console.debug('FifoConsumeService parallel consume, messageViewsNum=%d, groupNum=%d',
+    this.#logger.debug?.('FifoConsumeService parallel consume, messageViewsNum=%d, groupNum=%d',
       messageViews.length, groupCount);
 
     // Process grouped messages (each group sequentially, groups in parallel)
@@ -106,7 +109,7 @@ export class FifoConsumeService extends ConsumeService {
           const result = await this.consumeMessage(messageView);
           await pq.eraseFifoMessage(messageView, result);
         } catch (error) {
-          console.error('Failed to process FIFO message, messageGroup=%s, messageId=%s',
+          this.#logger.error('Failed to process FIFO message, messageGroup=%s, messageId=%s, error=%s',
             messageGroup, messageView.messageId, error);
           // Continue with next message even if current fails
         }

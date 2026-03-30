@@ -21,7 +21,7 @@ import { Producer } from '../src';
   const producer = new Producer({
     endpoints: '127.0.0.1:8080',
     namespace: '',
-    requestTimeout: 10000, // 设置请求超时时间为 5 秒
+    requestTimeout: 5000,
   });
   try {
     await producer.startup();

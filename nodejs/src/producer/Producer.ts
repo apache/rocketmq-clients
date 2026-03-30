@@ -352,6 +352,12 @@ export class Producer extends BaseClient {
       throw new Error('Producer is not running now');
     }
 
+    // Validate topic
+    if (!topic || typeof topic !== 'string' || topic.trim().length === 0) {
+      this.logger.error('Topic is invalid for recall message, clientId=%s', this.clientId);
+      throw new Error('Topic is invalid');
+    }
+
     if (!recallHandle) {
       this.logger.error('Recall handle is invalid, clientId=%s', this.clientId);
       throw new Error('Recall handle is invalid');
