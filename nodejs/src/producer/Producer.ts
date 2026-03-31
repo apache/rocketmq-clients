@@ -22,6 +22,7 @@ import {
   MessageType,
   TransactionResolution,
   TransactionSource,
+  Code,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
   EndTransactionRequest,
@@ -47,6 +48,8 @@ import { PublishingLoadBalancer } from './PublishingLoadBalancer';
 import { SendReceipt } from './SendReceipt';
 import { Transaction } from './Transaction';
 import { createResource } from '../util';
+import { RecallReceipt } from './RecallReceipt';
+import { RecallMessageRequest } from '../../proto/apache/rocketmq/v2/service_pb';
 
 export interface ProducerOptions extends BaseClientOptions {
   topic?: string | string[];
@@ -332,5 +335,60 @@ export class Producer extends BaseClient {
 
   #getRetryPolicy() {
     return this.#publishingSettings.getRetryPolicy()!;
+  }
+
+  /**
+   * Recalls a scheduled/delayed message based on the topic and recall handle.
+   * This operation requires server support and can only be performed before the message is delivered.
+   *
+   * @param topic - The topic associated with the scheduled message to be canceled.
+   * @param recallHandle - A unique handle to identify the message to recall (obtained from SendReceipt).
+   * @returns Promise resolving to RecallReceipt containing the recalled message ID.
+   * @throws Error if producer is not running or recall handle is invalid.
+   */
+  async recallMessage(topic: string, recallHandle: string): Promise<RecallReceipt> {
+    if (!this.isRunning()) {
+      this.logger.error('Unable to recall message because producer is not running, clientId=%s', this.clientId);
+      throw new Error('Producer is not running now');
+    }
+
+    // Validate topic
+    if (!topic || typeof topic !== 'string' || topic.trim().length === 0) {
+      this.logger.error('Topic is invalid for recall message, clientId=%s', this.clientId);
+      throw new Error('Topic is invalid');
+    }
+
+    if (!recallHandle) {
+      this.logger.error('Recall handle is invalid, clientId=%s', this.clientId);
+      throw new Error('Recall handle is invalid');
+    }
+
+    this.logger.info('Begin to recall message, topic=%s, recallHandle=%s, clientId=%s',
+      topic, recallHandle, this.clientId);
+
+    const request = new RecallMessageRequest()
+      .setTopic(createResource(topic).setResourceNamespace(this.namespace))
+      .setRecallHandle(recallHandle);
+
+    const response = await this.rpcClientManager.recallMessage(this.endpoints, request, this.requestTimeout);
+    const status = response.getStatus();
+    if (!status) {
+      throw new Error('Recall message response status is null');
+    }
+
+    // Check status code
+    const statusCode = status.getCode();
+    if (statusCode !== Code.OK) {
+      const errorMessage = status.getMessage() || 'Unknown error';
+      throw new Error(`Failed to recall message: ${errorMessage} (code: ${statusCode})`);
+    }
+
+    const messageId = response.getMessageId();
+    const receipt = new RecallReceipt(messageId);
+
+    this.logger.info('Recall message successfully, topic=%s, recallHandle=%s, messageId=%s, clientId=%s',
+      topic, recallHandle, messageId, this.clientId);
+
+    return receipt;
   }
 }

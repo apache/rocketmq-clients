@@ -18,6 +18,7 @@
 export * from './Producer';
 export * from './PublishingLoadBalancer';
 export * from './PublishingSettings';
+export * from './RecallReceipt';
 export * from './SendReceipt';
 // export * from './Transaction';
 export * from './TransactionChecker';

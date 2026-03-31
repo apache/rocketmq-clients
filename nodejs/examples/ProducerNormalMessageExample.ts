@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { Producer } from '..';
+import { Producer } from '../src';
 import { topics, endpoints, sessionCredentials, namespace } from './ProducerSingleton';
 
 

@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-import { Producer } from '../src';
+/**
+ * Represents the receipt returned after successfully recalling a scheduled/delayed message.
+ * Contains the message ID of the recalled message.
+ */
+export class RecallReceipt {
+  readonly messageId: string;
 
-(async () => {
-  const producer = new Producer({
-    endpoints: '127.0.0.1:8080',
-    namespace: '',
-    requestTimeout: 5000,
-  });
-  try {
-    await producer.startup();
-    console.log('Producer started successfully');
-
-    const receipt = await producer.send({
-      topic: 'TopicTest',
-      tag: 'nodejs-demo',
-      body: Buffer.from(JSON.stringify({
-        hello: 'rocketmq-client-nodejs world 😄',
-        now: Date(),
-      })),
-    });
-    console.log('Message sent:', receipt);
-  } catch (error) {
-    console.error('Failed to send message:', error);
-  } finally {
-    await producer.shutdown();
+  constructor(messageId: string) {
+    this.messageId = messageId;
   }
-})();
+
+  toString(): string {
+    return `RecallReceipt{messageId='${this.messageId}'}`;
+  }
+}

@@ -50,6 +50,7 @@ export interface PushConsumerOptions extends ConsumerOptions {
   maxCacheMessageCount?: number;
   maxCacheMessageSizeInBytes?: number;
   longPollingTimeout?: number;
+  enableFifoConsumeAccelerator?: boolean;
 }
 
 class ConsumeMetrics {
@@ -66,6 +67,7 @@ export class PushConsumer extends Consumer {
   readonly #messageListener: MessageListener;
   readonly #maxCacheMessageCount: number;
   readonly #maxCacheMessageSizeInBytes: number;
+  readonly #enableFifoConsumeAccelerator: boolean;
   readonly #processQueueTable = new Map<string /* mq key */, { mq: MessageQueue; pq: ProcessQueue }>();
   readonly #metrics = new ConsumeMetrics();
   #consumeService!: ConsumeService;
@@ -86,6 +88,7 @@ export class PushConsumer extends Consumer {
     this.#messageListener = options.messageListener;
     this.#maxCacheMessageCount = options.maxCacheMessageCount ?? 1024;
     this.#maxCacheMessageSizeInBytes = options.maxCacheMessageSizeInBytes ?? 64 * 1024 * 1024;
+    this.#enableFifoConsumeAccelerator = options.enableFifoConsumeAccelerator ?? false;
 
     this.#pushSubscriptionSettings = new PushSubscriptionSettings(
       options.namespace, this.clientId, this.endpoints,
@@ -163,7 +166,7 @@ export class PushConsumer extends Consumer {
 
   #createConsumeService(): ConsumeService {
     if (this.#pushSubscriptionSettings.isFifo()) {
-      return new FifoConsumeService(this.clientId, this.#messageListener);
+      return new FifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator);
     }
     return new StandardConsumeService(this.clientId, this.#messageListener);
   }

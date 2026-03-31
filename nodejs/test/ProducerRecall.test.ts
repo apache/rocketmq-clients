@@ -15,30 +15,14 @@
  * limitations under the License.
  */
 
-import { Producer } from '../src';
+import { strict as assert } from 'node:assert';
+import { RecallReceipt } from '../src/producer/RecallReceipt';
 
-(async () => {
-  const producer = new Producer({
-    endpoints: '127.0.0.1:8080',
-    namespace: '',
-    requestTimeout: 5000,
+describe('RecallReceipt', () => {
+  it('should create recall receipt with messageId', () => {
+    const messageId = 'test-message-id-12345';
+    const receipt = new RecallReceipt(messageId);
+    assert.strictEqual(receipt.messageId, messageId);
+    assert.ok(receipt.toString().includes(messageId));
   });
-  try {
-    await producer.startup();
-    console.log('Producer started successfully');
-
-    const receipt = await producer.send({
-      topic: 'TopicTest',
-      tag: 'nodejs-demo',
-      body: Buffer.from(JSON.stringify({
-        hello: 'rocketmq-client-nodejs world 😄',
-        now: Date(),
-      })),
-    });
-    console.log('Message sent:', receipt);
-  } catch (error) {
-    console.error('Failed to send message:', error);
-  } finally {
-    await producer.shutdown();
-  }
-})();
+});

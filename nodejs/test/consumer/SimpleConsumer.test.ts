@@ -92,7 +92,7 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
       producer = new Producer({
         endpoints,
         namespace,
-        sessionCredentials
+        sessionCredentials,
       });
       await producer.startup();
       simpleConsumer = new SimpleConsumer({

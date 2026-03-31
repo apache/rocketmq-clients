@@ -24,6 +24,7 @@ export interface MessageOptions {
   properties?: Map<string, string>;
   delay?: number;
   deliveryTimestamp?: Date;
+  priority?: number;
 }
 
 export class Message {
@@ -34,8 +35,22 @@ export class Message {
   keys: string[];
   properties?: Map<string, string>;
   deliveryTimestamp?: Date;
+  priority?: number;
 
   constructor(options: MessageOptions) {
+    // Validate priority and mutual exclusivity
+    if (options.priority !== undefined) {
+      if (options.priority < 0) {
+        throw new Error('priority must be greater than or equal to 0');
+      }
+      if (options.deliveryTimestamp) {
+        throw new Error('priority and deliveryTimestamp should not be set at same time');
+      }
+      if (options.messageGroup) {
+        throw new Error('priority and messageGroup should not be set at same time');
+      }
+    }
+
     this.topic = options.topic;
     this.body = options.body;
     this.tag = options.tag;
@@ -47,5 +62,6 @@ export class Message {
       deliveryTimestamp = new Date(Date.now() + options.delay);
     }
     this.deliveryTimestamp = deliveryTimestamp;
+    this.priority = options.priority;
   }
 }

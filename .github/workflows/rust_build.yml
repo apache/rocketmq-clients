@@ -12,11 +12,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: rustfmt
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component rustfmt
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Code format check
         run: cargo fmt --check
   clippy:
@@ -29,11 +28,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: clippy
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component clippy
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       # Run clippy
       - name: Clippy check
         run: cargo clippy --all-features -- -D warnings
@@ -47,10 +45,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Build doc
         run: cargo doc --no-deps --all-features
         env:
@@ -88,10 +86,11 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ matrix.msrv }}
-          components: clippy
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ matrix.msrv }}
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup component add clippy
       - name: Install protoc
         uses: arduino/setup-protoc@v3
         with:
