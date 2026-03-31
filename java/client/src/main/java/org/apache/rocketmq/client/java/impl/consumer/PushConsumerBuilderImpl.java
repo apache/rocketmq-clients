@@ -38,7 +38,13 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     private String consumerGroup = null;
     private Map<String, FilterExpression> subscriptionExpressions = new ConcurrentHashMap<>();
     private MessageListener messageListener = null;
-    private int maxCacheMessageCount = 1024;
+
+    /**
+     * The number of cached messages should not be set too high, as the consumption
+     * timeout is calculated from the moment the message is pulled from the server.
+     * However, in scenarios with a large number of brokers, the maximum throughput may not be achievable.
+     */
+    private int maxCacheMessageCount = 4096;
     private int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
     private int consumptionThreadCount = 20;
     private boolean enableFifoConsumeAccelerator = false;
