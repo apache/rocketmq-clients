@@ -40,13 +40,18 @@ export class PublishingMessage extends Message {
     // Generate message id.
     this.messageId = MessageIdFactory.create().toString();
     // Normal message.
-    if (!this.messageGroup && !this.deliveryTimestamp && !this.priority && !txEnabled) {
+    if (!this.messageGroup && !this.liteTopic && !this.deliveryTimestamp && !this.priority && !txEnabled) {
       this.messageType = MessageType.NORMAL;
       return;
     }
     // Fifo message.
     if (this.messageGroup && !txEnabled) {
       this.messageType = MessageType.FIFO;
+      return;
+    }
+    // Lite message.
+    if (this.liteTopic && !txEnabled) {
+      this.messageType = MessageType.LITE;
       return;
     }
     // Delay message.
@@ -61,12 +66,12 @@ export class PublishingMessage extends Message {
     }
     // Transaction message.
     if (!this.messageGroup &&
-        !this.deliveryTimestamp && !this.priority && txEnabled) {
+        !this.liteTopic && !this.deliveryTimestamp && !this.priority && txEnabled) {
       this.messageType = MessageType.TRANSACTION;
       return;
     }
-    // Transaction semantics is conflicted with fifo/delay/priority.
-    throw new TypeError('Transactional message should not set messageGroup, deliveryTimestamp or priority');
+    // Transaction semantics is conflicted with fifo/delay/lite/priority.
+    throw new TypeError('Transactional message should not set messageGroup, liteTopic, deliveryTimestamp or priority');
   }
 
   /**
@@ -90,6 +95,9 @@ export class PublishingMessage extends Message {
     }
     if (this.messageGroup) {
       systemProperties.setMessageGroup(this.messageGroup);
+    }
+    if (this.liteTopic !== undefined) {
+      systemProperties.setLiteTopic(this.liteTopic);
     }
     if (this.priority !== undefined) {
       systemProperties.setPriority(this.priority);

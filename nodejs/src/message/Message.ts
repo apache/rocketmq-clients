@@ -25,6 +25,7 @@ export interface MessageOptions {
   delay?: number;
   deliveryTimestamp?: Date;
   priority?: number;
+  liteTopic?: string;
 }
 
 export class Message {
@@ -36,6 +37,7 @@ export class Message {
   properties?: Map<string, string>;
   deliveryTimestamp?: Date;
   priority?: number;
+  liteTopic?: string;
 
   constructor(options: MessageOptions) {
     // Validate mutual exclusivity
@@ -48,6 +50,9 @@ export class Message {
       }
       if (options.messageGroup) {
         throw new Error('priority and messageGroup should not be set at same time');
+      }
+      if (options.liteTopic) {
+        throw new Error('priority and liteTopic should not be set at same time');
       }
     }
 
@@ -63,5 +68,6 @@ export class Message {
     }
     this.deliveryTimestamp = deliveryTimestamp;
     this.priority = options.priority;
+    this.liteTopic = options.liteTopic;
   }
 }
