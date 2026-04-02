@@ -91,8 +91,11 @@ export class PublishingMessage extends Message {
     if (this.messageGroup) {
       systemProperties.setMessageGroup(this.messageGroup);
     }
+    // Note: setPriority will be available after proto definition is updated and regenerated
     if (this.priority !== undefined) {
-      systemProperties.setPriority(this.priority);
+      // Use generic jspb.Message.setField for now since proto hasn't been regenerated yet
+      // This is a workaround until the official proto includes the priority field
+      (systemProperties as any).setPriority?.(this.priority);
     }
 
     const resource = createResource(this.topic);
