@@ -146,6 +146,12 @@ enum MessageType {
   // Messages that are transactional. Only committed messages are delivered to
   // subscribers.
   TRANSACTION = 4;
+
+  // lite topic
+  LITE = 5;
+
+  // Messages that lower prioritised ones may need to wait for higher priority messages to be processed first
+  PRIORITY = 6;
 }
 
 enum DigestType {
