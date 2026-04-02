@@ -38,7 +38,7 @@ export class Message {
   priority?: number;
 
   constructor(options: MessageOptions) {
-    // Validate priority and mutual exclusivity
+    // Validate mutual exclusivity
     if (options.priority !== undefined) {
       if (options.priority < 0) {
         throw new Error('priority must be greater than or equal to 0');

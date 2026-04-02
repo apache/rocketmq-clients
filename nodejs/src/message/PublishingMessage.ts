@@ -40,7 +40,7 @@ export class PublishingMessage extends Message {
     // Generate message id.
     this.messageId = MessageIdFactory.create().toString();
     // Normal message.
-    if (!this.messageGroup && !this.deliveryTimestamp && !txEnabled) {
+    if (!this.messageGroup && !this.deliveryTimestamp && !this.priority && !txEnabled) {
       this.messageType = MessageType.NORMAL;
       return;
     }
@@ -54,14 +54,19 @@ export class PublishingMessage extends Message {
       this.messageType = MessageType.DELAY;
       return;
     }
+    // Priority message.
+    if (this.priority && !txEnabled) {
+      this.messageType = MessageType.PRIORITY;
+      return;
+    }
     // Transaction message.
     if (!this.messageGroup &&
-        !this.deliveryTimestamp && txEnabled) {
+        !this.deliveryTimestamp && !this.priority && txEnabled) {
       this.messageType = MessageType.TRANSACTION;
       return;
     }
-    // Transaction semantics is conflicted with fifo/delay.
-    throw new TypeError('Transactional message should not set messageGroup or deliveryTimestamp');
+    // Transaction semantics is conflicted with fifo/delay/priority.
+    throw new TypeError('Transactional message should not set messageGroup, deliveryTimestamp or priority');
   }
 
   /**
@@ -85,6 +90,9 @@ export class PublishingMessage extends Message {
     }
     if (this.messageGroup) {
       systemProperties.setMessageGroup(this.messageGroup);
+    }
+    if (this.priority !== undefined) {
+      systemProperties.setPriority(this.priority);
     }
 
     const resource = createResource(this.topic);
