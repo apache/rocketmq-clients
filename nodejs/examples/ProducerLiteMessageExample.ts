@@ -47,14 +47,14 @@ async function main() {
     // Send lite message
     console.log('Sending lite message...');
     const liteMessageReceipt = await producer.send({
-      topic: 'yourLiteTopic',
+      topic: 'yourParentTopic', // Parent topic is required, even when using liteTopic
       tag: 'lite-event',
       body: Buffer.from(JSON.stringify({
         type: 'LITE_MESSAGE',
         content: 'This is a lite message with reduced overhead',
         timestamp: Date.now(),
       })),
-      liteTopic: 'lite-topic-name', // Specify lite topic for reduced overhead
+      liteTopic: 'lite-topic-name', // Specify lite topic for reduced overhead (optional)
     });
     console.log('✓ Lite message sent:', liteMessageReceipt.messageId);
 

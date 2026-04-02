@@ -40,7 +40,7 @@ export class Message {
   liteTopic?: string;
 
   constructor(options: MessageOptions) {
-    // Validate mutual exclusivity
+    // Validate mutual exclusivity - priority
     if (options.priority !== undefined) {
       if (options.priority < 0) {
         throw new Error('priority must be greater than or equal to 0');
@@ -53,6 +53,23 @@ export class Message {
       }
       if (options.liteTopic) {
         throw new Error('priority and liteTopic should not be set at same time');
+      }
+    }
+
+    // Validate mutual exclusivity - liteTopic
+    if (options.liteTopic !== undefined) {
+      if (options.deliveryTimestamp) {
+        throw new Error('liteTopic and deliveryTimestamp should not be set at same time');
+      }
+      if (options.messageGroup) {
+        throw new Error('liteTopic and messageGroup should not be set at same time');
+      }
+    }
+
+    // Validate mutual exclusivity - deliveryTimestamp
+    if (options.deliveryTimestamp !== undefined) {
+      if (options.messageGroup) {
+        throw new Error('deliveryTimestamp and messageGroup should not be set at same time');
       }
     }
 
@@ -69,5 +86,14 @@ export class Message {
     this.deliveryTimestamp = deliveryTimestamp;
     this.priority = options.priority;
     this.liteTopic = options.liteTopic;
+  }
+
+  /**
+   * Returns a string representation of the message.
+   */
+  toString(): string {
+    return `Message{topic='${this.topic}', tag=${this.tag}, messageGroup=${this.messageGroup}, ` +
+      `liteTopic=${this.liteTopic}, priority=${this.priority}, deliveryTimestamp=${this.deliveryTimestamp}, ` +
+      `keys=[${this.keys.join(', ')}], properties=${JSON.stringify(this.properties)}}`;
   }
 }

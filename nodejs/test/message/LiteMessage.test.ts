@@ -58,29 +58,25 @@ describe('Lite Message', () => {
   });
 
   it('should throw error when liteTopic and messageGroup are set together', () => {
-    // Note: liteTopic and messageGroup mutual exclusivity is checked in PublishingMessage
-    const message = new Message({
-      topic: fakeTopic,
-      body: fakeBody,
-      liteTopic: 'lite-topic-name',
-      messageGroup: 'test-group',
-    });
-
-    assert.strictEqual(message.liteTopic, 'lite-topic-name');
-    assert.strictEqual(message.messageGroup, 'test-group');
+    assert.throws(() => {
+      new Message({
+        topic: fakeTopic,
+        body: fakeBody,
+        liteTopic: 'lite-topic-name',
+        messageGroup: 'test-group',
+      });
+    }, /liteTopic and messageGroup should not be set at same time/);
   });
 
   it('should throw error when liteTopic and deliveryTimestamp are set together', () => {
-    // Note: liteTopic and deliveryTimestamp mutual exclusivity is checked in PublishingMessage
-    const message = new Message({
-      topic: fakeTopic,
-      body: fakeBody,
-      liteTopic: 'lite-topic-name',
-      deliveryTimestamp: new Date(Date.now() + 60000),
-    });
-
-    assert.strictEqual(message.liteTopic, 'lite-topic-name');
-    assert.ok(message.deliveryTimestamp);
+    assert.throws(() => {
+      new Message({
+        topic: fakeTopic,
+        body: fakeBody,
+        liteTopic: 'lite-topic-name',
+        deliveryTimestamp: new Date(Date.now() + 60000),
+      });
+    }, /liteTopic and deliveryTimestamp should not be set at same time/);
   });
 
   it('should accept empty string liteTopic', () => {
@@ -91,5 +87,19 @@ describe('Lite Message', () => {
     });
 
     assert.strictEqual(message.liteTopic, '');
+  });
+
+  it('should include liteTopic in toString output', () => {
+    const message = new Message({
+      topic: fakeTopic,
+      body: fakeBody,
+      liteTopic: 'test-lite-topic',
+      tag: 'test-tag',
+    });
+
+    const str = message.toString();
+    assert.ok(str.includes('liteTopic=test-lite-topic'));
+    assert.ok(str.includes('tag=test-tag'));
+    assert.ok(str.includes(fakeTopic));
   });
 });
