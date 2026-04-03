@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-import { hostname } from 'node:os';
+import { ClientException } from '../exception/ClientException';
 
 /**
- * Client Identifier Helper
- * https://github.com/apache/rocketmq-clients/blob/master/docs/design.md#client-identifier
+ * Exception thrown when lite subscription quota is exceeded.
  */
-export class ClientId {
-  static #hostname = hostname();
-  static #index = BigInt(0);
-
-  static create() {
-    return `${this.#hostname}@${process.pid}@${this.#index++}@${Date.now().toString(36)}`;
+export class LiteSubscriptionQuotaExceededException extends ClientException {
+  constructor(responseCode: number, requestId: string | null, message: string) {
+    super(responseCode, message, requestId ?? undefined);
+    this.name = 'LiteSubscriptionQuotaExceededException';
   }
 }

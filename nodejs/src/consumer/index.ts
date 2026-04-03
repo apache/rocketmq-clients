@@ -31,3 +31,8 @@ export * from './StandardConsumeService';
 export * from './FifoConsumeService';
 export * from './ProcessQueue';
 export * from './PushConsumer';
+export * from './LitePushConsumer';
+export * from './OffsetOption';
+export * from './LitePushConsumerBuilder';
+export { LitePushConsumerImpl } from './LitePushConsumerImpl';
+export { LiteSubscriptionManager } from './LiteSubscriptionManager';

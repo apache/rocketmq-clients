@@ -401,4 +401,22 @@ export abstract class BaseClient {
     telemetryCommand.setStatus(new Status().setCode(Code.OK));
     this.telemetry(endpoints, telemetryCommand);
   }
+
+  /**
+   * Get the endpoints of this client.
+   *
+   * @return The endpoints
+   */
+  getEndpoints(): Endpoints {
+    return this.endpoints;
+  }
+
+  /**
+   * Get the RPC client manager.
+   *
+   * @return The RPC client manager
+   */
+  getRpcClientManager(): RpcClientManager {
+    return this.rpcClientManager;
+  }
 }

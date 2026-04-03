@@ -21,6 +21,7 @@ import {
   ChangeInvisibleDurationRequest,
   ReceiveMessageRequest, ReceiveMessageResponse,
 } from '../../proto/apache/rocketmq/v2/service_pb';
+import { ClientType } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { MessageView } from '../message';
 import { MessageQueue } from '../route';
 import { StatusChecker } from '../exception';
@@ -125,5 +126,26 @@ export abstract class Consumer extends BaseClient {
   async forwardMessageToDeadLetterQueueViaRpc(endpoints: any, request: any, timeout: number) {
     const res = await this.rpcClientManager.forwardMessageToDeadLetterQueue(endpoints, request, timeout);
     return res;
+  }
+
+  /**
+   * Get the consumer group name.
+   *
+   * @return Consumer group name
+   */
+  getConsumerGroup(): string {
+    return this.consumerGroup;
+  }
+
+  /**
+   * Check if this is a lite consumer.
+   *
+   * @return true if this is a LITE_PUSH_CONSUMER or LITE_SIMPLE_CONSUMER
+   */
+  protected isLiteConsumer(): boolean {
+    // This method should be overridden by subclasses
+    // Default implementation checks the clientType property
+    return (this as any).getClientType?.() === ClientType.LITE_PUSH_CONSUMER 
+        || (this as any).getClientType?.() === ClientType.LITE_SIMPLE_CONSUMER;
   }
 }

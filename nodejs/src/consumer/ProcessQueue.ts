@@ -245,7 +245,7 @@ export class ProcessQueue {
   async eraseFifoMessage(messageView: MessageView, consumeResult: ConsumeResult): Promise<void> {
     const retryPolicy = this.#consumer.getRetryPolicy();
     const maxAttempts = retryPolicy?.getMaxAttempts() ?? 1;
-    let attempt = messageView.deliveryAttempt ?? 1;
+    const attempt = messageView.deliveryAttempt ?? 1;
 
     if (consumeResult === ConsumeResult.FAILURE && attempt < maxAttempts) {
       const nextAttemptDelay = retryPolicy?.getNextAttemptDelay(attempt) ?? 0;

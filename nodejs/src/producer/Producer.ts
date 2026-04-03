@@ -343,7 +343,7 @@ export class Producer extends BaseClient {
    *
    * @param topic - The topic associated with the scheduled message to be canceled.
    * @param recallHandle - A unique handle to identify the message to recall (obtained from SendReceipt).
-   * @returns Promise resolving to RecallReceipt containing the recalled message ID.
+   * @return Promise resolving to RecallReceipt containing the recalled message ID.
    * @throws Error if producer is not running or recall handle is invalid.
    */
   async recallMessage(topic: string, recallHandle: string): Promise<RecallReceipt> {

@@ -19,6 +19,7 @@ export * from './BadRequestException';
 export * from './ClientException';
 export * from './ForbiddenException';
 export * from './InternalErrorException';
+export * from './LiteSubscriptionQuotaExceededException';
 export * from './NotFoundException';
 export * from './PayloadTooLargeException';
 export * from './PaymentRequiredException';
