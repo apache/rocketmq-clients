@@ -19,24 +19,37 @@ import { MessageView } from '../message';
 import { ConsumeService } from './ConsumeService';
 import { MessageListener } from './MessageListener';
 import type { ProcessQueue } from './ProcessQueue';
+import { getDefaultLogger } from '../client';
 
 export class StandardConsumeService extends ConsumeService {
+  private readonly logger = getDefaultLogger();
+
+  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor(clientId: string, messageListener: MessageListener) {
     super(clientId, messageListener);
   }
 
   consume(pq: ProcessQueue, messageViews: MessageView[]): void {
+    this.logger.info('StandardConsumeService.consume called, messageCount=%d', messageViews.length);
     for (const messageView of messageViews) {
       if (messageView.corrupted) {
+        this.logger.warn('Message corrupted, discarding, messageId=%s', messageView.messageId);
         pq.discardMessage(messageView);
         continue;
       }
 
+      this.logger.info('Consuming message, messageId=%s, topic=%s',
+        messageView.messageId, messageView.topic);
+
       this.consumeMessage(messageView)
         .then(result => {
+          this.logger.info('Message consumed successfully, messageId=%s, result=%s',
+            messageView.messageId, result);
           pq.eraseMessage(messageView, result);
         })
-        .catch(() => {
+        .catch(err => {
+          this.logger.error('Message consumption failed, messageId=%s, error=%s',
+            messageView.messageId, err);
           // Should never reach here.
         });
     }

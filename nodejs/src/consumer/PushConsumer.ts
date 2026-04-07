@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { ClientType } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { ClientType, MessageType, Permission } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
   AckMessageRequest,
   ChangeInvisibleDurationRequest,
@@ -26,7 +26,8 @@ import {
   ReceiveMessageRequest,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { MessageView } from '../message';
-import { MessageQueue, TopicRouteData } from '../route';
+import { Broker, MessageQueue, TopicRouteData } from '../route';
+import { MessageQueue as MessageQueuePB } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { StatusChecker } from '../exception';
 import { RetryPolicy } from '../retry';
 import { createDuration, createResource } from '../util';
@@ -104,9 +105,7 @@ export class PushConsumer extends Consumer {
     try {
       this.#consumeService = this.#createConsumeService();
       // Start scanning assignments periodically
-      this.logger.info('Starting assignment scanning, clientId=%s', this.clientId);
-      setTimeout(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_DELAY);
-      this.#scanAssignmentTimer = setInterval(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_PERIOD);
+      this.startAssignmentScanning();
       this.logger.info('Push consumer started successfully, clientId=%s', this.clientId);
     } catch (err) {
       this.logger.error('Failed to start push consumer, cleaning up resources, clientId=%s, error=%s',
@@ -118,6 +117,15 @@ export class PushConsumer extends Consumer {
       }
       throw err;
     }
+  }
+
+  /**
+   * Start assignment scanning. Can be overridden by subclasses.
+   */
+  protected startAssignmentScanning() {
+    this.logger.info('Starting assignment scanning, clientId=%s', this.clientId);
+    setTimeout(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_DELAY);
+    this.#scanAssignmentTimer = setInterval(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_PERIOD);
   }
 
   async shutdown() {
@@ -397,6 +405,9 @@ export class PushConsumer extends Consumer {
       .setGroup(createResource(this.consumerGroup))
       .setEndpoints(this.endpoints.toProtobuf());
 
+    this.logger.info('Querying assignment, topic=%s, consumerGroup=%s, clientId=%s',
+      topic, this.consumerGroup, this.clientId);
+
     const response = await this.rpcClientManager.queryAssignment(
       endpoints, request, this.requestTimeout,
     );
@@ -409,8 +420,13 @@ export class PushConsumer extends Consumer {
     const assignmentList = response.getAssignmentsList().map(assignment => {
       const mqPb = assignment.getMessageQueue()!;
       const mq = new MessageQueue(mqPb);
+      this.logger.info('Assignment received: topic=%s, broker=%s, queueId=%d, clientId=%s',
+        mq.topic.name, mq.broker.name, mq.queueId, this.clientId);
       return new Assignment(mq);
     });
+
+    this.logger.info('Total assignments: %d, topic=%s, clientId=%s',
+      assignmentList.length, topic, this.clientId);
 
     return new Assignments(assignmentList);
   }
@@ -478,5 +494,50 @@ export class PushConsumer extends Consumer {
     const processQueue = new ProcessQueue(this, mq, filterExpression);
     this.#processQueueTable.set(mqKey, { mq, pq: processQueue });
     return processQueue;
+  }
+
+  /**
+   * Create a virtual process queue for Lite consumer.
+   * Lite consumers use a special message queue with queueId=-1 to receive messages.
+   * This method creates the virtual queue and starts fetching messages immediately.
+   *
+   * @param topic - The bind topic name
+   * @param filterExpression - The filter expression for message filtering
+   */
+  protected createVirtualProcessQueueForLite(topic: string, filterExpression: FilterExpression) {
+    // Create a virtual broker with default endpoints
+    const brokerPb = new (require('../../proto/apache/rocketmq/v2/definition_pb').Broker)();
+    brokerPb.setName('virtual-broker');
+    brokerPb.setId(0);
+    brokerPb.setEndpoints(this.endpoints.toProtobuf());
+    const broker = new Broker(brokerPb.toObject());
+
+    // Create a virtual message queue with queueId=-1
+    const virtualMqPb = new MessageQueuePB();
+    virtualMqPb.setId(-1); // Virtual queue ID for Lite consumer
+    virtualMqPb.setTopic(createResource(topic));
+    virtualMqPb.setBroker(broker.toProtobuf());
+    virtualMqPb.setPermission(Permission.READ);
+    virtualMqPb.setAcceptMessageTypesList([ MessageType.LITE ]);
+
+    const virtualMq = new MessageQueue(virtualMqPb);
+
+    // Create process queue for the virtual message queue
+    const mqKey = this.#mqKey(virtualMq);
+    if (this.#processQueueTable.has(mqKey)) {
+      this.logger.info('Virtual process queue already exists, mq=%s, clientId=%s', mqKey, this.clientId);
+      return;
+    }
+
+    const processQueue = new ProcessQueue(this, virtualMq, filterExpression);
+    this.#processQueueTable.set(mqKey, { mq: virtualMq, pq: processQueue });
+
+    this.logger.info('Created virtual process queue for Lite consumer, mq=%s, clientId=%s',
+      mqKey, this.clientId);
+
+    // Start fetching messages immediately
+    this.logger.info('Start to fetch lite messages from virtual queue, mq=%s, clientId=%s',
+      mqKey, this.clientId);
+    processQueue.fetchMessageImmediately();
   }
 }

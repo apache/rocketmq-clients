@@ -207,9 +207,16 @@ export class Producer extends BaseClient {
     const topic = pubMessages[0].topic;
     const messageType = pubMessages[0].messageType;
     const messageGroup = pubMessages[0].messageGroup;
+    const liteTopic = pubMessages[0].liteTopic;
     const messageTypes = new Set(pubMessages.map(m => m.messageType));
     if (messageTypes.size > 1) {
       throw new TypeError(`Messages to send have different types=${JSON.stringify(Array.from(messageTypes))}`);
+    }
+
+    // Log Lite Topic message sending
+    if (liteTopic) {
+      this.logger.info('Sending Lite Topic message, topic=%s, liteTopic=%s, messageType=%s, clientId=%s',
+        topic, liteTopic, MessageType[messageType], this.clientId);
     }
 
     // Message group must be same if message type is FIFO, or no need to proceed.
@@ -301,6 +308,11 @@ export class Producer extends BaseClient {
       const messageIds = sendReceipts.map(r => r.messageId);
       this.logger.info('Resend message successfully, topic=%s, messageId(s)=%s, maxAttempts=%d, attempt=%d, endpoints=%s, clientId=%s',
         topic, messageIds, maxAttempts, attempt, endpoints, this.clientId);
+    }
+    // Log Lite Topic message sent successfully
+    if (sendReceipts.length > 0 && messages[0].liteTopic) {
+      this.logger.info('Lite Topic message sent successfully, topic=%s, liteTopic=%s, messageId=%s, clientId=%s',
+        topic, messages[0].liteTopic, sendReceipts[0].messageId, this.clientId);
     }
     // Send message(s) successfully on first attempt, return directly
     return sendReceipts;

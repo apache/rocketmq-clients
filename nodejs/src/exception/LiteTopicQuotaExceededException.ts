@@ -15,18 +15,14 @@
  * limitations under the License.
  */
 
-export * from './BadRequestException';
-export * from './ClientException';
-export * from './ForbiddenException';
-export * from './InternalErrorException';
-export * from './LiteSubscriptionQuotaExceededException';
-export * from './LiteTopicQuotaExceededException';
-export * from './NotFoundException';
-export * from './PayloadTooLargeException';
-export * from './PaymentRequiredException';
-export * from './ProxyTimeoutException';
-export * from './RequestHeaderFieldsTooLargeException';
-export * from './StatusChecker';
-export * from './TooManyRequestsException';
-export * from './UnauthorizedException';
-export * from './UnsupportedException';
+import { ClientException } from '../exception/ClientException';
+
+/**
+ * Exception thrown when lite topic quota is exceeded during message sending.
+ */
+export class LiteTopicQuotaExceededException extends ClientException {
+  constructor(responseCode: number, message: string, requestId?: string) {
+    super(responseCode, message, requestId);
+    this.name = 'LiteTopicQuotaExceededException';
+  }
+}

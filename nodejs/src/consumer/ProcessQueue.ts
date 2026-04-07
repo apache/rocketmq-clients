@@ -88,6 +88,8 @@ export class ProcessQueue {
   }
 
   fetchMessageImmediately(): void {
+    (this.#consumer as any).logger?.info('ProcessQueue.fetchMessageImmediately called, mq=%s@%s@%d',
+      this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId);
     this.#receiveMessageImmediately();
   }
 
@@ -136,14 +138,23 @@ export class ProcessQueue {
       );
       this.#activityTime = Date.now();
 
+      (this.#consumer as any).logger?.info('Start to receive message, mq=%s@%s@%d, batchSize=%d, attemptId=%s',
+        this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, batchSize, attemptId);
+
       this.#consumer.receiveMessage(request, this.#mq, longPollingTimeout)
         .then(messages => {
+          (this.#consumer as any).logger?.info('Received messages, count=%d, mq=%s@%s@%d',
+            messages.length, this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId);
           this.#onReceiveMessageResult(messages);
         })
         .catch(err => {
+          (this.#consumer as any).logger?.error('Failed to receive message, mq=%s@%s@%d, error=%s',
+            this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, err);
           this.onReceiveMessageException(err, attemptId);
         });
     } catch (err) {
+      (this.#consumer as any).logger?.error('Exception in receiveMessage, mq=%s@%s@%d, error=%s',
+        this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, err);
       this.onReceiveMessageException(err as Error, attemptId);
     }
   }

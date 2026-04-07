@@ -18,7 +18,7 @@
 import { ClientType } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { NotifyUnsubscribeLiteCommand } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Resource } from '../route/Resource';
-import { Endpoints } from '../route';
+import { Endpoints, TopicRouteData } from '../route';
 import { PushConsumer, PushConsumerOptions } from './PushConsumer';
 import { LitePushConsumer } from './LitePushConsumer';
 import { OffsetOption } from './OffsetOption';
@@ -78,6 +78,16 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    */
   protected getClientType(): ClientType {
     return ClientType.LITE_PUSH_CONSUMER;
+  }
+
+  /**
+   * Override to disable standard assignment scanning for lite consumers.
+   * LitePushConsumer uses Lite Subscription mechanism instead of assignments.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  protected onTopicRouteDataUpdate(_topic: string, _topicRouteData: TopicRouteData) {
+    // Lite consumers do not use standard assignment mechanism
+    // They rely on LiteSubscriptionManager for message delivery
   }
 
   /**
