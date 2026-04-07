@@ -152,7 +152,10 @@ public abstract class ConsumerImpl extends ClientImpl {
             .setInvisibleDuration(Durations.fromNanos(invisibleDuration.toNanos()))
             .setMessageId(messageView.getMessageId().toString());
         if (isLiteConsumer()) {
-            messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+            if (messageView.getLiteTopic().isPresent()) {
+                builder.setLiteTopic(messageView.getLiteTopic().get());
+                builder.setSuspend(true);
+            }
         }
         return builder.build();
     }
