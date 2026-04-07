@@ -34,8 +34,6 @@ export * from './PushConsumer';
 export * from './LitePushConsumer';
 export * from './LiteSimpleConsumer';
 export * from './OffsetOption';
-export * from './LitePushConsumerBuilder';
-export * from './LiteSimpleConsumerBuilder';
 export { LitePushConsumerImpl } from './LitePushConsumerImpl';
 export { LiteSimpleConsumerImpl } from './LiteSimpleConsumerImpl';
 export { LiteSubscriptionManager } from './LiteSubscriptionManager';

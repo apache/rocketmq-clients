@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
+import { BaseClientOptions } from '../client';
 import { MessageView } from '../message';
 import { OffsetOption } from './OffsetOption';
+import { LiteSimpleConsumerImpl, LiteSimpleConsumerOptions } from './LiteSimpleConsumerImpl';
 
 /**
  * Similar to SimpleConsumer, but for lite topic.
@@ -113,4 +115,120 @@ export interface LiteSimpleConsumer {
    * <p>Once consumer is closed, <strong>it could not be started once again.</strong></p>
    */
   close(): Promise<void>;
+}
+
+/**
+ * LiteSimpleConsumer factory class.
+ *
+ * <p>This class provides a fluent API for configuring and creating
+ * lite simple consumers with reduced overhead for lightweight scenarios.</p>
+ */
+export class LiteSimpleConsumerFactory {
+  private options: Partial<LiteSimpleConsumerOptions> = {};
+
+  /**
+   * Set the bind topic for the lite simple consumer.
+   *
+   * @param bindTopic the parent topic that lite topics belong to
+   * @return this builder
+   */
+  bindTopic(bindTopic: string): LiteSimpleConsumerFactory {
+    if (!bindTopic || bindTopic.trim().length === 0) {
+      throw new Error('bindTopic should not be blank');
+    }
+    this.options.bindTopic = bindTopic;
+    return this;
+  }
+
+  /**
+   * Set the client configuration.
+   *
+   * @param options the client configuration options
+   * @return this builder
+   */
+  setClientConfiguration(options: BaseClientOptions): LiteSimpleConsumerFactory {
+    if (!options) {
+      throw new Error('clientConfiguration should not be null');
+    }
+    Object.assign(this.options, options);
+    return this;
+  }
+
+  /**
+   * Set the consumer group.
+   *
+   * <p>Note: For lite consumers, the consumer group should NOT start with 'GID-' prefix.</p>
+   *
+   * @param consumerGroup the consumer group name
+   * @return this builder
+   */
+  setConsumerGroup(consumerGroup: string): LiteSimpleConsumerFactory {
+    if (!consumerGroup) {
+      throw new Error('consumerGroup should not be null');
+    }
+    // Validate consumer group format (should not start with GID-)
+    if (consumerGroup.startsWith('GID-')) {
+      throw new Error(
+        'Lite consumer group should not start with "GID-" prefix. ' +
+        'Please use a different group name without the prefix.');
+    }
+    this.options.consumerGroup = consumerGroup;
+    return this;
+  }
+
+  /**
+   * Set the await duration for long-polling.
+   *
+   * @param awaitDuration the await duration in milliseconds
+   * @return this builder
+   */
+  setAwaitDuration(awaitDuration: number): LiteSimpleConsumerFactory {
+    if (awaitDuration <= 0) {
+      throw new Error('awaitDuration should be greater than 0');
+    }
+    this.options.awaitDuration = awaitDuration;
+    return this;
+  }
+
+  /**
+   * Start up the LiteSimpleConsumer.
+   *
+   * @return the started LiteSimpleConsumer instance
+   * @throws Error if required parameters are not set
+   */
+  async startup(): Promise<LiteSimpleConsumer> {
+    // Validate required parameters
+    if (!this.options.endpoints) {
+      throw new Error('clientConfiguration has not been set yet');
+    }
+    if (!this.options.consumerGroup) {
+      throw new Error('consumerGroup has not been set yet');
+    }
+    if (!this.options.awaitDuration) {
+      throw new Error('awaitDuration has not been set yet');
+    }
+    if (!this.options.bindTopic) {
+      throw new Error('bindTopic has not been set yet');
+    }
+
+    // Create options
+    const options: any = {
+      endpoints: this.options.endpoints,
+      namespace: this.options.namespace ?? '',
+      consumerGroup: this.options.consumerGroup,
+      bindTopic: this.options.bindTopic,
+      awaitDuration: this.options.awaitDuration,
+      subscriptions: new Map(), // Will be set in constructor
+      sslEnabled: this.options.sslEnabled,
+      sessionCredentials: this.options.sessionCredentials,
+      requestTimeout: this.options.requestTimeout,
+      logger: this.options.logger,
+    };
+
+    // Create and start the consumer
+    const consumer = new LiteSimpleConsumerImpl(options);
+    await consumer.startup();
+
+    return consumer;
+  }
 }
