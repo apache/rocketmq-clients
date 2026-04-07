@@ -62,17 +62,27 @@ export class SimpleConsumer extends Consumer {
       }
     }
     this.#awaitDuration = options.awaitDuration ?? 30000;
-    this.#simpleSubscriptionSettings = new SimpleSubscriptionSettings(options.namespace, this.clientId, this.endpoints,
-      this.consumerGroup, this.requestTimeout, this.#awaitDuration, this.#subscriptionExpressions);
+    this.#simpleSubscriptionSettings = new SimpleSubscriptionSettings(options.namespace, this.clientId,
+      this.getClientType(), this.endpoints, this.consumerGroup, this.requestTimeout,
+      this.#awaitDuration, this.#subscriptionExpressions);
   }
 
   protected getSettings() {
     return this.#simpleSubscriptionSettings;
   }
 
+  /**
+   * Get the client type.
+   *
+   * @return The client type identifier for simple consumer
+   */
+  protected getClientType(): ClientType {
+    return ClientType.SIMPLE_CONSUMER;
+  }
+
   protected wrapHeartbeatRequest() {
     return new HeartbeatRequest()
-      .setClientType(ClientType.SIMPLE_CONSUMER)
+      .setClientType(this.getClientType())
       .setGroup(createResource(this.consumerGroup));
   }
 

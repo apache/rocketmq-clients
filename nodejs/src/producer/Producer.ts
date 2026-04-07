@@ -160,9 +160,18 @@ export class Producer extends BaseClient {
     return this.#publishingSettings;
   }
 
+  /**
+   * Get the client type.
+   *
+   * @return The client type identifier for producer
+   */
+  protected getClientType(): ClientType {
+    return ClientType.PRODUCER;
+  }
+
   protected wrapHeartbeatRequest(): HeartbeatRequest {
     return new HeartbeatRequest()
-      .setClientType(ClientType.PRODUCER);
+      .setClientType(this.getClientType());
   }
 
   protected wrapNotifyClientTerminationRequest(): NotifyClientTerminationRequest {

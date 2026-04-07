@@ -165,15 +165,24 @@ export class LiteSimpleConsumerImpl extends SimpleConsumer implements LiteSimple
    * Optimize route data for lite consumer by keeping only the first readable master queue.
    * This reduces memory usage and network overhead.
    *
-   * Note: The optimization is simplified compared to Java implementation due to
-   * differences in the MessageQueue API. We simply take the first available queue.
+   * Note: Similar to Java implementation, we filter for readable master queues and take the first one.
    */
   private optimizeRouteDataForLite(topicRouteData: TopicRouteData): TopicRouteData {
-    // For lite consumers, use only the first message queue to reduce resource consumption
+    // Find the first readable master queue (similar to Java's isReadableMasterQueue)
+    const readableMasterQueue = topicRouteData.messageQueues.find(mq => {
+      // Check if it's a master broker (id > 0 typically indicates master)
+      // and has read permission
+      return mq.broker.id >= 0 && mq.permission === 1; // Permission.READ = 1
+    });
+
+    if (readableMasterQueue) {
+      const firstQueuePb = readableMasterQueue.toProtobuf();
+      return new TopicRouteData([ firstQueuePb ]);
+    }
+
+    // If no readable master queue found, fall back to first available queue
     if (topicRouteData.messageQueues.length > 0) {
-      const firstQueue = topicRouteData.messageQueues[ 0 ];
-      // Convert back to protobuf and create new TopicRouteData
-      const firstQueuePb = firstQueue.toProtobuf();
+      const firstQueuePb = topicRouteData.messageQueues[ 0 ].toProtobuf();
       return new TopicRouteData([ firstQueuePb ]);
     }
 
