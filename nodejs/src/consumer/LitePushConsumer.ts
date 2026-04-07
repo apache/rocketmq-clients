@@ -96,12 +96,12 @@ export interface LitePushConsumerOptions extends BaseClientOptions {
 const CONSUMER_GROUP_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 /**
- * LitePushConsumer factory class.
+ * LitePushConsumer builder class.
  *
  * <p>This class provides a fluent API for configuring and creating
  * lite push consumers with reduced overhead for lightweight scenarios.</p>
  */
-export class LitePushConsumerFactory {
+export class LitePushConsumerBuilder {
   private options: Partial<LitePushConsumerOptions> = {};
 
   /**
@@ -111,7 +111,7 @@ export class LitePushConsumerFactory {
    * @return This builder instance
    * @throws Error if bindTopic is blank
    */
-  bindTopic(bindTopic: string): LitePushConsumerFactory {
+  bindTopic(bindTopic: string): LitePushConsumerBuilder {
     if (!bindTopic || bindTopic.trim().length === 0) {
       throw new Error('bindTopic should not be blank');
     }
@@ -126,7 +126,7 @@ export class LitePushConsumerFactory {
    * @return This builder instance
    * @throws Error if options is null/undefined
    */
-  setClientConfiguration(options: BaseClientOptions): LitePushConsumerFactory {
+  setClientConfiguration(options: BaseClientOptions): LitePushConsumerBuilder {
     if (!options) {
       throw new Error('clientConfiguration should not be null');
     }
@@ -141,7 +141,7 @@ export class LitePushConsumerFactory {
    * @return This builder instance
    * @throws Error if consumerGroup is null, doesn't match the pattern, or starts with 'GID-'
    */
-  setConsumerGroup(consumerGroup: string): LitePushConsumerFactory {
+  setConsumerGroup(consumerGroup: string): LitePushConsumerBuilder {
     if (!consumerGroup) {
       throw new Error('consumerGroup should not be null');
     }
@@ -159,7 +159,7 @@ export class LitePushConsumerFactory {
    * @return This builder instance
    * @throws Error if messageListener is null/undefined
    */
-  setMessageListener(messageListener: MessageListener): LitePushConsumerFactory {
+  setMessageListener(messageListener: MessageListener): LitePushConsumerBuilder {
     if (!messageListener) {
       throw new Error('messageListener should not be null');
     }
@@ -174,7 +174,7 @@ export class LitePushConsumerFactory {
    * @return This builder instance
    * @throws Error if maxCacheMessageCount is not positive
    */
-  setMaxCacheMessageCount(maxCacheMessageCount: number): LitePushConsumerFactory {
+  setMaxCacheMessageCount(maxCacheMessageCount: number): LitePushConsumerBuilder {
     if (maxCacheMessageCount <= 0) {
       throw new Error('maxCacheMessageCount should be positive');
     }
@@ -189,7 +189,7 @@ export class LitePushConsumerFactory {
    * @return This builder instance
    * @throws Error if maxCacheMessageSizeInBytes is not positive
    */
-  setMaxCacheMessageSizeInBytes(maxCacheMessageSizeInBytes: number): LitePushConsumerFactory {
+  setMaxCacheMessageSizeInBytes(maxCacheMessageSizeInBytes: number): LitePushConsumerBuilder {
     if (maxCacheMessageSizeInBytes <= 0) {
       throw new Error('maxCacheMessageSizeInBytes should be positive');
     }
@@ -204,7 +204,7 @@ export class LitePushConsumerFactory {
    * @return This builder instance
    * @throws Error if consumptionThreadCount is not positive
    */
-  setConsumptionThreadCount(consumptionThreadCount: number): LitePushConsumerFactory {
+  setConsumptionThreadCount(consumptionThreadCount: number): LitePushConsumerBuilder {
     if (consumptionThreadCount <= 0) {
       throw new Error('consumptionThreadCount should be positive');
     }

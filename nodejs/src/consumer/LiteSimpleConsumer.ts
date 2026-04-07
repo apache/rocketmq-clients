@@ -118,12 +118,12 @@ export interface LiteSimpleConsumer {
 }
 
 /**
- * LiteSimpleConsumer factory class.
+ * LiteSimpleConsumer builder class.
  *
  * <p>This class provides a fluent API for configuring and creating
  * lite simple consumers with reduced overhead for lightweight scenarios.</p>
  */
-export class LiteSimpleConsumerFactory {
+export class LiteSimpleConsumerBuilder {
   private options: Partial<LiteSimpleConsumerOptions> = {};
 
   /**
@@ -132,7 +132,7 @@ export class LiteSimpleConsumerFactory {
    * @param bindTopic the parent topic that lite topics belong to
    * @return this builder
    */
-  bindTopic(bindTopic: string): LiteSimpleConsumerFactory {
+  bindTopic(bindTopic: string): LiteSimpleConsumerBuilder {
     if (!bindTopic || bindTopic.trim().length === 0) {
       throw new Error('bindTopic should not be blank');
     }
@@ -146,7 +146,7 @@ export class LiteSimpleConsumerFactory {
    * @param options the client configuration options
    * @return this builder
    */
-  setClientConfiguration(options: BaseClientOptions): LiteSimpleConsumerFactory {
+  setClientConfiguration(options: BaseClientOptions): LiteSimpleConsumerBuilder {
     if (!options) {
       throw new Error('clientConfiguration should not be null');
     }
@@ -162,7 +162,7 @@ export class LiteSimpleConsumerFactory {
    * @param consumerGroup the consumer group name
    * @return this builder
    */
-  setConsumerGroup(consumerGroup: string): LiteSimpleConsumerFactory {
+  setConsumerGroup(consumerGroup: string): LiteSimpleConsumerBuilder {
     if (!consumerGroup) {
       throw new Error('consumerGroup should not be null');
     }
@@ -182,7 +182,7 @@ export class LiteSimpleConsumerFactory {
    * @param awaitDuration the await duration in milliseconds
    * @return this builder
    */
-  setAwaitDuration(awaitDuration: number): LiteSimpleConsumerFactory {
+  setAwaitDuration(awaitDuration: number): LiteSimpleConsumerBuilder {
     if (awaitDuration <= 0) {
       throw new Error('awaitDuration should be greater than 0');
     }
