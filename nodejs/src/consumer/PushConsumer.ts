@@ -91,7 +91,7 @@ export class PushConsumer extends Consumer {
     this.#enableFifoConsumeAccelerator = options.enableFifoConsumeAccelerator ?? false;
 
     this.#pushSubscriptionSettings = new PushSubscriptionSettings(
-      options.namespace, this.clientId, this.endpoints,
+      options.namespace, this.clientId, this.getClientType(), this.endpoints,
       this.consumerGroup, this.requestTimeout, this.#subscriptionExpressions,
     );
   }
@@ -148,9 +148,18 @@ export class PushConsumer extends Consumer {
     return this.#pushSubscriptionSettings;
   }
 
+  /**
+   * Get the client type for push consumer.
+   *
+   * @return The client type identifier
+   */
+  protected getClientType(): ClientType {
+    return ClientType.PUSH_CONSUMER;
+  }
+
   protected wrapHeartbeatRequest() {
     return new HeartbeatRequest()
-      .setClientType(ClientType.PUSH_CONSUMER)
+      .setClientType(this.getClientType())
       .setGroup(createResource(this.consumerGroup));
   }
 

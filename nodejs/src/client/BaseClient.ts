@@ -74,7 +74,6 @@ export interface BaseClientOptions {
  */
 export abstract class BaseClient {
   readonly clientId = ClientId.create();
-  readonly clientType = ClientType.CLIENT_TYPE_UNSPECIFIED;
   readonly sslEnabled: boolean;
   readonly #sessionCredentials?: SessionCredentials;
   readonly namespace: string;
@@ -90,6 +89,16 @@ export abstract class BaseClient {
   #startupReject?: (err: Error) => void;
   #timers: NodeJS.Timeout[] = [];
   #running = false;
+
+  /**
+   * Get the client type.
+   * Subclasses should override this method to return their specific client type.
+   *
+   * @return The client type identifier
+   */
+  protected getClientType(): ClientType {
+    return ClientType.CLIENT_TYPE_UNSPECIFIED;
+  }
 
   constructor(options: BaseClientOptions) {
     this.logger = options.logger ?? getDefaultLogger();
