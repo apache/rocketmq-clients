@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { BaseClientOptions } from '../client/BaseClient';
+import { BaseClientOptions } from '../client';
 import { MessageListener } from './MessageListener';
 import { LitePushConsumer } from './LitePushConsumer';
 import { LitePushConsumerImpl } from './LitePushConsumerImpl';
@@ -72,7 +72,7 @@ export class LitePushConsumerBuilder {
    *
    * @param consumerGroup - Consumer group name
    * @return This builder instance
-   * @throws Error if consumerGroup is null or doesn't match the pattern
+   * @throws Error if consumerGroup is null, doesn't match the pattern, or starts with 'GID-'
    */
   setConsumerGroup(consumerGroup: string): LitePushConsumerBuilder {
     if (!consumerGroup) {

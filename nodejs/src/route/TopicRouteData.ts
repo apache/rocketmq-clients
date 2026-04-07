@@ -35,4 +35,20 @@ export class TopicRouteData {
     }
     return Array.from(endpointsMap.values());
   }
+
+  /**
+   * Get the count of message queues.
+   * @return number of message queues
+   */
+  getQueueCount(): number {
+    return this.messageQueues.length;
+  }
+
+  /**
+   * Check if the route data is empty.
+   * @return true if no message queues available
+   */
+  isEmpty(): boolean {
+    return this.messageQueues.length === 0;
+  }
 }

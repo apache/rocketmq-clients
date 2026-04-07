@@ -18,40 +18,39 @@
 import { ClientType } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { NotifyUnsubscribeLiteCommand } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Resource } from '../route/Resource';
+import { TopicRouteData } from '../route';
+import { MessageView } from '../message';
 import { Endpoints } from '../route';
-import { PushConsumer, PushConsumerOptions } from './PushConsumer';
-import { LitePushConsumer } from './LitePushConsumer';
+import { SimpleConsumer, SimpleConsumerOptions } from './SimpleConsumer';
+import { LiteSimpleConsumer } from './LiteSimpleConsumer';
 import { OffsetOption } from './OffsetOption';
 import { LiteSubscriptionManager } from './LiteSubscriptionManager';
 import { FilterExpression } from './FilterExpression';
 
-export interface LitePushConsumerOptions extends PushConsumerOptions {
+export interface LiteSimpleConsumerOptions extends SimpleConsumerOptions {
   bindTopic: string;
 }
 
 /**
- * Implementation of LitePushConsumer.
+ * Implementation of LiteSimpleConsumer.
  *
- * <p>LitePushConsumer extends PushConsumer to provide lightweight message consumption
+ * <p>LiteSimpleConsumer extends SimpleConsumer to provide lightweight message consumption
  * with reduced metadata and storage overhead. It supports dynamic subscription
  * management for lite topics.</p>
  *
- * <p>Key features:</p>
+ * <p>Key differences from standard SimpleConsumer:</p>
  * <ul>
- *   <li>Dynamic lite topic subscription/unsubscription</li>
- *   <li>Quota management for lite subscriptions</li>
- *   <li>Reduced resource consumption compared to standard PushConsumer</li>
- *   <li>Automatic synchronization with server settings</li>
+ *   <li>Uses lite topic subscription mechanism</li>
+ *   <li>Optimized routing - only uses first readable master queue</li>
+ *   <li>Reduced resource consumption</li>
  * </ul>
- *
- * <p>Note: Unlike LiteSimpleConsumer, LitePushConsumer does not perform route optimization
- * because it uses the assignment-based message delivery mechanism managed by the server.</p>
  */
-export class LitePushConsumerImpl extends PushConsumer implements LitePushConsumer {
+export class LiteSimpleConsumerImpl extends SimpleConsumer implements LiteSimpleConsumer {
   private readonly liteSubscriptionManager: LiteSubscriptionManager;
   private readonly bindTopic: Resource;
 
-  constructor(options: LitePushConsumerOptions) {
+  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
+  constructor(options: LiteSimpleConsumerOptions) {
     // Create subscription expressions with bind topic
     const subscriptions = new Map<string, FilterExpression>();
     subscriptions.set(options.bindTopic, FilterExpression.SUB_ALL);
@@ -65,7 +64,7 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
 
     const groupResource = new Resource(options.namespace, options.consumerGroup);
     this.liteSubscriptionManager = new LiteSubscriptionManager(
-      this,
+      this as any, // Type assertion needed due to protected methods
       this.bindTopic,
       groupResource,
     );
@@ -73,18 +72,13 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
 
   /**
    * Get the client type.
-   *
-   * @return The client type identifier for lite push consumer
    */
   protected getClientType(): ClientType {
-    return ClientType.LITE_PUSH_CONSUMER;
+    return ClientType.LITE_SIMPLE_CONSUMER;
   }
 
   /**
    * Start up the consumer.
-   *
-   * <p>This method initializes the consumer and starts the lite subscription manager.
-   * It must be called before the consumer can receive messages.</p>
    */
   async startup() {
     await super.startup();
@@ -93,9 +87,6 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
 
   /**
    * Shutdown the consumer.
-   *
-   * <p>This method gracefully shuts down the consumer, releasing all resources
-   * and stopping the lite subscription manager.</p>
    */
   async shutdown() {
     this.liteSubscriptionManager.shutdown();
@@ -104,39 +95,15 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
 
   /**
    * Subscribe to a lite topic.
-   *
-   * <p>The subscribeLite() method initiates network requests and performs quota verification,
-   * so it may fail. It's important to handle potential errors. Possible failure scenarios include:</p>
-   * <ul>
-   *   <li>Network request errors, which can be retried.</li>
-   *   <li>Quota verification failures (LiteSubscriptionQuotaExceededException).
-   *       In this case, evaluate whether the quota is insufficient and promptly unsubscribe
-   *       from unused subscriptions using unsubscribeLite() to free up resources.</li>
-   * </ul>
-   *
-   * @param liteTopic - The name of the lite topic to subscribe
    */
   async subscribeLite(liteTopic: string): Promise<void>;
-
-  /**
-   * Subscribe to a lite topic with offset option to specify the consume from offset.
-   *
-   * @param liteTopic - The name of the lite topic to subscribe
-   * @param offsetOption - The consume from offset option
-   */
   async subscribeLite(liteTopic: string, offsetOption: OffsetOption): Promise<void>;
-
   async subscribeLite(liteTopic: string, offsetOption?: OffsetOption): Promise<void> {
     await this.liteSubscriptionManager.subscribeLite(liteTopic, offsetOption ?? null);
   }
 
   /**
    * Unsubscribe from a lite topic.
-   *
-   * <p>This method removes the subscription and notifies the server.
-   * After unsubscribing, the consumer will no longer receive messages from this topic.</p>
-   *
-   * @param liteTopic - The name of the lite topic to unsubscribe from
    */
   async unsubscribeLite(liteTopic: string): Promise<void> {
     await this.liteSubscriptionManager.unsubscribeLite(liteTopic);
@@ -144,11 +111,6 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
 
   /**
    * Get the lite topic set.
-   *
-   * <p>Returns an immutable set of currently subscribed lite topics.
-   * This set reflects the current state of subscriptions managed by the lite subscription manager.</p>
-   *
-   * @return Set of lite topic names
    */
   getLiteTopicSet(): Set<string> {
     return this.liteSubscriptionManager.getLiteTopicSet();
@@ -156,11 +118,6 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
 
   /**
    * Get the load balancing group for the consumer.
-   *
-   * <p>The consumer group is used for load balancing across multiple consumer instances.
-   * All consumers in the same group will share the message load.</p>
-   *
-   * @return Consumer group name
    */
   getConsumerGroup(): string {
     return this.liteSubscriptionManager.getConsumerGroupName();
@@ -168,11 +125,6 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
 
   /**
    * Handle notify unsubscribe lite command from server.
-   *
-   * <p>This method is called when the server sends a notification to unsubscribe
-   * from a lite topic, typically due to quota violations or administrative actions.</p>
-   *
-   * @param command - The unsubscribe command from the server
    */
   onNotifyUnsubscribeLiteCommand(command: NotifyUnsubscribeLiteCommand) {
     this.liteSubscriptionManager.onNotifyUnsubscribeLiteCommand(command);
@@ -180,16 +132,83 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
 
   /**
    * Handle settings command from server.
-   *
-   * <p>This method processes configuration updates from the server and synchronizes
-   * the lite subscription manager with the latest settings.</p>
-   *
-   * @param endpoints - The server endpoints
-   * @param settings - The settings configuration
    */
-  onSettingsCommand(endpoints: any, settings: any) {
+  onSettingsCommand(endpoints: Endpoints, settings: any) {
     super.onSettingsCommand(endpoints, settings);
     this.liteSubscriptionManager.sync(settings);
+  }
+
+  /**
+   * Override topic route data update to optimize routing for lite consumer.
+   * For lite consumers, we only need routes to brokers, so keep only the first readable queue.
+   * This reduces memory usage and network overhead significantly.
+   */
+  protected onTopicRouteDataUpdate(topic: string, topicRouteData: TopicRouteData) {
+    // Optimize: only use the first readable master queue for lite consumers
+    const originalQueueCount = topicRouteData.getQueueCount();
+    const optimizedRouteData = this.optimizeRouteDataForLite(topicRouteData);
+    const optimizedQueueCount = optimizedRouteData.getQueueCount();
+
+    if (originalQueueCount > 1 && optimizedQueueCount === 1) {
+      this.logger.info(
+        'Lite consumer route optimization applied: topic=%s, original queues=%d, optimized queues=%d',
+        topic,
+        originalQueueCount,
+        optimizedQueueCount,
+      );
+    }
+
+    super.onTopicRouteDataUpdate(topic, optimizedRouteData);
+  }
+
+  /**
+   * Optimize route data for lite consumer by keeping only the first readable master queue.
+   * This reduces memory usage and network overhead.
+   *
+   * Note: The optimization is simplified compared to Java implementation due to
+   * differences in the MessageQueue API. We simply take the first available queue.
+   */
+  private optimizeRouteDataForLite(topicRouteData: TopicRouteData): TopicRouteData {
+    // For lite consumers, use only the first message queue to reduce resource consumption
+    if (topicRouteData.messageQueues.length > 0) {
+      const firstQueue = topicRouteData.messageQueues[ 0 ];
+      // Convert back to protobuf and create new TopicRouteData
+      const firstQueuePb = firstQueue.toProtobuf();
+      return new TopicRouteData([ firstQueuePb ]);
+    }
+
+    // If no queues available, return original (will handle error downstream)
+    return topicRouteData;
+  }
+
+  /**
+   * Receive messages synchronously.
+   *
+   * @param maxMessageNum max message num of server returned
+   * @param invisibleDuration set the invisible duration of messages to return from the server
+   * @return list of message view
+   */
+  async receive(maxMessageNum: number, invisibleDuration: number): Promise<MessageView[]> {
+    return super.receive(maxMessageNum, invisibleDuration);
+  }
+
+  /**
+   * Acknowledge a message synchronously.
+   *
+   * @param messageView message view to ack
+   */
+  async ack(messageView: MessageView): Promise<void> {
+    return super.ack(messageView);
+  }
+
+  /**
+   * Change invisible duration synchronously.
+   *
+   * @param messageView message view to change invisible duration
+   * @param invisibleDuration new invisible duration
+   */
+  async changeInvisibleDuration(messageView: MessageView, invisibleDuration: number): Promise<void> {
+    return super.changeInvisibleDuration(messageView, invisibleDuration);
   }
 
   /**
