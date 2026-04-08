@@ -4,13 +4,22 @@
   "license": "Apache-2.0",
   "require": {
     "google/protobuf": "^3.3",
-    "grpc/grpc": "^1.42",
+    "grpc/grpc": "^1.80",
     "hanson/foundation-sdk": "^5.0"
   },
   "autoload": {
     "psr-4": {
       "GPBMetadata\\": "grpc/GPBMetadata",
-      "Apache\\Rocketmq\\V2\\": "grpc/Apache/Rocketmq/V2"
-    }
+      "Apache\\Rocketmq\\V2\\": "grpc/Apache/Rocketmq/V2",
+      "Apache\\Rocketmq\\": "."
+    },
+    "classmap": [
+      "HealthChecker.php",
+      "MessageInterceptor.php",
+      "MetricsCollector.php"
+    ]
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.0"
   }
 }

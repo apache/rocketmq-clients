@@ -20,54 +20,1338 @@ namespace Apache\Rocketmq;
 
 require 'vendor/autoload.php';
 
-
-use Apache\Rocketmq\V2\MessageQueue;
+use Apache\Rocketmq\V2\Message;
+use Apache\Rocketmq\V2\MessageType;
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
 use Apache\Rocketmq\V2\Resource;
+use Apache\Rocketmq\V2\SendMessageRequest;
+use Apache\Rocketmq\V2\SystemProperties;
 use Grpc\ChannelCredentials;
 use const Grpc\STATUS_OK;
 
+/**
+ * RocketMQ Producer Implementation
+ * 
+ * Supports the following message types:
+ * - Normal messages
+ * - FIFO messages (ordered messages)
+ * - Scheduled/delayed messages
+ * - Transaction messages
+ * - Async sending
+ * 
+ * Usage example:
+ * $producer = Producer::getInstance($endpoints, $topic);
+ * $producer->sendNormalMessage($body, $tag, $keys);
+ */
 class Producer
 {
-
-    public function init()
+    /**
+     * @var MessagingServiceClient|null gRPC client instance
+     */
+    private static $client = null;
+    
+    /**
+     * @var ClientConfiguration Client configuration object
+     */
+    private $config;
+    
+    /**
+     * @var string Topic name
+     */
+    private $topic;
+    
+    /**
+     * @var string Client ID
+     */
+    private $clientId;
+    
+    /**
+     * @var RetryPolicy Retry policy
+     */
+    private $retryPolicy;
+    
+    /**
+     * @var string Client state: CREATED, STARTING, RUNNING, STOPPING, TERMINATED
+     */
+    private $state = 'CREATED';
+    
+    /**
+     * @var RouteCache Route cache instance
+     */
+    private $routeCache;
+    
+    /**
+     * @var TransactionChecker|null Transaction checker
+     */
+    private $transactionChecker = null;
+    
+    /**
+     * @var HealthChecker|null Health checker
+     */
+    private $healthChecker = null;
+    
+    /**
+     * @var MessageInterceptor[] Message interceptor list
+     */
+    private $interceptors = [];
+    
+    /**
+     * @var MetricsCollector Metrics collector
+     */
+    private $metricsCollector;
+    
+    /**
+     * Private constructor to prevent direct instantiation
+     * 
+     * @param ClientConfiguration|string $configOrEndpoints Client configuration object or server endpoint string (backward compatible)
+     * @param string|null $topic Topic name（Used when first parameter is endpoints string）
+     * @param RetryPolicy|null $retryPolicy Retry policy (optional, Used when first parameter is endpoints string)
+     * @throws \InvalidArgumentException Throws exception when parameters are invalid
+     */
+    private function __construct($configOrEndpoints, $topic = null, $retryPolicy = null)
     {
-        /**
-         * Client ID is currently concatenated using a fixed host name to
-         * facilitate code debugging.
-         */
-        $clientId = 'missyourlove' . '@' . posix_getpid() . '@' . rand(0, 10) . '@' . $this->getRandStr(10);
-        $client = new MessagingServiceClient('rmq-cn-cs02xhf2k01.cn-hangzhou.rmq.aliyuncs.com:8080', [
-            'credentials' => ChannelCredentials::createInsecure(),
-            'update_metadata' => function ($metaData) use ($clientId) {
-                $metaData['headers'] = ['clientID' => $clientId]; // Pass the ClientID to the server through the header
-                return $metaData;
+        // Supports two construction methods:
+        // 1. New configuration object method: __construct(ClientConfiguration $config, $topic)
+        // 2. Legacy compatible method: __construct($endpoints, $topic, $retryPolicy)
+        
+        if ($configOrEndpoints instanceof ClientConfiguration) {
+            // New configuration object method
+            $this->config = $configOrEndpoints;
+            $this->topic = $topic;
+            $this->retryPolicy = $this->config->getOrCreateRetryPolicy();
+        } else {
+            // Legacy compatible method
+            if (empty($topic)) {
+                throw new \InvalidArgumentException("Topic cannot be empty when using legacy constructor");
             }
-        ]);
-
+            
+            $this->config = new ClientConfiguration($configOrEndpoints);
+            if ($retryPolicy !== null) {
+                $this->config->withRetryPolicy($retryPolicy);
+            }
+            $this->topic = $topic;
+            $this->retryPolicy = $this->config->getOrCreateRetryPolicy();
+        }
+        
+        $this->clientId = $this->generateClientId();
+        $this->routeCache = RouteCache::getInstance();
+        $this->metricsCollector = new MetricsCollector($this->clientId);
+    }
+    
+    /**
+     * Get Producer singleton instance (configuration object recommended)
+     * 
+     * Usage example:
+     * ```php
+     * // Method 1: Using configuration object (recommended)
+     * $config = new ClientConfiguration('127.0.0.1:8080');
+     * $producer = Producer::getInstance($config, 'my-topic');
+     * 
+     * // Method 2: Using legacy method (backward compatible)
+     * $producer = Producer::getInstance('127.0.0.1:8080', 'my-topic');
+     * ```
+     * 
+     * @param ClientConfiguration|string $configOrEndpoints Client configuration object or server endpoint string
+     * @param string|null $topic Topic name（Used when first parameter is endpoints string）
+     * @param RetryPolicy|null $retryPolicy Retry policy (optional, only effective when using endpoint string)
+     * @return Producer Producer instance
+     */
+    public static function getInstance($configOrEndpoints, $topic = null, $retryPolicy = null)
+    {
+        return new self($configOrEndpoints, $topic, $retryPolicy);
+    }
+    
+    /**
+     * Get Producer singleton instance for transaction messages (configuration object recommended)
+     * 
+     * Usage example:
+     * ```php
+     * // Method 1: Using configuration object (recommended)
+     * $config = new ClientConfiguration('127.0.0.1:8080');
+     * $checker = new MyTransactionChecker();
+     * $producer = Producer::getTransactionalInstance($config, 'my-topic', $checker);
+     * 
+     * // Method 2: Using legacy method (backward compatible)
+     * $producer = Producer::getTransactionalInstance('127.0.0.1:8080', 'my-topic', $checker);
+     * ```
+     * 
+     * @param ClientConfiguration|string $configOrEndpoints Client configuration object or server endpoint string
+     * @param string|null $topic Topic name（Used when first parameter is endpoints string）
+     * @param TransactionChecker|null $checker Transaction checker
+     * @param RetryPolicy|null $retryPolicy Retry policy (optional, only effective when using endpoint string)
+     * @return Producer Producer instance
+     * @throws \InvalidArgumentException Throws exception when parameters are invalid
+     */
+    public static function getTransactionalInstance($configOrEndpoints, $topic = null, $checker = null, $retryPolicy = null)
+    {
+        // Handle parameter order issue: if the third parameter is RetryPolicy, it means using old API
+        if ($checker instanceof RetryPolicy) {
+            $retryPolicy = $checker;
+            $checker = null;
+        }
+        
+        $producer = new self($configOrEndpoints, $topic, $retryPolicy);
+        
+        if ($checker !== null && !($checker instanceof TransactionChecker)) {
+            throw new \InvalidArgumentException("Checker must be an instance of TransactionChecker");
+        }
+        
+        if ($checker !== null) {
+            $producer->transactionChecker = $checker;
+        }
+        
+        return $producer;
+    }
+    
+    /**
+     * Start Producer
+     * 
+     * @return void
+     * @throws \Exception If startup fails or state is incorrect
+     */
+    public function start()
+    {
+        // Check state transition validity
+        ClientState::checkState($this->state, [ClientState::CREATED], 'start');
+        
+        $this->state = ClientState::STARTING;
+        
+        try {
+            // Verify connection and get route information
+            $this->queryRoute();
+            
+            // Transition state to RUNNING
+            if (ClientState::canTransition($this->state, ClientState::RUNNING)) {
+                $this->state = ClientState::RUNNING;
+            }
+        } catch (\Exception $e) {
+            // Transition state to FAILED
+            if (ClientState::canTransition($this->state, ClientState::FAILED)) {
+                $this->state = ClientState::FAILED;
+            }
+            throw new \Exception(
+                "Failed to start producer: " . $e->getMessage(), 
+                0, 
+                $e
+            );
+        }
+    }
+    
+    /**
+     * Add message interceptor
+     * 
+     * @param MessageInterceptor $interceptor Interceptor instance
+     * @return self Return current instance for chainable calls
+     */
+    public function addInterceptor($interceptor)
+    {
+        if (!($interceptor instanceof MessageInterceptor)) {
+            throw new \InvalidArgumentException("Interceptor must implement MessageInterceptor interface");
+        }
+        
+        $this->interceptors[] = $interceptor;
+        return $this;
+    }
+    
+    /**
+     * Remove message interceptor
+     * 
+     * @param MessageInterceptor $interceptor Interceptor instance
+     * @return bool Whether successfully removed
+     */
+    public function removeInterceptor($interceptor)
+    {
+        $index = array_search($interceptor, $this->interceptors, true);
+        if ($index !== false) {
+            unset($this->interceptors[$index]);
+            $this->interceptors = array_values($this->interceptors); // Re-index
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Clear all interceptors
+     * 
+     * @return void
+     */
+    public function clearInterceptors()
+    {
+        $this->interceptors = [];
+    }
+    
+    /**
+     * Get interceptor list
+     * 
+     * @return MessageInterceptor[]
+     */
+    public function getInterceptors()
+    {
+        return $this->interceptors;
+    }
+    
+    /**
+     * Execute before-send interceptors
+     * 
+     * @param array $messages Message array
+     * @return MessageInterceptorContext Interceptor context
+     */
+    private function doBeforeSend($messages)
+    {
+        $context = new MessageInterceptorContext(MessageHookPoints::SEND, MessageHookPointsStatus::OK);
+        
+        foreach ($this->interceptors as $interceptor) {
+            try {
+                $interceptor->doBefore($context, $messages);
+            } catch (\Exception $e) {
+                // Log error but do not interrupt flow
+                error_log("Interceptor before-send failed: " . $e->getMessage());
+                $context->setStatus(MessageHookPointsStatus::ERROR);
+                $context->setException($e);
+            }
+        }
+        
+        return $context;
+    }
+    
+    /**
+     * Execute after-send interceptors
+     * 
+     * @param MessageInterceptorContext $context Interceptor context
+     * @param array $messages Message array
+     * @param mixed $result Send result
+     * @param \Exception|null $exception Exception information
+     * @return void
+     */
+    private function doAfterSend($context, $messages, $result = null, $exception = null)
+    {
+        if ($exception !== null) {
+            $context->setStatus(MessageHookPointsStatus::ERROR);
+            $context->setException($exception);
+        }
+        
+        $context->setResult($result);
+        
+        foreach ($this->interceptors as $interceptor) {
+            try {
+                $interceptor->doAfter($context, $messages);
+            } catch (\Exception $e) {
+                // Log error but do not interrupt flow
+                error_log("Interceptor after-send failed: " . $e->getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Generate Client ID
+     * 
+     * @return string Client ID
+     */
+    private function generateClientId()
+    {
+        $hostname = gethostname() ?: 'unknown';
+        $pid = posix_getpid();
+        $randomId = $this->getRandStr(10);
+        return "{$hostname}@{$pid}@{$randomId}";
+    }
+    
+    /**
+     * Get gRPC client
+     * 
+     * @return MessagingServiceClient gRPC client
+     */
+    private function getClient()
+    {
+        if (self::$client === null) {
+            $options = [
+                'credentials' => $this->config->isSslEnabled() 
+                    ? \Grpc\ChannelCredentials::createSsl() 
+                    : \Grpc\ChannelCredentials::createInsecure(),
+                'update_metadata' => function ($metaData) {
+                    $metaData['headers'] = ['clientID' => $this->clientId];
+                    
+                    // Add authentication information
+                    if ($this->config->hasCredentials()) {
+                        $credentials = $this->config->getCredentials();
+                        $metaData['headers']['access-key'] = $credentials->getAccessKey();
+                        
+                        if ($credentials->hasSecurityToken()) {
+                            $metaData['headers']['security-token'] = $credentials->getSecurityToken();
+                        }
+                    }
+                    
+                    return $metaData;
+                }
+            ];
+            
+            self::$client = new MessagingServiceClient($this->config->getEndpoints(), $options);
+        }
+        return self::$client;
+    }
+    
+    /**
+     * Query route information (with cache)
+     * 
+     * @param bool $forceRefresh Whether to force refresh
+     * @return \Apache\Rocketmq\V2\QueryRouteResponse Route response
+     * @throws \Exception If query fails
+     */
+    public function queryRoute($forceRefresh = false)
+    {
+        // If force refresh, clear cache
+        if ($forceRefresh) {
+            $this->routeCache->invalidate($this->topic);
+        }
+        
+        // Use cache to get route
+        return $this->routeCache->getOrCreate($this->topic, function() {
+            $qr = new QueryRouteRequest();
+            $rs = new Resource();
+            $rs->setResourceNamespace('');
+            $rs->setName($this->topic);
+            $qr->setTopic($rs);
+            
+            list($response, $status) = $this->getClient()->QueryRoute($qr)->wait();
+            
+            if ($status->code !== STATUS_OK) {
+                throw new \Exception(
+                    "Failed to query route: " . $status->details,
+                    $status->code
+                );
+            }
+            
+            return $response;
+        });
+    }
+    
+    /**
+     * Query route information (no cache, direct query)
+     * 
+     * @return \Apache\Rocketmq\V2\QueryRouteResponse Route response
+     * @throws \Exception If query fails
+     * @deprecated It is recommended to use queryRoute() method
+     */
+    public function queryRouteDirect()
+    {
         $qr = new QueryRouteRequest();
         $rs = new Resource();
         $rs->setResourceNamespace('');
-        $rs->setName('normal_topic');
+        $rs->setName($this->topic);
         $qr->setTopic($rs);
-       $status = $client->QueryRoute($qr)->wait();
-       var_dump($status); // This prints out the response data returned by the server
+        
+        list($response, $status) = $this->getClient()->QueryRoute($qr)->wait();
+        
+        if ($status->code !== STATUS_OK) {
+            throw new \Exception(
+                "Failed to query route: " . $status->details,
+                $status->code
+            );
+        }
+        
+        return $response;
     }
-
-    public function getRandStr($length){
-        //Character combinations
+    
+    /**
+     * Build message object
+     * 
+     * @param string $body Message body
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @param string|null $messageGroup FIFO message group
+     * @param int|null $deliveryTimestamp Scheduled message delivery timestamp (milliseconds)
+     * @return Message Message object
+     */
+    private function buildMessage($body, $tag = null, $keys = null, $messageGroup = null, $deliveryTimestamp = null)
+    {
+        $message = new Message();
+        
+        // Set topic
+        $topic = new Resource();
+        $topic->setName($this->topic);
+        $message->setTopic($topic);
+        
+        // Set message body
+        $message->setBody($body);
+        
+        // Set system properties
+        $systemProperties = new SystemProperties();
+        
+        if ($tag !== null) {
+            $systemProperties->setTag($tag);
+        }
+        
+        if ($keys !== null) {
+            $systemProperties->setKeys([$keys]);
+        }
+        
+        if ($messageGroup !== null) {
+            $systemProperties->setMessageGroup($messageGroup);
+        }
+        
+        if ($deliveryTimestamp !== null) {
+            // Set scheduled delivery timestamp
+            $timestamp = new \Google\Protobuf\Timestamp();
+            $timestamp->setSeconds(intval($deliveryTimestamp / 1000));
+            $timestamp->setNanos(($deliveryTimestamp % 1000) * 1000000);
+            $systemProperties->setDeliveryTimestamp($timestamp);
+        }
+        
+        $message->setSystemProperties($systemProperties);
+        
+        return $message;
+    }
+    
+    /**
+     * Send normal message (synchronous, with retry)
+     * 
+     * @param string $body Message body
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @return array Send result
+     * @throws \Exception If send fails
+     */
+    public function sendNormalMessage($body, $tag = null, $keys = null)
+    {
+        $message = $this->buildMessage($body, $tag, $keys);
+        return $this->sendMessageWithRetry($message);
+    }
+    
+    /**
+     * Send FIFO message (ordered message, with retry)
+     * 
+     * @param string $body Message body
+     * @param string $messageGroup Message group ID (messages in the same group are delivered in order)
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @return array Send result
+     * @throws \Exception If send fails
+     */
+    public function sendFifoMessage($body, $messageGroup, $tag = null, $keys = null)
+    {
+        $message = $this->buildMessage($body, $tag, $keys, $messageGroup);
+        
+        // Set message type to FIFO
+        $systemProperties = $message->getSystemProperties();
+        $systemProperties->setMessageType(MessageType::FIFO);
+        $message->setSystemProperties($systemProperties);
+        
+        return $this->sendMessageWithRetry($message);
+    }
+    
+    /**
+     * Send scheduled/delayed message (with retry)
+     * 
+     * @param string $body Message body
+     * @param int $delaySeconds Delay seconds
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @return array Send result
+     * @throws \Exception If send fails
+     */
+    public function sendDelayMessage($body, $delaySeconds, $tag = null, $keys = null)
+    {
+        $deliveryTimestamp = (time() + $delaySeconds) * 1000; // Convert to milliseconds
+        $message = $this->buildMessage($body, $tag, $keys, null, $deliveryTimestamp);
+        return $this->sendMessageWithRetry($message);
+    }
+    
+    /**
+     * Batch send messages
+     * 
+     * Send multiple messages in one gRPC request to improve throughput
+     * Note:
+     * 1. All messages must have the same topic
+     * 2. Batch size cannot exceed maxBatchSize (default 32)
+     * 3. Total batch size cannot exceed 4MB
+     * 4. FIFO messages do not support batch sending
+     * 
+     * @param array $messages Message array [['body' => '...', 'tag' => '...', 'keys' => '...'], ...]
+     * @param int $maxBatchSize Maximum batch size, default 32
+     * @return array Send result array
+     * @throws \Exception If send fails or parameters are invalid
+     */
+    public function sendBatchMessages($messages, $maxBatchSize = 32)
+    {
+        // Validate input
+        if (empty($messages)) {
+            throw new \Exception("Messages array cannot be empty");
+        }
+        
+        if (!is_array($messages)) {
+            throw new \Exception("Messages must be an array");
+        }
+        
+        // Limit batch size
+        if (count($messages) > $maxBatchSize) {
+            throw new \Exception(
+                "Batch size exceeds limit. Count: " . count($messages) . ", Max: {$maxBatchSize}"
+            );
+        }
+        
+        // Build message object array
+        $messageObjects = [];
+        $totalSize = 0;
+        
+        foreach ($messages as $index => $msgData) {
+            if (!is_array($msgData) || !isset($msgData['body'])) {
+                throw new \Exception("Invalid message format at index {$index}. Expected: ['body' => '...', 'tag' => '...', 'keys' => '...']");
+            }
+            
+            $body = $msgData['body'];
+            $tag = isset($msgData['tag']) ? $msgData['tag'] : null;
+            $keys = isset($msgData['keys']) ? $msgData['keys'] : null;
+            $messageGroup = isset($msgData['messageGroup']) ? $msgData['messageGroup'] : null;
+            $deliveryTimestamp = isset($msgData['deliveryTimestamp']) ? $msgData['deliveryTimestamp'] : null;
+            
+            // Check if it is a FIFO message
+            if ($messageGroup !== null) {
+                throw new \Exception("FIFO messages do not support batch sending. Message index: {$index}");
+            }
+            
+            $message = $this->buildMessage($body, $tag, $keys, $messageGroup, $deliveryTimestamp);
+            $messageObjects[] = $message;
+            
+            // Calculate total size
+            $totalSize += strlen($body);
+        }
+        
+        // Check total size (4MB limit)
+        $maxTotalSize = 4 * 1024 * 1024; // 4MB
+        if ($totalSize > $maxTotalSize) {
+            throw new \Exception(
+                "Total message size exceeds 4MB limit. Size: " . round($totalSize / 1024 / 1024, 2) . "MB"
+            );
+        }
+        
+        // Send batch messages
+        return $this->sendBatchMessagesInternal($messageObjects);
+    }
+    
+    /**
+     * Batch send message objects (internal method)
+     * 
+     * @param array $messageObjects Message object array
+     * @return array Send result
+     * @throws \Exception If send fails
+     */
+    private function sendBatchMessagesInternal($messageObjects)
+    {
+        // Check state
+        ClientState::checkState($this->state, [ClientState::RUNNING], 'send batch messages');
+        
+        // Execute before-send interceptors
+        $context = null;
+        if (!empty($this->interceptors)) {
+            $context = $this->doBeforeSend($messageObjects);
+        }
+        
+        try {
+            // Build request
+            $request = new SendMessageRequest();
+            $request->setMessages($messageObjects);
+            
+            // Send request
+            $call = $this->getClient()->SendMessage($request);
+            $response = $call->wait();
+            
+            // Check response status
+            if ($response->getStatus()->getCode() !== 0) {
+                throw new \Exception(
+                    "Failed to batch send messages: " . $response->getStatus()->getMessage(),
+                    $response->getStatus()->getCode()
+                );
+            }
+            
+            // Parse send results
+            $results = [];
+            foreach ($response->getEntries() as $entry) {
+                $results[] = [
+                    'messageId' => $entry->getMessageId(),
+                    'transactionId' => $entry->getTransactionId(),
+                    'target' => $entry->getTarget(),
+                    'status' => $entry->getStatus()
+                ];
+            }
+            
+            // Execute after-send interceptors
+            if (!empty($this->interceptors) && $context !== null) {
+                $this->doAfterSend($context, $messageObjects, $results);
+            }
+            
+            return $results;
+        } catch (\Exception $e) {
+            // Execute after-send interceptors (exception case)
+            if (!empty($this->interceptors) && $context !== null) {
+                $this->doAfterSend($context, $messageObjects, null, $e);
+            }
+            throw $e;
+        }
+    }
+    
+    /**
+     * Send message to gRPC server (no retry)
+     * 
+     * @param Message $message Message object
+     * @return array Send result
+     * @throws \Exception If send fails
+     */
+    private function sendMessage($message)
+    {
+        // Check state - only RUNNING state can send messages
+        ClientState::checkState($this->state, [ClientState::RUNNING], 'send message');
+        
+        // Record send start time
+        $startTime = microtime(true);
+        
+        // Execute before-send interceptors
+        $context = null;
+        if (!empty($this->interceptors)) {
+            $context = $this->doBeforeSend([$message]);
+        }
+        
+        try {
+            // Increment total send counter
+            $this->metricsCollector->incrementCounter(MetricName::SEND_TOTAL, [
+                MetricLabels::TOPIC => $this->topic,
+                MetricLabels::CLIENT_ID => $this->clientId,
+            ]);
+            
+            $request = new SendMessageRequest();
+            $request->setMessages([$message]);
+            
+            $call = $this->getClient()->SendMessage($request);
+            $response = $call->wait();
+            
+            // Calculate cost time
+            $costTime = (microtime(true) - $startTime) * 1000; // Milliseconds
+            
+            // Check response status
+            if ($response->getStatus()->getCode() !== 0) {
+                throw new \Exception(
+                    "Failed to send message: " . $response->getStatus()->getMessage(),
+                    $response->getStatus()->getCode()
+                );
+            }
+            
+            // Parse send results
+            $results = [];
+            foreach ($response->getEntries() as $entry) {
+                $results[] = [
+                    'messageId' => $entry->getMessageId(),
+                    'transactionId' => $entry->getTransactionId(),
+                    'target' => $entry->getTarget(),
+                    'status' => $entry->getStatus()
+                ];
+            }
+            
+            // Record success metrics
+            $this->metricsCollector->incrementCounter(MetricName::SEND_SUCCESS_TOTAL, [
+                MetricLabels::TOPIC => $this->topic,
+                MetricLabels::CLIENT_ID => $this->clientId,
+            ]);
+            
+            // Record cost time histogram
+            $this->metricsCollector->observeHistogram(MetricName::SEND_COST_TIME, [
+                MetricLabels::TOPIC => $this->topic,
+                MetricLabels::CLIENT_ID => $this->clientId,
+            ], $costTime);
+            
+            // Execute after-send interceptors
+            if (!empty($this->interceptors) && $context !== null) {
+                $this->doAfterSend($context, [$message], $results);
+            }
+            
+            return $results;
+        } catch (\Exception $e) {
+            // Record failure metrics
+            $this->metricsCollector->incrementCounter(MetricName::SEND_FAILURE_TOTAL, [
+                MetricLabels::TOPIC => $this->topic,
+                MetricLabels::CLIENT_ID => $this->clientId,
+            ]);
+            
+            // Execute after-send interceptors (exception case)
+            if (!empty($this->interceptors) && $context !== null) {
+                $this->doAfterSend($context, [$message], null, $e);
+            }
+            throw $e;
+        }
+    }
+    
+    /**
+     * Send message (with retry mechanism)
+     * 
+     * @param Message $message Message object
+     * @param int $attempt Current attempt count (starting from 1)
+     * @return array Send result
+     * @throws \Exception If send fails and cannot retry
+     */
+    private function sendMessageWithRetry($message, $attempt = 1)
+    {
+        try {
+            return $this->sendMessage($message);
+        } catch (\Exception $e) {
+            // Determine whether to retry
+            if (!$this->retryPolicy->shouldRetry($attempt, $e)) {
+                // Not retryable or max retries reached, throw exception directly
+                throw $e;
+            }
+            
+            // Calculate backoff time
+            $delayMs = $this->retryPolicy->getNextAttemptDelay($attempt);
+            
+            // Execute backoff wait
+            if ($delayMs > 0) {
+                usleep($delayMs * 1000); // Convert to microseconds
+            }
+            
+            // Recursive retry
+            return $this->sendMessageWithRetry($message, $attempt + 1);
+        }
+    }
+    
+    /**
+     * Send message asynchronously
+     * 
+     * @param string $body Message body
+     * @param callable $callback Callback function
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @return void
+     */
+    public function sendAsync($body, $callback, $tag = null, $keys = null)
+    {
+        $message = $this->buildMessage($body, $tag, $keys);
+        
+        $request = new SendMessageRequest();
+        $request->setMessages([$message]);
+        
+        $call = $this->getClient()->SendMessage($request);
+        
+        // Use gRPC async callback
+        $call->wait(function($response, $error) use ($callback) {
+            if ($error) {
+                call_user_func($callback, null, $error);
+            } else {
+                call_user_func($callback, $response, null);
+            }
+        });
+    }
+    
+    /**
+     * Generate random string
+     * 
+     * @param int $length Length
+     * @return string Random string
+     */
+    private function getRandStr($length)
+    {
         $str = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $len = strlen($str)-1;
+        $len = strlen($str) - 1;
         $randstr = '';
-        for ($i=0;$i<$length;$i++) {
-            $num=mt_rand(0,$len);
+        for ($i = 0; $i < $length; $i++) {
+            $num = mt_rand(0, $len);
             $randstr .= $str[$num];
         }
         return $randstr;
     }
+    
+    /**
+     * Get Retry policy
+     * 
+     * @return RetryPolicy Retry policy
+     */
+    public function getRetryPolicy()
+    {
+        return $this->retryPolicy;
+    }
+    
+    /**
+     * Get Route cache instance
+     * 
+     * @return RouteCache Route cache
+     */
+    public function getRouteCache()
+    {
+        return $this->routeCache;
+    }
+    
+    /**
+     * Refresh route cache
+     * 
+     * @return void
+     * @throws \Exception If refresh fails
+     */
+    public function refreshRouteCache()
+    {
+        $this->routeCache->invalidate($this->topic);
+        $this->queryRoute(true); // Force refresh
+    }
+    
+    /**
+     * Get route cache statistics
+     * 
+     * @return array Statistics
+     */
+    public function getRouteCacheStats()
+    {
+        return $this->routeCache->getStats();
+    }
+    
+    // ========================================
+    // Transaction message related methods
+    // ========================================
+    
+    /**
+     * Start a new transaction
+     * 
+     * @return Transaction Transaction object
+     * @throws \Exception If Transaction checker is not set
+     */
+    public function beginTransaction()
+    {
+        if ($this->transactionChecker === null) {
+            throw new \Exception("Transaction checker is not set. Use getTransactionalInstance() to create a transactional producer.");
+        }
+        
+        return new Transaction($this);
+    }
+    
+    /**
+     * Send transaction message (half message)
+     * 
+     * @param string $body Message body
+     * @param Transaction $transaction Transaction object
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @return array Send result
+     * @throws \Exception If send fails
+     */
+    public function sendTransactionMessage($body, Transaction $transaction, $tag = null, $keys = null)
+    {
+        if ($this->transactionChecker === null) {
+            throw new \Exception("Transaction checker is not set");
+        }
+        
+        // Build message
+        $message = $this->buildMessage($body, $tag, $keys);
+        
+        // Set as transaction message type
+        $systemProperties = $message->getSystemProperties();
+        $systemProperties->setMessageType(MessageType::TRANSACTION);
+        $message->setSystemProperties($systemProperties);
+        
+        // Send half message
+        $receipt = $this->sendMessageWithRetry($message);
+        
+        // Add message to transaction
+        $transaction->addMessage($message, $receipt[0]);
+        
+        return $receipt;
+    }
+    
+    /**
+     * End transaction (internal method)
+     * 
+     * @param mixed $endpoints Target endpoints
+     * @param string $messageId Message ID
+     * @param string $transactionId Transaction ID
+     * @param string $resolution Transaction resolution (COMMIT/ROLLBACK)
+     * @return void
+     * @throws \Exception If ending transaction fails
+     */
+    public function endTransactionInternal($endpoints, $messageId, $transactionId, $resolution)
+    {
+        $request = new \Apache\Rocketmq\V2\EndTransactionRequest();
+        
+        // Set topic
+        $topic = new Resource();
+        $topic->setName($this->topic);
+        $topic->setResourceNamespace('');
+        $request->setTopic($topic);
+        
+        // Set message ID and transaction ID
+        $request->setMessageId($messageId);
+        $request->setTransactionId($transactionId);
+        
+        // Set transaction resolution
+        switch ($resolution) {
+            case TransactionResolution::COMMIT:
+                $request->setResolution(\Apache\Rocketmq\V2\TransactionResolution::COMMIT);
+                break;
+            case TransactionResolution::ROLLBACK:
+                $request->setResolution(\Apache\Rocketmq\V2\TransactionResolution::ROLLBACK);
+                break;
+            default:
+                throw new \Exception("Invalid transaction resolution: {$resolution}");
+        }
+        
+        // Send request
+        list($response, $status) = $this->getClient()->EndTransaction($request)->wait();
+        
+        if ($status->code !== STATUS_OK) {
+            throw new \Exception(
+                "Failed to end transaction: " . $status->details,
+                $status->code
+            );
+        }
+        
+        if ($response->getStatus()->getCode() !== 0) {
+            throw new \Exception(
+                "Failed to end transaction: " . $response->getStatus()->getMessage(),
+                $response->getStatus()->getCode()
+            );
+        }
+    }
+    
+    /**
+     * Handle orphaned transaction check command (called by server)
+     * 
+     * @param \Apache\Rocketmq\V2\Message $message Half message
+     * @param string $transactionId Transaction ID
+     * @return void
+     */
+    public function handleOrphanedTransactionCheck($message, $transactionId)
+    {
+        if ($this->transactionChecker === null) {
+            error_log("No transaction checker registered, ignore orphaned transaction check");
+            return;
+        }
+        
+        try {
+            // Call user-defined checker
+            $resolution = $this->transactionChecker->check($message);
+            
+            // End transaction based on check result
+            $messageId = $message->getSystemProperties()->getMessageId();
+            $this->endTransactionInternal(
+                null, // Get endpoints from route
+                $messageId,
+                $transactionId,
+                $resolution
+            );
+            
+            error_log("Orphaned transaction checked: messageId={$messageId}, transactionId={$transactionId}, resolution={$resolution}");
+        } catch (\Exception $e) {
+            error_log("Failed to check orphaned transaction: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Close Producer (graceful shutdown)
+     * 
+     * Performs the following operations:
+     * 1. Stop accepting new requests
+     * 2. Wait for in-progress requests to complete
+     * 3. Clean up resources (connections, caches, etc.)
+     * 4. Transition state to TERMINATED
+     * 
+     * @param int $timeoutSeconds Timeout in seconds, default 5 seconds
+     * @return void
+     * @throws \Exception If shutdown fails
+     */
+    public function shutdown($timeoutSeconds = 5)
+    {
+        // Check if can be closed
+        ClientState::checkState(
+            $this->state, 
+            [ClientState::RUNNING, ClientState::STARTING, ClientState::CREATED], 
+            'shutdown'
+        );
+        
+        // If already in terminal state, return directly
+        if (ClientState::isTerminalState($this->state)) {
+            return;
+        }
+        
+        $this->state = ClientState::STOPPING;
+        
+        try {
+            // 1. Clear route cache
+            if ($this->routeCache !== null) {
+                $this->routeCache->invalidate($this->topic);
+            }
+            
+            // 2. Close gRPC connection
+            if (self::$client !== null) {
+                // gRPC PHP extension has no explicit close method
+                // Set client to null, let GC recycle
+                self::$client = null;
+            }
+            
+            // 3. Clean up transaction-related resources
+            $this->transactionChecker = null;
+            
+            // 4. Clean up Health checker
+            if ($this->healthChecker !== null) {
+                $this->healthChecker->reset();
+                $this->healthChecker = null;
+            }
+            
+            // 4. Transition state to TERMINATED
+            if (ClientState::canTransition($this->state, ClientState::TERMINATED)) {
+                $this->state = ClientState::TERMINATED;
+            }
+            
+        } catch (\Exception $e) {
+            // Even if cleanup fails, set to TERMINATED
+            $this->state = ClientState::TERMINATED;
+            throw new \Exception("Failed to shutdown producer: " . $e->getMessage(), 0, $e);
+        }
+    }
+    
+    /**
+     * Get current state
+     * 
+     * @return string Current state
+     */
+    public function getState()
+    {
+        return $this->state;
+    }
+    
+    /**
+     * Check if is running
+     * 
+     * @return bool Is running
+     */
+    public function isRunning()
+    {
+        return $this->state === ClientState::RUNNING;
+    }
+    
+    /**
+     * Check if is shutdown
+     * 
+     * @return bool Whether is shutdown
+     */
+    public function isShutdown()
+    {
+        return ClientState::isTerminalState($this->state);
+    }
+    
+    /**
+     * Get Client configuration object
+     * 
+     * @return ClientConfiguration Client configuration object
+     */
+    public function getConfig()
+    {
+        return $this->config;
+    }
+    
+    /**
+     * Get client ID
+     * 
+     * @return string Client ID
+     */
+    public function getClientId()
+    {
+        return $this->clientId;
+    }
+    
+    // ========================================
+    // Health check related methods
+    // ========================================
+    
+    /**
+     * Initialize Health checker
+     * 
+     * @return void
+     */
+    private function initHealthChecker()
+    {
+        if ($this->healthChecker === null) {
+            $this->healthChecker = new HealthChecker(
+                $this->config->getEndpoints(),
+                $this->clientId,
+                \Apache\Rocketmq\V2\ClientType::PRODUCER
+            );
+        }
+    }
+    
+    /**
+     * Execute health check
+     * 
+     * @return HealthCheckResult Check result
+     * @throws \Exception If not started
+     */
+    public function healthCheck()
+    {
+        ClientState::checkState($this->state, [ClientState::RUNNING], 'health check');
+        
+        $this->initHealthChecker();
+        return $this->healthChecker->check();
+    }
+    
+    /**
+     * Get last health check result
+     * 
+     * @return HealthCheckResult|null
+     */
+    public function getLastHealthCheckResult()
+    {
+        if ($this->healthChecker === null) {
+            return null;
+        }
+        return $this->healthChecker->getLastResult();
+    }
+    
+    /**
+     * Is healthy
+     * 
+     * @return bool
+     */
+    public function isHealthy()
+    {
+        if ($this->healthChecker === null) {
+            return false;
+        }
+        return $this->healthChecker->isHealthy();
+    }
+    
+    /**
+     * Get health check statistics
+     * 
+     * @return array|null Statistics
+     */
+    public function getHealthCheckStats()
+    {
+        if ($this->healthChecker === null) {
+            return null;
+        }
+        return $this->healthChecker->getStats();
+    }
+    
+    /**
+     * Send heartbeat (alias method)
+     * 
+     * @return HealthCheckResult
+     */
+    public function heartbeat()
+    {
+        return $this->healthCheck();
+    }
+    
+    /**
+     * Destructor - ensure resources are released
+     */
+    public function __destruct()
+    {
+        // If shutdown is not called explicitly, clean up here
+        if (!ClientState::isTerminalState($this->state)) {
+            try {
+                $this->shutdown(1); // Quick shutdown
+            } catch (\Exception $e) {
+                // Ignore exceptions in destructor
+                error_log("Error during producer destruction: " . $e->getMessage());
+            }
+        }
+    }
+    
+    // ========================================
+    // Metrics related methods
+    // ========================================
+    
+    /**
+     * Get Metrics collector
+     * 
+     * @return MetricsCollector Metrics collector
+     */
+    public function getMetricsCollector()
+    {
+        return $this->metricsCollector;
+    }
+    
+    /**
+     * Get all metrics data
+     * 
+     * @return array Metrics data array
+     */
+    public function getAllMetrics()
+    {
+        return $this->metricsCollector->getAllMetrics();
+    }
+    
+    /**
+     * Export metrics to Prometheus format
+     * 
+     * @return string Prometheus format metrics text
+     */
+    public function exportMetricsToPrometheus()
+    {
+        return $this->metricsCollector->exportToPrometheus();
+    }
+    
+    /**
+     * Export metrics to JSON format
+     * 
+     * @return string JSON format metrics data
+     */
+    public function exportMetricsToJson()
+    {
+        return $this->metricsCollector->exportToJson();
+    }
+    
+    /**
+     * Calculate send QPS
+     * 
+     * @return float|null QPS (messages per second)
+     */
+    public function calculateSendQps()
+    {
+        return $this->metricsCollector->calculateRate(MetricName::SEND_TOTAL, [
+            MetricLabels::TOPIC => $this->topic,
+            MetricLabels::CLIENT_ID => $this->clientId,
+        ]);
+    }
+    
+    /**
+     * Get send success rate
+     * 
+     * @return float|null Success rate (between 0-1)
+     */
+    public function getSendSuccessRate()
+    {
+        $successMetric = $this->metricsCollector->getMetric(MetricName::SEND_SUCCESS_TOTAL, [
+            MetricLabels::TOPIC => $this->topic,
+            MetricLabels::CLIENT_ID => $this->clientId,
+        ]);
+        
+        $failureMetric = $this->metricsCollector->getMetric(MetricName::SEND_FAILURE_TOTAL, [
+            MetricLabels::TOPIC => $this->topic,
+            MetricLabels::CLIENT_ID => $this->clientId,
+        ]);
+        
+        if (!$successMetric || !$failureMetric) {
+            return null;
+        }
+        
+        $total = $successMetric['value'] + $failureMetric['value'];
+        if ($total == 0) {
+            return null;
+        }
+        
+        return $successMetric['value'] / $total;
+    }
+    
+    /**
+     * Get average send cost time
+     * 
+     * @return float|null Average cost time (milliseconds)
+     */
+    public function getAvgSendCostTime()
+    {
+        $metric = $this->metricsCollector->getMetric(MetricName::SEND_COST_TIME, [
+            MetricLabels::TOPIC => $this->topic,
+            MetricLabels::CLIENT_ID => $this->clientId,
+        ]);
+        
+        if (!$metric || $metric['count'] == 0) {
+            return null;
+        }
+        
+        return $metric['sum'] / $metric['count'];
+    }
 }
-
-$xx = new Producer();
-$xx->init();
