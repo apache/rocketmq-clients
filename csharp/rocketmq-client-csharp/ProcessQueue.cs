@@ -247,38 +247,55 @@ namespace Org.Apache.Rocketmq
 
                 Interlocked.Exchange(ref _activityTime, DateTime.UtcNow.Ticks);
 
-                var task = _consumer.ReceiveMessage(request, _mq, longPollingTimeout);
-                task.ContinueWith(t =>
+                _consumer.NotifyReceiveMessageStarted();
+                try
                 {
-                    if (t.IsFaulted)
-                    {
-                        string nextAttemptId = null;
-                        if (t.Exception is { InnerException: RpcException { StatusCode: StatusCode.DeadlineExceeded } })
-                        {
-                            nextAttemptId = request.AttemptId;
-                        }
-
-                        Logger.LogError(t.Exception, $"Exception raised during message reception, mq={_mq}," +
-                                                     $" attemptId={request.AttemptId}, nextAttemptId={nextAttemptId}," +
-                                                     $" clientId={clientId}");
-                        OnReceiveMessageException(t.Exception, nextAttemptId);
-                    }
-                    else
+                    var task = _consumer.ReceiveMessage(request, _mq, longPollingTimeout);
+                    task.ContinueWith(t =>
                     {
                         try
                         {
-                            var result = t.Result;
-                            OnReceiveMessageResult(result);
+                            if (t.IsFaulted)
+                            {
+                                string nextAttemptId = null;
+                                if (t.Exception is { InnerException: RpcException { StatusCode: StatusCode.DeadlineExceeded } })
+                                {
+                                    nextAttemptId = request.AttemptId;
+                                }
+
+                                Logger.LogError(t.Exception, $"Exception raised during message reception, mq={_mq}," +
+                                                             $" attemptId={request.AttemptId}, nextAttemptId={nextAttemptId}," +
+                                                             $" clientId={clientId}");
+                                OnReceiveMessageException(t.Exception, nextAttemptId);
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    var result = t.Result;
+                                    OnReceiveMessageResult(result);
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Should never reach here.
+                                    Logger.LogError($"[Bug] Exception raised while handling receive result, mq={_mq}," +
+                                                    $" endpoints={endpoints}, clientId={clientId}, exception={ex}");
+                                    OnReceiveMessageException(ex, attemptId);
+                                }
+                            }
                         }
-                        catch (Exception ex)
+                        finally
                         {
-                            // Should never reach here.
-                            Logger.LogError($"[Bug] Exception raised while handling receive result, mq={_mq}," +
-                                            $" endpoints={endpoints}, clientId={clientId}, exception={ex}");
-                            OnReceiveMessageException(ex, attemptId);
+                            _consumer.NotifyReceiveMessageFinished();
                         }
-                    }
-                }, TaskContinuationOptions.ExecuteSynchronously);
+                    }, TaskContinuationOptions.ExecuteSynchronously);
+                }
+                catch (Exception ex)
+                {
+                    _consumer.NotifyReceiveMessageFinished();
+                    Logger.LogError(ex, $"Exception raised during message reception, mq={_mq}, clientId={clientId}");
+                    OnReceiveMessageException(ex, attemptId);
+                }
             }
             catch (Exception ex)
             {
