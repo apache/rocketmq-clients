@@ -60,6 +60,13 @@ namespace Org.Apache.Rocketmq
         private readonly CancellationTokenSource _changeInvisibleDurationCts;
         private readonly CancellationTokenSource _forwardMsgToDeadLetterQueueCts;
 
+        private int _inflightReceiveCount;
+
+        /// <summary>Poll interval for shutdown waits and post-drain ACK grace delay (aligned to 1s).</summary>
+        private static readonly TimeSpan ShutdownStepDelay = TimeSpan.FromSeconds(1);
+
+        private static readonly TimeSpan ShutdownCacheDrainWarnInterval = TimeSpan.FromSeconds(10);
+
         /// <summary>
         /// The caller is supposed to have validated the arguments and handled throwing exception or
         /// logging warnings already, so we avoid repeating args check here.
@@ -123,19 +130,36 @@ namespace Org.Apache.Rocketmq
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Shutdown order (aligned with golang PushConsumer GracefulStop):
+        /// 1. Stopping: no new receive requests; cancel assignment scan and receive backoff scheduling.
+        /// 2. Wait inflight receive requests finished or timeout (request timeout + long polling timeout).
+        /// 3. Wait all locally cached messages drained (listener + async ack/evict); warn every 10s with count.
+        /// 4. One-second delay for async ack.
+        /// 5. Cancel consumption and rpc-side retry tokens, then shutdown client (RPC).
+        /// </summary>
         protected override async Task Shutdown()
         {
             try
             {
                 State = State.Stopping;
                 Logger.LogInformation($"Begin to shutdown the rocketmq push consumer, clientId={ClientId}");
+                _scanAssignmentCts.Cancel();
                 _receiveMsgCts.Cancel();
+
+                Logger.LogInformation($"Waiting for the inflight receive requests to be finished, clientId={ClientId}");
+                await WaitInflightReceiveFinishedAsync().ConfigureAwait(false);
+
+                await WaitCachedMessagesDrainedAsync().ConfigureAwait(false);
+
+                await Task.Delay(ShutdownStepDelay).ConfigureAwait(false);
+
+                _consumptionCts.Cancel();
                 _ackMsgCts.Cancel();
                 _changeInvisibleDurationCts.Cancel();
                 _forwardMsgToDeadLetterQueueCts.Cancel();
-                _scanAssignmentCts.Cancel();
-                await base.Shutdown();
-                _consumptionCts.Cancel();
+
+                await base.Shutdown().ConfigureAwait(false);
                 Logger.LogInformation($"Shutdown the rocketmq push consumer successfully, clientId={ClientId}");
                 State = State.Terminated;
             }
@@ -143,6 +167,69 @@ namespace Org.Apache.Rocketmq
             {
                 State = State.Failed;
                 throw;
+            }
+        }
+
+        internal void NotifyReceiveMessageStarted()
+        {
+            Interlocked.Increment(ref _inflightReceiveCount);
+        }
+
+        internal void NotifyReceiveMessageFinished()
+        {
+            Interlocked.Decrement(ref _inflightReceiveCount);
+        }
+
+        private int GetTotalCachedMessageCount()
+        {
+            var sum = 0;
+            foreach (var kv in _processQueueTable)
+            {
+                sum += kv.Value.CachedMessagesCount();
+            }
+
+            return sum;
+        }
+
+        private async Task WaitInflightReceiveFinishedAsync()
+        {
+            var maxWait = _clientConfig.RequestTimeout + _pushSubscriptionSettings.GetLongPollingTimeout();
+            var deadline = DateTime.UtcNow + maxWait;
+            while (Interlocked.Add(ref _inflightReceiveCount, 0) > 0)
+            {
+                if (DateTime.UtcNow >= deadline)
+                {
+                    Logger.LogWarning(
+                        "Timeout waiting for all inflight receive requests to be finished, clientId={ClientId}, inflightReceiveCount={Inflight}",
+                        ClientId, Interlocked.Add(ref _inflightReceiveCount, 0));
+                    break;
+                }
+
+                await Task.Delay(ShutdownStepDelay).ConfigureAwait(false);
+            }
+
+            if (Interlocked.Add(ref _inflightReceiveCount, 0) <= 0)
+            {
+                Logger.LogInformation($"All inflight receive requests have been finished, clientId={ClientId}");
+            }
+        }
+
+        private async Task WaitCachedMessagesDrainedAsync()
+        {
+            var nextWarnUtc = DateTime.UtcNow + ShutdownCacheDrainWarnInterval;
+            while (GetTotalCachedMessageCount() > 0)
+            {
+                await Task.Delay(ShutdownStepDelay).ConfigureAwait(false);
+                var now = DateTime.UtcNow;
+                if (now < nextWarnUtc)
+                {
+                    continue;
+                }
+
+                Logger.LogWarning(
+                    "Shutdown waiting for local cached messages to drain, cachedMessageCount={Cached}, clientId={ClientId}",
+                    GetTotalCachedMessageCount(), ClientId);
+                nextWarnUtc = now + ShutdownCacheDrainWarnInterval;
             }
         }
 
@@ -200,6 +287,11 @@ namespace Org.Apache.Rocketmq
 
         internal void ScanAssignments()
         {
+            if (State != State.Running)
+            {
+                return;
+            }
+
             try
             {
                 Logger.LogDebug($"Start to scan assignments periodically, clientId={ClientId}");
