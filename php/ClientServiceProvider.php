@@ -63,19 +63,7 @@ interface ClientServiceProvider {
      * {@link #doLoad()} directly.
      */
 
-    /**
-     * Load client service provider instance
-     *
-     * @return ClientServiceProvider
-     */
-    public static function loadService();
-    
-    /**
-     * Do load client service provider instance
-     *
-     * @return ClientServiceProvider
-     */
-    public static function doLoad();
+
 
     /**
      * Get the producer builder by the current provider.
@@ -173,7 +161,9 @@ class ClientServiceProviderImpl implements ClientServiceProvider {
     }
     
     /**
-     * {@inheritdoc}
+     * Load client service provider instance
+     *
+     * @return ClientServiceProvider
      */
     public static function loadService() {
         $inst = ClientServiceProviderHolder::$INSTANCE;
@@ -200,7 +190,9 @@ class ClientServiceProviderImpl implements ClientServiceProvider {
     }
     
     /**
-     * {@inheritdoc}
+     * Do load client service provider instance
+     *
+     * @return ClientServiceProvider
      */
     public static function doLoad() {
         return new self();

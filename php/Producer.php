@@ -18,7 +18,24 @@
 
 namespace Apache\Rocketmq;
 
-require 'vendor/autoload.php';
+require_once __DIR__ . '/Util.php';
+require_once __DIR__ . '/RouteCache.php';
+require_once __DIR__ . '/ClientState.php';
+require_once __DIR__ . '/Producer/Producer.php';
+
+// Load composer autoload if available
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
+
+// Autoload gRPC generated classes
+spl_autoload_register(function ($class) {
+    $class = str_replace('\\', '/', $class);
+    $file = __DIR__ . '/grpc/' . $class . '.php';
+    if (file_exists($file)) {
+        require_once $file;
+    }
+});
 
 use Apache\Rocketmq\Builder\MessageBuilder;
 use Apache\Rocketmq\Builder\ProducerBuilder;

@@ -35,15 +35,6 @@ enum FilterExpressionType {
     case SQL92;
     
     /**
-     * Get string representation
-     * 
-     * @return string
-     */
-    public function __toString(): string {
-        return $this->name;
-    }
-    
-    /**
      * Get value
      * 
      * @return string

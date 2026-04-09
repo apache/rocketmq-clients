@@ -20,7 +20,7 @@ namespace Apache\Rocketmq\Builder;
 
 use Apache\Rocketmq\ClientConfiguration;
 use Apache\Rocketmq\Exception\ClientConfigurationException;
-use Apache\Rocketmq\PushConsumer;
+use Apache\Rocketmq\Consumer\PushConsumer;
 
 /**
  * Builder for creating PushConsumer instances
@@ -119,6 +119,17 @@ class PushConsumerBuilder {
      */
     public function setMaxMessageNum(int $maxMessageNum) {
         $this->maxMessageNum = $maxMessageNum;
+        return $this;
+    }
+    
+    /**
+     * Set endpoints
+     *
+     * @param string $endpoints
+     * @return PushConsumerBuilder
+     */
+    public function setEndpoints(string $endpoints) {
+        $this->clientConfiguration = new ClientConfiguration($endpoints);
         return $this;
     }
     

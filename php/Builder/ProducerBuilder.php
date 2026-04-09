@@ -18,10 +18,12 @@
 
 namespace Apache\Rocketmq\Builder;
 
+require_once __DIR__ . '/../Producer.php';
+
 use Apache\Rocketmq\ClientConfiguration;
 use Apache\Rocketmq\Exception\ClientConfigurationException;
 use Apache\Rocketmq\Producer;
-use Apache\Rocketmq\TransactionChecker;
+use Apache\Rocketmq\Producer\TransactionChecker;
 
 /**
  * Builder for creating Producer instances
@@ -92,6 +94,17 @@ class ProducerBuilder {
     }
     
     /**
+     * Set endpoints
+     *
+     * @param string $endpoints
+     * @return ProducerBuilder
+     */
+    public function setEndpoints(string $endpoints) {
+        $this->clientConfiguration = new ClientConfiguration($endpoints);
+        return $this;
+    }
+    
+    /**
      * Build and start the producer
      *
      * @return Producer
@@ -109,11 +122,12 @@ class ProducerBuilder {
         // For simplicity, we'll use the first topic as the primary topic
         $topic = $this->topics[0];
         
-        $producer = new Producer($this->clientConfiguration, $topic);
+        $producer = Producer::getInstance($this->clientConfiguration, $topic);
         $producer->setMaxAttempts($this->maxAttempts);
         
         if ($this->transactionChecker !== null) {
-            $producer->setTransactionChecker($this->transactionChecker);
+            $producer = Producer::getTransactionalInstance($this->clientConfiguration, $topic, $this->transactionChecker);
+            $producer->setMaxAttempts($this->maxAttempts);
         }
         
         $producer->start();

@@ -18,6 +18,8 @@
 
 namespace Apache\Rocketmq;
 
+require_once __DIR__ . '/MetricsCollector.php';
+
 use Apache\Rocketmq\MetricsCollector;
 use Apache\Rocketmq\MetricName;
 use Apache\Rocketmq\V2\QueryRouteResponse;

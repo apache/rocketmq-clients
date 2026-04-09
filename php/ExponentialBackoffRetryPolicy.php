@@ -18,6 +18,8 @@
 
 namespace Apache\Rocketmq;
 
+require_once __DIR__ . '/RetryPolicy.php';
+
 /**
  * Exponential backoff retry policy
  * 

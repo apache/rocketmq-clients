@@ -35,15 +35,6 @@ enum ConsumeResult {
     case FAILURE;
     
     /**
-     * Get string representation
-     * 
-     * @return string
-     */
-    public function __toString(): string {
-        return $this->name;
-    }
-    
-    /**
      * Get value
      * 
      * @return string

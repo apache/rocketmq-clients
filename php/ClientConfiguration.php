@@ -18,6 +18,8 @@
 
 namespace Apache\Rocketmq;
 
+require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
+
 /**
  * RocketMQ client configuration class
  * 
