@@ -26,9 +26,57 @@ use Apache\Rocketmq\Builder\LitePushConsumerBuilder;
 use Apache\Rocketmq\Builder\LiteSimpleConsumerBuilder;
 
 /**
+ * Holder class for ClientServiceProvider singleton instance
+ */
+class ClientServiceProviderHolder {
+    /**
+     * @var ClientServiceProvider|null Singleton instance
+     */
+    public static $INSTANCE = null;
+
+    /**
+     * Private constructor to prevent instantiation
+     */
+    private function __construct() {
+        // prevents instantiation
+    }
+}
+
+/**
  * Service provider to create client instances, following the same pattern as Java client.
  */
 interface ClientServiceProvider {
+    /**
+     * To avoid potential concurrency issues, the {@link #loadService()} logic
+     * has been changed to use lazy initialization with caching:
+     * <p>
+     * 1. Lazy loading + caching:
+     * - On the first call, the implementation is loaded via service loader
+     * and cached in {@link ClientServiceProviderHolder#INSTANCE};
+     * - Subsequent calls simply return the cached instance.
+     * <p>
+     * 2. If you need the old behavior (i.e., always load through service loader
+     * each time), you can call {@link #doLoad()} directly:
+     * - {@link #doLoad()} does not cache anything; it creates a new service loader
+     * and loads an implementation on every call;
+     * - You are responsible for handling any concurrency control when using
+     * {@link #doLoad()} directly.
+     */
+
+    /**
+     * Load client service provider instance
+     *
+     * @return ClientServiceProvider
+     */
+    public static function loadService();
+    
+    /**
+     * Do load client service provider instance
+     *
+     * @return ClientServiceProvider
+     */
+    public static function doLoad();
+
     /**
      * Get the producer builder by the current provider.
      *
@@ -70,31 +118,12 @@ interface ClientServiceProvider {
      * @return SimpleConsumerBuilder The simple consumer builder instance
      */
     public function newSimpleConsumerBuilder();
-    
-    /**
-     * Load client service provider instance
-     *
-     * @return ClientServiceProvider
-     */
-    public static function loadService();
-    
-    /**
-     * Do load client service provider instance
-     *
-     * @return ClientServiceProvider
-     */
-    public static function doLoad();
 }
 
 /**
  * Default implementation of ClientServiceProvider
  */
 class ClientServiceProviderImpl implements ClientServiceProvider {
-    /**
-     * @var ClientServiceProvider|null Singleton instance
-     */
-    private static $instance = null;
-    
     /**
      * Private constructor to prevent direct instantiation
      */
@@ -147,10 +176,27 @@ class ClientServiceProviderImpl implements ClientServiceProvider {
      * {@inheritdoc}
      */
     public static function loadService() {
-        if (self::$instance === null) {
-            self::$instance = self::doLoad();
+        $inst = ClientServiceProviderHolder::$INSTANCE;
+        if ($inst !== null) {
+            return $inst;
         }
-        return self::$instance;
+        static $lock = null;
+        if ($lock === null) {
+            $lock = new \stdClass();
+        }
+        // PHP doesn't have built-in synchronized function, use flock instead
+        $fp = fopen(__FILE__, 'r');
+        if (flock($fp, LOCK_EX)) {
+            try {
+                if (ClientServiceProviderHolder::$INSTANCE === null) {
+                    ClientServiceProviderHolder::$INSTANCE = self::doLoad();
+                }
+            } finally {
+                flock($fp, LOCK_UN);
+                fclose($fp);
+            }
+        }
+        return ClientServiceProviderHolder::$INSTANCE;
     }
     
     /**

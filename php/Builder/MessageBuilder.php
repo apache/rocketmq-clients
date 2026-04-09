@@ -46,11 +46,6 @@ class MessageBuilder {
     /**
      * @var string|null
      */
-    private $keys;
-    
-    /**
-     * @var string|null
-     */
     private $messageGroup;
     
     /**

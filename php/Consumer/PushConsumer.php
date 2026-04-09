@@ -21,64 +21,91 @@ namespace Apache\Rocketmq\Consumer;
 use Apache\Rocketmq\Exception\ClientException;
 
 /**
- * Push consumer interface
- * 
- * Push consumer is a thread-safe and fully-managed rocketmq client which is used to consume messages by the group
+ * Push consumer is a thread-safe and fully-managed rocketmq client which is used to consume messages by the group.
+ *
+ * <p>Consumers belong to the same consumer group share messages from the server, which means they must have the same
+ * subscription expressions, otherwise the behavior is <strong>undefined</strong>. If a new consumer group's consumer
+ * is started for the first time, it consumes from the latest position. Once the consumer is started, the server
+ * records its consumption progress and derives it in the subsequent startup, or we can call it clustering mode.
+ *
+ * <h3>Clustering mode</h3>
+ * <pre>
+ * ┌──────────────────┐        ┌──────────┐
+ * │consume progress 0│◄─┐  ┌─►│consumer A│
+ * └──────────────────┘  │  │  └──────────┘
+ *                       ├──┤
+ *  ┌─────────────────┐  │  │  ┌──────────┐
+ *  │topic X + group 0│◄─┘  └─►│consumer B│
+ *  └─────────────────┘        └──────────┘
+ * </pre>
+ *
+ * <p>As for broadcasting mode, you may intend to maintain different consumption progress for different consumers,
+ * different consumer groups should be set in this case.
+ *
+ * <h3>Broadcasting mode</h3>
+ * <pre>
+ * ┌──────────────────┐     ┌──────────┐     ┌──────────────────┐
+ * │consume progress 0│◄─┬──┤consumer A│  ┌─►│consume progress 1│
+ * └──────────────────┘  │  └──────────┘  │  └──────────────────┘
+ *                       │                │
+ *  ┌─────────────────┐  │  ┌──────────┐  │  ┌─────────────────┐
+ *  │topic X + group 0│◄─┘  │consumer B├──┴─►│topic X + group 1│
+ *  └─────────────────┘     └──────────┘     └─────────────────┘
+ * </pre>
+ *
+ * <p>To accelerate the message consumption, push consumer applies
+ * <a href="https://en.wikipedia.org/wiki/Reactive_Streams">reactive streams</a>
+ * . Messages received from server is cached locally before consumption,
+ * {@link PushConsumerBuilder#setMaxCacheMessageCount(int)} and
+ * {@link PushConsumerBuilder#setMaxCacheMessageSizeInBytes(int)} could be used to set the cache threshold in
+ * different dimension.
  */
 interface PushConsumer {
     /**
-     * Get the load balancing group for the consumer
-     * 
-     * @return string Consumer load balancing group
+     * Get the load balancing group for the consumer.
+     *
+     * @return string consumer load balancing group.
      */
     public function getConsumerGroup(): string;
-    
+
     /**
-     * List the existed subscription expressions in push consumer
-     * 
-     * @return array Collections of the subscription expression
+     * List the existed subscription expressions in push consumer.
+     *
+     * @return array collections of the subscription expression.
      */
     public function getSubscriptionExpressions(): array;
-    
+
     /**
-     * Add subscription expression dynamically
-     * 
-     * @param string $topic Topic name
-     * @param FilterExpression $filterExpression Filter expression
-     * @return PushConsumer Push consumer instance
+     * Add subscription expression dynamically.
+     *
+     * @param string $topic topic to subscribe.
+     * @param FilterExpression $filterExpression new filter expression to add.
+     * @return PushConsumer push consumer instance.
      * @throws ClientException If an error occurs
      */
     public function subscribe(string $topic, FilterExpression $filterExpression): PushConsumer;
-    
+
     /**
-     * Remove subscription expression dynamically by topic
-     * 
-     * @param string $topic The topic to remove the subscription
-     * @return PushConsumer Push consumer instance
+     * Remove subscription expression dynamically by topic.
+     *
+     * <p>It stops the backend task to fetch messages from the server, and besides that, the locally cached message
+     * whose topic was removed before would not be delivered to {@link MessageListener} anymore.
+     *
+     * <p>Nothing occurs if the specified topic does not exist in subscription expressions of the push consumer.
+     *
+     * @param string $topic the topic to remove the subscription.
+     * @return PushConsumer push consumer instance.
      * @throws ClientException If an error occurs
      */
     public function unsubscribe(string $topic): PushConsumer;
-    
+
     /**
-     * Start the push consumer
-     * 
+     * Close the push consumer and release all related resources.
+     *
+     * <p>Once push consumer is closed, <strong>it could not be started once again.</strong> we maintained an FSM
+     * (finite-state machine) to record the different states for each push consumer.
+     *
      * @return void
-     * @throws ClientException If an error occurs
      */
-    public function start(): void;
-    
-    /**
-     * Shutdown the push consumer
-     * 
-     * @return void
-     * @throws ClientException If an error occurs
-     */
-    public function shutdown(): void;
-    
-    /**
-     * Check if the push consumer is running
-     * 
-     * @return bool True if the push consumer is running, false otherwise
-     */
-    public function isRunning(): bool;
+    public function close();
 }

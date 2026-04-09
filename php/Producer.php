@@ -646,43 +646,132 @@ class Producer implements ProducerInterface
     /**
      * {@inheritdoc}
      */
-    public function send(MessageInterface $message): SendReceipt
+    public function send(MessageInterface $message, Transaction $transaction = null): SendReceipt
     {
+        if ($transaction !== null) {
+            // Set message type to TRANSACTION
+            $systemProperties = $message->getSystemProperties();
+            $systemProperties->setMessageType(MessageType::TRANSACTION);
+            $message->setSystemProperties($systemProperties);
+            
+            // Send transaction message
+            $sendReceipt = $this->sendMessageWithRetry($message);
+            
+            // Add message to transaction
+            $transaction->addMessage($message, $sendReceipt);
+            
+            return $sendReceipt;
+        }
+        
         return $this->sendMessageWithRetry($message);
     }
-    
+
+
+
     /**
      * {@inheritdoc}
      */
-    public function sendTransaction(MessageInterface $message): Transaction
+    public function beginTransaction(): Transaction
     {
-        // Set message type to TRANSACTION
-        $systemProperties = $message->getSystemProperties();
-        $systemProperties->setMessageType(MessageType::TRANSACTION);
-        $message->setSystemProperties($systemProperties);
+        if ($this->transactionChecker === null) {
+            throw new ClientException("Transaction checker is not set. Use getTransactionalInstance() to create a transactional producer.");
+        }
         
-        // Send transaction message
-        $sendReceipt = $this->sendMessageWithRetry($message);
+        return new TransactionImpl($this);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function recallMessage(string $topic, string $recallHandle): RecallReceipt
+    {
+        // TODO: Implement recall message functionality
+        throw new ClientException("Recall message functionality not implemented yet");
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function recallMessageAsync(string $topic, string $recallHandle)
+    {
+        // TODO: Implement async recall message functionality
+        throw new ClientException("Async recall message functionality not implemented yet");
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function close()
+    {
+        $this->shutdown();
+    }
+
+    /**
+     * Convert MessageInterface to gRPC Message
+     *
+     * @param MessageInterface $message
+     * @return Message
+     */
+    private function convertToGrpcMessage(MessageInterface $message): Message
+    {
+        $grpcMessage = new Message();
         
-        // Create transaction object
-        return new TransactionImpl($this, $sendReceipt);
+        // Set topic
+        $topic = new Resource();
+        $topic->setName($message->getTopic());
+        $grpcMessage->setTopic($topic);
+        
+        // Set message body
+        $grpcMessage->setBody($message->getBody());
+        
+        // Set system properties
+        $systemProperties = new SystemProperties();
+        
+        $tag = $message->getTag();
+        if ($tag !== null) {
+            $systemProperties->setTag($tag);
+        }
+        
+        $keys = $message->getKeys();
+        if (!empty($keys)) {
+            $systemProperties->setKeys($keys);
+        }
+        
+        $messageGroup = $message->getMessageGroup();
+        if ($messageGroup !== null) {
+            $systemProperties->setMessageGroup($messageGroup);
+        }
+        
+        $deliveryTimestamp = $message->getDeliveryTimestamp();
+        if ($deliveryTimestamp !== null) {
+            $timestamp = new \Google\Protobuf\Timestamp();
+            $timestamp->setSeconds(intval($deliveryTimestamp / 1000));
+            $timestamp->setNanos(($deliveryTimestamp % 1000) * 1000000);
+            $systemProperties->setDeliveryTimestamp($timestamp);
+        }
+        
+        $liteTopic = $message->getLiteTopic();
+        if ($liteTopic !== null) {
+            $systemProperties->setLiteTopic($liteTopic);
+        }
+        
+        $priority = $message->getPriority();
+        if ($priority !== null) {
+            $systemProperties->setPriority($priority);
+        }
+        
+        $grpcMessage->setSystemProperties($systemProperties);
+        
+        // Set custom properties
+        $properties = $message->getProperties();
+        if (!empty($properties)) {
+            $grpcMessage->setProperties($properties);
+        }
+        
+        return $grpcMessage;
     }
     
-    /**
-     * Send transaction message (with retry)
-     * 
-     * @param string $body Message body
-     * @param string|null $tag Message tag
-     * @param string|null $keys Message keys
-     * @param array $properties Custom properties
-     * @return Transaction Transaction object
-     * @throws \Exception If send fails
-     */
-    public function sendTransactionMessage($body, $tag = null, $keys = null, $properties = [])
-    {
-        $message = $this->buildMessage($body, $tag, $keys, null, null, null, null, $properties);
-        return $this->sendTransaction($message);
-    }
+
     
     /**
      * Batch send messages
@@ -948,31 +1037,58 @@ class Producer implements ProducerInterface
     }
     
     /**
-     * Send message asynchronously
-     * 
-     * @param string $body Message body
-     * @param callable $callback Callback function
-     * @param string|null $tag Message tag
-     * @param string|null $keys Message keys
-     * @return void
+     * {@inheritdoc}
      */
-    public function sendAsync($body, $callback, $tag = null, $keys = null)
+    public function sendAsync($message, $callback = null)
     {
-        $message = $this->buildMessage($body, $tag, $keys);
-        
-        $request = new SendMessageRequest();
-        $request->setMessages([$message]);
-        
-        $call = $this->getClient()->SendMessage($request);
-        
-        // Use gRPC async callback
-        $call->wait(function($response, $error) use ($callback) {
-            if ($error) {
-                call_user_func($callback, null, $error);
-            } else {
-                call_user_func($callback, $response, null);
+        if ($message instanceof MessageInterface) {
+            // Build gRPC message
+            $grpcMessage = $this->convertToGrpcMessage($message);
+            
+            $request = new SendMessageRequest();
+            $request->setMessages([$grpcMessage]);
+            
+            $call = $this->getClient()->SendMessage($request);
+            
+            if ($callback !== null) {
+                // Use gRPC async callback
+                $call->wait(function($response, $error) use ($callback) {
+                    if ($error) {
+                        call_user_func($callback, null, $error);
+                    } else {
+                        call_user_func($callback, $response, null);
+                    }
+                });
+                return null;
             }
-        });
+            
+            // Return a promise-like object
+            return $call;
+        } else {
+            // Backward compatibility: old signature with body, callback, tag, keys
+            $body = $message;
+            $callback = func_get_arg(1);
+            $tag = func_get_arg(2) ?? null;
+            $keys = func_get_arg(3) ?? null;
+            
+            $messageObj = $this->buildMessage($body, $tag, $keys);
+            
+            $request = new SendMessageRequest();
+            $request->setMessages([$messageObj]);
+            
+            $call = $this->getClient()->SendMessage($request);
+            
+            // Use gRPC async callback
+            $call->wait(function($response, $error) use ($callback) {
+                if ($error) {
+                    call_user_func($callback, null, $error);
+                } else {
+                    call_user_func($callback, $response, null);
+                }
+            });
+            
+            return null;
+        }
     }
     
 
@@ -1024,20 +1140,7 @@ class Producer implements ProducerInterface
     // Transaction message related methods
     // ========================================
     
-    /**
-     * Start a new transaction
-     * 
-     * @return Transaction Transaction object
-     * @throws \Exception If Transaction checker is not set
-     */
-    public function beginTransaction()
-    {
-        if ($this->transactionChecker === null) {
-            throw new \Exception("Transaction checker is not set. Use getTransactionalInstance() to create a transactional producer.");
-        }
-        
-        return new Transaction($this);
-    }
+
     
     /**
      * Send transaction message (half message)

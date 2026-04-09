@@ -22,49 +22,85 @@ use Apache\Rocketmq\Exception\ClientException;
 use Apache\Rocketmq\Message\Message;
 
 /**
- * Producer interface
- * 
- * Producer is a thread-safe and fully-managed rocketmq client which is used to send messages
+ * Producer is a thread-safe rocketmq client which is used to publish messages.
+ *
+ * <p>On account of network timeout or other reasons, the producer only promised the at-least-once semantics.
+ * For the producer, at-least-once semantics means potentially attempts are made at sending it, messages may be
+ * duplicated but not lost. Especially, potentially attempts are not made using {@link #send(Message, Transaction)}.
  */
 interface Producer {
     /**
-     * Send message
-     * 
-     * @param Message $message Message to send
-     * @return SendReceipt Send receipt
+     * Sends a message synchronously.
+     *
+     * <p>This method does not return until it gets the definitive result.
+     *
+     * @param Message $message the message to send.
+     * @param Transaction|null $transaction the transaction to bind, null for normal message.
+     * @return SendReceipt the returned receipt.
      * @throws ClientException If an error occurs
      */
-    public function send(Message $message): SendReceipt;
-    
+    public function send(Message $message, ?Transaction $transaction = null): SendReceipt;
+
     /**
-     * Send transaction message
-     * 
-     * @param Message $message Message to send
-     * @return Transaction Transaction object
+     * Sends a message asynchronously.
+     *
+     * <p>This method returns immediately, the result is included in the future;
+     *
+     * @param Message $message the message to send.
+     * @return mixed a future that indicates the send receipt.
+     */
+    public function sendAsync(Message $message);
+
+    /**
+     * Begins a transaction.
+     *
+     * <p>For example:
+     *
+     * <pre>{@code
+     * $transaction = $producer->beginTransaction();
+     * $receipt1 = $producer->send($message1, $transaction);
+     * $receipt2 = $producer->send($message2, $transaction);
+     * $transaction->commit();
+     * }</pre>
+     *
+     * @return Transaction a transaction entity to execute commit/rollback operation.
      * @throws ClientException If an error occurs
      */
-    public function sendTransaction(Message $message): Transaction;
-    
+    public function beginTransaction(): Transaction;
+
     /**
-     * Start the producer
-     * 
+     * Recall message synchronously, only delay message is supported for now.
+     *
+     * <pre>{@code
+     * $receipt = $producer->send($message);
+     * $recallHandle = $receipt->getRecallHandle();
+     * }</pre>
+     *
+     * @param string $topic the topic of the operation
+     * @param string $recallHandle the handle to identify a message to recall
+     * @return RecallReceipt the returned receipt, or throw exception if response status is not OK.
+     * @throws ClientException If an error occurs
+     */
+    public function recallMessage(string $topic, string $recallHandle): RecallReceipt;
+
+    /**
+     * Recall message asynchronously.
+     *
+     * <p>This method returns immediately, the result is included in the future;
+     *
+     * @param string $topic the topic of the operation
+     * @param string $recallHandle the handle to identify a message to recall
+     * @return mixed a future that indicates the receipt
+     */
+    public function recallMessageAsync(string $topic, string $recallHandle);
+
+    /**
+     * Closes the producer and releases all related resources.
+     *
+     * <p>Once producer is closed, <strong>it could not be started once again.</strong> we maintained an FSM
+     * (finite-state machine) to record the different states for each producer.
+     *
      * @return void
-     * @throws ClientException If an error occurs
      */
-    public function start(): void;
-    
-    /**
-     * Shutdown the producer
-     * 
-     * @return void
-     * @throws ClientException If an error occurs
-     */
-    public function shutdown(): void;
-    
-    /**
-     * Check if the producer is running
-     * 
-     * @return bool True if the producer is running, false otherwise
-     */
-    public function isRunning(): bool;
+    public function close();
 }
