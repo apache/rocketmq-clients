@@ -20,6 +20,14 @@ namespace Apache\Rocketmq;
 
 require 'vendor/autoload.php';
 
+use Apache\Rocketmq\Connection\ConnectionPool;
+use Apache\Rocketmq\Exception\ClientConfigurationException;
+use Apache\Rocketmq\Exception\ClientException;
+use Apache\Rocketmq\Exception\ClientStateException;
+use Apache\Rocketmq\Exception\MessageException;
+use Apache\Rocketmq\Exception\NetworkException;
+use Apache\Rocketmq\Exception\ServerException;
+use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\AckMessageRequest;
 use Apache\Rocketmq\V2\FilterExpression;
@@ -57,7 +65,7 @@ class SimpleConsumer
     /**
      * @var MessagingServiceClient|null gRPC client instance
      */
-    private static $client = null;
+    private $client = null;
     
     /**
      * @var ClientConfiguration Client configuration object
@@ -80,14 +88,14 @@ class SimpleConsumer
     private $clientId;
     
     /**
-     * @var int Maximum message count
+     * @var int Maximum message number per receive
      */
-    private $maxMessageNum = 16;
+    private $maxMessageNum = 32;
     
     /**
      * @var int Message invisible duration (seconds)
      */
-    private $invisibleDuration = 15;
+    private $invisibleDuration = 30;
     
     /**
      * @var int Long polling wait duration (seconds)
@@ -129,6 +137,10 @@ class SimpleConsumer
             $this->consumerGroup = $consumerGroup;
             $this->topic = $topic;
             $this->retryPolicy = $this->config->getOrCreateRetryPolicy();
+            
+            // Set route cache configuration from client configuration
+            $routeCache = \Apache\Rocketmq\RouteCache::getInstance();
+            $routeCache->setConfigFromClientConfiguration($this->config);
         } else {
             // Legacy compatible method
             if (empty($consumerGroup) || empty($topic)) {
@@ -142,6 +154,10 @@ class SimpleConsumer
             $this->consumerGroup = $consumerGroup;
             $this->topic = $topic;
             $this->retryPolicy = $this->config->getOrCreateRetryPolicy();
+            
+            // Set route cache configuration from client configuration
+            $routeCache = \Apache\Rocketmq\RouteCache::getInstance();
+            $routeCache->setConfigFromClientConfiguration($this->config);
         }
         
         $this->clientId = $this->generateClientId();
@@ -202,10 +218,7 @@ class SimpleConsumer
      */
     private function generateClientId()
     {
-        $hostname = gethostname() ?: 'unknown';
-        $pid = posix_getpid();
-        $randomId = $this->getRandStr(10);
-        return "{$hostname}@{$pid}@{$randomId}";
+        return Util::generateClientId();
     }
     
     /**
@@ -215,31 +228,14 @@ class SimpleConsumer
      */
     private function getClient()
     {
-        if (self::$client === null) {
-            $options = [
-                'credentials' => $this->config->isSslEnabled() 
-                    ? ChannelCredentials::createSsl() 
-                    : ChannelCredentials::createInsecure(),
-                'update_metadata' => function ($metaData) {
-                    $metaData['headers'] = ['clientID' => $this->clientId];
-                    
-                    // Add authentication information
-                    if ($this->config->hasCredentials()) {
-                        $credentials = $this->config->getCredentials();
-                        $metaData['headers']['access-key'] = $credentials->getAccessKey();
-                        
-                        if ($credentials->hasSecurityToken()) {
-                            $metaData['headers']['security-token'] = $credentials->getSecurityToken();
-                        }
-                    }
-                    
-                    return $metaData;
-                }
-            ];
-            
-            self::$client = new MessagingServiceClient($this->config->getEndpoints(), $options);
+        if ($this->client === null) {
+            // Get connection from pool
+            $pool = ConnectionPool::getInstance();
+            // Set connection pool configuration from client configuration
+            $pool->setConfigFromClientConfiguration($this->config);
+            $this->client = $pool->getConnection($this->config);
         }
-        return self::$client;
+        return $this->client;
     }
     
     /**
@@ -475,23 +471,8 @@ class SimpleConsumer
         return $response->getReceiptHandle();
     }
     
-    /**
-     * Generate random string
-     * 
-     * @param int $length Length
-     * @return string Random string
-     */
-    private function getRandStr($length)
-    {
-        $str = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $len = strlen($str) - 1;
-        $randstr = '';
-        for ($i = 0; $i < $length; $i++) {
-            $num = mt_rand(0, $len);
-            $randstr .= $str[$num];
-        }
-        return $randstr;
-    }
+
+
     
     /**
      * Close consumer
@@ -506,8 +487,16 @@ class SimpleConsumer
         
         $this->state = 'STOPPING';
         
-        if (self::$client !== null) {
-            self::$client = null;
+        if ($this->client !== null) {
+            try {
+                $pool = ConnectionPool::getInstance();
+                $pool->returnConnection($this->config, $this->client);
+            } catch (\Exception $e) {
+                // Ignore exception when returning connection
+                error_log("Failed to return connection to pool: " . $e->getMessage());
+            } finally {
+                $this->client = null;
+            }
         }
         
         $this->state = 'TERMINATED';
@@ -542,6 +531,69 @@ class SimpleConsumer
     {
         return $this->retryPolicy;
     }
+    
+    /**
+     * Set max message number
+     *
+     * @param int $maxMessageNum
+     * @return void
+     */
+    public function setMaxMessageNum($maxMessageNum)
+    {
+        $this->maxMessageNum = $maxMessageNum;
+    }
+    
+    /**
+     * Set invisible duration in seconds
+     *
+     * @param int $invisibleDuration
+     * @return void
+     */
+    public function setInvisibleDuration($invisibleDuration)
+    {
+        $this->invisibleDuration = $invisibleDuration;
+    }
+    
+    /**
+     * Set await duration in seconds
+     *
+     * @param int $awaitDuration
+     * @return void
+     */
+    public function setAwaitDuration($awaitDuration)
+    {
+        $this->awaitDuration = $awaitDuration;
+    }
+    
+    /**
+     * Get max message number
+     *
+     * @return int
+     */
+    public function getMaxMessageNum()
+    {
+        return $this->maxMessageNum;
+    }
+    
+    /**
+     * Get invisible duration
+     *
+     * @return int
+     */
+    public function getInvisibleDuration()
+    {
+        return $this->invisibleDuration;
+    }
+    
+    /**
+     * Get await duration
+     *
+     * @return int
+     */
+    public function getAwaitDuration()
+    {
+        return $this->awaitDuration;
+    }
 }
 
 /**
@@ -565,7 +617,7 @@ class PushConsumer
     /**
      * @var MessagingServiceClient|null gRPC client instance
      */
-    private static $client = null;
+    private $client = null;
     
     /**
      * @var ClientConfiguration Client configuration object
@@ -674,10 +726,7 @@ class PushConsumer
      */
     private function generateClientId()
     {
-        $hostname = gethostname() ?: 'unknown';
-        $pid = posix_getpid();
-        $randomId = $this->getRandStr(10);
-        return "{$hostname}@{$pid}@{$randomId}";
+        return Util::generateClientId();
     }
     
     /**
@@ -687,31 +736,14 @@ class PushConsumer
      */
     private function getClient()
     {
-        if (self::$client === null) {
-            $options = [
-                'credentials' => $this->config->isSslEnabled() 
-                    ? ChannelCredentials::createSsl() 
-                    : ChannelCredentials::createInsecure(),
-                'update_metadata' => function ($metaData) {
-                    $metaData['headers'] = ['clientID' => $this->clientId];
-                    
-                    // Add authentication information
-                    if ($this->config->hasCredentials()) {
-                        $credentials = $this->config->getCredentials();
-                        $metaData['headers']['access-key'] = $credentials->getAccessKey();
-                        
-                        if ($credentials->hasSecurityToken()) {
-                            $metaData['headers']['security-token'] = $credentials->getSecurityToken();
-                        }
-                    }
-                    
-                    return $metaData;
-                }
-            ];
-            
-            self::$client = new MessagingServiceClient($this->config->getEndpoints(), $options);
+        if ($this->client === null) {
+            // Get connection from pool
+            $pool = ConnectionPool::getInstance();
+            // Set connection pool configuration from client configuration
+            $pool->setConfigFromClientConfiguration($this->config);
+            $this->client = $pool->getConnection($this->config);
         }
-        return self::$client;
+        return $this->client;
     }
     
     /**
@@ -780,23 +812,8 @@ class PushConsumer
         echo "PushConsumer is stopping...\n";
     }
     
-    /**
-     * Generate random string
-     * 
-     * @param int $length Length
-     * @return string Random string
-     */
-    private function getRandStr($length)
-    {
-        $str = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $len = strlen($str) - 1;
-        $randstr = '';
-        for ($i = 0; $i < $length; $i++) {
-            $num = mt_rand(0, $len);
-            $randstr .= $str[$num];
-        }
-        return $randstr;
-    }
+
+
     
     /**
      * Close consumer
@@ -806,8 +823,16 @@ class PushConsumer
     public function close()
     {
         $this->stop();
-        if (self::$client !== null) {
-            self::$client = null;
+        if ($this->client !== null) {
+            try {
+                $pool = ConnectionPool::getInstance();
+                $pool->returnConnection($this->config, $this->client);
+            } catch (\Exception $e) {
+                // Ignore exception when returning connection
+                error_log("Failed to return connection to pool: " . $e->getMessage());
+            } finally {
+                $this->client = null;
+            }
         }
     }
     
@@ -819,5 +844,47 @@ class PushConsumer
     public function getConfig()
     {
         return $this->config;
+    }
+    
+    /**
+     * Set max message number
+     *
+     * @param int $maxMessageNum
+     * @return void
+     */
+    public function setMaxMessageNum($maxMessageNum)
+    {
+        $this->maxMessageNum = $maxMessageNum;
+    }
+    
+    /**
+     * Set invisible duration in seconds
+     *
+     * @param int $invisibleDuration
+     * @return void
+     */
+    public function setInvisibleDuration($invisibleDuration)
+    {
+        $this->invisibleDuration = $invisibleDuration;
+    }
+    
+    /**
+     * Get max message number
+     *
+     * @return int
+     */
+    public function getMaxMessageNum()
+    {
+        return $this->maxMessageNum;
+    }
+    
+    /**
+     * Get invisible duration
+     *
+     * @return int
+     */
+    public function getInvisibleDuration()
+    {
+        return $this->invisibleDuration;
     }
 }

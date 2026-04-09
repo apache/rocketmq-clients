@@ -78,6 +78,54 @@ class ClientConfiguration
     private $retryPolicy = null;
     
     /**
+     * @var SessionCredentialsProvider|null Session credentials provider (optional)
+     */
+    private $credentialsProvider = null;
+    
+    /**
+     * @var array Connection pool configuration
+     */
+    private $connectionPoolConfig = [
+        'max_connections' => 10,
+        'max_idle_time' => 300, // 5 minutes
+        'connection_timeout' => 5, // 5 seconds
+    ];
+    
+    /**
+     * @var array Cache configuration
+     */
+    private $cacheConfig = [
+        'max_size' => 1000,
+        'ttl' => 30, // 30 seconds
+        'background_refresh' => true,
+    ];
+    
+    /**
+     * @var array Heartbeat configuration
+     */
+    private $heartbeatConfig = [
+        'interval' => 30, // 30 seconds
+        'timeout' => 5, // 5 seconds
+    ];
+    
+    /**
+     * @var array Load balancing configuration
+     */
+    private $loadBalancingConfig = [
+        'strategy' => 'round_robin', // round_robin, random, least_active
+    ];
+    
+    /**
+     * @var array Advanced configuration
+     */
+    private $advancedConfig = [
+        'compression' => false,
+        'compression_threshold' => 1024, // 1KB
+        'rate_limit' => 0, // 0 means no limit
+        'max_message_size' => 4 * 1024 * 1024, // 4MB
+    ];
+    
+    /**
      * Constructor
      * 
      * @param string $endpoints Server endpoint address, format: host:port or host1:port1;host2:port2
@@ -173,6 +221,18 @@ class ClientConfiguration
     }
     
     /**
+     * Set session credentials provider (chainable)
+     * 
+     * @param SessionCredentialsProvider $credentialsProvider Session credentials provider
+     * @return self Returns itself to support chain calls
+     */
+    public function withCredentialsProvider(SessionCredentialsProvider $credentialsProvider)
+    {
+        $this->credentialsProvider = $credentialsProvider;
+        return $this;
+    }
+    
+    /**
      * Get server endpoint address
      * 
      * @return string Server endpoint address
@@ -243,6 +303,26 @@ class ClientConfiguration
     }
     
     /**
+     * Get session credentials provider
+     * 
+     * @return SessionCredentialsProvider|null Session credentials provider, returns null if not set
+     */
+    public function getCredentialsProvider()
+    {
+        return $this->credentialsProvider;
+    }
+    
+    /**
+     * Check if session credentials provider is set
+     * 
+     * @return bool Whether session credentials provider is set
+     */
+    public function hasCredentialsProvider()
+    {
+        return $this->credentialsProvider !== null;
+    }
+    
+    /**
      * Get or create default retry policy
      * 
      * @return RetryPolicy Retry policy object
@@ -269,8 +349,123 @@ class ClientConfiguration
         $clone->requestTimeout = $this->requestTimeout;
         $clone->sslEnabled = $this->sslEnabled;
         $clone->retryPolicy = $this->retryPolicy;
+        $clone->connectionPoolConfig = $this->connectionPoolConfig;
+        $clone->cacheConfig = $this->cacheConfig;
+        $clone->heartbeatConfig = $this->heartbeatConfig;
+        $clone->loadBalancingConfig = $this->loadBalancingConfig;
+        $clone->advancedConfig = $this->advancedConfig;
         
         return $clone;
+    }
+    
+    /**
+     * Set connection pool configuration (chainable)
+     * 
+     * @param array $config Connection pool configuration
+     * @return self Returns itself to support chain calls
+     */
+    public function withConnectionPoolConfig(array $config)
+    {
+        $this->connectionPoolConfig = array_merge($this->connectionPoolConfig, $config);
+        return $this;
+    }
+    
+    /**
+     * Get connection pool configuration
+     * 
+     * @return array Connection pool configuration
+     */
+    public function getConnectionPoolConfig()
+    {
+        return $this->connectionPoolConfig;
+    }
+    
+    /**
+     * Set cache configuration (chainable)
+     * 
+     * @param array $config Cache configuration
+     * @return self Returns itself to support chain calls
+     */
+    public function withCacheConfig(array $config)
+    {
+        $this->cacheConfig = array_merge($this->cacheConfig, $config);
+        return $this;
+    }
+    
+    /**
+     * Get cache configuration
+     * 
+     * @return array Cache configuration
+     */
+    public function getCacheConfig()
+    {
+        return $this->cacheConfig;
+    }
+    
+    /**
+     * Set heartbeat configuration (chainable)
+     * 
+     * @param array $config Heartbeat configuration
+     * @return self Returns itself to support chain calls
+     */
+    public function withHeartbeatConfig(array $config)
+    {
+        $this->heartbeatConfig = array_merge($this->heartbeatConfig, $config);
+        return $this;
+    }
+    
+    /**
+     * Get heartbeat configuration
+     * 
+     * @return array Heartbeat configuration
+     */
+    public function getHeartbeatConfig()
+    {
+        return $this->heartbeatConfig;
+    }
+    
+    /**
+     * Set load balancing configuration (chainable)
+     * 
+     * @param array $config Load balancing configuration
+     * @return self Returns itself to support chain calls
+     */
+    public function withLoadBalancingConfig(array $config)
+    {
+        $this->loadBalancingConfig = array_merge($this->loadBalancingConfig, $config);
+        return $this;
+    }
+    
+    /**
+     * Get load balancing configuration
+     * 
+     * @return array Load balancing configuration
+     */
+    public function getLoadBalancingConfig()
+    {
+        return $this->loadBalancingConfig;
+    }
+    
+    /**
+     * Set advanced configuration (chainable)
+     * 
+     * @param array $config Advanced configuration
+     * @return self Returns itself to support chain calls
+     */
+    public function withAdvancedConfig(array $config)
+    {
+        $this->advancedConfig = array_merge($this->advancedConfig, $config);
+        return $this;
+    }
+    
+    /**
+     * Get advanced configuration
+     * 
+     * @return array Advanced configuration
+     */
+    public function getAdvancedConfig()
+    {
+        return $this->advancedConfig;
     }
     
     /**

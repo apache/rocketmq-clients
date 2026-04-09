@@ -60,6 +60,29 @@ class MetricName
     // Retry metrics
     const RETRY_TOTAL = 'rocketmq_retry_total';                        // Total retries
     const RETRY_SUCCESS_TOTAL = 'rocketmq_retry_success_total';        // Successful retries
+    
+    // Connection pool metrics
+    const CONNECTION_POOL_SIZE = 'rocketmq_connection_pool_size';      // Current connection pool size
+    const CONNECTION_POOL_MAX_SIZE = 'rocketmq_connection_pool_max_size'; // Maximum connection pool size
+    const CONNECTION_POOL_BORROW = 'rocketmq_connection_pool_borrow';  // Connection borrow count
+    const CONNECTION_POOL_RETURN = 'rocketmq_connection_pool_return';  // Connection return count
+    const CONNECTION_POOL_WAIT_TIME = 'rocketmq_connection_pool_wait_time'; // Connection wait time (ms)
+    
+    // Cache metrics
+    const CACHE_HITS = 'rocketmq_cache_hits';                          // Cache hits
+    const CACHE_MISSES = 'rocketmq_cache_misses';                      // Cache misses
+    const CACHE_REFRESHES = 'rocketmq_cache_refreshes';                // Cache refreshes
+    const CACHE_EVICTIONS = 'rocketmq_cache_evictions';                // Cache evictions
+    const CACHE_SIZE = 'rocketmq_cache_size';                          // Current cache size
+    const CACHE_MAX_SIZE = 'rocketmq_cache_max_size';                  // Maximum cache size
+    
+    // Client state metrics
+    const CLIENT_STATE = 'rocketmq_client_state';                      // Client state (0: CREATED, 1: RUNNING, 2: STOPPING, 3: TERMINATED)
+    const CLIENT_UPTIME = 'rocketmq_client_uptime';                    // Client uptime (seconds)
+    
+    // System metrics
+    const MEMORY_USAGE = 'rocketmq_memory_usage';                      // Memory usage (bytes)
+    const CPU_USAGE = 'rocketmq_cpu_usage';                            // CPU usage (percent)
 }
 
 /**

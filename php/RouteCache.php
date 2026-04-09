@@ -18,6 +18,8 @@
 
 namespace Apache\Rocketmq;
 
+use Apache\Rocketmq\MetricsCollector;
+use Apache\Rocketmq\MetricName;
 use Apache\Rocketmq\V2\QueryRouteResponse;
 
 /**
@@ -71,13 +73,46 @@ class RouteCache
         'hits' => 0,
         'misses' => 0,
         'refreshes' => 0,
+        'evictions' => 0,
     ];
+    
+    /**
+     * @var int Maximum cache size, default 1000
+     */
+    private $maxSize = 1000;
+    
+    /**
+     * @var bool Whether background refresh is enabled
+     */
+    private $backgroundRefresh = true;
+    
+    /**
+     * @var array Registered topics for background refresh
+     */
+    private $registeredTopics = [];
+    
+    /**
+     * @var bool Whether background refresh is running
+     */
+    private $backgroundRefreshRunning = false;
+    
+    /**
+     * @var MetricsCollector|null Metrics collector
+     */
+    private $metricsCollector;
     
     /**
      * Private constructor to prevent direct instantiation
      */
     private function __construct()
     {
+        // Initialize metrics collector
+        $this->metricsCollector = new MetricsCollector('route_cache');
+        
+        // Start background refresh if enabled
+        if ($this->backgroundRefresh) {
+            $this->startBackgroundRefresh();
+        }
     }
     
     /**
@@ -119,6 +154,7 @@ class RouteCache
         // If cache is not enabled, load directly
         if (!$this->enabled) {
             $this->stats['misses']++;
+            $this->metricsCollector->incrementCounter(MetricName::CACHE_MISSES, ['topic' => $topic]);
             return $loader($topic);
         }
         
@@ -126,14 +162,21 @@ class RouteCache
         $route = $this->get($topic);
         if ($route !== null) {
             $this->stats['hits']++;
+            $this->metricsCollector->incrementCounter(MetricName::CACHE_HITS, ['topic' => $topic]);
             return $route;
         }
         
         // Cache miss, load new data
         $this->stats['misses']++;
+        $this->metricsCollector->incrementCounter(MetricName::CACHE_MISSES, ['topic' => $topic]);
+        
         $route = $loader($topic);
         $this->set($topic, $route);
         $this->stats['refreshes']++;
+        $this->metricsCollector->incrementCounter(MetricName::CACHE_REFRESHES, ['topic' => $topic]);
+        
+        // Update cache size metrics
+        $this->updateCacheMetrics();
         
         return $route;
     }
@@ -167,8 +210,19 @@ class RouteCache
      */
     public function set($topic, QueryRouteResponse $route)
     {
+        // Check cache size limit
+        if (count($this->cache) >= $this->maxSize) {
+            // Remove oldest cache entry
+            $this->evictOldest();
+        }
+        
         $this->cache[$topic] = $route;
         $this->lastUpdate[$topic] = time();
+        
+        // Register topic for background refresh
+        if (!in_array($topic, $this->registeredTopics)) {
+            $this->registeredTopics[] = $topic;
+        }
     }
     
     /**
@@ -181,6 +235,36 @@ class RouteCache
     {
         unset($this->cache[$topic]);
         unset($this->lastUpdate[$topic]);
+        
+        // Remove from registered topics
+        $index = array_search($topic, $this->registeredTopics);
+        if ($index !== false) {
+            unset($this->registeredTopics[$index]);
+            $this->registeredTopics = array_values($this->registeredTopics);
+        }
+    }
+    
+    /**
+     * Evict oldest cache entry
+     * 
+     * @return void
+     */
+    private function evictOldest()
+    {
+        if (empty($this->lastUpdate)) {
+            return;
+        }
+        
+        // Find oldest entry
+        $oldestTopic = array_keys($this->lastUpdate, min($this->lastUpdate))[0];
+        
+        // Remove oldest entry
+        $this->invalidate($oldestTopic);
+        $this->stats['evictions']++;
+        $this->metricsCollector->incrementCounter(MetricName::CACHE_EVICTIONS, ['topic' => $oldestTopic]);
+        
+        // Update cache size metrics
+        $this->updateCacheMetrics();
     }
     
     /**
@@ -192,6 +276,22 @@ class RouteCache
     {
         $this->cache = [];
         $this->lastUpdate = [];
+        $this->registeredTopics = [];
+        
+        // Update cache size metrics
+        $this->updateCacheMetrics();
+    }
+    
+    /**
+     * Update cache metrics
+     * 
+     * @return void
+     */
+    private function updateCacheMetrics()
+    {
+        $currentSize = count($this->cache);
+        $this->metricsCollector->setGauge(MetricName::CACHE_SIZE, [], $currentSize);
+        $this->metricsCollector->setGauge(MetricName::CACHE_MAX_SIZE, [], $this->maxSize);
     }
     
     /**
@@ -253,9 +353,109 @@ class RouteCache
             'hits' => $this->stats['hits'],
             'misses' => $this->stats['misses'],
             'refreshes' => $this->stats['refreshes'],
+            'evictions' => $this->stats['evictions'],
             'size' => count($this->cache),
             'hit_rate' => $this->getHitRate(),
         ];
+    }
+    
+    /**
+     * Start background refresh process
+     * 
+     * @return void
+     */
+    private function startBackgroundRefresh()
+    {
+        if ($this->backgroundRefreshRunning) {
+            return;
+        }
+        
+        $this->backgroundRefreshRunning = true;
+        
+        // Start background refresh in a separate process
+        // Note: This is a simple implementation, in production you might want to use a more robust approach
+        // For example, using pcntl_fork or a dedicated background process
+        
+        register_shutdown_function(function() {
+            $this->backgroundRefreshRunning = false;
+        });
+    }
+    
+    /**
+     * Background refresh loop
+     * 
+     * @param callable $loader Loader function
+     * @return void
+     */
+    public function backgroundRefreshLoop(callable $loader)
+    {
+        while ($this->backgroundRefreshRunning && $this->enabled) {
+            try {
+                // Refresh expired cache entries
+                $this->refreshExpired($loader);
+            } catch (\Exception $e) {
+                // Log error and continue
+                error_log("Background refresh failed: " . $e->getMessage());
+            }
+            
+            // Sleep for TTL/2 seconds to avoid frequent refreshes
+            usleep(($this->ttl * 1000000) / 2);
+        }
+    }
+    
+    /**
+     * Set maximum cache size
+     * 
+     * @param int $maxSize Maximum cache size
+     * @return void
+     * @throws \InvalidArgumentException If maxSize is invalid
+     */
+    public function setMaxSize($maxSize)
+    {
+        if ($maxSize < 1) {
+            throw new \InvalidArgumentException("Max size must be >= 1");
+        }
+        $this->maxSize = $maxSize;
+        
+        // Evict excess entries if necessary
+        while (count($this->cache) > $this->maxSize) {
+            $this->evictOldest();
+        }
+    }
+    
+    /**
+     * Get maximum cache size
+     * 
+     * @return int Maximum cache size
+     */
+    public function getMaxSize()
+    {
+        return $this->maxSize;
+    }
+    
+    /**
+     * Set background refresh enabled
+     * 
+     * @param bool $enabled Whether to enable background refresh
+     * @return void
+     */
+    public function setBackgroundRefresh($enabled)
+    {
+        $this->backgroundRefresh = (bool)$enabled;
+        
+        if ($enabled && !$this->backgroundRefreshRunning) {
+            $this->startBackgroundRefresh();
+        }
+    }
+    
+    /**
+     * Get background refresh enabled
+     * 
+     * @return bool Whether background refresh is enabled
+     */
+    public function isBackgroundRefreshEnabled()
+    {
+        return $this->backgroundRefresh;
     }
     
     /**
@@ -312,6 +512,29 @@ class RouteCache
     }
     
     /**
+     * Set configuration from ClientConfiguration
+     *
+     * @param \Apache\Rocketmq\ClientConfiguration $clientConfig
+     * @return void
+     */
+    public function setConfigFromClientConfiguration(\Apache\Rocketmq\ClientConfiguration $clientConfig)
+    {
+        $cacheConfig = $clientConfig->getCacheConfig();
+        
+        if (isset($cacheConfig['max_size'])) {
+            $this->setMaxSize($cacheConfig['max_size']);
+        }
+        
+        if (isset($cacheConfig['ttl'])) {
+            $this->setTtl($cacheConfig['ttl']);
+        }
+        
+        if (isset($cacheConfig['background_refresh'])) {
+            $this->setBackgroundRefresh($cacheConfig['background_refresh']);
+        }
+    }
+    
+    /**
      * Enable/disable cache
      * 
      * @param bool $enabled Whether to enable
@@ -361,5 +584,25 @@ class RouteCache
     public function size()
     {
         return count($this->cache);
+    }
+    
+    /**
+     * Get metrics collector
+     * 
+     * @return MetricsCollector
+     */
+    public function getMetricsCollector()
+    {
+        return $this->metricsCollector;
+    }
+    
+    /**
+     * Export metrics to JSON
+     * 
+     * @return string
+     */
+    public function exportMetrics()
+    {
+        return $this->metricsCollector->exportToJson();
     }
 }

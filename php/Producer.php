@@ -20,6 +20,24 @@ namespace Apache\Rocketmq;
 
 require 'vendor/autoload.php';
 
+use Apache\Rocketmq\Builder\MessageBuilder;
+use Apache\Rocketmq\Builder\ProducerBuilder;
+use Apache\Rocketmq\Builder\PushConsumerBuilder;
+use Apache\Rocketmq\Builder\SimpleConsumerBuilder;
+use Apache\Rocketmq\Connection\ConnectionPool;
+use Apache\Rocketmq\Exception\ClientConfigurationException;
+use Apache\Rocketmq\Exception\ClientException;
+use Apache\Rocketmq\Exception\ClientStateException;
+use Apache\Rocketmq\Exception\MessageException;
+use Apache\Rocketmq\Exception\NetworkException;
+use Apache\Rocketmq\Exception\ServerException;
+use Apache\Rocketmq\Exception\TransactionException;
+use Apache\Rocketmq\Producer\RecallReceipt;
+use Apache\Rocketmq\Producer\SendReceipt;
+use Apache\Rocketmq\Producer\Transaction;
+use Apache\Rocketmq\Producer\TransactionChecker;
+use Apache\Rocketmq\Producer\TransactionResolution;
+use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\MessageType;
 use Apache\Rocketmq\V2\MessagingServiceClient;
@@ -50,7 +68,7 @@ class Producer
     /**
      * @var MessagingServiceClient|null gRPC client instance
      */
-    private static $client = null;
+    private $client = null;
     
     /**
      * @var ClientConfiguration Client configuration object
@@ -103,6 +121,11 @@ class Producer
     private $metricsCollector;
     
     /**
+     * @var int Max attempts for message sending
+     */
+    private $maxAttempts = 3;
+    
+    /**
      * Private constructor to prevent direct instantiation
      * 
      * @param ClientConfiguration|string $configOrEndpoints Client configuration object or server endpoint string (backward compatible)
@@ -137,6 +160,8 @@ class Producer
         
         $this->clientId = $this->generateClientId();
         $this->routeCache = RouteCache::getInstance();
+        // Set route cache configuration from client configuration
+        $this->routeCache->setConfigFromClientConfiguration($this->config);
         $this->metricsCollector = new MetricsCollector($this->clientId);
     }
     
@@ -351,10 +376,7 @@ class Producer
      */
     private function generateClientId()
     {
-        $hostname = gethostname() ?: 'unknown';
-        $pid = posix_getpid();
-        $randomId = $this->getRandStr(10);
-        return "{$hostname}@{$pid}@{$randomId}";
+        return Util::generateClientId();
     }
     
     /**
@@ -364,31 +386,14 @@ class Producer
      */
     private function getClient()
     {
-        if (self::$client === null) {
-            $options = [
-                'credentials' => $this->config->isSslEnabled() 
-                    ? \Grpc\ChannelCredentials::createSsl() 
-                    : \Grpc\ChannelCredentials::createInsecure(),
-                'update_metadata' => function ($metaData) {
-                    $metaData['headers'] = ['clientID' => $this->clientId];
-                    
-                    // Add authentication information
-                    if ($this->config->hasCredentials()) {
-                        $credentials = $this->config->getCredentials();
-                        $metaData['headers']['access-key'] = $credentials->getAccessKey();
-                        
-                        if ($credentials->hasSecurityToken()) {
-                            $metaData['headers']['security-token'] = $credentials->getSecurityToken();
-                        }
-                    }
-                    
-                    return $metaData;
-                }
-            ];
-            
-            self::$client = new MessagingServiceClient($this->config->getEndpoints(), $options);
+        if ($this->client === null) {
+            // Get connection from pool
+            $pool = ConnectionPool::getInstance();
+            // Set connection pool configuration from client configuration
+            $pool->setConfigFromClientConfiguration($this->config);
+            $this->client = $pool->getConnection($this->config);
         }
-        return self::$client;
+        return $this->client;
     }
     
     /**
@@ -463,7 +468,7 @@ class Producer
      * @param int|null $deliveryTimestamp Scheduled message delivery timestamp (milliseconds)
      * @return Message Message object
      */
-    private function buildMessage($body, $tag = null, $keys = null, $messageGroup = null, $deliveryTimestamp = null)
+    private function buildMessage($body, $tag = null, $keys = null, $messageGroup = null, $deliveryTimestamp = null, $liteTopic = null, $priority = null, $properties = [])
     {
         $message = new Message();
         
@@ -483,7 +488,11 @@ class Producer
         }
         
         if ($keys !== null) {
-            $systemProperties->setKeys([$keys]);
+            if (is_array($keys)) {
+                $systemProperties->setKeys($keys);
+            } else {
+                $systemProperties->setKeys([$keys]);
+            }
         }
         
         if ($messageGroup !== null) {
@@ -498,7 +507,20 @@ class Producer
             $systemProperties->setDeliveryTimestamp($timestamp);
         }
         
+        if ($liteTopic !== null) {
+            $systemProperties->setLiteTopic($liteTopic);
+        }
+        
+        if ($priority !== null) {
+            $systemProperties->setPriority($priority);
+        }
+        
         $message->setSystemProperties($systemProperties);
+        
+        // Set custom properties
+        if (!empty($properties)) {
+            $message->setProperties($properties);
+        }
         
         return $message;
     }
@@ -509,7 +531,7 @@ class Producer
      * @param string $body Message body
      * @param string|null $tag Message tag
      * @param string|null $keys Message keys
-     * @return array Send result
+     * @return SendReceipt Send result
      * @throws \Exception If send fails
      */
     public function sendNormalMessage($body, $tag = null, $keys = null)
@@ -525,7 +547,7 @@ class Producer
      * @param string $messageGroup Message group ID (messages in the same group are delivered in order)
      * @param string|null $tag Message tag
      * @param string|null $keys Message keys
-     * @return array Send result
+     * @return SendReceipt Send result
      * @throws \Exception If send fails
      */
     public function sendFifoMessage($body, $messageGroup, $tag = null, $keys = null)
@@ -547,7 +569,7 @@ class Producer
      * @param int $delaySeconds Delay seconds
      * @param string|null $tag Message tag
      * @param string|null $keys Message keys
-     * @return array Send result
+     * @return SendReceipt Send result
      * @throws \Exception If send fails
      */
     public function sendDelayMessage($body, $delaySeconds, $tag = null, $keys = null)
@@ -558,21 +580,111 @@ class Producer
     }
     
     /**
+     * Send lite topic message (with retry)
+     * 
+     * @param string $body Message body
+     * @param string $liteTopic Lite topic name
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @param array $properties Custom properties
+     * @return SendReceipt Send result
+     * @throws \Exception If send fails
+     */
+    public function sendLiteMessage($body, $liteTopic, $tag = null, $keys = null, $properties = [])
+    {
+        $message = $this->buildMessage($body, $tag, $keys, null, null, $liteTopic, null, $properties);
+        
+        // Set message type to LITE
+        $systemProperties = $message->getSystemProperties();
+        $systemProperties->setMessageType(MessageType::LITE);
+        $message->setSystemProperties($systemProperties);
+        
+        return $this->sendMessageWithRetry($message);
+    }
+    
+    /**
+     * Send priority message (with retry)
+     * 
+     * @param string $body Message body
+     * @param int $priority Message priority (0-10)
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @param array $properties Custom properties
+     * @return SendReceipt Send result
+     * @throws \Exception If send fails
+     */
+    public function sendPriorityMessage($body, $priority, $tag = null, $keys = null, $properties = [])
+    {
+        $message = $this->buildMessage($body, $tag, $keys, null, null, null, $priority, $properties);
+        
+        // Set message type to PRIORITY
+        $systemProperties = $message->getSystemProperties();
+        $systemProperties->setMessageType(MessageType::PRIORITY);
+        $message->setSystemProperties($systemProperties);
+        
+        return $this->sendMessageWithRetry($message);
+    }
+    
+    /**
+     * Send message with custom properties (with retry)
+     * 
+     * @param string $body Message body
+     * @param array $properties Custom properties
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @return SendReceipt Send result
+     * @throws \Exception If send fails
+     */
+    public function sendMessageWithProperties($body, $properties, $tag = null, $keys = null)
+    {
+        $message = $this->buildMessage($body, $tag, $keys, null, null, null, null, $properties);
+        return $this->sendMessageWithRetry($message);
+    }
+    
+    /**
+     * Send transaction message (with retry)
+     * 
+     * @param string $body Message body
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @param array $properties Custom properties
+     * @return Transaction Transaction object
+     * @throws \Exception If send fails
+     */
+    public function sendTransactionMessage($body, $tag = null, $keys = null, $properties = [])
+    {
+        $message = $this->buildMessage($body, $tag, $keys, null, null, null, null, $properties);
+        
+        // Set message type to TRANSACTION
+        $systemProperties = $message->getSystemProperties();
+        $systemProperties->setMessageType(MessageType::TRANSACTION);
+        $message->setSystemProperties($systemProperties);
+        
+        // Send transaction message
+        $sendReceipt = $this->sendMessageWithRetry($message);
+        
+        // Create transaction object
+        return new TransactionImpl($this, $sendReceipt);
+    }
+    
+    /**
      * Batch send messages
      * 
      * Send multiple messages in one gRPC request to improve throughput
-     * Note:
+     * 
+     * Notes:
      * 1. All messages must have the same topic
-     * 2. Batch size cannot exceed maxBatchSize (default 32)
-     * 3. Total batch size cannot exceed 4MB
+     * 2. Maximum batch size is 100 messages by default
+     * 3. Maximum total message size is 4MB by default
      * 4. FIFO messages do not support batch sending
      * 
      * @param array $messages Message array [['body' => '...', 'tag' => '...', 'keys' => '...'], ...]
-     * @param int $maxBatchSize Maximum batch size, default 32
+     * @param int $maxBatchSize Maximum batch size, default 100
+     * @param int $maxMessageSize Maximum total message size in bytes, default 4MB
      * @return array Send result array
      * @throws \Exception If send fails or parameters are invalid
      */
-    public function sendBatchMessages($messages, $maxBatchSize = 32)
+    public function sendBatchMessages($messages, $maxBatchSize = 100, $maxMessageSize = 4 * 1024 * 1024)
     {
         // Validate input
         if (empty($messages)) {
@@ -584,15 +696,19 @@ class Producer
         }
         
         // Limit batch size
-        if (count($messages) > $maxBatchSize) {
+        $totalMessages = count($messages);
+        if ($totalMessages > $maxBatchSize) {
             throw new \Exception(
-                "Batch size exceeds limit. Count: " . count($messages) . ", Max: {$maxBatchSize}"
+                "Batch size exceeds limit. Count: {$totalMessages}, Max: {$maxBatchSize}"
             );
         }
         
         // Build message object array
         $messageObjects = [];
         $totalSize = 0;
+        
+        // Pre-allocate array for better performance
+        $messageObjects = array_fill(0, $totalMessages, null);
         
         foreach ($messages as $index => $msgData) {
             if (!is_array($msgData) || !isset($msgData['body'])) {
@@ -611,17 +727,16 @@ class Producer
             }
             
             $message = $this->buildMessage($body, $tag, $keys, $messageGroup, $deliveryTimestamp);
-            $messageObjects[] = $message;
+            $messageObjects[$index] = $message;
             
             // Calculate total size
             $totalSize += strlen($body);
         }
         
-        // Check total size (4MB limit)
-        $maxTotalSize = 4 * 1024 * 1024; // 4MB
-        if ($totalSize > $maxTotalSize) {
+        // Check total size
+        if ($totalSize > $maxMessageSize) {
             throw new \Exception(
-                "Total message size exceeds 4MB limit. Size: " . round($totalSize / 1024 / 1024, 2) . "MB"
+                "Total message size exceeds limit. Size: " . round($totalSize / 1024 / 1024, 2) . "MB, Max: " . round($maxMessageSize / 1024 / 1024, 2) . "MB"
             );
         }
         
@@ -694,7 +809,7 @@ class Producer
      * Send message to gRPC server (no retry)
      * 
      * @param Message $message Message object
-     * @return array Send result
+     * @return SendReceipt Send result
      * @throws \Exception If send fails
      */
     private function sendMessage($message)
@@ -736,15 +851,19 @@ class Producer
             }
             
             // Parse send results
-            $results = [];
-            foreach ($response->getEntries() as $entry) {
-                $results[] = [
-                    'messageId' => $entry->getMessageId(),
-                    'transactionId' => $entry->getTransactionId(),
-                    'target' => $entry->getTarget(),
-                    'status' => $entry->getStatus()
-                ];
+            $entries = $response->getEntries();
+            if (empty($entries)) {
+                throw new \Exception("No send result returned");
             }
+            
+            $entry = $entries[0];
+            $messageId = $entry->getMessageId();
+            $topic = $this->topic;
+            $queueId = 0; // Default queue ID
+            $offset = 0; // Default offset
+            
+            // Create send receipt
+            $sendReceipt = new SendReceipt($messageId, $topic, $queueId, $offset);
             
             // Record success metrics
             $this->metricsCollector->incrementCounter(MetricName::SEND_SUCCESS_TOTAL, [
@@ -760,10 +879,10 @@ class Producer
             
             // Execute after-send interceptors
             if (!empty($this->interceptors) && $context !== null) {
-                $this->doAfterSend($context, [$message], $results);
+                $this->doAfterSend($context, [$message], [$sendReceipt]);
             }
             
-            return $results;
+            return $sendReceipt;
         } catch (\Exception $e) {
             // Record failure metrics
             $this->metricsCollector->incrementCounter(MetricName::SEND_FAILURE_TOTAL, [
@@ -784,7 +903,7 @@ class Producer
      * 
      * @param Message $message Message object
      * @param int $attempt Current attempt count (starting from 1)
-     * @return array Send result
+     * @return SendReceipt Send result
      * @throws \Exception If send fails and cannot retry
      */
     private function sendMessageWithRetry($message, $attempt = 1)
@@ -839,23 +958,8 @@ class Producer
         });
     }
     
-    /**
-     * Generate random string
-     * 
-     * @param int $length Length
-     * @return string Random string
-     */
-    private function getRandStr($length)
-    {
-        $str = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $len = strlen($str) - 1;
-        $randstr = '';
-        for ($i = 0; $i < $length; $i++) {
-            $num = mt_rand(0, $len);
-            $randstr .= $str[$num];
-        }
-        return $randstr;
-    }
+
+
     
     /**
      * Get Retry policy
@@ -1073,11 +1177,17 @@ class Producer
                 $this->routeCache->invalidate($this->topic);
             }
             
-            // 2. Close gRPC connection
-            if (self::$client !== null) {
-                // gRPC PHP extension has no explicit close method
-                // Set client to null, let GC recycle
-                self::$client = null;
+            // 2. Return gRPC connection to pool
+            if ($this->client !== null) {
+                try {
+                    $pool = ConnectionPool::getInstance();
+                    $pool->returnConnection($this->config, $this->client);
+                } catch (\Exception $e) {
+                    // Ignore exception when returning connection
+                    error_log("Failed to return connection to pool: " . $e->getMessage());
+                } finally {
+                    $this->client = null;
+                }
             }
             
             // 3. Clean up transaction-related resources
@@ -1353,5 +1463,37 @@ class Producer
         }
         
         return $metric['sum'] / $metric['count'];
+    }
+    
+    /**
+     * Set max attempts for message sending
+     *
+     * @param int $maxAttempts
+     * @return void
+     */
+    public function setMaxAttempts($maxAttempts)
+    {
+        $this->maxAttempts = $maxAttempts;
+    }
+    
+    /**
+     * Set transaction checker
+     *
+     * @param TransactionChecker $transactionChecker
+     * @return void
+     */
+    public function setTransactionChecker(TransactionChecker $transactionChecker)
+    {
+        $this->transactionChecker = $transactionChecker;
+    }
+    
+    /**
+     * Get max attempts
+     *
+     * @return int
+     */
+    public function getMaxAttempts()
+    {
+        return $this->maxAttempts;
     }
 }
