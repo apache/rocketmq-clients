@@ -28,7 +28,68 @@ use Apache\Rocketmq\Builder\LiteSimpleConsumerBuilder;
 /**
  * Service provider to create client instances, following the same pattern as Java client.
  */
-class ClientServiceProvider {
+interface ClientServiceProvider {
+    /**
+     * Get the producer builder by the current provider.
+     *
+     * @return ProducerBuilder The producer builder instance
+     */
+    public function newProducerBuilder();
+    
+    /**
+     * Get the message builder by the current provider.
+     *
+     * @return MessageBuilder The message builder instance
+     */
+    public function newMessageBuilder();
+    
+    /**
+     * Get the push consumer builder by the current provider.
+     *
+     * @return PushConsumerBuilder The push consumer builder instance
+     */
+    public function newPushConsumerBuilder();
+    
+    /**
+     * Get the lite push consumer builder by the current provider.
+     *
+     * @return LitePushConsumerBuilder The lite push consumer builder instance
+     */
+    public function newLitePushConsumerBuilder();
+    
+    /**
+     * Get the lite simple consumer builder by the current provider.
+     *
+     * @return LiteSimpleConsumerBuilder The lite simple consumer builder instance
+     */
+    public function newLiteSimpleConsumerBuilder();
+    
+    /**
+     * Get the simple consumer builder by the current provider.
+     *
+     * @return SimpleConsumerBuilder The simple consumer builder instance
+     */
+    public function newSimpleConsumerBuilder();
+    
+    /**
+     * Load client service provider instance
+     *
+     * @return ClientServiceProvider
+     */
+    public static function loadService();
+    
+    /**
+     * Do load client service provider instance
+     *
+     * @return ClientServiceProvider
+     */
+    public static function doLoad();
+}
+
+/**
+ * Default implementation of ClientServiceProvider
+ */
+class ClientServiceProviderImpl implements ClientServiceProvider {
     /**
      * @var ClientServiceProvider|null Singleton instance
      */
@@ -41,68 +102,61 @@ class ClientServiceProvider {
     }
     
     /**
-     * Get singleton instance of ClientServiceProvider
-     *
-     * @return ClientServiceProvider
-     */
-    public static function getInstance() {
-        if (self::$instance === null) {
-            self::$instance = new self();
-        }
-        return self::$instance;
-    }
-    
-    /**
-     * Create a new producer builder
-     *
-     * @return ProducerBuilder
+     * {@inheritdoc}
      */
     public function newProducerBuilder() {
         return new ProducerBuilder();
     }
     
     /**
-     * Create a new simple consumer builder
-     *
-     * @return SimpleConsumerBuilder
+     * {@inheritdoc}
      */
-    public function newSimpleConsumerBuilder() {
-        return new SimpleConsumerBuilder();
+    public function newMessageBuilder() {
+        return new MessageBuilder();
     }
     
     /**
-     * Create a new push consumer builder
-     *
-     * @return PushConsumerBuilder
+     * {@inheritdoc}
      */
     public function newPushConsumerBuilder() {
         return new PushConsumerBuilder();
     }
     
     /**
-     * Create a new lite push consumer builder
-     *
-     * @return LitePushConsumerBuilder
+     * {@inheritdoc}
      */
     public function newLitePushConsumerBuilder() {
         return new LitePushConsumerBuilder();
     }
     
     /**
-     * Create a new lite simple consumer builder
-     *
-     * @return LiteSimpleConsumerBuilder
+     * {@inheritdoc}
      */
     public function newLiteSimpleConsumerBuilder() {
         return new LiteSimpleConsumerBuilder();
     }
     
     /**
-     * Create a new message builder
-     *
-     * @return MessageBuilder
+     * {@inheritdoc}
      */
-    public function newMessageBuilder() {
-        return new MessageBuilder();
+    public function newSimpleConsumerBuilder() {
+        return new SimpleConsumerBuilder();
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public static function loadService() {
+        if (self::$instance === null) {
+            self::$instance = self::doLoad();
+        }
+        return self::$instance;
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public static function doLoad() {
+        return new self();
     }
 }

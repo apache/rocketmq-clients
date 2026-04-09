@@ -442,6 +442,11 @@ $consumer->start();
 - ✅ SessionCredentials (new in v2.0)
 - ✅ SessionCredentialsProvider (new in v2.0)
 - ✅ StaticSessionCredentialsProvider (new in v2.0)
+- ✅ ClientConfigurationBuilder (new in v2.0)
+- ✅ Message (new in v2.0)
+- ✅ MessageId (new in v2.0)
+- ✅ MessageView (new in v2.0)
+- ✅ Producer interface (new in v2.0)
 
 ## Consumer Examples
 
@@ -457,19 +462,25 @@ use Apache\Rocketmq\Consumer\FilterExpressionType;
 use Apache\Rocketmq\Message\MessageView;
 
 // Create client service provider
-$provider = ClientServiceProvider::getInstance();
+$provider = ClientServiceProvider::loadService();
 
 // Create client configuration with session credentials
 use Apache\Rocketmq\SessionCredentials;
 use Apache\Rocketmq\StaticSessionCredentialsProvider;
+use Apache\Rocketmq\ClientConfigurationBuilder;
 
 // Create static session credentials provider
 $credentialsProvider = new StaticSessionCredentialsProvider('your-access-key', 'your-access-secret', 'your-security-token');
 
-// Create client configuration
-$config = new ClientConfiguration();
-$config->setEndpoints('localhost:8081')
-    ->withCredentialsProvider($credentialsProvider);
+// Create client configuration using builder
+$config = (new ClientConfigurationBuilder())
+    ->setEndpoints('localhost:8081')
+    ->setCredentialProvider($credentialsProvider)
+    ->setRequestTimeout(5)
+    ->enableSsl(true)
+    ->setNamespace('your-namespace')
+    ->setMaxStartupAttempts(3)
+    ->build();
 
 // Create push consumer
 $consumer = $provider->newPushConsumerBuilder()
@@ -521,19 +532,25 @@ use Apache\Rocketmq\Consumer\FilterExpression;
 use Apache\Rocketmq\Consumer\FilterExpressionType;
 
 // Create client service provider
-$provider = ClientServiceProvider::getInstance();
+$provider = ClientServiceProvider::loadService();
 
 // Create client configuration with session credentials
 use Apache\Rocketmq\SessionCredentials;
 use Apache\Rocketmq\StaticSessionCredentialsProvider;
+use Apache\Rocketmq\ClientConfigurationBuilder;
 
 // Create static session credentials provider
 $credentialsProvider = new StaticSessionCredentialsProvider('your-access-key', 'your-access-secret', 'your-security-token');
 
-// Create client configuration
-$config = new ClientConfiguration();
-$config->setEndpoints('localhost:8081')
-    ->withCredentialsProvider($credentialsProvider);
+// Create client configuration using builder
+$config = (new ClientConfigurationBuilder())
+    ->setEndpoints('localhost:8081')
+    ->setCredentialProvider($credentialsProvider)
+    ->setRequestTimeout(5)
+    ->enableSsl(true)
+    ->setNamespace('your-namespace')
+    ->setMaxStartupAttempts(3)
+    ->build();
 
 // Create simple consumer
 $consumer = $provider->newSimpleConsumerBuilder()
@@ -585,19 +602,25 @@ use Apache\Rocketmq\ClientConfiguration;
 use Apache\Rocketmq\Consumer\ConsumeResult;
 
 // Create client service provider
-$provider = ClientServiceProvider::getInstance();
+$provider = ClientServiceProvider::loadService();
 
 // Create client configuration with session credentials
 use Apache\Rocketmq\SessionCredentials;
 use Apache\Rocketmq\StaticSessionCredentialsProvider;
+use Apache\Rocketmq\ClientConfigurationBuilder;
 
 // Create static session credentials provider
 $credentialsProvider = new StaticSessionCredentialsProvider('your-access-key', 'your-access-secret', 'your-security-token');
 
-// Create client configuration
-$config = new ClientConfiguration();
-$config->setEndpoints('localhost:8081')
-    ->withCredentialsProvider($credentialsProvider);
+// Create client configuration using builder
+$config = (new ClientConfigurationBuilder())
+    ->setEndpoints('localhost:8081')
+    ->setCredentialProvider($credentialsProvider)
+    ->setRequestTimeout(5)
+    ->enableSsl(true)
+    ->setNamespace('your-namespace')
+    ->setMaxStartupAttempts(3)
+    ->build();
 
 // Create lite push consumer
 $consumer = $provider->newLitePushConsumerBuilder()
@@ -641,19 +664,25 @@ use Apache\Rocketmq\ClientServiceProvider;
 use Apache\Rocketmq\ClientConfiguration;
 
 // Create client service provider
-$provider = ClientServiceProvider::getInstance();
+$provider = ClientServiceProvider::loadService();
 
 // Create client configuration with session credentials
 use Apache\Rocketmq\SessionCredentials;
 use Apache\Rocketmq\StaticSessionCredentialsProvider;
+use Apache\Rocketmq\ClientConfigurationBuilder;
 
 // Create static session credentials provider
 $credentialsProvider = new StaticSessionCredentialsProvider('your-access-key', 'your-access-secret', 'your-security-token');
 
-// Create client configuration
-$config = new ClientConfiguration();
-$config->setEndpoints('localhost:8081')
-    ->withCredentialsProvider($credentialsProvider);
+// Create client configuration using builder
+$config = (new ClientConfigurationBuilder())
+    ->setEndpoints('localhost:8081')
+    ->setCredentialProvider($credentialsProvider)
+    ->setRequestTimeout(5)
+    ->enableSsl(true)
+    ->setNamespace('your-namespace')
+    ->setMaxStartupAttempts(3)
+    ->build();
 
 // Create lite simple consumer
 $consumer = $provider->newLiteSimpleConsumerBuilder()
@@ -1892,6 +1921,11 @@ See `examples/PerformanceTestExample.php` for performance testing code.
 | SessionCredentials | ✅ | ✅ | Fully supported |
 | SessionCredentialsProvider | ✅ | ✅ | Fully supported |
 | StaticSessionCredentialsProvider | ✅ | ✅ | Fully supported |
+| ClientConfigurationBuilder | ✅ | ✅ | Fully supported |
+| Message | ✅ | ✅ | Fully supported |
+| MessageId | ✅ | ✅ | Fully supported |
+| MessageView | ✅ | ✅ | Fully supported |
+| Producer interface | ✅ | ✅ | Fully supported |
 
 ### Pending Features
 

@@ -53,14 +53,14 @@ class ClientConfiguration
     private $endpoints;
     
     /**
-     * @var string Namespace (optional)
+     * @var string Namespace
      */
-    private $namespace = '';
+    private $namespace = "";
     
     /**
-     * @var Credentials|null Authentication credentials (optional)
+     * @var SessionCredentialsProvider|null Session credentials provider
      */
-    private $credentials = null;
+    private $sessionCredentialsProvider = null;
     
     /**
      * @var int Request timeout in seconds, default is 3 seconds
@@ -68,19 +68,19 @@ class ClientConfiguration
     private $requestTimeout = 3;
     
     /**
-     * @var bool Whether SSL/TLS is enabled, default is false
+     * @var bool Whether SSL/TLS is enabled, default is true
      */
-    private $sslEnabled = false;
+    private $sslEnabled = true;
+    
+    /**
+     * @var int Max startup attempts
+     */
+    private $maxStartupAttempts = 3;
     
     /**
      * @var RetryPolicy|null Retry policy (optional)
      */
     private $retryPolicy = null;
-    
-    /**
-     * @var SessionCredentialsProvider|null Session credentials provider (optional)
-     */
-    private $credentialsProvider = null;
     
     /**
      * @var array Connection pool configuration
@@ -223,12 +223,29 @@ class ClientConfiguration
     /**
      * Set session credentials provider (chainable)
      * 
-     * @param SessionCredentialsProvider $credentialsProvider Session credentials provider
+     * @param SessionCredentialsProvider $sessionCredentialsProvider Session credentials provider
      * @return self Returns itself to support chain calls
      */
-    public function withCredentialsProvider(SessionCredentialsProvider $credentialsProvider)
+    public function withCredentialsProvider(SessionCredentialsProvider $sessionCredentialsProvider)
     {
-        $this->credentialsProvider = $credentialsProvider;
+        $this->sessionCredentialsProvider = $sessionCredentialsProvider;
+        return $this;
+    }
+    
+    /**
+     * Set max startup attempts (chainable)
+     * 
+     * @param int $maxStartupAttempts Max attempt times when client startup
+     * @return self Returns itself to support chain calls
+     * @throws \InvalidArgumentException Throws exception when parameters are invalid
+     */
+    public function withMaxStartupAttempts($maxStartupAttempts)
+    {
+        if ($maxStartupAttempts <= 0) {
+            throw new \InvalidArgumentException("Max startup attempts must be greater than 0");
+        }
+        
+        $this->maxStartupAttempts = intval($maxStartupAttempts);
         return $this;
     }
     
@@ -253,23 +270,33 @@ class ClientConfiguration
     }
     
     /**
-     * Get authentication credentials
+     * Get session credentials provider
      * 
-     * @return Credentials|null Authentication credentials object, returns null if not set
+     * @return SessionCredentialsProvider|null Session credentials provider, returns null if not set
      */
-    public function getCredentials()
+    public function getSessionCredentialsProvider()
     {
-        return $this->credentials;
+        return $this->sessionCredentialsProvider;
     }
     
     /**
-     * Check if authentication credentials are set
+     * Check if session credentials provider is set
      * 
-     * @return bool Whether authentication credentials are set
+     * @return bool Whether session credentials provider is set
      */
-    public function hasCredentials()
+    public function hasSessionCredentialsProvider()
     {
-        return $this->credentials !== null;
+        return $this->sessionCredentialsProvider !== null;
+    }
+    
+    /**
+     * Get max startup attempts
+     * 
+     * @return int Max startup attempts
+     */
+    public function getMaxStartupAttempts()
+    {
+        return $this->maxStartupAttempts;
     }
     
     /**

@@ -32,6 +32,8 @@ use Apache\Rocketmq\Exception\MessageException;
 use Apache\Rocketmq\Exception\NetworkException;
 use Apache\Rocketmq\Exception\ServerException;
 use Apache\Rocketmq\Exception\TransactionException;
+use Apache\Rocketmq\Message\Message as MessageInterface;
+use Apache\Rocketmq\Producer\Producer as ProducerInterface;
 use Apache\Rocketmq\Producer\RecallReceipt;
 use Apache\Rocketmq\Producer\SendReceipt;
 use Apache\Rocketmq\Producer\Transaction;
@@ -63,7 +65,7 @@ use const Grpc\STATUS_OK;
  * $producer = Producer::getInstance($endpoints, $topic);
  * $producer->sendNormalMessage($body, $tag, $keys);
  */
-class Producer
+class Producer implements ProducerInterface
 {
     /**
      * @var MessagingServiceClient|null gRPC client instance
@@ -642,6 +644,31 @@ class Producer
     }
     
     /**
+     * {@inheritdoc}
+     */
+    public function send(MessageInterface $message): SendReceipt
+    {
+        return $this->sendMessageWithRetry($message);
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function sendTransaction(MessageInterface $message): Transaction
+    {
+        // Set message type to TRANSACTION
+        $systemProperties = $message->getSystemProperties();
+        $systemProperties->setMessageType(MessageType::TRANSACTION);
+        $message->setSystemProperties($systemProperties);
+        
+        // Send transaction message
+        $sendReceipt = $this->sendMessageWithRetry($message);
+        
+        // Create transaction object
+        return new TransactionImpl($this, $sendReceipt);
+    }
+    
+    /**
      * Send transaction message (with retry)
      * 
      * @param string $body Message body
@@ -654,17 +681,7 @@ class Producer
     public function sendTransactionMessage($body, $tag = null, $keys = null, $properties = [])
     {
         $message = $this->buildMessage($body, $tag, $keys, null, null, null, null, $properties);
-        
-        // Set message type to TRANSACTION
-        $systemProperties = $message->getSystemProperties();
-        $systemProperties->setMessageType(MessageType::TRANSACTION);
-        $message->setSystemProperties($systemProperties);
-        
-        // Send transaction message
-        $sendReceipt = $this->sendMessageWithRetry($message);
-        
-        // Create transaction object
-        return new TransactionImpl($this, $sendReceipt);
+        return $this->sendTransaction($message);
     }
     
     /**
