@@ -21,100 +21,87 @@
  * This example demonstrates how to use LitePushConsumer to consume messages
  * from lite topics with reduced overhead.
  *
- * Key features:
- * - Lightweight subscription management
- * - Dynamic topic subscription
- * - Offset control for consumption starting point
+ * Prerequisites:
+ * - RocketMQ server with lite topic support enabled
+ * - A parent topic created on the server
+ * - Consumer group registered on the server
  */
 
-import { OffsetOption } from '../src';
+import {
+  LitePushConsumerBuilder,
+  ConsumeResult,
+  OffsetOption,
+  type MessageView,
+} from '../src';
+import { endpoints, namespace, consumerGroup } from './ProducerSingleton';
 
 async function main() {
-  console.log('========== LitePushConsumer Example ==========');
+  console.log('========== LitePushConsumer Example ==========\n');
 
-  // Note: This is a conceptual example showing the API usage.
-  // Actual implementation requires server-side support for lite topics.
+  // Create and start LitePushConsumer using builder pattern
+  const consumer = await new LitePushConsumerBuilder()
+    .setClientConfiguration({
+      endpoints,
+      namespace,
+    })
+    .setConsumerGroup(consumerGroup)
+    .bindTopic('your-parent-topic') // Replace with your actual parent topic
+    .setMessageListener({
+      async consume(messageView: MessageView) {
+        console.log('Received message:', {
+          messageId: messageView.messageId,
+          topic: messageView.topic,
+          liteTopic: messageView.liteTopic,
+          tag: messageView.tag,
+          keys: messageView.keys,
+          body: messageView.body.toString('utf-8'),
+        });
+        return ConsumeResult.SUCCESS;
+      },
+    })
+    .setMaxCacheMessageCount(1024)
+    .setMaxCacheMessageSizeInBytes(64 * 1024 * 1024) // 64MB
+    .setConsumptionThreadCount(20)
+    .startup();
 
-  console.log('\n1. Creating OffsetOptions for different consumption strategies...');
+  console.log('✓ Consumer started successfully\n');
 
-  // Consume from the last offset (most recent messages)
-  const lastOffset = OffsetOption.LAST_OFFSET;
-  console.log('   LAST_OFFSET:', lastOffset.toString());
-
-  // Consume from the minimum offset (oldest messages)
-  const minOffset = OffsetOption.MIN_OFFSET;
-  console.log('   MIN_OFFSET:', minOffset.toString());
-
-  // Consume from the maximum offset (newest messages after subscription)
-  const maxOffset = OffsetOption.MAX_OFFSET;
-  console.log('   MAX_OFFSET:', maxOffset.toString());
-
-  // Consume from a specific offset
-  const customOffset = OffsetOption.ofOffset(1000);
-  console.log('   Custom offset (1000):', customOffset.toString());
-
-  // Consume from the last N messages
-  const tailN = OffsetOption.ofTailN(100);
-  console.log('   Last 100 messages:', tailN.toString());
-
-  // Consume from a specific timestamp
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const timestampOffset = OffsetOption.ofTimestamp(yesterday.getTime());
-  console.log('   From yesterday:', timestampOffset.toString());
-
-  console.log('\n2. LitePushConsumer API overview:');
-  console.log('   - subscribeLite(liteTopic: string): Subscribe to a lite topic');
-  console.log('   - subscribeLite(liteTopic, offsetOption): Subscribe with offset control');
-  console.log('   - unsubscribeLite(liteTopic): Unsubscribe from a lite topic');
-  console.log('   - getLiteTopicSet(): Get all subscribed lite topics');
-  console.log('   - getConsumerGroup(): Get consumer group name');
-  console.log('   - close(): Close the consumer');
-
-  console.log('\n3. Example usage pattern:');
-  console.log(`
-  // Create LitePushConsumer using builder
   try {
-    const consumer = await new LitePushConsumerBuilder()
-      .setClientConfiguration(clientConfig)
-      .setConsumerGroup('your-consumer-group')
-      .bindTopic('your-parent-topic')
-      .setMessageListener(async (messages) => {
-        for (const message of messages) {
-          console.log('Received:', message);
-          // Process message...
-        }
-      })
-      .setMaxCacheMessageCount(1024)
-      .setMaxCacheMessageSizeInBytes(64 * 1024 * 1024)
-      .setConsumptionThreadCount(20)
-      .build();
-    
-    // Subscribe to lite topics
-    await consumer.subscribeLite('lite-topic-1');
-    await consumer.subscribeLite('lite-topic-2', OffsetOption.MIN_OFFSET);
-    
-    // Check subscriptions
-    const topics = consumer.getLiteTopicSet();
-    console.log('Subscribed topics:', topics);
-    
-    // Unsubscribe when done
-    await consumer.unsubscribeLite('lite-topic-1');
-    
-    // Close consumer
-    await consumer.close();
-  } catch (error) {
-    console.error('Failed to create or use LitePushConsumer:', error);
-  }
-  `);
+    // Subscribe to lite topics with different offset strategies
+    console.log('Subscribing to lite topics...\n');
 
-  console.log('\n✓ Example completed!');
-  console.log('\nNote: Full LitePushConsumer implementation requires:');
-  console.log('  - Server-side lite topic support');
-  console.log('  - LiteSubscriptionManager integration');
-  console.log('  - RPC methods for syncLiteSubscription');
-  console.log('  - Quota management and error handling\n');
+    await consumer.subscribeLite('lite-topic-1');
+    console.log('✓ Subscribed to lite-topic-1 (from last offset)');
+
+    await consumer.subscribeLite('lite-topic-2', OffsetOption.MIN_OFFSET);
+    console.log('✓ Subscribed to lite-topic-2 (from minimum offset)');
+
+    await consumer.subscribeLite('lite-topic-3', OffsetOption.ofTailN(100));
+    console.log('✓ Subscribed to lite-topic-3 (last 100 messages)\n');
+
+    // Check current subscriptions
+    const topics = consumer.getLiteTopicSet();
+    console.log(`Current subscriptions (${topics.size} topics):`);
+    topics.forEach(topic => console.log(`  - ${topic}`));
+    console.log();
+
+    // Keep running to receive messages
+    console.log('Consumer is running. Press Ctrl+C to exit...\n');
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    await new Promise(() => {});
+  } catch (error) {
+    console.error('Error during consumption:', error);
+    throw error;
+  } finally {
+    // Close consumer to release resources
+    console.log('\nShutting down consumer...');
+    await consumer.close();
+    console.log('✓ Consumer closed successfully');
+  }
 }
 
 // Run example
-main().catch(console.error);
+main().catch(error => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});

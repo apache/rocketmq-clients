@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { LiteSubscriptionAction } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { Code, LiteSubscriptionAction } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
   NotifyUnsubscribeLiteCommand,
   SyncLiteSubscriptionRequest,
@@ -263,7 +263,7 @@ export class LiteSubscriptionManager {
 
       // Handle response status
       const status = response.getStatus();
-      if (status && status.getCode() !== 20000) { // Code.OK
+      if (status && status.getCode() !== Code.OK) {
         throw new ClientException(
           status.getCode(),
           `Failed to sync lite subscription: ${status.getMessage()}`,

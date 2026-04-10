@@ -27,7 +27,7 @@ import {
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { MessageView } from '../message';
 import { Broker, MessageQueue, TopicRouteData } from '../route';
-import { MessageQueue as MessageQueuePB } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { MessageQueue as MessageQueuePB, Broker as BrokerPB } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { StatusChecker } from '../exception';
 import { RetryPolicy } from '../retry';
 import { createDuration, createResource } from '../util';
@@ -505,8 +505,16 @@ export class PushConsumer extends Consumer {
    * @param filterExpression - The filter expression for message filtering
    */
   protected createVirtualProcessQueueForLite(topic: string, filterExpression: FilterExpression) {
+    // Validate parameters
+    if (!topic || topic.trim().length === 0) {
+      throw new Error('topic should not be blank');
+    }
+    if (!filterExpression) {
+      throw new Error('filterExpression should not be null');
+    }
+
     // Create a virtual broker with default endpoints
-    const brokerPb = new (require('../../proto/apache/rocketmq/v2/definition_pb').Broker)();
+    const brokerPb = new BrokerPB();
     brokerPb.setName('virtual-broker');
     brokerPb.setId(0);
     brokerPb.setEndpoints(this.endpoints.toProtobuf());

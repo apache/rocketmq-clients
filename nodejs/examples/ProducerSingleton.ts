@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { SessionCredentials } from '../src/client';
+import { SessionCredentials } from '../src';
 
 export const endpoints = process.env.ROCKETMQ_NODEJS_CLIENT_ENDPOINTS ?? '127.0.0.1:8080';
 export const namespace = process.env.ROCKETMQ_NODEJS_CLIENT_NAMESPACE ?? '';

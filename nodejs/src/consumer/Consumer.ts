@@ -143,9 +143,8 @@ export abstract class Consumer extends BaseClient {
    * @return true if this is a LITE_PUSH_CONSUMER or LITE_SIMPLE_CONSUMER
    */
   protected isLiteConsumer(): boolean {
-    // This method should be overridden by subclasses
-    // Default implementation checks the clientType property
-    return (this as any).getClientType?.() === ClientType.LITE_PUSH_CONSUMER 
-        || (this as any).getClientType?.() === ClientType.LITE_SIMPLE_CONSUMER;
+    const clientType = (this as any).getClientType?.();
+    return clientType === ClientType.LITE_PUSH_CONSUMER
+        || clientType === ClientType.LITE_SIMPLE_CONSUMER;
   }
 }

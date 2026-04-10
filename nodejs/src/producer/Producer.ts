@@ -224,7 +224,7 @@ export class Producer extends BaseClient {
 
     // Log Lite Topic message sending
     if (liteTopic) {
-      this.logger.info('Sending Lite Topic message, topic=%s, liteTopic=%s, messageType=%s, clientId=%s',
+      this.logger.debug?.('Sending Lite Topic message, topic=%s, liteTopic=%s, messageType=%s, clientId=%s',
         topic, liteTopic, MessageType[messageType], this.clientId);
     }
 
@@ -320,7 +320,7 @@ export class Producer extends BaseClient {
     }
     // Log Lite Topic message sent successfully
     if (sendReceipts.length > 0 && messages[0].liteTopic) {
-      this.logger.info('Lite Topic message sent successfully, topic=%s, liteTopic=%s, messageId=%s, clientId=%s',
+      this.logger.debug?.('Lite Topic message sent successfully, topic=%s, liteTopic=%s, messageId=%s, clientId=%s',
         topic, messages[0].liteTopic, sendReceipts[0].messageId, this.clientId);
     }
     // Send message(s) successfully on first attempt, return directly

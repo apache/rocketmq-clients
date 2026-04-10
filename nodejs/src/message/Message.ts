@@ -48,6 +48,9 @@ export class Message {
       if (options.deliveryTimestamp) {
         throw new Error('priority and deliveryTimestamp should not be set at same time');
       }
+      if (options.delay) {
+        throw new Error('priority and delay should not be set at same time');
+      }
       if (options.messageGroup) {
         throw new Error('priority and messageGroup should not be set at same time');
       }
@@ -61,6 +64,9 @@ export class Message {
       if (options.deliveryTimestamp) {
         throw new Error('liteTopic and deliveryTimestamp should not be set at same time');
       }
+      if (options.delay) {
+        throw new Error('liteTopic and delay should not be set at same time');
+      }
       if (options.messageGroup) {
         throw new Error('liteTopic and messageGroup should not be set at same time');
       }
@@ -68,6 +74,9 @@ export class Message {
 
     // Validate mutual exclusivity - deliveryTimestamp
     if (options.deliveryTimestamp !== undefined) {
+      if (options.delay) {
+        throw new Error('deliveryTimestamp and delay should not be set at same time');
+      }
       if (options.messageGroup) {
         throw new Error('deliveryTimestamp and messageGroup should not be set at same time');
       }

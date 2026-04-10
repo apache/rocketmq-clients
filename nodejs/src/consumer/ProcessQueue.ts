@@ -138,13 +138,15 @@ export class ProcessQueue {
       );
       this.#activityTime = Date.now();
 
-      (this.#consumer as any).logger?.info('Start to receive message, mq=%s@%s@%d, batchSize=%d, attemptId=%s',
+      (this.#consumer as any).logger?.debug?.('Start to receive message, mq=%s@%s@%d, batchSize=%d, attemptId=%s',
         this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, batchSize, attemptId);
 
       this.#consumer.receiveMessage(request, this.#mq, longPollingTimeout)
         .then(messages => {
-          (this.#consumer as any).logger?.info('Received messages, count=%d, mq=%s@%s@%d',
-            messages.length, this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId);
+          if (messages.length > 0) {
+            (this.#consumer as any).logger?.debug?.('Received messages, count=%d, mq=%s@%s@%d',
+              messages.length, this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId);
+          }
           this.#onReceiveMessageResult(messages);
         })
         .catch(err => {

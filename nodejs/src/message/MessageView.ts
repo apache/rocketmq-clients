@@ -42,6 +42,7 @@ export class MessageView {
   readonly offset?: number;
   readonly decodeTimestamp: Date;
   readonly properties = new Map<string, string>();
+  readonly liteTopic?: string;
 
   constructor(message: MessagePB, messageQueue?: MessageQueue, transportDeliveryTimestamp?: Date) {
     const systemProperties = message.getSystemProperties()!;
@@ -86,6 +87,7 @@ export class MessageView {
     this.offset = systemProperties.getQueueOffset();
     this.receiptHandle = systemProperties.getReceiptHandle()!;
     this.transportDeliveryTimestamp = transportDeliveryTimestamp;
+    this.liteTopic = systemProperties.getLiteTopic();
     if (messageQueue) {
       this.endpoints = messageQueue.broker.endpoints;
     }

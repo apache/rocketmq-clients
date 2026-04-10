@@ -30,7 +30,7 @@ export class StandardConsumeService extends ConsumeService {
   }
 
   consume(pq: ProcessQueue, messageViews: MessageView[]): void {
-    this.logger.info('StandardConsumeService.consume called, messageCount=%d', messageViews.length);
+    this.logger.debug?.('StandardConsumeService.consume called, messageCount=%d', messageViews.length);
     for (const messageView of messageViews) {
       if (messageView.corrupted) {
         this.logger.warn('Message corrupted, discarding, messageId=%s', messageView.messageId);
@@ -38,12 +38,12 @@ export class StandardConsumeService extends ConsumeService {
         continue;
       }
 
-      this.logger.info('Consuming message, messageId=%s, topic=%s',
+      this.logger.debug?.('Consuming message, messageId=%s, topic=%s',
         messageView.messageId, messageView.topic);
 
       this.consumeMessage(messageView)
         .then(result => {
-          this.logger.info('Message consumed successfully, messageId=%s, result=%s',
+          this.logger.debug?.('Message consumed successfully, messageId=%s, result=%s',
             messageView.messageId, result);
           pq.eraseMessage(messageView, result);
         })

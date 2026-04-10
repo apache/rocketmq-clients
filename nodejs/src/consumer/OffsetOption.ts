@@ -143,22 +143,38 @@ export class OffsetOption {
   toProtobuf(): ProtoOffsetOption {
     const proto = new ProtoOffsetOption();
     switch (this.type) {
-      case OffsetType.POLICY:
+      case OffsetType.POLICY: {
         // Map our policy values to ProtoBuf Policy enum
         // POLICY_LAST_VALUE (0) -> Policy.LAST (0)
         // POLICY_MIN_VALUE (1) -> Policy.MIN (1)
         // POLICY_MAX_VALUE (2) -> Policy.MAX (2)
+        if (this.value > BigInt(Number.MAX_SAFE_INTEGER) || this.value < BigInt(Number.MIN_SAFE_INTEGER)) {
+          throw new Error(`Value ${this.value} is out of safe number range`);
+        }
         proto.setPolicy(Number(this.value));
         break;
-      case OffsetType.OFFSET:
+      }
+      case OffsetType.OFFSET: {
+        if (this.value > BigInt(Number.MAX_SAFE_INTEGER) || this.value < BigInt(Number.MIN_SAFE_INTEGER)) {
+          throw new Error(`Value ${this.value} is out of safe number range`);
+        }
         proto.setOffset(Number(this.value));
         break;
-      case OffsetType.TAIL_N:
+      }
+      case OffsetType.TAIL_N: {
+        if (this.value > BigInt(Number.MAX_SAFE_INTEGER) || this.value < BigInt(Number.MIN_SAFE_INTEGER)) {
+          throw new Error(`Value ${this.value} is out of safe number range`);
+        }
         proto.setTailN(Number(this.value));
         break;
-      case OffsetType.TIMESTAMP:
+      }
+      case OffsetType.TIMESTAMP: {
+        if (this.value > BigInt(Number.MAX_SAFE_INTEGER) || this.value < BigInt(Number.MIN_SAFE_INTEGER)) {
+          throw new Error(`Value ${this.value} is out of safe number range`);
+        }
         proto.setTimestamp(Number(this.value));
         break;
+      }
       default:
         throw new Error(`Unknown OffsetType: ${this.type}`);
     }

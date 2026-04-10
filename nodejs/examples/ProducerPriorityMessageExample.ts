@@ -17,11 +17,11 @@
 
 /**
  * Producer with Priority Message Example
- * 
+ *
  * This example demonstrates how to send priority messages that will be
  * consumed based on their priority level. Higher priority messages are
  * delivered before lower priority ones.
- * 
+ *
  * Key points for priority messages:
  * - Priority must be >= 0
  * - Higher priority messages are delivered first
@@ -48,7 +48,7 @@ async function main() {
 
     // Send messages with different priority levels
     console.log('Sending priority messages...');
-    
+
     // Low priority message (priority = 1)
     console.log('\n1. Sending LOW priority message (priority=1)...');
     const lowPriorityReceipt = await producer.send({
@@ -112,7 +112,7 @@ async function main() {
 
     // Demonstrate mutual exclusivity constraints
     console.log('Demonstrating mutual exclusivity constraints...\n');
-    
+
     try {
       // This will fail: priority + messageGroup
       await producer.send({
