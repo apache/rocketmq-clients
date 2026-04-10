@@ -52,6 +52,16 @@ export class TelemetrySession {
     this.write(command);
   }
 
+  refresh() {
+    this.#logger.info('Refreshing telemetry session, endpoints=%s, clientId=%s',
+      this.#endpoints, this.#baseClient.clientId);
+    this.release();
+    // Recreate the stream immediately
+    setTimeout(() => {
+      this.#renewStream(false);
+    }, 0);
+  }
+
   #renewStream(inited: boolean) {
     try {
       this.#logger.debug?.('Creating telemetry stream, endpoints=%s, clientId=%s, inited=%s',
@@ -98,6 +108,12 @@ export class TelemetrySession {
         this.#logger.info('Receive thread stack print command from remote, endpoints=%s, clientId=%s',
           endpoints, clientId);
         this.#baseClient.onPrintThreadStackTraceCommand(endpoints, command.getPrintThreadStackTraceCommand()!);
+        break;
+      }
+      case TelemetryCommand.CommandCase.RECONNECT_ENDPOINTS_COMMAND: {
+        this.#logger.info('Receive reconnect endpoints command from remote, endpoints=%s, clientId=%s',
+          endpoints, clientId);
+        this.#baseClient.onReconnectEndpointsCommand(endpoints, command.getReconnectEndpointsCommand()!);
         break;
       }
       default: {

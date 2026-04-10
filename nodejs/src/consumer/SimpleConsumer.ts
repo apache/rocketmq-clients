@@ -24,8 +24,11 @@ import { FilterExpression } from './FilterExpression';
 import { SimpleSubscriptionSettings } from './SimpleSubscriptionSettings';
 import { SubscriptionLoadBalancer } from './SubscriptionLoadBalancer';
 import { Consumer, ConsumerOptions } from './Consumer';
+import { InternalErrorException } from '../exception';
 
 const RANDOM_INDEX = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+const DEFAULT_MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 1000;
 
 export interface SimpleConsumerOptions extends ConsumerOptions {
   /**
@@ -41,6 +44,10 @@ export interface SimpleConsumerOptions extends ConsumerOptions {
    * set await duration for long-polling, default is 30000ms
    */
   awaitDuration?: number;
+  /**
+   * max retry attempts for temporary errors (e.g., internal server error), default is 3
+   */
+  maxRetryAttempts?: number;
 }
 
 export class SimpleConsumer extends Consumer {
@@ -48,6 +55,7 @@ export class SimpleConsumer extends Consumer {
   readonly #subscriptionExpressions = new Map<string, FilterExpression>();
   readonly #subscriptionRouteDataCache = new Map<string, SubscriptionLoadBalancer>();
   readonly #awaitDuration: number;
+  readonly #maxRetryAttempts: number;
   #topicIndex = RANDOM_INDEX;
 
   constructor(options: SimpleConsumerOptions) {
@@ -62,6 +70,7 @@ export class SimpleConsumer extends Consumer {
       }
     }
     this.#awaitDuration = options.awaitDuration ?? 30000;
+    this.#maxRetryAttempts = options.maxRetryAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS;
     this.#simpleSubscriptionSettings = new SimpleSubscriptionSettings(options.namespace, this.clientId,
       this.getClientType(), this.endpoints, this.consumerGroup, this.requestTimeout,
       this.#awaitDuration, this.#subscriptionExpressions);
@@ -139,7 +148,32 @@ export class SimpleConsumer extends Consumer {
     const mq = loadBalancer.takeMessageQueue();
     const request = this.wrapReceiveMessageRequest(maxMessageNum, mq, filterExpression,
       invisibleDuration, this.#awaitDuration);
-    return await this.receiveMessage(request, mq, this.#awaitDuration);
+
+    // Retry logic for temporary errors
+    let lastError: Error | undefined;
+    for (let attempt = 1; attempt <= this.#maxRetryAttempts; attempt++) {
+      try {
+        return await this.receiveMessage(request, mq, this.#awaitDuration);
+      } catch (err) {
+        lastError = err as Error;
+
+        // Only retry on internal server errors (temporary errors)
+        if (err instanceof InternalErrorException) {
+          if (attempt < this.#maxRetryAttempts) {
+            this.logger.warn('Received temporary error from server, will retry after %dms, attempt=%d/%d, topic=%s, clientId=%s, error=%s',
+              RETRY_DELAY_MS, attempt, this.#maxRetryAttempts, topic, this.clientId, err.message);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            continue;
+          }
+        }
+
+        // For non-retryable errors or max attempts reached, throw immediately
+        throw err;
+      }
+    }
+
+    // This should never be reached, but just in case
+    throw lastError;
   }
 
   async ack(message: MessageView) {

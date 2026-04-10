@@ -29,6 +29,7 @@ import {
   RecoverOrphanedTransactionCommand,
   VerifyMessageCommand,
   PrintThreadStackTraceCommand,
+  ReconnectEndpointsCommand,
   TelemetryCommand,
   ThreadStackTrace,
   HeartbeatRequest,
@@ -409,6 +410,15 @@ export abstract class BaseClient {
     telemetryCommand.setThreadStackTrace(new ThreadStackTrace().setThreadStackTrace('mock stack').setNonce(nonce));
     telemetryCommand.setStatus(new Status().setCode(Code.OK));
     this.telemetry(endpoints, telemetryCommand);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onReconnectEndpointsCommand(endpoints: Endpoints, _command: ReconnectEndpointsCommand) {
+    this.logger.info('Received reconnect endpoints command from remote, will refresh telemetry session, endpoints=%s, clientId=%s',
+      endpoints, this.clientId);
+    // Refresh the telemetry session to use the latest endpoints
+    const session = this.getTelemetrySession(endpoints);
+    session.refresh();
   }
 
   /**

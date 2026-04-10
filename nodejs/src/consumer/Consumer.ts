@@ -57,28 +57,46 @@ export abstract class Consumer extends BaseClient {
     const endpoints = mq.broker.endpoints;
     const timeout = this.requestTimeout + awaitDuration;
     let status: Status.AsObject | undefined;
-    const responses = await this.rpcClientManager.receiveMessage(endpoints, request, timeout);
-    const messageList: Message[] = [];
-    let transportDeliveryTimestamp: Date | undefined;
-    for (const response of responses) {
-      switch (response.getContentCase()) {
-        case ReceiveMessageResponse.ContentCase.STATUS:
-          status = response.getStatus()?.toObject();
-          break;
-        case ReceiveMessageResponse.ContentCase.MESSAGE:
-          messageList.push(response.getMessage()!);
-          break;
-        case ReceiveMessageResponse.ContentCase.DELIVERY_TIMESTAMP:
-          transportDeliveryTimestamp = response.getDeliveryTimestamp()?.toDate();
-          break;
-        default:
-          // this.logger.warn("[Bug] Not recognized content for receive message response, mq={}, " +
-          //                 "clientId={}, response={}", mq, clientId, response);
+
+    try {
+      this.logger.debug?.('Receiving messages from broker, topic=%s, endpoints=%s, batchSize=%d, clientId=%s',
+        request.getMessageQueue()?.getTopic()?.getName(), endpoints, request.getBatchSize(), (this as any).clientId);
+
+      const responses = await this.rpcClientManager.receiveMessage(endpoints, request, timeout);
+      const messageList: Message[] = [];
+      let transportDeliveryTimestamp: Date | undefined;
+
+      for (const response of responses) {
+        switch (response.getContentCase()) {
+          case ReceiveMessageResponse.ContentCase.STATUS:
+            status = response.getStatus()?.toObject();
+            break;
+          case ReceiveMessageResponse.ContentCase.MESSAGE:
+            messageList.push(response.getMessage()!);
+            break;
+          case ReceiveMessageResponse.ContentCase.DELIVERY_TIMESTAMP:
+            transportDeliveryTimestamp = response.getDeliveryTimestamp()?.toDate();
+            break;
+          default:
+            // this.logger.warn("[Bug] Not recognized content for receive message response, mq={}, " +
+            //                 "clientId={}, response={}", mq, clientId, response);
+        }
       }
+
+      StatusChecker.check(status);
+
+      if (messageList.length > 0) {
+        this.logger.debug?.('Received %d messages successfully, topic=%s, endpoints=%s, clientId=%s',
+          messageList.length, request.getMessageQueue()?.getTopic()?.getName(), endpoints, (this as any).clientId);
+      }
+
+      const messages = messageList.map(message => new MessageView(message, mq, transportDeliveryTimestamp));
+      return messages;
+    } catch (err) {
+      this.logger.error('Failed to receive messages, topic=%s, endpoints=%s, clientId=%s, error=%s',
+        request.getMessageQueue()?.getTopic()?.getName(), endpoints, (this as any).clientId, err);
+      throw err;
     }
-    StatusChecker.check(status);
-    const messages = messageList.map(message => new MessageView(message, mq, transportDeliveryTimestamp));
-    return messages;
   }
 
   protected async ackMessage(messageView: MessageView) {

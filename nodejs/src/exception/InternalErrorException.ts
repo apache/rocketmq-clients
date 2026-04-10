@@ -21,5 +21,15 @@ export class InternalErrorException extends ClientException {
   constructor(code: number, message: string, requestId?: string) {
     super(code, message, requestId);
     this.name = 'InternalErrorException';
+    // Mark this as a potentially retryable error (temporary server-side issue)
+    (this as any).retryable = true;
+  }
+
+  /**
+   * Check if this error is retryable.
+   * Internal server errors are typically temporary and can be retried.
+   */
+  isRetryable(): boolean {
+    return true;
   }
 }
