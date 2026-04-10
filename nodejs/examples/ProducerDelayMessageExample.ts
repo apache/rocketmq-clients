@@ -29,10 +29,11 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
 
   try {
     // 发送延迟消息
+    const deliveryTimestamp = new Date(Date.now() + 5000); // 5秒后投递
     const receipt = await producer.send({
       topic: topics.delay,
       tag: 'rocketmq-delay',
-      delay: 5000,
+      deliveryTimestamp,
       body: Buffer.from(JSON.stringify({
         hello: 'rocketmq-client-nodejs world ',
         now: Date(),

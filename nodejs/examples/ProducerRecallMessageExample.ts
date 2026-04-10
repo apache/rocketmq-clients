@@ -42,10 +42,11 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
     // Send delay messages
     const sendReceipts: any[] = [];
     for (let i = 0; i < 5; i++) {
+      const deliveryTimestamp = new Date(Date.now() + 10000); // 10秒后投递，有足够时间撤回
       const receipt = await producer.send({
         topic: topics.delay,
         tag: 'recall-test',
-        delay: 10000, // 10 seconds delay, enough time to recall
+        deliveryTimestamp,
         body: Buffer.from(JSON.stringify({
           id: i,
           message: `Delay message ${i} - will be recalled`,

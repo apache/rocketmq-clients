@@ -22,7 +22,6 @@ export interface MessageOptions {
   messageGroup?: string;
   keys?: string[];
   properties?: Map<string, string>;
-  delay?: number;
   deliveryTimestamp?: Date;
   priority?: number;
   liteTopic?: string;
@@ -48,9 +47,6 @@ export class Message {
       if (options.deliveryTimestamp) {
         throw new Error('priority and deliveryTimestamp should not be set at same time');
       }
-      if (options.delay) {
-        throw new Error('priority and delay should not be set at same time');
-      }
       if (options.messageGroup) {
         throw new Error('priority and messageGroup should not be set at same time');
       }
@@ -64,9 +60,6 @@ export class Message {
       if (options.deliveryTimestamp) {
         throw new Error('liteTopic and deliveryTimestamp should not be set at same time');
       }
-      if (options.delay) {
-        throw new Error('liteTopic and delay should not be set at same time');
-      }
       if (options.messageGroup) {
         throw new Error('liteTopic and messageGroup should not be set at same time');
       }
@@ -74,9 +67,6 @@ export class Message {
 
     // Validate mutual exclusivity - deliveryTimestamp
     if (options.deliveryTimestamp !== undefined) {
-      if (options.delay) {
-        throw new Error('deliveryTimestamp and delay should not be set at same time');
-      }
       if (options.messageGroup) {
         throw new Error('deliveryTimestamp and messageGroup should not be set at same time');
       }
@@ -88,11 +78,7 @@ export class Message {
     this.messageGroup = options.messageGroup;
     this.keys = options.keys ?? [];
     this.properties = options.properties;
-    let deliveryTimestamp = options.deliveryTimestamp;
-    if (options.delay && !deliveryTimestamp) {
-      deliveryTimestamp = new Date(Date.now() + options.delay);
-    }
-    this.deliveryTimestamp = deliveryTimestamp;
+    this.deliveryTimestamp = options.deliveryTimestamp;
     this.priority = options.priority;
     this.liteTopic = options.liteTopic;
   }
