@@ -405,9 +405,6 @@ export class PushConsumer extends Consumer {
       .setGroup(createResource(this.consumerGroup))
       .setEndpoints(this.endpoints.toProtobuf());
 
-    this.logger.info('Querying assignment, topic=%s, consumerGroup=%s, clientId=%s',
-      topic, this.consumerGroup, this.clientId);
-
     const response = await this.rpcClientManager.queryAssignment(
       endpoints, request, this.requestTimeout,
     );
@@ -420,13 +417,8 @@ export class PushConsumer extends Consumer {
     const assignmentList = response.getAssignmentsList().map(assignment => {
       const mqPb = assignment.getMessageQueue()!;
       const mq = new MessageQueue(mqPb);
-      this.logger.info('Assignment received: topic=%s, broker=%s, queueId=%d, clientId=%s',
-        mq.topic.name, mq.broker.name, mq.queueId, this.clientId);
       return new Assignment(mq);
     });
-
-    this.logger.info('Total assignments: %d, topic=%s, clientId=%s',
-      assignmentList.length, topic, this.clientId);
 
     return new Assignments(assignmentList);
   }
