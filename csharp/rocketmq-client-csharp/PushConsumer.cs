@@ -47,6 +47,7 @@ namespace Org.Apache.Rocketmq
         private readonly IMessageListener _messageListener;
         private readonly int _maxCacheMessageCount;
         private readonly int _maxCacheMessageSizeInBytes;
+        private readonly bool _enableFifoConsumeAccelerator;
 
         private readonly ConcurrentDictionary<MessageQueue, ProcessQueue> _processQueueTable;
         private ConsumeService _consumeService;
@@ -73,7 +74,8 @@ namespace Org.Apache.Rocketmq
         /// </summary>
         public PushConsumer(ClientConfig clientConfig, string consumerGroup,
             ConcurrentDictionary<string, FilterExpression> subscriptionExpressions, IMessageListener messageListener,
-            int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount)
+            int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
+            bool enableFifoConsumeAccelerator = false)
             : base(clientConfig, consumerGroup)
         {
             _clientConfig = clientConfig;
@@ -85,6 +87,7 @@ namespace Org.Apache.Rocketmq
             _messageListener = messageListener;
             _maxCacheMessageCount = maxCacheMessageCount;
             _maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
+            _enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
 
             _scanAssignmentCts = new CancellationTokenSource();
 
@@ -238,8 +241,10 @@ namespace Org.Apache.Rocketmq
             if (_pushSubscriptionSettings.IsFifo())
             {
                 Logger.LogInformation(
-                    $"Create FIFO consume service, consumerGroup={_consumerGroup}, clientId={ClientId}");
-                return new FifoConsumeService(ClientId, _messageListener, _consumptionTaskScheduler, _consumptionCts.Token);
+                    "Create FIFO consume service, consumerGroup={ConsumerGroup}, clientId={ClientId}, enableFifoConsumeAccelerator={Accelerator}",
+                    _consumerGroup, ClientId, _enableFifoConsumeAccelerator);
+                return new FifoConsumeService(ClientId, _messageListener, _consumptionTaskScheduler, _consumptionCts.Token,
+                    _enableFifoConsumeAccelerator);
             }
             Logger.LogInformation(
                 $"Create standard consume service, consumerGroup={_consumerGroup}, clientId={ClientId}");
@@ -706,6 +711,7 @@ namespace Org.Apache.Rocketmq
             private int _maxCacheMessageCount = 1024;
             private int _maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
             private int _consumptionThreadCount = 20;
+            private bool _enableFifoConsumeAccelerator;
 
             public Builder SetClientConfig(ClientConfig clientConfig)
             {
@@ -765,6 +771,17 @@ namespace Org.Apache.Rocketmq
                 return this;
             }
 
+            /// <summary>
+            /// When the subscription is FIFO and this is true, messages in one receive batch are consumed in parallel
+            /// across distinct <see cref="MessageView.MessageGroup"/> values; order within each group stays serial
+            /// (aligned with golang WithPushEnableFifoConsumeAccelerator).
+            /// </summary>
+            public Builder SetEnableFifoConsumeAccelerator(bool enableFifoConsumeAccelerator)
+            {
+                _enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
+                return this;
+            }
+
             public async Task<PushConsumer> Build()
             {
                 Preconditions.CheckArgument(null != _clientConfig, "clientConfig has not been set yet");
@@ -774,7 +791,7 @@ namespace Org.Apache.Rocketmq
                 Preconditions.CheckArgument(null != _messageListener, "messageListener has not been set yet");
                 var pushConsumer = new PushConsumer(_clientConfig, _consumerGroup, _subscriptionExpressions,
                     _messageListener, _maxCacheMessageCount,
-                    _maxCacheMessageSizeInBytes, _consumptionThreadCount);
+                    _maxCacheMessageSizeInBytes, _consumptionThreadCount, _enableFifoConsumeAccelerator);
                 await pushConsumer.Start();
                 return pushConsumer;
             }
