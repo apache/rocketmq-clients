@@ -63,7 +63,7 @@ async function main() {
     .setMaxCacheMessageCount(1024)
     .setMaxCacheMessageSizeInBytes(64 * 1024 * 1024) // 64MB
     .setConsumptionThreadCount(20)
-    .startup();
+    .build();
 
   console.log('✓ Consumer started successfully\n');
 

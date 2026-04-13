@@ -213,12 +213,16 @@ export class LitePushConsumerBuilder {
   }
 
   /**
-   * Start up the LitePushConsumer instance.
+   * Finalize the build of LitePushConsumer and start.
+   *
+   * <p>This method will block until the push consumer starts successfully.
+   *
+   * <p>Especially, if this method is invoked more than once, different push consumers will be created and started.
    *
    * @return Promise resolving to started LitePushConsumer instance
    * @throws Error if required parameters are not set
    */
-  async startup(): Promise<LitePushConsumer> {
+  async build(): Promise<LitePushConsumer> {
     if (!this.options.endpoints) {
       throw new Error('clientConfiguration has not been set yet');
     }

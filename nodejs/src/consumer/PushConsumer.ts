@@ -303,30 +303,50 @@ export class PushConsumer extends Consumer {
     const request = new AckMessageRequest()
       .setGroup(createResource(this.consumerGroup))
       .setTopic(createResource(messageView.topic));
-    request.addEntries()
+    const entry = request.addEntries()
       .setMessageId(messageView.messageId)
       .setReceiptHandle(messageView.receiptHandle);
+
+    // For lite consumers, must set liteTopic in ACK request
+    if (this.isLiteConsumer() && messageView.liteTopic) {
+      entry.setLiteTopic(messageView.liteTopic);
+    }
+
     return request;
   }
 
   wrapChangeInvisibleDurationRequest(messageView: MessageView, invisibleDuration: number) {
-    return new ChangeInvisibleDurationRequest()
+    const request = new ChangeInvisibleDurationRequest()
       .setGroup(createResource(this.consumerGroup))
       .setTopic(createResource(messageView.topic))
       .setReceiptHandle(messageView.receiptHandle)
       .setInvisibleDuration(createDuration(invisibleDuration))
       .setMessageId(messageView.messageId);
+
+    // For lite consumers, must set liteTopic in request
+    if (this.isLiteConsumer() && messageView.liteTopic) {
+      request.setLiteTopic(messageView.liteTopic);
+    }
+
+    return request;
   }
 
   wrapForwardMessageToDeadLetterQueueRequest(messageView: MessageView) {
     const retryPolicy = this.getRetryPolicy();
-    return new ForwardMessageToDeadLetterQueueRequest()
+    const request = new ForwardMessageToDeadLetterQueueRequest()
       .setGroup(createResource(this.consumerGroup))
       .setTopic(createResource(messageView.topic))
       .setReceiptHandle(messageView.receiptHandle)
       .setMessageId(messageView.messageId)
       .setDeliveryAttempt(messageView.deliveryAttempt ?? 0)
       .setMaxDeliveryAttempts(retryPolicy?.getMaxAttempts() ?? 1);
+
+    // For lite consumers, must set liteTopic in request
+    if (this.isLiteConsumer() && messageView.liteTopic) {
+      request.setLiteTopic(messageView.liteTopic);
+    }
+
+    return request;
   }
 
   // --- Internal: queue size and cache threshold ---
