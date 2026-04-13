@@ -31,8 +31,8 @@ use Apache\Rocketmq\Builder\MessageBuilder;
 
 // Configuration
 $endpoints = '127.0.0.1:8080';
-$topic = 'yourDelayTopic';
-$producerGroup = 'yourProducerGroup';
+$topic = 'topic-delay';
+$producerGroup = 'GID-delay-consumer';
 
 echo "=== Producer Delay Message Example ===\n\n";
 
@@ -41,10 +41,12 @@ try {
     $config = new ClientConfiguration($endpoints);
     $config->withSslEnabled(false);
     
-    // Create and start producer
-    $producer = Producer::getInstance($config, $producerGroup);
+    // Create and start producer (second parameter is topic, not group)
+    $producer = Producer::getInstance($config, $topic);
     $producer->start();
-    echo "✓ Producer started\n\n";
+    echo "✓ Producer started\n";
+    echo "  - Topic: {$topic}\n";
+    echo "  - Producer Group: {$producerGroup}\n\n";
     
     // Send delay message (deliver after 10 seconds)
     $delaySeconds = 10;
@@ -54,17 +56,8 @@ try {
     
     echo "Sending delay message ({$delaySeconds} seconds delay)...\n";
     
-    // Build delay message
-    $msgBuilder = new MessageBuilder();
-    $message = $msgBuilder
-        ->setTopic($topic)
-        ->setBody($body)
-        ->setTag($tag)
-        ->setKeys([$keys])
-        ->build();
-    
     // Send delay message
-    $receipt = $producer->sendDelayMessage($message, $delaySeconds);
+    $receipt = $producer->sendDelayMessage($body, $delaySeconds, $tag, $keys);
     echo "✓ Delay message sent successfully\n";
     echo "  - Message ID: {$receipt->getMessageId()}\n";
     echo "  - Delay: {$delaySeconds} seconds\n";

@@ -17,10 +17,10 @@
  */
 
 /**
- * Simple Consumer Example
+ * Transaction Message Consumer Example
  * 
- * This example demonstrates how to consume messages using SimpleConsumer (pull mode).
- * SimpleConsumer gives you full control over message consumption.
+ * This example demonstrates how to consume transactional messages using SimpleConsumer.
+ * Only committed transaction messages will be delivered to consumers.
  */
 
 if (!extension_loaded('swoole')) {
@@ -36,10 +36,13 @@ use Apache\Rocketmq\SimpleConsumer;
 
 // Configuration
 $endpoints = '127.0.0.1:8080';
-$topic = 'topic-php';
-$consumerGroup = 'GID-php';
+$topic = 'topic-transaction';
+$consumerGroup = 'GID-transaction-consumer';
 
-echo "=== Simple Consumer Example ===\n\n";
+echo "=== Transaction Message Consumer Example ===\n\n";
+echo "Topic: {$topic}\n";
+echo "Consumer Group: {$consumerGroup}\n";
+echo "Note: Only committed transaction messages will be consumed.\n\n";
 
 try {
     // Create client configuration
@@ -51,13 +54,16 @@ try {
     $consumer->start();
     echo "✓ Consumer started\n\n";
     
-    // Consume messages in a loop
-    echo "Start consuming messages (press Ctrl+C to stop)...\n\n";
+    // Consume messages
+    echo "Start consuming transaction messages (timeout: 30 seconds)...\n\n";
     
     go(function() use ($consumer) {
+        $startTime = time();
+        $maxWaitTime = 30;
         $messageCount = 0;
+        $receivedMessages = [];
         
-        while (true) {
+        while ((time() - $startTime) < $maxWaitTime) {
             try {
                 // Receive messages (max 10, invisible for 30 seconds)
                 $messages = $consumer->receive(10, 30);
@@ -68,10 +74,19 @@ try {
                         $sysProps = $message->getSystemProperties();
                         $msgId = $sysProps->getMessageId();
                         $body = $message->getBody();
+                        $tag = $sysProps->getTag() ?: 'N/A';
                         
-                        echo "✓ Received message #{$messageCount}\n";
+                        echo "✓ Received transaction message #{$messageCount}\n";
                         echo "  - Message ID: {$msgId}\n";
                         echo "  - Body: {$body}\n";
+                        echo "  - Tag: {$tag}\n";
+                        
+                        // Store message info
+                        $receivedMessages[] = [
+                            'id' => $msgId,
+                            'body' => $body,
+                            'tag' => $tag
+                        ];
                         
                         // Acknowledge the message
                         try {
@@ -82,14 +97,40 @@ try {
                         }
                     }
                 } else {
-                    // No messages, wait a bit
+                    echo ".";
+                    flush();
                     \Swoole\Coroutine::sleep(1);
                 }
             } catch (\Exception $e) {
-                echo "✗ Error: " . $e->getMessage() . "\n";
+                echo "\n✗ Error: " . $e->getMessage() . "\n";
                 \Swoole\Coroutine::sleep(1);
             }
         }
+        
+        echo "\n\n=== Test Summary ===\n";
+        echo "Total transaction messages received: {$messageCount}\n";
+        
+        if ($messageCount > 0) {
+            echo "\nReceived messages:\n";
+            foreach ($receivedMessages as $idx => $msg) {
+                echo "  " . ($idx + 1) . ". [{$msg['id']}] {$msg['body']}\n";
+            }
+            echo "\n✓ Test PASSED - Transaction messages consumed successfully!\n";
+            echo "Note: These messages were only delivered after being committed.\n";
+        } else {
+            echo "⚠ No transaction messages received\n";
+            echo "Note: Make sure to send transaction messages first using ProducerTransactionMessageExample.php\n";
+            echo "      And ensure transactions are committed (not rolled back).\n";
+        }
+        
+        echo "\n=== Example Complete ===\n";
+        
+        // Close consumer
+        $consumer->close();
+        echo "✓ Consumer closed\n";
+        
+        // Exit event loop
+        \Swoole\Event::exit();
     });
     
     // Start the event loop

@@ -56,6 +56,7 @@ use Apache\Rocketmq\Producer\SendReceipt;
 use Apache\Rocketmq\Producer\Transaction;
 use Apache\Rocketmq\Producer\TransactionChecker;
 use Apache\Rocketmq\Producer\TransactionResolution;
+use Apache\Rocketmq\Producer\TransactionImpl;
 use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\MessageType;
@@ -1285,6 +1286,11 @@ class Producer implements ProducerInterface
     /**
      * Send transaction message (half message)
      * 
+     * Based on Java implementation:
+     * 1. Add message to transaction
+     * 2. Send half message
+     * 3. Add receipt to transaction
+     * 
      * @param string $body Message body
      * @param Transaction $transaction Transaction object
      * @param string|null $tag Message tag
@@ -1298,8 +1304,16 @@ class Producer implements ProducerInterface
             throw new \Exception("Transaction checker is not set");
         }
         
+        // Check if transaction is TransactionImpl
+        if (!($transaction instanceof TransactionImpl)) {
+            throw new \InvalidArgumentException("Invalid transaction type");
+        }
+        
         // Build message
         $message = $this->buildMessage($body, $tag, $keys);
+        
+        // Try to add message to transaction (Java: tryAddMessage)
+        $transaction->tryAddMessage($message);
         
         // Set as transaction message type
         $systemProperties = $message->getSystemProperties();
@@ -1309,10 +1323,10 @@ class Producer implements ProducerInterface
         // Send half message
         $receipt = $this->sendMessageWithRetry($message);
         
-        // Add message to transaction
-        $transaction->addMessage($message, $receipt[0]);
+        // Try to add receipt to transaction (Java: tryAddReceipt)
+        $transaction->tryAddReceipt($message, $receipt);  // receipt is object, not array
         
-        return $receipt;
+        return [$receipt];  // Return as array for consistency
     }
     
     /**

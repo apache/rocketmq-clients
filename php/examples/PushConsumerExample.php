@@ -36,8 +36,8 @@ use Apache\Rocketmq\SimpleConsumer;
 
 // Configuration
 $endpoints = '127.0.0.1:8080';
-$topic = 'yourTopic';
-$consumerGroup = 'yourConsumerGroup';
+$topic = 'topic-php';
+$consumerGroup = 'GID-php';
 
 echo "=== Push Consumer Example ===\n\n";
 

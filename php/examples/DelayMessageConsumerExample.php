@@ -17,10 +17,10 @@
  */
 
 /**
- * Simple Consumer Example
+ * Delay Message Consumer Example
  * 
- * This example demonstrates how to consume messages using SimpleConsumer (pull mode).
- * SimpleConsumer gives you full control over message consumption.
+ * This example demonstrates how to consume delay messages using SimpleConsumer.
+ * Delay messages will only be delivered after the specified delay time.
  */
 
 if (!extension_loaded('swoole')) {
@@ -36,10 +36,13 @@ use Apache\Rocketmq\SimpleConsumer;
 
 // Configuration
 $endpoints = '127.0.0.1:8080';
-$topic = 'topic-php';
-$consumerGroup = 'GID-php';
+$topic = 'topic-delay';
+$consumerGroup = 'GID-delay-consumer';
 
-echo "=== Simple Consumer Example ===\n\n";
+echo "=== Delay Message Consumer Example ===\n\n";
+echo "Topic: {$topic}\n";
+echo "Consumer Group: {$consumerGroup}\n";
+echo "Note: Delay messages will be consumed after their scheduled delivery time.\n\n";
 
 try {
     // Create client configuration
@@ -51,13 +54,15 @@ try {
     $consumer->start();
     echo "✓ Consumer started\n\n";
     
-    // Consume messages in a loop
-    echo "Start consuming messages (press Ctrl+C to stop)...\n\n";
+    // Consume messages
+    echo "Start consuming delay messages (timeout: 30 seconds)...\n\n";
     
     go(function() use ($consumer) {
+        $startTime = time();
+        $maxWaitTime = 30;
         $messageCount = 0;
         
-        while (true) {
+        while ((time() - $startTime) < $maxWaitTime) {
             try {
                 // Receive messages (max 10, invisible for 30 seconds)
                 $messages = $consumer->receive(10, 30);
@@ -68,10 +73,20 @@ try {
                         $sysProps = $message->getSystemProperties();
                         $msgId = $sysProps->getMessageId();
                         $body = $message->getBody();
+                        $deliveryTime = $sysProps->getDeliveryTimestamp();
                         
-                        echo "✓ Received message #{$messageCount}\n";
+                        echo "✓ Received delay message #{$messageCount}\n";
                         echo "  - Message ID: {$msgId}\n";
                         echo "  - Body: {$body}\n";
+                        
+                        if ($deliveryTime) {
+                            $scheduledTime = $deliveryTime->getSeconds();
+                            echo "  - Scheduled Delivery: " . date('Y-m-d H:i:s', $scheduledTime) . "\n";
+                            echo "  - Actual Delivery: " . date('Y-m-d H:i:s', time()) . "\n";
+                            
+                            $delay = time() - $scheduledTime;
+                            echo "  - Delay Accuracy: {$delay} seconds\n";
+                        }
                         
                         // Acknowledge the message
                         try {
@@ -82,14 +97,34 @@ try {
                         }
                     }
                 } else {
-                    // No messages, wait a bit
+                    echo ".";
+                    flush();
                     \Swoole\Coroutine::sleep(1);
                 }
             } catch (\Exception $e) {
-                echo "✗ Error: " . $e->getMessage() . "\n";
+                echo "\n✗ Error: " . $e->getMessage() . "\n";
                 \Swoole\Coroutine::sleep(1);
             }
         }
+        
+        echo "\n\n=== Test Summary ===\n";
+        echo "Total delay messages received: {$messageCount}\n";
+        
+        if ($messageCount > 0) {
+            echo "✓ Test PASSED - Delay messages consumed successfully!\n";
+        } else {
+            echo "⚠ No delay messages received\n";
+            echo "Note: Make sure to send delay messages first using ProducerDelayMessageExample.php\n";
+        }
+        
+        echo "\n=== Example Complete ===\n";
+        
+        // Close consumer
+        $consumer->close();
+        echo "✓ Consumer closed\n";
+        
+        // Exit event loop
+        \Swoole\Event::exit();
     });
     
     // Start the event loop

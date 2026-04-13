@@ -32,8 +32,8 @@ use Apache\Rocketmq\Builder\MessageBuilder;
 
 // Configuration
 $endpoints = '127.0.0.1:8080';
-$topic = 'yourFifoTopic';
-$producerGroup = 'yourProducerGroup';
+$topic = 'topic-order';
+$producerGroup = 'GID-order-consumer';
 
 echo "=== Producer FIFO Message Example ===\n\n";
 
