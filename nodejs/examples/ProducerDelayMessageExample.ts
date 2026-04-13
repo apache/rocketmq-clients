@@ -42,41 +42,8 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
 
     console.log('✅ Message sent successfully');
     console.log('   - Message ID:', receipt.messageId);
-    console.log('   - Recall Handle:', receipt.recallHandle);
+    console.log('   - Delivery Timestamp:', deliveryTimestamp.toISOString());
     console.log('   - Offset:', receipt.offset);
-
-    // Check if recallHandle exists
-    if (!receipt.recallHandle || receipt.recallHandle.trim() === '') {
-      console.warn('\n⚠️  Warning: Recall handle is empty');
-      console.log('This might be because:');
-      console.log('1. The topic is not configured as DELAY type');
-      console.log('2. Broker does not support mixed message type');
-      console.log('3. The message was not recognized as a delay message');
-
-      // Try to check Topic configuration
-      console.log('\n💡 Suggestion: Check if the topic "time-topic" has message.type=DELAY attribute');
-    } else {
-      console.log('\n🔄 Attempting to recall message...');
-
-      try {
-        const recallReceipt = await producer.recallMessage(topics.delay, receipt.recallHandle);
-        console.log('✅ Message recalled successfully!');
-        console.log('   - Recalled Message ID:', recallReceipt.messageId);
-      } catch (recallError) {
-        console.error('❌ Failed to recall message:');
-        console.error('   Error:', (recallError as Error).message);
-        console.error('   Status Code:', (recallError as any).code);
-
-        // Provide more debugging information
-        if ((recallError as Error).message.includes('recall handle is invalid')) {
-          console.log('\n📝 Possible reasons:');
-          console.log('   1. The recall handle format is incorrect');
-          console.log('   2. The message has already been delivered/consumed');
-          console.log('   3. The recall time window has expired');
-          console.log('   4. Broker configuration issue (enableMixedMessageType=false)');
-        }
-      }
-    }
   } catch (error) {
     console.error('❌ Error sending message:', error);
   } finally {
