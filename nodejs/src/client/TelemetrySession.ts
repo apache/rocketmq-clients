@@ -26,6 +26,7 @@ export class TelemetrySession {
   #baseClient: BaseClient;
   #logger: ILogger;
   #stream: ClientDuplexStream<TelemetryCommand, TelemetryCommand>;
+  #isRefreshing = false;
 
   constructor(baseClient: BaseClient, endpoints: Endpoints, logger: ILogger) {
     this.#endpoints = endpoints;
@@ -53,13 +54,25 @@ export class TelemetrySession {
   }
 
   refresh() {
+    if (this.#isRefreshing) {
+      this.#logger.warn('Telemetry session is already refreshing, skip this request, endpoints=%s, clientId=%s',
+        this.#endpoints, this.#baseClient.clientId);
+      return;
+    }
+
+    this.#isRefreshing = true;
     this.#logger.info('Refreshing telemetry session, endpoints=%s, clientId=%s',
       this.#endpoints, this.#baseClient.clientId);
-    this.release();
-    // Recreate the stream immediately
-    setTimeout(() => {
+
+    try {
+      this.release();
       this.#renewStream(false);
-    }, 0);
+    } catch (err) {
+      this.#logger.error('Failed to refresh telemetry session, endpoints=%s, clientId=%s, error=%s',
+        this.#endpoints, this.#baseClient.clientId, err);
+    } finally {
+      this.#isRefreshing = false;
+    }
   }
 
   #renewStream(inited: boolean) {
