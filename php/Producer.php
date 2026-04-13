@@ -478,6 +478,97 @@ class Producer implements ProducerInterface
     }
     
     /**
+     * Generate unique message ID
+     * 
+     * Format: V1 + timestamp (4 bytes) + sequence (4 bytes) in hex
+     * Total length: 32 characters
+     * 
+     * @return string Unique message ID
+     */
+    /**
+     * Generate unique message ID (compatible with Java client v5)
+     * 
+     * Format: 34 characters hex string
+     * - Version (2 chars): "01"
+     * - MAC address (12 chars): Lower 6 bytes of MAC address
+     * - Process ID (4 chars): Lower 2 bytes of PID
+     * - Timestamp (8 chars): Seconds since 2021-01-01 00:00:00 UTC
+     * - Sequence (8 chars): Auto-increment counter
+     * 
+     * Example: 0156F7E71C361B21BC024CCDBE00000000
+     * 
+     * @return string 34-character hex message ID
+     */
+    private function generateMessageId(): string
+    {
+        // Custom epoch: 2021-01-01 00:00:00 UTC
+        static $customEpoch = 1609459200; // strtotime('2021-01-01 00:00:00 UTC')
+        static $sequence = 0;
+        static $macAddress = null;
+        static $processId = null;
+        
+        // Initialize MAC address and process ID once
+        if ($macAddress === null) {
+            // Get MAC address (lower 6 bytes)
+            $macAddress = $this->getMacAddress();
+            
+            // Get process ID (lower 2 bytes)
+            $processId = getmypid() & 0xFFFF;
+        }
+        
+        // Calculate seconds since custom epoch
+        $deltaSeconds = time() - $customEpoch;
+        
+        // Increment sequence (wrap around at 32-bit)
+        $sequence = ($sequence + 1) & 0xFFFFFFFF;
+        
+        // Build message ID
+        // Version (2 chars) + MAC (12 chars) + PID (4 chars) + Time (8 chars) + Seq (8 chars) = 34 chars
+        $messageId = sprintf(
+            '01%s%04X%08X%08X',
+            $macAddress,
+            $processId,
+            $deltaSeconds,
+            $sequence
+        );
+        
+        return strtoupper($messageId);
+    }
+    
+    /**
+     * Get MAC address in hex format (lower 6 bytes, 12 hex chars)
+     * 
+     * @return string 12-character hex MAC address
+     */
+    private function getMacAddress(): string
+    {
+        // Try to get real MAC address
+        $mac = '000000000000'; // Default fallback
+        
+        // macOS
+        if (strtoupper(substr(PHP_OS, 0, 6)) === 'DARWIN') {
+            $output = [];
+            @exec('ifconfig en0 | grep ether', $output);
+            if (!empty($output)) {
+                preg_match('/([0-9a-f]{2}[:-]){5}[0-9a-f]{2}/i', $output[0], $matches);
+                if (!empty($matches)) {
+                    $mac = str_replace([':', '-'], '', $matches[0]);
+                }
+            }
+        } else {
+            // Linux
+            $output = [];
+            @exec('cat /sys/class/net/eth0/address', $output);
+            if (!empty($output)) {
+                $mac = str_replace([':', '-'], '', trim($output[0]));
+            }
+        }
+        
+        // Ensure exactly 12 characters
+        return strtoupper(substr(str_pad($mac, 12, '0'), 0, 12));
+    }
+    
+    /**
      * Build message object
      * 
      * @param string $body Message body
@@ -499,8 +590,12 @@ class Producer implements ProducerInterface
         // Set message body
         $message->setBody($body);
         
+        // Generate unique message ID
+        $messageId = $this->generateMessageId();
+        
         // Set system properties
         $systemProperties = new SystemProperties();
+        $systemProperties->setMessageId($messageId);
         
         if ($tag !== null) {
             $systemProperties->setTag($tag);
@@ -665,14 +760,21 @@ class Producer implements ProducerInterface
      */
     public function send(MessageInterface $message, Transaction $transaction = null): SendReceipt
     {
+        // Convert MessageInterface to gRPC Message if needed
+        if ($message instanceof MessageInterface && !($message instanceof Message)) {
+            $grpcMessage = $this->convertToGrpcMessage($message);
+        } else {
+            $grpcMessage = $message;
+        }
+        
         if ($transaction !== null) {
             // Set message type to TRANSACTION
-            $systemProperties = $message->getSystemProperties();
+            $systemProperties = $grpcMessage->getSystemProperties();
             $systemProperties->setMessageType(MessageType::TRANSACTION);
-            $message->setSystemProperties($systemProperties);
+            $grpcMessage->setSystemProperties($systemProperties);
             
             // Send transaction message
-            $sendReceipt = $this->sendMessageWithRetry($message);
+            $sendReceipt = $this->sendMessageWithRetry($grpcMessage);
             
             // Add message to transaction
             $transaction->addMessage($message, $sendReceipt);
@@ -680,7 +782,7 @@ class Producer implements ProducerInterface
             return $sendReceipt;
         }
         
-        return $this->sendMessageWithRetry($message);
+        return $this->sendMessageWithRetry($grpcMessage);
     }
 
 
@@ -743,6 +845,10 @@ class Producer implements ProducerInterface
         
         // Set system properties
         $systemProperties = new SystemProperties();
+        
+        // Generate unique message ID
+        $messageId = $this->generateMessageId();
+        $systemProperties->setMessageId($messageId);
         
         $tag = $message->getTag();
         if ($tag !== null) {
@@ -960,13 +1066,30 @@ class Producer implements ProducerInterface
             $request->setMessages([$message]);
             
             $call = $this->getClient()->SendMessage($request);
-            $response = $call->wait();
+            list($response, $status) = $call->wait();
+            
+            // Check gRPC status
+            if ($status->code !== STATUS_OK) {
+                throw new \Exception(
+                    "gRPC call failed: " . $status->details,
+                    $status->code
+                );
+            }
             
             // Calculate cost time
             $costTime = (microtime(true) - $startTime) * 1000; // Milliseconds
             
             // Check response status
-            if ($response->getStatus()->getCode() !== 0) {
+            $status = $response->getStatus();
+            if ($status === null) {
+                throw new \Exception("Response status is null");
+            }
+            
+            $statusCode = $status->getCode();
+            $statusMessage = $status->getMessage();
+            
+            // In RocketMQ, code 20000 means OK (success)
+            if ($statusCode !== 20000) {
                 throw new \Exception(
                     "Failed to send message: " . $response->getStatus()->getMessage(),
                     $response->getStatus()->getCode()

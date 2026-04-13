@@ -105,6 +105,20 @@ class ProducerBuilder {
     }
     
     /**
+     * Enable or disable SSL
+     *
+     * @param bool $enabled Whether to enable SSL
+     * @return ProducerBuilder
+     */
+    public function enableSsl(bool $enabled) {
+        if ($this->clientConfiguration === null) {
+            throw new ClientConfigurationException("Client configuration must be set before enabling/disabling SSL");
+        }
+        $this->clientConfiguration->withSslEnabled($enabled);
+        return $this;
+    }
+    
+    /**
      * Build and start the producer
      *
      * @return Producer

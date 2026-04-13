@@ -27,6 +27,7 @@ use Apache\Rocketmq\Exception\ServerException;
 use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\AckMessageRequest;
+use Apache\Rocketmq\V2\ClientType;
 use Apache\Rocketmq\V2\FilterExpression;
 use Apache\Rocketmq\V2\FilterType;
 use Apache\Rocketmq\V2\HeartbeatRequest;
@@ -210,7 +211,7 @@ class LitePushConsumerImpl implements LitePushConsumer {
             // Initialize gRPC client using connection pool
             $connectionPool = ConnectionPool::getInstance();
             $connectionPool->setConfigFromClientConfiguration($this->config);
-            $this->client = $connectionPool->getConnection($this->config->getEndpoints());
+            $this->client = $connectionPool->getConnection($this->config);
             
             // Send heartbeat to register with broker
             $this->sendHeartbeat();
@@ -251,7 +252,7 @@ class LitePushConsumerImpl implements LitePushConsumer {
             // Close gRPC client
             if ($this->client) {
                 $connectionPool = ConnectionPool::getInstance();
-                $connectionPool->returnConnection($this->config->getEndpoints(), $this->client);
+                $connectionPool->returnConnection($this->config, $this->client);
                 $this->client = null;
             }
             
@@ -384,28 +385,12 @@ class LitePushConsumerImpl implements LitePushConsumer {
         }
         
         $request = new HeartbeatRequest();
-        $request->setClientType('PHP');
-        $request->setClientVersion('2.0.0');
-        $request->setClientId($this->clientId);
+        $request->setClientType(ClientType::PUSH_CONSUMER);
         
-        $subscription = new Subscription();
-        $subscription->setGroup(Resource::create()->setName($this->consumerGroup));
-        
-        foreach ($this->liteTopics as $liteTopic => $topicConfig) {
-            $entry = new SubscriptionEntry();
-            $entry->setTopic(Resource::create()->setName($liteTopic));
-            
-            if (!empty($topicConfig['filterExpression'])) {
-                $filterExpression = new FilterExpression();
-                $filterExpression->setExpression($topicConfig['filterExpression']);
-                $filterExpression->setType($topicConfig['filterType'] === 'SQL92' ? FilterType::SQL92 : FilterType::TAG);
-                $entry->setFilterExpression($filterExpression);
-            }
-            
-            $subscription->addEntries($entry);
-        }
-        
-        $request->addSubscriptions($subscription);
+        // Set group
+        $group = new Resource();
+        $group->setName($this->consumerGroup);
+        $request->setGroup($group);
         
         try {
             $this->client->Heartbeat($request);

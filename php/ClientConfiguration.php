@@ -352,6 +352,16 @@ class ClientConfiguration
     }
     
     /**
+     * Check if credentials are set
+     * 
+     * @return bool Whether credentials are set
+     */
+    public function hasCredentials()
+    {
+        return isset($this->credentials) && $this->credentials !== null;
+    }
+    
+    /**
      * Get or create default retry policy
      * 
      * @return RetryPolicy Retry policy object

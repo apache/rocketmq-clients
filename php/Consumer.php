@@ -20,13 +20,20 @@ namespace Apache\Rocketmq;
 
 require 'vendor/autoload.php';
 
+// Load AsyncTelemetrySession if Swoole is available
+if (extension_loaded('swoole')) {
+    require_once __DIR__ . '/AsyncTelemetrySession.php';
+}
+
 use Apache\Rocketmq\Connection\ConnectionPool;
+use Apache\Rocketmq\Consumer\ConsumeResult;
 use Apache\Rocketmq\Exception\ClientConfigurationException;
 use Apache\Rocketmq\Exception\ClientException;
 use Apache\Rocketmq\Exception\ClientStateException;
 use Apache\Rocketmq\Exception\MessageException;
 use Apache\Rocketmq\Exception\NetworkException;
 use Apache\Rocketmq\Exception\ServerException;
+use Apache\Rocketmq\TelemetrySession;
 use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\AckMessageRequest;
@@ -42,6 +49,7 @@ use Apache\Rocketmq\V2\Settings;
 use Apache\Rocketmq\V2\Subscription;
 use Apache\Rocketmq\V2\SubscriptionEntry;
 use Grpc\ChannelCredentials;
+use const Grpc\STATUS_OK;
 
 /**
  * RocketMQ SimpleConsumer Implementation
@@ -88,6 +96,11 @@ class SimpleConsumer
     private $clientId;
     
     /**
+     * @var TelemetrySession|null Telemetry session for bidirectional stream
+     */
+    private $telemetrySession = null;
+    
+    /**
      * @var int Maximum message number per receive
      */
     private $maxMessageNum = 32;
@@ -111,6 +124,21 @@ class SimpleConsumer
      * @var string Client state: CREATED, STARTING, RUNNING, STOPPING, TERMINATED
      */
     private $state = 'CREATED';
+    
+    /**
+     * @var int|null Background heartbeat timer PID
+     */
+    private $heartbeatTimerPid = null;
+    
+    /**
+     * @var int Heartbeat interval in seconds (Java default: 10s)
+     */
+    const HEARTBEAT_INTERVAL = 10;
+    
+    /**
+     * @var int Settings sync interval in seconds (Java default: 5min = 300s)
+     */
+    const SETTINGS_SYNC_INTERVAL = 300;
     
     /**
      * Private constructor to prevent direct instantiation
@@ -204,6 +232,13 @@ class SimpleConsumer
         try {
             // Send heartbeat to verify connection
             $this->heartbeat();
+            
+            // Initialize and start telemetry session
+            $this->initializeTelemetrySession();
+            
+            // Start background timers for heartbeat and settings sync
+            $this->startBackgroundTimers();
+            
             $this->state = 'RUNNING';
         } catch (\Exception $e) {
             $this->state = 'FAILED';
@@ -229,11 +264,12 @@ class SimpleConsumer
     private function getClient()
     {
         if ($this->client === null) {
-            // Get connection from pool
+            // Get connection from pool with fixed client ID
+            // This ensures all RPC calls use the same client ID as Telemetry Session
             $pool = ConnectionPool::getInstance();
             // Set connection pool configuration from client configuration
             $pool->setConfigFromClientConfiguration($this->config);
-            $this->client = $pool->getConnection($this->config);
+            $this->client = $pool->getConnectionWithClientId($this->config, $this->clientId);
         }
         return $this->client;
     }
@@ -247,15 +283,182 @@ class SimpleConsumer
     {
         $request = new HeartbeatRequest();
         
-        $settings = new Settings();
-        $settings->setClientType(\Apache\Rocketmq\V2\ClientType::SIMPLE_CONSUMER);
+        // Set consumer group
+        $group = new Resource();
+        $group->setName($this->consumerGroup);
+        $request->setGroup($group);
         
-        $request->setSettings($settings);
+        // Set client type
+        $request->setClientType(\Apache\Rocketmq\V2\ClientType::SIMPLE_CONSUMER);
         
         $call = $this->getClient()->Heartbeat($request);
-        $response = $call->wait();
+        list($response, $status) = $call->wait();
         
         return $response;
+    }
+    
+    /**
+     * Initialize telemetry session
+     * 
+     * @return void
+     * @throws \Exception If initialization fails
+     */
+    private function initializeTelemetrySession(): void
+    {
+        // Try to use Swoole async implementation if available
+        if (extension_loaded('swoole') && class_exists('Apache\Rocketmq\AsyncTelemetrySession')) {
+            try {
+                $this->telemetrySession = new AsyncTelemetrySession(
+                    $this->getClient(),
+                    $this->clientId,
+                    $this->consumerGroup,
+                    $this->topic,
+                    \Apache\Rocketmq\V2\ClientType::SIMPLE_CONSUMER,
+                    $this->awaitDuration
+                );
+                $this->telemetrySession->start();
+                error_log("AsyncTelemetrySession started with Swoole, clientId={$this->clientId}");
+                return;
+            } catch (\Exception $e) {
+                error_log("Warning: Failed to start AsyncTelemetrySession: " . $e->getMessage());
+                error_log("Falling back to disabled telemetry");
+            }
+        }
+        
+        // Fallback: disable telemetry (RocketMQ Proxy has compatibility issues)
+        error_log("Note: Telemetry session disabled (Swoole not available or failed)");
+        $this->telemetrySession = null;
+    }
+    
+    /**
+     * Start background timers for heartbeat and settings sync
+     * Similar to Java's ClientManagerImpl scheduler
+     * 
+     * @return void
+     */
+    private function startBackgroundTimers(): void
+    {
+        // Use Swoole timer if available (preferred over pcntl_fork)
+        if (extension_loaded('swoole') && class_exists('\Swoole\Timer')) {
+            error_log("Starting Swoole timer for heartbeat, interval: " . self::HEARTBEAT_INTERVAL . "s");
+            
+            \Swoole\Timer::tick(self::HEARTBEAT_INTERVAL * 1000, function($timerId) {
+                if ($this->state !== 'RUNNING') {
+                    \Swoole\Timer::clear($timerId);
+                    return;
+                }
+                
+                try {
+                    $this->heartbeat();
+                    error_log("Heartbeat sent, clientId={$this->clientId}");
+                } catch (\Exception $e) {
+                    error_log("Warning: Heartbeat failed: " . $e->getMessage());
+                }
+            });
+            
+            // Sync settings every 5 minutes (Java default)
+            \Swoole\Timer::tick(self::SETTINGS_SYNC_INTERVAL * 1000, function($timerId) {
+                if ($this->state !== 'RUNNING') {
+                    \Swoole\Timer::clear($timerId);
+                    return;
+                }
+                
+                try {
+                    $this->syncSettings();
+                    error_log("Settings synced, clientId={$this->clientId}");
+                } catch (\Exception $e) {
+                    error_log("Warning: Settings sync failed: " . $e->getMessage());
+                }
+            });
+            
+            return;
+        }
+        
+        // Fallback to pcntl_fork if Swoole timer not available
+        if (!function_exists('pcntl_fork')) {
+            error_log("Warning: Neither Swoole timer nor pcntl_fork available, background timers disabled");
+            return;
+        }
+        
+        // Start heartbeat timer using pcntl_fork
+        $this->heartbeatTimerPid = pcntl_fork();
+        
+        if ($this->heartbeatTimerPid == -1) {
+            error_log("Error: Failed to fork heartbeat timer process");
+            return;
+        } elseif ($this->heartbeatTimerPid > 0) {
+            error_log("Started background heartbeat timer (PID: {$this->heartbeatTimerPid}), interval: " . self::HEARTBEAT_INTERVAL . "s");
+            return;
+        } else {
+            // Child process: run heartbeat loop
+            $this->runHeartbeatLoop();
+            exit(0);
+        }
+    }
+    
+    /**
+     * Run heartbeat loop in background process
+     * Sends heartbeat and syncs settings periodically
+     * 
+     * @return void
+     */
+    private function runHeartbeatLoop(): void
+    {
+        error_log("Heartbeat timer started, clientId={$this->clientId}");
+        
+        $lastSettingsSync = time();
+        $cycleCount = 0;
+        
+        while ($this->state === 'RUNNING') {
+            sleep(self::HEARTBEAT_INTERVAL);
+            
+            if ($this->state !== 'RUNNING') {
+                break;
+            }
+            
+            $cycleCount++;
+            
+            // Send heartbeat
+            try {
+                $this->heartbeat();
+                error_log("Heartbeat sent (cycle #{$cycleCount}), clientId={$this->clientId}");
+            } catch (\Exception $e) {
+                error_log("Warning: Heartbeat failed: " . $e->getMessage());
+            }
+            
+            // Sync settings every SETTINGS_SYNC_INTERVAL seconds (Java default: 5min)
+            $now = time();
+            if (($now - $lastSettingsSync) >= self::SETTINGS_SYNC_INTERVAL) {
+                try {
+                    $this->syncSettings();
+                    $lastSettingsSync = $now;
+                    error_log("Settings synced, clientId={$this->clientId}");
+                } catch (\Exception $e) {
+                    error_log("Warning: Settings sync failed: " . $e->getMessage());
+                }
+            }
+        }
+        
+        error_log("Heartbeat timer stopped, clientId={$this->clientId}");
+    }
+    
+    /**
+     * Sync settings to server (similar to Java's client.syncSettings())
+     * 
+     * @return void
+     * @throws \Exception If sync fails
+     */
+    private function syncSettings(): void
+    {
+        if (!$this->telemetrySession) {
+            error_log("Warning: Cannot sync settings, telemetry session is null");
+            return;
+        }
+        
+        // For Swoole async session, it handles sync automatically
+        // For sync session, we would need to send Settings via Telemetry stream
+        // This is a placeholder for future implementation
+        error_log("Settings sync requested (not yet implemented for sync mode)");
     }
     
     /**
@@ -323,6 +526,11 @@ class SimpleConsumer
         
         $request = new ReceiveMessageRequest();
         
+        // Set consumer group
+        $group = new Resource();
+        $group->setName($this->consumerGroup);
+        $request->setGroup($group);
+        
         // Set message queue
         $mq = new MessageQueue();
         $resource = new Resource();
@@ -331,14 +539,22 @@ class SimpleConsumer
         $mq->setAcceptMessageTypes([MessageType::NORMAL]);
         
         $request->setMessageQueue($mq);
-        $request->setMaxAttempts(16); // Maximum retry count
-        $request->setInvisibleDuration(
-            (new \Google\Protobuf\Duration())->setSeconds($invisibleDuration)
-        );
+        
+        // Set invisible duration (required for simple consumer)
+        $invisibleDurationProto = new \Google\Protobuf\Duration();
+        $invisibleDurationProto->setSeconds($invisibleDuration);
+        $request->setInvisibleDuration($invisibleDurationProto);
+        
+        // Set batch size
         $request->setBatchSize($maxMessageNum);
         
-        // Set long polling
-        $request->setLongPollingTimeoutSeconds($this->awaitDuration);
+        // Enable auto renew
+        $request->setAutoRenew(true);
+        
+        // Set long polling timeout
+        $longPollingTimeout = new \Google\Protobuf\Duration();
+        $longPollingTimeout->setSeconds($this->awaitDuration);
+        $request->setLongPollingTimeout($longPollingTimeout);
         
         $call = $this->getClient()->ReceiveMessage($request);
         
@@ -348,6 +564,13 @@ class SimpleConsumer
         foreach ($call->responses() as $response) {
             if ($response->hasMessage()) {
                 $messages[] = $response->getMessage();
+            } else {
+                // Log status for debugging
+                if ($response->hasStatus()) {
+                    $statusCode = $response->getStatus()->getCode();
+                    $statusMessage = $response->getStatus()->getMessage();
+                    error_log("ReceiveMessage response - Code: {$statusCode}, Message: {$statusMessage}");
+                }
             }
         }
         
@@ -409,6 +632,21 @@ class SimpleConsumer
         
         $request = new AckMessageRequest();
         
+        // Set consumer group (required)
+        $group = new Resource();
+        $group->setName($this->consumerGroup);
+        $request->setGroup($group);
+        
+        // Set topic (required) - extract from message or use configured topic
+        $topicName = $this->topic;
+        if ($message->hasTopic()) {
+            $topicName = $message->getTopic()->getName();
+        }
+        
+        $topicResource = new Resource();
+        $topicResource->setName($topicName);
+        $request->setTopic($topicResource);
+        
         $entry = new AckMessageEntry();
         $entry->setReceiptHandle($receiptHandle);
         $entry->setMessageId($message->getSystemProperties()->getMessageId());
@@ -416,10 +654,18 @@ class SimpleConsumer
         $request->setEntries([$entry]);
         
         $call = $this->getClient()->AckMessage($request);
-        $response = $call->wait();
+        list($response, $status) = $call->wait();
         
-        // Check response status
-        if ($response->getStatus()->getCode() !== 0) {
+        // Check gRPC status
+        if ($status->code !== STATUS_OK) {
+            throw new \Exception(
+                "gRPC call failed: " . $status->details,
+                $status->code
+            );
+        }
+        
+        // Check response status (20000 means OK in RocketMQ)
+        if ($response->getStatus()->getCode() !== 20000) {
             throw new \Exception(
                 "Failed to ACK message: " . $response->getStatus()->getMessage(),
                 $response->getStatus()->getCode()
@@ -458,10 +704,18 @@ class SimpleConsumer
         $request->setMessageQueue($mq);
         
         $call = $this->getClient()->ChangeInvisibleDuration($request);
-        $response = $call->wait();
+        list($response, $status) = $call->wait();
         
-        // Check response status
-        if ($response->getStatus()->getCode() !== 0) {
+        // Check gRPC status
+        if ($status->code !== STATUS_OK) {
+            throw new \Exception(
+                "gRPC call failed: " . $status->details,
+                $status->code
+            );
+        }
+        
+        // Check response status (20000 means OK in RocketMQ)
+        if ($response->getStatus()->getCode() !== 20000) {
             throw new \Exception(
                 "Failed to change visibility duration: " . $response->getStatus()->getMessage(),
                 $response->getStatus()->getCode()
@@ -486,6 +740,15 @@ class SimpleConsumer
         }
         
         $this->state = 'STOPPING';
+        
+        // Stop background heartbeat timer
+        if ($this->heartbeatTimerPid !== null && $this->heartbeatTimerPid > 0) {
+            error_log("Stopping background heartbeat timer (PID: {$this->heartbeatTimerPid})");
+            posix_kill($this->heartbeatTimerPid, SIGTERM);
+            pcntl_waitpid($this->heartbeatTimerPid, $status);
+            $this->heartbeatTimerPid = null;
+            error_log("Background heartbeat timer stopped");
+        }
         
         if ($this->client !== null) {
             try {
@@ -593,6 +856,16 @@ class SimpleConsumer
     public function getAwaitDuration()
     {
         return $this->awaitDuration;
+    }
+    
+    /**
+     * Get Telemetry Session (for debugging and monitoring)
+     * 
+     * @return TelemetrySession|null
+     */
+    public function getTelemetrySession()
+    {
+        return $this->telemetrySession;
     }
 }
 
@@ -737,13 +1010,52 @@ class PushConsumer
     private function getClient()
     {
         if ($this->client === null) {
-            // Get connection from pool
+            // Get connection from pool with fixed client ID
+            // This ensures all RPC calls use the same client ID as Telemetry Session
             $pool = ConnectionPool::getInstance();
             // Set connection pool configuration from client configuration
             $pool->setConfigFromClientConfiguration($this->config);
-            $this->client = $pool->getConnection($this->config);
+            $this->client = $pool->getConnectionWithClientId($this->config, $this->clientId);
         }
         return $this->client;
+    }
+    
+    /**
+     * Send heartbeat to register consumer with server
+     * 
+     * @return void
+     * @throws \Exception If heartbeat fails
+     */
+    public function heartbeat()
+    {
+        $request = new HeartbeatRequest();
+        
+        // Set client type
+        $request->setClientType(\Apache\Rocketmq\V2\ClientType::PUSH_CONSUMER);
+        
+        // Set consumer group
+        $group = new Resource();
+        $group->setName($this->consumerGroup);
+        $request->setGroup($group);
+        
+        $call = $this->getClient()->Heartbeat($request);
+        list($response, $status) = $call->wait();
+        
+        // Check gRPC status
+        if ($status->code !== STATUS_OK) {
+            throw new \Exception(
+                "gRPC call failed: " . $status->details,
+                $status->code
+            );
+        }
+        
+        // Check response status (20000 means OK in RocketMQ)
+        if ($response->getStatus()->getCode() !== 20000) {
+            throw new \Exception(
+                "Failed to send heartbeat: " . $response->getStatus()->getMessage(),
+                $response->getStatus()->getCode()
+            );
+        }
     }
     
     /**
@@ -758,7 +1070,7 @@ class PushConsumer
     }
     
     /**
-     * Start consumer
+     * Start consumer (blocking mode)
      * 
      * @return void
      * @throws \Exception If message listener is not set
@@ -799,6 +1111,165 @@ class PushConsumer
                 sleep(1); // Avoid frequent retries
             }
         }
+    }
+    
+    /**
+     * Start consumer in background (non-blocking mode)
+     * 
+     * @return void
+     * @throws \Exception If message listener is not set
+     */
+    public function startAsync()
+    {
+        if ($this->messageListener === null) {
+            throw new \Exception("Message listener must be set");
+        }
+        
+        $this->running = true;
+        
+        echo "PushConsumer starting in background...\n";
+        
+        // Use pcntl_fork to run consumer in background (if available)
+        if (function_exists('pcntl_fork')) {
+            $pid = pcntl_fork();
+            
+            if ($pid == -1) {
+                throw new \Exception("Failed to fork process");
+            } elseif ($pid > 0) {
+                // Parent process returns immediately
+                echo "PushConsumer started in background (PID: {$pid})\n";
+                return;
+            }
+            // Child process continues to run consumer
+        }
+        
+        // Run consumer loop
+        $simpleConsumer = SimpleConsumer::getInstance($this->config, $this->consumerGroup, $this->topic);
+        
+        while ($this->running) {
+            try {
+                $messages = $simpleConsumer->receive($this->maxMessageNum, $this->invisibleDuration);
+                
+                foreach ($messages as $message) {
+                    try {
+                        // Call message listener
+                        $result = call_user_func($this->messageListener, $message);
+                        
+                        // Decide whether to ACK based on return value
+                        if ($result === true || $result === null) {
+                            $simpleConsumer->ack($message);
+                        }
+                    } catch (\Exception $e) {
+                        error_log("Failed to process message: " . $e->getMessage());
+                    }
+                }
+            } catch (\Exception $e) {
+                error_log("Failed to receive message: " . $e->getMessage());
+                sleep(1);
+            }
+        }
+    }
+    
+    /**
+     * Poll messages once (non-blocking)
+     * 
+     * @return int Number of messages consumed
+     * @throws \Exception If message listener is not set or receive fails
+     */
+    public function pollOnce()
+    {
+        if ($this->messageListener === null) {
+            throw new \Exception("Message listener must be set");
+        }
+        
+        if (!$this->running) {
+            $this->running = true;
+            
+            // Send heartbeat to register consumer with server
+            try {
+                $this->heartbeat();
+            } catch (\Exception $e) {
+                error_log("Failed to send heartbeat: " . $e->getMessage());
+                // Continue anyway, heartbeat is not critical for polling
+            }
+        }
+        
+        // Create SimpleConsumer to pull messages
+        $simpleConsumer = SimpleConsumer::getInstance($this->config, $this->consumerGroup, $this->topic);
+        
+        try {
+            $messages = $simpleConsumer->receive($this->maxMessageNum, $this->invisibleDuration);
+            $count = 0;
+            
+            foreach ($messages as $grpcMessage) {
+                try {
+                    // Convert gRPC Message to a simple object that listener can use
+                    $messageView = $this->convertToMessageView($grpcMessage);
+                    
+                    // Call message listener with the converted message
+                    $result = call_user_func($this->messageListener, $messageView);
+                    
+                    // Decide whether to ACK based on return value
+                    if ($result === ConsumeResult::SUCCESS || $result === true || $result === null) {
+                        $simpleConsumer->ack($grpcMessage);
+                    }
+                    
+                    $count++;
+                } catch (\Exception $e) {
+                    error_log("Failed to process message: " . $e->getMessage());
+                    // Do not ACK on error, let message be redelivered
+                }
+            }
+            
+            return $count;
+        } catch (\Exception $e) {
+            error_log("Failed to receive message: " . $e->getMessage());
+            return 0;
+        }
+    }
+    
+    /**
+     * Convert gRPC Message to MessageView-like object
+     * 
+     * @param \Apache\Rocketmq\V2\Message $grpcMessage
+     * @return object Simple message view object
+     */
+    private function convertToMessageView($grpcMessage)
+    {
+        $systemProperties = $grpcMessage->getSystemProperties();
+        
+        // Create a simple stdClass object with necessary properties
+        $messageView = new \stdClass();
+        $messageView->messageId = $systemProperties->getMessageId();
+        $messageView->topic = $grpcMessage->getTopic()->getName();
+        $messageView->body = $grpcMessage->getBody();
+        $messageView->tag = $systemProperties->hasTag() ? $systemProperties->getTag() : null;
+        $messageView->keys = $systemProperties->getKeys();
+        $messageView->bornTimestamp = $systemProperties->getBornTimestamp() ? 
+            $systemProperties->getBornTimestamp()->getSeconds() * 1000 : time() * 1000;
+        $messageView->receiptHandle = $systemProperties->getReceiptHandle();
+        
+        // Add methods via closure binding
+        $messageView->getMessageId = function() use ($messageView) {
+            return $messageView->messageId;
+        };
+        $messageView->getTopic = function() use ($messageView) {
+            return $messageView->topic;
+        };
+        $messageView->getBody = function() use ($messageView) {
+            return $messageView->body;
+        };
+        $messageView->getTag = function() use ($messageView) {
+            return $messageView->tag;
+        };
+        $messageView->getKeys = function() use ($messageView) {
+            return $messageView->keys ?? [];
+        };
+        $messageView->getBornTimestamp = function() use ($messageView) {
+            return $messageView->bornTimestamp;
+        };
+        
+        return $messageView;
     }
     
     /**

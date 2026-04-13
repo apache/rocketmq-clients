@@ -23,6 +23,7 @@ use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\MessageType;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SystemProperties;
+use Apache\Rocketmq\Message\MessageAdapter;
 
 /**
  * Builder for creating Message instances
@@ -202,7 +203,7 @@ class MessageBuilder {
     /**
      * Build the message
      *
-     * @return Message
+     * @return \Apache\Rocketmq\Message\Message
      * @throws MessageException
      */
     public function build() {
@@ -214,15 +215,15 @@ class MessageBuilder {
             throw new MessageException("Message body must be set");
         }
         
-        $message = new Message();
+        $v2Message = new Message();
         
         // Set topic
         $topicResource = new Resource();
         $topicResource->setName($this->topic);
-        $message->setTopic($topicResource);
+        $v2Message->setTopic($topicResource);
         
         // Set message body
-        $message->setBody($this->body);
+        $v2Message->setBody($this->body);
         
         // Set system properties
         $systemProperties = new SystemProperties();
@@ -258,13 +259,14 @@ class MessageBuilder {
             $systemProperties->setMessageType(MessageType::PRIORITY);
         }
         
-        $message->setSystemProperties($systemProperties);
+        $v2Message->setSystemProperties($systemProperties);
         
         // Set custom properties
         if (!empty($this->properties)) {
-            $message->setProperties($this->properties);
+            $v2Message->setProperties($this->properties);
         }
         
-        return $message;
+        // Wrap V2\Message in adapter to implement Message interface
+        return new MessageAdapter($v2Message);
     }
 }

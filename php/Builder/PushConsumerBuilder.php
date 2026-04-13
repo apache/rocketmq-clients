@@ -20,7 +20,7 @@ namespace Apache\Rocketmq\Builder;
 
 use Apache\Rocketmq\ClientConfiguration;
 use Apache\Rocketmq\Exception\ClientConfigurationException;
-use Apache\Rocketmq\Consumer\PushConsumer;
+use Apache\Rocketmq\PushConsumer;
 
 /**
  * Builder for creating PushConsumer instances
@@ -92,10 +92,10 @@ class PushConsumerBuilder {
     /**
      * Set message listener
      *
-     * @param callable $messageListener
+     * @param callable|MessageListener $messageListener
      * @return PushConsumerBuilder
      */
-    public function setMessageListener(callable $messageListener) {
+    public function setMessageListener($messageListener) {
         $this->messageListener = $messageListener;
         return $this;
     }
@@ -134,6 +134,20 @@ class PushConsumerBuilder {
     }
     
     /**
+     * Enable or disable SSL
+     *
+     * @param bool $enabled Whether to enable SSL
+     * @return PushConsumerBuilder
+     */
+    public function enableSsl(bool $enabled) {
+        if ($this->clientConfiguration === null) {
+            throw new ClientConfigurationException("Client configuration must be set before enabling/disabling SSL");
+        }
+        $this->clientConfiguration->withSslEnabled($enabled);
+        return $this;
+    }
+    
+    /**
      * Build and start the push consumer
      *
      * @return PushConsumer
@@ -156,7 +170,7 @@ class PushConsumerBuilder {
             throw new ClientConfigurationException("Message listener must be set");
         }
         
-        $consumer = new PushConsumer($this->clientConfiguration, $this->consumerGroup, $this->topic);
+        $consumer = PushConsumer::getInstance($this->clientConfiguration, $this->consumerGroup, $this->topic);
         $consumer->setMessageListener($this->messageListener);
         $consumer->setInvisibleDuration($this->invisibleDuration);
         $consumer->setMaxMessageNum($this->maxMessageNum);
