@@ -29,6 +29,11 @@ export const topics = {
 export const consumerGroup = process.env.ROCKETMQ_NODEJS_CLIENT_GROUP ?? 'nodejs-unittest-group';
 export const tag = process.env.TAG ?? '*';
 
+// Lite topic configuration
+export const liteTopicConfig = {
+  parentTopic: process.env.ROCKETMQ_NODEJS_LITE_PARENT_TOPIC ?? 'yourParentTopic',
+};
+
 export let sessionCredentials: SessionCredentials | undefined;
 if (process.env.ROCKETMQ_NODEJS_CLIENT_KEY && process.env.ROCKETMQ_NODEJS_CLIENT_SECRET) {
   sessionCredentials = {

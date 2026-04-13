@@ -33,7 +33,7 @@ import {
   OffsetOption,
   type MessageView,
 } from '../src';
-import { endpoints, namespace, consumerGroup } from './ProducerSingleton';
+import { endpoints, namespace, consumerGroup, sessionCredentials } from './ProducerSingleton';
 
 async function main() {
   console.log('========== LitePushConsumer Example ==========\n');
@@ -43,6 +43,7 @@ async function main() {
     .setClientConfiguration({
       endpoints,
       namespace,
+      sessionCredentials,
     })
     .setConsumerGroup(consumerGroup)
     .bindTopic('your-parent-topic') // Replace with your actual parent topic

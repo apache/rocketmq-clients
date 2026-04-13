@@ -16,12 +16,7 @@
  */
 
 import { Producer, LiteTopicQuotaExceededException } from '../src';
-import { endpoints, namespace } from './ProducerSingleton';
-
-// Configuration
-const config = {
-  topic: 'yourParentTopic', // Parent topic (bind topic)
-};
+import { endpoints, namespace, sessionCredentials, liteTopicConfig } from './ProducerSingleton';
 
 async function main() {
   console.log('=== Lite Producer Example ===\n');
@@ -30,6 +25,7 @@ async function main() {
   const producer = new Producer({
     endpoints,
     namespace,
+    sessionCredentials,
   });
 
   try {
@@ -44,7 +40,7 @@ async function main() {
     for (let i = 1; i <= 5; i++) {
       const liteTopicName = `lite-topic-${i}`;
       const message = {
-        topic: config.topic,
+        topic: liteTopicConfig.parentTopic,
         keys: [ `key-${i}` ],
         body,
         liteTopic: liteTopicName, // Set lite topic
@@ -53,7 +49,7 @@ async function main() {
       try {
         const sendReceipt = await producer.send(message);
         console.log(`✓ Message ${i} sent successfully`);
-        console.log(`  - Topic: ${config.topic}`);
+        console.log(`  - Topic: ${liteTopicConfig.parentTopic}`);
         console.log(`  - Lite Topic: ${liteTopicName}`);
         console.log(`  - Message ID: ${sendReceipt.messageId}\n`);
       } catch (error) {
