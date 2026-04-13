@@ -136,6 +136,18 @@ export class OffsetOption {
   }
 
   /**
+   * Validate that a bigint value is within the safe number range.
+   *
+   * @param value - The bigint value to validate
+   * @throws Error if value is out of safe number range
+   */
+  private validateSafeNumberRange(value: bigint): void {
+    if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER)) {
+      throw new Error(`Value ${value} is out of safe number range`);
+    }
+  }
+
+  /**
    * Convert this OffsetOption to ProtoBuf OffsetOption.
    *
    * @return ProtoBuf OffsetOption instance
@@ -148,30 +160,22 @@ export class OffsetOption {
         // POLICY_LAST_VALUE (0) -> Policy.LAST (0)
         // POLICY_MIN_VALUE (1) -> Policy.MIN (1)
         // POLICY_MAX_VALUE (2) -> Policy.MAX (2)
-        if (this.value > BigInt(Number.MAX_SAFE_INTEGER) || this.value < BigInt(Number.MIN_SAFE_INTEGER)) {
-          throw new Error(`Value ${this.value} is out of safe number range`);
-        }
+        this.validateSafeNumberRange(this.value);
         proto.setPolicy(Number(this.value));
         break;
       }
       case OffsetType.OFFSET: {
-        if (this.value > BigInt(Number.MAX_SAFE_INTEGER) || this.value < BigInt(Number.MIN_SAFE_INTEGER)) {
-          throw new Error(`Value ${this.value} is out of safe number range`);
-        }
+        this.validateSafeNumberRange(this.value);
         proto.setOffset(Number(this.value));
         break;
       }
       case OffsetType.TAIL_N: {
-        if (this.value > BigInt(Number.MAX_SAFE_INTEGER) || this.value < BigInt(Number.MIN_SAFE_INTEGER)) {
-          throw new Error(`Value ${this.value} is out of safe number range`);
-        }
+        this.validateSafeNumberRange(this.value);
         proto.setTailN(Number(this.value));
         break;
       }
       case OffsetType.TIMESTAMP: {
-        if (this.value > BigInt(Number.MAX_SAFE_INTEGER) || this.value < BigInt(Number.MIN_SAFE_INTEGER)) {
-          throw new Error(`Value ${this.value} is out of safe number range`);
-        }
+        this.validateSafeNumberRange(this.value);
         proto.setTimestamp(Number(this.value));
         break;
       }

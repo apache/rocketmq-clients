@@ -23,13 +23,13 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
     endpoints,
     namespace,
     sessionCredentials,
-    maxAttempts: 2,
+    maxAttempts: 3,
   });
   await producer.startup();
 
   try {
-    // 发送延迟消息
-    const deliveryTimestamp = new Date(Date.now() + 5000); // 5秒后投递
+    // Send delay message
+    const deliveryTimestamp = new Date(Date.now() + 5000); // Deliver after 5 seconds
     const receipt = await producer.send({
       topic: topics.delay,
       tag: 'rocketmq-delay',
@@ -45,7 +45,7 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
     console.log('   - Recall Handle:', receipt.recallHandle);
     console.log('   - Offset:', receipt.offset);
 
-    // 检查 recallHandle 是否存在
+    // Check if recallHandle exists
     if (!receipt.recallHandle || receipt.recallHandle.trim() === '') {
       console.warn('\n⚠️  Warning: Recall handle is empty');
       console.log('This might be because:');
@@ -53,7 +53,7 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
       console.log('2. Broker does not support mixed message type');
       console.log('3. The message was not recognized as a delay message');
 
-      // 尝试检查 Topic 配置
+      // Try to check Topic configuration
       console.log('\n💡 Suggestion: Check if the topic "time-topic" has message.type=DELAY attribute');
     } else {
       console.log('\n🔄 Attempting to recall message...');
@@ -67,7 +67,7 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
         console.error('   Error:', (recallError as Error).message);
         console.error('   Status Code:', (recallError as any).code);
 
-        // 提供更多调试信息
+        // Provide more debugging information
         if ((recallError as Error).message.includes('recall handle is invalid')) {
           console.log('\n📝 Possible reasons:');
           console.log('   1. The recall handle format is incorrect');

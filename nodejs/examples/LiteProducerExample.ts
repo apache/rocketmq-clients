@@ -26,6 +26,7 @@ async function main() {
     endpoints,
     namespace,
     sessionCredentials,
+    maxAttempts: 3,
   });
 
   try {

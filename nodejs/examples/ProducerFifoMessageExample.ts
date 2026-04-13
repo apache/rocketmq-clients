@@ -72,22 +72,6 @@ async function main() {
       { type: 'TRANSFER', accountId: 'Alice', amount: 100, balance: 700 },
     ]);
 
-    // Send some messages without group (will be consumed concurrently)
-    console.log('\nSending non-FIFO messages (no messageGroup)...');
-    for (let i = 0; i < 3; i++) {
-      const receipt = await producer.send({
-        topic: topics.fifo,
-        tag: 'non-fifo',
-        body: Buffer.from(JSON.stringify({
-          type: 'NON_FIFO',
-          index: i,
-          timestamp: Date.now(),
-          note: 'This message has no messageGroup, will be consumed concurrently',
-        })),
-      });
-      console.log(`Non-FIFO message ${i} sent:`, receipt.messageId);
-    }
-
     console.log('\n✓ All FIFO messages sent successfully!');
     console.log('\nNote: Start PushConsumerFifoMessageExample to consume these messages.');
     console.log('Messages with the same messageGroup will be consumed in strict order.\n');

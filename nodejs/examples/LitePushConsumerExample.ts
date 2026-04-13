@@ -80,12 +80,6 @@ async function main() {
     await consumer.subscribeLite('lite-topic-3', OffsetOption.ofTailN(100));
     console.log('✓ Subscribed to lite-topic-3 (last 100 messages)\n');
 
-    // Check current subscriptions
-    const topics = consumer.getLiteTopicSet();
-    console.log(`Current subscriptions (${topics.size} topics):`);
-    topics.forEach(topic => console.log(`  - ${topic}`));
-    console.log();
-
     // Keep running to receive messages
     console.log('Consumer is running. Press Ctrl+C to exit...\n');
     // eslint-disable-next-line @typescript-eslint/no-empty-function
