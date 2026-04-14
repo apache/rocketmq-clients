@@ -36,6 +36,32 @@ export class FilterExpression {
       .setExpression(this.expression);
   }
 
+  equals(other: FilterExpression): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.expression === other.expression &&
+      this.filterType === other.filterType;
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    hash = hash * 31 + this.hashCodeOfString(this.expression);
+    hash = hash * 31 + this.filterType;
+    return hash;
+  }
+
+  private hashCodeOfString(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      // eslint-disable-next-line no-bitwise
+      hash = ((hash << 5) - hash) + char;
+      // eslint-disable-next-line no-bitwise
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+  }
+
   toString() {
     return `FilterExpression(${this.filterType},${this.expression})`;
   }

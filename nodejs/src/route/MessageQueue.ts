@@ -46,4 +46,34 @@ export class MessageQueue {
     messageQueue.setAcceptMessageTypesList(this.acceptMessageTypesList);
     return messageQueue;
   }
+
+  equals(other: MessageQueue): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.queueId === other.queueId &&
+      this.topic.name === other.topic.name &&
+      this.broker.equals(other.broker) &&
+      this.permission === other.permission;
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    hash = hash * 31 + this.queueId;
+    hash = hash * 31 + this.hashCodeOfString(this.topic.name);
+    hash = hash * 31 + this.broker.hashCode();
+    hash = hash * 31 + this.permission;
+    return hash;
+  }
+
+  private hashCodeOfString(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      // eslint-disable-next-line no-bitwise
+      hash = ((hash << 5) - hash) + char;
+      // eslint-disable-next-line no-bitwise
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+  }
 }

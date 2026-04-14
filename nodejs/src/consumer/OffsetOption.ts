@@ -184,4 +184,19 @@ export class OffsetOption {
     }
     return proto;
   }
+
+  equals(other: OffsetOption): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.type === other.type && this.value === other.value;
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    hash = hash * 31 + this.type;
+    // Convert bigint to number for hash calculation
+    const valueNum = Number(this.value);
+    hash = hash * 31 + valueNum;
+    return hash;
+  }
 }

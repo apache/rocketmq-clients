@@ -36,4 +36,32 @@ export class Broker implements BrokerPB.AsObject {
     broker.setEndpoints(this.endpoints.toProtobuf());
     return broker;
   }
+
+  equals(other: Broker): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.id === other.id &&
+      this.name === other.name &&
+      this.endpoints.equals(other.endpoints);
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    hash = hash * 31 + this.id;
+    hash = hash * 31 + this.hashCodeOfString(this.name);
+    hash = hash * 31 + this.endpoints.hashCode();
+    return hash;
+  }
+
+  private hashCodeOfString(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      // eslint-disable-next-line no-bitwise
+      hash = ((hash << 5) - hash) + char;
+      // eslint-disable-next-line no-bitwise
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+  }
 }

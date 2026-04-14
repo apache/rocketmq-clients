@@ -51,4 +51,24 @@ export class TopicRouteData {
   isEmpty(): boolean {
     return this.messageQueues.length === 0;
   }
+
+  equals(other: TopicRouteData): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    if (this.messageQueues.length !== other.messageQueues.length) return false;
+    for (let i = 0; i < this.messageQueues.length; i++) {
+      if (!this.messageQueues[i].equals(other.messageQueues[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    for (const mq of this.messageQueues) {
+      hash = hash * 31 + mq.hashCode();
+    }
+    return hash;
+  }
 }
