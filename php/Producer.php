@@ -1078,7 +1078,7 @@ class Producer implements ProducerInterface
             
             // Send recall request
             $call = $this->getClient()->RecallMessage($request);
-            $response = $call->wait();
+            list($response, $grpcStatus) = $call->wait();
             
             // Check response status
             $status = $response->getStatus();
@@ -1102,7 +1102,7 @@ class Producer implements ProducerInterface
             
             // Create recall receipt
             $messageId = $response->getMessageId();
-            $receipt = new RecallReceipt($messageId);
+            $receipt = new RecallReceipt($messageId, true);
             
             // Calculate cost time
             $costTime = (microtime(true) - $startTime) * 1000; // Milliseconds
