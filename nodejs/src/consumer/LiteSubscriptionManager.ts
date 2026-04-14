@@ -72,10 +72,13 @@ export class LiteSubscriptionManager {
    * Stop the sync timer.
    */
   public shutdown() {
+    // Clear sync timer
     if (this.syncTimer) {
       clearInterval(this.syncTimer);
       this.syncTimer = undefined;
     }
+    // Clear lite topic set to free memory
+    this.liteTopicSet.clear();
   }
 
   /**

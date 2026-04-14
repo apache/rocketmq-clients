@@ -87,7 +87,7 @@ export function calculateStringSipHash24(value: string) {
  * This is used for implementing equals/hashCode contract in TypeScript classes.
  *
  * @param str - The string to calculate hash code for
- * @returns Hash code as a 32-bit integer
+ * @return Hash code as a 32-bit integer
  */
 export function hashCodeOfString(str: string): number {
   let hash = 0;
