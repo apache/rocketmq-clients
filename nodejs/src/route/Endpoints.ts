@@ -16,6 +16,7 @@
  */
 
 import { isIPv4, isIPv6 } from 'node:net';
+import { hashCodeOfString } from '../util';
 import { Address, AddressScheme, Endpoints as EndpointsPB } from '../../proto/apache/rocketmq/v2/definition_pb';
 
 const DEFAULT_PORT = 80;
@@ -87,22 +88,10 @@ export class Endpoints {
   hashCode(): number {
     let hash = 17;
     hash = hash * 31 + this.scheme;
-    hash = hash * 31 + this.hashCodeOfString(this.facade);
+    hash = hash * 31 + hashCodeOfString(this.facade);
     for (const addr of this.addressesList) {
-      hash = hash * 31 + this.hashCodeOfString(addr.host);
+      hash = hash * 31 + hashCodeOfString(addr.host);
       hash = hash * 31 + addr.port;
-    }
-    return hash;
-  }
-
-  private hashCodeOfString(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      // eslint-disable-next-line no-bitwise
-      hash = ((hash << 5) - hash) + char;
-      // eslint-disable-next-line no-bitwise
-      hash = hash & hash; // Convert to 32bit integer
     }
     return hash;
   }

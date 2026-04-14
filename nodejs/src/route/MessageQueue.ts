@@ -19,7 +19,7 @@ import {
   MessageQueue as MessageQueuePB, MessageType, Permission,
   Resource,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
-import { createResource } from '../util';
+import { createResource, hashCodeOfString } from '../util';
 import { Broker } from './Broker';
 
 export class MessageQueue {
@@ -59,21 +59,9 @@ export class MessageQueue {
   hashCode(): number {
     let hash = 17;
     hash = hash * 31 + this.queueId;
-    hash = hash * 31 + this.hashCodeOfString(this.topic.name);
+    hash = hash * 31 + hashCodeOfString(this.topic.name);
     hash = hash * 31 + this.broker.hashCode();
     hash = hash * 31 + this.permission;
-    return hash;
-  }
-
-  private hashCodeOfString(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      // eslint-disable-next-line no-bitwise
-      hash = ((hash << 5) - hash) + char;
-      // eslint-disable-next-line no-bitwise
-      hash = hash & hash; // Convert to 32bit integer
-    }
     return hash;
   }
 }

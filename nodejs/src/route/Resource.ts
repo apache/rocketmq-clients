@@ -16,6 +16,7 @@
  */
 
 import { Resource as ProtoResource } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { hashCodeOfString } from '../util';
 
 /**
  * Represents a resource with namespace and name.
@@ -94,20 +95,8 @@ export class Resource {
    */
   hashCode(): number {
     let hash = 17;
-    hash = hash * 31 + this.hashCodeOfString(this.namespace);
-    hash = hash * 31 + this.hashCodeOfString(this.name);
-    return hash;
-  }
-
-  private hashCodeOfString(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      // eslint-disable-next-line no-bitwise
-      hash = ((hash << 5) - hash) + char;
-      // eslint-disable-next-line no-bitwise
-      hash = hash & hash; // Convert to 32bit integer
-    }
+    hash = hash * 31 + hashCodeOfString(this.namespace);
+    hash = hash * 31 + hashCodeOfString(this.name);
     return hash;
   }
 }

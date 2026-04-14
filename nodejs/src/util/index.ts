@@ -81,3 +81,22 @@ export function calculateStringSipHash24(value: string) {
   const hash = siphash24(Buffer.from(value), SIP_HASH_24_KEY);
   return Buffer.from(hash).readBigUInt64BE();
 }
+
+/**
+ * Calculate hash code for a string (Java String.hashCode() compatible).
+ * This is used for implementing equals/hashCode contract in TypeScript classes.
+ *
+ * @param str - The string to calculate hash code for
+ * @returns Hash code as a 32-bit integer
+ */
+export function hashCodeOfString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    // eslint-disable-next-line no-bitwise
+    hash = ((hash << 5) - hash) + char;
+    // eslint-disable-next-line no-bitwise
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash;
+}
