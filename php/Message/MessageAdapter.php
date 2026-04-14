@@ -120,6 +120,13 @@ class MessageAdapter implements Message {
                     $this->deliveryTimestamp = $timestamp->getSeconds() * 1000 + intval($timestamp->getNanos() / 1000000);
                 }
             } catch (\Exception $e) { /* Not available */ }
+            
+            // Priority
+            try {
+                if ($sysProps->hasPriority()) {
+                    $this->priority = $sysProps->getPriority();
+                }
+            } catch (\Exception $e) { /* Not available */ }
         }
         
         // Extract custom properties - skip if method not available

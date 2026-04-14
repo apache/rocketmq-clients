@@ -191,5 +191,18 @@ class Message extends \Google\Protobuf\Internal\Message
         return null;
     }
 
+    /**
+     * Get priority from system properties (convenience method)
+     * 
+     * @return int|null Priority value or null if not set
+     */
+    public function getPriority()
+    {
+        if ($this->hasSystemProperties()) {
+            return $this->system_properties->getPriority();
+        }
+        return null;
+    }
+
 }
 
