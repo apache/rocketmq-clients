@@ -40,8 +40,13 @@ export class TelemetrySession {
   release() {
     this.#logger.info('Begin to release telemetry session, endpoints=%s, clientId=%s',
       this.#endpoints, this.#baseClient.clientId);
-    this.#stream.end();
-    this.#stream.removeAllListeners();
+    try {
+      this.#stream.end();
+      this.#stream.removeAllListeners();
+    } catch (e) {
+      this.#logger.warn('Failed to release telemetry session gracefully, endpoints=%s, clientId=%s, error=%s',
+        this.#endpoints, this.#baseClient.clientId, e instanceof Error ? e.message : String(e));
+    }
   }
 
   write(command: TelemetryCommand) {
