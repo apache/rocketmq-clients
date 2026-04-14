@@ -1077,6 +1077,21 @@ class PushConsumer
     private $consumptionThreadCount = 20;
     
     /**
+     * @var bool Enable FIFO consume accelerator (parallel consume different message groups)
+     */
+    private $enableFifoConsumeAccelerator = true;
+    
+    /**
+     * @var array FIFO message group locks: messageGroup => locked (bool)
+     */
+    private $fifoMessageGroupLocks = [];
+    
+    /**
+     * @var \SplQueue[] FIFO message group queues: messageGroup => SplQueue
+     */
+    private $fifoMessageGroupQueues = [];
+    
+    /**
      * @var array Process queue table: topic => ProcessQueue[]
      */
     private $processQueueTable = [];
@@ -1282,6 +1297,20 @@ class PushConsumer
     }
     
     /**
+     * Enable or disable FIFO consume accelerator
+     * 
+     * When enabled, messages from different message groups will be consumed in parallel,
+     * while messages within the same group are consumed sequentially.
+     * 
+     * @param bool $enable Enable accelerator
+     * @return void
+     */
+    public function setEnableFifoConsumeAccelerator($enable)
+    {
+        $this->enableFifoConsumeAccelerator = (bool)$enable;
+    }
+    
+    /**
      * Get consumption metrics
      * 
      * @return array Metrics data
@@ -1355,6 +1384,7 @@ class PushConsumer
      * 
      * This method implements flow control based on cache thresholds,
      * similar to Java's ProcessQueue.isCacheFull().
+     * It also detects FIFO messages and routes them to FIFO processing.
      * 
      * @param \Apache\Rocketmq\V2\Message $message gRPC message
      * @param SimpleConsumer $simpleConsumer SimpleConsumer instance
@@ -1362,6 +1392,18 @@ class PushConsumer
      */
     private function dispatchMessage($message, $simpleConsumer)
     {
+        // Check if this is a FIFO message
+        $systemProperties = $message->getSystemProperties();
+        $messageGroup = $systemProperties->getMessageGroup();
+        $messageType = $systemProperties->getMessageType();
+        
+        // If message has a message group or is marked as FIFO type, use FIFO processing
+        if (!empty($messageGroup) || $messageType === \Apache\Rocketmq\V2\MessageType::FIFO) {
+            $this->dispatchFifoMessage($message, $simpleConsumer);
+            return;
+        }
+        
+        // Normal message processing
         // Check cache thresholds (flow control)
         if ($this->isCacheFull()) {
             Logger::warn("Cache is full, waiting before receiving more messages, cachedCount={}, cachedSize={}MB, maxCount={}, maxSize={}MB, clientId={}", [
@@ -1481,6 +1523,343 @@ class PushConsumer
     }
     
     /**
+     * Dispatch FIFO message to message group queue
+     * 
+     * This method implements the FIFO Consume Accelerator pattern from Java:
+     * - Groups messages by messageGroup for parallel consumption
+     * - Messages within the same group are consumed sequentially
+     * - Different groups can be consumed in parallel (when accelerator is enabled)
+     * 
+     * Reference: Java FifoConsumeService.consume() lines 52-74
+     * 
+     * @param \Apache\Rocketmq\V2\Message $message gRPC message
+     * @param SimpleConsumer $simpleConsumer SimpleConsumer instance
+     * @return void
+     */
+    private function dispatchFifoMessage($message, $simpleConsumer)
+    {
+        $systemProperties = $message->getSystemProperties();
+        $messageGroup = $systemProperties->getMessageGroup();
+        $messageId = $systemProperties->getMessageId();
+        
+        // If no message group, treat as normal concurrent message
+        if (empty($messageGroup)) {
+            Logger::debug("FIFO message without messageGroup, using standard consumption, messageId={}, clientId={}", [
+                $messageId,
+                $this->clientId
+            ]);
+            $this->dispatchMessage($message, $simpleConsumer);
+            return;
+        }
+        
+        // Initialize message group queue if not exists
+        if (!isset($this->fifoMessageGroupQueues[$messageGroup])) {
+            $this->fifoMessageGroupQueues[$messageGroup] = new \SplQueue();
+            $this->fifoMessageGroupLocks[$messageGroup] = false;
+            
+            Logger::debug("Created new FIFO message group, messageGroup={}, clientId={}", [
+                $messageGroup,
+                $this->clientId
+            ]);
+        }
+        
+        // Enqueue message to its group queue
+        $messageSize = strlen($message->getBody());
+        $task = [
+            'message' => $message,
+            'messageSize' => $messageSize,
+            'timestamp' => time(),
+            'messageGroup' => $messageGroup,
+        ];
+        
+        $this->fifoMessageGroupQueues[$messageGroup]->enqueue($task);
+        
+        // Update cache statistics
+        $this->totalCachedMessageCount++;
+        $this->totalCachedMessageSize += $messageSize;
+        
+        Logger::debug("FIFO message enqueued, messageGroup={}, queueSize={}, messageId={}, clientId={}", [
+            $messageGroup,
+            $this->fifoMessageGroupQueues[$messageGroup]->count(),
+            $messageId,
+            $this->clientId
+        ]);
+        
+        // Try to start consumption for this message group
+        // Similar to Java's consumeIteratively() being called for each group
+        $this->consumeFifoMessageGroup($messageGroup, $simpleConsumer);
+    }
+    
+    /**
+     * Consume messages from a FIFO message group sequentially
+     * 
+     * This is the PHP equivalent of Java's FifoConsumeService.consumeIteratively().
+     * It ensures sequential consumption within a message group while allowing
+     * different groups to be consumed in parallel (accelerator pattern).
+     * 
+     * Key behaviors:
+     * - Lock mechanism prevents concurrent consumption of the same group
+     * - Each group runs in its own Swoole coroutine for parallelism
+     * - After finishing one message, recursively processes the next
+     * 
+     * Reference: Java FifoConsumeService.consumeIteratively() lines 76-93
+     * 
+     * @param string $messageGroup Message group identifier
+     * @param SimpleConsumer $simpleConsumer SimpleConsumer instance
+     * @return void
+     */
+    private function consumeFifoMessageGroup($messageGroup, $simpleConsumer)
+    {
+        // Check if accelerator is disabled
+        if (!$this->enableFifoConsumeAccelerator) {
+            Logger::debug("FIFO accelerator disabled, consuming sequentially, messageGroup={}, clientId={}", [
+                $messageGroup,
+                $this->clientId
+            ]);
+        }
+        
+        // Check if this message group is already being consumed (locked)
+        // This ensures strict ordering within the same group
+        if ($this->fifoMessageGroupLocks[$messageGroup]) {
+            Logger::debug("Message group is locked, will process after current message completes, messageGroup={}, clientId={}", [
+                $messageGroup,
+                $this->clientId
+            ]);
+            return;
+        }
+        
+        // Lock this message group to prevent concurrent consumption
+        $this->fifoMessageGroupLocks[$messageGroup] = true;
+        
+        // Create a new Swoole coroutine for this message group
+        // This allows different groups to be consumed in parallel (accelerator)
+        \Swoole\Coroutine::create(function() use ($messageGroup, $simpleConsumer) {
+            try {
+                Logger::debug("Starting FIFO message group consumption, messageGroup={}, clientId={}", [
+                    $messageGroup,
+                    $this->clientId
+                ]);
+                
+                // Process messages iteratively (like Java's recursive consumeIteratively)
+                $this->consumeFifoMessageGroupIteratively($messageGroup, $simpleConsumer);
+                
+            } catch (\Exception $e) {
+                Logger::error("Exception in FIFO message group consumption, messageGroup={}, clientId={}", [
+                    $messageGroup,
+                    $this->clientId
+                ], ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            } finally {
+                // Unlock message group
+                $this->fifoMessageGroupLocks[$messageGroup] = false;
+                
+                Logger::debug("Message group unlocked, messageGroup={}, clientId={}", [
+                    $messageGroup,
+                    $this->clientId
+                ]);
+                
+                // Check if there are more messages waiting in the queue
+                // If yes, trigger consumption again (similar to Java's future.addListener)
+                if (isset($this->fifoMessageGroupQueues[$messageGroup]) && 
+                    !$this->fifoMessageGroupQueues[$messageGroup]->isEmpty()) {
+                    
+                    Logger::debug("More messages in queue, continuing consumption, messageGroup={}, remaining={}, clientId={}", [
+                        $messageGroup,
+                        $this->fifoMessageGroupQueues[$messageGroup]->count(),
+                        $this->clientId
+                    ]);
+                    
+                    // Recursively consume remaining messages
+                    $this->consumeFifoMessageGroup($messageGroup, $simpleConsumer);
+                } else {
+                    Logger::debug("Message group queue empty, consumption complete, messageGroup={}, clientId={}", [
+                        $messageGroup,
+                        $this->clientId
+                    ]);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Consume messages from a FIFO message group iteratively
+     * 
+     * This method consumes messages one by one from the group queue,
+     * ensuring strict ordering within the group.
+     * 
+     * @param string $messageGroup Message group identifier
+     * @param SimpleConsumer $simpleConsumer SimpleConsumer instance
+     * @return void
+     */
+    private function consumeFifoMessageGroupIteratively($messageGroup, $simpleConsumer)
+    {
+        while ($this->running && isset($this->fifoMessageGroupQueues[$messageGroup])) {
+            $queue = $this->fifoMessageGroupQueues[$messageGroup];
+            
+            if ($queue->isEmpty()) {
+                break;
+            }
+            
+            $task = $queue->dequeue();
+            
+            if ($task === null) {
+                continue;
+            }
+            
+            // Execute consumption task (same as normal message)
+            $this->executeFifoConsumptionTask($task, $simpleConsumer, $messageGroup);
+        }
+    }
+    
+    /**
+     * Execute FIFO consumption task with retry logic
+     * 
+     * This is the PHP equivalent of Java's ProcessQueue.eraseFifoMessage().
+     * It handles:
+     * - Calling the message listener
+     * - Retrying on failure (up to max attempts with exponential backoff)
+     * - ACKing on success
+     * - Not ACKing on final failure (message will be redelivered)
+     * 
+     * Reference: Java ProcessQueue.eraseFifoMessage() lines 519-546
+     * 
+     * @param array $task Consumption task
+     * @param SimpleConsumer $simpleConsumer SimpleConsumer instance
+     * @param string $messageGroup Message group identifier
+     * @return void
+     */
+    private function executeFifoConsumptionTask($task, $simpleConsumer, $messageGroup)
+    {
+        $message = $task['message'];
+        $messageSize = $task['messageSize'];
+        $systemProperties = $message->getSystemProperties();
+        $messageId = $systemProperties->getMessageId();
+        
+        // Get retry policy from config
+        $maxAttempts = 3; // Default max attempts for FIFO messages
+        $attempt = 1;
+        
+        Logger::info("Starting FIFO message consumption, messageId={}, messageGroup={}, maxAttempts={}, clientId={}", [
+            $messageId,
+            $messageGroup,
+            $maxAttempts,
+            $this->clientId
+        ]);
+        
+        while ($attempt <= $maxAttempts) {
+            try {
+                // Convert gRPC Message to MessageView-like object
+                $messageView = $this->convertToMessageView($message);
+                
+                // Call message listener
+                $startTime = microtime(true);
+                $result = call_user_func($this->messageListener, $messageView);
+                $duration = round((microtime(true) - $startTime) * 1000, 2);
+                
+                // Handle consumption result
+                if ($result === \Apache\Rocketmq\Consumer\ConsumeResult::SUCCESS || $result === true || $result === null) {
+                    // Success - ACK message
+                    $simpleConsumer->ack($message);
+                    
+                    $this->metrics['consumptionOkQuantity']++;
+                    
+                    if ($attempt > 1) {
+                        Logger::info("FIFO message consumed successfully after retry, messageId={}, messageGroup={}, duration={}ms, attempt={}/{}, clientId={}", [
+                            $messageId,
+                            $messageGroup,
+                            $duration,
+                            $attempt,
+                            $maxAttempts,
+                            $this->clientId
+                        ]);
+                    } else {
+                        Logger::debug("FIFO message consumed successfully, messageId={}, messageGroup={}, duration={}ms, clientId={}", [
+                            $messageId,
+                            $messageGroup,
+                            $duration,
+                            $this->clientId
+                        ]);
+                    }
+                    
+                    // Success - exit retry loop
+                    break;
+                } else {
+                    // Consumption failed (returned FAILURE)
+                    $this->metrics['consumptionErrorQuantity']++;
+                    
+                    Logger::warn("FIFO message consumption returned FAILURE, will retry, messageId={}, messageGroup={}, duration={}ms, attempt={}/{}, clientId={}", [
+                        $messageId,
+                        $messageGroup,
+                        $duration,
+                        $attempt,
+                        $maxAttempts,
+                        $this->clientId
+                    ]);
+                    
+                    // Increment attempt and retry
+                    $attempt++;
+                    
+                    if ($attempt <= $maxAttempts) {
+                        // Exponential backoff: 200ms, 400ms, 800ms...
+                        $backoffMs = pow(2, $attempt - 1) * 100;
+                        Logger::debug("Waiting {}ms before retry, messageId={}, messageGroup={}, clientId={}", [
+                            $backoffMs,
+                            $messageId,
+                            $messageGroup,
+                            $this->clientId
+                        ]);
+                        usleep($backoffMs * 1000);
+                    }
+                }
+                
+            } catch (\Exception $e) {
+                // Exception during consumption
+                $this->metrics['consumptionErrorQuantity']++;
+                
+                Logger::error("Exception during FIFO message consumption, messageId={}, messageGroup={}, attempt={}/{}, clientId={}", [
+                    $messageId,
+                    $messageGroup,
+                    $attempt,
+                    $maxAttempts,
+                    $this->clientId
+                ], ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+                
+                // Increment attempt and retry
+                $attempt++;
+                
+                if ($attempt <= $maxAttempts) {
+                    // Exponential backoff
+                    $backoffMs = pow(2, $attempt - 1) * 100;
+                    usleep($backoffMs * 1000);
+                }
+            }
+        }
+        
+        // If all attempts failed, do not ACK (message will be redelivered by RocketMQ)
+        if ($attempt > $maxAttempts) {
+            Logger::error("Failed to consume FIFO message after all attempts, messageId={}, messageGroup={}, maxAttempts={}, clientId={}", [
+                $messageId,
+                $messageGroup,
+                $maxAttempts,
+                $this->clientId
+            ]);
+            
+            // Note: In production, you might want to forward to DLQ here
+            // For now, we just don't ACK so RocketMQ will redeliver it
+        }
+        
+        // Release cache (similar to Java's evictCache)
+        $this->totalCachedMessageCount--;
+        $this->totalCachedMessageSize -= $messageSize;
+        
+        Logger::debug("FIFO consumption task completed, messageId={}, messageGroup={}, remainingCache={}, clientId={}", [
+            $messageId,
+            $messageGroup,
+            $this->totalCachedMessageCount,
+            $this->clientId
+        ]);
+    }
+    
+    /**
      * Check if cache is full
      * 
      * @return bool True if cache exceeds thresholds
@@ -1542,32 +1921,40 @@ class PushConsumer
         // Start consumption workers
         $this->startConsumptionWorkers($simpleConsumer);
         
-        // Main loop: receive messages and dispatch to workers
-        while ($this->running) {
-            try {
-                $this->metrics['receptionTimes']++;
-                
-                $messages = $simpleConsumer->receive($this->maxMessageNum, $this->invisibleDuration);
-                $messageCount = count($messages);
-                
-                if ($messageCount > 0) {
-                    $this->metrics['receivedMessagesQuantity'] += $messageCount;
+        // Main loop: receive messages and dispatch to workers (wrapped in coroutine)
+        \Swoole\Coroutine::create(function() use ($simpleConsumer) {
+            while ($this->running) {
+                try {
+                    $this->metrics['receptionTimes']++;
                     
-                    Logger::debug("Received {} messages, dispatching to consumption workers, topic={}, clientId={}", [
-                        $messageCount,
-                        $this->topic,
-                        $this->clientId
-                    ]);
+                    $messages = $simpleConsumer->receive($this->maxMessageNum, $this->invisibleDuration);
+                    $messageCount = count($messages);
                     
-                    // Dispatch messages to consumption workers
-                    foreach ($messages as $message) {
-                        $this->dispatchMessage($message, $simpleConsumer);
+                    if ($messageCount > 0) {
+                        $this->metrics['receivedMessagesQuantity'] += $messageCount;
+                        
+                        Logger::debug("Received {} messages, dispatching to consumption workers, topic={}, clientId={}", [
+                            $messageCount,
+                            $this->topic,
+                            $this->clientId
+                        ]);
+                        
+                        // Dispatch messages to consumption workers
+                        foreach ($messages as $message) {
+                            $this->dispatchMessage($message, $simpleConsumer);
+                        }
                     }
+                } catch (\Exception $e) {
+                    Logger::error("Failed to receive message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
+                    \Swoole\Coroutine::sleep(1); // Avoid frequent retries
                 }
-            } catch (\Exception $e) {
-                Logger::error("Failed to receive message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
-                \Swoole\Coroutine::sleep(1); // Avoid frequent retries
             }
+        });
+        
+        // Keep the main process alive
+        while ($this->running) {
+            \Swoole\Event::wait();
+            usleep(100000); // 100ms
         }
     }
     

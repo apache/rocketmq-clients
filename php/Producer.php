@@ -22,6 +22,7 @@ require_once __DIR__ . '/Util.php';
 require_once __DIR__ . '/RouteCache.php';
 require_once __DIR__ . '/ClientState.php';
 require_once __DIR__ . '/Logger.php';
+require_once __DIR__ . '/HealthChecker.php';
 require_once __DIR__ . '/Producer/Producer.php';
 
 // Load composer autoload if available
@@ -1518,6 +1519,10 @@ class Producer implements ProducerInterface
             
             // Validate message topic matches producer topic
             $messageTopic = method_exists($message, 'getTopic') ? $message->getTopic() : null;
+            if ($messageTopic !== null && is_object($messageTopic)) {
+                // If messageTopic is a Resource object, get its name
+                $messageTopic = method_exists($messageTopic, 'getName') ? $messageTopic->getName() : (string)$messageTopic;
+            }
             if ($messageTopic !== null && $messageTopic !== $this->topic) {
                 throw new \InvalidArgumentException(
                     "Message topic '{$messageTopic}' does not match producer topic '{$this->topic}'"

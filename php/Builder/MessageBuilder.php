@@ -136,10 +136,42 @@ class MessageBuilder {
     /**
      * Set message group (for FIFO messages)
      *
+     * MessageGroup cannot be used with:
+     * - deliveryTimestamp (delayed messages)
+     * - priority (priority messages)
+     * - liteTopic (lite messages)
+     *
+     * Reference: Java MessageBuilderImpl.setMessageGroup() lines 120-130
+     *
      * @param string $messageGroup
      * @return MessageBuilder
+     * @throws MessageException If validation fails
      */
     public function setMessageGroup(string $messageGroup) {
+        // Check mutual exclusivity with deliveryTimestamp
+        if ($this->deliveryTimestamp !== null) {
+            throw new MessageException(
+                "MessageGroup and deliveryTimestamp should not be set at the same time. " .
+                "A message cannot be both FIFO and delayed."
+            );
+        }
+        
+        // Check mutual exclusivity with priority
+        if ($this->priority !== null) {
+            throw new MessageException(
+                "MessageGroup and priority should not be set at the same time. " .
+                "A message cannot be both FIFO and priority."
+            );
+        }
+        
+        // Check mutual exclusivity with liteTopic
+        if ($this->liteTopic !== null) {
+            throw new MessageException(
+                "MessageGroup and liteTopic should not be set at the same time. " .
+                "A message cannot be both FIFO and lite."
+            );
+        }
+        
         $this->messageGroup = $messageGroup;
         return $this;
     }
@@ -147,10 +179,50 @@ class MessageBuilder {
     /**
      * Set delivery timestamp (for scheduled messages)
      *
-     * @param int $deliveryTimestamp
+     * DeliveryTimestamp cannot be used with:
+     * - messageGroup (FIFO messages)
+     * - priority (priority messages)
+     * - liteTopic (lite messages)
+     *
+     * Reference: Java MessageBuilderImpl.setDeliveryTimestamp() lines 102-117
+     *
+     * @param int $deliveryTimestamp Unix timestamp in milliseconds
      * @return MessageBuilder
+     * @throws MessageException If validation fails
      */
     public function setDeliveryTimestamp(int $deliveryTimestamp) {
+        // Validate timestamp is in the future
+        if ($deliveryTimestamp <= time() * 1000) {
+            throw new MessageException(
+                "Delivery timestamp must be in the future. " .
+                "Current time: " . (time() * 1000) . ", provided: {$deliveryTimestamp}"
+            );
+        }
+        
+        // Check mutual exclusivity with messageGroup
+        if ($this->messageGroup !== null) {
+            throw new MessageException(
+                "DeliveryTimestamp and messageGroup should not be set at the same time. " .
+                "A message cannot be both delayed and FIFO."
+            );
+        }
+        
+        // Check mutual exclusivity with priority
+        if ($this->priority !== null) {
+            throw new MessageException(
+                "DeliveryTimestamp and priority should not be set at the same time. " .
+                "A message cannot be both delayed and priority."
+            );
+        }
+        
+        // Check mutual exclusivity with liteTopic
+        if ($this->liteTopic !== null) {
+            throw new MessageException(
+                "DeliveryTimestamp and liteTopic should not be set at the same time. " .
+                "A message cannot be both delayed and lite."
+            );
+        }
+        
         $this->deliveryTimestamp = $deliveryTimestamp;
         return $this;
     }
@@ -158,10 +230,42 @@ class MessageBuilder {
     /**
      * Set lite topic (for lite topic messages)
      *
+     * LiteTopic cannot be used with:
+     * - deliveryTimestamp (delayed messages)
+     * - messageGroup (FIFO messages)
+     * - priority (priority messages)
+     *
+     * Reference: Java MessageBuilderImpl.setLiteTopic() lines 145-153
+     *
      * @param string $liteTopic
      * @return MessageBuilder
+     * @throws MessageException If validation fails
      */
     public function setLiteTopic(string $liteTopic) {
+        // Check mutual exclusivity with deliveryTimestamp
+        if ($this->deliveryTimestamp !== null) {
+            throw new MessageException(
+                "LiteTopic and deliveryTimestamp should not be set at the same time. " .
+                "A message cannot be both lite and delayed."
+            );
+        }
+        
+        // Check mutual exclusivity with messageGroup
+        if ($this->messageGroup !== null) {
+            throw new MessageException(
+                "LiteTopic and messageGroup should not be set at the same time. " .
+                "A message cannot be both lite and FIFO."
+            );
+        }
+        
+        // Check mutual exclusivity with priority
+        if ($this->priority !== null) {
+            throw new MessageException(
+                "LiteTopic and priority should not be set at the same time. " .
+                "A message cannot be both lite and priority."
+            );
+        }
+        
         $this->liteTopic = $liteTopic;
         return $this;
     }
@@ -169,10 +273,47 @@ class MessageBuilder {
     /**
      * Set message priority (for priority messages)
      *
-     * @param int $priority
+     * Priority messages cannot be used with:
+     * - deliveryTimestamp (delayed messages)
+     * - messageGroup (FIFO messages)
+     * - liteTopic (lite messages)
+     *
+     * Reference: Java MessageBuilderImpl.setPriority() lines 136-143
+     *
+     * @param int $priority Non-negative integer, higher value means higher priority
      * @return MessageBuilder
+     * @throws MessageException If validation fails
      */
     public function setPriority(int $priority) {
+        // Validate priority is non-negative (Java line 140)
+        if ($priority < 0) {
+            throw new MessageException("Priority must be greater than or equal to 0, got: {$priority}");
+        }
+        
+        // Check mutual exclusivity with deliveryTimestamp (Java line 137)
+        if ($this->deliveryTimestamp !== null) {
+            throw new MessageException(
+                "Priority and deliveryTimestamp should not be set at the same time. " .
+                "A message cannot be both priority and delayed."
+            );
+        }
+        
+        // Check mutual exclusivity with messageGroup (Java line 138)
+        if ($this->messageGroup !== null) {
+            throw new MessageException(
+                "Priority and messageGroup should not be set at the same time. " .
+                "A message cannot be both priority and FIFO."
+            );
+        }
+        
+        // Check mutual exclusivity with liteTopic (Java line 139)
+        if ($this->liteTopic !== null) {
+            throw new MessageException(
+                "Priority and liteTopic should not be set at the same time. " .
+                "A message cannot be both priority and lite."
+            );
+        }
+        
         $this->priority = $priority;
         return $this;
     }
