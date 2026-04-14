@@ -44,6 +44,12 @@ class MetricName
     const BATCH_SEND_TOTAL = 'rocketmq_batch_send_total';              // Total batch sends
     const BATCH_SEND_MESSAGE_TOTAL = 'rocketmq_batch_send_message_total'; // Total messages in batch sends
     
+    // Recall metrics
+    const RECALL_TOTAL = 'rocketmq_recall_total';                      // Total recalls
+    const RECALL_SUCCESS_TOTAL = 'rocketmq_recall_success_total';      // Successful recalls
+    const RECALL_FAILURE_TOTAL = 'rocketmq_recall_failure_total';      // Failed recalls
+    const RECALL_COST_TIME = 'rocketmq_recall_cost_time';              // Recall latency (ms)
+    
     // Consumer metrics
     const RECEIVE_TOTAL = 'rocketmq_receive_total';                    // Total receives
     const CONSUME_TOTAL = 'rocketmq_consume_total';                    // Total consumes

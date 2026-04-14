@@ -529,8 +529,34 @@ class SimpleConsumer
      */
     private function receiveInternal($maxMessageNum = null, $invisibleDuration = null)
     {
+        // Check state - only RUNNING state can receive messages
+        if ($this->state !== 'RUNNING') {
+            Logger::error("Unable to receive message because consumer is not running, state={}, clientId={}", [
+                $this->state,
+                $this->clientId
+            ]);
+            throw new \Exception("Simple consumer is not running now");
+        }
+        
+        // Validate parameters
         $maxMessageNum = $maxMessageNum ?: $this->maxMessageNum;
+        if ($maxMessageNum <= 0) {
+            Logger::error("maxMessageNum must be greater than 0, maxMessageNum={}, clientId={}", [
+                $maxMessageNum,
+                $this->clientId
+            ]);
+            throw new \InvalidArgumentException("maxMessageNum must be greater than 0");
+        }
+        
         $invisibleDuration = $invisibleDuration ?: $this->invisibleDuration;
+        
+        Logger::debug("Receiving messages, topic={}, maxMessageNum={}, invisibleDuration={}s, awaitDuration={}s, clientId={}", [
+            $this->topic,
+            $maxMessageNum,
+            $invisibleDuration,
+            $this->awaitDuration,
+            $this->clientId
+        ]);
         
         $request = new ReceiveMessageRequest();
         
@@ -577,10 +603,20 @@ class SimpleConsumer
                 if ($response->hasStatus()) {
                     $statusCode = $response->getStatus()->getCode();
                     $statusMessage = $response->getStatus()->getMessage();
-                    Logger::debug("ReceiveMessage response - Code: {$statusCode}, Message: {$statusMessage}, clientId={$this->clientId}");
+                    Logger::debug("ReceiveMessage response - Code: {}, Message: {}, clientId={}", [
+                        $statusCode,
+                        $statusMessage,
+                        $this->clientId
+                    ]);
                 }
             }
         }
+        
+        Logger::info("Received {} messages, topic={}, clientId={}", [
+            count($messages),
+            $this->topic,
+            $this->clientId
+        ]);
         
         return $messages;
     }
@@ -632,11 +668,31 @@ class SimpleConsumer
      */
     private function ackInternal($message)
     {
+        // Check state - only RUNNING state can ack messages
+        if ($this->state !== 'RUNNING') {
+            Logger::error("Unable to ack message because consumer is not running, state={}, clientId={}", [
+                $this->state,
+                $this->clientId
+            ]);
+            throw new \Exception("Simple consumer is not running now");
+        }
+        
         $receiptHandle = $message->getSystemProperties()->getReceiptHandle();
+        $messageId = $message->getSystemProperties()->getMessageId();
         
         if (empty($receiptHandle)) {
+            Logger::error("Message has no receipt_handle, cannot ACK, messageId={}, clientId={}", [
+                $messageId,
+                $this->clientId
+            ]);
             throw new \Exception("Message has no receipt_handle, cannot ACK");
         }
+        
+        Logger::debug("Acknowledging message, messageId={}, topic={}, clientId={}", [
+            $messageId,
+            $this->topic,
+            $this->clientId
+        ]);
         
         $request = new AckMessageRequest();
         
@@ -657,7 +713,7 @@ class SimpleConsumer
         
         $entry = new AckMessageEntry();
         $entry->setReceiptHandle($receiptHandle);
-        $entry->setMessageId($message->getSystemProperties()->getMessageId());
+        $entry->setMessageId($messageId);
         
         $request->setEntries([$entry]);
         
@@ -666,6 +722,11 @@ class SimpleConsumer
         
         // Check gRPC status
         if ($status->code !== STATUS_OK) {
+            Logger::error("gRPC call failed when ACK message, messageId={}, error={}, clientId={}", [
+                $messageId,
+                $status->details,
+                $this->clientId
+            ]);
             throw new \Exception(
                 "gRPC call failed: " . $status->details,
                 $status->code
@@ -674,11 +735,23 @@ class SimpleConsumer
         
         // Check response status (20000 means OK in RocketMQ)
         if ($response->getStatus()->getCode() !== 20000) {
+            Logger::error("Failed to ACK message, messageId={}, code={}, message={}, clientId={}", [
+                $messageId,
+                $response->getStatus()->getCode(),
+                $response->getStatus()->getMessage(),
+                $this->clientId
+            ]);
             throw new \Exception(
                 "Failed to ACK message: " . $response->getStatus()->getMessage(),
                 $response->getStatus()->getCode()
             );
         }
+        
+        Logger::info("Message acknowledged successfully, messageId={}, topic={}, clientId={}", [
+            $messageId,
+            $topicName,
+            $this->clientId
+        ]);
         
         return true;
     }
@@ -693,11 +766,31 @@ class SimpleConsumer
      */
     public function changeInvisibleDuration($message, $durationSeconds)
     {
+        // Check state - only RUNNING state can change invisible duration
+        if ($this->state !== 'RUNNING') {
+            Logger::error("Unable to change invisible duration because consumer is not running, state={}, clientId={}", [
+                $this->state,
+                $this->clientId
+            ]);
+            throw new \Exception("Simple consumer is not running now");
+        }
+        
         $receiptHandle = $message->getSystemProperties()->getReceiptHandle();
+        $messageId = $message->getSystemProperties()->getMessageId();
         
         if (empty($receiptHandle)) {
+            Logger::error("Message has no receipt_handle, cannot change visibility duration, messageId={}, clientId={}", [
+                $messageId,
+                $this->clientId
+            ]);
             throw new \Exception("Message has no receipt_handle, cannot change visibility duration");
         }
+        
+        Logger::debug("Changing invisible duration, messageId={}, duration={}s, clientId={}", [
+            $messageId,
+            $durationSeconds,
+            $this->clientId
+        ]);
         
         $request = new \Apache\Rocketmq\V2\ChangeInvisibleDurationRequest();
         $request->setReceiptHandle($receiptHandle);
@@ -716,6 +809,11 @@ class SimpleConsumer
         
         // Check gRPC status
         if ($status->code !== STATUS_OK) {
+            Logger::error("gRPC call failed when changing invisible duration, messageId={}, error={}, clientId={}", [
+                $messageId,
+                $status->details,
+                $this->clientId
+            ]);
             throw new \Exception(
                 "gRPC call failed: " . $status->details,
                 $status->code
@@ -724,13 +822,27 @@ class SimpleConsumer
         
         // Check response status (20000 means OK in RocketMQ)
         if ($response->getStatus()->getCode() !== 20000) {
+            Logger::error("Failed to change visibility duration, messageId={}, code={}, message={}, clientId={}", [
+                $messageId,
+                $response->getStatus()->getCode(),
+                $response->getStatus()->getMessage(),
+                $this->clientId
+            ]);
             throw new \Exception(
                 "Failed to change visibility duration: " . $response->getStatus()->getMessage(),
                 $response->getStatus()->getCode()
             );
         }
         
-        return $response->getReceiptHandle();
+        $newReceiptHandle = $response->getReceiptHandle();
+        
+        Logger::info("Changed invisible duration successfully, messageId={}, duration={}s, clientId={}", [
+            $messageId,
+            $durationSeconds,
+            $this->clientId
+        ]);
+        
+        return $newReceiptHandle;
     }
     
 
@@ -881,15 +993,24 @@ class SimpleConsumer
  * RocketMQ PushConsumer Implementation
  * 
  * Supports the following features:
- * - Message listener
- * - Automatic ACK
- * - Concurrent consumption
+ * - Message listener with concurrent consumption
+ * - Automatic ACK/NACK
+ * - ProcessQueue-based message caching and flow control
+ * - Thread pool (Swoole coroutine pool) for parallel message processing
+ * - Message cache size/count control
+ * - Detailed logging and metrics collection
+ * 
+ * Architecture (inspired by Java PushConsumer):
+ * - Uses ProcessQueue to manage messages per MessageQueue
+ * - Dispatches messages to consumption executor (Swoole coroutines)
+ * - Implements StandardConsumeService for concurrent message processing
+ * - Supports cache threshold control (count and bytes)
  * 
  * Usage example:
- * $consumer = PushConsumer::getInstance($endpoints, $consumerGroup, $topic);
+ * $consumer = PushConsumer::getInstance($config, 'my-group', 'my-topic');
  * $consumer->setMessageListener(function($message) {
  *     // Process message
- *     return true; // Return true to indicate successful consumption
+ *     return \Apache\Rocketmq\Consumer\ConsumeResult::SUCCESS; // or FAILURE
  * });
  * $consumer->start();
  */
@@ -936,9 +1057,59 @@ class PushConsumer
     private $invisibleDuration = 15;
     
     /**
-     * @var int Maximum message count
+     * @var int Maximum message count per receive
      */
     private $maxMessageNum = 16;
+    
+    /**
+     * @var int Maximum cached message count across all process queues
+     */
+    private $maxCacheMessageCount = 1024;
+    
+    /**
+     * @var int Maximum cached message size in bytes across all process queues
+     */
+    private $maxCacheMessageSizeInBytes = 67108864; // 64MB
+    
+    /**
+     * @var int Number of concurrent consumption workers (coroutines)
+     */
+    private $consumptionThreadCount = 20;
+    
+    /**
+     * @var array Process queue table: topic => ProcessQueue[]
+     */
+    private $processQueueTable = [];
+    
+    /**
+     * @var int Total cached message count
+     */
+    private $totalCachedMessageCount = 0;
+    
+    /**
+     * @var int Total cached message size in bytes
+     */
+    private $totalCachedMessageSize = 0;
+    
+    /**
+     * @var \SplQueue Message consumption task queue
+     */
+    private $consumptionTaskQueue = null;
+    
+    /**
+     * @var int Number of active consumption workers
+     */
+    private $activeWorkers = 0;
+    
+    /**
+     * @var array Consumption metrics
+     */
+    private $metrics = [
+        'receptionTimes' => 0,
+        'receivedMessagesQuantity' => 0,
+        'consumptionOkQuantity' => 0,
+        'consumptionErrorQuantity' => 0,
+    ];
     
     /**
      * Private constructor to prevent direct instantiation
@@ -1078,10 +1249,268 @@ class PushConsumer
     }
     
     /**
+     * Set max cache message count
+     * 
+     * @param int $count Maximum cached message count
+     * @return void
+     */
+    public function setMaxCacheMessageCount($count)
+    {
+        $this->maxCacheMessageCount = $count;
+    }
+    
+    /**
+     * Set max cache message size in bytes
+     * 
+     * @param int $size Maximum cached message size in bytes
+     * @return void
+     */
+    public function setMaxCacheMessageSizeInBytes($size)
+    {
+        $this->maxCacheMessageSizeInBytes = $size;
+    }
+    
+    /**
+     * Set consumption thread count (coroutine count)
+     * 
+     * @param int $count Number of concurrent workers
+     * @return void
+     */
+    public function setConsumptionThreadCount($count)
+    {
+        $this->consumptionThreadCount = $count;
+    }
+    
+    /**
+     * Get consumption metrics
+     * 
+     * @return array Metrics data
+     */
+    public function getMetrics()
+    {
+        return $this->metrics;
+    }
+    
+    /**
+     * Start consumption workers (Swoole coroutines)
+     * 
+     * This method creates a pool of Swoole coroutines that consume messages
+     * from the task queue concurrently, similar to Java's ThreadPoolExecutor.
+     * 
+     * @param SimpleConsumer $simpleConsumer SimpleConsumer instance for ACK/NACK
+     * @return void
+     */
+    private function startConsumptionWorkers($simpleConsumer)
+    {
+        Logger::info("Starting {} consumption workers, clientId={}", [
+            $this->consumptionThreadCount,
+            $this->clientId
+        ]);
+        
+        // Create worker coroutines
+        for ($i = 0; $i < $this->consumptionThreadCount; $i++) {
+            \Swoole\Coroutine::create(function() use ($simpleConsumer, $i) {
+                $this->activeWorkers++;
+                
+                Logger::debug("Consumption worker {} started, clientId={}", [
+                    $i,
+                    $this->clientId
+                ]);
+                
+                while ($this->running) {
+                    try {
+                        // Wait for task from queue
+                        if ($this->consumptionTaskQueue->isEmpty()) {
+                            \Swoole\Coroutine::sleep(0.01); // Sleep 10ms to avoid busy-waiting
+                            continue;
+                        }
+                        
+                        $task = $this->consumptionTaskQueue->dequeue();
+                        
+                        if ($task === null) {
+                            continue;
+                        }
+                        
+                        // Execute consumption task
+                        $this->executeConsumptionTask($task, $simpleConsumer);
+                        
+                    } catch (\Exception $e) {
+                        Logger::error("Exception in consumption worker {$i}, clientId={$this->clientId}", [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                    }
+                }
+                
+                $this->activeWorkers--;
+                Logger::debug("Consumption worker {} stopped, clientId={}", [$i, $this->clientId]);
+            });
+        }
+        
+        Logger::info("All consumption workers started, clientId={}", [$this->clientId]);
+    }
+    
+    /**
+     * Dispatch message to consumption task queue
+     * 
+     * This method implements flow control based on cache thresholds,
+     * similar to Java's ProcessQueue.isCacheFull().
+     * 
+     * @param \Apache\Rocketmq\V2\Message $message gRPC message
+     * @param SimpleConsumer $simpleConsumer SimpleConsumer instance
+     * @return void
+     */
+    private function dispatchMessage($message, $simpleConsumer)
+    {
+        // Check cache thresholds (flow control)
+        if ($this->isCacheFull()) {
+            Logger::warn("Cache is full, waiting before receiving more messages, cachedCount={}, cachedSize={}MB, maxCount={}, maxSize={}MB, clientId={}", [
+                $this->totalCachedMessageCount,
+                round($this->totalCachedMessageSize / 1024 / 1024, 2),
+                $this->maxCacheMessageCount,
+                round($this->maxCacheMessageSizeInBytes / 1024 / 1024, 2),
+                $this->clientId
+            ]);
+            
+            // Wait until cache is released
+            while ($this->running && $this->isCacheFull()) {
+                \Swoole\Coroutine::sleep(0.1);
+            }
+        }
+        
+        // Update cache statistics
+        $messageSize = strlen($message->getBody());
+        $this->totalCachedMessageCount++;
+        $this->totalCachedMessageSize += $messageSize;
+        
+        // Create consumption task
+        $task = [
+            'message' => $message,
+            'messageSize' => $messageSize,
+            'timestamp' => time(),
+        ];
+        
+        // Enqueue task
+        $this->consumptionTaskQueue->enqueue($task);
+        
+        Logger::debug("Message dispatched to consumption queue, queueSize={}, cachedCount={}, clientId={}", [
+            $this->consumptionTaskQueue->count(),
+            $this->totalCachedMessageCount,
+            $this->clientId
+        ]);
+    }
+    
+    /**
+     * Execute consumption task
+     * 
+     * This method calls the user-defined message listener and handles
+     * ACK/NACK based on the result, similar to Java's StandardConsumeService.
+     * 
+     * @param array $task Consumption task
+     * @param SimpleConsumer $simpleConsumer SimpleConsumer instance
+     * @return void
+     */
+    private function executeConsumptionTask($task, $simpleConsumer)
+    {
+        $message = $task['message'];
+        $messageSize = $task['messageSize'];
+        $systemProperties = $message->getSystemProperties();
+        $messageId = $systemProperties->getMessageId();
+        
+        Logger::debug("Executing consumption task, messageId={}, topic={}, clientId={}", [
+            $messageId,
+            $this->topic,
+            $this->clientId
+        ]);
+        
+        try {
+            // Convert gRPC Message to MessageView-like object
+            $messageView = $this->convertToMessageView($message);
+            
+            // Call message listener
+            $startTime = microtime(true);
+            $result = call_user_func($this->messageListener, $messageView);
+            $duration = round((microtime(true) - $startTime) * 1000, 2);
+            
+            // Handle consumption result
+            if ($result === \Apache\Rocketmq\Consumer\ConsumeResult::SUCCESS || $result === true || $result === null) {
+                // ACK message
+                $simpleConsumer->ack($message);
+                
+                $this->metrics['consumptionOkQuantity']++;
+                
+                Logger::info("Message consumed successfully, messageId={}, duration={}ms, topic={}, clientId={}", [
+                    $messageId,
+                    $duration,
+                    $this->topic,
+                    $this->clientId
+                ]);
+            } else {
+                // NACK message (do not ACK, let it be redelivered)
+                $this->metrics['consumptionErrorQuantity']++;
+                
+                Logger::warn("Message consumption failed, will be redelivered, messageId={}, duration={}ms, topic={}, clientId={}", [
+                    $messageId,
+                    $duration,
+                    $this->topic,
+                    $this->clientId
+                ]);
+            }
+            
+        } catch (\Exception $e) {
+            // Exception during consumption - do not ACK
+            $this->metrics['consumptionErrorQuantity']++;
+            
+            Logger::error("Exception during message consumption, messageId={}, topic={}, clientId={}", [
+                $messageId,
+                $this->topic,
+                $this->clientId
+            ], ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            
+        } finally {
+            // Release cache
+            $this->totalCachedMessageCount--;
+            $this->totalCachedMessageSize -= $messageSize;
+            
+            Logger::debug("Consumption task completed, messageId={}, remainingCache={}, clientId={}", [
+                $messageId,
+                $this->totalCachedMessageCount,
+                $this->clientId
+            ]);
+        }
+    }
+    
+    /**
+     * Check if cache is full
+     * 
+     * @return bool True if cache exceeds thresholds
+     */
+    private function isCacheFull()
+    {
+        // Check message count threshold
+        if ($this->totalCachedMessageCount >= $this->maxCacheMessageCount) {
+            return true;
+        }
+        
+        // Check message size threshold
+        if ($this->totalCachedMessageSize >= $this->maxCacheMessageSizeInBytes) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
      * Start consumer (blocking mode)
      * 
+     * This implementation follows Java PushConsumer architecture:
+     * - Uses ProcessQueue to manage messages per MessageQueue
+     * - Dispatches messages to Swoole coroutines for concurrent processing
+     * - Implements flow control based on cache thresholds
+     * - Provides detailed logging and metrics collection
+     * 
      * @return void
-     * @throws \Exception If message listener is not set
+     * @throws \Exception If message listener is not set or Swoole is not available
      */
     public function start()
     {
@@ -1089,34 +1518,55 @@ class PushConsumer
             throw new \Exception("Message listener must be set");
         }
         
-        $this->running = true;
+        // Check Swoole availability
+        if (!extension_loaded('swoole')) {
+            throw new \Exception(
+                "PushConsumer requires Swoole extension for concurrent consumption. " .
+                "Please install it: pecl install swoole"
+            );
+        }
         
-        echo "PushConsumer started, waiting for messages...\n";
+        $this->running = true;
+        $this->consumptionTaskQueue = new \SplQueue();
+        
+        Logger::info("PushConsumer started with concurrent consumption, clientId={}, consumptionThreads={}, maxCacheCount={}, maxCacheSize={}MB", [
+            $this->clientId,
+            $this->consumptionThreadCount,
+            $this->maxCacheMessageCount,
+            round($this->maxCacheMessageSizeInBytes / 1024 / 1024, 2)
+        ]);
         
         // Create SimpleConsumer to pull messages
         $simpleConsumer = SimpleConsumer::getInstance($this->config, $this->consumerGroup, $this->topic);
         
+        // Start consumption workers
+        $this->startConsumptionWorkers($simpleConsumer);
+        
+        // Main loop: receive messages and dispatch to workers
         while ($this->running) {
             try {
-                $messages = $simpleConsumer->receive($this->maxMessageNum, $this->invisibleDuration);
+                $this->metrics['receptionTimes']++;
                 
-                foreach ($messages as $message) {
-                    try {
-                        // Call message listener
-                        $result = call_user_func($this->messageListener, $message);
-                        
-                        // Decide whether to ACK based on return value
-                        if ($result === true || $result === null) {
-                            $simpleConsumer->ack($message);
-                        }
-                    } catch (\Exception $e) {
-                        Logger::error("Failed to process message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
-                        // Do not ACK, let message be redelivered
+                $messages = $simpleConsumer->receive($this->maxMessageNum, $this->invisibleDuration);
+                $messageCount = count($messages);
+                
+                if ($messageCount > 0) {
+                    $this->metrics['receivedMessagesQuantity'] += $messageCount;
+                    
+                    Logger::debug("Received {} messages, dispatching to consumption workers, topic={}, clientId={}", [
+                        $messageCount,
+                        $this->topic,
+                        $this->clientId
+                    ]);
+                    
+                    // Dispatch messages to consumption workers
+                    foreach ($messages as $message) {
+                        $this->dispatchMessage($message, $simpleConsumer);
                     }
                 }
             } catch (\Exception $e) {
                 Logger::error("Failed to receive message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
-                sleep(1); // Avoid frequent retries
+                \Swoole\Coroutine::sleep(1); // Avoid frequent retries
             }
         }
     }
@@ -1218,7 +1668,7 @@ class PushConsumer
                     $result = call_user_func($this->messageListener, $messageView);
                     
                     // Decide whether to ACK based on return value
-                    if ($result === ConsumeResult::SUCCESS || $result === true || $result === null) {
+                    if ($result === \Apache\Rocketmq\Consumer\ConsumeResult::SUCCESS || $result === true || $result === null) {
                         $simpleConsumer->ack($grpcMessage);
                     }
                     

@@ -336,7 +336,7 @@ class RouteCache
                     $this->stats['refreshes']++;
                 } catch (\Exception $e) {
                     // Refresh failed, keep old cache, log error
-                    Logger::error("Failed to refresh route for topic {$topic}", ['error' => $e->getMessage()]);
+                    Logger::error("Failed to refresh route for topic {}", [$topic, 'error' => $e->getMessage()]);
                 }
             }
         }
