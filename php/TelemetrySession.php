@@ -176,7 +176,7 @@ class TelemetrySession
             // Start background reader to keep stream alive
             $this->startBackgroundReader();
             
-            error_log("Telemetry session started successfully, clientId={$this->clientId}");
+            Logger::info("Telemetry session started successfully, clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
             // Rollback state on failure
             $this->isActive = false;
@@ -204,11 +204,11 @@ class TelemetrySession
             $pid = pcntl_fork();
             
             if ($pid == -1) {
-                error_log("Failed to fork process for telemetry reader");
+                Logger::error("Failed to fork process for telemetry reader, clientId={}", [$this->clientId]);
                 return;
             } elseif ($pid > 0) {
                 // Parent process - continue normally
-                error_log("Started telemetry background reader (PID: {$pid})");
+                Logger::info("Started telemetry background reader (PID: {}), clientId={}", [$pid, $this->clientId]);
                 return;
             } else {
                 // Child process - read responses continuously
@@ -217,7 +217,7 @@ class TelemetrySession
             }
         } else {
             // pcntl not available, use non-blocking read in main process
-            error_log("pcntl_fork not available, telemetry will use non-blocking reads");
+            Logger::warn("pcntl_fork not available, telemetry will use non-blocking reads, clientId={}", [$this->clientId]);
         }
     }
     
@@ -228,7 +228,7 @@ class TelemetrySession
      */
     private function runBackgroundReader(): void
     {
-        error_log("Background telemetry reader started");
+        Logger::info("Background telemetry reader started, clientId={}", [$this->clientId]);
         
         // For PHP gRPC, we can't easily read from the stream in a background process
         // because the stream call object can't be shared across processes.
@@ -240,11 +240,11 @@ class TelemetrySession
             $keepAliveCount++;
             
             if ($keepAliveCount % 12 === 0) { // Every minute
-                error_log("Telemetry session keep-alive ({$keepAliveCount} cycles)");
+                Logger::debug("Telemetry session keep-alive ({$keepAliveCount} cycles), clientId={$this->clientId}");
             }
         }
         
-        error_log("Background telemetry reader stopped");
+        Logger::info("Background telemetry reader stopped, clientId={$this->clientId}");
     }
     
     /**
@@ -267,9 +267,9 @@ class TelemetrySession
             // Write to stream (non-blocking)
             $this->streamCall->write($command);
             
-            error_log("Settings sent to server, clientId={$this->clientId}, consumerGroup={$this->consumerGroup}");
+            Logger::info("Settings sent to server, clientId={$this->clientId}, consumerGroup={$this->consumerGroup}");
         } catch (\Exception $e) {
-            error_log("Failed to send settings: " . $e->getMessage());
+            Logger::error("Failed to send settings, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -351,7 +351,7 @@ class TelemetrySession
                 }
             }
         } catch (\Exception $e) {
-            error_log("Error reading from telemetry stream: " . $e->getMessage());
+            Logger::error("Error reading from telemetry stream, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             
             // Trigger auto-reconnect if enabled
             if ($this->autoReconnect) {
@@ -372,7 +372,7 @@ class TelemetrySession
     {
         // Check what type of command we received
         if ($command->hasSettings()) {
-            error_log("Received settings from server");
+            Logger::debug("Received settings from server, clientId={$this->clientId}");
             // Server is sending us updated settings - we can sync them here
         }
         
@@ -392,7 +392,7 @@ class TelemetrySession
      */
     private function handleStreamError(\Exception $error): void
     {
-        error_log("Telemetry stream error detected, clientId={$this->clientId}, error: " . $error->getMessage());
+        Logger::error("Telemetry stream error detected, clientId={$this->clientId}, error: " . $error->getMessage());
         
         // Mark session as inactive
         $this->isActive = false;
@@ -411,19 +411,19 @@ class TelemetrySession
     {
         // Check if auto-reconnect is enabled
         if (!$this->autoReconnect) {
-            error_log("Auto-reconnect is disabled, not attempting to reconnect");
+            Logger::warn("Auto-reconnect is disabled, not attempting to reconnect, clientId={$this->clientId}");
             return;
         }
         
         // Check max reconnect attempts (0 = unlimited)
         if (self::MAX_RECONNECT_ATTEMPTS > 0 && $this->reconnectAttempts >= self::MAX_RECONNECT_ATTEMPTS) {
-            error_log("Maximum reconnect attempts reached ({$this->reconnectAttempts}), giving up");
+            Logger::error("Maximum reconnect attempts reached ({$this->reconnectAttempts}), giving up, clientId={$this->clientId}");
             return;
         }
         
         $this->reconnectAttempts++;
         
-        error_log(
+        Logger::info(
             "Attempting to reconnect telemetry session, " .
             "attempt={$this->reconnectAttempts}, " .
             "delay=" . self::RECONNECT_BACKOFF_DELAY . "s, " .
@@ -440,15 +440,14 @@ class TelemetrySession
             // Reset reconnect counter on success
             $this->reconnectAttempts = 0;
             
-            error_log(
-                "Telemetry session reconnected successfully, " .
-                "clientId={$this->clientId}"
+            Logger::info(
+                "Telemetry session reconnected successfully, clientId={}",
+                [$this->clientId]
             );
         } catch (\Exception $e) {
-            error_log(
-                "Failed to reconnect telemetry session, " .
-                "attempt={$this->reconnectAttempts}, " .
-                "error: " . $e->getMessage()
+            Logger::error(
+                "Failed to reconnect telemetry session, attempt={}, error: {}",
+                [$this->reconnectAttempts, $e->getMessage()]
             );
             
             // Schedule another reconnect attempt
@@ -500,9 +499,9 @@ class TelemetrySession
             $this->isActive = false;
             $this->streamCall = null;
             
-            error_log("Telemetry session closed, clientId={$this->clientId}");
+            Logger::info("Telemetry session closed, clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
-            error_log("Error closing telemetry session: " . $e->getMessage());
+            Logger::error("Error closing telemetry session, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
         }
     }
     
@@ -545,7 +544,7 @@ class TelemetrySession
     public function setAutoReconnect(bool $enabled): void
     {
         $this->autoReconnect = $enabled;
-        error_log("Auto-reconnect " . ($enabled ? "enabled" : "disabled") . " for clientId={$this->clientId}");
+        Logger::info("Auto-reconnect " . ($enabled ? "enabled" : "disabled") . " for clientId={$this->clientId}");
     }
     
     /**

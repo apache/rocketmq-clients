@@ -45,18 +45,47 @@ class SendReceipt {
     private $offset;
     
     /**
+     * @var string|null Transaction ID (for transaction messages)
+     */
+    private $transactionId;
+    
+    /**
+     * @var string|null Recall handle (for message recall)
+     */
+    private $recallHandle;
+    
+    /**
+     * @var mixed Endpoints (broker address for transaction commit/rollback)
+     */
+    private $endpoints;
+    
+    /**
      * Constructor
      * 
      * @param string $messageId Message ID
      * @param string $topic Topic
      * @param int $queueId Queue ID
      * @param int $offset Offset
+     * @param string|null $transactionId Transaction ID (for transaction messages)
+     * @param string|null $recallHandle Recall handle (for message recall)
+     * @param mixed $endpoints Endpoints (broker address)
      */
-    public function __construct(string $messageId, string $topic, int $queueId, int $offset) {
+    public function __construct(
+        string $messageId, 
+        string $topic, 
+        int $queueId, 
+        int $offset,
+        ?string $transactionId = null,
+        ?string $recallHandle = null,
+        $endpoints = null
+    ) {
         $this->messageId = $messageId;
         $this->topic = $topic;
         $this->queueId = $queueId;
         $this->offset = $offset;
+        $this->transactionId = $transactionId;
+        $this->recallHandle = $recallHandle;
+        $this->endpoints = $endpoints;
     }
     
     /**
@@ -96,12 +125,50 @@ class SendReceipt {
     }
     
     /**
+     * Get transaction ID
+     * 
+     * @return string|null Transaction ID (null for non-transaction messages)
+     */
+    public function getTransactionId(): ?string {
+        return $this->transactionId;
+    }
+    
+    /**
+     * Get recall handle
+     * 
+     * @return string|null Recall handle (null if not available)
+     */
+    public function getRecallHandle(): ?string {
+        return $this->recallHandle;
+    }
+    
+    /**
+     * Get endpoints
+     * 
+     * @return mixed Endpoints (broker address for transaction operations)
+     */
+    public function getEndpoints() {
+        return $this->endpoints;
+    }
+    
+    /**
      * Get string representation
      * 
      * @return string
      */
     public function __toString(): string {
-        return sprintf("SendReceipt[messageId=%s, topic=%s, queueId=%d, offset=%d]", 
+        $str = sprintf("SendReceipt[messageId=%s, topic=%s, queueId=%d, offset=%d", 
             $this->messageId, $this->topic, $this->queueId, $this->offset);
+        
+        if ($this->transactionId !== null) {
+            $str .= ", transactionId=" . $this->transactionId;
+        }
+        
+        if ($this->recallHandle !== null) {
+            $str .= ", recallHandle=" . $this->recallHandle;
+        }
+        
+        $str .= "]";
+        return $str;
     }
 }

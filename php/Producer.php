@@ -21,6 +21,7 @@ namespace Apache\Rocketmq;
 require_once __DIR__ . '/Util.php';
 require_once __DIR__ . '/RouteCache.php';
 require_once __DIR__ . '/ClientState.php';
+require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Producer/Producer.php';
 
 // Load composer autoload if available
@@ -68,6 +69,9 @@ use Apache\Rocketmq\V2\SendMessageRequest;
 use Apache\Rocketmq\V2\SystemProperties;
 use Grpc\ChannelCredentials;
 use const Grpc\STATUS_OK;
+
+// Initialize logger to write to ~/logs/rocketmq/rocketmq_client_php.log
+\Apache\Rocketmq\Logger::init();
 
 /**
  * RocketMQ Producer Implementation
@@ -261,6 +265,8 @@ class Producer implements ProducerInterface
         // Check state transition validity
         ClientState::checkState($this->state, [ClientState::CREATED], 'start');
         
+        Logger::info("Begin to start the rocketmq producer, clientId={}", [$this->clientId]);
+        
         $this->state = ClientState::STARTING;
         
         try {
@@ -270,12 +276,14 @@ class Producer implements ProducerInterface
             // Transition state to RUNNING
             if (ClientState::canTransition($this->state, ClientState::RUNNING)) {
                 $this->state = ClientState::RUNNING;
+                Logger::info("The rocketmq producer starts successfully, clientId={}", [$this->clientId]);
             }
         } catch (\Exception $e) {
             // Transition state to FAILED
             if (ClientState::canTransition($this->state, ClientState::FAILED)) {
                 $this->state = ClientState::FAILED;
             }
+            Logger::error("Failed to start the rocketmq producer, try to shutdown it, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             throw new \Exception(
                 "Failed to start producer: " . $e->getMessage(), 
                 0, 
@@ -352,7 +360,7 @@ class Producer implements ProducerInterface
                 $interceptor->doBefore($context, $messages);
             } catch (\Exception $e) {
                 // Log error but do not interrupt flow
-                error_log("Interceptor before-send failed: " . $e->getMessage());
+                Logger::error("Exception raised while executing before-send interceptor, clientId={$this->clientId}", ['error' => $e->getMessage()]);
                 $context->setStatus(MessageHookPointsStatus::ERROR);
                 $context->setException($e);
             }
@@ -384,7 +392,7 @@ class Producer implements ProducerInterface
                 $interceptor->doAfter($context, $messages);
             } catch (\Exception $e) {
                 // Log error but do not interrupt flow
-                error_log("Interceptor after-send failed: " . $e->getMessage());
+                Logger::error("Exception raised while executing after-send interceptor, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             }
         }
     }
@@ -763,22 +771,19 @@ class Producer implements ProducerInterface
     {
         // Convert MessageInterface to gRPC Message if needed
         if ($message instanceof MessageInterface && !($message instanceof Message)) {
-            $grpcMessage = $this->convertToGrpcMessage($message);
+            // Pass transaction flag to convertToGrpcMessage so it sets the correct message type
+            $grpcMessage = $this->convertToGrpcMessage($message, $transaction !== null);
         } else {
             $grpcMessage = $message;
         }
         
         if ($transaction !== null) {
-            // Set message type to TRANSACTION
-            $systemProperties = $grpcMessage->getSystemProperties();
-            $systemProperties->setMessageType(MessageType::TRANSACTION);
-            $grpcMessage->setSystemProperties($systemProperties);
-            
             // Send transaction message
             $sendReceipt = $this->sendMessageWithRetry($grpcMessage);
             
-            // Add message to transaction
-            $transaction->addMessage($message, $sendReceipt);
+            // Add message to transaction (using tryAddMessage and tryAddReceipt)
+            $transaction->tryAddMessage($message);
+            $transaction->tryAddReceipt($message, $sendReceipt);
             
             return $sendReceipt;
         }
@@ -830,9 +835,10 @@ class Producer implements ProducerInterface
      * Convert MessageInterface to gRPC Message
      *
      * @param MessageInterface $message
+     * @param bool $isTransaction Whether this is a transaction message
      * @return Message
      */
-    private function convertToGrpcMessage(MessageInterface $message): Message
+    private function convertToGrpcMessage(MessageInterface $message, bool $isTransaction = false): Message
     {
         $grpcMessage = new Message();
         
@@ -851,6 +857,27 @@ class Producer implements ProducerInterface
         $messageId = $this->generateMessageId();
         $systemProperties->setMessageId($messageId);
         
+        // Set message type based on message properties (similar to Node.js logic)
+        $messageGroup = $message->getMessageGroup();
+        $deliveryTimestamp = $message->getDeliveryTimestamp();
+        
+        if (!$messageGroup && !$deliveryTimestamp && !$isTransaction) {
+            // Normal message
+            $systemProperties->setMessageType(MessageType::NORMAL);
+        } elseif ($messageGroup && !$isTransaction) {
+            // FIFO message
+            $systemProperties->setMessageType(MessageType::FIFO);
+        } elseif ($deliveryTimestamp && !$isTransaction) {
+            // Delay message
+            $systemProperties->setMessageType(MessageType::DELAY);
+        } elseif (!$messageGroup && !$deliveryTimestamp && $isTransaction) {
+            // Transaction message
+            $systemProperties->setMessageType(MessageType::TRANSACTION);
+        } else {
+            // Conflict: transaction with fifo/delay
+            throw new ClientException("Transactional message should not set messageGroup or deliveryTimestamp");
+        }
+        
         $tag = $message->getTag();
         if ($tag !== null) {
             $systemProperties->setTag($tag);
@@ -861,12 +888,10 @@ class Producer implements ProducerInterface
             $systemProperties->setKeys($keys);
         }
         
-        $messageGroup = $message->getMessageGroup();
         if ($messageGroup !== null) {
             $systemProperties->setMessageGroup($messageGroup);
         }
         
-        $deliveryTimestamp = $message->getDeliveryTimestamp();
         if ($deliveryTimestamp !== null) {
             $timestamp = new \Google\Protobuf\Timestamp();
             $timestamp->setSeconds(intval($deliveryTimestamp / 1000));
@@ -1109,8 +1134,44 @@ class Producer implements ProducerInterface
             $queueId = 0; // Default queue ID
             $offset = 0; // Default offset
             
-            // Create send receipt
-            $sendReceipt = new SendReceipt($messageId, $topic, $queueId, $offset);
+            Logger::debug("Message sent successfully, messageId={}, topic={}, costTime={}ms", [
+                $messageId,
+                $topic,
+                round($costTime, 2)
+            ]);
+            
+            // Extract transaction ID (for transaction messages)
+            $transactionId = null;
+            if (method_exists($entry, 'getTransactionId')) {
+                $transactionId = $entry->getTransactionId();
+                if ($transactionId === '') {
+                    $transactionId = null;
+                }
+            }
+            
+            // Extract recall handle (for message recall)
+            $recallHandle = null;
+            if (method_exists($entry, 'getRecallHandle')) {
+                $recallHandle = $entry->getRecallHandle();
+                if ($recallHandle === '') {
+                    $recallHandle = null;
+                }
+            }
+            
+            // Get current client's endpoints for transaction commit/rollback
+            // This ensures we send commit/rollback to the same broker that handled the half message
+            $endpoints = $this->config->getEndpoints();
+            
+            // Create send receipt with transaction support
+            $sendReceipt = new SendReceipt(
+                $messageId, 
+                $topic, 
+                $queueId, 
+                $offset,
+                $transactionId,
+                $recallHandle,
+                $endpoints  // Pass endpoints for transaction operations
+            );
             
             // Record success metrics
             $this->metricsCollector->incrementCounter(MetricName::SEND_SUCCESS_TOTAL, [
@@ -1332,22 +1393,33 @@ class Producer implements ProducerInterface
     /**
      * End transaction (internal method)
      * 
-     * @param mixed $endpoints Target endpoints
+     * @param mixed $endpoints Target endpoints (from SendReceipt)
      * @param string $messageId Message ID
      * @param string $transactionId Transaction ID
      * @param string $resolution Transaction resolution (COMMIT/ROLLBACK)
      * @return void
      * @throws \Exception If ending transaction fails
      */
-    public function endTransactionInternal($endpoints, $messageId, $transactionId, $resolution)
+    /**
+     * End transaction (internal method)
+     * 
+     * @param mixed $endpoints Target broker endpoints
+     * @param string $messageId Message ID
+     * @param string $transactionId Transaction ID
+     * @param string $resolution Transaction resolution (COMMIT/ROLLBACK)
+     * @param string|null $topic Topic name (optional, defaults to producer's topic)
+     * @return void
+     * @throws \Exception If ending transaction fails
+     */
+    public function endTransactionInternal($endpoints, $messageId, $transactionId, $resolution, $topic = null)
     {
         $request = new \Apache\Rocketmq\V2\EndTransactionRequest();
         
-        // Set topic
-        $topic = new Resource();
-        $topic->setName($this->topic);
-        $topic->setResourceNamespace('');
-        $request->setTopic($topic);
+        // Set topic - use provided topic or fallback to producer's topic
+        $topicResource = new Resource();
+        $topicResource->setName($topic !== null ? $topic : $this->topic);
+        $topicResource->setResourceNamespace('');
+        $request->setTopic($topicResource);
         
         // Set message ID and transaction ID
         $request->setMessageId($messageId);
@@ -1365,8 +1437,19 @@ class Producer implements ProducerInterface
                 throw new \Exception("Invalid transaction resolution: {$resolution}");
         }
         
-        // Send request
-        list($response, $status) = $this->getClient()->EndTransaction($request)->wait();
+        // Set source (client-initiated commit/rollback)
+        $request->setSource(\Apache\Rocketmq\V2\TransactionSource::SOURCE_CLIENT);
+        
+        // Log begin transaction (aligned with Java/Node.js)
+        $resolutionStr = $resolution === TransactionResolution::COMMIT ? 'COMMIT' : 'ROLLBACK';
+        Logger::info("Begin to end transaction, messageId={$messageId}, transactionId={$transactionId}, resolution={$resolutionStr}, source=SOURCE_CLIENT, clientId={$this->clientId}");
+        
+        // Get the correct client for the target endpoints
+        // For transaction commit/rollback, we need to send to the same broker that handled the half message
+        $client = $this->getClient();
+        
+        // Send request to the correct broker
+        list($response, $status) = $client->EndTransaction($request)->wait();
         
         if ($status->code !== STATUS_OK) {
             throw new \Exception(
@@ -1375,12 +1458,15 @@ class Producer implements ProducerInterface
             );
         }
         
-        if ($response->getStatus()->getCode() !== 0) {
+        if ($response->getStatus()->getCode() !== 20000) {
             throw new \Exception(
                 "Failed to end transaction: " . $response->getStatus()->getMessage(),
                 $response->getStatus()->getCode()
             );
         }
+        
+        // Log success (aligned with Java/Node.js)
+        Logger::info("End transaction successfully, messageId={$messageId}, transactionId={$transactionId}, resolution={$resolutionStr}, source=SOURCE_CLIENT, clientId={$this->clientId}");
     }
     
     /**
@@ -1392,8 +1478,10 @@ class Producer implements ProducerInterface
      */
     public function handleOrphanedTransactionCheck($message, $transactionId)
     {
+        $messageId = $message->getSystemProperties()->getMessageId();
+        
         if ($this->transactionChecker === null) {
-            error_log("No transaction checker registered, ignore orphaned transaction check");
+            Logger::error("No transaction checker registered, ignore it, messageId={$messageId}, transactionId={$transactionId}, clientId={$this->clientId}");
             return;
         }
         
@@ -1402,7 +1490,6 @@ class Producer implements ProducerInterface
             $resolution = $this->transactionChecker->check($message);
             
             // End transaction based on check result
-            $messageId = $message->getSystemProperties()->getMessageId();
             $this->endTransactionInternal(
                 null, // Get endpoints from route
                 $messageId,
@@ -1410,9 +1497,9 @@ class Producer implements ProducerInterface
                 $resolution
             );
             
-            error_log("Orphaned transaction checked: messageId={$messageId}, transactionId={$transactionId}, resolution={$resolution}");
+            Logger::info("Recover orphaned transaction message success, transactionId={$transactionId}, resolution={$resolution}, messageId={$messageId}, clientId={$this->clientId}");
         } catch (\Exception $e) {
-            error_log("Failed to check orphaned transaction: " . $e->getMessage());
+            Logger::error("Exception raised while checking the transaction, messageId={$messageId}, transactionId={$transactionId}, clientId={$this->clientId}", ['error' => $e->getMessage()]);
         }
     }
     
@@ -1438,8 +1525,11 @@ class Producer implements ProducerInterface
             'shutdown'
         );
         
+        Logger::info("Begin to shutdown the rocketmq producer, clientId={}", [$this->clientId]);
+        
         // If already in terminal state, return directly
         if (ClientState::isTerminalState($this->state)) {
+            Logger::debug("The rocketmq producer already in terminal state, clientId={$this->clientId}");
             return;
         }
         
@@ -1458,7 +1548,7 @@ class Producer implements ProducerInterface
                     $pool->returnConnection($this->config, $this->client);
                 } catch (\Exception $e) {
                     // Ignore exception when returning connection
-                    error_log("Failed to return connection to pool: " . $e->getMessage());
+                    Logger::error("Failed to return connection to pool, clientId={$this->clientId}", ['error' => $e->getMessage()]);
                 } finally {
                     $this->client = null;
                 }
@@ -1476,11 +1566,13 @@ class Producer implements ProducerInterface
             // 4. Transition state to TERMINATED
             if (ClientState::canTransition($this->state, ClientState::TERMINATED)) {
                 $this->state = ClientState::TERMINATED;
+                Logger::info("Shutdown the rocketmq producer successfully, clientId={}", [$this->clientId]);
             }
             
         } catch (\Exception $e) {
             // Even if cleanup fails, set to TERMINATED
             $this->state = ClientState::TERMINATED;
+            Logger::error("Failed to shutdown the rocketmq producer, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             throw new \Exception("Failed to shutdown producer: " . $e->getMessage(), 0, $e);
         }
     }
@@ -1629,7 +1721,7 @@ class Producer implements ProducerInterface
                 $this->shutdown(1); // Quick shutdown
             } catch (\Exception $e) {
                 // Ignore exceptions in destructor
-                error_log("Error during producer destruction: " . $e->getMessage());
+                Logger::error("Error during producer destruction, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             }
         }
     }

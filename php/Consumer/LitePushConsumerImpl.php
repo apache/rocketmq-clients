@@ -24,6 +24,7 @@ use Apache\Rocketmq\Exception\ClientException;
 use Apache\Rocketmq\Exception\ClientStateException;
 use Apache\Rocketmq\Exception\NetworkException;
 use Apache\Rocketmq\Exception\ServerException;
+use Apache\Rocketmq\Logger;
 use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\AckMessageRequest;
@@ -207,6 +208,8 @@ class LitePushConsumerImpl implements LitePushConsumer {
         
         $this->state = 'STARTING';
         
+        Logger::info("Begin to start the rocketmq lite push consumer, clientId={$this->clientId}");
+        
         try {
             // Initialize gRPC client using connection pool
             $connectionPool = ConnectionPool::getInstance();
@@ -226,8 +229,10 @@ class LitePushConsumerImpl implements LitePushConsumer {
             }
             
             $this->state = 'RUNNING';
+            Logger::info("The rocketmq lite push consumer starts successfully, clientId={$this->clientId}");
         } catch (\Exception $e) {
             $this->state = 'CREATED';
+            Logger::error("Failed to start the rocketmq lite push consumer, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             throw new ClientException("Failed to start lite push consumer: " . $e->getMessage(), $e);
         }
     }
@@ -241,6 +246,8 @@ class LitePushConsumerImpl implements LitePushConsumer {
         }
         
         $this->state = 'STOPPING';
+        
+        Logger::info("Begin to shutdown the rocketmq lite push consumer, clientId={}", [$this->clientId]);
         
         try {
             // Stop all running threads
@@ -257,7 +264,9 @@ class LitePushConsumerImpl implements LitePushConsumer {
             }
             
             $this->state = 'TERMINATED';
+            Logger::info("Shutdown the rocketmq lite push consumer successfully, clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
+            Logger::error("Failed to shutdown the rocketmq lite push consumer, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
             throw new ClientException("Failed to shutdown lite push consumer: " . $e->getMessage(), $e);
         }
     }
@@ -285,7 +294,7 @@ class LitePushConsumerImpl implements LitePushConsumer {
                 }
             } catch (\Exception $e) {
                 // Log error and continue
-                error_log("Lite push consumer error: " . $e->getMessage());
+                Logger::error("Lite push consumer error, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 usleep(1000000); // 1 second
             }
         }
@@ -341,7 +350,10 @@ class LitePushConsumerImpl implements LitePushConsumer {
             }
         } catch (\Exception $e) {
             // Message processing failed, no need to ack
-            error_log("Failed to process message: " . $e->getMessage());
+            Logger::error(
+                "Message listener raised an exception while consuming messages, messageId={}, topic={}, clientId={}",
+                [$message->getMessageId(), $message->getTopic(), $this->clientId, 'error' => $e->getMessage()]
+            );
         }
     }
     

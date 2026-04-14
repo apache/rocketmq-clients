@@ -251,11 +251,7 @@ class HealthChecker
         
         // If there was an unhealthy record before, log recovery information
         if (!$this->lastResult->isHealthy()) {
-            error_log(sprintf(
-                "[HealthCheck] Connection recovered after %d failures. Response time: %.2fms",
-                $this->lastResult->consecutiveFailures,
-                $responseTime
-            ));
+            \Apache\Rocketmq\Logger::info("Connection recovered after {$this->lastResult->consecutiveFailures} failures. Response time: " . round($responseTime, 2) . "ms, clientId={$this->clientId}");
         }
         
         $this->updateLastResult($result);
@@ -289,11 +285,7 @@ class HealthChecker
         
         // Log warning
         if ($consecutiveFailures >= $this->maxConsecutiveFailures) {
-            error_log(sprintf(
-                "[HealthCheck] Connection unhealthy after %d consecutive failures. Error: %s",
-                $consecutiveFailures,
-                $errorMessage
-            ));
+            \Apache\Rocketmq\Logger::error("Connection unhealthy after {$consecutiveFailures} consecutive failures. Error: {$errorMessage}, clientId={$this->clientId}");
         }
         
         $this->updateLastResult($result);

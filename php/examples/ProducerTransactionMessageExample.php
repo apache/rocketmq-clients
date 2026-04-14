@@ -36,8 +36,8 @@ use Apache\Rocketmq\Message\MessageView;
 
 // Configuration
 $endpoints = '127.0.0.1:8080';
-$topic = 'topic-transaction';
-$producerGroup = 'GID-transaction-consumer';
+$topic = 'topic-php-transcation';
+$producerGroup = 'GID-php-transcation';
 
 echo "=== Producer Transaction Message Example ===\n\n";
 

@@ -115,7 +115,7 @@ class AsyncTelemetrySession
             $this->run();
         });
         
-        error_log("AsyncTelemetrySession started in coroutine, clientId={$this->clientId}");
+        Logger::info("AsyncTelemetrySession started in coroutine, clientId={$this->clientId}");
     }
     
     /**
@@ -125,7 +125,7 @@ class AsyncTelemetrySession
      */
     private function run(): void
     {
-        error_log("Telemetry session coroutine started, clientId={$this->clientId}");
+        Logger::info("Telemetry session coroutine started, clientId={$this->clientId}");
         
         while ($this->running) {
             try {
@@ -136,7 +136,7 @@ class AsyncTelemetrySession
                 $this->keepAlive();
                 
             } catch (\Exception $e) {
-                error_log(
+                Logger::error(
                     "Telemetry session error, clientId={$this->clientId}, " .
                     "error: " . $e->getMessage()
                 );
@@ -152,7 +152,7 @@ class AsyncTelemetrySession
             }
         }
         
-        error_log("Telemetry session coroutine stopped, clientId={$this->clientId}");
+        Logger::info("Telemetry session coroutine stopped, clientId={$this->clientId}");
     }
     
     /**
@@ -171,7 +171,7 @@ class AsyncTelemetrySession
         }
         
         $this->isActive = true;
-        error_log("Telemetry stream created, clientId={$this->clientId}");
+        Logger::info("Telemetry stream created, clientId={$this->clientId}");
         
         // Send initial settings
         $this->sendSettings();
@@ -201,7 +201,7 @@ class AsyncTelemetrySession
         // Write to stream
         $this->streamCall->write($command);
         
-        error_log("Settings sent via async stream, clientId={$this->clientId}");
+        Logger::info("Settings sent via async stream, clientId={$this->clientId}");
     }
     
     /**
@@ -244,7 +244,7 @@ class AsyncTelemetrySession
      */
     private function readResponses(): void
     {
-        error_log("Response reader coroutine started, clientId={$this->clientId}");
+        Logger::info("Response reader coroutine started, clientId={$this->clientId}");
         
         try {
             while ($this->isActive && $this->streamCall) {
@@ -257,15 +257,15 @@ class AsyncTelemetrySession
                 
                 // Periodically check if stream is still valid
                 if (!$this->streamCall) {
-                    error_log("Stream closed unexpectedly, clientId={$this->clientId}");
+                    Logger::warn("Stream closed unexpectedly, clientId={$this->clientId}");
                     break;
                 }
             }
         } catch (\Exception $e) {
-            error_log("Response reader error, clientId={$this->clientId}: " . $e->getMessage());
+            Logger::error("Response reader error, clientId={$this->clientId}: " . $e->getMessage());
         }
         
-        error_log("Response reader coroutine stopped, clientId={$this->clientId}");
+        Logger::info("Response reader coroutine stopped, clientId={$this->clientId}");
     }
     
     /**
@@ -297,11 +297,11 @@ class AsyncTelemetrySession
             try {
                 $this->streamCall->writesDone();
             } catch (\Exception $e) {
-                error_log("Error closing stream: " . $e->getMessage());
+                Logger::error("Error closing stream: " . $e->getMessage());
             }
         }
         
-        error_log("AsyncTelemetrySession stopped, clientId={$this->clientId}");
+        Logger::info("AsyncTelemetrySession stopped, clientId={$this->clientId}");
     }
     
     /**

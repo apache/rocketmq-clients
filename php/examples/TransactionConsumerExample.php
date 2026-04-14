@@ -36,8 +36,8 @@ use Apache\Rocketmq\SimpleConsumer;
 
 // Configuration
 $endpoints = '127.0.0.1:8080';
-$topic = 'topic-transaction';
-$consumerGroup = 'GID-transaction-consumer';
+$topic = 'topic-php-transcation';
+$consumerGroup = 'GID-php-transcation';
 
 echo "=== Transaction Message Consumer Example ===\n\n";
 echo "Topic: {$topic}\n";

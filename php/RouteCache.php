@@ -336,7 +336,7 @@ class RouteCache
                     $this->stats['refreshes']++;
                 } catch (\Exception $e) {
                     // Refresh failed, keep old cache, log error
-                    error_log("Failed to refresh route for topic {$topic}: " . $e->getMessage());
+                    Logger::error("Failed to refresh route for topic {$topic}", ['error' => $e->getMessage()]);
                 }
             }
         }
@@ -397,7 +397,7 @@ class RouteCache
                 $this->refreshExpired($loader);
             } catch (\Exception $e) {
                 // Log error and continue
-                error_log("Background refresh failed: " . $e->getMessage());
+                Logger::error("Background refresh failed", ['error' => $e->getMessage()]);
             }
             
             // Sleep for TTL/2 seconds to avoid frequent refreshes

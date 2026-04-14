@@ -19,6 +19,7 @@
 namespace Apache\Rocketmq;
 
 require 'vendor/autoload.php';
+require_once __DIR__ . '/Logger.php';
 
 // Load AsyncTelemetrySession if Swoole is available
 if (extension_loaded('swoole')) {
@@ -50,6 +51,9 @@ use Apache\Rocketmq\V2\Subscription;
 use Apache\Rocketmq\V2\SubscriptionEntry;
 use Grpc\ChannelCredentials;
 use const Grpc\STATUS_OK;
+
+// Initialize logger to write to ~/logs/rocketmq/rocketmq_client_php.log
+\Apache\Rocketmq\Logger::init();
 
 /**
  * RocketMQ SimpleConsumer Implementation
@@ -317,16 +321,16 @@ class SimpleConsumer
                     $this->awaitDuration
                 );
                 $this->telemetrySession->start();
-                error_log("AsyncTelemetrySession started with Swoole, clientId={$this->clientId}");
+                Logger::info("AsyncTelemetrySession started with Swoole, clientId={}", [$this->clientId]);
                 return;
             } catch (\Exception $e) {
-                error_log("Warning: Failed to start AsyncTelemetrySession: " . $e->getMessage());
-                error_log("Falling back to disabled telemetry");
+                Logger::warn("Failed to start AsyncTelemetrySession, clientId={}", [$this->clientId, "error" => $e->getMessage()]);
+                Logger::warn("Falling back to disabled telemetry, clientId={}", [$this->clientId]);
             }
         }
         
         // Fallback: disable telemetry (RocketMQ Proxy has compatibility issues)
-        error_log("Note: Telemetry session disabled (Swoole not available or failed)");
+        Logger::info("Note: Telemetry session disabled (Swoole not available or failed), clientId={}", [$this->clientId]);
         $this->telemetrySession = null;
     }
     
@@ -340,7 +344,7 @@ class SimpleConsumer
     {
         // Use Swoole timer if available (preferred over pcntl_fork)
         if (extension_loaded('swoole') && class_exists('\Swoole\Timer')) {
-            error_log("Starting Swoole timer for heartbeat, interval: " . self::HEARTBEAT_INTERVAL . "s");
+            Logger::info("Starting Swoole timer for heartbeat, interval={}s, clientId={}", [self::HEARTBEAT_INTERVAL, $this->clientId]);
             
             \Swoole\Timer::tick(self::HEARTBEAT_INTERVAL * 1000, function($timerId) {
                 if ($this->state !== 'RUNNING') {
@@ -350,9 +354,9 @@ class SimpleConsumer
                 
                 try {
                     $this->heartbeat();
-                    error_log("Heartbeat sent, clientId={$this->clientId}");
+                    Logger::debug("Heartbeat sent, clientId={}", [$this->clientId]);
                 } catch (\Exception $e) {
-                    error_log("Warning: Heartbeat failed: " . $e->getMessage());
+                    Logger::warn("Warning: Heartbeat failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 }
             });
             
@@ -365,9 +369,9 @@ class SimpleConsumer
                 
                 try {
                     $this->syncSettings();
-                    error_log("Settings synced, clientId={$this->clientId}");
+                    Logger::debug("Settings synced, clientId={}", [$this->clientId]);
                 } catch (\Exception $e) {
-                    error_log("Warning: Settings sync failed: " . $e->getMessage());
+                    Logger::warn("Warning: Settings sync failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 }
             });
             
@@ -376,7 +380,7 @@ class SimpleConsumer
         
         // Fallback to pcntl_fork if Swoole timer not available
         if (!function_exists('pcntl_fork')) {
-            error_log("Warning: Neither Swoole timer nor pcntl_fork available, background timers disabled");
+            Logger::warn("Warning: Neither Swoole timer nor pcntl_fork available, background timers disabled, clientId={}", [$this->clientId]);
             return;
         }
         
@@ -384,10 +388,14 @@ class SimpleConsumer
         $this->heartbeatTimerPid = pcntl_fork();
         
         if ($this->heartbeatTimerPid == -1) {
-            error_log("Error: Failed to fork heartbeat timer process");
+            Logger::error("Error: Failed to fork heartbeat timer process, clientId={}", [$this->clientId]);
             return;
         } elseif ($this->heartbeatTimerPid > 0) {
-            error_log("Started background heartbeat timer (PID: {$this->heartbeatTimerPid}), interval: " . self::HEARTBEAT_INTERVAL . "s");
+            Logger::info("Started background heartbeat timer (PID: {}), interval={}s, clientId={}", [
+                $this->heartbeatTimerPid,
+                self::HEARTBEAT_INTERVAL,
+                $this->clientId
+            ]);
             return;
         } else {
             // Child process: run heartbeat loop
@@ -404,7 +412,7 @@ class SimpleConsumer
      */
     private function runHeartbeatLoop(): void
     {
-        error_log("Heartbeat timer started, clientId={$this->clientId}");
+        Logger::info("Heartbeat timer started, clientId={}", [$this->clientId]);
         
         $lastSettingsSync = time();
         $cycleCount = 0;
@@ -421,9 +429,9 @@ class SimpleConsumer
             // Send heartbeat
             try {
                 $this->heartbeat();
-                error_log("Heartbeat sent (cycle #{$cycleCount}), clientId={$this->clientId}");
+                Logger::debug("Heartbeat sent (cycle #{}), clientId={}", [$cycleCount, $this->clientId]);
             } catch (\Exception $e) {
-                error_log("Warning: Heartbeat failed: " . $e->getMessage());
+                Logger::warn("Warning: Heartbeat failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
             }
             
             // Sync settings every SETTINGS_SYNC_INTERVAL seconds (Java default: 5min)
@@ -432,14 +440,14 @@ class SimpleConsumer
                 try {
                     $this->syncSettings();
                     $lastSettingsSync = $now;
-                    error_log("Settings synced, clientId={$this->clientId}");
+                    Logger::debug("Settings synced, clientId={}", [$this->clientId]);
                 } catch (\Exception $e) {
-                    error_log("Warning: Settings sync failed: " . $e->getMessage());
+                    Logger::warn("Warning: Settings sync failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 }
             }
         }
         
-        error_log("Heartbeat timer stopped, clientId={$this->clientId}");
+        Logger::info("Heartbeat timer stopped, clientId={}", [$this->clientId]);
     }
     
     /**
@@ -451,14 +459,14 @@ class SimpleConsumer
     private function syncSettings(): void
     {
         if (!$this->telemetrySession) {
-            error_log("Warning: Cannot sync settings, telemetry session is null");
+            Logger::warn("Warning: Cannot sync settings, telemetry session is null, clientId={}", [$this->clientId]);
             return;
         }
         
         // For Swoole async session, it handles sync automatically
         // For sync session, we would need to send Settings via Telemetry stream
         // This is a placeholder for future implementation
-        error_log("Settings sync requested (not yet implemented for sync mode)");
+        Logger::info("Settings sync requested (not yet implemented for sync mode), clientId={}", [$this->clientId]);
     }
     
     /**
@@ -569,7 +577,7 @@ class SimpleConsumer
                 if ($response->hasStatus()) {
                     $statusCode = $response->getStatus()->getCode();
                     $statusMessage = $response->getStatus()->getMessage();
-                    error_log("ReceiveMessage response - Code: {$statusCode}, Message: {$statusMessage}");
+                    Logger::debug("ReceiveMessage response - Code: {$statusCode}, Message: {$statusMessage}, clientId={$this->clientId}");
                 }
             }
         }
@@ -743,11 +751,11 @@ class SimpleConsumer
         
         // Stop background heartbeat timer
         if ($this->heartbeatTimerPid !== null && $this->heartbeatTimerPid > 0) {
-            error_log("Stopping background heartbeat timer (PID: {$this->heartbeatTimerPid})");
+            Logger::info("Stopping background heartbeat timer (PID: {$this->heartbeatTimerPid}), clientId={$this->clientId}");
             posix_kill($this->heartbeatTimerPid, SIGTERM);
             pcntl_waitpid($this->heartbeatTimerPid, $status);
             $this->heartbeatTimerPid = null;
-            error_log("Background heartbeat timer stopped");
+            Logger::info("Background heartbeat timer stopped, clientId={$this->clientId}");
         }
         
         if ($this->client !== null) {
@@ -756,7 +764,7 @@ class SimpleConsumer
                 $pool->returnConnection($this->config, $this->client);
             } catch (\Exception $e) {
                 // Ignore exception when returning connection
-                error_log("Failed to return connection to pool: " . $e->getMessage());
+                Logger::error("Failed to return connection to pool, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             } finally {
                 $this->client = null;
             }
@@ -1102,12 +1110,12 @@ class PushConsumer
                             $simpleConsumer->ack($message);
                         }
                     } catch (\Exception $e) {
-                        error_log("Failed to process message: " . $e->getMessage());
+                        Logger::error("Failed to process message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
                         // Do not ACK, let message be redelivered
                     }
                 }
             } catch (\Exception $e) {
-                error_log("Failed to receive message: " . $e->getMessage());
+                Logger::error("Failed to receive message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
                 sleep(1); // Avoid frequent retries
             }
         }
@@ -1160,11 +1168,11 @@ class PushConsumer
                             $simpleConsumer->ack($message);
                         }
                     } catch (\Exception $e) {
-                        error_log("Failed to process message: " . $e->getMessage());
+                        Logger::error("Failed to process message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
                     }
                 }
             } catch (\Exception $e) {
-                error_log("Failed to receive message: " . $e->getMessage());
+                Logger::error("Failed to receive message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
                 sleep(1);
             }
         }
@@ -1189,7 +1197,7 @@ class PushConsumer
             try {
                 $this->heartbeat();
             } catch (\Exception $e) {
-                error_log("Failed to send heartbeat: " . $e->getMessage());
+                Logger::warn("Failed to send heartbeat, clientId={$this->clientId}", ['error' => $e->getMessage()]);
                 // Continue anyway, heartbeat is not critical for polling
             }
         }
@@ -1216,14 +1224,14 @@ class PushConsumer
                     
                     $count++;
                 } catch (\Exception $e) {
-                    error_log("Failed to process message: " . $e->getMessage());
+                    Logger::error("Failed to process message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
                     // Do not ACK on error, let message be redelivered
                 }
             }
             
             return $count;
         } catch (\Exception $e) {
-            error_log("Failed to receive message: " . $e->getMessage());
+            Logger::error("Failed to receive message, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             return 0;
         }
     }
@@ -1300,7 +1308,7 @@ class PushConsumer
                 $pool->returnConnection($this->config, $this->client);
             } catch (\Exception $e) {
                 // Ignore exception when returning connection
-                error_log("Failed to return connection to pool: " . $e->getMessage());
+                Logger::error("Failed to return connection to pool, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             } finally {
                 $this->client = null;
             }

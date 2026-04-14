@@ -161,9 +161,12 @@ class TransactionImpl implements Transaction {
         $messageId = $receipt->getMessageId();
         $request->setMessageId($messageId);
         
-        // Set transaction ID (use messageId as transactionId for now)
-        // In a full implementation, this would come from the send receipt
-        $transactionId = $messageId;
+        // Set transaction ID (from receipt, which comes from broker response)
+        $transactionId = $receipt->getTransactionId();
+        if ($transactionId === null || $transactionId === '') {
+            // Fallback to messageId if transactionId is not available
+            $transactionId = $messageId;
+        }
         $request->setTransactionId($transactionId);
         
         // Set topic
@@ -178,15 +181,23 @@ class TransactionImpl implements Transaction {
             $request->setResolution(V2TransactionResolution::ROLLBACK);
         }
         
-        // Set source
+        // Set source (client-initiated commit/rollback)
         $request->setSource(TransactionSource::SOURCE_CLIENT);
+        
+        // Get endpoints from the send receipt
+        // This is critical: we must send commit/rollback to the same broker that handled the half message
+        $endpoints = null;
+        if (method_exists($receipt, 'getEndpoints')) {
+            $endpoints = $receipt->getEndpoints();
+        }
         
         // Call Producer's internal method to end transaction
         $this->producer->endTransactionInternal(
-            null,  // endpoints (will be determined by producer)
+            $endpoints,  // Pass endpoints to ensure correct broker is targeted
             $messageId,
             $transactionId,
-            $resolution
+            $resolution,
+            $receipt->getTopic()  // Pass topic from receipt
         );
     }
     
