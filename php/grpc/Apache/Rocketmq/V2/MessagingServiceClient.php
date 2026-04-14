@@ -343,4 +343,19 @@ class MessagingServiceClient extends \Grpc\BaseStub {
         $metadata, $options);
     }
 
+    /**
+     * Sync lite subscription info, lite push consumer only
+     * @param \Apache\Rocketmq\V2\SyncLiteSubscriptionRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\SyncLiteSubscriptionResponse>
+     */
+    public function SyncLiteSubscription(\Apache\Rocketmq\V2\SyncLiteSubscriptionRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_simpleRequest('/apache.rocketmq.v2.MessagingService/SyncLiteSubscription',
+        $argument,
+        ['\Apache\Rocketmq\V2\SyncLiteSubscriptionResponse', 'decode'],
+        $metadata, $options);
+    }
+
 }

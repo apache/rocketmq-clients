@@ -26,7 +26,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PROTO_ROOT="${PROJECT_ROOT}/protocol"
-PHP_GRPC_OUTPUT="${SCRIPT_DIR}/grpc"
+PHP_GRPC_OUTPUT="${PROJECT_ROOT}/grpc"
 
 # Proto file list
 PROTO_FILES=(

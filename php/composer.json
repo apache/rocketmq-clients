@@ -16,7 +16,9 @@
     "classmap": [
       "HealthChecker.php",
       "MessageInterceptor.php",
-      "MetricsCollector.php"
+      "MetricsCollector.php",
+      "Consumer.php",
+      "Producer.php"
     ]
   },
   "require-dev": {

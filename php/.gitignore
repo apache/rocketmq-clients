@@ -2,3 +2,4 @@
 src
 vendor
 composer.lock
+scripts/grpc/
