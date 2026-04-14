@@ -19,16 +19,16 @@
 
 | 特性                                             | Java  | C/C++  |  C#   | Golang | Rust | Python | Node.js |  PHP  |
 |------------------------------------------------| :---: |:------:|:-----:|:------:|:----:|:------:|:-------:| :---: |
-| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
-| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
-| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
-| Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
-| Producer with recalling timed/delay messages   |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |   ✅    |    ✅    |   🚧   |
-| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
-| Push consumer with concurrent message listener |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
-| Push consumer with FIFO message listener       |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   🚧   |
-| Push consumer with FIFO consume accelerator    |   ✅   |   ✅   |   🚧   |   ✅    |   🚧   |   ✅    |    ✅    |   🚧   |
-| Priority Message                               |   ✅   |   🚧   |   🚧   |   🚧    |   🚧   |   ✅    |    ✅    |   🚧   |
+| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   ✅   |
+| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   ✅   |
+| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   ✅   |
+| Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   ✅   |
+| Producer with recalling timed/delay messages   |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |   ✅    |    ✅    |   ✅   |
+| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   ✅   |
+| Push consumer with concurrent message listener |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   ✅   |
+| Push consumer with FIFO message listener       |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   ✅    |    ✅    |   ✅   |
+| Push consumer with FIFO consume accelerator    |   ✅   |   ✅   |   🚧   |   ✅    |   🚧   |   ✅    |    ✅    |   ✅   |
+| Priority Message                               |   ✅   |   🚧   |   🚧   |   🚧    |   🚧   |   ✅    |    ✅    |   ✅   |
 
 ## 先决条件和构建
 
