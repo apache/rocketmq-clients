@@ -76,11 +76,21 @@ export class RpcClientManager {
   }
 
   close() {
-    for (const [ endpoints, rpcClient ] of this.#rpcClients.entries()) {
-      rpcClient.close();
-      this.#rpcClients.delete(endpoints);
+    // Clear idle check timer first
+    if (this.#clearIdleRpcClientsTimer) {
+      clearInterval(this.#clearIdleRpcClientsTimer);
     }
-    clearInterval(this.#clearIdleRpcClientsTimer);
+
+    // Close all RPC clients and clear the map
+    for (const [ endpoints, rpcClient ] of this.#rpcClients.entries()) {
+      try {
+        rpcClient.close();
+      } catch (e) {
+        this.#logger.warn('Failed to close RPC client for endpoints=%s, clientId=%s, error=%s',
+          endpoints.facade, this.#baseClient.clientId, e instanceof Error ? e.message : String(e));
+      }
+    }
+    this.#rpcClients.clear();
   }
 
   async queryRoute(endpoints: Endpoints, request: QueryRouteRequest, duration: number) {
