@@ -10,18 +10,18 @@
     "streaming",
     "apache"
   ],
-  "homepage": "https://github.com/apache/rocketmq-client-php",
+  "homepage": "https://github.com/zhaohai666/rocketmq-clients",
   "authors": [
     {
-      "name": "Apache RocketMQ Community",
-      "email": "dev@rocketmq.apache.org",
-      "homepage": "https://rocketmq.apache.org"
+      "name": "Hai Zhao",
+      "email": "zhaohai666@example.com",
+      "homepage": "https://github.com/zhaohai666"
     }
   ],
   "support": {
-    "issues": "https://github.com/apache/rocketmq-client-php/issues",
-    "source": "https://github.com/apache/rocketmq-client-php",
-    "docs": "https://rocketmq.apache.org/docs/"
+    "issues": "https://github.com/zhaohai666/rocketmq-clients/issues",
+    "source": "https://github.com/zhaohai666/rocketmq-clients",
+    "docs": "https://github.com/zhaohai666/rocketmq-clients/blob/master/README.md"
   },
   "require": {
     "php": ">=7.4",
