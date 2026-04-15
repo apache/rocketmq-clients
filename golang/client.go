@@ -610,17 +610,22 @@ func routeEqual(old, new []*v2.MessageQueue) bool {
 }
 
 func (cli *defaultClient) notifyClientTermination() {
-	cli.log.Info("start notifyClientTermination")
 	ctx := cli.Sign(context.Background())
 	request := &v2.NotifyClientTerminationRequest{}
 	targets := cli.getTotalTargets()
 	for _, target := range targets {
-		endpoints, err := utils.ParseTarget(target)
+		endpoints, _ := utils.ParseTarget(target)
+		if endpoints == nil {
+			continue
+		}
+		cli.log.Infof("start notifyClientTermination, endpoints=%s", utils.EndpointsToString(endpoints))
+		_, err := cli.clientManager.NotifyClientTermination(ctx, endpoints, request, cli.opts.timeout)
 		if err != nil {
-			cli.clientManager.NotifyClientTermination(ctx, endpoints, request, cli.opts.timeout)
+			cli.log.Errorf("failed to notify client termination, endpoints=%s, error=%v", utils.EndpointsToString(endpoints), err)
 		}
 	}
 }
+
 func (cli *defaultClient) GracefulStop() error {
 	if !cli.on.CAS(true, false) {
 		return fmt.Errorf("client has been closed")
