@@ -92,15 +92,61 @@ class MetricName
 }
 
 /**
- * Metric Labels
+ * Metric Labels - Standard labels for metrics
+ * 
+ * Reference: Java MetricLabels
  */
 class MetricLabels
 {
+    /**
+     * Topic label key
+     */
     const TOPIC = 'topic';
+    
+    /**
+     * Client ID label key
+     */
     const CLIENT_ID = 'client_id';
+    
+    /**
+     * Consumer group label key
+     */
+    const CONSUMER_GROUP = 'consumer_group';
+    
+    /**
+     * Invocation status label key
+     */
+    const INVOCATION_STATUS = 'invocation_status';
+    
+    /**
+     * Status label key (legacy)
+     * @deprecated Use INVOCATION_STATUS instead
+     */
     const STATUS = 'status';
+    
+    /**
+     * Endpoints label key
+     */
     const ENDPOINTS = 'endpoints';
+    
+    /**
+     * Message type label key
+     */
     const MESSAGE_TYPE = 'message_type';
+    
+    /**
+     * Get all standard label keys
+     * 
+     * @return array Array of label keys
+     */
+    public static function getAll(): array {
+        return [
+            self::TOPIC,
+            self::CLIENT_ID,
+            self::CONSUMER_GROUP,
+            self::INVOCATION_STATUS,
+        ];
+    }
 }
 
 /**

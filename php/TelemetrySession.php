@@ -19,561 +19,440 @@
 namespace Apache\Rocketmq;
 
 use Apache\Rocketmq\V2\ClientType;
-use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\Settings;
-use Apache\Rocketmq\V2\Subscription;
-use Apache\Rocketmq\V2\SubscriptionEntry;
 use Apache\Rocketmq\V2\TelemetryCommand;
+use Apache\Rocketmq\V2\TelemetryRequest;
+use Apache\Rocketmq\V2\TelemetryResponse;
+use Apache\Rocketmq\V2\UserAgent;
 use Grpc\BaseStub;
+use Psr\Log\LoggerInterface;
 
 /**
- * Telemetry Session for managing bidirectional gRPC stream
+ * Telemetry session for bidirectional streaming with server
  * 
- * This class maintains a persistent bidirectional stream with RocketMQ server
- * to send client settings and receive configuration updates.
+ * Manages bidirectional gRPC stream to receive dynamic configuration
+ * from the server and send telemetry data.
+ * 
+ * Features:
+ * - Bidirectional streaming communication
+ * - Dynamic settings updates from server
+ * - Automatic reconnection on failure
+ * - Thread-safe operations
+ * 
+ * @see Java TelemetrySession implementation
  */
-class TelemetrySession
-{
-    /**
-     * @var BaseStub gRPC client stub
-     */
-    private $client;
-    
+class TelemetrySession {
     /**
      * @var string Client ID
      */
     private $clientId;
     
     /**
-     * @var string Consumer group
+     * @var BaseStub gRPC client stub
      */
-    private $consumerGroup;
+    private $client;
     
     /**
-     * @var string Topic name
+     * @var callable Stream call object
      */
-    private $topic;
+    private $streamCall;
     
     /**
-     * @var ClientType Client type (PUSH_CONSUMER or SIMPLE_CONSUMER)
+     * @var bool Whether session is active
      */
-    private $clientType;
+    private $active = false;
     
     /**
-     * @var resource|\Grpc\Call Bidirectional stream call object
+     * @var LoggerInterface|null Logger instance
      */
-    private $streamCall = null;
+    private $logger;
     
     /**
-     * @var bool Whether the session is active
+     * @var callable|null Settings update callback
      */
-    private $isActive = false;
+    private $settingsCallback;
     
     /**
-     * @var int Long polling timeout in seconds
+     * @var int Reconnect delay in milliseconds
      */
-    private $longPollingTimeout = 30;
+    private $reconnectDelay = 5000;
     
     /**
-     * @var array Subscription entries
+     * @var int Max reconnect attempts
      */
-    private $subscriptions = [];
+    private $maxReconnectAttempts = 10;
     
     /**
-     * @var int Reconnect backoff delay in seconds (default: 1 second)
-     */
-    private const RECONNECT_BACKOFF_DELAY = 1;
-    
-    /**
-     * @var int Maximum reconnect attempts (0 = unlimited)
-     */
-    private const MAX_RECONNECT_ATTEMPTS = 0;
-    
-    /**
-     * @var int Current reconnect attempt count
+     * @var int Current reconnect attempts
      */
     private $reconnectAttempts = 0;
     
     /**
-     * @var bool Whether auto-reconnect is enabled
+     * @var \Thread|callable|null Background thread or task
      */
-    private $autoReconnect = true;
+    private $backgroundTask = null;
     
     /**
      * Constructor
      * 
+     * @param string $clientId Client identifier
      * @param BaseStub $client gRPC client stub
-     * @param string $clientId Client ID
-     * @param string $consumerGroup Consumer group name
-     * @param string $topic Topic name
-     * @param int $clientType Client type (use ClientType constants)
-     * @param int $longPollingTimeout Long polling timeout in seconds
+     * @param LoggerInterface|null $logger Logger instance
      */
-    public function __construct(
-        BaseStub $client,
-        string $clientId,
-        string $consumerGroup,
-        string $topic,
-        int $clientType,
-        int $longPollingTimeout = 30
-    ) {
-        $this->client = $client;
+    public function __construct(string $clientId, BaseStub $client, ?LoggerInterface $logger = null) {
         $this->clientId = $clientId;
-        $this->consumerGroup = $consumerGroup;
-        $this->topic = $topic;
-        $this->clientType = $clientType;
-        $this->longPollingTimeout = $longPollingTimeout;
-        
-        // Add subscription for the topic
-        $this->addSubscription($topic);
+        $this->client = $client;
+        $this->logger = $logger;
     }
     
     /**
-     * Add a subscription entry
+     * Start telemetry session
      * 
-     * @param string $topic Topic name
-     * @param string|null $expression Filter expression (default: *)
-     * @return void
-     */
-    public function addSubscription(string $topic, ?string $expression = '*'): void
-    {
-        $this->subscriptions[$topic] = $expression;
-    }
-    
-    /**
-     * Remove a subscription entry
-     * 
-     * @param string $topic Topic name
-     * @return void
-     */
-    public function removeSubscription(string $topic): void
-    {
-        unset($this->subscriptions[$topic]);
-    }
-    
-    /**
-     * Start the telemetry session (create bidirectional stream)
+     * Establishes bidirectional stream with server and starts
+     * background listener for incoming messages.
      * 
      * @return void
      * @throws \Exception If stream creation fails
      */
-    public function start(): void
-    {
-        if ($this->isActive) {
+    public function start(): void {
+        if ($this->active) {
+            $this->logDebug("Telemetry session already active, clientId={}", [$this->clientId]);
             return;
         }
         
         try {
             // Create bidirectional stream
-            $this->streamCall = $this->client->Telemetry();
+            $this->streamCall = $this->client->Telemetry([], [
+                'timeout' => 3600, // 1 hour timeout
+            ]);
             
-            // Mark as active BEFORE sending settings
-            $this->isActive = true;
+            $this->active = true;
+            $this->reconnectAttempts = 0;
             
-            // Send initial settings
-            $this->sendSettings();
+            // Send initial handshake
+            $this->sendHandshake();
             
-            // Start background reader to keep stream alive
-            $this->startBackgroundReader();
+            // Start background listener
+            $this->startBackgroundListener();
             
-            Logger::info("Telemetry session started successfully, clientId={}", [$this->clientId]);
+            $this->logInfo("Telemetry session started successfully, clientId={}", [$this->clientId]);
+            
         } catch (\Exception $e) {
-            // Rollback state on failure
-            $this->isActive = false;
+            $this->logError("Failed to start telemetry session, clientId={}, error={}", [
+                $this->clientId,
+                $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+    
+    /**
+     * Stop telemetry session
+     * 
+     * Gracefully closes the stream and stops background tasks.
+     * 
+     * @return void
+     */
+    public function stop(): void {
+        if (!$this->active) {
+            return;
+        }
+        
+        $this->active = false;
+        
+        // Stop background task
+        if ($this->backgroundTask !== null) {
+            if (is_callable($this->backgroundTask)) {
+                // Cancel Swoole timer/coroutine
+                $this->backgroundTask = null;
+            }
+        }
+        
+        // Close stream
+        if ($this->streamCall !== null) {
+            try {
+                $this->streamCall->cancel();
+            } catch (\Exception $e) {
+                $this->logWarn("Error closing stream, clientId={}, error={}", [
+                    $this->clientId,
+                    $e->getMessage()
+                ]);
+            }
             $this->streamCall = null;
-            
-            throw new \Exception(
-                "Failed to start telemetry session: " . $e->getMessage(),
-                0,
-                $e
-            );
         }
+        
+        $this->logInfo("Telemetry session stopped, clientId={}", [$this->clientId]);
     }
     
     /**
-     * Start background reader to keep the stream alive
-     * This prevents the server from closing the connection
+     * Check if session is active
      * 
-     * @return void
+     * @return bool True if active, false otherwise
      */
-    private function startBackgroundReader(): void
-    {
-        // Use a separate thread/process to read responses
-        // For PHP, we'll use pcntl_fork if available, otherwise skip
-        if (function_exists('pcntl_fork')) {
-            $pid = pcntl_fork();
-            
-            if ($pid == -1) {
-                Logger::error("Failed to fork process for telemetry reader, clientId={}", [$this->clientId]);
-                return;
-            } elseif ($pid > 0) {
-                // Parent process - continue normally
-                Logger::info("Started telemetry background reader (PID: {}), clientId={}", [$pid, $this->clientId]);
-                return;
-            } else {
-                // Child process - read responses continuously
-                $this->runBackgroundReader();
-                exit(0);
-            }
-        } else {
-            // pcntl not available, use non-blocking read in main process
-            Logger::warn("pcntl_fork not available, telemetry will use non-blocking reads, clientId={}", [$this->clientId]);
-        }
+    public function isActive(): bool {
+        return $this->active;
     }
     
     /**
-     * Run background reader loop (executed in child process)
+     * Set settings update callback
      * 
-     * @return void
+     * This callback will be invoked when server sends new settings.
+     * 
+     * @param callable $callback Callback function(Settings $settings): void
+     * @return self
      */
-    private function runBackgroundReader(): void
-    {
-        Logger::info("Background telemetry reader started, clientId={}", [$this->clientId]);
-        
-        // For PHP gRPC, we can't easily read from the stream in a background process
-        // because the stream call object can't be shared across processes.
-        // Instead, we'll just keep the process alive to maintain the connection.
-        
-        $keepAliveCount = 0;
-        while ($this->isActive) {
-            sleep(5); // Keep alive for 5 seconds intervals
-            $keepAliveCount++;
-            
-            if ($keepAliveCount % 12 === 0) { // Every minute
-                Logger::debug("Telemetry session keep-alive ({$keepAliveCount} cycles), clientId={$this->clientId}");
-            }
-        }
-        
-        Logger::info("Background telemetry reader stopped, clientId={$this->clientId}");
+    public function setSettingsCallback(callable $callback): self {
+        $this->settingsCallback = $callback;
+        return $this;
     }
     
     /**
-     * Send settings to the server
+     * Send telemetry command to server
      * 
+     * @param TelemetryCommand $command Command to send
      * @return void
-     * @throws \Exception If sending fails
+     * @throws \Exception If send fails
      */
-    public function sendSettings(): void
-    {
-        if (!$this->isActive || !$this->streamCall) {
+    public function send(TelemetryCommand $command): void {
+        if (!$this->active || $this->streamCall === null) {
             throw new \Exception("Telemetry session is not active");
         }
         
         try {
-            $settings = $this->buildSettings();
-            $command = new TelemetryCommand();
-            $command->setSettings($settings);
-            
-            // Write to stream (non-blocking)
             $this->streamCall->write($command);
-            
-            Logger::info("Settings sent to server, clientId={$this->clientId}, consumerGroup={$this->consumerGroup}");
         } catch (\Exception $e) {
-            Logger::error("Failed to send settings, clientId={$this->clientId}", ['error' => $e->getMessage()]);
+            $this->logError("Failed to send telemetry command, clientId={}, error={}", [
+                $this->clientId,
+                $e->getMessage()
+            ]);
             throw $e;
         }
     }
     
     /**
-     * Build Settings object
+     * Send settings to server
      * 
-     * @return Settings
-     */
-    private function buildSettings(): Settings
-    {
-        $settings = new Settings();
-        
-        // Set client type
-        $settings->setClientType($this->clientType);
-        
-        // Build subscription
-        $subscription = new Subscription();
-        
-        // Set consumer group
-        $group = new Resource();
-        $group->setName($this->consumerGroup);
-        $subscription->setGroup($group);
-        
-        // Set long polling timeout
-        $longPollingDuration = new \Google\Protobuf\Duration();
-        $longPollingDuration->setSeconds($this->longPollingTimeout);
-        $subscription->setLongPollingTimeout($longPollingDuration);
-        
-        // Add subscription entries
-        $subscriptionEntries = [];
-        foreach ($this->subscriptions as $topic => $expression) {
-            $entry = new SubscriptionEntry();
-            $topicResource = new Resource();
-            $topicResource->setName($topic);
-            $entry->setTopic($topicResource);
-            
-            if (!empty($expression)) {
-                $filterExpression = new \Apache\Rocketmq\V2\FilterExpression();
-                $filterExpression->setExpression($expression);
-                $filterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);
-                $entry->setExpression($filterExpression);
-            }
-            
-            $subscriptionEntries[] = $entry;
-        }
-        
-        // Set all subscription entries at once
-        if (!empty($subscriptionEntries)) {
-            $subscription->setSubscriptions($subscriptionEntries);
-        }
-        
-        $settings->setSubscription($subscription);
-        
-        return $settings;
-    }
-    
-    /**
-     * Read responses from the stream (non-blocking check)
-     * 
-     * @return array Array of TelemetryCommand objects received
-     */
-    public function readResponses(): array
-    {
-        $commands = [];
-        
-        if (!$this->isActive || !$this->streamCall) {
-            return $commands;
-        }
-        
-        try {
-            // Try to read available responses
-            foreach ($this->streamCall->responses() as $response) {
-                if ($response instanceof TelemetryCommand) {
-                    $commands[] = $response;
-                    
-                    // Handle different command types
-                    $this->handleCommand($response);
-                }
-            }
-        } catch (\Exception $e) {
-            Logger::error("Error reading from telemetry stream, clientId={$this->clientId}", ['error' => $e->getMessage()]);
-            
-            // Trigger auto-reconnect if enabled
-            if ($this->autoReconnect) {
-                $this->handleStreamError($e);
-            }
-        }
-        
-        return $commands;
-    }
-    
-    /**
-     * Handle incoming telemetry command
-     * 
-     * @param TelemetryCommand $command
+     * @param Settings $settings Settings to send
      * @return void
      */
-    private function handleCommand(TelemetryCommand $command): void
-    {
-        // Check what type of command we received
-        if ($command->hasSettings()) {
-            Logger::debug("Received settings from server, clientId={$this->clientId}");
-            // Server is sending us updated settings - we can sync them here
-        }
-        
-        // Handle other command types as needed:
-        // - RecoverOrphanedTransactionCommand
-        // - VerifyMessageCommand
-        // - PrintThreadStackTraceCommand
-        // - ReconnectEndpointsCommand
-        // - NotifyUnsubscribeLiteCommand
+    public function sendSettings(Settings $settings): void {
+        $command = new TelemetryCommand();
+        $command->setSettings($settings);
+        $this->send($command);
     }
     
     /**
-     * Handle stream error and trigger auto-reconnect
-     * 
-     * @param \Exception $error The error that occurred
-     * @return void
-     */
-    private function handleStreamError(\Exception $error): void
-    {
-        Logger::error("Telemetry stream error detected, clientId={$this->clientId}, error: " . $error->getMessage());
-        
-        // Mark session as inactive
-        $this->isActive = false;
-        $this->streamCall = null;
-        
-        // Attempt to reconnect
-        $this->attemptReconnect();
-    }
-    
-    /**
-     * Attempt to reconnect the telemetry session
-     * 
-     * @return void
-     */
-    private function attemptReconnect(): void
-    {
-        // Check if auto-reconnect is enabled
-        if (!$this->autoReconnect) {
-            Logger::warn("Auto-reconnect is disabled, not attempting to reconnect, clientId={$this->clientId}");
-            return;
-        }
-        
-        // Check max reconnect attempts (0 = unlimited)
-        if (self::MAX_RECONNECT_ATTEMPTS > 0 && $this->reconnectAttempts >= self::MAX_RECONNECT_ATTEMPTS) {
-            Logger::error("Maximum reconnect attempts reached ({$this->reconnectAttempts}), giving up, clientId={$this->clientId}");
-            return;
-        }
-        
-        $this->reconnectAttempts++;
-        
-        Logger::info(
-            "Attempting to reconnect telemetry session, " .
-            "attempt={$this->reconnectAttempts}, " .
-            "delay=" . self::RECONNECT_BACKOFF_DELAY . "s, " .
-            "clientId={$this->clientId}"
-        );
-        
-        // Wait for backoff delay
-        sleep(self::RECONNECT_BACKOFF_DELAY);
-        
-        try {
-            // Try to recreate the stream
-            $this->recreateStream();
-            
-            // Reset reconnect counter on success
-            $this->reconnectAttempts = 0;
-            
-            Logger::info(
-                "Telemetry session reconnected successfully, clientId={}",
-                [$this->clientId]
-            );
-        } catch (\Exception $e) {
-            Logger::error(
-                "Failed to reconnect telemetry session, attempt={}, error: {}",
-                [$this->reconnectAttempts, $e->getMessage()]
-            );
-            
-            // Schedule another reconnect attempt
-            $this->attemptReconnect();
-        }
-    }
-    
-    /**
-     * Recreate the gRPC stream and resend settings
-     * 
-     * @return void
-     * @throws \Exception If stream creation fails
-     */
-    private function recreateStream(): void
-    {
-        try {
-            // Create new bidirectional stream
-            $this->streamCall = $this->client->Telemetry();
-            
-            // Resend initial settings
-            $this->sendSettings();
-            
-            // Mark as active
-            $this->isActive = true;
-        } catch (\Exception $e) {
-            $this->isActive = false;
-            $this->streamCall = null;
-            throw $e;
-        }
-    }
-    
-    /**
-     * Close the telemetry session
-     * 
-     * @return void
-     */
-    public function close(): void
-    {
-        if (!$this->isActive) {
-            return;
-        }
-        
-        try {
-            if ($this->streamCall) {
-                // Signal completion
-                $this->streamCall->writesDone();
-            }
-            
-            $this->isActive = false;
-            $this->streamCall = null;
-            
-            Logger::info("Telemetry session closed, clientId={}", [$this->clientId]);
-        } catch (\Exception $e) {
-            Logger::error("Error closing telemetry session, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
-        }
-    }
-    
-    /**
-     * Check if the session is active
-     * 
-     * @return bool
-     */
-    public function isActive(): bool
-    {
-        return $this->isActive;
-    }
-    
-    /**
-     * Get the client ID
+     * Get client ID
      * 
      * @return string
      */
-    public function getClientId(): string
-    {
+    public function getClientId(): string {
         return $this->clientId;
     }
     
     /**
-     * Get the consumer group
+     * Send initial handshake message
+     * 
+     * @return void
+     */
+    private function sendHandshake(): void {
+        $userAgent = new UserAgent();
+        $userAgent->setLanguage('PHP');
+        $userAgent->setVersion($this->getSdkVersion());
+        
+        $settings = new Settings();
+        $settings->setClientType(ClientType::PRODUCER); // Default to producer
+        $settings->setUserAgent($userAgent);
+        
+        $this->sendSettings($settings);
+        $this->logDebug("Handshake sent, clientId={}", [$this->clientId]);
+    }
+    
+    /**
+     * Start background listener for incoming messages
+     * 
+     * Uses Swoole coroutine if available, otherwise uses simple loop.
+     * 
+     * @return void
+     */
+    private function startBackgroundListener(): void {
+        if (extension_loaded('swoole') && class_exists('\\Swoole\\Coroutine')) {
+            $this->startSwooleListener();
+        } else {
+            $this->startSimpleListener();
+        }
+    }
+    
+    /**
+     * Start Swoole coroutine-based listener
+     * 
+     * @return void
+     */
+    private function startSwooleListener(): void {
+        go(function() {
+            $this->logDebug("Started Swoole coroutine listener, clientId={}", [$this->clientId]);
+            
+            while ($this->active && $this->streamCall !== null) {
+                try {
+                    // Read message from stream (non-blocking)
+                    $response = $this->streamCall->read();
+                    
+                    if ($response === null) {
+                        // Stream closed or no data
+                        usleep(100000); // Sleep 100ms
+                        continue;
+                    }
+                    
+                    if ($response instanceof TelemetryResponse) {
+                        $this->handleResponse($response);
+                    }
+                    
+                } catch (\Exception $e) {
+                    $this->logError("Error in Swoole listener, clientId={}, error={}", [
+                        $this->clientId,
+                        $e->getMessage()
+                    ]);
+                    
+                    // Attempt reconnection
+                    if ($this->reconnectAttempts < $this->maxReconnectAttempts) {
+                        $this->attemptReconnect();
+                    } else {
+                        $this->logError("Max reconnect attempts reached, stopping session");
+                        $this->stop();
+                        break;
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Start simple blocking listener (fallback)
+     * 
+     * @return void
+     */
+    private function startSimpleListener(): void {
+        // For non-Swoole environments, we can't do async listening
+        // This would need to be called periodically by the application
+        $this->logWarn("Using simple listener mode (not async), clientId={}", [$this->clientId]);
+    }
+    
+    /**
+     * Handle incoming telemetry response
+     * 
+     * @param TelemetryResponse $response Response from server
+     * @return void
+     */
+    private function handleResponse(TelemetryResponse $response): void {
+        $this->logDebug("Received telemetry response, clientId={}", [$this->clientId]);
+        
+        // Check for settings update
+        if ($response->hasSettings()) {
+            $settings = $response->getSettings();
+            $this->logInfo("Received settings update from server, clientId={}", [$this->clientId]);
+            
+            // Invoke callback if set
+            if ($this->settingsCallback !== null) {
+                try {
+                    call_user_func($this->settingsCallback, $settings);
+                } catch (\Exception $e) {
+                    $this->logError("Error in settings callback, clientId={}, error={}", [
+                        $this->clientId,
+                        $e->getMessage()
+                    ]);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Attempt to reconnect
+     * 
+     * @return void
+     */
+    private function attemptReconnect(): void {
+        $this->reconnectAttempts++;
+        
+        $delayMs = min(
+            $this->reconnectDelay * pow(2, $this->reconnectAttempts - 1),
+            30000 // Max 30 seconds
+        );
+        
+        $this->logWarn("Attempting reconnection, attempt={}, delay={}ms, clientId={}", [
+            $this->reconnectAttempts,
+            $delayMs,
+            $this->clientId
+        ]);
+        
+        usleep($delayMs * 1000);
+        
+        try {
+            $this->streamCall = $this->client->Telemetry([], [
+                'timeout' => 3600,
+            ]);
+            $this->sendHandshake();
+            $this->reconnectAttempts = 0; // Reset on success
+            $this->logInfo("Reconnection successful, clientId={}", [$this->clientId]);
+        } catch (\Exception $e) {
+            $this->logError("Reconnection failed, clientId={}, error={}", [
+                $this->clientId,
+                $e->getMessage()
+            ]);
+        }
+    }
+    
+    /**
+     * Get SDK version
      * 
      * @return string
      */
-    public function getConsumerGroup(): string
-    {
-        return $this->consumerGroup;
+    private function getSdkVersion(): string {
+        return '5.0.0'; // TODO: Read from composer.json
     }
     
     /**
-     * Enable or disable auto-reconnect
-     * 
-     * @param bool $enabled Whether to enable auto-reconnect
-     * @return void
+     * Log info message
      */
-    public function setAutoReconnect(bool $enabled): void
-    {
-        $this->autoReconnect = $enabled;
-        Logger::info("Auto-reconnect " . ($enabled ? "enabled" : "disabled") . " for clientId={$this->clientId}");
+    private function logInfo(string $message, array $context = []): void {
+        if ($this->logger !== null) {
+            $this->logger->info($this->formatMessage($message, $context));
+        }
     }
     
     /**
-     * Check if auto-reconnect is enabled
-     * 
-     * @return bool
+     * Log debug message
      */
-    public function isAutoReconnectEnabled(): bool
-    {
-        return $this->autoReconnect;
+    private function logDebug(string $message, array $context = []): void {
+        if ($this->logger !== null) {
+            $this->logger->debug($this->formatMessage($message, $context));
+        }
     }
     
     /**
-     * Get current reconnect attempt count
-     * 
-     * @return int
+     * Log warning message
      */
-    public function getReconnectAttempts(): int
-    {
-        return $this->reconnectAttempts;
+    private function logWarn(string $message, array $context = []): void {
+        if ($this->logger !== null) {
+            $this->logger->warning($this->formatMessage($message, $context));
+        }
     }
     
     /**
-     * Reset reconnect attempt counter
-     * 
-     * @return void
+     * Log error message
      */
-    public function resetReconnectAttempts(): void
-    {
-        $this->reconnectAttempts = 0;
+    private function logError(string $message, array $context = []): void {
+        if ($this->logger !== null) {
+            $this->logger->error($this->formatMessage($message, $context));
+        }
+    }
+    
+    /**
+     * Format log message
+     */
+    private function formatMessage(string $message, array $context = []): string {
+        foreach ($context as $key => $value) {
+            $message = str_replace('{' . $key . '}', (string)$value, $message);
+        }
+        return $message;
     }
 }

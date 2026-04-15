@@ -146,6 +146,11 @@ class Producer implements ProducerInterface
     private $metricsCollector;
     
     /**
+     * @var ClientMeterManager|null Client meter manager (optional)
+     */
+    private $meterManager = null;
+    
+    /**
      * @var int Max attempts for message sending
      */
     private $maxAttempts = 3;
@@ -188,6 +193,9 @@ class Producer implements ProducerInterface
         // Set route cache configuration from client configuration
         $this->routeCache->setConfigFromClientConfiguration($this->config);
         $this->metricsCollector = new MetricsCollector($this->clientId);
+        
+        // Auto-initialize ClientMeterManager for metrics support
+        $this->meterManager = new ClientMeterManager($this->clientId, $this->metricsCollector);
     }
     
     /**
@@ -396,6 +404,80 @@ class Producer implements ProducerInterface
     }
     
     /**
+     * Enable metrics collection with automatic meter interceptor
+     * 
+     * This method:
+     * 1. Creates ClientMeterManager if not exists
+     * 2. Enables metrics collection
+     * 3. Adds MessageMeterInterceptor to the interceptor chain
+     * 
+     * @param string|null $exportEndpoint OTLP export endpoint (optional)
+     * @param int $exportInterval Export interval in seconds (default: 60)
+     * @return self Return current instance for chainable calls
+     */
+    public function enableMetrics(?string $exportEndpoint = null, int $exportInterval = 60): self
+    {
+        // Create meter manager if not exists
+        if ($this->meterManager === null) {
+            $this->meterManager = new ClientMeterManager($this->clientId, $this->metricsCollector);
+        }
+        
+        // Enable metrics
+        $this->meterManager->enable($exportEndpoint, $exportInterval);
+        
+        // Check if MessageMeterInterceptor already exists
+        $hasMeterInterceptor = false;
+        foreach ($this->interceptors as $interceptor) {
+            if ($interceptor instanceof MessageMeterInterceptor) {
+                $hasMeterInterceptor = true;
+                break;
+            }
+        }
+        
+        // Add MessageMeterInterceptor if not exists
+        if (!$hasMeterInterceptor) {
+            $meterInterceptor = new MessageMeterInterceptor(
+                $this->metricsCollector,
+                $this->clientId
+            );
+            $this->addInterceptor($meterInterceptor);
+            Logger::info("MessageMeterInterceptor added automatically, clientId={}", [$this->clientId]);
+        }
+        
+        Logger::info("Metrics enabled for Producer, clientId={}, exportEndpoint={}", [
+            $this->clientId,
+            $exportEndpoint ?? 'local-only'
+        ]);
+        
+        return $this;
+    }
+    
+    /**
+     * Disable metrics collection
+     * 
+     * @return self Return current instance for chainable calls
+     */
+    public function disableMetrics(): self
+    {
+        if ($this->meterManager !== null) {
+            $this->meterManager->disable();
+            Logger::info("Metrics disabled for Producer, clientId={}", [$this->clientId]);
+        }
+        
+        return $this;
+    }
+    
+    /**
+     * Get client meter manager
+     * 
+     * @return ClientMeterManager|null Meter manager or null if not enabled
+     */
+    public function getMeterManager(): ?ClientMeterManager
+    {
+        return $this->meterManager;
+    }
+    
+    /**
      * Execute before-send interceptors
      * 
      * @param array $messages Message array
@@ -403,7 +485,7 @@ class Producer implements ProducerInterface
      */
     private function doBeforeSend($messages)
     {
-        $context = new MessageInterceptorContext(MessageHookPoints::SEND, MessageHookPointsStatus::OK);
+        $context = new MessageInterceptorContext(MessageHookPoints::SEND_BEFORE, MessageHookPointsStatus::OK);
         
         foreach ($this->interceptors as $interceptor) {
             try {
@@ -2124,6 +2206,12 @@ class Producer implements ProducerInterface
             // 6. Transition state to TERMINATED
             if (ClientState::canTransition($this->state, ClientState::TERMINATED)) {
                 $this->state = ClientState::TERMINATED;
+                
+                // Shutdown meter manager
+                if ($this->meterManager !== null) {
+                    $this->meterManager->shutdown();
+                }
+                
                 Logger::info("Shutdown the rocketmq producer successfully, clientId={}", [$this->clientId]);
             }
             

@@ -39,6 +39,8 @@ use Apache\Rocketmq\Logger;
  */
 
 // Configure endpoints and credentials
+// IMPORTANT: Never hardcode credentials in source code!
+// Use environment variables or a secure vault service.
 $endpoints = getenv('ROCKETMQ_ENDPOINTS') ?: '127.0.0.1:8081';
 $accessKey = getenv('ROCKETMQ_ACCESS_KEY') ?: '';
 $secretKey = getenv('ROCKETMQ_SECRET_KEY') ?: '';

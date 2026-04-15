@@ -3,3 +3,31 @@ src
 vendor
 composer.lock
 scripts/grpc/
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.production
+
+# Log files
+*.log
+logs/
+
+# Test reports
+test_results.log
+coverage/
+phpunit.xml
+
+# IDE configurations
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/

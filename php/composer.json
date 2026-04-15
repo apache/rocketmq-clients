@@ -18,7 +18,26 @@
       "MessageInterceptor.php",
       "MetricsCollector.php",
       "Consumer.php",
-      "Producer.php"
+      "Producer.php",
+      "Attribute.php",
+      "AttributeKey.php",
+      "MessageInterceptorContextInterface.php",
+      "MessageInterceptorContextImpl.php",
+      "MessageHookPoints.php",
+      "MessageHookPointsStatus.php",
+      "CompositedMessageInterceptor.php",
+      "LoggingMessageInterceptor.php",
+      "MessageMeterInterceptor.php",
+      "ClientMeterManager.php",
+      "MetricsSupportTrait.php",
+      "TelemetrySession.php",
+      "SwooleAsyncSupport.php",
+      "ClientSettings.php",
+      "PublishingSettings.php",
+      "PushSubscriptionSettings.php",
+      "HistogramEnum.php",
+      "GaugeEnum.php",
+      "InvocationStatus.php"
     ]
   },
   "require-dev": {

@@ -105,6 +105,16 @@ class SimpleConsumer
     private $telemetrySession = null;
     
     /**
+     * @var MetricsCollector|null Metrics collector
+     */
+    private $metricsCollector = null;
+    
+    /**
+     * @var ClientMeterManager|null Client meter manager
+     */
+    private $meterManager = null;
+    
+    /**
      * @var int Maximum message number per receive
      */
     private $maxMessageNum = 32;
@@ -193,6 +203,10 @@ class SimpleConsumer
         }
         
         $this->clientId = $this->generateClientId();
+        
+        // Auto-initialize metrics support
+        $this->metricsCollector = new MetricsCollector($this->clientId);
+        $this->meterManager = new ClientMeterManager($this->clientId, $this->metricsCollector);
     }
     
     /**
@@ -299,6 +313,64 @@ class SimpleConsumer
         list($response, $status) = $call->wait();
         
         return $response;
+    }
+    
+    /**
+     * Enable metrics collection and export
+     * 
+     * This method enables automatic metrics collection for message consumption.
+     * It will automatically collect:
+     * - Process latency (histogram)
+     * - Message size distribution
+     * - Success/failure counts
+     * - Cached messages count (gauge)
+     * 
+     * @param string|null $exportEndpoint OTLP export endpoint (optional)
+     *                                    Example: "http://localhost:4318/v1/metrics"
+     * @param int $exportInterval Export interval in seconds (default: 60)
+     * @return self Return current instance for chainable calls
+     * @example
+     * ```php
+     * // Simple usage - just enable metrics
+     * $consumer->enableMetrics();
+     * 
+     * // With custom export endpoint
+     * $consumer->enableMetrics('http://localhost:4318/v1/metrics', 30);
+     * ```
+     */
+    public function enableMetrics(?string $exportEndpoint = null, int $exportInterval = 60): self {
+        // Enable the meter manager
+        $this->meterManager->enable($exportEndpoint, $exportInterval);
+        
+        Logger::info("Metrics enabled for Consumer, clientId={}, exportEndpoint={}", [
+            $this->clientId,
+            $exportEndpoint ?? 'local-only'
+        ]);
+        
+        return $this;
+    }
+    
+    /**
+     * Disable metrics collection
+     * 
+     * @return self Return current instance for chainable calls
+     */
+    public function disableMetrics(): self {
+        if ($this->meterManager !== null) {
+            $this->meterManager->disable();
+            Logger::info("Metrics disabled for Consumer, clientId={}", [$this->clientId]);
+        }
+        
+        return $this;
+    }
+    
+    /**
+     * Get client meter manager
+     * 
+     * @return ClientMeterManager|null Meter manager or null if not enabled
+     */
+    public function getMeterManager(): ?ClientMeterManager {
+        return $this->meterManager;
     }
     
     /**
@@ -868,6 +940,12 @@ class SimpleConsumer
             pcntl_waitpid($this->heartbeatTimerPid, $status);
             $this->heartbeatTimerPid = null;
             Logger::info("Background heartbeat timer stopped, clientId={$this->clientId}");
+        }
+        
+        // Shutdown meter manager
+        if ($this->meterManager !== null) {
+            $this->meterManager->shutdown();
+            Logger::info("Meter manager shutdown, clientId={}", [$this->clientId]);
         }
         
         if ($this->client !== null) {

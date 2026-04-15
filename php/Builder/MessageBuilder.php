@@ -24,11 +24,14 @@ use Apache\Rocketmq\V2\MessageType;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SystemProperties;
 use Apache\Rocketmq\Message\MessageAdapter;
+use Apache\Rocketmq\Message\MessageBuilder as MessageBuilderInterface;
 
 /**
  * Builder for creating Message instances
+ * 
+ * Implements MessageBuilderInterface from Apache\Rocketmq\Message namespace
  */
-class MessageBuilder {
+class MessageBuilder implements MessageBuilderInterface {
     /**
      * @var string|null
      */
@@ -110,15 +113,11 @@ class MessageBuilder {
     /**
      * Set message keys
      *
-     * @param string|array $keys
+     * @param string ...$keys Variable number of key strings
      * @return MessageBuilder
      */
-    public function setKeys($keys) {
-        if (is_string($keys)) {
-            $this->keys = [$keys];
-        } elseif (is_array($keys)) {
-            $this->keys = $keys;
-        }
+    public function setKeys(string ...$keys) {
+        $this->keys = $keys;
         return $this;
     }
     
@@ -347,7 +346,7 @@ class MessageBuilder {
      * @return \Apache\Rocketmq\Message\Message
      * @throws MessageException
      */
-    public function build() {
+    public function build(): \Apache\Rocketmq\Message\Message {
         if (empty($this->topic)) {
             throw new MessageException("Topic must be set");
         }

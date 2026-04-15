@@ -18,234 +18,34 @@
 
 namespace Apache\Rocketmq;
 
-/**
- * Message Interceptor Context
- * 
- * Contains information required for interceptor execution
- */
-class MessageInterceptorContext
-{
-    /**
-     * @var string Hook point type
-     */
-    private $hookPoint;
-    
-    /**
-     * @var string Interceptor status
-     */
-    private $status;
-    
-    /**
-     * @var array Additional attributes
-     */
-    private $attributes = [];
-    
-    /**
-     * @var mixed Interceptor execution result
-     */
-    private $result;
-    
-    /**
-     * @var \Exception|null Exception information
-     */
-    private $exception;
-    
-    /**
-     * Constructor
-     * 
-     * @param string $hookPoint Hook point
-     * @param string $status Status
-     */
-    public function __construct($hookPoint, $status = 'OK')
-    {
-        $this->hookPoint = $hookPoint;
-        $this->status = $status;
-    }
-    
-    /**
-     * Get hook point
-     * 
-     * @return string
-     */
-    public function getHookPoint()
-    {
-        return $this->hookPoint;
-    }
-    
-    /**
-     * Get status
-     * 
-     * @return string
-     */
-    public function getStatus()
-    {
-        return $this->status;
-    }
-    
-    /**
-     * Set status
-     * 
-     * @param string $status
-     * @return void
-     */
-    public function setStatus($status)
-    {
-        $this->status = $status;
-    }
-    
-    /**
-     * Add attribute
-     * 
-     * @param string $key Attribute key
-     * @param mixed $value Attribute value
-     * @return void
-     */
-    public function putAttribute($key, $value)
-    {
-        $this->attributes[$key] = $value;
-    }
-    
-    /**
-     * Get attribute
-     * 
-     * @param string $key Attribute key
-     * @return mixed|null
-     */
-    public function getAttribute($key)
-    {
-        return isset($this->attributes[$key]) ? $this->attributes[$key] : null;
-    }
-    
-    /**
-     * Get all attributes
-     * 
-     * @return array
-     */
-    public function getAttributes()
-    {
-        return $this->attributes;
-    }
-    
-    /**
-     * Set execution result
-     * 
-     * @param mixed $result
-     * @return void
-     */
-    public function setResult($result)
-    {
-        $this->result = $result;
-    }
-    
-    /**
-     * Get execution result
-     * 
-     * @return mixed
-     */
-    public function getResult()
-    {
-        return $this->result;
-    }
-    
-    /**
-     * Set exception
-     * 
-     * @param \Exception|null $exception
-     * @return void
-     */
-    public function setException($exception)
-    {
-        $this->exception = $exception;
-    }
-    
-    /**
-     * Get exception
-     * 
-     * @return \Exception|null
-     */
-    public function getException()
-    {
-        return $this->exception;
-    }
-    
-    /**
-     * Convert to array
-     * 
-     * @return array
-     */
-    public function toArray()
-    {
-        return [
-            'hookPoint' => $this->hookPoint,
-            'status' => $this->status,
-            'attributes' => $this->attributes,
-            'result' => $this->result,
-            'exception' => $this->exception ? $this->exception->getMessage() : null,
-        ];
-    }
-}
-
-/**
- * Message Hook Points Enum
- */
-class MessageHookPoints
-{
-    const SEND = 'SEND';
-    const RECEIVE = 'RECEIVE';
-    const CONSUME = 'CONSUME';
-    const ACK = 'ACK';
-    const HEARTBEAT = 'HEARTBEAT';
-    const TRANSACTION_COMMIT = 'TRANSACTION_COMMIT';
-    const TRANSACTION_ROLLBACK = 'TRANSACTION_ROLLBACK';
-}
-
-/**
- * Message Hook Points Status Enum
- */
-class MessageHookPointsStatus
-{
-    const OK = 'OK';
-    const ERROR = 'ERROR';
-    const TIMEOUT = 'TIMEOUT';
-    const INVALID = 'INVALID';
-}
+use Apache\Rocketmq\Message\MessageInterface;
 
 /**
  * Message Interceptor Interface
  * 
- * Provides interception points before/after sending/receiving messages, used for implementing logging, monitoring, data masking, etc.
+ * Allows intercepting messages before and after they are processed.
+ * Interceptors are executed in a chain, with doBefore called in order
+ * and doAfter called in reverse order.
  * 
- * Usage example:
- * class LoggingInterceptor implements MessageInterceptor
- * {
- *     public function doBefore($context, $messages)
- *     {
- *         echo "Before send: " . count($messages) . " messages\n";
- *     }
- *     
- *     public function doAfter($context, $messages)
- *     {
- *         echo "After send: " . $context->getStatus() . "\n";
- *     }
- * }
+ * Reference: Java MessageInterceptor
  */
-interface MessageInterceptor
-{
+interface MessageInterceptor {
     /**
-     * Execute before sending/receiving messages
+     * Called before message processing (send or consume)
      * 
-     * @param MessageInterceptorContext $context Interceptor context
-     * @param array $messages Message array
+     * @param MessageInterceptorContextInterface $context Interceptor context
+     * @param MessageInterface[] $messages Messages being processed
      * @return void
+     * @throws \Exception If interception fails
      */
-    public function doBefore($context, $messages);
+    public function doBefore(MessageInterceptorContextInterface $context, array $messages): void;
     
     /**
-     * Execute after sending/receiving messages
+     * Called after message processing (send or consume)
      * 
-     * @param MessageInterceptorContext $context Interceptor context
-     * @param array $messages Message array
+     * @param MessageInterceptorContextInterface $context Interceptor context
+     * @param MessageInterface[] $messages Messages that were processed
      * @return void
      */
-    public function doAfter($context, $messages);
+    public function doAfter(MessageInterceptorContextInterface $context, array $messages): void;
 }
