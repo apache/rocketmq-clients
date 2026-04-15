@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/grpc/middleware/zaplog"
@@ -131,6 +132,13 @@ func (c *clientConn) dial(target string, dopts ...grpc.DialOption) (*grpc.Client
 		return nil, fmt.Errorf("failed to configure dialer: %v", err)
 	}
 	opts = append(opts, c.opts.DialOptions...)
+
+	if c.opts.MaxCallRecvMsgSize > 0 {
+		opts = append(opts, grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(c.opts.MaxCallRecvMsgSize),
+		))
+	}
+
 	dctx := c.ctx
 	if c.opts.DialTimeout > 0 {
 		dctx, _ = context.WithTimeout(c.ctx, c.opts.DialTimeout)
