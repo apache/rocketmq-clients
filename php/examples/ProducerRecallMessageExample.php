@@ -53,8 +53,8 @@ if (!empty($accessKey) && !empty($secretKey)) {
     $config->withCredentials($credentials);
 }
 
-// Create and start producer
-$producer = Producer::getInstance($config);
+// Create and start producer (topic parameter is recommended for better performance)
+$producer = Producer::getInstance($config, $topic);
 
 try {
     // Start the producer

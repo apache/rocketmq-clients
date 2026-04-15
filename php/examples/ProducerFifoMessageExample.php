@@ -41,8 +41,8 @@ try {
     $config = new ClientConfiguration($endpoints);
     $config->withSslEnabled(false);
     
-    // Create and start producer
-    $producer = Producer::getInstance($config);
+    // Create and start producer (topic parameter is recommended for better performance)
+    $producer = Producer::getInstance($config, $topic);
     $producer->start();
     echo "✓ Producer started\n\n";
     

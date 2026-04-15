@@ -41,6 +41,8 @@
       "MetricsCollector.php",
       "Consumer.php",
       "Producer.php",
+      "ClientServiceProvider.php",
+      "DefaultClientServiceProvider.php",
       "Attribute.php",
       "AttributeKey.php",
       "MessageInterceptorContextInterface.php",

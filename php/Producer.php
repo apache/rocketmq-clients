@@ -199,20 +199,24 @@ class Producer implements ProducerInterface
     }
     
     /**
-     * Get Producer singleton instance (configuration object recommended)
+     * Get Producer instance (configuration object recommended)
      * 
      * Usage example:
      * ```php
-     * // Method 1: Using configuration object (recommended)
+     * // Method 1: Using configuration object with topic (recommended)
      * $config = new ClientConfiguration('127.0.0.1:8080');
      * $producer = Producer::getInstance($config, 'my-topic');
      * 
      * // Method 2: Using legacy method (backward compatible)
      * $producer = Producer::getInstance('127.0.0.1:8080', 'my-topic');
+     * 
+     * // Note: Topic parameter is optional but highly recommended.
+     * // It allows the producer to prefetch topic route before message publishing,
+     * // which improves performance and helps discover configuration errors early.
      * ```
      * 
      * @param ClientConfiguration|string $configOrEndpoints Client configuration object or server endpoint string
-     * @param string|null $topic Topic name（Used when first parameter is endpoints string）
+     * @param string|null $topic Topic name (optional but recommended for better performance)
      * @param RetryPolicy|null $retryPolicy Retry policy (optional, only effective when using endpoint string)
      * @return Producer Producer instance
      */
