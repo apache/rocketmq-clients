@@ -54,11 +54,12 @@ class LoggingMessageInterceptor implements MessageInterceptor {
         $context->putAttribute(self::$START_TIME_KEY, Attribute::create($startTime));
         
         foreach ($messages as $index => $message) {
+            $messageId = method_exists($message, 'getMessageId') ? ($message->getMessageId() ?? 'N/A') : 'N/A';
             Logger::info("[{}] Processing message [index={}], topic={}, messageId={}", [
                 $hookPointName,
                 $index,
                 $message->getTopic(),
-                $message->getMessageId() ?? 'N/A'
+                $messageId
             ]);
         }
     }
@@ -83,13 +84,14 @@ class LoggingMessageInterceptor implements MessageInterceptor {
         }
         
         foreach ($messages as $index => $message) {
+            $messageId = method_exists($message, 'getMessageId') ? ($message->getMessageId() ?? 'N/A') : 'N/A';
             Logger::info("[{}] Message processed [index={}], status={}, processingTime={}ms, topic={}, messageId={}", [
                 $hookPointName,
                 $index,
                 $statusName,
                 $processingTimeMs,
                 $message->getTopic(),
-                $message->getMessageId() ?? 'N/A'
+                $messageId
             ]);
         }
     }

@@ -99,22 +99,6 @@ class ServerException extends ClientException {
 }
 
 /**
- * Exception thrown when message is invalid
- */
-class MessageException extends ClientException {
-    /**
-     * MessageException constructor
-     *
-     * @param string $message
-     * @param int $code
-     * @param \Exception|null $previous
-     */
-    public function __construct($message, $code = 400, \Exception $previous = null) {
-        parent::__construct($message, $code, $previous);
-    }
-}
-
-/**
  * Exception thrown when transaction-related error occurs
  */
 class TransactionException extends ClientException {

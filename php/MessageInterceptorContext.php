@@ -16,30 +16,14 @@
  * limitations under the License.
  */
 
-namespace Apache\Rocketmq\Tests;
-
-use PHPUnit\Framework\TestCase;
+namespace Apache\Rocketmq;
 
 /**
- * Metrics optimization test class
+ * Message Interceptor Context
  * 
- * Tests metrics batch export and async reporting
+ * Alias for MessageInterceptorContextImpl for backward compatibility
+ * 
+ * @deprecated Use MessageInterceptorContextImpl instead
  */
-class MetricsOptimizationTest extends TestCase
-{
-    /**
-     * Test batch export concept
-     */
-    public function testBatchExport()
-    {
-        $this->markTestSkipped('Integration test - requires full metrics system');
-    }
-    
-    /**
-     * Test async reporting concept
-     */
-    public function testAsyncReporting()
-    {
-        $this->markTestSkipped('Integration test - requires Swoole extension');
-    }
+class MessageInterceptorContext extends MessageInterceptorContextImpl {
 }

@@ -1,155 +1,249 @@
 <?php
 /**
- * Route cache test
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-require_once __DIR__ . '/../vendor/autoload.php';
+namespace Apache\Rocketmq\Tests;
 
+use PHPUnit\Framework\TestCase;
 use Apache\Rocketmq\RouteCache;
 use Apache\Rocketmq\V2\QueryRouteResponse;
-use Apache\Rocketmq\V2\MessageQueue;
-use Apache\Rocketmq\V2\Endpoints;
-use Apache\Rocketmq\V2\Resource;
 
-echo "=== Route Cache Test ===\n\n";
-
-// Reset singleton
-RouteCache::reset();
-
-// Test 1: Basic functionality
-echo "Test 1: Create and get singleton\n";
-$cache1 = RouteCache::getInstance();
-$cache2 = RouteCache::getInstance();
-echo ($cache1 === $cache2 ? "✓" : "✗") . " Singleton pattern works correctly\n\n";
-
-// Test 2: Cache set and get
-echo "Test 2: Cache set and get\n";
-$mockRoute = new QueryRouteResponse();
-$cache1->set('test_topic', $mockRoute);
-$cached = $cache1->get('test_topic');
-echo ($cached === $mockRoute ? "✓" : "✗") . " Cache set and get works correctly\n";
-echo "Cache size: " . $cache1->size() . "\n\n";
-
-// Test 3: Cache expiration
-echo "Test 3: Cache expiration mechanism\n";
-$cache1->setTtl(1); // Set TTL to 1 second
-$cache1->set('expire_test', $mockRoute);
-echo "✓ TTL set to 1 second\n";
-echo "Immediate get: " . ($cache1->get('expire_test') !== null ? 'Success' : 'Failed') . "\n";
-sleep(2);
-echo "Get after 2 seconds: " . ($cache1->get('expire_test') !== null ? 'Success' : 'Failed (expired)') . "\n\n";
-
-// Test 4: Cache invalidation
-echo "Test 4: Manually invalidate cache\n";
-$cache1->setTtl(60); // Restore TTL
-$cache1->set('invalidate_test', $mockRoute);
-echo "Cache exists: " . ($cache1->has('invalidate_test') ? 'Yes' : 'No') . "\n";
-$cache1->invalidate('invalidate_test');
-echo "Exists after invalidation: " . ($cache1->has('invalidate_test') ? 'Yes' : 'No') . "\n\n";
-
-// Test 5: getOrCreate method
-echo "Test 5: getOrCreate method\n";
-$callCount = 0;
-$loader = function($topic) use (&$callCount) {
-    $callCount++;
-    echo "  - Loader called ({$callCount} time)\n";
-    return new QueryRouteResponse();
-};
-
-$route1 = $cache1->getOrCreate('topic1', $loader);
-$route2 = $cache1->getOrCreate('topic1', $loader); // Should use cache
-$route3 = $cache1->getOrCreate('topic2', $loader); // New topic, call loader
-
-echo "✓ getOrCreate works correctly\n";
-echo "Loader call count: {$callCount} (expected 2 times)\n\n";
-
-// Test 6: Cache statistics
-echo "Test 6: Cache statistics\n";
-$stats = $cache1->getStats();
-echo "Hits: " . $stats['hits'] . "\n";
-echo "Misses: " . $stats['misses'] . "\n";
-echo "Refreshes: " . $stats['refreshes'] . "\n";
-echo "Cache size: " . $stats['size'] . "\n";
-echo "Hit rate: " . number_format($stats['hit_rate'] * 100, 2) . "%\n\n";
-
-// Test 7: Clear cache
-echo "Test 7: Clear all cache\n";
-$cache1->clear();
-echo "Size after clear: " . $cache1->size() . "\n";
-echo "✓ Cache cleared\n\n";
-
-// Test 8: TTL parameter validation
-echo "Test 8: TTL parameter validation\n";
-try {
-    $cache1->setTtl(0);
-    echo "✗ Should throw exception: TTL < 1\n";
-} catch (InvalidArgumentException $e) {
-    echo "✓ Correctly caught exception: TTL must be >= 1\n";
+/**
+ * Route cache test class
+ */
+class RouteCacheTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        // Reset singleton before each test
+        RouteCache::reset();
+    }
+    
+    /**
+     * Test singleton pattern
+     */
+    public function testSingletonPattern()
+    {
+        $cache1 = RouteCache::getInstance();
+        $cache2 = RouteCache::getInstance();
+        
+        $this->assertSame($cache1, $cache2);
+    }
+    
+    /**
+     * Test cache set and get
+     */
+    public function testCacheSetAndGet()
+    {
+        $cache = RouteCache::getInstance();
+        $mockRoute = new QueryRouteResponse();
+        
+        $cache->set('test_topic', $mockRoute);
+        $cached = $cache->get('test_topic');
+        
+        $this->assertSame($mockRoute, $cached);
+        $this->assertEquals(1, $cache->size());
+    }
+    
+    /**
+     * Test cache expiration
+     */
+    public function testCacheExpiration()
+    {
+        $cache = RouteCache::getInstance();
+        $cache->setTtl(1); // Set TTL to 1 second
+        
+        $mockRoute = new QueryRouteResponse();
+        $cache->set('expire_test', $mockRoute);
+        
+        // Should exist immediately
+        $this->assertNotNull($cache->get('expire_test'));
+        
+        // Wait for expiration
+        sleep(2);
+        
+        // Should be expired
+        $this->assertNull($cache->get('expire_test'));
+    }
+    
+    /**
+     * Test cache invalidation
+     */
+    public function testCacheInvalidation()
+    {
+        $cache = RouteCache::getInstance();
+        $mockRoute = new QueryRouteResponse();
+        
+        $cache->set('invalidate_test', $mockRoute);
+        $this->assertTrue($cache->has('invalidate_test'));
+        
+        $cache->invalidate('invalidate_test');
+        $this->assertFalse($cache->has('invalidate_test'));
+    }
+    
+    /**
+     * Test getOrCreate method
+     */
+    public function testGetOrCreate()
+    {
+        $cache = RouteCache::getInstance();
+        $callCount = 0;
+        
+        $loader = function($topic) use (&$callCount) {
+            $callCount++;
+            return new QueryRouteResponse();
+        };
+        
+        // First call should invoke loader
+        $route1 = $cache->getOrCreate('topic1', $loader);
+        $this->assertEquals(1, $callCount);
+        
+        // Second call should use cache
+        $route2 = $cache->getOrCreate('topic1', $loader);
+        $this->assertEquals(1, $callCount); // Loader not called again
+        
+        // Different topic should call loader
+        $route3 = $cache->getOrCreate('topic2', $loader);
+        $this->assertEquals(2, $callCount);
+    }
+    
+    /**
+     * Test cache statistics
+     */
+    public function testCacheStatistics()
+    {
+        $cache = RouteCache::getInstance();
+        $cache->clear();
+        $cache->resetStats();
+        
+        $mockRoute = new QueryRouteResponse();
+        
+        $cache->set('stat_test', $mockRoute);
+        $cache->get('stat_test'); // Hit
+        $cache->get('nonexistent'); // Miss
+        
+        $stats = $cache->getStats();
+        
+        $this->assertGreaterThanOrEqual(1, $stats['hits']);
+        $this->assertGreaterThanOrEqual(1, $stats['misses']);
+        $this->assertEquals(1, $stats['size']);
+        $this->assertIsFloat($stats['hit_rate']);
+    }
+    
+    /**
+     * Test clear cache
+     */
+    public function testClearCache()
+    {
+        $cache = RouteCache::getInstance();
+        
+        $cache->set('test1', new QueryRouteResponse());
+        $cache->set('test2', new QueryRouteResponse());
+        $this->assertEquals(2, $cache->size());
+        
+        $cache->clear();
+        $this->assertEquals(0, $cache->size());
+    }
+    
+    /**
+     * Test TTL parameter validation
+     */
+    public function testTtlValidation()
+    {
+        $cache = RouteCache::getInstance();
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $cache->setTtl(0);
+    }
+    
+    /**
+     * Test negative TTL validation
+     */
+    public function testNegativeTtlValidation()
+    {
+        $cache = RouteCache::getInstance();
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $cache->setTtl(-5);
+    }
+    
+    /**
+     * Test enable/disable cache
+     */
+    public function testEnableDisableCache()
+    {
+        $cache = RouteCache::getInstance();
+        
+        $cache->setEnabled(false);
+        $this->assertFalse($cache->isEnabled());
+        
+        $cache->setEnabled(true);
+        $this->assertTrue($cache->isEnabled());
+    }
+    
+    /**
+     * Test refresh expired cache
+     */
+    public function testRefreshExpired()
+    {
+        $cache = RouteCache::getInstance();
+        $cache->setTtl(1);
+        
+        $cache->set('refresh_test_1', new QueryRouteResponse());
+        $cache->set('refresh_test_2', new QueryRouteResponse());
+        
+        // Wait for expiration
+        sleep(2);
+        
+        $refreshCount = 0;
+        $refreshLoader = function($topic) use (&$refreshCount) {
+            $refreshCount++;
+            return new QueryRouteResponse();
+        };
+        
+        $refreshed = $cache->refreshExpired($refreshLoader);
+        
+        $this->assertGreaterThanOrEqual(2, count($refreshed));
+        $this->assertGreaterThanOrEqual(2, $refreshCount);
+    }
+    
+    /**
+     * Test performance with cache
+     */
+    public function testPerformanceWithCache()
+    {
+        $cache = RouteCache::getInstance();
+        $cache->clear();
+        $cache->resetStats();
+        
+        $start = microtime(true);
+        for ($i = 0; $i < 100; $i++) {
+            $cache->getOrCreate('perf_test', function() {
+                return new QueryRouteResponse();
+            });
+        }
+        $end = microtime(true);
+        
+        $timeMs = ($end - $start) * 1000;
+        
+        // Should be very fast with cache (< 100ms for 100 iterations)
+        $this->assertLessThan(100, $timeMs);
+        
+        $stats = $cache->getStats();
+        $this->assertEquals(99, $stats['hits']); // First call is miss, rest are hits
+    }
 }
-
-try {
-    $cache1->setTtl(-5);
-    echo "✗ Should throw exception: TTL < 0\n";
-} catch (InvalidArgumentException $e) {
-    echo "✓ Correctly caught exception: TTL cannot be negative\n";
-}
-echo "\n";
-
-// Test 9: Enable/disable cache
-echo "Test 9: Enable/disable cache\n";
-$cache1->setEnabled(false);
-echo "After disable: " . ($cache1->isEnabled() ? 'Enabled' : 'Disabled') . "\n";
-$cache1->setEnabled(true);
-echo "After enable: " . ($cache1->isEnabled() ? 'Enabled' : 'Disabled') . "\n\n";
-
-// 测试10: 刷新过期缓存
-echo "测试10: 批量刷新过期缓存\n";
-$cache1->setTtl(1);
-$cache1->set('refresh_test_1', new QueryRouteResponse());
-$cache1->set('refresh_test_2', new QueryRouteResponse());
-sleep(2);
-
-$refreshCount = 0;
-$refreshLoader = function($topic) use (&$refreshCount) {
-    $refreshCount++;
-    return new QueryRouteResponse();
-};
-
-$refreshed = $cache1->refreshExpired($refreshLoader);
-echo "Refreshed topics count: " . count($refreshed) . "\n";
-echo "Loader call count: {$refreshCount}\n";
-echo "✓ Batch refresh completed\n\n";
-
-// Test 11: Performance comparison
-echo "Test 11: Performance comparison (cache vs no cache)\n";
-$perfCache = RouteCache::getInstance();
-$perfCache->clear();
-$perfCache->resetStats();
-
-// Simulate 1000 queries
-$start = microtime(true);
-for ($i = 0; $i < 1000; $i++) {
-    $perfCache->getOrCreate('perf_test', function() {
-        return new QueryRouteResponse();
-    });
-}
-$end = microtime(true);
-$timeWithCache = ($end - $start) * 1000;
-
-$stats = $perfCache->getStats();
-echo "1000 queries time: " . number_format($timeWithCache, 2) . "ms\n";
-echo "Cache hits: " . $stats['hits'] . " times\n";
-echo "Cache misses: " . $stats['misses'] . " times\n";
-echo "Average per query: " . number_format($timeWithCache / 1000, 4) . "ms\n";
-echo "✓ Performance test completed\n\n";
-
-echo "=== All tests completed ===\n";
-echo "\nRoute cache features summary:\n";
-echo "1. ✓ Singleton pattern, globally shared\n";
-echo "2. ✓ TTL automatic expiration mechanism\n";
-echo "3. ✓ Manual invalidation control\n";
-echo "4. ✓ getOrCreate smart loading\n";
-echo "5. ✓ Detailed statistics\n";
-echo "6. ✓ Batch refresh expired cache\n";
-echo "7. ✓ Enable/disable switch\n";
-echo "8. ✓ Thread safe (within PHP process)\n";

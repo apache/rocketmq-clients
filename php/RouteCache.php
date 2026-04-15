@@ -163,14 +163,10 @@ class RouteCache
         // Try to get from cache
         $route = $this->get($topic);
         if ($route !== null) {
-            $this->stats['hits']++;
-            $this->metricsCollector->incrementCounter(MetricName::CACHE_HITS, ['topic' => $topic]);
             return $route;
         }
         
         // Cache miss, load new data
-        $this->stats['misses']++;
-        $this->metricsCollector->incrementCounter(MetricName::CACHE_MISSES, ['topic' => $topic]);
         
         $route = $loader($topic);
         $this->set($topic, $route);
@@ -192,14 +188,20 @@ class RouteCache
     public function get($topic)
     {
         if (!isset($this->cache[$topic])) {
+            $this->stats['misses']++;
+            $this->metricsCollector->incrementCounter(MetricName::CACHE_MISSES, ['topic' => $topic]);
             return null;
         }
         
         // Check if expired
         if ($this->isExpired($topic)) {
+            $this->stats['misses']++;
+            $this->metricsCollector->incrementCounter(MetricName::CACHE_MISSES, ['topic' => $topic]);
             return null;
         }
         
+        $this->stats['hits']++;
+        $this->metricsCollector->incrementCounter(MetricName::CACHE_HITS, ['topic' => $topic]);
         return $this->cache[$topic];
     }
     
@@ -485,6 +487,7 @@ class RouteCache
             'hits' => 0,
             'misses' => 0,
             'refreshes' => 0,
+            'evictions' => 0,
         ];
     }
     

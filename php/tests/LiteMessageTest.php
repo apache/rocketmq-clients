@@ -1,163 +1,132 @@
 <?php
 /**
- * Test script for Lite message send and receive
- * 
- * This test verifies:
- * 1. Lite messages can be sent successfully
- * 2. Lite messages can be consumed by LitePushConsumer
- * 3. Lite topic quota exceptions are handled correctly
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-require_once __DIR__ . '/../vendor/autoload.php';
+namespace Apache\Rocketmq\Tests;
 
+use PHPUnit\Framework\TestCase;
 use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\Builder\LiteProducerBuilder;
 use Apache\Rocketmq\Builder\MessageBuilder;
-use Apache\Rocketmq\Consumer\ConsumeResult;
 use Apache\Rocketmq\Exception\LiteTopicQuotaExceededException;
 
-echo "========================================\n";
-echo "  Lite Message Test\n";
-echo "========================================\n\n";
-
-$endpoints = '127.0.0.1:8080';
-$parentTopic = 'topic-normal';
-$consumerGroup = 'GID-normal-consumer';
-
-$config = new ClientConfiguration($endpoints);
-$config->withSslEnabled(false);
-
-// Test results
-$results = [
-    'sent' => 0,
-    'received' => 0,
-    'quotaErrors' => 0,
-];
-
-// ========================================
-// Step 1: Send Lite Messages
-// ========================================
-echo "[Step 1] Sending Lite Messages\n";
-echo str_repeat("-", 60) . "\n";
-
-try {
-    $producer = (new LiteProducerBuilder())
-        ->setClientConfiguration($config)
-        ->setParentTopic($parentTopic)
-        ->build();
+/**
+ * Lite message test class
+ * 
+ * Tests lite topic functionality including:
+ * - Setting lite topic on messages
+ * - Lite topic quota exception handling
+ * - Message builder integration
+ */
+class LiteMessageTest extends TestCase
+{
+    /**
+     * Test setting lite topic on message
+     */
+    public function testSetLiteTopic()
+    {
+        $message = (new MessageBuilder())
+            ->setTopic('parent-topic')
+            ->setBody('Test message')
+            ->setLiteTopic('lite-topic-1')
+            ->build();
+        
+        $this->assertEquals('lite-topic-1', $message->getLiteTopic());
+        $this->assertEquals('parent-topic', $message->getTopic());
+    }
     
-    $producer->start();
+    /**
+     * Test lite topic is optional
+     */
+    public function testLiteTopicOptional()
+    {
+        $message = (new MessageBuilder())
+            ->setTopic('parent-topic')
+            ->setBody('Test message')
+            ->build();
+        
+        $this->assertNull($message->getLiteTopic());
+    }
     
-    // Send messages to different lite topics
-    $liteTopics = ['lite-topic-1', 'lite-topic-2', 'lite-topic-3'];
+    /**
+     * Test LiteTopicQuotaExceededException
+     */
+    public function testLiteTopicQuotaException()
+    {
+        $exception = new LiteTopicQuotaExceededException(
+            'Quota exceeded',
+            'lite-topic-1'
+        );
+        
+        $this->assertEquals('lite-topic-1', $exception->getLiteTopic());
+        $this->assertStringContainsString('Quota exceeded', $exception->getMessage());
+    }
     
-    foreach ($liteTopics as $index => $liteTopic) {
-        try {
-            $msgBuilder = new MessageBuilder();
-            $message = $msgBuilder
-                ->setTopic($parentTopic)
-                ->setBody("Lite message #{$index} - {$liteTopic}")
-                ->setKeys(["lite-key-{$index}"])
+    /**
+     * Test LiteTopicQuotaExceededException with previous exception
+     */
+    public function testLiteTopicQuotaExceptionWithPrevious()
+    {
+        $previous = new \Exception('Original error');
+        $exception = new LiteTopicQuotaExceededException(
+            'Quota exceeded',
+            'lite-topic-1',
+            0,
+            $previous
+        );
+        
+        $this->assertSame($previous, $exception->getPrevious());
+    }
+    
+    /**
+     * Test message with keys and lite topic
+     */
+    public function testMessageWithKeysAndLiteTopic()
+    {
+        $message = (new MessageBuilder())
+            ->setTopic('parent-topic')
+            ->setBody('Test message')
+            ->setKeys('key1', 'key2')
+            ->setLiteTopic('lite-topic-1')
+            ->setTag('test-tag')
+            ->build();
+        
+        $this->assertEquals('lite-topic-1', $message->getLiteTopic());
+        $keys = $message->getKeys();
+        $this->assertIsArray($keys);
+        $this->assertContains('key1', $keys);
+        $this->assertContains('key2', $keys);
+        $this->assertEquals('test-tag', $message->getTag());
+    }
+    
+    /**
+     * Test different lite topics
+     */
+    public function testMultipleLiteTopics()
+    {
+        $liteTopics = ['lite-topic-1', 'lite-topic-2', 'lite-topic-3'];
+        
+        foreach ($liteTopics as $index => $liteTopic) {
+            $message = (new MessageBuilder())
+                ->setTopic('parent-topic')
+                ->setBody("Message {$index}")
                 ->setLiteTopic($liteTopic)
                 ->build();
             
-            $receipt = $producer->send($message);
-            $results['sent']++;
-            
-            echo "  ✓ Sent to {$liteTopic}: {$receipt->getMessageId()}\n";
-            
-        } catch (LiteTopicQuotaExceededException $e) {
-            $results['quotaErrors']++;
-            echo "  ⚠️  Quota exceeded for {$liteTopic}: {$e->getMessage()}\n";
-            
-        } catch (\Exception $e) {
-            echo "  ✗ Failed to send to {$liteTopic}: {$e->getMessage()}\n";
+            $this->assertEquals($liteTopic, $message->getLiteTopic());
         }
     }
-    
-    $producer->shutdown();
-    
-    echo "\n✓ Successfully sent {$results['sent']} lite messages\n\n";
-    
-} catch (\Exception $e) {
-    echo "✗ Failed to send lite messages: " . $e->getMessage() . "\n\n";
-    exit(1);
 }
-
-// ========================================
-// Step 2: Receive Lite Messages
-// ========================================
-echo "[Step 2] Receiving Lite Messages\n";
-echo str_repeat("-", 60) . "\n";
-
-try {
-    $receivedMessages = [];
-    
-    $consumer = (new \Apache\Rocketmq\Builder\LitePushConsumerBuilder())
-        ->setClientConfiguration($config)
-        ->setConsumerGroup($consumerGroup)
-        ->bindTopic($parentTopic)
-        ->setMessageListener(function($messageView) use (&$receivedMessages, &$results) {
-            $liteTopic = $messageView->getLiteTopic();
-            $messageId = $messageView->getMessageId();
-            
-            echo "  → Received from " . ($liteTopic ?? 'unknown') . ": {$messageId}\n";
-            
-            $receivedMessages[] = [
-                'messageId' => $messageId,
-                'liteTopic' => $liteTopic,
-                'body' => $messageView->getBody(),
-            ];
-            
-            $results['received']++;
-            
-            return ConsumeResult::SUCCESS;
-        })
-        ->build();
-    
-    $consumer->start();
-    
-    // Subscribe to lite topics
-    foreach (['lite-topic-1', 'lite-topic-2', 'lite-topic-3'] as $liteTopic) {
-        try {
-            $consumer->subscribeLite($liteTopic, function($messageView) use (&$results) {
-                $results['received']++;
-                return ConsumeResult::SUCCESS;
-            });
-        } catch (\Exception $e) {
-            echo "  ⚠️  Could not subscribe to {$liteTopic}: {$e->getMessage()}\n";
-        }
-    }
-    
-    echo "  → Waiting for messages (10 seconds)...\n";
-    sleep(10);
-    
-    $consumer->shutdown();
-    
-    echo "\n✓ Successfully received {$results['received']} lite messages\n\n";
-    
-} catch (\Exception $e) {
-    echo "✗ Failed to receive lite messages: " . $e->getMessage() . "\n\n";
-}
-
-// ========================================
-// Final Summary
-// ========================================
-echo str_repeat("=", 60) . "\n";
-echo "  TEST SUMMARY\n";
-echo str_repeat("=", 60) . "\n\n";
-
-echo "Messages Sent: {$results['sent']}\n";
-echo "Messages Received: {$results['received']}\n";
-echo "Quota Errors: {$results['quotaErrors']}\n\n";
-
-if ($results['sent'] > 0) {
-    echo "✅ Lite message test completed!\n";
-    echo "   - Lite messages can be sent with setLiteTopic()\n";
-    echo "   - Lite messages can be consumed by LitePushConsumer\n";
-    echo "   - Quota exceptions are properly handled\n";
-} else {
-    echo "⚠️  No messages were sent successfully\n";
-}
-
-echo "\n";

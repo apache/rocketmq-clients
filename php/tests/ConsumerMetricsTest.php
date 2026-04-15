@@ -1,125 +1,206 @@
 <?php
 /**
- * Example: Using Metrics with Consumer
- * 
- * This example demonstrates how to enable metrics for consumers
- * using the MetricsSupportTrait.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-require_once __DIR__ . '/../vendor/autoload.php';
+namespace Apache\Rocketmq\Tests;
 
-use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\Consumer\FilterExpression;
-use Apache\Rocketmq\Consumer\MessageListener;
-use Apache\Rocketmq\Consumer\ConsumeResult;
+use PHPUnit\Framework\TestCase;
 use Apache\Rocketmq\MetricsSupportTrait;
-use Apache\Rocketmq\Logger;
 
-// Example consumer class that uses MetricsSupportTrait
-class ExampleConsumer {
-    use MetricsSupportTrait;
-    
-    private $consumerGroup;
-    private $clientId;
-    
-    public function __construct(string $clientId, string $consumerGroup) {
-        $this->clientId = $clientId;
-        $this->consumerGroup = $consumerGroup;
-        
-        // Initialize metrics support
-        $this->initMetrics($clientId);
-        
-        Logger::info("ExampleConsumer created, clientId={}, group={}", [
-            $clientId,
-            $consumerGroup
-        ]);
-    }
-    
-    public function getClientId(): string {
-        return $this->clientId;
-    }
-    
-    public function getConsumerGroup(): string {
-        return $this->consumerGroup;
-    }
-    
+/**
+ * Consumer metrics test class
+ * 
+ * Tests consumer metrics functionality using MetricsSupportTrait
+ */
+class ConsumerMetricsTest extends TestCase
+{
     /**
-     * Simulate consuming messages
+     * Test MetricsSupportTrait basic functionality
      */
-    public function consumeMessages(int $count = 5): void {
-        Logger::info("Simulating consumption of {} messages", [$count]);
-        
-        for ($i = 1; $i <= $count; $i++) {
-            // Simulate message processing
-            usleep(rand(10000, 50000)); // 10-50ms
+    public function testMetricsSupportTraitBasic()
+    {
+        $consumer = new class('test-client', 'test-group') {
+            use MetricsSupportTrait;
             
-            Logger::info("Consumed message #{}", [$i]);
-        }
+            private $clientId;
+            private $consumerGroup;
+            
+            public function __construct(string $clientId, string $consumerGroup) {
+                $this->clientId = $clientId;
+                $this->consumerGroup = $consumerGroup;
+                $this->initMetrics($clientId);
+            }
+            
+            public function getClientId(): string {
+                return $this->clientId;
+            }
+            
+            public function getConsumerGroup(): string {
+                return $this->consumerGroup;
+            }
+        };
         
-        // Update custom gauge
-        if ($this->meterManager !== null) {
-            $this->meterManager->setGauge(
-                \Apache\Rocketmq\GaugeEnum::CONSUMER_CACHED_MESSAGES,
-                [
-                    \Apache\Rocketmq\MetricLabels::TOPIC => 'test-topic',
-                    \Apache\Rocketmq\MetricLabels::CONSUMER_GROUP => $this->consumerGroup,
-                ],
-                floatval($count)
-            );
-        }
+        $this->assertEquals('test-client', $consumer->getClientId());
+        $this->assertEquals('test-group', $consumer->getConsumerGroup());
     }
     
     /**
-     * Shutdown consumer
+     * Test enableMetrics method
      */
-    public function shutdown(): void {
-        Logger::info("Shutting down consumer...");
-        $this->shutdownMetrics();
-        Logger::info("Consumer shutdown complete");
+    public function testEnableMetrics()
+    {
+        $consumer = new class('test-client', 'test-group') {
+            use MetricsSupportTrait;
+            
+            private $clientId;
+            private $consumerGroup;
+            
+            public function __construct(string $clientId, string $consumerGroup) {
+                $this->clientId = $clientId;
+                $this->consumerGroup = $consumerGroup;
+                $this->initMetrics($clientId);
+            }
+            
+            public function getClientId(): string {
+                return $this->clientId;
+            }
+            
+            public function getConsumerGroup(): string {
+                return $this->consumerGroup;
+            }
+        };
+        
+        // Enable metrics
+        $result = $consumer->enableMetrics();
+        
+        $this->assertSame($consumer, $result);
+        
+        $meterManager = $consumer->getMeterManager();
+        $this->assertNotNull($meterManager);
+        $this->assertTrue($meterManager->isEnabled());
     }
-}
-
-// Main example
-$clientId = 'consumer-example-' . uniqid();
-$consumerGroup = 'test-consumer-group';
-
-try {
-    // Create consumer
-    $consumer = new ExampleConsumer($clientId, $consumerGroup);
     
-    // ✨ Enable metrics with one line!
-    $consumer->enableMetrics();
+    /**
+     * Test disableMetrics method
+     */
+    public function testDisableMetrics()
+    {
+        $consumer = new class('test-client', 'test-group') {
+            use MetricsSupportTrait;
+            
+            private $clientId;
+            
+            public function __construct(string $clientId) {
+                $this->clientId = $clientId;
+                $this->initMetrics($clientId);
+            }
+            
+            public function getClientId(): string {
+                return $this->clientId;
+            }
+            
+            public function getConsumerGroup(): string {
+                return 'test-group';
+            }
+        };
+        
+        $consumer->enableMetrics();
+        $this->assertTrue($consumer->getMeterManager()->isEnabled());
+        
+        $consumer->disableMetrics();
+        $this->assertFalse($consumer->getMeterManager()->isEnabled());
+    }
     
-    Logger::info("Consumer started with metrics enabled");
-    
-    // Simulate message consumption
-    $consumer->consumeMessages(10);
-    
-    // Get meter manager for advanced operations
-    $meterManager = $consumer->getMeterManager();
-    
-    if ($meterManager !== null) {
-        // Export metrics
+    /**
+     * Test metrics collection
+     */
+    public function testMetricsCollection()
+    {
+        $consumer = new class('test-client', 'test-group') {
+            use MetricsSupportTrait;
+            
+            private $clientId;
+            
+            public function __construct(string $clientId) {
+                $this->clientId = $clientId;
+                $this->initMetrics($clientId);
+            }
+            
+            public function getClientId(): string {
+                return $this->clientId;
+            }
+            
+            public function getConsumerGroup(): string {
+                return 'test-group';
+            }
+        };
+        
+        $consumer->enableMetrics();
+        
+        // Record some metrics
+        $meterManager = $consumer->getMeterManager();
+        $meterManager->setGauge(
+            \Apache\Rocketmq\GaugeEnum::CONSUMER_CACHED_MESSAGES,
+            [
+                \Apache\Rocketmq\MetricLabels::TOPIC => 'test-topic',
+                \Apache\Rocketmq\MetricLabels::CONSUMER_GROUP => 'test-group',
+            ],
+            10.0
+        );
+        
+        // Export and verify
         $result = $meterManager->exportMetrics();
-        
-        Logger::info("\n=== Collected {} metrics ===", [$result['count']]);
-        
-        foreach ($result['metrics'] as $metric) {
-            Logger::info("  {}: {} {}", [
-                $metric['name'],
-                $metric['value'],
-                json_encode($metric['labels'])
-            ]);
-        }
+        $this->assertTrue($result['success']);
+        $this->assertGreaterThan(0, $result['count']);
     }
     
-    // Shutdown
-    $consumer->shutdown();
-    
-    Logger::info("\n✓ Consumer example completed!");
-    
-} catch (\Exception $e) {
-    Logger::error("Error: {}", [$e->getMessage()]);
-    Logger::error("Stack trace: {}", [$e->getTraceAsString()]);
-    exit(1);
+    /**
+     * Test shutdownMetrics method
+     */
+    public function testShutdownMetrics()
+    {
+        $consumer = new class('test-client', 'test-group') {
+            use MetricsSupportTrait;
+            
+            private $clientId;
+            
+            public function __construct(string $clientId) {
+                $this->clientId = $clientId;
+                $this->initMetrics($clientId);
+            }
+            
+            public function getClientId(): string {
+                return $this->clientId;
+            }
+            
+            public function getConsumerGroup(): string {
+                return 'test-group';
+            }
+            
+            // Public wrapper for protected method
+            public function shutdownMetricsPublic(): void {
+                $this->shutdownMetrics();
+            }
+        };
+        
+        $consumer->enableMetrics();
+        $this->assertTrue($consumer->getMeterManager()->isEnabled());
+        
+        $consumer->shutdownMetricsPublic();
+        $this->assertFalse($consumer->getMeterManager()->isEnabled());
+    }
 }

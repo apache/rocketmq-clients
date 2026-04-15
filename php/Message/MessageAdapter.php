@@ -110,7 +110,8 @@ class MessageAdapter implements Message {
             
             // Message group
             try {
-                $this->messageGroup = $sysProps->getMessageGroup();
+                $messageGroup = $sysProps->getMessageGroup();
+                $this->messageGroup = !empty($messageGroup) ? $messageGroup : null;
             } catch (\Exception $e) { /* Not available */ }
             
             // Delivery timestamp
@@ -126,6 +127,12 @@ class MessageAdapter implements Message {
                 if ($sysProps->hasPriority()) {
                     $this->priority = $sysProps->getPriority();
                 }
+            } catch (\Exception $e) { /* Not available */ }
+            
+            // Lite topic
+            try {
+                $liteTopic = $sysProps->getLiteTopic();
+                $this->liteTopic = !empty($liteTopic) ? $liteTopic : null;
             } catch (\Exception $e) { /* Not available */ }
         }
         

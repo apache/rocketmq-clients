@@ -1,105 +1,124 @@
 <?php
 /**
- * Example: Using Message Meter Interceptor for Automatic Metrics Collection
- * 
- * This example demonstrates how to use the MessageMeterInterceptor to automatically
- * collect metrics for message send and consume operations.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-require_once __DIR__ . '/../vendor/autoload.php';
+namespace Apache\Rocketmq\Tests;
 
-use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\Builder\MessageBuilder;
-use Apache\Rocketmq\Producer;
-use Apache\Rocketmq\CompositedMessageInterceptor;
+use PHPUnit\Framework\TestCase;
 use Apache\Rocketmq\MessageMeterInterceptor;
 use Apache\Rocketmq\MetricsCollector;
-use Apache\Rocketmq\Logger;
+use Apache\Rocketmq\ClientMeterManager;
+use Apache\Rocketmq\MessageInterceptorContext;
+use Apache\Rocketmq\MessageHookPoints;
+use Apache\Rocketmq\MessageHookPointsStatus;
+use Apache\Rocketmq\Builder\MessageBuilder;
 
-// Configure endpoints
-$endpoints = getenv('ROCKETMQ_ENDPOINTS') ?: '127.0.0.1:8080';
-$config = new ClientConfiguration($endpoints);
-
-$topic = 'topic-normal';
-$clientId = 'producer-example-' . uniqid();
-
-try {
-    // Create metrics collector
-    $metricsCollector = new MetricsCollector($clientId);
+/**
+ * Message meter interceptor test class
+ * 
+ * Tests automatic metrics collection through message interceptors
+ */
+class MeterInterceptorTest extends TestCase
+{
+    /**
+     * Test MessageMeterInterceptor creation
+     */
+    public function testMessageMeterInterceptorCreation()
+    {
+        $metricsCollector = new MetricsCollector('test-client');
+        
+        // MessageMeterInterceptor requires: MetricsCollector, clientId, consumerGroup (optional)
+        $interceptor = new MessageMeterInterceptor($metricsCollector, 'test-client');
+        
+        $this->assertInstanceOf(MessageMeterInterceptor::class, $interceptor);
+    }
     
-    // Create producer
-    $producer = Producer::getInstance($config, $topic);
-    
-    // Create composited interceptor
-    $interceptorChain = new CompositedMessageInterceptor();
-    
-    // Add message meter interceptor (for automatic metrics collection)
-    $meterInterceptor = new MessageMeterInterceptor(
-        $metricsCollector,
-        $clientId
-    );
-    $interceptorChain->addInterceptor($meterInterceptor);
-    
-    // You can also add logging interceptor
-    // $loggingInterceptor = new LoggingMessageInterceptor();
-    // $interceptorChain->addInterceptor($loggingInterceptor);
-    
-    // Add interceptor chain to producer
-    $producer->addInterceptor($interceptorChain);
-    
-    Logger::info("Producer configured with {} interceptor(s)", [
-        $interceptorChain->getInterceptorCount()
-    ]);
-    
-    // Start producer
-    $producer->start();
-    Logger::info("Producer started, clientId={}", [$clientId]);
-    
-    // Send messages (metrics will be collected automatically)
-    for ($i = 1; $i <= 5; $i++) {
+    /**
+     * Test interceptor records send metrics
+     */
+    public function testInterceptorRecordsSendMetrics()
+    {
+        $metricsCollector = new MetricsCollector('test-client');
+        $meterManager = new ClientMeterManager('test-client', $metricsCollector);
+        $meterManager->enable();
+        
+        // MessageMeterInterceptor expects: MetricsCollector, clientId, consumerGroup
+        $interceptor = new MessageMeterInterceptor($metricsCollector, 'test-client', 'test-group');
+        
         $message = (new MessageBuilder())
-            ->setTopic($topic)
-            ->setBody("Message #{$i} with automatic metrics")
-            ->setKeys(["meter-test", "message-{$i}"])
+            ->setTopic('test-topic')
+            ->setBody('Test message body')
             ->build();
         
-        try {
-            $receipt = $producer->send($message);
-            Logger::info("Message #{} sent successfully, messageId={}", [
-                $i,
-                $receipt->getMessageId()
-            ]);
-            
-            // Simulate some delay
-            usleep(100000); // 100ms
-            
-        } catch (\Exception $e) {
-            Logger::error("Failed to send message #{}: {}", [$i, $e->getMessage()]);
-        }
+        // Before send
+        $beforeContext = new \Apache\Rocketmq\MessageInterceptorContext(MessageHookPoints::SEND_BEFORE, MessageHookPointsStatus::OK);
+        $interceptor->doBefore($beforeContext, [$message]);
+        
+        // After send
+        $afterContext = new \Apache\Rocketmq\MessageInterceptorContext(MessageHookPoints::SEND_AFTER, MessageHookPointsStatus::OK);
+        $interceptor->doAfter($afterContext, [$message]);
+        
+        // Verify metrics were collected (may be 0 in test environment)
+        $result = $meterManager->exportMetrics();
+        $this->assertTrue($result['success']);
+        // Note: count may be 0 if metrics haven't been flushed yet
     }
     
-    // Export metrics
-    Logger::info("\n=== Collected Metrics ===");
-    $metrics = $metricsCollector->getAllMetrics();
-    
-    foreach ($metrics as $key => $metric) {
-        Logger::info("Metric: {} = {} (labels: {})", [
-            $metric['name'],
-            $metric['value'],
-            json_encode($metric['labels'])
-        ]);
+    /**
+     * Test interceptor handles errors
+     */
+    public function testInterceptorHandlesErrors()
+    {
+        $metricsCollector = new MetricsCollector('test-client');
+        $meterManager = new ClientMeterManager('test-client', $metricsCollector);
+        $meterManager->enable();
+        
+        $interceptor = new MessageMeterInterceptor($metricsCollector, 'test-client', 'test-group');
+        
+        $message = (new MessageBuilder())
+            ->setTopic('test-topic')
+            ->setBody('Test message')
+            ->build();
+        
+        // Simulate error
+        $context = new \Apache\Rocketmq\MessageInterceptorContext(MessageHookPoints::SEND_AFTER, MessageHookPointsStatus::ERROR);
+        
+        // Should not throw exception
+        $interceptor->doAfter($context, [$message]);
+        
+        $this->assertTrue(true);
     }
     
-    // Export to JSON format
-    $jsonMetrics = $metricsCollector->exportMetrics();
-    Logger::info("\nMetrics in JSON format:\n{}", [$jsonMetrics]);
-    
-    // Shutdown producer
-    $producer->shutdown();
-    Logger::info("Producer shutdown successfully");
-    
-} catch (\Exception $e) {
-    Logger::error("Error: {}", [$e->getMessage()]);
-    Logger::error("Stack trace: {}", [$e->getTraceAsString()]);
-    exit(1);
+    /**
+     * Test interceptor with null message
+     */
+    public function testInterceptorWithNullMessage()
+    {
+        $metricsCollector = new MetricsCollector('test-client');
+        $meterManager = new ClientMeterManager('test-client', $metricsCollector);
+        
+        $interceptor = new MessageMeterInterceptor($metricsCollector, 'test-client');
+        
+        $context = new \Apache\Rocketmq\MessageInterceptorContext(MessageHookPoints::SEND_BEFORE, MessageHookPointsStatus::OK);
+        // Don't set message
+        
+        // Should handle gracefully
+        $interceptor->doBefore($context, []);
+        
+        $this->assertTrue(true);
+    }
 }

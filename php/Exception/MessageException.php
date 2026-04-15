@@ -21,7 +21,7 @@ namespace Apache\Rocketmq\Exception;
 /**
  * Exception thrown when message validation or construction fails
  */
-class MessageException extends \Exception
+class MessageException extends ClientException
 {
     /**
      * Constructor
@@ -30,7 +30,7 @@ class MessageException extends \Exception
      * @param int $code Error code
      * @param \Throwable|null $previous Previous exception
      */
-    public function __construct(string $message = "", int $code = 0, \Throwable $previous = null)
+    public function __construct(string $message = "", int $code = 400, \Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
     }

@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+namespace Apache\Rocketmq\Tests;
+
 use PHPUnit\Framework\TestCase;
 use Apache\Rocketmq\Producer;
 
@@ -43,7 +45,7 @@ class ProducerTest extends TestCase
         $producer = Producer::getInstance('test:8080', 'test');
         
         // Verify Client ID format
-        $reflection = new ReflectionClass($producer);
+        $reflection = new \ReflectionClass($producer);
         $property = $reflection->getProperty('clientId');
         $property->setAccessible(true);
         $clientId = $property->getValue($producer);
@@ -88,7 +90,7 @@ class PushConsumerTest extends TestCase
         });
         
         // Verify listener is set
-        $reflection = new ReflectionClass($consumer);
+        $reflection = new \ReflectionClass($consumer);
         $property = $reflection->getProperty('messageListener');
         $property->setAccessible(true);
         $listener = $property->getValue($consumer);

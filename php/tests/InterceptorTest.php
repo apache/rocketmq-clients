@@ -1,67 +1,178 @@
 <?php
 /**
- * Example: Using the Interceptor Framework
- * 
- * This example demonstrates how to use the message interceptor framework
- * for logging, monitoring, and custom processing.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-require_once __DIR__ . '/../vendor/autoload.php';
+namespace Apache\Rocketmq\Tests;
 
-use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\Builder\MessageBuilder;
-use Apache\Rocketmq\Producer;
+use PHPUnit\Framework\TestCase;
 use Apache\Rocketmq\CompositedMessageInterceptor;
 use Apache\Rocketmq\LoggingMessageInterceptor;
-use Apache\Rocketmq\Logger;
+use \Apache\Rocketmq\MessageInterceptorContext;
+use Apache\Rocketmq\MessageHookPoints;
+use Apache\Rocketmq\MessageHookPointsStatus;
+use Apache\Rocketmq\Builder\MessageBuilder;
 
-// Configure endpoints
-$endpoints = getenv('ROCKETMQ_ENDPOINTS') ?: '127.0.0.1:8080';
-$config = new ClientConfiguration($endpoints);
-
-$topic = 'topic-normal';
-
-try {
-    // Create producer
-    $producer = Producer::getInstance($config, $topic);
+/**
+ * Interceptor framework test class
+ * 
+ * Tests message interceptor functionality including:
+ * - CompositedMessageInterceptor chain management
+ * - LoggingMessageInterceptor
+ * - Custom interceptors
+ */
+class InterceptorTest extends TestCase
+{
+    /**
+     * Test CompositedMessageInterceptor basic functionality
+     */
+    public function testCompositedInterceptorBasic()
+    {
+        $interceptorChain = new CompositedMessageInterceptor();
+        
+        $this->assertEquals(0, $interceptorChain->getInterceptorCount());
+    }
     
-    // Create composited interceptor
-    $interceptorChain = new CompositedMessageInterceptor();
+    /**
+     * Test adding interceptors
+     */
+    public function testAddInterceptor()
+    {
+        $interceptorChain = new CompositedMessageInterceptor();
+        
+        $loggingInterceptor = new LoggingMessageInterceptor();
+        $interceptorChain->addInterceptor($loggingInterceptor);
+        
+        $this->assertEquals(1, $interceptorChain->getInterceptorCount());
+    }
     
-    // Add logging interceptor
-    $loggingInterceptor = new LoggingMessageInterceptor();
-    $interceptorChain->addInterceptor($loggingInterceptor);
+    /**
+     * Test adding multiple interceptors
+     */
+    public function testAddMultipleInterceptors()
+    {
+        $interceptorChain = new CompositedMessageInterceptor();
+        
+        $interceptorChain->addInterceptor(new LoggingMessageInterceptor());
+        $interceptorChain->addInterceptor(new LoggingMessageInterceptor());
+        $interceptorChain->addInterceptor(new LoggingMessageInterceptor());
+        
+        $this->assertEquals(3, $interceptorChain->getInterceptorCount());
+    }
     
-    // You can add more custom interceptors here
-    // $customInterceptor = new MyCustomInterceptor();
-    // $interceptorChain->addInterceptor($customInterceptor);
+    /**
+     * Test custom interceptor implementation
+     */
+    public function testCustomInterceptor()
+    {
+        $customInterceptor = new class implements \Apache\Rocketmq\MessageInterceptor {
+            public $beforeCalled = false;
+            public $afterCalled = false;
+            
+            public function doBefore(\Apache\Rocketmq\MessageInterceptorContextInterface $context, array $messages): void {
+                $this->beforeCalled = true;
+            }
+            
+            public function doAfter(\Apache\Rocketmq\MessageInterceptorContextInterface $context, array $messages): void {
+                $this->afterCalled = true;
+            }
+        };
+        
+        $message = (new MessageBuilder())
+            ->setTopic('test-topic')
+            ->setBody('Test message')
+            ->build();
+        
+        $context = new MessageInterceptorContext(MessageHookPoints::SEND_BEFORE, MessageHookPointsStatus::OK);
+        
+        // Call interceptor
+        $customInterceptor->doBefore($context, [$message]);
+        $this->assertTrue($customInterceptor->beforeCalled);
+        
+        $customInterceptor->doAfter($context, [$message]);
+        $this->assertTrue($customInterceptor->afterCalled);
+    }
     
-    // Add interceptor chain to producer
-    $producer->addInterceptor($interceptorChain);
+    /**
+     * Test interceptor chain execution
+     */
+    public function testInterceptorChainExecution()
+    {
+        $executionOrder = [];
+        
+        $interceptor1 = new class($executionOrder) implements \Apache\Rocketmq\MessageInterceptor {
+            private $order;
+            public function __construct(&$order) { $this->order = &$order; }
+            public function doBefore(\Apache\Rocketmq\MessageInterceptorContextInterface $context, array $messages): void {
+                $this->order[] = 'interceptor1-before';
+            }
+            public function doAfter(\Apache\Rocketmq\MessageInterceptorContextInterface $context, array $messages): void {
+                $this->order[] = 'interceptor1-after';
+            }
+        };
+        
+        $interceptor2 = new class($executionOrder) implements \Apache\Rocketmq\MessageInterceptor {
+            private $order;
+            public function __construct(&$order) { $this->order = &$order; }
+            public function doBefore(\Apache\Rocketmq\MessageInterceptorContextInterface $context, array $messages): void {
+                $this->order[] = 'interceptor2-before';
+            }
+            public function doAfter(\Apache\Rocketmq\MessageInterceptorContextInterface $context, array $messages): void {
+                $this->order[] = 'interceptor2-after';
+            }
+        };
+        
+        $chain = new CompositedMessageInterceptor();
+        $chain->addInterceptor($interceptor1);
+        $chain->addInterceptor($interceptor2);
+        
+        $message = (new MessageBuilder())
+            ->setTopic('test-topic')
+            ->setBody('Test message')
+            ->build();
+        
+        $context = new MessageInterceptorContext(MessageHookPoints::SEND_BEFORE, MessageHookPointsStatus::OK);
+        
+        // Execute chain
+        $chain->doBefore($context, [$message]);
+        
+        $this->assertEquals([
+            'interceptor1-before',
+            'interceptor2-before'
+        ], $executionOrder);
+    }
     
-    Logger::info("Producer configured with {} interceptor(s)", [
-        $interceptorChain->getInterceptorCount()
-    ]);
-    
-    // Start producer
-    $producer->start();
-    Logger::info("Producer started, clientId={}", [$producer->getClientId()]);
-    
-    // Send a message (interceptors will be invoked automatically)
-    $message = (new MessageBuilder())
-        ->setTopic($topic)
-        ->setBody("Hello from interceptor example!")
-        ->setKeys(["interceptor-test"])
-        ->build();
-    
-    $receipt = $producer->send($message);
-    Logger::info("Message sent successfully, messageId={}", [$receipt->getMessageId()]);
-    
-    // Shutdown producer
-    $producer->shutdown();
-    Logger::info("Producer shutdown successfully");
-    
-} catch (\Exception $e) {
-    Logger::error("Error: {}", [$e->getMessage()]);
-    exit(1);
+    /**
+     * Test LoggingMessageInterceptor
+     */
+    public function testLoggingInterceptor()
+    {
+        $interceptor = new LoggingMessageInterceptor();
+        
+        $message = (new MessageBuilder())
+            ->setTopic('test-topic')
+            ->setBody('Test message')
+            ->build();
+        
+        $context = new MessageInterceptorContext(MessageHookPoints::SEND_BEFORE, MessageHookPointsStatus::OK);
+        
+        // Should not throw exception
+        $interceptor->doBefore($context, [$message]);
+        $interceptor->doAfter($context, [$message]);
+        
+        $this->assertTrue(true); // If we get here, it worked
+    }
 }
