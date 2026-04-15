@@ -54,7 +54,7 @@ if (!empty($accessKey) && !empty($secretKey)) {
 }
 
 // Create and start producer
-$producer = Producer::getInstance($config, $topic);
+$producer = Producer::getInstance($config);
 
 try {
     // Start the producer

@@ -37,7 +37,6 @@ use Apache\Rocketmq\Message\MessageView;
 // Configuration
 $endpoints = '127.0.0.1:8080';
 $topic = 'topic-php-transcation';
-$producerGroup = 'GID-php-transcation';
 
 echo "=== Producer Transaction Message Example ===\n\n";
 
@@ -46,14 +45,7 @@ try {
     $config = new ClientConfiguration($endpoints);
     $config->withSslEnabled(false);
     
-    // Create and start producer
-    $producer = Producer::getInstance($config, $topic);
-    $producer->start();
-    echo "✓ Producer started\n";
-    echo "  - Topic: {$topic}\n";
-    echo "  - Producer Group: {$producerGroup}\n\n";
-    
-    // Set transaction checker (optional, for checking orphaned transactions)
+    // Create transaction checker (optional, for checking orphaned transactions)
     $transactionChecker = new class implements TransactionChecker {
         public function check(MessageView $messageView): TransactionResolution {
             echo "  [Transaction Checker] Checking transaction status for message: " . $messageView->getMessageId() . "\n";
@@ -61,7 +53,12 @@ try {
             return TransactionResolution::COMMIT;
         }
     };
-    $producer->setTransactionChecker($transactionChecker);
+    
+    // Create and start transactional producer (requires topic parameter)
+    $producer = Producer::getTransactionalInstance($config, $topic, $transactionChecker);
+    $producer->start();
+    echo "✓ Transactional Producer started\n";
+    echo "  - Topic: {$topic}\n\n";
     
     // Send multiple transaction messages
     for ($i = 1; $i <= 3; $i++) {

@@ -32,7 +32,7 @@ $config = new ClientConfiguration($endpoints);
 $config->withSslEnabled(false);
 
 // Create and start producer
-$producer = Producer::getInstance($config, $topic);
+$producer = Producer::getInstance($config);
 $producer->start();
 
 echo "Producer started successfully\n\n";

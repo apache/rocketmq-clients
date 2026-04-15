@@ -33,7 +33,6 @@ use Apache\Rocketmq\Builder\MessageBuilder;
 // Configuration
 $endpoints = '127.0.0.1:8080';
 $topic = 'topic-order';
-$producerGroup = 'GID-order-consumer';
 
 echo "=== Producer FIFO Message Example ===\n\n";
 
@@ -43,7 +42,7 @@ try {
     $config->withSslEnabled(false);
     
     // Create and start producer
-    $producer = Producer::getInstance($config, $producerGroup);
+    $producer = Producer::getInstance($config);
     $producer->start();
     echo "✓ Producer started\n\n";
     
