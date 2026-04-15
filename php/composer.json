@@ -1,5 +1,5 @@
 {
-  "name": "apache/rocketmq-client-php",
+  "name": "zhaohai/rocketmq-client-php",
   "description": "Official PHP client for Apache RocketMQ - A distributed messaging and streaming platform",
   "type": "library",
   "license": "Apache-2.0",
