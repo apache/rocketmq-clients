@@ -36,7 +36,7 @@ class MessagingServiceClient extends \Grpc\BaseStub {
     /**
      * @param string $hostname hostname
      * @param array $opts channel options
-     * @param \Grpc\Channel $channel (optional) reuse channel object
+     * @param \Grpc\Channel $channel (optional) re-use channel object
      */
     public function __construct($hostname, $opts, $channel = null) {
         parent::__construct($hostname, $opts, $channel);
@@ -53,7 +53,7 @@ class MessagingServiceClient extends \Grpc\BaseStub {
      * @param \Apache\Rocketmq\V2\QueryRouteRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\QueryRouteResponse>
      */
     public function QueryRoute(\Apache\Rocketmq\V2\QueryRouteRequest $argument,
       $metadata = [], $options = []) {
@@ -75,7 +75,7 @@ class MessagingServiceClient extends \Grpc\BaseStub {
      * @param \Apache\Rocketmq\V2\HeartbeatRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\HeartbeatResponse>
      */
     public function Heartbeat(\Apache\Rocketmq\V2\HeartbeatRequest $argument,
       $metadata = [], $options = []) {
@@ -102,7 +102,7 @@ class MessagingServiceClient extends \Grpc\BaseStub {
      * @param \Apache\Rocketmq\V2\SendMessageRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\SendMessageResponse>
      */
     public function SendMessage(\Apache\Rocketmq\V2\SendMessageRequest $argument,
       $metadata = [], $options = []) {
@@ -121,7 +121,7 @@ class MessagingServiceClient extends \Grpc\BaseStub {
      * @param \Apache\Rocketmq\V2\QueryAssignmentRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\QueryAssignmentResponse>
      */
     public function QueryAssignment(\Apache\Rocketmq\V2\QueryAssignmentRequest $argument,
       $metadata = [], $options = []) {
@@ -170,7 +170,7 @@ class MessagingServiceClient extends \Grpc\BaseStub {
      * @param \Apache\Rocketmq\V2\AckMessageRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\AckMessageResponse>
      */
     public function AckMessage(\Apache\Rocketmq\V2\AckMessageRequest $argument,
       $metadata = [], $options = []) {
@@ -186,7 +186,7 @@ class MessagingServiceClient extends \Grpc\BaseStub {
      * @param \Apache\Rocketmq\V2\ForwardMessageToDeadLetterQueueRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\ForwardMessageToDeadLetterQueueResponse>
      */
     public function ForwardMessageToDeadLetterQueue(\Apache\Rocketmq\V2\ForwardMessageToDeadLetterQueueRequest $argument,
       $metadata = [], $options = []) {
@@ -197,11 +197,74 @@ class MessagingServiceClient extends \Grpc\BaseStub {
     }
 
     /**
+     * PullMessage and ReceiveMessage RPCs serve a similar purpose,
+     * which is to attempt to get messages from the server, but with different semantics.
+     * @param \Apache\Rocketmq\V2\PullMessageRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\ServerStreamingCall
+     */
+    public function PullMessage(\Apache\Rocketmq\V2\PullMessageRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_serverStreamRequest('/apache.rocketmq.v2.MessagingService/PullMessage',
+        $argument,
+        ['\Apache\Rocketmq\V2\PullMessageResponse', 'decode'],
+        $metadata, $options);
+    }
+
+    /**
+     * Update the consumption progress of the designated queue of the
+     * consumer group to the remote.
+     * @param \Apache\Rocketmq\V2\UpdateOffsetRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\UpdateOffsetResponse>
+     */
+    public function UpdateOffset(\Apache\Rocketmq\V2\UpdateOffsetRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_simpleRequest('/apache.rocketmq.v2.MessagingService/UpdateOffset',
+        $argument,
+        ['\Apache\Rocketmq\V2\UpdateOffsetResponse', 'decode'],
+        $metadata, $options);
+    }
+
+    /**
+     * Query the consumption progress of the designated queue of the
+     * consumer group to the remote.
+     * @param \Apache\Rocketmq\V2\GetOffsetRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\GetOffsetResponse>
+     */
+    public function GetOffset(\Apache\Rocketmq\V2\GetOffsetRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_simpleRequest('/apache.rocketmq.v2.MessagingService/GetOffset',
+        $argument,
+        ['\Apache\Rocketmq\V2\GetOffsetResponse', 'decode'],
+        $metadata, $options);
+    }
+
+    /**
+     * Query the offset of the designated queue by the query offset policy.
+     * @param \Apache\Rocketmq\V2\QueryOffsetRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\QueryOffsetResponse>
+     */
+    public function QueryOffset(\Apache\Rocketmq\V2\QueryOffsetRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_simpleRequest('/apache.rocketmq.v2.MessagingService/QueryOffset',
+        $argument,
+        ['\Apache\Rocketmq\V2\QueryOffsetResponse', 'decode'],
+        $metadata, $options);
+    }
+
+    /**
      * Commits or rollback one transactional message.
      * @param \Apache\Rocketmq\V2\EndTransactionRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\EndTransactionResponse>
      */
     public function EndTransaction(\Apache\Rocketmq\V2\EndTransactionRequest $argument,
       $metadata = [], $options = []) {
@@ -233,7 +296,7 @@ class MessagingServiceClient extends \Grpc\BaseStub {
      * @param \Apache\Rocketmq\V2\NotifyClientTerminationRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\NotifyClientTerminationResponse>
      */
     public function NotifyClientTermination(\Apache\Rocketmq\V2\NotifyClientTerminationRequest $argument,
       $metadata = [], $options = []) {
@@ -253,13 +316,45 @@ class MessagingServiceClient extends \Grpc\BaseStub {
      * @param \Apache\Rocketmq\V2\ChangeInvisibleDurationRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\ChangeInvisibleDurationResponse>
      */
     public function ChangeInvisibleDuration(\Apache\Rocketmq\V2\ChangeInvisibleDurationRequest $argument,
       $metadata = [], $options = []) {
         return $this->_simpleRequest('/apache.rocketmq.v2.MessagingService/ChangeInvisibleDuration',
         $argument,
         ['\Apache\Rocketmq\V2\ChangeInvisibleDurationResponse', 'decode'],
+        $metadata, $options);
+    }
+
+    /**
+     * Recall a message,
+     * for delay message, should recall before delivery time, like the rollback operation of transaction message,
+     * for normal message, not supported for now.
+     * @param \Apache\Rocketmq\V2\RecallMessageRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\RecallMessageResponse>
+     */
+    public function RecallMessage(\Apache\Rocketmq\V2\RecallMessageRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_simpleRequest('/apache.rocketmq.v2.MessagingService/RecallMessage',
+        $argument,
+        ['\Apache\Rocketmq\V2\RecallMessageResponse', 'decode'],
+        $metadata, $options);
+    }
+
+    /**
+     * Sync lite subscription info, lite push consumer only
+     * @param \Apache\Rocketmq\V2\SyncLiteSubscriptionRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\SyncLiteSubscriptionResponse>
+     */
+    public function SyncLiteSubscription(\Apache\Rocketmq\V2\SyncLiteSubscriptionRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_simpleRequest('/apache.rocketmq.v2.MessagingService/SyncLiteSubscription',
+        $argument,
+        ['\Apache\Rocketmq\V2\SyncLiteSubscriptionResponse', 'decode'],
         $metadata, $options);
     }
 

@@ -26,7 +26,7 @@ class AdminClient extends \Grpc\BaseStub {
     /**
      * @param string $hostname hostname
      * @param array $opts channel options
-     * @param \Grpc\Channel $channel (optional) reuse channel object
+     * @param \Grpc\Channel $channel (optional) re-use channel object
      */
     public function __construct($hostname, $opts, $channel = null) {
         parent::__construct($hostname, $opts, $channel);
@@ -36,7 +36,7 @@ class AdminClient extends \Grpc\BaseStub {
      * @param \Apache\Rocketmq\V2\ChangeLogLevelRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Apache\Rocketmq\V2\ChangeLogLevelResponse>
      */
     public function ChangeLogLevel(\Apache\Rocketmq\V2\ChangeLogLevelRequest $argument,
       $metadata = [], $options = []) {

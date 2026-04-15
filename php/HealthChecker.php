@@ -1,3 +1,30 @@
+<?php
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Apache\Rocketmq;
+
+use Apache\Rocketmq\V2\ClientType;
+use Apache\Rocketmq\V2\HeartbeatRequest;
+use Apache\Rocketmq\V2\MessagingServiceClient;
+use Apache\Rocketmq\V2\Resource;
+use Grpc\ChannelCredentials;
+use const Grpc\STATUS_OK;
+
 /**
  * Connection Health Status Enum
  */
@@ -251,11 +278,10 @@ class HealthChecker
         
         // If there was an unhealthy record before, log recovery information
         if (!$this->lastResult->isHealthy()) {
-            error_log(sprintf(
-                "[HealthCheck] Connection recovered after %d failures. Response time: %.2fms",
-                $this->lastResult->consecutiveFailures,
-                $responseTime
-            ));
+            \Apache\Rocketmq\Logger::info(
+                "Connection recovered after {} failures. Response time: {}ms, clientId={}",
+                [$this->lastResult->consecutiveFailures, round($responseTime, 2), $this->clientId]
+            );
         }
         
         $this->updateLastResult($result);
@@ -289,11 +315,10 @@ class HealthChecker
         
         // Log warning
         if ($consecutiveFailures >= $this->maxConsecutiveFailures) {
-            error_log(sprintf(
-                "[HealthCheck] Connection unhealthy after %d consecutive failures. Error: %s",
-                $consecutiveFailures,
-                $errorMessage
-            ));
+            \Apache\Rocketmq\Logger::error(
+                "Connection unhealthy after {} consecutive failures. Error: {}, clientId={}",
+                [$consecutiveFailures, $errorMessage, $this->clientId]
+            );
         }
         
         $this->updateLastResult($result);

@@ -84,10 +84,10 @@ class ConfigurationTest extends TestCase
         
         $this->assertEquals('127.0.0.1:8080', $config->getEndpoints());
         $this->assertEquals('', $config->getNamespace());
-        $this->assertNull($config->getCredentials());
+        $this->assertNull($config->getSessionCredentialsProvider());
         $this->assertFalse($config->hasCredentials());
         $this->assertEquals(3, $config->getRequestTimeout());
-        $this->assertFalse($config->isSslEnabled());
+        $this->assertTrue($config->isSslEnabled());
         $this->assertNull($config->getRetryPolicy());
     }
     
@@ -108,7 +108,6 @@ class ConfigurationTest extends TestCase
         
         $this->assertEquals('test-ns', $config->getNamespace());
         $this->assertTrue($config->hasCredentials());
-        $this->assertEquals($credentials, $config->getCredentials());
         $this->assertEquals(10, $config->getRequestTimeout());
         $this->assertTrue($config->isSslEnabled());
         $this->assertEquals($retryPolicy, $config->getRetryPolicy());

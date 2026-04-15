@@ -21,6 +21,8 @@ namespace Apache\Rocketmq;
 require_once __DIR__ . '/Util.php';
 require_once __DIR__ . '/RouteCache.php';
 require_once __DIR__ . '/ClientState.php';
+require_once __DIR__ . '/Logger.php';
+require_once __DIR__ . '/HealthChecker.php';
 require_once __DIR__ . '/Producer/Producer.php';
 
 // Load composer autoload if available
@@ -56,6 +58,7 @@ use Apache\Rocketmq\Producer\SendReceipt;
 use Apache\Rocketmq\Producer\Transaction;
 use Apache\Rocketmq\Producer\TransactionChecker;
 use Apache\Rocketmq\Producer\TransactionResolution;
+use Apache\Rocketmq\Producer\TransactionImpl;
 use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\MessageType;
@@ -67,6 +70,9 @@ use Apache\Rocketmq\V2\SendMessageRequest;
 use Apache\Rocketmq\V2\SystemProperties;
 use Grpc\ChannelCredentials;
 use const Grpc\STATUS_OK;
+
+// Initialize logger to write to ~/logs/rocketmq/rocketmq_client_php.log
+\Apache\Rocketmq\Logger::init();
 
 /**
  * RocketMQ Producer Implementation
@@ -140,6 +146,11 @@ class Producer implements ProducerInterface
     private $metricsCollector;
     
     /**
+     * @var ClientMeterManager|null Client meter manager (optional)
+     */
+    private $meterManager = null;
+    
+    /**
      * @var int Max attempts for message sending
      */
     private $maxAttempts = 3;
@@ -182,23 +193,30 @@ class Producer implements ProducerInterface
         // Set route cache configuration from client configuration
         $this->routeCache->setConfigFromClientConfiguration($this->config);
         $this->metricsCollector = new MetricsCollector($this->clientId);
+        
+        // Auto-initialize ClientMeterManager for metrics support
+        $this->meterManager = new ClientMeterManager($this->clientId, $this->metricsCollector);
     }
     
     /**
-     * Get Producer singleton instance (configuration object recommended)
+     * Get Producer instance (configuration object recommended)
      * 
      * Usage example:
      * ```php
-     * // Method 1: Using configuration object (recommended)
+     * // Method 1: Using configuration object with topic (recommended)
      * $config = new ClientConfiguration('127.0.0.1:8080');
      * $producer = Producer::getInstance($config, 'my-topic');
      * 
      * // Method 2: Using legacy method (backward compatible)
      * $producer = Producer::getInstance('127.0.0.1:8080', 'my-topic');
+     * 
+     * // Note: Topic parameter is optional but highly recommended.
+     * // It allows the producer to prefetch topic route before message publishing,
+     * // which improves performance and helps discover configuration errors early.
      * ```
      * 
      * @param ClientConfiguration|string $configOrEndpoints Client configuration object or server endpoint string
-     * @param string|null $topic Topic name（Used when first parameter is endpoints string）
+     * @param string|null $topic Topic name (optional but recommended for better performance)
      * @param RetryPolicy|null $retryPolicy Retry policy (optional, only effective when using endpoint string)
      * @return Producer Producer instance
      */
@@ -260,21 +278,74 @@ class Producer implements ProducerInterface
         // Check state transition validity
         ClientState::checkState($this->state, [ClientState::CREATED], 'start');
         
+        Logger::info("Begin to start the rocketmq producer, clientId={}", [$this->clientId]);
+        
         $this->state = ClientState::STARTING;
         
         try {
-            // Verify connection and get route information
-            $this->queryRoute();
+            // Initialize health checker for connection monitoring
+            $this->healthChecker = new HealthChecker(
+                $this->config->getEndpoints(),
+                $this->clientId,
+                $this->config->getRequestTimeout()
+            );
+            Logger::debug("Health checker initialized, endpoints={}, clientId={}", [
+                $this->config->getEndpoints(),
+                $this->clientId
+            ]);
+            
+            // Verify connection and get route information (with retry)
+            $maxStartupAttempts = $this->config->getMaxStartupAttempts();
+            $lastException = null;
+            
+            for ($attempt = 1; $attempt <= $maxStartupAttempts; $attempt++) {
+                try {
+                    Logger::debug("Fetching topic route from remote, topic={}, attempt={}, maxAttempts={}, clientId={}", [
+                        $this->topic,
+                        $attempt,
+                        $maxStartupAttempts,
+                        $this->clientId
+                    ]);
+                    
+                    $this->queryRoute();
+                    
+                    Logger::info(
+                        "Fetch topic route data from remote successfully during startup, topic={}, attempt={}, clientId={}",
+                        [$this->topic, $attempt, $this->clientId]
+                    );
+                    break;
+                } catch (\Exception $e) {
+                    $lastException = $e;
+                    Logger::warn(
+                        "Failed to fetch topic route during startup, topic={}, attempt={}, maxAttempts={}, error={}, clientId={}",
+                        [$this->topic, $attempt, $maxStartupAttempts, $e->getMessage(), $this->clientId]
+                    );
+                    
+                    if ($attempt === $maxStartupAttempts) {
+                        throw new \Exception(
+                            "Failed to fetch topics after {$maxStartupAttempts} attempts",
+                            0,
+                            $e
+                        );
+                    }
+                    
+                    // Wait before retry (exponential backoff)
+                    $delayMs = min(1000 * pow(2, $attempt - 1), 5000); // Max 5s
+                    usleep($delayMs * 1000);
+                }
+            }
             
             // Transition state to RUNNING
             if (ClientState::canTransition($this->state, ClientState::RUNNING)) {
                 $this->state = ClientState::RUNNING;
+                Logger::info("The rocketmq producer starts successfully, clientId={}", [$this->clientId]);
             }
         } catch (\Exception $e) {
             // Transition state to FAILED
             if (ClientState::canTransition($this->state, ClientState::FAILED)) {
                 $this->state = ClientState::FAILED;
             }
+            Logger::error("Failed to start the rocketmq producer, try to shutdown it, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
             throw new \Exception(
                 "Failed to start producer: " . $e->getMessage(), 
                 0, 
@@ -337,6 +408,80 @@ class Producer implements ProducerInterface
     }
     
     /**
+     * Enable metrics collection with automatic meter interceptor
+     * 
+     * This method:
+     * 1. Creates ClientMeterManager if not exists
+     * 2. Enables metrics collection
+     * 3. Adds MessageMeterInterceptor to the interceptor chain
+     * 
+     * @param string|null $exportEndpoint OTLP export endpoint (optional)
+     * @param int $exportInterval Export interval in seconds (default: 60)
+     * @return self Return current instance for chainable calls
+     */
+    public function enableMetrics(?string $exportEndpoint = null, int $exportInterval = 60): self
+    {
+        // Create meter manager if not exists
+        if ($this->meterManager === null) {
+            $this->meterManager = new ClientMeterManager($this->clientId, $this->metricsCollector);
+        }
+        
+        // Enable metrics
+        $this->meterManager->enable($exportEndpoint, $exportInterval);
+        
+        // Check if MessageMeterInterceptor already exists
+        $hasMeterInterceptor = false;
+        foreach ($this->interceptors as $interceptor) {
+            if ($interceptor instanceof MessageMeterInterceptor) {
+                $hasMeterInterceptor = true;
+                break;
+            }
+        }
+        
+        // Add MessageMeterInterceptor if not exists
+        if (!$hasMeterInterceptor) {
+            $meterInterceptor = new MessageMeterInterceptor(
+                $this->metricsCollector,
+                $this->clientId
+            );
+            $this->addInterceptor($meterInterceptor);
+            Logger::info("MessageMeterInterceptor added automatically, clientId={}", [$this->clientId]);
+        }
+        
+        Logger::info("Metrics enabled for Producer, clientId={}, exportEndpoint={}", [
+            $this->clientId,
+            $exportEndpoint ?? 'local-only'
+        ]);
+        
+        return $this;
+    }
+    
+    /**
+     * Disable metrics collection
+     * 
+     * @return self Return current instance for chainable calls
+     */
+    public function disableMetrics(): self
+    {
+        if ($this->meterManager !== null) {
+            $this->meterManager->disable();
+            Logger::info("Metrics disabled for Producer, clientId={}", [$this->clientId]);
+        }
+        
+        return $this;
+    }
+    
+    /**
+     * Get client meter manager
+     * 
+     * @return ClientMeterManager|null Meter manager or null if not enabled
+     */
+    public function getMeterManager(): ?ClientMeterManager
+    {
+        return $this->meterManager;
+    }
+    
+    /**
      * Execute before-send interceptors
      * 
      * @param array $messages Message array
@@ -344,14 +489,14 @@ class Producer implements ProducerInterface
      */
     private function doBeforeSend($messages)
     {
-        $context = new MessageInterceptorContext(MessageHookPoints::SEND, MessageHookPointsStatus::OK);
+        $context = new MessageInterceptorContext(MessageHookPoints::SEND_BEFORE, MessageHookPointsStatus::OK);
         
         foreach ($this->interceptors as $interceptor) {
             try {
                 $interceptor->doBefore($context, $messages);
             } catch (\Exception $e) {
                 // Log error but do not interrupt flow
-                error_log("Interceptor before-send failed: " . $e->getMessage());
+                Logger::error("Exception raised while executing before-send interceptor, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 $context->setStatus(MessageHookPointsStatus::ERROR);
                 $context->setException($e);
             }
@@ -383,7 +528,7 @@ class Producer implements ProducerInterface
                 $interceptor->doAfter($context, $messages);
             } catch (\Exception $e) {
                 // Log error but do not interrupt flow
-                error_log("Interceptor after-send failed: " . $e->getMessage());
+                Logger::error("Exception raised while executing after-send interceptor, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             }
         }
     }
@@ -478,6 +623,97 @@ class Producer implements ProducerInterface
     }
     
     /**
+     * Generate unique message ID
+     * 
+     * Format: V1 + timestamp (4 bytes) + sequence (4 bytes) in hex
+     * Total length: 32 characters
+     * 
+     * @return string Unique message ID
+     */
+    /**
+     * Generate unique message ID (compatible with Java client v5)
+     * 
+     * Format: 34 characters hex string
+     * - Version (2 chars): "01"
+     * - MAC address (12 chars): Lower 6 bytes of MAC address
+     * - Process ID (4 chars): Lower 2 bytes of PID
+     * - Timestamp (8 chars): Seconds since 2021-01-01 00:00:00 UTC
+     * - Sequence (8 chars): Auto-increment counter
+     * 
+     * Example: 0156F7E71C361B21BC024CCDBE00000000
+     * 
+     * @return string 34-character hex message ID
+     */
+    private function generateMessageId(): string
+    {
+        // Custom epoch: 2021-01-01 00:00:00 UTC
+        static $customEpoch = 1609459200; // strtotime('2021-01-01 00:00:00 UTC')
+        static $sequence = 0;
+        static $macAddress = null;
+        static $processId = null;
+        
+        // Initialize MAC address and process ID once
+        if ($macAddress === null) {
+            // Get MAC address (lower 6 bytes)
+            $macAddress = $this->getMacAddress();
+            
+            // Get process ID (lower 2 bytes)
+            $processId = getmypid() & 0xFFFF;
+        }
+        
+        // Calculate seconds since custom epoch
+        $deltaSeconds = time() - $customEpoch;
+        
+        // Increment sequence (wrap around at 32-bit)
+        $sequence = ($sequence + 1) & 0xFFFFFFFF;
+        
+        // Build message ID
+        // Version (2 chars) + MAC (12 chars) + PID (4 chars) + Time (8 chars) + Seq (8 chars) = 34 chars
+        $messageId = sprintf(
+            '01%s%04X%08X%08X',
+            $macAddress,
+            $processId,
+            $deltaSeconds,
+            $sequence
+        );
+        
+        return strtoupper($messageId);
+    }
+    
+    /**
+     * Get MAC address in hex format (lower 6 bytes, 12 hex chars)
+     * 
+     * @return string 12-character hex MAC address
+     */
+    private function getMacAddress(): string
+    {
+        // Try to get real MAC address
+        $mac = '000000000000'; // Default fallback
+        
+        // macOS
+        if (strtoupper(substr(PHP_OS, 0, 6)) === 'DARWIN') {
+            $output = [];
+            @exec('ifconfig en0 | grep ether', $output);
+            if (!empty($output)) {
+                preg_match('/([0-9a-f]{2}[:-]){5}[0-9a-f]{2}/i', $output[0], $matches);
+                if (!empty($matches)) {
+                    $mac = str_replace([':', '-'], '', $matches[0]);
+                }
+            }
+        } else {
+            // Linux
+            $output = [];
+            @exec('cat /sys/class/net/eth0/address', $output);
+            if (!empty($output)) {
+                $mac = str_replace([':', '-'], '', trim($output[0]));
+            }
+        }
+        
+        // Ensure exactly 12 characters
+        return strtoupper(substr(str_pad($mac, 12, '0'), 0, 12));
+    }
+    
+    /**
      * Build message object
      * 
      * @param string $body Message body
@@ -499,8 +735,12 @@ class Producer implements ProducerInterface
         // Set message body
         $message->setBody($body);
         
+        // Generate unique message ID
+        $messageId = $this->generateMessageId();
+        
         // Set system properties
         $systemProperties = new SystemProperties();
+        $systemProperties->setMessageId($messageId);
         
         if ($tag !== null) {
             $systemProperties->setTag($tag);
@@ -562,15 +802,40 @@ class Producer implements ProducerInterface
     /**
      * Send FIFO message (ordered message, with retry)
      * 
+     * FIFO messages guarantee strict ordering within the same message group.
+     * Messages with the same messageGroup are delivered and consumed in FIFO order.
+     * 
+     * Important notes:
+     * 1. messageGroup is required and cannot be empty
+     * 2. Messages with the same messageGroup are routed to the same queue
+     * 3. FIFO messages do not support batch sending with different messageGroups
+     * 4. If send fails, the entire messageGroup is blocked until retry succeeds
+     * 
      * @param string $body Message body
      * @param string $messageGroup Message group ID (messages in the same group are delivered in order)
      * @param string|null $tag Message tag
      * @param string|null $keys Message keys
      * @return SendReceipt Send result
+     * @throws \InvalidArgumentException If messageGroup is empty
      * @throws \Exception If send fails
      */
     public function sendFifoMessage($body, $messageGroup, $tag = null, $keys = null)
     {
+        // Validate messageGroup - FIFO messages MUST have a message group
+        if (empty($messageGroup)) {
+            throw new \InvalidArgumentException(
+                "FIFO message requires a non-empty messageGroup. " .
+                "Messages with the same messageGroup are delivered in strict FIFO order."
+            );
+        }
+        
+        Logger::debug("Preparing to send FIFO message, topic={}, messageGroup={}, tag={}, keys={}", [
+            $this->topic,
+            $messageGroup,
+            $tag ?? 'null',
+            $keys ?? 'null'
+        ]);
+        
         $message = $this->buildMessage($body, $tag, $keys, $messageGroup);
         
         // Set message type to FIFO
@@ -578,45 +843,167 @@ class Producer implements ProducerInterface
         $systemProperties->setMessageType(MessageType::FIFO);
         $message->setSystemProperties($systemProperties);
         
+        Logger::info("Sending FIFO message, topic={}, messageGroup={}, messageId={}", [
+            $this->topic,
+            $messageGroup,
+            method_exists($message, 'getMessageId') ? $message->getMessageId() : 'unknown'
+        ]);
+        
         return $this->sendMessageWithRetry($message);
     }
     
     /**
      * Send scheduled/delayed message (with retry)
      * 
+     * Delay messages are delivered to consumers after a specified delay time.
+     * The message is stored in RocketMQ and becomes visible to consumers only after
+     * the delivery timestamp is reached.
+     * 
+     * Important notes:
+     * 1. delaySeconds must be positive (> 0)
+     * 2. Maximum delay time depends on broker configuration (typically up to 40 days)
+     * 3. Delay messages do not support transaction semantics
+     * 4. Delivery timestamp = current time + delaySeconds
+     * 
      * @param string $body Message body
-     * @param int $delaySeconds Delay seconds
+     * @param int $delaySeconds Delay seconds (must be > 0)
      * @param string|null $tag Message tag
      * @param string|null $keys Message keys
      * @return SendReceipt Send result
+     * @throws \InvalidArgumentException If delaySeconds is invalid
      * @throws \Exception If send fails
      */
     public function sendDelayMessage($body, $delaySeconds, $tag = null, $keys = null)
     {
+        // Validate delaySeconds
+        if (!is_numeric($delaySeconds) || $delaySeconds <= 0) {
+            throw new \InvalidArgumentException(
+                "Delay seconds must be a positive number. Got: {$delaySeconds}"
+            );
+        }
+        
+        // Calculate delivery timestamp (current time + delay)
         $deliveryTimestamp = (time() + $delaySeconds) * 1000; // Convert to milliseconds
+        
+        Logger::debug("Preparing to send delay message, topic={}, delaySeconds={}, deliveryTimestamp={}, tag={}, keys={}", [
+            $this->topic,
+            $delaySeconds,
+            $deliveryTimestamp,
+            $tag ?? 'null',
+            $keys ?? 'null'
+        ]);
+        
         $message = $this->buildMessage($body, $tag, $keys, null, $deliveryTimestamp);
+        
+        Logger::info("Sending delay message, topic={}, delaySeconds={}, deliveryTimestamp={}, messageId={}", [
+            $this->topic,
+            $delaySeconds,
+            $deliveryTimestamp,
+            method_exists($message, 'getMessageId') ? $message->getMessageId() : 'unknown'
+        ]);
+        
+        return $this->sendMessageWithRetry($message);
+    }
+    
+    /**
+     * Send scheduled message with specific delivery timestamp
+     * 
+     * This method allows you to specify an exact delivery timestamp instead of
+     * calculating from delay seconds. Useful for scheduling messages at specific times.
+     * 
+     * Example usage:
+     * - Schedule message for tomorrow: time() + 86400 (seconds)
+     * - Schedule message for next week: time() + 604800 (seconds)
+     * 
+     * @param string $body Message body
+     * @param int $deliveryTimestamp Delivery timestamp in milliseconds (Unix timestamp * 1000)
+     * @param string|null $tag Message tag
+     * @param string|null $keys Message keys
+     * @return SendReceipt Send result
+     * @throws \InvalidArgumentException If deliveryTimestamp is invalid
+     * @throws \Exception If send fails
+     */
+    public function sendScheduledMessage($body, $deliveryTimestamp, $tag = null, $keys = null)
+    {
+        // Validate deliveryTimestamp
+        if (!is_numeric($deliveryTimestamp) || $deliveryTimestamp <= 0) {
+            throw new \InvalidArgumentException(
+                "Delivery timestamp must be a positive number (milliseconds since epoch). Got: {$deliveryTimestamp}"
+            );
+        }
+        
+        $currentTimeMs = time() * 1000;
+        $delaySeconds = round(($deliveryTimestamp - $currentTimeMs) / 1000);
+        
+        Logger::debug("Preparing to send scheduled message, topic={}, deliveryTimestamp={}, delaySeconds={}, tag={}, keys={}", [
+            $this->topic,
+            $deliveryTimestamp,
+            $delaySeconds,
+            $tag ?? 'null',
+            $keys ?? 'null'
+        ]);
+        
+        $message = $this->buildMessage($body, $tag, $keys, null, $deliveryTimestamp);
+        
+        Logger::info("Sending scheduled message, topic={}, deliveryTimestamp={}, delaySeconds={}, messageId={}", [
+            $this->topic,
+            $deliveryTimestamp,
+            $delaySeconds,
+            method_exists($message, 'getMessageId') ? $message->getMessageId() : 'unknown'
+        ]);
+        
         return $this->sendMessageWithRetry($message);
     }
     
     /**
      * Send lite topic message (with retry)
      * 
+     * Lite topics are lightweight sub-topics under a parent topic.
+     * They provide better resource isolation and quota management compared to regular topics.
+     * 
+     * Important notes:
+     * 1. liteTopic must not be empty
+     * 2. Lite topic has quota limits (configurable on broker)
+     * 3. LiteTopicQuotaExceededException may be thrown if quota is exceeded
+     * 4. Lite messages do not support transaction semantics
+     * 
      * @param string $body Message body
-     * @param string $liteTopic Lite topic name
+     * @param string $liteTopic Lite topic name (sub-topic under parent topic)
      * @param string|null $tag Message tag
      * @param string|null $keys Message keys
      * @param array $properties Custom properties
      * @return SendReceipt Send result
-     * @throws \Exception If send fails
+     * @throws \InvalidArgumentException If liteTopic is empty
+     * @throws \Exception If send fails or quota exceeded
      */
     public function sendLiteMessage($body, $liteTopic, $tag = null, $keys = null, $properties = [])
     {
+        // Validate liteTopic
+        if (empty($liteTopic)) {
+            throw new \InvalidArgumentException(
+                "Lite topic name must not be empty. Lite topics provide lightweight sub-topic isolation."
+            );
+        }
+        
+        Logger::debug("Preparing to send lite message, topic={}, liteTopic={}, tag={}, keys={}", [
+            $this->topic,
+            $liteTopic,
+            $tag ?? 'null',
+            $keys ?? 'null'
+        ]);
+        
         $message = $this->buildMessage($body, $tag, $keys, null, null, $liteTopic, null, $properties);
         
         // Set message type to LITE
         $systemProperties = $message->getSystemProperties();
         $systemProperties->setMessageType(MessageType::LITE);
         $message->setSystemProperties($systemProperties);
+        
+        Logger::info("Sending lite message, topic={}, liteTopic={}, messageId={}", [
+            $this->topic,
+            $liteTopic,
+            method_exists($message, 'getMessageId') ? $message->getMessageId() : 'unknown'
+        ]);
         
         return $this->sendMessageWithRetry($message);
     }
@@ -665,22 +1052,54 @@ class Producer implements ProducerInterface
      */
     public function send(MessageInterface $message, Transaction $transaction = null): SendReceipt
     {
+        // Convert MessageInterface to gRPC Message if needed
+        if ($message instanceof MessageInterface && !($message instanceof Message)) {
+            // Pass transaction flag to convertToGrpcMessage so it sets the correct message type
+            $grpcMessage = $this->convertToGrpcMessage($message, $transaction !== null);
+        } else {
+            $grpcMessage = $message;
+        }
+        
         if ($transaction !== null) {
-            // Set message type to TRANSACTION
-            $systemProperties = $message->getSystemProperties();
-            $systemProperties->setMessageType(MessageType::TRANSACTION);
-            $message->setSystemProperties($systemProperties);
+            // Validate transaction state
+            $txState = method_exists($transaction, 'getState') ? $transaction->getState() : 'UNKNOWN';
+            if ($txState === 'COMMITTED' || $txState === 'ROLLED_BACK') {
+                throw new \Exception(
+                    "Cannot send message to transaction in terminal state: {$txState}. " .
+                    "Create a new transaction using beginTransaction()."
+                );
+            }
             
-            // Send transaction message
-            $sendReceipt = $this->sendMessageWithRetry($message);
+            Logger::debug("Sending transactional half message, topic={}, transactionId={}, txState={}, messageId={}", [
+                $this->topic,
+                method_exists($transaction, 'getTransactionId') ? $transaction->getTransactionId() : 'unknown',
+                $txState,
+                method_exists($grpcMessage, 'getMessageId') ? $grpcMessage->getMessageId() : 'unknown'
+            ]);
             
-            // Add message to transaction
-            $transaction->addMessage($message, $sendReceipt);
+            // Send transaction message (half message)
+            $sendReceipt = $this->sendMessageWithRetry($grpcMessage);
+            
+            Logger::info("Transactional half message sent successfully, messageId={}, transactionId={}, topic={}", [
+                $sendReceipt->getMessageId(),
+                method_exists($transaction, 'getTransactionId') ? $transaction->getTransactionId() : 'unknown',
+                $this->topic
+            ]);
+            
+            // Add message to transaction (using tryAddMessage and tryAddReceipt)
+            $transaction->tryAddMessage($message);
+            $transaction->tryAddReceipt($message, $sendReceipt);
+            
+            Logger::debug("Message added to transaction, messageId={}, transactionId={}, messageCount={}", [
+                $sendReceipt->getMessageId(),
+                method_exists($transaction, 'getTransactionId') ? $transaction->getTransactionId() : 'unknown',
+                method_exists($transaction, 'getMessageCount') ? $transaction->getMessageCount() : 1
+            ]);
             
             return $sendReceipt;
         }
         
-        return $this->sendMessageWithRetry($message);
+        return $this->sendMessageWithRetry($grpcMessage);
     }
 
 
@@ -702,8 +1121,117 @@ class Producer implements ProducerInterface
      */
     public function recallMessage(string $topic, string $recallHandle): RecallReceipt
     {
-        // TODO: Implement recall message functionality
-        throw new ClientException("Recall message functionality not implemented yet");
+        // Check state
+        ClientState::checkState($this->state, [ClientState::RUNNING], 'recall message');
+        
+        // Validate parameters
+        if (empty($topic)) {
+            throw new \InvalidArgumentException("Topic cannot be empty");
+        }
+        
+        if (empty($recallHandle)) {
+            throw new \InvalidArgumentException("Recall handle cannot be empty. Recall handle is returned when sending delay messages.");
+        }
+        
+        Logger::info("Attempting to recall delay message, topic={}, recallHandle={}, clientId={}", [
+            $topic,
+            $recallHandle,
+            $this->clientId
+        ]);
+        
+        // Record recall start time
+        $startTime = microtime(true);
+        
+        try {
+            // Increment total recall counter
+            $this->metricsCollector->incrementCounter(MetricName::RECALL_TOTAL, [
+                MetricLabels::TOPIC => $topic,
+                MetricLabels::CLIENT_ID => $this->clientId,
+            ]);
+            
+            // Build recall request
+            $request = new \Apache\Rocketmq\V2\RecallMessageRequest();
+            
+            $topicResource = new \Apache\Rocketmq\V2\Resource();
+            $topicResource->setName($topic);
+            $request->setTopic($topicResource);
+            $request->setRecallHandle($recallHandle);
+            
+            Logger::debug("Sending recall message request, topic={}, recallHandle={}", [
+                $topic,
+                $recallHandle
+            ]);
+            
+            // Send recall request
+            $call = $this->getClient()->RecallMessage($request);
+            list($response, $grpcStatus) = $call->wait();
+            
+            // Check response status
+            $status = $response->getStatus();
+            if ($status->getCode() !== \Apache\Rocketmq\V2\Code::OK) {
+                $errorMessage = "Failed to recall message: " . $status->getMessage();
+                Logger::error("Failed to recall message, topic={}, recallHandle={}, code={}, message={}", [
+                    $topic,
+                    $recallHandle,
+                    $status->getCode(),
+                    $status->getMessage()
+                ]);
+                
+                // Record failure metrics
+                $this->metricsCollector->incrementCounter(MetricName::RECALL_FAILURE_TOTAL, [
+                    MetricLabels::TOPIC => $topic,
+                    MetricLabels::CLIENT_ID => $this->clientId,
+                ]);
+                
+                throw new ClientException($errorMessage, $status->getCode());
+            }
+            
+            // Create recall receipt
+            $messageId = $response->getMessageId();
+            $receipt = new RecallReceipt($messageId, true);
+            
+            // Calculate cost time
+            $costTime = (microtime(true) - $startTime) * 1000; // Milliseconds
+            
+            Logger::info("Recall delay message successfully, topic={}, recallHandle={}, recalledMessageId={}, costTime={}ms, clientId={}", [
+                $topic,
+                $recallHandle,
+                $messageId,
+                round($costTime, 2),
+                $this->clientId
+            ]);
+            
+            // Record success metrics
+            $this->metricsCollector->incrementCounter(MetricName::RECALL_SUCCESS_TOTAL, [
+                MetricLabels::TOPIC => $topic,
+                MetricLabels::CLIENT_ID => $this->clientId,
+            ]);
+            
+            // Record cost time histogram
+            $this->metricsCollector->observeHistogram(MetricName::RECALL_COST_TIME, [
+                MetricLabels::TOPIC => $topic,
+                MetricLabels::CLIENT_ID => $this->clientId,
+            ], $costTime);
+            
+            return $receipt;
+            
+        } catch (ClientException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            // Record failure metrics
+            $this->metricsCollector->incrementCounter(MetricName::RECALL_FAILURE_TOTAL, [
+                MetricLabels::TOPIC => $topic,
+                MetricLabels::CLIENT_ID => $this->clientId,
+            ]);
+            
+            Logger::error("Failed to recall message, topic={}, recallHandle={}, error={}, clientId={}", [
+                $topic,
+                $recallHandle,
+                $e->getMessage(),
+                $this->clientId
+            ]);
+            throw new ClientException("Failed to recall message: " . $e->getMessage(), 0, $e);
+        }
     }
 
     /**
@@ -711,8 +1239,53 @@ class Producer implements ProducerInterface
      */
     public function recallMessageAsync(string $topic, string $recallHandle)
     {
-        // TODO: Implement async recall message functionality
-        throw new ClientException("Async recall message functionality not implemented yet");
+        // Check state
+        ClientState::checkState($this->state, [ClientState::RUNNING], 'recall message async');
+        
+        // Validate parameters
+        if (empty($topic)) {
+            throw new \InvalidArgumentException("Topic cannot be empty");
+        }
+        
+        if (empty($recallHandle)) {
+            throw new \InvalidArgumentException("Recall handle cannot be empty. Recall handle is returned when sending delay messages.");
+        }
+        
+        Logger::debug("Attempting to recall delay message asynchronously, topic={}, recallHandle={}, clientId={}", [
+            $topic,
+            $recallHandle,
+            $this->clientId
+        ]);
+        
+        try {
+            // Build recall request
+            $request = new \Apache\Rocketmq\V2\RecallMessageRequest();
+            
+            $topicResource = new \Apache\Rocketmq\V2\Resource();
+            $topicResource->setName($topic);
+            $request->setTopic($topicResource);
+            $request->setRecallHandle($recallHandle);
+            
+            // Send async recall request
+            $call = $this->getClient()->RecallMessage($request);
+            
+            Logger::debug("Recall message async request sent, topic={}, recallHandle={}", [
+                $topic,
+                $recallHandle
+            ]);
+            
+            // Return call object for async handling
+            return $call;
+            
+        } catch (\Exception $e) {
+            Logger::error("Failed to send async recall message request, topic={}, recallHandle={}, error={}, clientId={}", [
+                $topic,
+                $recallHandle,
+                $e->getMessage(),
+                $this->clientId
+            ]);
+            throw new ClientException("Failed to send async recall message request: " . $e->getMessage(), 0, $e);
+        }
     }
 
     /**
@@ -727,9 +1300,10 @@ class Producer implements ProducerInterface
      * Convert MessageInterface to gRPC Message
      *
      * @param MessageInterface $message
+     * @param bool $isTransaction Whether this is a transaction message
      * @return Message
      */
-    private function convertToGrpcMessage(MessageInterface $message): Message
+    private function convertToGrpcMessage(MessageInterface $message, bool $isTransaction = false): Message
     {
         $grpcMessage = new Message();
         
@@ -744,6 +1318,45 @@ class Producer implements ProducerInterface
         // Set system properties
         $systemProperties = new SystemProperties();
         
+        // Generate unique message ID
+        $messageId = $this->generateMessageId();
+        $systemProperties->setMessageId($messageId);
+        
+        // Set message type based on message properties (similar to Node.js logic)
+        $messageGroup = $message->getMessageGroup();
+        $deliveryTimestamp = $message->getDeliveryTimestamp();
+        
+        if (!$messageGroup && !$deliveryTimestamp && !$isTransaction) {
+            // Normal message
+            $systemProperties->setMessageType(MessageType::NORMAL);
+        } elseif ($messageGroup && !$isTransaction) {
+            // FIFO message - validate messageGroup is not empty
+            if (empty($messageGroup)) {
+                throw new ClientException(
+                    "FIFO message requires a non-empty messageGroup. " .
+                    "Messages with the same messageGroup are delivered in strict FIFO order."
+                );
+            }
+            $systemProperties->setMessageType(MessageType::FIFO);
+            Logger::debug("Converted to FIFO message, messageGroup={}, messageId={}", [
+                $messageGroup,
+                $messageId
+            ]);
+        } elseif ($deliveryTimestamp && !$isTransaction) {
+            // Delay message
+            $systemProperties->setMessageType(MessageType::DELAY);
+        } elseif (!$messageGroup && !$deliveryTimestamp && $isTransaction) {
+            // Transaction message
+            $systemProperties->setMessageType(MessageType::TRANSACTION);
+        } else {
+            // Conflict: transaction with fifo/delay
+            Logger::error(
+                "Transactional message should not set messageGroup or deliveryTimestamp, messageGroup={}, deliveryTimestamp={}",
+                [$messageGroup ?? 'null', $deliveryTimestamp ?? 'null']
+            );
+            throw new ClientException("Transactional message should not set messageGroup or deliveryTimestamp");
+        }
+        
         $tag = $message->getTag();
         if ($tag !== null) {
             $systemProperties->setTag($tag);
@@ -754,12 +1367,10 @@ class Producer implements ProducerInterface
             $systemProperties->setKeys($keys);
         }
         
-        $messageGroup = $message->getMessageGroup();
         if ($messageGroup !== null) {
             $systemProperties->setMessageGroup($messageGroup);
         }
         
-        $deliveryTimestamp = $message->getDeliveryTimestamp();
         if ($deliveryTimestamp !== null) {
             $timestamp = new \Google\Protobuf\Timestamp();
             $timestamp->setSeconds(intval($deliveryTimestamp / 1000));
@@ -770,11 +1381,26 @@ class Producer implements ProducerInterface
         $liteTopic = $message->getLiteTopic();
         if ($liteTopic !== null) {
             $systemProperties->setLiteTopic($liteTopic);
+            Logger::debug("Set lite topic, liteTopic={}, messageId={}", [
+                $liteTopic,
+                $messageId
+            ]);
         }
         
         $priority = $message->getPriority();
         if ($priority !== null) {
+            // Validate priority range
+            if ($priority < 0 || $priority > 10) {
+                Logger::warn(
+                    "Priority value out of recommended range (0-10), priority={}, messageId={}",
+                    [$priority, $messageId]
+                );
+            }
             $systemProperties->setPriority($priority);
+            Logger::debug("Set message priority, priority={}, messageId={}", [
+                $priority,
+                $messageId
+            ]);
         }
         
         $grpcMessage->setSystemProperties($systemProperties);
@@ -829,6 +1455,8 @@ class Producer implements ProducerInterface
         // Build message object array
         $messageObjects = [];
         $totalSize = 0;
+        $hasFifoMessage = false;
+        $fifoMessageGroup = null;
         
         // Pre-allocate array for better performance
         $messageObjects = array_fill(0, $totalMessages, null);
@@ -846,7 +1474,17 @@ class Producer implements ProducerInterface
             
             // Check if it is a FIFO message
             if ($messageGroup !== null) {
-                throw new \Exception("FIFO messages do not support batch sending. Message index: {$index}");
+                $hasFifoMessage = true;
+                
+                // Validate all FIFO messages have the same messageGroup (Java behavior)
+                if ($fifoMessageGroup === null) {
+                    $fifoMessageGroup = $messageGroup;
+                } elseif ($fifoMessageGroup !== $messageGroup) {
+                    throw new \InvalidArgumentException(
+                        "FIFO messages in batch must have the same messageGroup. " .
+                        "Expected: '{$fifoMessageGroup}', Got: '{$messageGroup}' at index {$index}"
+                    );
+                }
             }
             
             $message = $this->buildMessage($body, $tag, $keys, $messageGroup, $deliveryTimestamp);
@@ -854,6 +1492,15 @@ class Producer implements ProducerInterface
             
             // Calculate total size
             $totalSize += strlen($body);
+        }
+        
+        // FIFO messages do not support batch sending with different groups
+        // But single messageGroup FIFO batch is allowed
+        if ($hasFifoMessage && $totalMessages > 1) {
+            Logger::warn(
+                "Batch sending FIFO messages with same messageGroup={}, count={}. Note: FIFO ordering is guaranteed within the group.",
+                [$fifoMessageGroup, $totalMessages]
+            );
         }
         
         // Check total size
@@ -956,17 +1603,51 @@ class Producer implements ProducerInterface
                 MetricLabels::CLIENT_ID => $this->clientId,
             ]);
             
+            // Validate message topic matches producer topic
+            $messageTopic = method_exists($message, 'getTopic') ? $message->getTopic() : null;
+            if ($messageTopic !== null && is_object($messageTopic)) {
+                // If messageTopic is a Resource object, get its name
+                $messageTopic = method_exists($messageTopic, 'getName') ? $messageTopic->getName() : (string)$messageTopic;
+            }
+            if ($messageTopic !== null && $messageTopic !== $this->topic) {
+                throw new \InvalidArgumentException(
+                    "Message topic '{$messageTopic}' does not match producer topic '{$this->topic}'"
+                );
+            }
+            
+            Logger::debug("Sending message, topic={}, messageId={}", [
+                $this->topic,
+                method_exists($message, 'getMessageId') ? $message->getMessageId() : 'unknown'
+            ]);
+            
             $request = new SendMessageRequest();
             $request->setMessages([$message]);
             
             $call = $this->getClient()->SendMessage($request);
-            $response = $call->wait();
+            list($response, $status) = $call->wait();
+            
+            // Check gRPC status
+            if ($status->code !== STATUS_OK) {
+                throw new \Exception(
+                    "gRPC call failed: " . $status->details,
+                    $status->code
+                );
+            }
             
             // Calculate cost time
             $costTime = (microtime(true) - $startTime) * 1000; // Milliseconds
             
             // Check response status
-            if ($response->getStatus()->getCode() !== 0) {
+            $status = $response->getStatus();
+            if ($status === null) {
+                throw new \Exception("Response status is null");
+            }
+            
+            $statusCode = $status->getCode();
+            $statusMessage = $status->getMessage();
+            
+            // In RocketMQ, code 20000 means OK (success)
+            if ($statusCode !== 20000) {
                 throw new \Exception(
                     "Failed to send message: " . $response->getStatus()->getMessage(),
                     $response->getStatus()->getCode()
@@ -985,8 +1666,44 @@ class Producer implements ProducerInterface
             $queueId = 0; // Default queue ID
             $offset = 0; // Default offset
             
-            // Create send receipt
-            $sendReceipt = new SendReceipt($messageId, $topic, $queueId, $offset);
+            Logger::info("Message sent successfully, messageId={}, topic={}, costTime={}ms", [
+                $messageId,
+                $topic,
+                round($costTime, 2)
+            ]);
+            
+            // Extract transaction ID (for transaction messages)
+            $transactionId = null;
+            if (method_exists($entry, 'getTransactionId')) {
+                $transactionId = $entry->getTransactionId();
+                if ($transactionId === '') {
+                    $transactionId = null;
+                }
+            }
+            
+            // Extract recall handle (for message recall)
+            $recallHandle = null;
+            if (method_exists($entry, 'getRecallHandle')) {
+                $recallHandle = $entry->getRecallHandle();
+                if ($recallHandle === '') {
+                    $recallHandle = null;
+                }
+            }
+            
+            // Get current client's endpoints for transaction commit/rollback
+            // This ensures we send commit/rollback to the same broker that handled the half message
+            $endpoints = $this->config->getEndpoints();
+            
+            // Create send receipt with transaction support
+            $sendReceipt = new SendReceipt(
+                $messageId, 
+                $topic, 
+                $queueId, 
+                $offset,
+                $transactionId,
+                $recallHandle,
+                $endpoints  // Pass endpoints for transaction operations
+            );
             
             // Record success metrics
             $this->metricsCollector->incrementCounter(MetricName::SEND_SUCCESS_TOTAL, [
@@ -1013,6 +1730,12 @@ class Producer implements ProducerInterface
                 MetricLabels::CLIENT_ID => $this->clientId,
             ]);
             
+            // Log error with context
+            Logger::error("Failed to send message, topic={}, error={}", [
+                $this->topic,
+                $e->getMessage()
+            ]);
+            
             // Execute after-send interceptors (exception case)
             if (!empty($this->interceptors) && $context !== null) {
                 $this->doAfterSend($context, [$message], null, $e);
@@ -1032,16 +1755,70 @@ class Producer implements ProducerInterface
     private function sendMessageWithRetry($message, $attempt = 1)
     {
         try {
-            return $this->sendMessage($message);
+            $receipt = $this->sendMessage($message);
+            
+            // Log successful resend (not first attempt)
+            if ($attempt > 1) {
+                Logger::info(
+                    "Resend message successfully, topic={}, messageId={}, maxAttempts={}, attempt={}",
+                    [
+                        $this->topic,
+                        $receipt->getMessageId(),
+                        $this->maxAttempts,
+                        $attempt
+                    ]
+                );
+            }
+            
+            return $receipt;
         } catch (\Exception $e) {
             // Determine whether to retry
             if (!$this->retryPolicy->shouldRetry($attempt, $e)) {
-                // Not retryable or max retries reached, throw exception directly
+                // Not retryable or max retries reached, log final failure
+                Logger::error(
+                    "Failed to send message finally, run out of attempt times, maxAttempts={}, attempt={}, topic={}, messageId={}, error={}",
+                    [
+                        $this->maxAttempts,
+                        $attempt,
+                        $this->topic,
+                        $message->getMessageId() ?? 'unknown',
+                        $e->getMessage()
+                    ]
+                );
                 throw $e;
             }
             
             // Calculate backoff time
             $delayMs = $this->retryPolicy->getNextAttemptDelay($attempt);
+            
+            // Check if this is a throttling error (TooManyRequests)
+            $isThrottled = ($e->getCode() === 429 || strpos($e->getMessage(), 'too many requests') !== false);
+            
+            if ($isThrottled && $delayMs > 0) {
+                // For throttling, log warning with delay info
+                Logger::warn(
+                    "Failed to send message due to too many requests, would attempt to resend after {}ms, maxAttempts={}, attempt={}, topic={}, messageId={}",
+                    [
+                        $delayMs,
+                        $this->maxAttempts,
+                        $attempt,
+                        $this->topic,
+                        $message->getMessageId() ?? 'unknown'
+                    ]
+                );
+            } else {
+                // For other errors, log warning for immediate retry
+                Logger::warn(
+                    "Failed to send message, would attempt to resend right now, maxAttempts={}, attempt={}, topic={}, messageId={}, error={}",
+                    [
+                        $this->maxAttempts,
+                        $attempt,
+                        $this->topic,
+                        $message->getMessageId() ?? 'unknown',
+                        $e->getMessage()
+                    ]
+                );
+            }
             
             // Execute backoff wait
             if ($delayMs > 0) {
@@ -1058,7 +1835,15 @@ class Producer implements ProducerInterface
      */
     public function sendAsync($message, $callback = null)
     {
+        // Check state
+        ClientState::checkState($this->state, [ClientState::RUNNING], 'send async message');
+        
         if ($message instanceof MessageInterface) {
+            Logger::debug("Sending async message, topic={}, messageId={}", [
+                $this->topic,
+                method_exists($message, 'getMessageId') ? $message->getMessageId() : 'unknown'
+            ]);
+            
             // Build gRPC message
             $grpcMessage = $this->convertToGrpcMessage($message);
             
@@ -1069,10 +1854,17 @@ class Producer implements ProducerInterface
             
             if ($callback !== null) {
                 // Use gRPC async callback
-                $call->wait(function($response, $error) use ($callback) {
+                $call->wait(function($response, $error) use ($callback, $grpcMessage) {
                     if ($error) {
+                        Logger::error("Failed to send async message, messageId={}, error={}", [
+                            method_exists($grpcMessage, 'getMessageId') ? $grpcMessage->getMessageId() : 'unknown',
+                            $error->getMessage()
+                        ]);
                         call_user_func($callback, null, $error);
                     } else {
+                        Logger::info("Async message sent successfully, messageId={}", [
+                            method_exists($grpcMessage, 'getMessageId') ? $grpcMessage->getMessageId() : 'unknown'
+                        ]);
                         call_user_func($callback, $response, null);
                     }
                 });
@@ -1088,6 +1880,12 @@ class Producer implements ProducerInterface
             $tag = func_get_arg(2) ?? null;
             $keys = func_get_arg(3) ?? null;
             
+            Logger::debug("Sending async message (legacy API), topic={}, tag={}, keys={}", [
+                $this->topic,
+                $tag ?? 'null',
+                $keys ?? 'null'
+            ]);
+            
             $messageObj = $this->buildMessage($body, $tag, $keys);
             
             $request = new SendMessageRequest();
@@ -1096,10 +1894,16 @@ class Producer implements ProducerInterface
             $call = $this->getClient()->SendMessage($request);
             
             // Use gRPC async callback
-            $call->wait(function($response, $error) use ($callback) {
+            $call->wait(function($response, $error) use ($callback, $messageObj) {
                 if ($error) {
+                    Logger::error("Failed to send async message (legacy API), error={}", [
+                        $error->getMessage()
+                    ]);
                     call_user_func($callback, null, $error);
                 } else {
+                    Logger::info("Async message sent successfully (legacy API), messageId={}", [
+                        method_exists($messageObj, 'getMessageId') ? $messageObj->getMessageId() : 'unknown'
+                    ]);
                     call_user_func($callback, $response, null);
                 }
             });
@@ -1162,6 +1966,11 @@ class Producer implements ProducerInterface
     /**
      * Send transaction message (half message)
      * 
+     * Based on Java implementation:
+     * 1. Add message to transaction
+     * 2. Send half message
+     * 3. Add receipt to transaction
+     * 
      * @param string $body Message body
      * @param Transaction $transaction Transaction object
      * @param string|null $tag Message tag
@@ -1175,8 +1984,16 @@ class Producer implements ProducerInterface
             throw new \Exception("Transaction checker is not set");
         }
         
+        // Check if transaction is TransactionImpl
+        if (!($transaction instanceof TransactionImpl)) {
+            throw new \InvalidArgumentException("Invalid transaction type");
+        }
+        
         // Build message
         $message = $this->buildMessage($body, $tag, $keys);
+        
+        // Try to add message to transaction (Java: tryAddMessage)
+        $transaction->tryAddMessage($message);
         
         // Set as transaction message type
         $systemProperties = $message->getSystemProperties();
@@ -1186,31 +2003,42 @@ class Producer implements ProducerInterface
         // Send half message
         $receipt = $this->sendMessageWithRetry($message);
         
-        // Add message to transaction
-        $transaction->addMessage($message, $receipt[0]);
+        // Try to add receipt to transaction (Java: tryAddReceipt)
+        $transaction->tryAddReceipt($message, $receipt);  // receipt is object, not array
         
-        return $receipt;
+        return [$receipt];  // Return as array for consistency
     }
     
     /**
      * End transaction (internal method)
      * 
-     * @param mixed $endpoints Target endpoints
+     * @param mixed $endpoints Target endpoints (from SendReceipt)
      * @param string $messageId Message ID
      * @param string $transactionId Transaction ID
      * @param string $resolution Transaction resolution (COMMIT/ROLLBACK)
      * @return void
      * @throws \Exception If ending transaction fails
      */
-    public function endTransactionInternal($endpoints, $messageId, $transactionId, $resolution)
+    /**
+     * End transaction (internal method)
+     * 
+     * @param mixed $endpoints Target broker endpoints
+     * @param string $messageId Message ID
+     * @param string $transactionId Transaction ID
+     * @param string $resolution Transaction resolution (COMMIT/ROLLBACK)
+     * @param string|null $topic Topic name (optional, defaults to producer's topic)
+     * @return void
+     * @throws \Exception If ending transaction fails
+     */
+    public function endTransactionInternal($endpoints, $messageId, $transactionId, $resolution, $topic = null)
     {
         $request = new \Apache\Rocketmq\V2\EndTransactionRequest();
         
-        // Set topic
-        $topic = new Resource();
-        $topic->setName($this->topic);
-        $topic->setResourceNamespace('');
-        $request->setTopic($topic);
+        // Set topic - use provided topic or fallback to producer's topic
+        $topicResource = new Resource();
+        $topicResource->setName($topic !== null ? $topic : $this->topic);
+        $topicResource->setResourceNamespace('');
+        $request->setTopic($topicResource);
         
         // Set message ID and transaction ID
         $request->setMessageId($messageId);
@@ -1228,8 +2056,19 @@ class Producer implements ProducerInterface
                 throw new \Exception("Invalid transaction resolution: {$resolution}");
         }
         
-        // Send request
-        list($response, $status) = $this->getClient()->EndTransaction($request)->wait();
+        // Set source (client-initiated commit/rollback)
+        $request->setSource(\Apache\Rocketmq\V2\TransactionSource::SOURCE_CLIENT);
+        
+        // Log begin transaction (aligned with Java/Node.js)
+        $resolutionStr = $resolution === TransactionResolution::COMMIT ? 'COMMIT' : 'ROLLBACK';
+        Logger::info("Begin to end transaction, messageId={$messageId}, transactionId={$transactionId}, resolution={$resolutionStr}, source=SOURCE_CLIENT, clientId={$this->clientId}");
+        
+        // Get the correct client for the target endpoints
+        // For transaction commit/rollback, we need to send to the same broker that handled the half message
+        $client = $this->getClient();
+        
+        // Send request to the correct broker
+        list($response, $status) = $client->EndTransaction($request)->wait();
         
         if ($status->code !== STATUS_OK) {
             throw new \Exception(
@@ -1238,12 +2077,15 @@ class Producer implements ProducerInterface
             );
         }
         
-        if ($response->getStatus()->getCode() !== 0) {
+        if ($response->getStatus()->getCode() !== 20000) {
             throw new \Exception(
                 "Failed to end transaction: " . $response->getStatus()->getMessage(),
                 $response->getStatus()->getCode()
             );
         }
+        
+        // Log success (aligned with Java/Node.js)
+        Logger::info("End transaction successfully, messageId={$messageId}, transactionId={$transactionId}, resolution={$resolutionStr}, source=SOURCE_CLIENT, clientId={$this->clientId}");
     }
     
     /**
@@ -1255,8 +2097,10 @@ class Producer implements ProducerInterface
      */
     public function handleOrphanedTransactionCheck($message, $transactionId)
     {
+        $messageId = $message->getSystemProperties()->getMessageId();
+        
         if ($this->transactionChecker === null) {
-            error_log("No transaction checker registered, ignore orphaned transaction check");
+            Logger::error("No transaction checker registered, ignore it, messageId={$messageId}, transactionId={$transactionId}, clientId={$this->clientId}");
             return;
         }
         
@@ -1265,7 +2109,6 @@ class Producer implements ProducerInterface
             $resolution = $this->transactionChecker->check($message);
             
             // End transaction based on check result
-            $messageId = $message->getSystemProperties()->getMessageId();
             $this->endTransactionInternal(
                 null, // Get endpoints from route
                 $messageId,
@@ -1273,9 +2116,9 @@ class Producer implements ProducerInterface
                 $resolution
             );
             
-            error_log("Orphaned transaction checked: messageId={$messageId}, transactionId={$transactionId}, resolution={$resolution}");
+            Logger::info("Recover orphaned transaction message success, transactionId={$transactionId}, resolution={$resolution}, messageId={$messageId}, clientId={$this->clientId}");
         } catch (\Exception $e) {
-            error_log("Failed to check orphaned transaction: " . $e->getMessage());
+            Logger::error("Exception raised while checking the transaction, messageId={$messageId}, transactionId={$transactionId}, clientId={$this->clientId}", ['error' => $e->getMessage()]);
         }
     }
     
@@ -1301,8 +2144,11 @@ class Producer implements ProducerInterface
             'shutdown'
         );
         
+        Logger::info("Begin to shutdown the rocketmq producer, clientId={}", [$this->clientId]);
+        
         // If already in terminal state, return directly
         if (ClientState::isTerminalState($this->state)) {
+            Logger::debug("The rocketmq producer already in terminal state, clientId={}", [$this->clientId]);
             return;
         }
         
@@ -1311,39 +2157,75 @@ class Producer implements ProducerInterface
         try {
             // 1. Clear route cache
             if ($this->routeCache !== null) {
+                Logger::debug("Clearing route cache, topic={}, clientId={}", [
+                    $this->topic,
+                    $this->clientId
+                ]);
                 $this->routeCache->invalidate($this->topic);
             }
             
             // 2. Return gRPC connection to pool
             if ($this->client !== null) {
                 try {
+                    Logger::debug("Returning connection to pool, endpoints={}, clientId={}", [
+                        $this->config->getEndpoints(),
+                        $this->clientId
+                    ]);
                     $pool = ConnectionPool::getInstance();
                     $pool->returnConnection($this->config, $this->client);
+                    Logger::debug("Connection returned to pool successfully, clientId={}", [$this->clientId]);
                 } catch (\Exception $e) {
                     // Ignore exception when returning connection
-                    error_log("Failed to return connection to pool: " . $e->getMessage());
+                    Logger::error("Failed to return connection to pool, clientId={}", [
+                        $this->clientId,
+                        'error' => $e->getMessage()
+                    ]);
                 } finally {
                     $this->client = null;
                 }
             }
             
             // 3. Clean up transaction-related resources
-            $this->transactionChecker = null;
+            if ($this->transactionChecker !== null) {
+                Logger::debug("Cleaning up transaction checker, clientId={}", [$this->clientId]);
+                $this->transactionChecker = null;
+            }
             
             // 4. Clean up Health checker
             if ($this->healthChecker !== null) {
+                Logger::debug("Resetting health checker, clientId={}", [$this->clientId]);
                 $this->healthChecker->reset();
                 $this->healthChecker = null;
             }
             
-            // 4. Transition state to TERMINATED
+            // 5. Clear interceptors
+            if (!empty($this->interceptors)) {
+                Logger::debug("Clearing {} interceptors, clientId={}", [
+                    count($this->interceptors),
+                    $this->clientId
+                ]);
+                $this->interceptors = [];
+            }
+            
+            // 6. Transition state to TERMINATED
             if (ClientState::canTransition($this->state, ClientState::TERMINATED)) {
                 $this->state = ClientState::TERMINATED;
+                
+                // Shutdown meter manager
+                if ($this->meterManager !== null) {
+                    $this->meterManager->shutdown();
+                }
+                
+                Logger::info("Shutdown the rocketmq producer successfully, clientId={}", [$this->clientId]);
             }
             
         } catch (\Exception $e) {
             // Even if cleanup fails, set to TERMINATED
             $this->state = ClientState::TERMINATED;
+            Logger::error("Failed to shutdown the rocketmq producer, clientId={}", [
+                $this->clientId,
+                'error' => $e->getMessage()
+            ]);
             throw new \Exception("Failed to shutdown producer: " . $e->getMessage(), 0, $e);
         }
     }
@@ -1492,7 +2374,7 @@ class Producer implements ProducerInterface
                 $this->shutdown(1); // Quick shutdown
             } catch (\Exception $e) {
                 // Ignore exceptions in destructor
-                error_log("Error during producer destruction: " . $e->getMessage());
+                Logger::error("Error during producer destruction, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             }
         }
     }
@@ -1592,6 +2474,75 @@ class Producer implements ProducerInterface
     {
         $metric = $this->metricsCollector->getMetric(MetricName::SEND_COST_TIME, [
             MetricLabels::TOPIC => $this->topic,
+            MetricLabels::CLIENT_ID => $this->clientId,
+        ]);
+        
+        if (!$metric || $metric['count'] == 0) {
+            return null;
+        }
+        
+        return $metric['sum'] / $metric['count'];
+    }
+    
+    /**
+     * Calculate recall QPS
+     * 
+     * @param string $topic Topic name
+     * @return float|null QPS (recalls per second)
+     */
+    public function calculateRecallQps($topic = null)
+    {
+        $topic = $topic ?? $this->topic;
+        return $this->metricsCollector->calculateRate(MetricName::RECALL_TOTAL, [
+            MetricLabels::TOPIC => $topic,
+            MetricLabels::CLIENT_ID => $this->clientId,
+        ]);
+    }
+    
+    /**
+     * Get recall success rate
+     * 
+     * @param string $topic Topic name
+     * @return float|null Success rate (between 0-1)
+     */
+    public function getRecallSuccessRate($topic = null)
+    {
+        $topic = $topic ?? $this->topic;
+        
+        $successMetric = $this->metricsCollector->getMetric(MetricName::RECALL_SUCCESS_TOTAL, [
+            MetricLabels::TOPIC => $topic,
+            MetricLabels::CLIENT_ID => $this->clientId,
+        ]);
+        
+        $failureMetric = $this->metricsCollector->getMetric(MetricName::RECALL_FAILURE_TOTAL, [
+            MetricLabels::TOPIC => $topic,
+            MetricLabels::CLIENT_ID => $this->clientId,
+        ]);
+        
+        if (!$successMetric || !$failureMetric) {
+            return null;
+        }
+        
+        $total = $successMetric['value'] + $failureMetric['value'];
+        if ($total == 0) {
+            return null;
+        }
+        
+        return $successMetric['value'] / $total;
+    }
+    
+    /**
+     * Get average recall cost time
+     * 
+     * @param string $topic Topic name
+     * @return float|null Average cost time (milliseconds)
+     */
+    public function getAvgRecallCostTime($topic = null)
+    {
+        $topic = $topic ?? $this->topic;
+        
+        $metric = $this->metricsCollector->getMetric(MetricName::RECALL_COST_TIME, [
+            MetricLabels::TOPIC => $topic,
             MetricLabels::CLIENT_ID => $this->clientId,
         ]);
         

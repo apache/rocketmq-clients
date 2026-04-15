@@ -1,8 +1,30 @@
 {
-  "name": "rocketmq/rocketmq-php-sdk",
-  "description": "PHP SDK for Apache RocketMQ",
+  "name": "apache/rocketmq-client-php",
+  "description": "Official PHP client for Apache RocketMQ - A distributed messaging and streaming platform",
+  "type": "library",
   "license": "Apache-2.0",
+  "keywords": [
+    "rocketmq",
+    "messaging",
+    "queue",
+    "streaming",
+    "apache"
+  ],
+  "homepage": "https://github.com/apache/rocketmq-client-php",
+  "authors": [
+    {
+      "name": "Apache RocketMQ Community",
+      "email": "dev@rocketmq.apache.org",
+      "homepage": "https://rocketmq.apache.org"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/apache/rocketmq-client-php/issues",
+    "source": "https://github.com/apache/rocketmq-client-php",
+    "docs": "https://rocketmq.apache.org/docs/"
+  },
   "require": {
+    "php": ">=7.4",
     "google/protobuf": "^3.3",
     "grpc/grpc": "^1.80",
     "hanson/foundation-sdk": "^5.0"
@@ -16,10 +38,44 @@
     "classmap": [
       "HealthChecker.php",
       "MessageInterceptor.php",
-      "MetricsCollector.php"
+      "MetricsCollector.php",
+      "SimpleConsumer.php",
+      "PushConsumer.php",
+      "Producer.php",
+      "ProducerSingleton.php",
+      "ClientServiceProvider.php",
+      "DefaultClientServiceProvider.php",
+      "Attribute.php",
+      "AttributeKey.php",
+      "MessageInterceptorContextInterface.php",
+      "MessageInterceptorContextImpl.php",
+      "MessageHookPoints.php",
+      "MessageHookPointsStatus.php",
+      "CompositedMessageInterceptor.php",
+      "LoggingMessageInterceptor.php",
+      "MessageMeterInterceptor.php",
+      "ClientMeterManager.php",
+      "MetricsSupportTrait.php",
+      "TelemetrySession.php",
+      "SwooleAsyncSupport.php",
+      "ClientSettings.php",
+      "PublishingSettings.php",
+      "PushSubscriptionSettings.php",
+      "HistogramEnum.php",
+      "GaugeEnum.php",
+      "InvocationStatus.php",
+      "Consumer/ProcessQueue.php",
+      "Consumer/ConsumeService.php",
+      "Consumer/StandardConsumeService.php"
     ]
   },
   "require-dev": {
     "phpunit/phpunit": "^9.0"
+  },
+  "scripts": {
+    "test": "php vendor/bin/phpunit tests/ --no-configuration",
+    "test:coverage": "php vendor/bin/phpunit tests/ --no-configuration --coverage-html coverage",
+    "lint": "phpcs --standard=PSR12 .",
+    "fix": "phpcbf --standard=PSR12 ."
   }
 }

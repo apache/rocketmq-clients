@@ -178,5 +178,31 @@ class Message extends \Google\Protobuf\Internal\Message
         return $this;
     }
 
+    /**
+     * Get message ID from system properties (convenience method)
+     * 
+     * @return string|null Message ID or null if not set
+     */
+    public function getMessageId()
+    {
+        if ($this->hasSystemProperties()) {
+            return $this->system_properties->getMessageId();
+        }
+        return null;
+    }
+
+    /**
+     * Get priority from system properties (convenience method)
+     * 
+     * @return int|null Priority value or null if not set
+     */
+    public function getPriority()
+    {
+        if ($this->hasSystemProperties()) {
+            return $this->system_properties->getPriority();
+        }
+        return null;
+    }
+
 }
 

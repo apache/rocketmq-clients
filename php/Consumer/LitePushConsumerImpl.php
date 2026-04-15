@@ -24,9 +24,11 @@ use Apache\Rocketmq\Exception\ClientException;
 use Apache\Rocketmq\Exception\ClientStateException;
 use Apache\Rocketmq\Exception\NetworkException;
 use Apache\Rocketmq\Exception\ServerException;
+use Apache\Rocketmq\Logger;
 use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\AckMessageRequest;
+use Apache\Rocketmq\V2\ClientType;
 use Apache\Rocketmq\V2\FilterExpression;
 use Apache\Rocketmq\V2\FilterType;
 use Apache\Rocketmq\V2\HeartbeatRequest;
@@ -206,11 +208,13 @@ class LitePushConsumerImpl implements LitePushConsumer {
         
         $this->state = 'STARTING';
         
+        Logger::info("Begin to start the rocketmq lite push consumer, clientId={$this->clientId}");
+        
         try {
             // Initialize gRPC client using connection pool
             $connectionPool = ConnectionPool::getInstance();
             $connectionPool->setConfigFromClientConfiguration($this->config);
-            $this->client = $connectionPool->getConnection($this->config->getEndpoints());
+            $this->client = $connectionPool->getConnection($this->config);
             
             // Send heartbeat to register with broker
             $this->sendHeartbeat();
@@ -225,8 +229,10 @@ class LitePushConsumerImpl implements LitePushConsumer {
             }
             
             $this->state = 'RUNNING';
+            Logger::info("The rocketmq lite push consumer starts successfully, clientId={$this->clientId}");
         } catch (\Exception $e) {
             $this->state = 'CREATED';
+            Logger::error("Failed to start the rocketmq lite push consumer, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             throw new ClientException("Failed to start lite push consumer: " . $e->getMessage(), $e);
         }
     }
@@ -241,6 +247,8 @@ class LitePushConsumerImpl implements LitePushConsumer {
         
         $this->state = 'STOPPING';
         
+        Logger::info("Begin to shutdown the rocketmq lite push consumer, clientId={}", [$this->clientId]);
+        
         try {
             // Stop all running threads
             foreach ($this->runningThreads as $thread) {
@@ -251,12 +259,14 @@ class LitePushConsumerImpl implements LitePushConsumer {
             // Close gRPC client
             if ($this->client) {
                 $connectionPool = ConnectionPool::getInstance();
-                $connectionPool->returnConnection($this->config->getEndpoints(), $this->client);
+                $connectionPool->returnConnection($this->config, $this->client);
                 $this->client = null;
             }
             
             $this->state = 'TERMINATED';
+            Logger::info("Shutdown the rocketmq lite push consumer successfully, clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
+            Logger::error("Failed to shutdown the rocketmq lite push consumer, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
             throw new ClientException("Failed to shutdown lite push consumer: " . $e->getMessage(), $e);
         }
     }
@@ -284,7 +294,7 @@ class LitePushConsumerImpl implements LitePushConsumer {
                 }
             } catch (\Exception $e) {
                 // Log error and continue
-                error_log("Lite push consumer error: " . $e->getMessage());
+                Logger::error("Lite push consumer error, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 usleep(1000000); // 1 second
             }
         }
@@ -340,7 +350,10 @@ class LitePushConsumerImpl implements LitePushConsumer {
             }
         } catch (\Exception $e) {
             // Message processing failed, no need to ack
-            error_log("Failed to process message: " . $e->getMessage());
+            Logger::error(
+                "Message listener raised an exception while consuming messages, messageId={}, topic={}, clientId={}",
+                [$message->getMessageId(), $message->getTopic(), $this->clientId, 'error' => $e->getMessage()]
+            );
         }
     }
     
@@ -384,28 +397,12 @@ class LitePushConsumerImpl implements LitePushConsumer {
         }
         
         $request = new HeartbeatRequest();
-        $request->setClientType('PHP');
-        $request->setClientVersion('2.0.0');
-        $request->setClientId($this->clientId);
+        $request->setClientType(ClientType::PUSH_CONSUMER);
         
-        $subscription = new Subscription();
-        $subscription->setGroup(Resource::create()->setName($this->consumerGroup));
-        
-        foreach ($this->liteTopics as $liteTopic => $topicConfig) {
-            $entry = new SubscriptionEntry();
-            $entry->setTopic(Resource::create()->setName($liteTopic));
-            
-            if (!empty($topicConfig['filterExpression'])) {
-                $filterExpression = new FilterExpression();
-                $filterExpression->setExpression($topicConfig['filterExpression']);
-                $filterExpression->setType($topicConfig['filterType'] === 'SQL92' ? FilterType::SQL92 : FilterType::TAG);
-                $entry->setFilterExpression($filterExpression);
-            }
-            
-            $subscription->addEntries($entry);
-        }
-        
-        $request->addSubscriptions($subscription);
+        // Set group
+        $group = new Resource();
+        $group->setName($this->consumerGroup);
+        $request->setGroup($group);
         
         try {
             $this->client->Heartbeat($request);

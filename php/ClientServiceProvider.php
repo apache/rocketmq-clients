@@ -18,183 +18,102 @@
 
 namespace Apache\Rocketmq;
 
+use Apache\Rocketmq\Builder\LiteProducerBuilder;
+use Apache\Rocketmq\Builder\LitePushConsumerBuilder;
+use Apache\Rocketmq\Builder\LiteSimpleConsumerBuilder;
 use Apache\Rocketmq\Builder\MessageBuilder;
 use Apache\Rocketmq\Builder\ProducerBuilder;
 use Apache\Rocketmq\Builder\PushConsumerBuilder;
 use Apache\Rocketmq\Builder\SimpleConsumerBuilder;
-use Apache\Rocketmq\Builder\LitePushConsumerBuilder;
-use Apache\Rocketmq\Builder\LiteSimpleConsumerBuilder;
 
 /**
- * Holder class for ClientServiceProvider singleton instance
+ * Service provider interface for RocketMQ client components.
+ * 
+ * This interface provides a unified entry point for creating various RocketMQ client components
+ * using the Builder pattern. It follows the Service Provider Interface (SPI) design pattern,
+ * similar to Java's ClientServiceProvider.
+ * 
+ * Usage example:
+ * ```php
+ * $provider = ClientServiceProvider::loadService();
+ * 
+ * // Create producer
+ * $producer = $provider->newProducerBuilder()
+ *     ->setClientConfiguration($config)
+ *     ->setTopics('my-topic')
+ *     ->build();
+ * 
+ * // Create push consumer
+ * $consumer = $provider->newPushConsumerBuilder()
+ *     ->setClientConfiguration($config)
+ *     ->setConsumerGroup('my-group')
+ *     ->setTopic('my-topic')
+ *     ->setMessageListener($listener)
+ *     ->build();
+ * ```
  */
-class ClientServiceProviderHolder {
+interface ClientServiceProvider
+{
     /**
-     * @var ClientServiceProvider|null Singleton instance
-     */
-    public static $INSTANCE = null;
-
-    /**
-     * Private constructor to prevent instantiation
-     */
-    private function __construct() {
-        // prevents instantiation
-    }
-}
-
-/**
- * Service provider to create client instances, following the same pattern as Java client.
- */
-interface ClientServiceProvider {
-    /**
-     * To avoid potential concurrency issues, the {@link #loadService()} logic
-     * has been changed to use lazy initialization with caching:
-     * <p>
-     * 1. Lazy loading + caching:
-     * - On the first call, the implementation is loaded via service loader
-     * and cached in {@link ClientServiceProviderHolder#INSTANCE};
-     * - Subsequent calls simply return the cached instance.
-     * <p>
-     * 2. If you need the old behavior (i.e., always load through service loader
-     * each time), you can call {@link #doLoad()} directly:
-     * - {@link #doLoad()} does not cache anything; it creates a new service loader
-     * and loads an implementation on every call;
-     * - You are responsible for handling any concurrency control when using
-     * {@link #doLoad()} directly.
-     */
-
-
-
-    /**
-     * Get the producer builder by the current provider.
+     * Get a new producer builder instance.
      *
      * @return ProducerBuilder The producer builder instance
      */
-    public function newProducerBuilder();
-    
+    public function newProducerBuilder(): ProducerBuilder;
+
     /**
-     * Get the message builder by the current provider.
+     * Get a new message builder instance.
      *
      * @return MessageBuilder The message builder instance
      */
-    public function newMessageBuilder();
-    
+    public function newMessageBuilder(): MessageBuilder;
+
     /**
-     * Get the push consumer builder by the current provider.
+     * Get a new push consumer builder instance.
      *
      * @return PushConsumerBuilder The push consumer builder instance
      */
-    public function newPushConsumerBuilder();
-    
+    public function newPushConsumerBuilder(): PushConsumerBuilder;
+
     /**
-     * Get the lite push consumer builder by the current provider.
+     * Get a new lite push consumer builder instance.
      *
      * @return LitePushConsumerBuilder The lite push consumer builder instance
      */
-    public function newLitePushConsumerBuilder();
-    
+    public function newLitePushConsumerBuilder(): LitePushConsumerBuilder;
+
     /**
-     * Get the lite simple consumer builder by the current provider.
+     * Get a new lite simple consumer builder instance.
      *
      * @return LiteSimpleConsumerBuilder The lite simple consumer builder instance
      */
-    public function newLiteSimpleConsumerBuilder();
-    
+    public function newLiteSimpleConsumerBuilder(): LiteSimpleConsumerBuilder;
+
     /**
-     * Get the simple consumer builder by the current provider.
+     * Get a new simple consumer builder instance.
      *
      * @return SimpleConsumerBuilder The simple consumer builder instance
      */
-    public function newSimpleConsumerBuilder();
+    public function newSimpleConsumerBuilder(): SimpleConsumerBuilder;
+
+    /**
+     * Get a new lite producer builder instance.
+     *
+     * @return LiteProducerBuilder The lite producer builder instance
+     */
+    public function newLiteProducerBuilder(): LiteProducerBuilder;
+
+    /**
+     * Load the default service provider implementation.
+     * 
+     * This method uses lazy initialization with caching to avoid potential
+     * concurrency issues. On the first call, it creates and caches the default
+     * provider instance. Subsequent calls return the cached instance.
+     *
+     * @return ClientServiceProvider The service provider instance
+     */
+    public static function loadService(): ClientServiceProvider;
 }
 
-/**
- * Default implementation of ClientServiceProvider
- */
-class ClientServiceProviderImpl implements ClientServiceProvider {
-    /**
-     * Private constructor to prevent direct instantiation
-     */
-    private function __construct() {
-    }
-    
-    /**
-     * {@inheritdoc}
-     */
-    public function newProducerBuilder() {
-        return new ProducerBuilder();
-    }
-    
-    /**
-     * {@inheritdoc}
-     */
-    public function newMessageBuilder() {
-        return new MessageBuilder();
-    }
-    
-    /**
-     * {@inheritdoc}
-     */
-    public function newPushConsumerBuilder() {
-        return new PushConsumerBuilder();
-    }
-    
-    /**
-     * {@inheritdoc}
-     */
-    public function newLitePushConsumerBuilder() {
-        return new LitePushConsumerBuilder();
-    }
-    
-    /**
-     * {@inheritdoc}
-     */
-    public function newLiteSimpleConsumerBuilder() {
-        return new LiteSimpleConsumerBuilder();
-    }
-    
-    /**
-     * {@inheritdoc}
-     */
-    public function newSimpleConsumerBuilder() {
-        return new SimpleConsumerBuilder();
-    }
-    
-    /**
-     * Load client service provider instance
-     *
-     * @return ClientServiceProvider
-     */
-    public static function loadService() {
-        $inst = ClientServiceProviderHolder::$INSTANCE;
-        if ($inst !== null) {
-            return $inst;
-        }
-        static $lock = null;
-        if ($lock === null) {
-            $lock = new \stdClass();
-        }
-        // PHP doesn't have built-in synchronized function, use flock instead
-        $fp = fopen(__FILE__, 'r');
-        if (flock($fp, LOCK_EX)) {
-            try {
-                if (ClientServiceProviderHolder::$INSTANCE === null) {
-                    ClientServiceProviderHolder::$INSTANCE = self::doLoad();
-                }
-            } finally {
-                flock($fp, LOCK_UN);
-                fclose($fp);
-            }
-        }
-        return ClientServiceProviderHolder::$INSTANCE;
-    }
-    
-    /**
-     * Do load client service provider instance
-     *
-     * @return ClientServiceProvider
-     */
-    public static function doLoad() {
-        return new self();
-    }
-}
+// Load the default implementation
+require_once __DIR__ . '/DefaultClientServiceProvider.php';

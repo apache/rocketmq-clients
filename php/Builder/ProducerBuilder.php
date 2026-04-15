@@ -105,6 +105,20 @@ class ProducerBuilder {
     }
     
     /**
+     * Enable or disable SSL
+     *
+     * @param bool $enabled Whether to enable SSL
+     * @return ProducerBuilder
+     */
+    public function enableSsl(bool $enabled) {
+        if ($this->clientConfiguration === null) {
+            throw new ClientConfigurationException("Client configuration must be set before enabling/disabling SSL");
+        }
+        $this->clientConfiguration->withSslEnabled($enabled);
+        return $this;
+    }
+    
+    /**
      * Build and start the producer
      *
      * @return Producer
@@ -122,14 +136,20 @@ class ProducerBuilder {
         // For simplicity, we'll use the first topic as the primary topic
         $topic = $this->topics[0];
         
-        $producer = Producer::getInstance($this->clientConfiguration, $topic);
-        $producer->setMaxAttempts($this->maxAttempts);
-        
+        // Create producer based on whether transaction checker is set
         if ($this->transactionChecker !== null) {
-            $producer = Producer::getTransactionalInstance($this->clientConfiguration, $topic, $this->transactionChecker);
-            $producer->setMaxAttempts($this->maxAttempts);
+            // Transactional producer
+            $producer = Producer::getTransactionalInstance(
+                $this->clientConfiguration,
+                $topic,
+                $this->transactionChecker
+            );
+        } else {
+            // Normal producer
+            $producer = Producer::getInstance($this->clientConfiguration, $topic);
         }
         
+        $producer->setMaxAttempts($this->maxAttempts);
         $producer->start();
         return $producer;
     }

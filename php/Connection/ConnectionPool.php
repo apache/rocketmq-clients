@@ -152,6 +152,49 @@ class ConnectionPool {
     }
     
     /**
+     * Get or create connection with specific client ID
+     * This ensures all RPC calls use the same client ID as Telemetry Session
+     *
+     * @param ClientConfiguration $clientConfig
+     * @param string $clientId Specific client ID to use
+     * @return MessagingServiceClient
+     * @throws NetworkException
+     */
+    public function getConnectionWithClientId(ClientConfiguration $clientConfig, string $clientId) {
+        // Use a special key that includes the client ID
+        $key = $this->getConnectionKey($clientConfig) . ':' . $clientId;
+        $startTime = microtime(true);
+        
+        // Check if connection exists in pool
+        if (isset($this->pool[$key]) && !empty($this->pool[$key])) {
+            $client = array_shift($this->pool[$key]);
+            $this->lastUsed[$key] = time();
+            
+            $waitTime = (microtime(true) - $startTime) * 1000;
+            $this->recordMetrics($key, $waitTime);
+            
+            return $client;
+        }
+        
+        // Create new connection with the specified client ID
+        if (!$this->isPoolFull($key)) {
+            try {
+                $client = $this->createConnection($clientConfig, $clientId);
+                $this->lastUsed[$key] = time();
+                
+                $waitTime = (microtime(true) - $startTime) * 1000;
+                $this->recordMetrics($key, $waitTime);
+                
+                return $client;
+            } catch (\Exception $e) {
+                throw new NetworkException("Failed to create connection: " . $e->getMessage(), 503, $e);
+            }
+        }
+        
+        throw new NetworkException("Connection pool is full", 503);
+    }
+    
+    /**
      * Return connection to pool
      *
      * @param ClientConfiguration $clientConfig
@@ -178,26 +221,57 @@ class ConnectionPool {
      * Create new connection
      *
      * @param ClientConfiguration $clientConfig
+     * @param string|null $clientId Optional client ID to use (if null, generates a random one)
      * @return MessagingServiceClient
      */
-    private function createConnection(ClientConfiguration $clientConfig) {
+    private function createConnection(ClientConfiguration $clientConfig, $clientId = null) {
+        // Use provided client ID or generate a unique one
+        if ($clientId === null) {
+            $clientId = 'php-client-' . uniqid();
+        }
+        
         $options = [
             'credentials' => $clientConfig->isSslEnabled() 
                 ? ChannelCredentials::createSsl() 
                 : ChannelCredentials::createInsecure(),
-            'update_metadata' => function ($metaData) use ($clientConfig) {
-                // Add client ID if available
-                if (isset($metaData['clientID'])) {
-                    $metaData['headers']['clientID'] = $metaData['clientID'];
+            'update_metadata' => function ($metaData) use ($clientConfig, $clientId) {
+                // Add client ID to headers
+                $metaData['x-mq-client-id'] = [$clientId];
+                
+                // Add other required metadata
+                $metaData['x-mq-language'] = ['PHP'];
+                $metaData['x-mq-protocol'] = ['GRPC_V2'];
+                $metaData['x-mq-client-version'] = ['5.0.0'];
+                
+                // Add namespace if available
+                $namespace = $clientConfig->getNamespace();
+                if (!empty($namespace)) {
+                    $metaData['x-mq-namespace'] = [$namespace];
                 }
                 
                 // Add authentication information
                 if ($clientConfig->hasCredentials()) {
                     $credentials = $clientConfig->getCredentials();
-                    $metaData['headers']['access-key'] = $credentials->getAccessKey();
-                    
-                    if ($credentials->hasSecurityToken()) {
-                        $metaData['headers']['security-token'] = $credentials->getSecurityToken();
+                    if ($credentials !== null) {
+                        $accessKey = $credentials->getAccessKey();
+                        $secretKey = $credentials->getAccessSecret();
+                        
+                        // Generate signature
+                        $dateTime = gmdate('Ymd\THis\Z');
+                        $signature = hash_hmac('sha1', $dateTime, $secretKey);
+                        
+                        $authorization = 'MQv2-HMAC-SHA1 ' .
+                            'Credential=' . $accessKey . ', ' .
+                            'SignedHeaders=x-mq-date-time, ' .
+                            'Signature=' . $signature;
+                        
+                        $metaData['authorization'] = [$authorization];
+                        $metaData['x-mq-date-time'] = [$dateTime];
+                        
+                        // Add session token if available
+                        if ($credentials->hasSecurityToken()) {
+                            $metaData['x-mq-session-token'] = [$credentials->getSecurityToken()];
+                        }
                     }
                 }
                 

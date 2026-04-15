@@ -44,6 +44,12 @@ class MetricName
     const BATCH_SEND_TOTAL = 'rocketmq_batch_send_total';              // Total batch sends
     const BATCH_SEND_MESSAGE_TOTAL = 'rocketmq_batch_send_message_total'; // Total messages in batch sends
     
+    // Recall metrics
+    const RECALL_TOTAL = 'rocketmq_recall_total';                      // Total recalls
+    const RECALL_SUCCESS_TOTAL = 'rocketmq_recall_success_total';      // Successful recalls
+    const RECALL_FAILURE_TOTAL = 'rocketmq_recall_failure_total';      // Failed recalls
+    const RECALL_COST_TIME = 'rocketmq_recall_cost_time';              // Recall latency (ms)
+    
     // Consumer metrics
     const RECEIVE_TOTAL = 'rocketmq_receive_total';                    // Total receives
     const CONSUME_TOTAL = 'rocketmq_consume_total';                    // Total consumes
@@ -86,15 +92,61 @@ class MetricName
 }
 
 /**
- * Metric Labels
+ * Metric Labels - Standard labels for metrics
+ * 
+ * Reference: Java MetricLabels
  */
 class MetricLabels
 {
+    /**
+     * Topic label key
+     */
     const TOPIC = 'topic';
+    
+    /**
+     * Client ID label key
+     */
     const CLIENT_ID = 'client_id';
+    
+    /**
+     * Consumer group label key
+     */
+    const CONSUMER_GROUP = 'consumer_group';
+    
+    /**
+     * Invocation status label key
+     */
+    const INVOCATION_STATUS = 'invocation_status';
+    
+    /**
+     * Status label key (legacy)
+     * @deprecated Use INVOCATION_STATUS instead
+     */
     const STATUS = 'status';
+    
+    /**
+     * Endpoints label key
+     */
     const ENDPOINTS = 'endpoints';
+    
+    /**
+     * Message type label key
+     */
     const MESSAGE_TYPE = 'message_type';
+    
+    /**
+     * Get all standard label keys
+     * 
+     * @return array Array of label keys
+     */
+    public static function getAll(): array {
+        return [
+            self::TOPIC,
+            self::CLIENT_ID,
+            self::CONSUMER_GROUP,
+            self::INVOCATION_STATUS,
+        ];
+    }
 }
 
 /**

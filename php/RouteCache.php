@@ -163,14 +163,10 @@ class RouteCache
         // Try to get from cache
         $route = $this->get($topic);
         if ($route !== null) {
-            $this->stats['hits']++;
-            $this->metricsCollector->incrementCounter(MetricName::CACHE_HITS, ['topic' => $topic]);
             return $route;
         }
         
         // Cache miss, load new data
-        $this->stats['misses']++;
-        $this->metricsCollector->incrementCounter(MetricName::CACHE_MISSES, ['topic' => $topic]);
         
         $route = $loader($topic);
         $this->set($topic, $route);
@@ -192,14 +188,20 @@ class RouteCache
     public function get($topic)
     {
         if (!isset($this->cache[$topic])) {
+            $this->stats['misses']++;
+            $this->metricsCollector->incrementCounter(MetricName::CACHE_MISSES, ['topic' => $topic]);
             return null;
         }
         
         // Check if expired
         if ($this->isExpired($topic)) {
+            $this->stats['misses']++;
+            $this->metricsCollector->incrementCounter(MetricName::CACHE_MISSES, ['topic' => $topic]);
             return null;
         }
         
+        $this->stats['hits']++;
+        $this->metricsCollector->incrementCounter(MetricName::CACHE_HITS, ['topic' => $topic]);
         return $this->cache[$topic];
     }
     
@@ -336,7 +338,7 @@ class RouteCache
                     $this->stats['refreshes']++;
                 } catch (\Exception $e) {
                     // Refresh failed, keep old cache, log error
-                    error_log("Failed to refresh route for topic {$topic}: " . $e->getMessage());
+                    Logger::error("Failed to refresh route for topic {}", [$topic, 'error' => $e->getMessage()]);
                 }
             }
         }
@@ -397,7 +399,7 @@ class RouteCache
                 $this->refreshExpired($loader);
             } catch (\Exception $e) {
                 // Log error and continue
-                error_log("Background refresh failed: " . $e->getMessage());
+                Logger::error("Background refresh failed", ['error' => $e->getMessage()]);
             }
             
             // Sleep for TTL/2 seconds to avoid frequent refreshes
@@ -485,6 +487,7 @@ class RouteCache
             'hits' => 0,
             'misses' => 0,
             'refreshes' => 0,
+            'evictions' => 0,
         ];
     }
     

@@ -28,7 +28,7 @@ interface MessageBuilder {
      * @param string $topic The topic for the message
      * @return MessageBuilder The message builder instance
      */
-    public function setTopic(string $topic): MessageBuilder;
+    public function setTopic(string $topic);
     
     /**
      * Set the body for the message, which is essential for each message
@@ -39,7 +39,7 @@ interface MessageBuilder {
      * @param string $body The body for the message
      * @return MessageBuilder The message builder instance
      */
-    public function setBody(string $body): MessageBuilder;
+    public function setBody(string $body);
     
     /**
      * Set the tag for the message, which is optional
@@ -49,7 +49,7 @@ interface MessageBuilder {
      * @param string $tag The tag for the message
      * @return MessageBuilder The message builder instance
      */
-    public function setTag(string $tag): MessageBuilder;
+    public function setTag(string $tag);
     
     /**
      * Set the key collection for the message, which is optional
@@ -60,7 +60,7 @@ interface MessageBuilder {
      * @param string ...$keys Key(s) for the message
      * @return MessageBuilder The message builder instance
      */
-    public function setKeys(string ...$keys): MessageBuilder;
+    public function setKeys(string ...$keys);
     
     /**
      * Set the group for the message, which is optional
@@ -70,7 +70,7 @@ interface MessageBuilder {
      * @param string $messageGroup Group for the message
      * @return MessageBuilder The message builder instance
      */
-    public function setMessageGroup(string $messageGroup): MessageBuilder;
+    public function setMessageGroup(string $messageGroup);
     
     /**
      * Set the lite topic for the message, which is optional
@@ -78,7 +78,7 @@ interface MessageBuilder {
      * @param string $liteTopic Lite topic for the message
      * @return MessageBuilder The message builder instance
      */
-    public function setLiteTopic(string $liteTopic): MessageBuilder;
+    public function setLiteTopic(string $liteTopic);
     
     /**
      * Set the delivery timestamp for the message, which is optional
@@ -88,7 +88,7 @@ interface MessageBuilder {
      * @param int $deliveryTimestamp Delivery timestamp for the message
      * @return MessageBuilder The message builder instance
      */
-    public function setDeliveryTimestamp(int $deliveryTimestamp): MessageBuilder;
+    public function setDeliveryTimestamp(int $deliveryTimestamp);
     
     /**
      * Set the priority for the message, which is optional
@@ -96,7 +96,7 @@ interface MessageBuilder {
      * @param int $priority Non-negative number in the range [0, N], regarded as highest priority if exceeds N
      * @return MessageBuilder The message builder instance
      */
-    public function setPriority(int $priority): MessageBuilder;
+    public function setPriority(int $priority);
     
     /**
      * Add user property for the message
@@ -105,7 +105,7 @@ interface MessageBuilder {
      * @param string $value Single property value
      * @return MessageBuilder The message builder instance
      */
-    public function addProperty(string $key, string $value): MessageBuilder;
+    public function addProperty(string $key, string $value);
     
     /**
      * Finalize the build of the Message instance
@@ -114,5 +114,5 @@ interface MessageBuilder {
      * 
      * @return Message The message instance
      */
-    public function build(): Message;
+    public function build(): \Apache\Rocketmq\Message\Message;
 }

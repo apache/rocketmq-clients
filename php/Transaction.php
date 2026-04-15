@@ -117,32 +117,69 @@ class Transaction
     /**
      * Commit transaction
      * 
-     * All half messages will be visible to consumers
+     * All half messages will be visible to consumers.
+     * This operation is idempotent - calling commit multiple times has the same effect.
+     * 
+     * Important notes:
+     * 1. Transaction must have at least one message
+     * 2. Once committed, messages cannot be rolled back
+     * 3. If commit fails, you can retry (state remains RUNNING)
+     * 4. After successful commit, state becomes COMMITTED
      * 
      * @return void
-     * @throws \Exception If commit fails
+     * @throws \Exception If commit fails or transaction is in invalid state
      */
     public function commit()
     {
         if (empty($this->messages)) {
-            throw new \Exception("No messages in transaction to commit");
+            throw new \Exception("No messages in transaction to commit. Send at least one message before committing.");
         }
         
-        if ($this->state === 'COMMITTED' || $this->state === 'ROLLING_BACK' || $this->state === 'ROLLED_BACK') {
-            throw new \Exception("Transaction already in terminal state: {$this->state}");
+        if ($this->state === 'COMMITTED') {
+            // Idempotent: already committed, return silently
+            return;
         }
+        
+        if ($this->state === 'ROLLING_BACK' || $this->state === 'ROLLED_BACK') {
+            throw new \Exception("Cannot commit transaction that is being rolled back or already rolled back. Current state: {$this->state}");
+        }
+        
+        $messageCount = count($this->messages);
+        Logger::info("Begin to commit transaction, messageCount={}, transactionId={}, state={}", [
+            $messageCount,
+            $this->transactionId,
+            $this->state
+        ]);
         
         $this->state = 'COMMITTING';
         
         try {
+            $committedCount = 0;
             foreach ($this->messages as $messageId => $msgData) {
                 $receipt = $msgData['receipt'];
                 $this->endTransaction($receipt, TransactionResolution::COMMIT);
+                $committedCount++;
+                
+                Logger::debug("Committed half message, messageId={}, transactionId={}, progress={}/{}", [
+                    $messageId,
+                    $this->transactionId,
+                    $committedCount,
+                    $messageCount
+                ]);
             }
             
             $this->state = 'COMMITTED';
+            
+            Logger::info("Commit transaction successfully, messageCount={}, transactionId={}", [
+                $messageCount,
+                $this->transactionId
+            ]);
         } catch (\Exception $e) {
             $this->state = 'RUNNING'; // Restore state, allow retry
+            Logger::error("Failed to commit transaction, transactionId={}, error={}", [
+                $this->transactionId,
+                $e->getMessage()
+            ]);
             throw new \Exception("Failed to commit transaction: " . $e->getMessage(), 0, $e);
         }
     }
@@ -150,32 +187,69 @@ class Transaction
     /**
      * Rollback transaction
      * 
-     * All half messages will be deleted
+     * All half messages will be deleted and never visible to consumers.
+     * This operation is idempotent - calling rollback multiple times has the same effect.
+     * 
+     * Important notes:
+     * 1. Transaction must have at least one message
+     * 2. Once rolled back, messages cannot be committed
+     * 3. If rollback fails, you can retry (state remains RUNNING)
+     * 4. After successful rollback, state becomes ROLLED_BACK
      * 
      * @return void
-     * @throws \Exception If rollback fails
+     * @throws \Exception If rollback fails or transaction is in invalid state
      */
     public function rollback()
     {
         if (empty($this->messages)) {
-            throw new \Exception("No messages in transaction to rollback");
+            throw new \Exception("No messages in transaction to rollback. Send at least one message before rolling back.");
         }
         
-        if ($this->state === 'COMMITTED' || $this->state === 'ROLLING_BACK' || $this->state === 'ROLLED_BACK') {
-            throw new \Exception("Transaction already in terminal state: {$this->state}");
+        if ($this->state === 'ROLLED_BACK') {
+            // Idempotent: already rolled back, return silently
+            return;
         }
+        
+        if ($this->state === 'COMMITTED' || $this->state === 'COMMITTING') {
+            throw new \Exception("Cannot rollback transaction that is being committed or already committed. Current state: {$this->state}");
+        }
+        
+        $messageCount = count($this->messages);
+        Logger::info("Begin to rollback transaction, messageCount={}, transactionId={}, state={}", [
+            $messageCount,
+            $this->transactionId,
+            $this->state
+        ]);
         
         $this->state = 'ROLLING_BACK';
         
         try {
+            $rolledBackCount = 0;
             foreach ($this->messages as $messageId => $msgData) {
                 $receipt = $msgData['receipt'];
                 $this->endTransaction($receipt, TransactionResolution::ROLLBACK);
+                $rolledBackCount++;
+                
+                Logger::debug("Rolled back half message, messageId={}, transactionId={}, progress={}/{}", [
+                    $messageId,
+                    $this->transactionId,
+                    $rolledBackCount,
+                    $messageCount
+                ]);
             }
             
             $this->state = 'ROLLED_BACK';
+            
+            Logger::info("Rollback transaction successfully, messageCount={}, transactionId={}", [
+                $messageCount,
+                $this->transactionId
+            ]);
         } catch (\Exception $e) {
             $this->state = 'RUNNING'; // Restore state, allow retry
+            Logger::error("Failed to rollback transaction, transactionId={}, error={}", [
+                $this->transactionId,
+                $e->getMessage()
+            ]);
             throw new \Exception("Failed to rollback transaction: " . $e->getMessage(), 0, $e);
         }
     }

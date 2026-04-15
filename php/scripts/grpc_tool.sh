@@ -25,8 +25,8 @@ NC='\033[0m' # No Color
 # Path configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-PROTO_ROOT="${PROJECT_ROOT}/protos"
-PHP_GRPC_OUTPUT="${SCRIPT_DIR}/grpc"
+PROTO_ROOT="${PROJECT_ROOT}/protocol"
+PHP_GRPC_OUTPUT="${PROJECT_ROOT}/grpc"
 
 # Proto file list
 PROTO_FILES=(
@@ -179,16 +179,21 @@ check_grpc_php_plugin() {
     # First check system PATH
     if command -v grpc_php_plugin &> /dev/null; then
         GRPC_PLUGIN_PATH=$(which grpc_php_plugin)
-        GRPC_PLUGIN_VERSION=$($GRPC_PLUGIN_PATH --version 2>&1 || true)
-        echo -e "${GREEN}✓ grpc_php_plugin installed (system): ${GRPC_PLUGIN_VERSION}${NC}"
+        echo -e "${GREEN}✓ grpc_php_plugin installed (system): ${GRPC_PLUGIN_PATH}${NC}"
+        return 0
+    fi
+    
+    # Check /tmp/grpc/install/bin (compiled from source)
+    if [ -f "/tmp/grpc/install/bin/grpc_php_plugin" ]; then
+        GRPC_PLUGIN_PATH="/tmp/grpc/install/bin/grpc_php_plugin"
+        echo -e "${GREEN}✓ grpc_php_plugin installed (local build): ${GRPC_PLUGIN_PATH}${NC}"
         return 0
     fi
     
     # Check vendor/bin directory
     if [ -f "${SCRIPT_DIR}/../vendor/bin/grpc_php_plugin" ]; then
         GRPC_PLUGIN_PATH="${SCRIPT_DIR}/../vendor/bin/grpc_php_plugin"
-        GRPC_PLUGIN_VERSION=$($GRPC_PLUGIN_PATH --version 2>&1 || true)
-        echo -e "${GREEN}✓ grpc_php_plugin installed (Composer): ${GRPC_PLUGIN_VERSION}${NC}"
+        echo -e "${GREEN}✓ grpc_php_plugin installed (Composer): ${GRPC_PLUGIN_PATH}${NC}"
         return 0
     fi
     
