@@ -25,26 +25,19 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../Producer.php';
+require_once __DIR__ . '/../ProducerSingleton.php';
 
-use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\Producer;
 use Apache\Rocketmq\Builder\MessageBuilder;
 
 // Configuration
-$endpoints = '127.0.0.1:8080';
 $topic = 'topic-order';
 
 echo "=== Producer FIFO Message Example ===\n\n";
 
 try {
-    // Create client configuration
-    $config = new ClientConfiguration($endpoints);
-    $config->withSslEnabled(false);
-    
-    // Create and start producer (topic parameter is recommended for better performance)
-    $producer = Producer::getInstance($config, $topic);
-    $producer->start();
-    echo "✓ Producer started\n\n";
+    // Get producer instance using singleton pattern (recommended)
+    $producer = ProducerSingleton::getInstance($topic);
+    echo "✓ Producer initialized (singleton)\n\n";
     
     // Send multiple FIFO messages in the same message group
     $messageGroup = 'order_12345';
@@ -73,9 +66,7 @@ try {
     
     echo "\nAll messages in the same group will be consumed in order.\n\n";
     
-    // Shutdown producer
-    $producer->shutdown();
-    echo "✓ Producer shutdown\n";
+    // Note: Producer will be reused across multiple calls (singleton pattern)
     
 } catch (\Exception $e) {
     echo "✗ Error: " . $e->getMessage() . "\n";

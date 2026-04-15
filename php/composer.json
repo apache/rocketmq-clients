@@ -39,8 +39,10 @@
       "HealthChecker.php",
       "MessageInterceptor.php",
       "MetricsCollector.php",
-      "Consumer.php",
+      "SimpleConsumer.php",
+      "PushConsumer.php",
       "Producer.php",
+      "ProducerSingleton.php",
       "ClientServiceProvider.php",
       "DefaultClientServiceProvider.php",
       "Attribute.php",
@@ -61,7 +63,10 @@
       "PushSubscriptionSettings.php",
       "HistogramEnum.php",
       "GaugeEnum.php",
-      "InvocationStatus.php"
+      "InvocationStatus.php",
+      "Consumer/ProcessQueue.php",
+      "Consumer/ConsumeService.php",
+      "Consumer/StandardConsumeService.php"
     ]
   },
   "require-dev": {

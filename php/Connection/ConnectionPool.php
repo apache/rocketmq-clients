@@ -252,24 +252,26 @@ class ConnectionPool {
                 // Add authentication information
                 if ($clientConfig->hasCredentials()) {
                     $credentials = $clientConfig->getCredentials();
-                    $accessKey = $credentials->getAccessKey();
-                    $secretKey = $credentials->getSecretKey();
-                    
-                    // Generate signature
-                    $dateTime = gmdate('Ymd\THis\Z');
-                    $signature = hash_hmac('sha1', $dateTime, $secretKey);
-                    
-                    $authorization = 'MQv2-HMAC-SHA1 ' .
-                        'Credential=' . $accessKey . ', ' .
-                        'SignedHeaders=x-mq-date-time, ' .
-                        'Signature=' . $signature;
-                    
-                    $metaData['authorization'] = [$authorization];
-                    $metaData['x-mq-date-time'] = [$dateTime];
-                    
-                    // Add session token if available
-                    if ($credentials->hasSecurityToken()) {
-                        $metaData['x-mq-session-token'] = [$credentials->getSecurityToken()];
+                    if ($credentials !== null) {
+                        $accessKey = $credentials->getAccessKey();
+                        $secretKey = $credentials->getAccessSecret();
+                        
+                        // Generate signature
+                        $dateTime = gmdate('Ymd\THis\Z');
+                        $signature = hash_hmac('sha1', $dateTime, $secretKey);
+                        
+                        $authorization = 'MQv2-HMAC-SHA1 ' .
+                            'Credential=' . $accessKey . ', ' .
+                            'SignedHeaders=x-mq-date-time, ' .
+                            'Signature=' . $signature;
+                        
+                        $metaData['authorization'] = [$authorization];
+                        $metaData['x-mq-date-time'] = [$dateTime];
+                        
+                        // Add session token if available
+                        if ($credentials->hasSecurityToken()) {
+                            $metaData['x-mq-session-token'] = [$credentials->getSecurityToken()];
+                        }
                     }
                 }
                 

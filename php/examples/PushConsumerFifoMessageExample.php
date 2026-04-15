@@ -30,7 +30,8 @@ if (!extension_loaded('swoole')) {
 }
 
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../Consumer.php';
+require_once __DIR__ . '/../SimpleConsumer.php';
+require_once __DIR__ . '/../PushConsumer.php';
 
 use Apache\Rocketmq\ClientConfiguration;
 use Apache\Rocketmq\PushConsumer;

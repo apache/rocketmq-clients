@@ -19,6 +19,7 @@
 namespace Apache\Rocketmq\Builder;
 
 use Apache\Rocketmq\ClientConfiguration;
+use Apache\Rocketmq\Consumer\FilterExpression;
 use Apache\Rocketmq\Exception\ClientConfigurationException;
 use Apache\Rocketmq\PushConsumer;
 
@@ -37,9 +38,9 @@ class PushConsumerBuilder {
     private $consumerGroup;
     
     /**
-     * @var string|null
+     * @var array<string, FilterExpression>|null Subscription expressions map (topic => FilterExpression)
      */
-    private $topic;
+    private $subscriptionExpressions = null;
     
     /**
      * @var callable|null
@@ -79,13 +80,48 @@ class PushConsumerBuilder {
     }
     
     /**
-     * Set topic
+     * Set subscription expressions (recommended for multiple topics)
+     * 
+     * This method allows subscribing to multiple topics with different filter expressions.
+     * Example:
+     * ```php
+     * $builder->setSubscriptionExpressions([
+     *     'topicA' => new FilterExpression('*'),  // Subscribe all messages
+     *     'topicB' => new FilterExpression('tag1 || tag2'),  // Filter by tags
+     * ]);
+     * ```
      *
-     * @param string $topic
+     * @param array<string, FilterExpression|string> $subscriptionExpressions Map of topic to FilterExpression or tag string
      * @return PushConsumerBuilder
      */
-    public function setTopic(string $topic) {
-        $this->topic = $topic;
+    public function setSubscriptionExpressions(array $subscriptionExpressions) {
+        $this->subscriptionExpressions = [];
+        foreach ($subscriptionExpressions as $topic => $filter) {
+            if (is_string($filter)) {
+                // Convert string to FilterExpression (default TAG type)
+                $this->subscriptionExpressions[$topic] = new FilterExpression($filter);
+            } else {
+                $this->subscriptionExpressions[$topic] = $filter;
+            }
+        }
+        return $this;
+    }
+    
+    /**
+     * Set single topic subscription (backward compatible)
+     *
+     * @param string $topic Topic name
+     * @param FilterExpression|string|null $filterExpression Optional filter expression (default: subscribe all)
+     * @return PushConsumerBuilder
+     */
+    public function setTopic(string $topic, $filterExpression = null) {
+        if ($filterExpression === null) {
+            $filterExpression = new FilterExpression('*');
+        } elseif (is_string($filterExpression)) {
+            $filterExpression = new FilterExpression($filterExpression);
+        }
+        
+        $this->subscriptionExpressions = [$topic => $filterExpression];
         return $this;
     }
     
@@ -162,15 +198,33 @@ class PushConsumerBuilder {
             throw new ClientConfigurationException("Consumer group must be set");
         }
         
-        if (empty($this->topic)) {
-            throw new ClientConfigurationException("Topic must be set");
+        if (empty($this->subscriptionExpressions)) {
+            throw new ClientConfigurationException("At least one subscription expression must be set");
         }
         
         if ($this->messageListener === null) {
             throw new ClientConfigurationException("Message listener must be set");
         }
         
-        $consumer = PushConsumer::getInstance($this->clientConfiguration, $this->consumerGroup, $this->topic);
+        // Get the first topic for backward compatibility with PushConsumer::getInstance
+        $firstTopic = array_key_first($this->subscriptionExpressions);
+        
+        $consumer = PushConsumer::getInstance(
+            $this->clientConfiguration,
+            $this->consumerGroup,
+            $firstTopic
+        );
+        
+        // Set all subscription expressions during initialization phase
+        // This is allowed before the consumer starts (similar to Java's constructor injection)
+        foreach ($this->subscriptionExpressions as $topic => $filterExpression) {
+            $consumer->subscribe($topic, $filterExpression);
+        }
+        
+        // Mark subscription as initialized (allows subscribe before start)
+        // Note: In PHP, we need to use reflection or a setter to access private property
+        // For now, we rely on the check in subscribe() that allows calls when subscriptionInitialized is false
+        
         $consumer->setMessageListener($this->messageListener);
         $consumer->setInvisibleDuration($this->invisibleDuration);
         $consumer->setMaxMessageNum($this->maxMessageNum);

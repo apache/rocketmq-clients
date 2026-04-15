@@ -14,10 +14,9 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../Producer.php';
+require_once __DIR__ . '/../ProducerSingleton.php';
 require_once __DIR__ . '/../Builder/MessageBuilder.php';
 
-use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\Producer;
 use Apache\Rocketmq\Builder\MessageBuilder;
 
 echo "========================================\n";
@@ -25,17 +24,12 @@ echo "  Priority Message Producer Example\n";
 echo "========================================\n\n";
 
 // Configuration
-$endpoints = '127.0.0.1:8080';
 $topic = 'yourPriorityTopic'; // Must be a priority-enabled topic
 
-$config = new ClientConfiguration($endpoints);
-$config->withSslEnabled(false);
+// Get producer instance using singleton pattern (recommended)
+$producer = ProducerSingleton::getInstance($topic);
 
-// Create and start producer (topic parameter is recommended for better performance)
-$producer = Producer::getInstance($config, $topic);
-$producer->start();
-
-echo "Producer started successfully\n\n";
+echo "Producer initialized successfully (singleton)\n\n";
 
 try {
     // ========================================
@@ -149,8 +143,4 @@ try {
 } catch (\Exception $e) {
     echo "\n❌ Error: " . $e->getMessage() . "\n";
     echo "Stack trace:\n" . $e->getTraceAsString() . "\n";
-} finally {
-    // Shutdown producer
-    $producer->shutdown();
-    echo "Producer shutdown complete\n";
 }

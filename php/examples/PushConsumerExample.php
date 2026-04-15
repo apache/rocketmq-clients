@@ -29,10 +29,12 @@ if (!extension_loaded('swoole')) {
 }
 
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../Consumer.php';
+require_once __DIR__ . '/../SimpleConsumer.php';
+require_once __DIR__ . '/../PushConsumer.php';
 
 use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\SimpleConsumer;
+use Apache\Rocketmq\Builder\PushConsumerBuilder;
+use Apache\Rocketmq\Consumer\FilterExpression;
 
 // Configuration
 $endpoints = '127.0.0.1:8080';
@@ -45,11 +47,6 @@ try {
     // Create client configuration
     $config = new ClientConfiguration($endpoints);
     $config->withSslEnabled(false);
-    
-    // Create consumer
-    $consumer = SimpleConsumer::getInstance($config, $consumerGroup, $topic);
-    $consumer->start();
-    echo "✓ Consumer started\n\n";
     
     // Define message listener (callback function)
     $messageListener = function($message) {
@@ -66,46 +63,27 @@ try {
         // Process your business logic here
         // ...
         
-        return true; // Return true for success
+        return \Apache\Rocketmq\Consumer\ConsumeResult::SUCCESS;
     };
     
-    echo "Start consuming messages with listener (press Ctrl+C to stop)...\n\n";
+    // Create push consumer using Builder pattern (recommended)
+    $consumer = (new PushConsumerBuilder())
+        ->setClientConfiguration($config)
+        ->setConsumerGroup($consumerGroup)
+        ->setSubscriptionExpressions([
+            $topic => new FilterExpression('*'),  // Subscribe all messages
+        ])
+        ->setMessageListener($messageListener)
+        ->build();
     
-    // Start consuming in coroutine (simulating PushConsumer)
-    go(function() use ($consumer, $messageListener) {
-        while (true) {
-            try {
-                // Poll for messages
-                $messages = $consumer->receive(10, 30);
-                
-                if (!empty($messages)) {
-                    foreach ($messages as $message) {
-                        // Call message listener
-                        $result = $messageListener($message);
-                        
-                        // Auto ACK on success
-                        if ($result === true) {
-                            try {
-                                $consumer->ack($message);
-                                echo "   ✓ ACK: Success\n";
-                            } catch (\Exception $e) {
-                                echo "   ✗ ACK: Failed - " . $e->getMessage() . "\n";
-                            }
-                        }
-                    }
-                } else {
-                    // No messages, wait a bit
-                    \Swoole\Coroutine::sleep(1);
-                }
-            } catch (\Exception $e) {
-                echo "✗ Error: " . $e->getMessage() . "\n";
-                \Swoole\Coroutine::sleep(1);
-            }
-        }
-    });
+    echo "✓ Consumer started with subscription to topic: {$topic}\n\n";
+    echo "Consuming messages... (press Ctrl+C to stop)\n\n";
     
-    // Start the event loop
-    \Swoole\Event::wait();
+    // The consumer is now running in background coroutines
+    // Keep the main process alive
+    while (true) {
+        \Swoole\Coroutine::sleep(1);
+    }
     
 } catch (\Exception $e) {
     echo "✗ Error: " . $e->getMessage() . "\n";

@@ -60,6 +60,11 @@ class ClientConfiguration
     private $namespace = "";
     
     /**
+     * @var Credentials|null Authentication credentials (legacy, use sessionCredentialsProvider instead)
+     */
+    private $credentials = null;
+    
+    /**
      * @var SessionCredentialsProvider|null Session credentials provider
      */
     private $sessionCredentialsProvider = null;
@@ -172,12 +177,21 @@ class ClientConfiguration
     /**
      * Set authentication credentials (chainable)
      * 
+     * This method converts Credentials to StaticSessionCredentialsProvider for compatibility.
+     * It is recommended to use withCredentialsProvider() directly.
+     * 
      * @param Credentials $credentials Authentication credentials object
      * @return self Returns itself to support chain calls
+     * @deprecated Use withCredentialsProvider() instead
      */
     public function withCredentials(Credentials $credentials)
     {
-        $this->credentials = $credentials;
+        // Convert Credentials to StaticSessionCredentialsProvider
+        $this->sessionCredentialsProvider = new StaticSessionCredentialsProvider(
+            $credentials->getAccessKey(),
+            $credentials->getAccessSecret(),
+            $credentials->getSecurityToken()
+        );
         return $this;
     }
     
@@ -272,6 +286,17 @@ class ClientConfiguration
     }
     
     /**
+     * Get authentication credentials (legacy method)
+     * 
+     * @return Credentials|null Credentials object, returns null if not set
+     * @deprecated Use getSessionCredentialsProvider() instead
+     */
+    public function getCredentials()
+    {
+        return $this->credentials;
+    }
+    
+    /**
      * Get session credentials provider
      * 
      * @return SessionCredentialsProvider|null Session credentials provider, returns null if not set
@@ -338,7 +363,7 @@ class ClientConfiguration
      */
     public function getCredentialsProvider()
     {
-        return $this->credentialsProvider;
+        return $this->sessionCredentialsProvider;
     }
     
     /**
@@ -348,17 +373,17 @@ class ClientConfiguration
      */
     public function hasCredentialsProvider()
     {
-        return $this->credentialsProvider !== null;
+        return $this->sessionCredentialsProvider !== null;
     }
     
     /**
      * Check if credentials are set
      * 
-     * @return bool Whether credentials are set
+     * @return bool Whether credentials are set (via credentials provider)
      */
     public function hasCredentials()
     {
-        return isset($this->credentials) && $this->credentials !== null;
+        return $this->sessionCredentialsProvider !== null;
     }
     
     /**
@@ -384,7 +409,7 @@ class ClientConfiguration
     {
         $clone = new self($this->endpoints);
         $clone->namespace = $this->namespace;
-        $clone->credentials = $this->credentials;
+        $clone->sessionCredentialsProvider = $this->sessionCredentialsProvider;
         $clone->requestTimeout = $this->requestTimeout;
         $clone->sslEnabled = $this->sslEnabled;
         $clone->retryPolicy = $this->retryPolicy;
@@ -514,8 +539,8 @@ class ClientConfiguration
      */
     public function __toString()
     {
-        $credInfo = $this->hasCredentials() ? ', credentials=' . $this->credentials : '';
-        $retryInfo = $this->retryPolicy !== null ? ', retryPolicy=' . $this->retryPolicy : '';
+        $credInfo = $this->hasCredentials() ? ', hasCredentials=true' : '';
+        $retryInfo = $this->retryPolicy !== null ? ', retryPolicy=configured' : '';
         
         return sprintf(
             "ClientConfiguration[endpoints=%s, namespace=%s, timeout=%ds, ssl=%s%s%s]",

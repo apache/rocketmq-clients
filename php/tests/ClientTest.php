@@ -22,7 +22,8 @@ use PHPUnit\Framework\TestCase;
 use Apache\Rocketmq\Producer;
 
 // SimpleConsumer and PushConsumer are defined in Consumer.php
-require_once __DIR__ . '/../Consumer.php';
+require_once __DIR__ . '/../SimpleConsumer.php';
+require_once __DIR__ . '/../PushConsumer.php';
 
 class ProducerTest extends TestCase
 {

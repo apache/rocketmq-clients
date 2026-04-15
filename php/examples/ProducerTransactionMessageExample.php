@@ -25,26 +25,20 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../Producer.php';
+require_once __DIR__ . '/../ProducerSingleton.php';
 require_once __DIR__ . '/../Transaction.php';
 
-use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\Producer;
 use Apache\Rocketmq\Transaction;
 use Apache\Rocketmq\Producer\TransactionChecker;
 use Apache\Rocketmq\Producer\TransactionResolution;
 use Apache\Rocketmq\Message\MessageView;
 
 // Configuration
-$endpoints = '127.0.0.1:8080';
 $topic = 'topic-php-transcation';
 
 echo "=== Producer Transaction Message Example ===\n\n";
 
 try {
-    // Create client configuration
-    $config = new ClientConfiguration($endpoints);
-    $config->withSslEnabled(false);
-    
     // Create transaction checker (optional, for checking orphaned transactions)
     $transactionChecker = new class implements TransactionChecker {
         public function check(MessageView $messageView): TransactionResolution {
@@ -54,10 +48,9 @@ try {
         }
     };
     
-    // Create and start transactional producer (requires topic parameter)
-    $producer = Producer::getTransactionalInstance($config, $topic, $transactionChecker);
-    $producer->start();
-    echo "✓ Transactional Producer started\n";
+    // Get transactional producer instance using singleton pattern (recommended)
+    $producer = ProducerSingleton::getTransactionalInstance($transactionChecker, $topic);
+    echo "✓ Transactional Producer initialized (singleton)\n";
     echo "  - Topic: {$topic}\n\n";
     
     // Send multiple transaction messages
@@ -111,9 +104,7 @@ try {
         usleep(500000); // 0.5 seconds
     }
     
-    // Shutdown producer
-    $producer->shutdown();
-    echo "✓ Producer shutdown\n";
+    // Note: Transactional producer will be reused across multiple calls (singleton pattern)
     
 } catch (\Exception $e) {
     echo "✗ Error: " . $e->getMessage() . "\n";
