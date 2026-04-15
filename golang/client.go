@@ -611,7 +611,12 @@ func routeEqual(old, new []*v2.MessageQueue) bool {
 
 func (cli *defaultClient) notifyClientTermination() {
 	ctx := cli.Sign(context.Background())
-	request := &v2.NotifyClientTerminationRequest{}
+	request := &v2.NotifyClientTerminationRequest{
+		Group: &v2.Resource{
+			ResourceNamespace: cli.config.NameSpace,
+			Name:              cli.config.ConsumerGroup,
+		},
+	}
 	targets := cli.getTotalTargets()
 	for _, target := range targets {
 		endpoints, _ := utils.ParseTarget(target)
