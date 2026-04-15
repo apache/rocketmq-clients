@@ -21,9 +21,17 @@ namespace Apache\Rocketmq\Builder;
 use Apache\Rocketmq\ClientConfiguration;
 use Apache\Rocketmq\Exception\ClientConfigurationException;
 use Apache\Rocketmq\Consumer\PushConsumer;
+use Apache\Rocketmq\Consumer\PushConsumerImpl;
+use Apache\Rocketmq\Consumer\FilterExpression;
 
 /**
  * Builder for creating PushConsumer instances
+ * 
+ * References Java PushConsumerBuilder design:
+ * - Support multiple topic subscriptions
+ * - Configurable cache thresholds (count and size)
+ * - Configurable consumption thread pool
+ * - FIFO consume accelerator option
  */
 class PushConsumerBuilder {
     /**
@@ -37,9 +45,9 @@ class PushConsumerBuilder {
     private $consumerGroup;
     
     /**
-     * @var string|null
+     * @var array<string, FilterExpression> Subscription expressions
      */
-    private $topic;
+    private $subscriptionExpressions = [];
     
     /**
      * @var callable|null
@@ -47,14 +55,24 @@ class PushConsumerBuilder {
     private $messageListener;
     
     /**
-     * @var int
+     * @var int Maximum cache message count
      */
-    private $invisibleDuration = 15;
+    private $maxCacheMessageCount = 4096;
     
     /**
-     * @var int
+     * @var int Maximum cache message size in bytes (64MB)
      */
-    private $maxMessageNum = 16;
+    private $maxCacheMessageSizeInBytes = 67108864;
+    
+    /**
+     * @var int Consumption thread count
+     */
+    private $consumptionThreadCount = 20;
+    
+    /**
+     * @var bool Enable FIFO consume accelerator
+     */
+    private $enableFifoConsumeAccelerator = false;
     
     /**
      * Set client configuration
@@ -79,13 +97,28 @@ class PushConsumerBuilder {
     }
     
     /**
-     * Set topic
+     * Set subscription expressions
      *
-     * @param string $topic
+     * @param array<string, FilterExpression> $subscriptionExpressions
      * @return PushConsumerBuilder
      */
-    public function setTopic(string $topic) {
-        $this->topic = $topic;
+    public function setSubscriptionExpressions(array $subscriptionExpressions) {
+        if (empty($subscriptionExpressions)) {
+            throw new ClientConfigurationException("subscriptionExpressions should not be empty");
+        }
+        $this->subscriptionExpressions = $subscriptionExpressions;
+        return $this;
+    }
+    
+    /**
+     * Add subscription expression
+     *
+     * @param string $topic Topic name
+     * @param FilterExpression $filterExpression Filter expression
+     * @return PushConsumerBuilder
+     */
+    public function addSubscription(string $topic, FilterExpression $filterExpression) {
+        $this->subscriptionExpressions[$topic] = $filterExpression;
         return $this;
     }
     
@@ -101,29 +134,61 @@ class PushConsumerBuilder {
     }
     
     /**
-     * Set invisible duration in seconds
+     * Set the maximum number of messages cached locally
      *
-     * @param int $invisibleDuration
+     * @param int $count Message count
      * @return PushConsumerBuilder
      */
-    public function setInvisibleDuration(int $invisibleDuration) {
-        $this->invisibleDuration = $invisibleDuration;
+    public function setMaxCacheMessageCount(int $count) {
+        if ($count <= 0) {
+            throw new ClientConfigurationException("maxCacheMessageCount should be positive");
+        }
+        $this->maxCacheMessageCount = $count;
         return $this;
     }
     
     /**
-     * Set max message number
+     * Set the maximum bytes of messages cached locally
      *
-     * @param int $maxMessageNum
+     * @param int $bytes Message size in bytes
      * @return PushConsumerBuilder
      */
-    public function setMaxMessageNum(int $maxMessageNum) {
-        $this->maxMessageNum = $maxMessageNum;
+    public function setMaxCacheMessageSizeInBytes(int $bytes) {
+        if ($bytes <= 0) {
+            throw new ClientConfigurationException("maxCacheMessageSizeInBytes should be positive");
+        }
+        $this->maxCacheMessageSizeInBytes = $bytes;
         return $this;
     }
     
     /**
-     * Set endpoints
+     * Set the consumption thread count
+     *
+     * @param int $count Thread count
+     * @return PushConsumerBuilder
+     */
+    public function setConsumptionThreadCount(int $count) {
+        if ($count <= 0) {
+            throw new ClientConfigurationException("consumptionThreadCount should be positive");
+        }
+        $this->consumptionThreadCount = $count;
+        return $this;
+    }
+    
+    /**
+     * Set enable FIFO consume accelerator
+     * If enabled, the consumer will consume messages in parallel by messageGroup
+     *
+     * @param bool $enable Enable or disable
+     * @return PushConsumerBuilder
+     */
+    public function setEnableFifoConsumeAccelerator(bool $enable) {
+        $this->enableFifoConsumeAccelerator = $enable;
+        return $this;
+    }
+    
+    /**
+     * Set endpoints (convenience method)
      *
      * @param string $endpoints
      * @return PushConsumerBuilder
@@ -139,27 +204,35 @@ class PushConsumerBuilder {
      * @return PushConsumer
      * @throws ClientConfigurationException
      */
-    public function build() {
+    public function build(): PushConsumer {
         if ($this->clientConfiguration === null) {
-            throw new ClientConfigurationException("Client configuration must be set");
+            throw new ClientConfigurationException("clientConfiguration has not been set yet");
         }
         
         if (empty($this->consumerGroup)) {
-            throw new ClientConfigurationException("Consumer group must be set");
-        }
-        
-        if (empty($this->topic)) {
-            throw new ClientConfigurationException("Topic must be set");
+            throw new ClientConfigurationException("consumerGroup has not been set yet");
         }
         
         if ($this->messageListener === null) {
-            throw new ClientConfigurationException("Message listener must be set");
+            throw new ClientConfigurationException("messageListener has not been set yet");
         }
         
-        $consumer = new PushConsumer($this->clientConfiguration, $this->consumerGroup, $this->topic);
-        $consumer->setMessageListener($this->messageListener);
-        $consumer->setInvisibleDuration($this->invisibleDuration);
-        $consumer->setMaxMessageNum($this->maxMessageNum);
+        if (empty($this->subscriptionExpressions)) {
+            throw new ClientConfigurationException("subscriptionExpressions have not been set yet");
+        }
+        
+        $consumer = new PushConsumerImpl(
+            $this->clientConfiguration,
+            $this->consumerGroup,
+            $this->subscriptionExpressions,
+            $this->messageListener,
+            $this->maxCacheMessageCount,
+            $this->maxCacheMessageSizeInBytes,
+            $this->consumptionThreadCount,
+            $this->enableFifoConsumeAccelerator
+        );
+        
+        $consumer->start();
         
         return $consumer;
     }
