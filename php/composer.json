@@ -1,5 +1,5 @@
 {
-  "name": "zhaohai/rocketmq-client-php",
+  "name": "apache/rocketmq-client-php",
   "description": "Official PHP client for Apache RocketMQ - A distributed messaging and streaming platform",
   "type": "library",
   "license": "Apache-2.0",
@@ -10,18 +10,18 @@
     "streaming",
     "apache"
   ],
-  "homepage": "https://github.com/zhaohai666/rocketmq-clients",
+  "homepage": "https://github.com/apache/rocketmq-client-php",
   "authors": [
     {
-      "name": "Hai Zhao",
-      "email": "zhaohai666@example.com",
-      "homepage": "https://github.com/zhaohai666"
+      "name": "Apache RocketMQ Community",
+      "email": "dev@rocketmq.apache.org",
+      "homepage": "https://rocketmq.apache.org"
     }
   ],
   "support": {
-    "issues": "https://github.com/zhaohai666/rocketmq-clients/issues",
-    "source": "https://github.com/zhaohai666/rocketmq-clients",
-    "docs": "https://github.com/zhaohai666/rocketmq-clients/blob/master/README.md"
+    "issues": "https://github.com/apache/rocketmq-client-php/issues",
+    "source": "https://github.com/apache/rocketmq-client-php",
+    "docs": "https://rocketmq.apache.org/docs/"
   },
   "require": {
     "php": ">=7.4",
