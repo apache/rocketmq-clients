@@ -22,6 +22,7 @@ declare(strict_types=1);
 namespace Apache\Rocketmq\Consumer;
 
 use Apache\Rocketmq\Logger;
+use Apache\Rocketmq\Message\MessageViewImpl;
 use Apache\Rocketmq\V2\FilterExpression as V2FilterExpression;
 use Apache\Rocketmq\V2\FilterType;
 use Apache\Rocketmq\V2\MessageQueue;
@@ -310,7 +311,10 @@ class ProcessQueue
             }
 
             try {
-                $result = $listener($message);
+                // Convert protobuf Message to MessageViewImpl for the listener
+                // This ensures RepeatedField/MapField are converted to native PHP arrays
+                $messageView = MessageViewImpl::fromProtobuf($message);
+                $result = $listener($messageView);
 
                 if ($result === ConsumeResult::SUCCESS || $result === true || $result === null) {
                     $this->ackMessage($message);
@@ -357,14 +361,24 @@ class ProcessQueue
             $entry->setReceiptHandle($receiptHandle);
             $entry->setMessageId($message->getSystemProperties()->getMessageId());
 
+            $groupResource = new Resource();
+            $groupResource->setName($this->pushConsumer->getConsumerGroup());
+
+            $topicResource = new Resource();
+            $topicResource->setName($this->messageQueue->getTopic()->getName());
+
             $request = new \Apache\Rocketmq\V2\AckMessageRequest();
+            $request->setGroup($groupResource);
+            $request->setTopic($topicResource);
             $request->setEntries([$entry]);
 
-            $pool = ConnectionPool::getInstance();
-            $client = $pool->getConnection($this->pushConsumer->getConfig());
+            $client = $this->pushConsumer->getClient();
 
-            $call = $client->AckMessage($request);
-            $call->wait();
+            [$response, $status] = $client->AckMessage($request)->wait();
+
+            if ($status->code !== \Grpc\STATUS_OK) {
+                Logger::error("Failed to ack message, gRPC status: {$status->details}");
+            }
         } catch (\Throwable $e) {
             Logger::error("Failed to ack message: " . $e->getMessage());
         }

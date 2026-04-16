@@ -80,11 +80,10 @@ try {
     
     // Define message listener
     $messageListener = function($message) use (&$receivedMessages, &$messageCount) {
-        $sysProps = $message->getSystemProperties();
-        $msgId = $sysProps->getMessageId();
+        $msgId = (string) $message->getMessageId();
         $body = $message->getBody();
-        $tag = $sysProps->getTag() ?: 'N/A';
-        $keys = $sysProps->getKeys();
+        $tag = $message->getTag() ?: 'N/A';
+        $keys = $message->getKeys();
         
         $messageCount++;
         $receivedMessages[] = [
@@ -95,7 +94,7 @@ try {
             'timestamp' => time()
         ];
         
-        echo "  📨 [{$messageCount}] Received message\n";
+        echo "  [{$messageCount}] Received message\n";
         echo "      Message ID: {$msgId}\n";
         echo "      Body: {$body}\n";
         echo "      Tag: {$tag}\n";

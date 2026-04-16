@@ -442,7 +442,10 @@ class MessageViewImpl implements MessageView
         $messageId = $messageIdCodec->decode($systemProperties->getMessageId());
         
         // Verify and decompress body
-        $body = $message->getBody()->toString();
+        $body = $message->getBody();
+        if (!is_string($body)) {
+            $body = method_exists($body, 'toString') ? $body->toString() : (string)$body;
+        }
         $corrupted = false;
         
         // Body digest verification (with null guard)
@@ -454,7 +457,7 @@ class MessageViewImpl implements MessageView
             switch ($digestType) {
                 case \Apache\Rocketmq\V2\DigestType::CRC32:
                     $expectedChecksum = Util::crc32Checksum($body);
-                    if ($expectedChecksum !== $checksum) {
+                    if (strcasecmp($expectedChecksum, $checksum) !== 0) {
                         Logger::error("Message body CRC32 checksum mismatch, topic={}, messageId={}, expected={}, actual={}", [
                             $topic, (string)$messageId, $expectedChecksum, $checksum
                         ]);
@@ -463,7 +466,7 @@ class MessageViewImpl implements MessageView
                     break;
                 case \Apache\Rocketmq\V2\DigestType::MD5:
                     $expectedChecksum = md5($body);
-                    if ($expectedChecksum !== $checksum) {
+                    if (strcasecmp($expectedChecksum, $checksum) !== 0) {
                         Logger::error("Message body MD5 checksum mismatch, topic={}, messageId={}, expected={}, actual={}", [
                             $topic, (string)$messageId, $expectedChecksum, $checksum
                         ]);
@@ -472,7 +475,7 @@ class MessageViewImpl implements MessageView
                     break;
                 case \Apache\Rocketmq\V2\DigestType::SHA1:
                     $expectedChecksum = sha1($body);
-                    if ($expectedChecksum !== $checksum) {
+                    if (strcasecmp($expectedChecksum, $checksum) !== 0) {
                         Logger::error("Message body SHA1 checksum mismatch, topic={}, messageId={}, expected={}, actual={}", [
                             $topic, (string)$messageId, $expectedChecksum, $checksum
                         ]);
