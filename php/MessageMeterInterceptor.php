@@ -85,8 +85,16 @@ class MessageMeterInterceptor implements MessageInterceptor {
                 $this->doBeforeSendMessage($context);
                 break;
                 
+            case MessageHookPoints::RECEIVE_BEFORE:
+                $this->doBeforeReceiveMessage($context);
+                break;
+                
             case MessageHookPoints::CONSUME_BEFORE:
                 $this->doBeforeConsumeMessage($context, $messages);
+                break;
+                
+            case MessageHookPoints::ACK_BEFORE:
+                $this->doBeforeAckMessage($context);
                 break;
                 
             default:
@@ -106,8 +114,16 @@ class MessageMeterInterceptor implements MessageInterceptor {
                 $this->doAfterSendMessage($context, $messages);
                 break;
                 
+            case MessageHookPoints::RECEIVE_AFTER:
+                $this->doAfterReceiveMessage($context, $messages);
+                break;
+                
             case MessageHookPoints::CONSUME_AFTER:
                 $this->doAfterConsumeMessage($context, $messages);
+                break;
+                
+            case MessageHookPoints::ACK_AFTER:
+                $this->doAfterAckMessage($context, $messages);
                 break;
                 
             default:
@@ -303,5 +319,115 @@ class MessageMeterInterceptor implements MessageInterceptor {
         }
         
         return null;
+    }
+    
+    /**
+     * Record time before receiving message
+     * 
+     * @param MessageInterceptorContextInterface $context Interceptor context
+     * @return void
+     */
+    private function doBeforeReceiveMessage(MessageInterceptorContextInterface $context): void {
+        // Record the start time for measuring receive duration
+        $startTime = microtime(true);
+        $context->putAttribute(
+            self::$SEND_STOPWATCH_KEY,
+            Attribute::create($startTime)
+        );
+    }
+    
+    /**
+     * Record receive metrics after receiving message
+     * 
+     * @param MessageInterceptorContextInterface $context Interceptor context
+     * @param MessageInterface[] $messages Received messages
+     * @return void
+     */
+    private function doAfterReceiveMessage(MessageInterceptorContextInterface $context, array $messages): void {
+        if (empty($messages)) {
+            return;
+        }
+        
+        $stopwatchAttr = $context->getAttribute(self::$SEND_STOPWATCH_KEY);
+        if ($stopwatchAttr === null) {
+            Logger::warn("Receive stopwatch attribute not found, clientId={}", [$this->clientId]);
+            return;
+        }
+        
+        $startTime = $stopwatchAttr->get();
+        $endTime = microtime(true);
+        $durationMs = ($endTime - $startTime) * 1000;
+        
+        $status = $context->getStatus() === MessageHookPointsStatus::OK
+            ? InvocationStatus::SUCCESS
+            : InvocationStatus::FAILURE;
+        
+        foreach ($messages as $message) {
+            $labels = [
+                MetricLabels::TOPIC => $message->getTopic(),
+                MetricLabels::CLIENT_ID => $this->clientId,
+                MetricLabels::INVOCATION_STATUS => $status,
+            ];
+            
+            $this->metricsCollector->observeHistogram(
+                HistogramEnum::RECEIVE_COST_TIME,
+                $labels,
+                $durationMs
+            );
+        }
+    }
+    
+    /**
+     * Record time before acknowledging message
+     * 
+     * @param MessageInterceptorContextInterface $context Interceptor context
+     * @return void
+     */
+    private function doBeforeAckMessage(MessageInterceptorContextInterface $context): void {
+        $startTime = microtime(true);
+        $context->putAttribute(
+            self::$SEND_STOPWATCH_KEY,
+            Attribute::create($startTime)
+        );
+    }
+    
+    /**
+     * Record ack metrics after acknowledging message
+     * 
+     * @param MessageInterceptorContextInterface $context Interceptor context
+     * @param MessageInterface[] $messages Acknowledged messages
+     * @return void
+     */
+    private function doAfterAckMessage(MessageInterceptorContextInterface $context, array $messages): void {
+        if (empty($messages)) {
+            return;
+        }
+        
+        $stopwatchAttr = $context->getAttribute(self::$SEND_STOPWATCH_KEY);
+        if ($stopwatchAttr === null) {
+            return;
+        }
+        
+        $startTime = $stopwatchAttr->get();
+        $endTime = microtime(true);
+        $durationMs = ($endTime - $startTime) * 1000;
+        
+        $status = $context->getStatus() === MessageHookPointsStatus::OK
+            ? InvocationStatus::SUCCESS
+            : InvocationStatus::FAILURE;
+        
+        foreach ($messages as $message) {
+            $labels = [
+                MetricLabels::TOPIC => $message->getTopic(),
+                MetricLabels::CLIENT_ID => $this->clientId,
+                MetricLabels::INVOCATION_STATUS => $status,
+            ];
+            
+            $this->metricsCollector->observeHistogram(
+                HistogramEnum::ACK_COST_TIME,
+                $labels,
+                $durationMs
+            );
+        }
     }
 }
