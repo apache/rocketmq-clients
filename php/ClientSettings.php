@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -27,49 +30,41 @@ use Apache\Rocketmq\V2\BackoffStrategy;
 use Google\Protobuf\Duration;
 
 /**
- * Base settings class for client configuration
- * 
- * Reference: Java Settings class
+ * Base settings class for client configuration.
+ *
+ * References Java Settings abstract class:
+ * - Defines toProtobuf() and sync() contract
+ * - Manages namespace, clientId, clientType, endpoints, retryPolicy, requestTimeout
  */
 abstract class ClientSettings {
+
+    /** @var string Namespace */
+    protected string $namespace;
+
+    /** @var string Client ID */
+    protected string $clientId;
+
+    /** @var int Client type (use V2\ClientType constants) */
+    protected int $clientType;
+
+    /** @var string Endpoints */
+    protected string $endpoints;
+
+    /** @var int Max attempts for retry */
+    protected int $maxAttempts = 3;
+
+    /** @var Duration Request timeout */
+    protected Duration $requestTimeout;
+
+    /** @var ExponentialBackoffRetryPolicy|null Retry policy */
+    protected ?ExponentialBackoffRetryPolicy $retryPolicy = null;
+
     /**
-     * @var string Namespace
-     */
-    protected $namespace;
-    
-    /**
-     * @var string Client ID
-     */
-    protected $clientId;
-    
-    /**
-     * @var int Client type (use V2\ClientType constants)
-     */
-    protected $clientType;
-    
-    /**
-     * @var string Endpoints
-     */
-    protected $endpoints;
-    
-    /**
-     * @var int Max attempts for retry
-     */
-    protected $maxAttempts = 3;
-    
-    /**
-     * @var Duration Request timeout
-     */
-    protected $requestTimeout;
-    
-    /**
-     * Constructor
-     * 
-     * @param string $namespace Namespace
-     * @param string $clientId Client ID
+     * @param string $namespace
+     * @param string $clientId
      * @param int $clientType Client type (use V2\ClientType constants)
-     * @param string $endpoints Endpoints
-     * @param int $maxAttempts Max retry attempts
+     * @param string $endpoints
+     * @param int $maxAttempts
      * @param int $requestTimeoutMs Request timeout in milliseconds
      */
     public function __construct(
@@ -85,71 +80,51 @@ abstract class ClientSettings {
         $this->clientType = $clientType;
         $this->endpoints = $endpoints;
         $this->maxAttempts = $maxAttempts;
-        
+
         $timeout = new Duration();
         $timeout->setSeconds(intdiv($requestTimeoutMs, 1000));
         $timeout->setNanos(($requestTimeoutMs % 1000) * 1000000);
         $this->requestTimeout = $timeout;
     }
-    
+
     /**
-     * Convert to protobuf Settings
-     * 
-     * @return V2Settings Protobuf settings
+     * Convert to protobuf Settings.
      */
     abstract public function toProtobuf(): V2Settings;
-    
+
     /**
-     * Get namespace
-     * 
-     * @return string Namespace
+     * Sync settings from server-returned protobuf.
+     *
+     * Subclasses must implement this to apply server-side configuration updates
+     * (e.g., retry policy, maxBodySize, validateMessageType).
      */
+    abstract public function sync(V2Settings $settings): void;
+
     public function getNamespace(): string {
         return $this->namespace;
     }
-    
-    /**
-     * Get client ID
-     * 
-     * @return string Client ID
-     */
+
     public function getClientId(): string {
         return $this->clientId;
     }
-    
-    /**
-     * Get client type
-     * 
-     * @return int Client type
-     */
+
     public function getClientType(): int {
         return $this->clientType;
     }
-    
-    /**
-     * Get endpoints
-     * 
-     * @return string Endpoints
-     */
+
     public function getEndpoints(): string {
         return $this->endpoints;
     }
-    
-    /**
-     * Get max attempts
-     * 
-     * @return int Max attempts
-     */
+
     public function getMaxAttempts(): int {
         return $this->maxAttempts;
     }
-    
-    /**
-     * Get request timeout
-     * 
-     * @return Duration Request timeout
-     */
+
     public function getRequestTimeout(): Duration {
         return $this->requestTimeout;
+    }
+
+    public function getRetryPolicy(): ?ExponentialBackoffRetryPolicy {
+        return $this->retryPolicy;
     }
 }

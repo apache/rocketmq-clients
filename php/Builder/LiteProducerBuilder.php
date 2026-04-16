@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -24,70 +27,60 @@ use Apache\Rocketmq\Producer\LiteProducer;
 use Apache\Rocketmq\Producer\LiteProducerImpl;
 
 /**
- * Builder for creating LiteProducer instances
- * 
- * Example usage:
- * ```php
- * $config = new ClientConfiguration('127.0.0.1:8080');
- * $producer = (new LiteProducerBuilder())
- *     ->setClientConfiguration($config)
- *     ->setParentTopic('yourParentTopic')
- *     ->build();
- * ```
+ * Builder for creating LiteProducer instances.
+ *
+ * References Java LiteProducerBuilderImpl design:
+ * - Topic name regex validation
+ * - Mandatory configuration checks
  */
 class LiteProducerBuilder {
+
+    private const TOPIC_PATTERN = '/^[%a-zA-Z0-9_-]+$/';
+
+    /** @var ClientConfiguration|null */
+    private ?ClientConfiguration $configuration = null;
+
+    /** @var string|null */
+    private ?string $parentTopic = null;
+
     /**
-     * @var ClientConfiguration|null Client configuration
+     * Set client configuration.
      */
-    private $configuration = null;
-    
-    /**
-     * @var string|null Parent topic name
-     */
-    private $parentTopic = null;
-    
-    /**
-     * Set client configuration
-     * 
-     * @param ClientConfiguration $configuration Client configuration
-     * @return LiteProducerBuilder This builder instance
-     */
-    public function setClientConfiguration(ClientConfiguration $configuration): LiteProducerBuilder {
+    public function setClientConfiguration(ClientConfiguration $configuration): self {
         $this->configuration = $configuration;
         return $this;
     }
-    
+
     /**
-     * Set parent topic name
-     * 
-     * The parent topic is the main topic under which lite topics are created.
-     * Lite topics are sub-topics that share resources with the parent topic.
-     * 
-     * @param string $parentTopic Parent topic name
-     * @return LiteProducerBuilder This builder instance
+     * Set parent topic name.
+     *
+     * @throws \InvalidArgumentException if parentTopic does not match the naming pattern
      */
-    public function setParentTopic(string $parentTopic): LiteProducerBuilder {
+    public function setParentTopic(string $parentTopic): self {
+        if (!preg_match(self::TOPIC_PATTERN, $parentTopic)) {
+            throw new \InvalidArgumentException(
+                sprintf("parentTopic does not match the regex [regex=%s]", self::TOPIC_PATTERN)
+            );
+        }
         $this->parentTopic = $parentTopic;
         return $this;
     }
-    
+
     /**
-     * Build lite producer instance
-     * 
-     * @return LiteProducer Lite producer instance
-     * @throws ClientConfigurationException If configuration is invalid
+     * Build lite producer instance.
+     *
+     * @return LiteProducer
+     * @throws ClientConfigurationException if configuration is invalid
      */
     public function build(): LiteProducer {
-        // Validate configuration
-        if (!$this->configuration) {
-            throw new ClientConfigurationException('Client configuration is required');
+        if ($this->configuration === null) {
+            throw new ClientConfigurationException("clientConfiguration has not been set yet");
         }
-        
-        if (empty($this->parentTopic)) {
-            throw new ClientConfigurationException('Parent topic is required for lite producer');
+
+        if ($this->parentTopic === null || $this->parentTopic === '') {
+            throw new ClientConfigurationException("parentTopic has not been set yet");
         }
-        
-        // Create lite producer instance
+
         return new LiteProducerImpl($this->configuration, $this->parentTopic);
     }
 }

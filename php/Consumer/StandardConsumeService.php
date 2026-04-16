@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,43 +21,30 @@
 
 namespace Apache\Rocketmq\Consumer;
 
+use Apache\Rocketmq\Logger;
+
 /**
- * StandardConsumeService - Standard message consumption service
- * 
- * Reference Java StandardConsumeService:
- * - Processes messages in parallel using thread pool
- * - No ordering guarantee
- * - Suitable for most use cases
+ * StandardConsumeService - Standard message consumption service.
+ *
+ * References Java StandardConsumeService:
+ * - Processes messages without ordering guarantee
+ * - Catches Throwable (not just Exception) for robust error isolation
+ * - Uses Logger instead of error_log for unified logging
  */
 class StandardConsumeService implements ConsumeService
 {
-    /**
-     * @var string Client ID
-     */
-    private $clientId;
-    
-    /**
-     * @var callable Message listener
-     */
+    /** @var string */
+    private string $clientId;
+
+    /** @var callable */
     private $messageListener;
-    
-    /**
-     * @var PushConsumerImpl Push consumer
-     */
-    private $pushConsumer;
-    
-    /**
-     * @var bool Whether the service is running
-     */
-    private $running = false;
-    
-    /**
-     * Constructor
-     * 
-     * @param string $clientId Client ID
-     * @param callable $messageListener Message listener
-     * @param PushConsumerImpl $pushConsumer Push consumer
-     */
+
+    /** @var PushConsumerImpl */
+    private PushConsumerImpl $pushConsumer;
+
+    /** @var bool */
+    private bool $running = false;
+
     public function __construct(
         string $clientId,
         callable $messageListener,
@@ -64,51 +54,37 @@ class StandardConsumeService implements ConsumeService
         $this->messageListener = $messageListener;
         $this->pushConsumer = $pushConsumer;
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function start(): void
     {
         $this->running = true;
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function shutdown(): void
     {
         $this->running = false;
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function consume($message): ConsumeResult
     {
         if (!$this->running) {
             return ConsumeResult::FAILURE;
         }
-        
+
         try {
             $result = call_user_func($this->messageListener, $message);
-            
+
             if ($result === ConsumeResult::SUCCESS || $result === true || $result === null) {
                 return ConsumeResult::SUCCESS;
             }
-            
+
             return ConsumeResult::FAILURE;
-        } catch (\Exception $e) {
-            error_log("[" . $this->clientId . "] Exception while consuming message: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            Logger::error("Exception while consuming message, clientId={$this->clientId}, error=" . $e->getMessage());
             return ConsumeResult::FAILURE;
         }
     }
-    
-    /**
-     * Check if service is running
-     * 
-     * @return bool
-     */
+
     public function isRunning(): bool
     {
         return $this->running;

@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -23,6 +24,7 @@ use Apache\Rocketmq\Connection\ConnectionPool;
 use Apache\Rocketmq\Exception\ClientException;
 use Apache\Rocketmq\Exception\ClientStateException;
 use Apache\Rocketmq\Exception\NetworkException;
+use Apache\Rocketmq\Logger;
 use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\Assignment;
 use Apache\Rocketmq\V2\Assignments;
@@ -49,103 +51,28 @@ use Apache\Rocketmq\V2\SubscriptionEntry;
  */
 class PushConsumerImpl implements PushConsumer
 {
-    /**
-     * @var ClientConfiguration Client configuration
-     */
-    private $config;
-    
-    /**
-     * @var string Consumer group name
-     */
-    private $consumerGroup;
-    
-    /**
-     * @var string Client ID
-     */
-    private $clientId;
-    
-    /**
-     * @var array<string, FilterExpression> Subscription expressions
-     */
-    private $subscriptionExpressions = [];
-    
-    /**
-     * @var array<string, Assignments> Cached assignments per topic
-     */
-    private $cacheAssignments = [];
-    
-    /**
-     * @var callable Message listener
-     */
+    private ClientConfiguration $config;
+    private string $consumerGroup;
+    private string $clientId;
+    /** @var array<string, FilterExpression> */
+    private array $subscriptionExpressions = [];
+    /** @var array<string, Assignments> Cached assignments per topic */
+    private array $cacheAssignments = [];
+    /** @var callable */
     private $messageListener;
-    
-    /**
-     * @var int Maximum cache message count
-     */
-    private $maxCacheMessageCount;
-    
-    /**
-     * @var int Maximum cache message size in bytes
-     */
-    private $maxCacheMessageSizeInBytes;
-    
-    /**
-     * @var bool Enable FIFO consume accelerator
-     */
-    private $enableFifoConsumeAccelerator;
-    
-    /**
-     * @var array<string, ProcessQueue> Process queue table
-     */
-    private $processQueueTable = [];
-    
-    /**
-     * @var int Consumption thread count
-     */
-    private $consumptionThreadCount;
-    
-    /**
-     * @var string Client state: CREATED, STARTING, RUNNING, STOPPING, TERMINATED
-     */
-    private $state = 'CREATED';
-    
-    /**
-     * @var bool Whether running
-     */
-    private $running = false;
-    
-    /**
-     * @var int Reception times counter
-     */
-    private $receptionTimes = 0;
-    
-    /**
-     * @var int Received messages quantity counter
-     */
-    private $receivedMessagesQuantity = 0;
-    
-    /**
-     * @var int Consumption OK quantity counter
-     */
-    private $consumptionOkQuantity = 0;
-    
-    /**
-     * @var int Consumption error quantity counter
-     */
-    private $consumptionErrorQuantity = 0;
-    
-    /**
-     * Constructor
-     * 
-     * @param ClientConfiguration $config Client configuration
-     * @param string $consumerGroup Consumer group name
-     * @param array<string, FilterExpression> $subscriptionExpressions Subscription expressions
-     * @param callable $messageListener Message listener
-     * @param int $maxCacheMessageCount Maximum cache message count
-     * @param int $maxCacheMessageSizeInBytes Maximum cache message size in bytes
-     * @param int $consumptionThreadCount Consumption thread count
-     * @param bool $enableFifoConsumeAccelerator Enable FIFO consume accelerator
-     */
+    private int $maxCacheMessageCount;
+    private int $maxCacheMessageSizeInBytes;
+    private bool $enableFifoConsumeAccelerator;
+    /** @var array<string, ProcessQueue> */
+    private array $processQueueTable = [];
+    private int $consumptionThreadCount;
+    private string $state = 'CREATED';
+    private bool $running = false;
+    private int $receptionTimes = 0;
+    private int $receivedMessagesQuantity = 0;
+    private int $consumptionOkQuantity = 0;
+    private int $consumptionErrorQuantity = 0;
+
     public function __construct(
         ClientConfiguration $config,
         string $consumerGroup,
@@ -165,63 +92,46 @@ class PushConsumerImpl implements PushConsumer
         $this->consumptionThreadCount = $consumptionThreadCount;
         $this->enableFifoConsumeAccelerator = $enableFifoConsumeAccelerator;
         $this->clientId = Util::generateClientId();
-        
-        // Set route cache configuration
+
         $routeCache = \Apache\Rocketmq\RouteCache::getInstance();
         $routeCache->setConfigFromClientConfiguration($this->config);
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function getConsumerGroup(): string
     {
         return $this->consumerGroup;
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function getSubscriptionExpressions(): array
     {
         return $this->subscriptionExpressions;
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function subscribe(string $topic, FilterExpression $filterExpression): PushConsumer
     {
         $this->checkRunning();
-        
-        // Get route data for the topic
+
         $this->getRouteData($topic);
-        
         $this->subscriptionExpressions[$topic] = $filterExpression;
-        
+
         return $this;
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function unsubscribe(string $topic): PushConsumer
     {
         $this->checkRunning();
-        
+
         unset($this->subscriptionExpressions[$topic]);
         unset($this->cacheAssignments[$topic]);
-        
-        // Drop process queues for this topic
+
         $this->dropProcessQueuesByTopic($topic);
-        
+
         return $this;
     }
-    
+
     /**
      * Start the push consumer
      * 
-     * @return void
      * @throws ClientException If startup fails
      */
     public function start(): void
@@ -229,124 +139,110 @@ class PushConsumerImpl implements PushConsumer
         if ($this->state !== 'CREATED') {
             throw new ClientStateException("Consumer is already {$this->state}");
         }
-        
+
+        Logger::info("Begin to start the rocketmq push consumer, clientId={$this->clientId}");
+
         $this->state = 'STARTING';
-        
+
         try {
-            // Send heartbeat to register with broker
             $this->heartbeat();
-            
+
             $this->state = 'RUNNING';
             $this->running = true;
-            
-            // Start assignment scanning in background
+
             $this->startAssignmentScanning();
-            
-        } catch (\Exception $e) {
+
+            Logger::info("The rocketmq push consumer starts successfully, clientId={$this->clientId}");
+        } catch (\Throwable $e) {
             $this->state = 'FAILED';
+            Logger::error("Failed to start the rocketmq push consumer, clientId={$this->clientId}, error={$e->getMessage()}");
             throw new ClientException("Failed to start push consumer: " . $e->getMessage(), 0, $e);
         }
     }
-    
-    /**
-     * {@inheritdoc}
-     */
-    public function close()
+
+    public function close(): void
     {
         if ($this->state === 'TERMINATED' || $this->state === 'STOPPING') {
             return;
         }
-        
+
+        Logger::info("Begin to shutdown the rocketmq push consumer, clientId={$this->clientId}");
+
         $this->state = 'STOPPING';
         $this->running = false;
-        
-        // Wait for inflight requests to complete
+
         $this->waitingReceiveRequestFinished();
-        
-        // Drop all process queues
+
         foreach ($this->processQueueTable as $mq => $pq) {
             $pq->drop();
         }
         $this->processQueueTable = [];
-        
+
         $this->state = 'TERMINATED';
+        Logger::info("Shutdown the rocketmq push consumer successfully, clientId={$this->clientId}");
     }
-    
-    /**
-     * Check if consumer is running
-     * 
-     * @return void
-     * @throws ClientStateException If not running
-     */
+
     private function checkRunning(): void
     {
         if ($this->state !== 'RUNNING') {
             throw new ClientStateException("Consumer is not running (current state: {$this->state})");
         }
     }
-    
+
     /**
      * Send heartbeat to broker
      * 
-     * @return void
      * @throws ClientException If heartbeat fails
      */
     private function heartbeat(): void
     {
         $request = new HeartbeatRequest();
-        
+
         $settings = new Settings();
         $settings->setClientType(ClientType::PUSH_CONSUMER);
-        
+
         $subscription = new Subscription();
         $subscription->setGroup(Resource::create()->setName($this->consumerGroup));
-        
+
         foreach ($this->subscriptionExpressions as $topic => $filterExpression) {
             $entry = new SubscriptionEntry();
             $entry->setTopic(Resource::create()->setName($topic));
             $entry->setFilterExpression($filterExpression);
             $subscription->addEntries($entry);
         }
-        
+
         $request->setSettings($settings);
         $request->setSubscriptions([$subscription]);
-        
+
         $pool = ConnectionPool::getInstance();
         $pool->setConfigFromClientConfiguration($this->config);
         $client = $pool->getConnection($this->config);
-        
-        $call = $client->Heartbeat($request);
-        $call->wait();
+
+        try {
+            $call = $client->Heartbeat($request);
+            $call->wait();
+            Logger::debug("Heartbeat sent successfully, consumerGroup={$this->consumerGroup}, clientId={$this->clientId}");
+        } catch (\Throwable $e) {
+            Logger::error("Failed to send heartbeat, consumerGroup={$this->consumerGroup}, clientId={$this->clientId}, error={$e->getMessage()}");
+            throw $e;
+        }
     }
-    
-    /**
-     * Get route data for topic
-     * 
-     * @param string $topic Topic name
-     * @return void
-     */
+
     private function getRouteData(string $topic): void
     {
         // TODO: Implement route data fetching
-        // This should query the name server for topic route information
     }
-    
-    /**
-     * Start assignment scanning periodically
-     * 
-     * @return void
-     */
+
     private function startAssignmentScanning(): void
     {
-        // In PHP, we'll use a simple loop with pcntl_fork or run in background
-        // For now, we'll use a simple approach
         $this->scanAssignments();
     }
-    
+
     /**
      * Scan assignments for all subscribed topics
      * 
-     * @return void
+     * References Java PushConsumerImpl.scanAssignments():
+     * - Catches exceptions per-topic to prevent one topic failure from blocking others
      */
     public function scanAssignments(): void
     {
@@ -354,64 +250,52 @@ class PushConsumerImpl implements PushConsumer
             try {
                 $existed = $this->cacheAssignments[$topic] ?? null;
                 $latest = $this->queryAssignment($topic);
-                
+
                 if ($latest === null || empty($latest->getAssignmentList())) {
                     if ($existed === null || empty($existed->getAssignmentList())) {
+                        Logger::debug("No assignments found for topic, topic={$topic}, clientId={$this->clientId}");
                         continue;
                     }
                 }
-                
+
                 if ($latest !== $existed) {
                     $this->syncProcessQueue($topic, $latest, $filterExpression);
                     $this->cacheAssignments[$topic] = $latest;
                 } else {
-                    // Process queue may be dropped, need to sync anyway
                     $this->syncProcessQueue($topic, $latest, $filterExpression);
                 }
-            } catch (\Exception $e) {
-                error_log("Exception raised while scanning assignments for topic {$topic}: " . $e->getMessage());
+            } catch (\Throwable $e) {
+                Logger::error("Exception raised while scanning assignments, topic={$topic}, consumerGroup={$this->consumerGroup}, clientId={$this->clientId}, error={$e->getMessage()}");
             }
         }
     }
-    
+
     /**
-     * Query assignment from broker
-     * 
-     * @param string $topic Topic name
-     * @return Assignments|null Assignments
-     * @throws ClientException If query fails
+     * @throws ClientException|NetworkException If query fails
      */
     private function queryAssignment(string $topic): ?Assignments
     {
         $request = new QueryAssignmentRequest();
         $request->setTopic(Resource::create()->setName($topic));
         $request->setGroup(Resource::create()->setName($this->consumerGroup));
-        
+
         $pool = ConnectionPool::getInstance();
         $client = $pool->getConnection($this->config);
-        
+
         try {
             $call = $client->QueryAssignment($request);
             $response = $call->wait();
-            
+
             if ($response instanceof QueryAssignmentResponse) {
                 return $response->getAssignments();
             }
-        } catch (\Exception $e) {
-            throw new NetworkException("Failed to query assignment: " . $e->getMessage(), 0, $e);
+        } catch (\Throwable $e) {
+            throw new NetworkException("Failed to query assignment for topic {$topic}: " . $e->getMessage(), 0, $e);
         }
-        
+
         return null;
     }
-    
-    /**
-     * Sync process queue with assignments
-     * 
-     * @param string $topic Topic name
-     * @param Assignments $assignments Assignments
-     * @param FilterExpression $filterExpression Filter expression
-     * @return void
-     */
+
     private function syncProcessQueue(string $topic, Assignments $assignments, FilterExpression $filterExpression): void
     {
         $latest = [];
@@ -419,71 +303,59 @@ class PushConsumerImpl implements PushConsumer
             $mq = $assignment->getMessageQueue();
             $latest[$this->getMessageQueueKey($mq)] = $mq;
         }
-        
+
         $activeMqs = [];
-        
-        // Remove process queues that are no longer assigned or expired
+
         foreach ($this->processQueueTable as $key => $pq) {
             $mq = $pq->getMessageQueue();
             $mqTopic = $mq->getTopic()->getName();
-            
+
             if ($topic !== $mqTopic) {
                 continue;
             }
-            
+
             if (!isset($latest[$key])) {
+                Logger::info("Drop process queue (no longer assigned), topic={$topic}, mq={$key}, clientId={$this->clientId}");
                 $this->dropProcessQueue($key);
                 continue;
             }
-            
+
             if ($pq->expired()) {
+                Logger::warn("Drop process queue (expired), topic={$topic}, mq={$key}, clientId={$this->clientId}");
                 $this->dropProcessQueue($key);
                 continue;
             }
-            
+
             $activeMqs[$key] = true;
         }
-        
-        // Create process queues for new assignments
+
         foreach ($latest as $key => $mq) {
             if (isset($activeMqs[$key])) {
                 continue;
             }
-            
+
+            Logger::info("Create process queue for new assignment, topic={$topic}, mq={$key}, clientId={$this->clientId}");
             $processQueue = $this->createProcessQueue($mq, $filterExpression);
             if ($processQueue !== null) {
                 $processQueue->fetchMessageImmediately();
             }
         }
     }
-    
-    /**
-     * Create a new process queue
-     * 
-     * @param MessageQueue $mq Message queue
-     * @param FilterExpression $filterExpression Filter expression
-     * @return ProcessQueue|null Process queue
-     */
+
     private function createProcessQueue(MessageQueue $mq, FilterExpression $filterExpression): ?ProcessQueue
     {
         $key = $this->getMessageQueueKey($mq);
-        
+
         if (isset($this->processQueueTable[$key])) {
             return null;
         }
-        
+
         $processQueue = new ProcessQueue($this, $mq, $filterExpression);
         $this->processQueueTable[$key] = $processQueue;
-        
+
         return $processQueue;
     }
-    
-    /**
-     * Drop a process queue
-     * 
-     * @param string $key Process queue key
-     * @return void
-     */
+
     private function dropProcessQueue(string $key): void
     {
         if (isset($this->processQueueTable[$key])) {
@@ -492,13 +364,7 @@ class PushConsumerImpl implements PushConsumer
             unset($this->processQueueTable[$key]);
         }
     }
-    
-    /**
-     * Drop all process queues for a topic
-     * 
-     * @param string $topic Topic name
-     * @return void
-     */
+
     private function dropProcessQueuesByTopic(string $topic): void
     {
         foreach ($this->processQueueTable as $key => $pq) {
@@ -508,13 +374,7 @@ class PushConsumerImpl implements PushConsumer
             }
         }
     }
-    
-    /**
-     * Get message queue unique key
-     * 
-     * @param MessageQueue $mq Message queue
-     * @return string Unique key
-     */
+
     private function getMessageQueueKey(MessageQueue $mq): string
     {
         $topic = $mq->getTopic()->getName();
@@ -522,147 +382,104 @@ class PushConsumerImpl implements PushConsumer
         $id = $mq->getId() ?? 0;
         return "{$topic}@{$broker}:{$id}";
     }
-    
+
     /**
      * Wait for inflight receive requests to finish
      * 
-     * @return void
+     * Checks real process queue state instead of blind wait.
      */
     private function waitingReceiveRequestFinished(): void
     {
-        $maxWaitingTime = 35000; // 35 seconds (request timeout + long polling timeout)
-        $endTime = microtime(true) * 1000 + $maxWaitingTime;
-        
+        $maxWaitMs = 35000; // 35 seconds (requestTimeout + longPollingTimeout)
+        $startTime = microtime(true) * 1000;
+
         while (true) {
-            // In PHP, we don't have direct access to inflight count
-            // Just wait a short time
-            usleep(100000); // 100ms
-            
-            if (microtime(true) * 1000 > $endTime) {
+            $hasInflight = false;
+            foreach ($this->processQueueTable as $pq) {
+                if (!$pq->isDropped()) {
+                    $hasInflight = true;
+                    break;
+                }
+            }
+
+            if (!$hasInflight) {
                 break;
             }
+
+            $elapsed = microtime(true) * 1000 - $startTime;
+            if ($elapsed > $maxWaitMs) {
+                Logger::warn("Timed out waiting for inflight requests, elapsed={$elapsed}ms, clientId={$this->clientId}");
+                break;
+            }
+
+            usleep(100000); // 100ms
         }
     }
-    
-    /**
-     * Get process queue size
-     * 
-     * @return int Process queue count
-     */
+
     public function getQueueSize(): int
     {
         return count($this->processQueueTable);
     }
-    
-    /**
-     * Get cache message count threshold per queue
-     * 
-     * @return int Threshold
-     */
+
     public function cacheMessageCountThresholdPerQueue(): int
     {
         $size = $this->getQueueSize();
         if ($size <= 0) {
             return 0;
         }
-        return max(1, (int)($this->maxCacheMessageCount / $size));
+        return max(1, intdiv($this->maxCacheMessageCount, $size));
     }
-    
-    /**
-     * Get cache message size threshold per queue
-     * 
-     * @return int Threshold in bytes
-     */
+
     public function cacheMessageSizeThresholdPerQueue(): int
     {
         $size = $this->getQueueSize();
         if ($size <= 0) {
             return 0;
         }
-        return max(1, (int)($this->maxCacheMessageSizeInBytes / $size));
+        return max(1, intdiv($this->maxCacheMessageSizeInBytes, $size));
     }
-    
-    /**
-     * Get message listener
-     * 
-     * @return callable Message listener
-     */
+
     public function getMessageListener(): callable
     {
         return $this->messageListener;
     }
-    
-    /**
-     * Get consumption thread count
-     * 
-     * @return int Thread count
-     */
+
     public function getConsumptionThreadCount(): int
     {
         return $this->consumptionThreadCount;
     }
-    
-    /**
-     * Check if FIFO consume accelerator is enabled
-     * 
-     * @return bool Whether enabled
-     */
+
     public function isEnableFifoConsumeAccelerator(): bool
     {
         return $this->enableFifoConsumeAccelerator;
     }
-    
-    /**
-     * Increment reception times
-     * 
-     * @return void
-     */
+
     public function incrementReceptionTimes(): void
     {
         $this->receptionTimes++;
     }
-    
-    /**
-     * Increment received messages quantity
-     * 
-     * @param int $count Message count
-     * @return void
-     */
+
     public function incrementReceivedMessagesQuantity(int $count): void
     {
         $this->receivedMessagesQuantity += $count;
     }
-    
-    /**
-     * Increment consumption OK quantity
-     * 
-     * @param int $count Count
-     * @return void
-     */
+
     public function incrementConsumptionOkQuantity(int $count): void
     {
         $this->consumptionOkQuantity += $count;
     }
-    
-    /**
-     * Increment consumption error quantity
-     * 
-     * @param int $count Count
-     * @return void
-     */
+
     public function incrementConsumptionErrorQuantity(int $count): void
     {
         $this->consumptionErrorQuantity += $count;
     }
-    
+
     /**
-     * Do stats logging
-     * 
-     * @return void
+     * Log statistics and reset counters
      */
     public function doStats(): void
     {
-        error_log(sprintf(
+        Logger::info(sprintf(
             "clientId=%s, consumerGroup=%s, receptionTimes=%d, receivedMessagesQuantity=%d, consumptionOkQuantity=%d, consumptionErrorQuantity=%d",
             $this->clientId,
             $this->consumerGroup,
@@ -671,10 +488,42 @@ class PushConsumerImpl implements PushConsumer
             $this->consumptionOkQuantity,
             $this->consumptionErrorQuantity
         ));
-        
+
         $this->receptionTimes = 0;
         $this->receivedMessagesQuantity = 0;
         $this->consumptionOkQuantity = 0;
         $this->consumptionErrorQuantity = 0;
+    }
+
+    /**
+     * Get client ID
+     */
+    public function getClientId(): string
+    {
+        return $this->clientId;
+    }
+
+    /**
+     * Get current state
+     */
+    public function getState(): string
+    {
+        return $this->state;
+    }
+
+    /**
+     * Check if consumer is running
+     */
+    public function isRunning(): bool
+    {
+        return $this->running;
+    }
+
+    /**
+     * Get client configuration
+     */
+    public function getConfig(): ClientConfiguration
+    {
+        return $this->config;
     }
 }

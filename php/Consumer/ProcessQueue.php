@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,79 +22,65 @@
 namespace Apache\Rocketmq\Consumer;
 
 use Apache\Rocketmq\Connection\ConnectionPool;
+use Apache\Rocketmq\Logger;
 use Apache\Rocketmq\V2\FilterExpression;
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
 use Apache\Rocketmq\V2\Resource;
 
 /**
- * ProcessQueue manages message receiving and caching for a specific message queue
- * 
- * Key responsibilities:
- * - Fetch messages from broker
- * - Cache messages locally
- * - Apply backpressure based on cache thresholds
- * - Track message statistics
+ * ProcessQueue manages message receiving and caching for a specific message queue.
+ *
+ * References Java ProcessQueueImpl:
+ * - Backpressure via cache count + size thresholds (dual-layer)
+ * - Expiry detection based on activity time + requestTimeout + longPollingTimeout
+ * - Delayed retry on cache full or fetch failure
+ * - Uses Logger for unified logging, catches Throwable for robustness
  */
 class ProcessQueue
 {
-    /**
-     * @var PushConsumerImpl Parent push consumer
-     */
-    private $pushConsumer;
-    
-    /**
-     * @var MessageQueue Message queue
-     */
-    private $messageQueue;
-    
-    /**
-     * @var FilterExpression Filter expression
-     */
-    private $filterExpression;
-    
-    /**
-     * @var bool Whether this process queue is dropped
-     */
-    private $dropped = false;
-    
-    /**
-     * @var int Cached message count
-     */
-    private $cachedMessageCount = 0;
-    
-    /**
-     * @var int Cached message size in bytes
-     */
-    private $cachedMessageSizeInBytes = 0;
-    
-    /**
-     * @var array Cached messages
-     */
-    private $cachedMessages = [];
-    
-    /**
-     * @var int Last fetch timestamp
-     */
-    private $lastFetchTimestamp = 0;
-    
-    /**
-     * @var int Receive message count
-     */
-    private $receiveMessageCount = 0;
-    
-    /**
-     * @var float Last consume timestamp
-     */
-    private $lastConsumeTimestamp = 0.0;
-    
-    /**
-     * Constructor
-     * 
-     * @param PushConsumerImpl $pushConsumer Parent push consumer
-     * @param MessageQueue $messageQueue Message queue
-     * @param FilterExpression $filterExpression Filter expression
-     */
+    /** @var int Backoff delay when cache is full (microseconds) */
+    private const RECEIVING_BACKOFF_WHEN_CACHE_FULL_US = 1000000; // 1s
+
+    /** @var int Backoff delay on failure (microseconds) */
+    private const RECEIVING_FAILURE_BACKOFF_US = 1000000; // 1s
+
+    /** @var int Backoff delay on flow control (microseconds) */
+    private const RECEIVING_FLOW_CONTROL_BACKOFF_US = 20000; // 20ms
+
+    /** @var PushConsumerImpl */
+    private PushConsumerImpl $pushConsumer;
+
+    /** @var MessageQueue */
+    private MessageQueue $messageQueue;
+
+    /** @var FilterExpression */
+    private FilterExpression $filterExpression;
+
+    /** @var bool */
+    private bool $dropped = false;
+
+    /** @var int Cached message count */
+    private int $cachedMessageCount = 0;
+
+    /** @var int Cached message size in bytes */
+    private int $cachedMessageSizeInBytes = 0;
+
+    /** @var array Cached messages */
+    private array $cachedMessages = [];
+
+    /** @var float Last activity timestamp (seconds with microseconds) */
+    private float $activityTime;
+
+    /** @var float Timestamp when cache became full (0 = never) */
+    private float $cacheFullTime = 0.0;
+
+    /** @var int Receive request count */
+    private int $receptionTimes = 0;
+
+    /** @var int Total received messages */
+    private int $receivedMessagesQuantity = 0;
+
     public function __construct(
         PushConsumerImpl $pushConsumer,
         MessageQueue $messageQueue,
@@ -100,251 +89,279 @@ class ProcessQueue
         $this->pushConsumer = $pushConsumer;
         $this->messageQueue = $messageQueue;
         $this->filterExpression = $filterExpression;
-        $this->lastFetchTimestamp = time();
+        $this->activityTime = microtime(true);
     }
-    
-    /**
-     * Get message queue
-     * 
-     * @return MessageQueue Message queue
-     */
+
     public function getMessageQueue(): MessageQueue
     {
         return $this->messageQueue;
     }
-    
-    /**
-     * Check if this process queue is dropped
-     * 
-     * @return bool Whether dropped
-     */
+
     public function isDropped(): bool
     {
         return $this->dropped;
     }
-    
-    /**
-     * Drop this process queue
-     * 
-     * @return void
-     */
+
     public function drop(): void
     {
         $this->dropped = true;
     }
-    
+
     /**
-     * Check if this process queue is expired (30 seconds without fetch)
-     * 
-     * @return bool Whether expired
+     * Check if this process queue is expired.
+     *
+     * References Java ProcessQueueImpl.expired():
+     * A queue is expired only if BOTH activity time and cache-full time
+     * exceed the max idle duration (3x of requestTimeout + longPollingTimeout).
      */
     public function expired(): bool
     {
-        return (time() - $this->lastFetchTimestamp) > 30;
+        $requestTimeoutSec = 3; // default 3 seconds
+        $longPollingTimeoutSec = 30; // default 30 seconds
+        $maxIdleSec = ($requestTimeoutSec + $longPollingTimeoutSec) * 3;
+
+        $now = microtime(true);
+        $idleDuration = $now - $this->activityTime;
+
+        if ($idleDuration < $maxIdleSec) {
+            return false;
+        }
+
+        // Also check cache full time to prevent false positives
+        if ($this->cacheFullTime > 0.0) {
+            $afterCacheFullDuration = $now - $this->cacheFullTime;
+            if ($afterCacheFullDuration < $maxIdleSec) {
+                return false;
+            }
+        }
+
+        Logger::error(sprintf(
+            "Process queue is idle, idleDuration=%.1fs, maxIdleDuration=%ds, mq=%s",
+            $idleDuration,
+            $maxIdleSec,
+            $this->getQueueDescription()
+        ));
+        return true;
     }
-    
+
     /**
-     * Fetch message immediately
-     * 
-     * @return void
+     * Check if the cache is full (backpressure trigger).
+     *
+     * References Java ProcessQueueImpl.isCacheFull():
+     * Dual-layer check: message count OR message size.
+     */
+    public function isCacheFull(): bool
+    {
+        $countThreshold = $this->pushConsumer->cacheMessageCountThresholdPerQueue();
+        if ($this->cachedMessageCount >= $countThreshold) {
+            Logger::error(sprintf(
+                "ProcessQueue cache count exceeds threshold, threshold=%d, actual=%d, mq=%s",
+                $countThreshold,
+                $this->cachedMessageCount,
+                $this->getQueueDescription()
+            ));
+            $this->cacheFullTime = microtime(true);
+            return true;
+        }
+
+        $sizeThreshold = $this->pushConsumer->cacheMessageSizeThresholdPerQueue();
+        if ($this->cachedMessageSizeInBytes >= $sizeThreshold) {
+            Logger::error(sprintf(
+                "ProcessQueue cache size exceeds threshold, threshold=%d bytes, actual=%d bytes, mq=%s",
+                $sizeThreshold,
+                $this->cachedMessageSizeInBytes,
+                $this->getQueueDescription()
+            ));
+            $this->cacheFullTime = microtime(true);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Fetch messages, applying backpressure if cache is full.
      */
     public function fetchMessageImmediately(): void
     {
         if ($this->dropped) {
+            Logger::info("Process queue has been dropped, no longer receiving messages");
             return;
         }
-        
+
+        if ($this->isCacheFull()) {
+            Logger::error("Process queue cache is full, will receive message later");
+            usleep(self::RECEIVING_BACKOFF_WHEN_CACHE_FULL_US);
+            return;
+        }
+
         try {
             $this->fetchMessage();
-        } catch (\Exception $e) {
-            error_log("Failed to fetch message: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            Logger::error("Failed to fetch message: " . $e->getMessage() . ", mq=" . $this->getQueueDescription());
+            usleep(self::RECEIVING_FAILURE_BACKOFF_US);
         }
     }
-    
-    /**
-     * Fetch message from broker
-     * 
-     * @return void
-     * @throws \Exception If fetch fails
-     */
+
     private function fetchMessage(): void
     {
         if ($this->dropped) {
             return;
         }
-        
-        // Check cache thresholds (backpressure)
-        $countThreshold = $this->pushConsumer->cacheMessageCountThresholdPerQueue();
-        $sizeThreshold = $this->pushConsumer->cacheMessageSizeThresholdPerQueue();
-        
-        if ($this->cachedMessageCount >= $countThreshold || 
-            $this->cachedMessageSizeInBytes >= $sizeThreshold) {
-            // Cache is full, wait before fetching more
-            return;
-        }
-        
-        $this->lastFetchTimestamp = time();
-        
-        // Build receive message request
+
+        $this->activityTime = microtime(true);
+
         $request = new ReceiveMessageRequest();
         $request->setMessageQueue($this->messageQueue);
         $request->setFilterExpression($this->filterExpression);
-        $request->setBatchSize(32); // Default batch size
-        
+        $request->setBatchSize(32);
+
         $duration = new \Google\Protobuf\Duration();
         $duration->setSeconds(30);
         $request->setInvisibleDuration($duration);
-        
-        // Send request
+
         $pool = ConnectionPool::getInstance();
         $client = $pool->getConnection($this->pushConsumer->getConfig());
-        
+
         $call = $client->ReceiveMessage($request);
-        
+
         $messages = [];
         foreach ($call->responses() as $response) {
             if ($response->hasMessage()) {
                 $message = $response->getMessage();
                 $messages[] = $message;
-                
-                // Update cache statistics
+
                 $this->cachedMessageCount++;
-                $messageSize = strlen($message->getBody() ?? '');
+                $body = $message->getBody();
+                $messageSize = is_string($body) ? strlen($body) : 0;
                 $this->cachedMessageSizeInBytes += $messageSize;
             }
         }
-        
-        if (!empty($messages)) {
-            $this->receiveMessageCount++;
+
+        $this->receptionTimes++;
+        $this->receivedMessagesQuantity += count($messages);
+
+        if (method_exists($this->pushConsumer, 'incrementReceptionTimes')) {
             $this->pushConsumer->incrementReceptionTimes();
             $this->pushConsumer->incrementReceivedMessagesQuantity(count($messages));
-            
-            // Process messages
+        }
+
+        if (!empty($messages)) {
             $this->processMessages($messages);
         }
     }
-    
-    /**
-     * Process received messages
-     * 
-     * @param array $messages Message list
-     * @return void
-     */
+
     private function processMessages(array $messages): void
     {
         $listener = $this->pushConsumer->getMessageListener();
-        
+
         foreach ($messages as $message) {
             if ($this->dropped) {
                 break;
             }
-            
+
             try {
-                $this->lastConsumeTimestamp = microtime(true);
-                
-                // Call message listener
                 $result = $listener($message);
-                
-                // Acknowledge message if successful
+
                 if ($result === ConsumeResult::SUCCESS || $result === true || $result === null) {
                     $this->ackMessage($message);
-                    $this->pushConsumer->incrementConsumptionOkQuantity(1);
+                    if (method_exists($this->pushConsumer, 'incrementConsumptionOkQuantity')) {
+                        $this->pushConsumer->incrementConsumptionOkQuantity(1);
+                    }
                 } else {
+                    if (method_exists($this->pushConsumer, 'incrementConsumptionErrorQuantity')) {
+                        $this->pushConsumer->incrementConsumptionErrorQuantity(1);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Logger::error("Failed to process message: " . $e->getMessage());
+                if (method_exists($this->pushConsumer, 'incrementConsumptionErrorQuantity')) {
                     $this->pushConsumer->incrementConsumptionErrorQuantity(1);
                 }
-            } catch (\Exception $e) {
-                error_log("Failed to process message: " . $e->getMessage());
-                $this->pushConsumer->incrementConsumptionErrorQuantity(1);
             } finally {
-                // Remove from cache
-                $this->cachedMessageCount--;
-                $messageSize = strlen($message->getBody() ?? '');
-                $this->cachedMessageSizeInBytes -= $messageSize;
+                $this->evictCache($message);
             }
         }
     }
-    
+
     /**
-     * Acknowledge a message
-     * 
-     * @param mixed $message Message object
-     * @return void
+     * Remove a message from cache and update counters.
      */
+    private function evictCache($message): void
+    {
+        $this->cachedMessageCount = max(0, $this->cachedMessageCount - 1);
+        $body = $message->getBody();
+        $messageSize = is_string($body) ? strlen($body) : 0;
+        $this->cachedMessageSizeInBytes = max(0, $this->cachedMessageSizeInBytes - $messageSize);
+    }
+
     private function ackMessage($message): void
     {
         try {
             $receiptHandle = $message->getSystemProperties()->getReceiptHandle();
-            
-            if (empty($receiptHandle)) {
+
+            if ($receiptHandle === null || $receiptHandle === '') {
                 return;
             }
-            
+
             $entry = new \Apache\Rocketmq\V2\AckMessageEntry();
             $entry->setReceiptHandle($receiptHandle);
             $entry->setMessageId($message->getSystemProperties()->getMessageId());
-            
+
             $request = new \Apache\Rocketmq\V2\AckMessageRequest();
             $request->setEntries([$entry]);
-            
+
             $pool = ConnectionPool::getInstance();
             $client = $pool->getConnection($this->pushConsumer->getConfig());
-            
+
             $call = $client->AckMessage($request);
             $call->wait();
-        } catch (\Exception $e) {
-            error_log("Failed to ack message: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            Logger::error("Failed to ack message: " . $e->getMessage());
         }
     }
-    
-    /**
-     * Get cached message count
-     * 
-     * @return int Message count
-     */
+
     public function getCachedMessageCount(): int
     {
         return $this->cachedMessageCount;
     }
-    
-    /**
-     * Get cached message size in bytes
-     * 
-     * @return int Size in bytes
-     */
+
     public function getCachedMessageSizeInBytes(): int
     {
         return $this->cachedMessageSizeInBytes;
     }
-    
-    /**
-     * Get receive message count
-     * 
-     * @return int Count
-     */
-    public function getReceiveMessageCount(): int
+
+    public function getReceptionTimes(): int
     {
-        return $this->receiveMessageCount;
+        return $this->receptionTimes;
     }
-    
-    /**
-     * Do stats logging
-     * 
-     * @return void
-     */
+
+    public function getReceivedMessagesQuantity(): int
+    {
+        return $this->receivedMessagesQuantity;
+    }
+
     public function doStats(): void
     {
-        $topic = $this->messageQueue->getTopic()->getName();
-        $broker = $this->messageQueue->getBroker()->getName() ?? 'unknown';
-        $id = $this->messageQueue->getId() ?? 0;
-        
-        error_log(sprintf(
-            "ProcessQueue stats: topic=%s, broker=%s, id=%d, cachedCount=%d, cachedSize=%d, receiveCount=%d",
-            $topic,
-            $broker,
-            $id,
+        Logger::info(sprintf(
+            "ProcessQueue stats: mq=%s, cachedCount=%d, cachedSize=%d, receptionTimes=%d, receivedTotal=%d",
+            $this->getQueueDescription(),
             $this->cachedMessageCount,
             $this->cachedMessageSizeInBytes,
-            $this->receiveMessageCount
+            $this->receptionTimes,
+            $this->receivedMessagesQuantity
         ));
+    }
+
+    private function getQueueDescription(): string
+    {
+        try {
+            $topic = $this->messageQueue->getTopic()->getName();
+            $broker = $this->messageQueue->getBroker()->getName();
+            $id = $this->messageQueue->getId();
+            return "topic={$topic}, broker={$broker}, id={$id}";
+        } catch (\Throwable $e) {
+            return 'unknown';
+        }
     }
 }

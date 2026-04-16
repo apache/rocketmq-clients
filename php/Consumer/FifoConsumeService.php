@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,55 +21,43 @@
 
 namespace Apache\Rocketmq\Consumer;
 
+use Apache\Rocketmq\Logger;
+
 /**
- * FifoConsumeService - FIFO message consumption service
- * 
- * Reference Java FifoConsumeService:
+ * FifoConsumeService - FIFO message consumption service.
+ *
+ * References Java FifoConsumeService:
  * - Processes messages in FIFO order within same message group
  * - Messages with same messageGroup are processed sequentially
  * - Different message groups can be processed in parallel
- * - Supports FIFO consume accelerator for better performance
+ * - Lock timeout forces lock release to prevent deadlocks
  */
 class FifoConsumeService implements ConsumeService
 {
-    /**
-     * @var string Client ID
-     */
-    private $clientId;
-    
-    /**
-     * @var callable Message listener
-     */
+    /** @var string */
+    private string $clientId;
+
+    /** @var callable */
     private $messageListener;
-    
-    /**
-     * @var PushConsumerImpl Push consumer
-     */
-    private $pushConsumer;
-    
-    /**
-     * @var bool Enable FIFO consume accelerator
-     */
-    private $enableFifoConsumeAccelerator;
-    
-    /**
-     * @var array<string, bool> Message group locks (for sequential processing)
-     */
-    private $messageGroupLocks = [];
-    
-    /**
-     * @var bool Whether the service is running
-     */
-    private $running = false;
-    
-    /**
-     * Constructor
-     * 
-     * @param string $clientId Client ID
-     * @param callable $messageListener Message listener
-     * @param PushConsumerImpl $pushConsumer Push consumer
-     * @param bool $enableFifoConsumeAccelerator Enable FIFO consume accelerator
-     */
+
+    /** @var PushConsumerImpl */
+    private PushConsumerImpl $pushConsumer;
+
+    /** @var bool */
+    private bool $enableFifoConsumeAccelerator;
+
+    /** @var array<string, float> Message group locks with acquisition timestamp */
+    private array $messageGroupLocks = [];
+
+    /** @var bool */
+    private bool $running = false;
+
+    /** @var int Lock timeout in seconds */
+    private const LOCK_TIMEOUT_SECONDS = 30;
+
+    /** @var int Lock spin wait interval in microseconds */
+    private const LOCK_SPIN_INTERVAL_US = 10000; // 10ms
+
     public function __construct(
         string $clientId,
         callable $messageListener,
@@ -78,127 +69,121 @@ class FifoConsumeService implements ConsumeService
         $this->pushConsumer = $pushConsumer;
         $this->enableFifoConsumeAccelerator = $enableFifoConsumeAccelerator;
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function start(): void
     {
         $this->running = true;
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function shutdown(): void
     {
         $this->running = false;
+        $this->messageGroupLocks = [];
     }
-    
-    /**
-     * {@inheritdoc}
-     */
+
     public function consume($message): ConsumeResult
     {
         if (!$this->running) {
             return ConsumeResult::FAILURE;
         }
-        
-        // Get message group
+
         $messageGroup = $this->getMessageGroup($message);
-        
-        // Acquire lock for this message group
-        $this->acquireMessageGroupLock($messageGroup);
-        
+
+        if (!$this->acquireMessageGroupLock($messageGroup)) {
+            Logger::error("Failed to acquire FIFO message group lock after timeout, "
+                . "messageGroup={$messageGroup}, clientId={$this->clientId}");
+            return ConsumeResult::FAILURE;
+        }
+
         try {
             $result = call_user_func($this->messageListener, $message);
-            
+
             if ($result === ConsumeResult::SUCCESS || $result === true || $result === null) {
                 return ConsumeResult::SUCCESS;
             }
-            
+
             return ConsumeResult::FAILURE;
-        } catch (\Exception $e) {
-            error_log("[" . $this->clientId . "] Exception while consuming FIFO message: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            Logger::error("Exception while consuming FIFO message, "
+                . "messageGroup={$messageGroup}, clientId={$this->clientId}, error=" . $e->getMessage());
             return ConsumeResult::FAILURE;
         } finally {
-            // Release lock for this message group
             $this->releaseMessageGroupLock($messageGroup);
         }
     }
-    
-    /**
-     * Get message group from message
-     * 
-     * @param mixed $message Message
-     * @return string Message group
-     */
+
     private function getMessageGroup($message): string
     {
         try {
-            $systemProperties = $message->getSystemProperties();
-            if (method_exists($systemProperties, 'getMessageGroup')) {
-                $group = $systemProperties->getMessageGroup();
-                if (!empty($group)) {
+            if (method_exists($message, 'getSystemProperties')) {
+                $systemProperties = $message->getSystemProperties();
+                if ($systemProperties !== null && method_exists($systemProperties, 'getMessageGroup')) {
+                    $group = $systemProperties->getMessageGroup();
+                    if ($group !== null && $group !== '') {
+                        return $group;
+                    }
+                }
+            }
+
+            if (method_exists($message, 'getMessageGroup')) {
+                $group = $message->getMessageGroup();
+                if ($group !== null && $group !== '') {
                     return $group;
                 }
             }
-        } catch (\Exception $e) {
-            // Ignore
+        } catch (\Throwable $e) {
+            Logger::error("Failed to get message group, clientId={$this->clientId}, error=" . $e->getMessage());
         }
-        
+
         return '__DEFAULT_GROUP__';
     }
-    
+
     /**
-     * Acquire lock for message group
-     * 
-     * @param string $messageGroup Message group
-     * @return void
+     * Acquire lock for message group with timeout.
+     *
+     * If an existing lock has been held beyond LOCK_TIMEOUT_SECONDS, it is
+     * considered stale and forcibly released to prevent deadlock.
+     *
+     * @return bool true if lock acquired, false on timeout
      */
-    private function acquireMessageGroupLock(string $messageGroup): void
+    private function acquireMessageGroupLock(string $messageGroup): bool
     {
-        // Simple spin lock implementation
-        $maxWaitTime = 30; // 30 seconds timeout
-        $startTime = time();
-        
+        $startTime = microtime(true);
+        $deadline = $startTime + self::LOCK_TIMEOUT_SECONDS;
+
         while (isset($this->messageGroupLocks[$messageGroup])) {
-            if (time() - $startTime > $maxWaitTime) {
-                error_log("[" . $this->clientId . "] Timeout waiting for message group lock: " . $messageGroup);
+            $now = microtime(true);
+
+            // Check if the existing lock is stale (held beyond timeout)
+            $lockAge = $now - $this->messageGroupLocks[$messageGroup];
+            if ($lockAge > self::LOCK_TIMEOUT_SECONDS) {
+                Logger::error("Force releasing stale FIFO lock, messageGroup={$messageGroup}, "
+                    . "lockAge={$lockAge}s, clientId={$this->clientId}");
+                unset($this->messageGroupLocks[$messageGroup]);
                 break;
             }
-            usleep(10000); // 10ms
+
+            if ($now >= $deadline) {
+                return false;
+            }
+
+            usleep(self::LOCK_SPIN_INTERVAL_US);
         }
-        
-        $this->messageGroupLocks[$messageGroup] = true;
+
+        $this->messageGroupLocks[$messageGroup] = microtime(true);
+        return true;
     }
-    
-    /**
-     * Release lock for message group
-     * 
-     * @param string $messageGroup Message group
-     * @return void
-     */
+
     private function releaseMessageGroupLock(string $messageGroup): void
     {
         unset($this->messageGroupLocks[$messageGroup]);
     }
-    
-    /**
-     * Check if service is running
-     * 
-     * @return bool
-     */
+
     public function isRunning(): bool
     {
         return $this->running;
     }
-    
-    /**
-     * Check if FIFO consume accelerator is enabled
-     * 
-     * @return bool
-     */
+
     public function isEnableFifoConsumeAccelerator(): bool
     {
         return $this->enableFifoConsumeAccelerator;

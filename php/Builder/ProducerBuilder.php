@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -26,131 +29,138 @@ use Apache\Rocketmq\Producer;
 use Apache\Rocketmq\Producer\TransactionChecker;
 
 /**
- * Builder for creating Producer instances
+ * Builder for creating Producer instances.
+ *
+ * References Java ProducerBuilderImpl design:
+ * - Topic name regex validation
+ * - maxAttempts positive check
+ * - Startup error handling with resource cleanup
  */
 class ProducerBuilder {
+
+    private const TOPIC_PATTERN = '/^[%a-zA-Z0-9_-]+$/';
+
+    /** @var ClientConfiguration|null */
+    private ?ClientConfiguration $clientConfiguration = null;
+
+    /** @var string[] Topics to declare */
+    private array $topics = [];
+
+    /** @var int Max attempts for message sending */
+    private int $maxAttempts = 3;
+
+    /** @var TransactionChecker|null */
+    private ?TransactionChecker $transactionChecker = null;
+
     /**
-     * @var ClientConfiguration|null
+     * Set client configuration.
      */
-    private $clientConfiguration;
-    
-    /**
-     * @var array Topics to declare
-     */
-    private $topics = [];
-    
-    /**
-     * @var int Max attempts for message sending
-     */
-    private $maxAttempts = 3;
-    
-    /**
-     * @var TransactionChecker|null
-     */
-    private $transactionChecker;
-    
-    /**
-     * Set client configuration
-     *
-     * @param ClientConfiguration $clientConfiguration
-     * @return ProducerBuilder
-     */
-    public function setClientConfiguration(ClientConfiguration $clientConfiguration) {
+    public function setClientConfiguration(ClientConfiguration $clientConfiguration): self {
         $this->clientConfiguration = $clientConfiguration;
         return $this;
     }
-    
+
     /**
-     * Set topics to declare
+     * Set topics to declare.
+     * Each topic name must match the pattern [%a-zA-Z0-9_-]+.
      *
      * @param string ...$topics
-     * @return ProducerBuilder
+     * @throws \InvalidArgumentException if any topic name is invalid
      */
-    public function setTopics(string ...$topics) {
+    public function setTopics(string ...$topics): self {
+        foreach ($topics as $topic) {
+            if (!preg_match(self::TOPIC_PATTERN, $topic)) {
+                throw new \InvalidArgumentException(
+                    sprintf("topic does not match the regex [regex=%s]", self::TOPIC_PATTERN)
+                );
+            }
+        }
         $this->topics = $topics;
         return $this;
     }
-    
+
     /**
-     * Set max attempts for message sending
+     * Set max attempts for message sending.
      *
-     * @param int $maxAttempts
-     * @return ProducerBuilder
+     * @throws \InvalidArgumentException if maxAttempts is not positive
      */
-    public function setMaxAttempts(int $maxAttempts) {
+    public function setMaxAttempts(int $maxAttempts): self {
+        if ($maxAttempts <= 0) {
+            throw new \InvalidArgumentException("maxAttempts should be positive");
+        }
         $this->maxAttempts = $maxAttempts;
         return $this;
     }
-    
+
     /**
-     * Set transaction checker
-     *
-     * @param TransactionChecker $transactionChecker
-     * @return ProducerBuilder
+     * Set transaction checker.
      */
-    public function setTransactionChecker(TransactionChecker $transactionChecker) {
+    public function setTransactionChecker(TransactionChecker $transactionChecker): self {
         $this->transactionChecker = $transactionChecker;
         return $this;
     }
-    
+
     /**
-     * Set endpoints
-     *
-     * @param string $endpoints
-     * @return ProducerBuilder
+     * Set endpoints (convenience method).
      */
-    public function setEndpoints(string $endpoints) {
+    public function setEndpoints(string $endpoints): self {
         $this->clientConfiguration = new ClientConfiguration($endpoints);
         return $this;
     }
-    
+
     /**
-     * Enable or disable SSL
+     * Enable or disable SSL.
      *
-     * @param bool $enabled Whether to enable SSL
-     * @return ProducerBuilder
+     * @throws ClientConfigurationException if clientConfiguration has not been set
      */
-    public function enableSsl(bool $enabled) {
+    public function enableSsl(bool $enabled): self {
         if ($this->clientConfiguration === null) {
             throw new ClientConfigurationException("Client configuration must be set before enabling/disabling SSL");
         }
         $this->clientConfiguration->withSslEnabled($enabled);
         return $this;
     }
-    
+
     /**
-     * Build and start the producer
+     * Build and start the producer.
      *
      * @return Producer
-     * @throws ClientConfigurationException
+     * @throws ClientConfigurationException if required parameters are missing
      */
-    public function build() {
+    public function build(): Producer {
         if ($this->clientConfiguration === null) {
-            throw new ClientConfigurationException("Client configuration must be set");
+            throw new ClientConfigurationException("clientConfiguration has not been set yet");
         }
-        
+
         if (empty($this->topics)) {
             throw new ClientConfigurationException("At least one topic must be declared");
         }
-        
-        // For simplicity, we'll use the first topic as the primary topic
+
         $topic = $this->topics[0];
-        
-        // Create producer based on whether transaction checker is set
+
         if ($this->transactionChecker !== null) {
-            // Transactional producer
             $producer = Producer::getTransactionalInstance(
                 $this->clientConfiguration,
                 $topic,
                 $this->transactionChecker
             );
         } else {
-            // Normal producer
             $producer = Producer::getInstance($this->clientConfiguration, $topic);
         }
-        
+
         $producer->setMaxAttempts($this->maxAttempts);
-        $producer->start();
+
+        try {
+            $producer->start();
+        } catch (\Throwable $e) {
+            try {
+                $producer->shutdown();
+            } catch (\Throwable $_) {
+                // Suppress cleanup errors
+            }
+            throw new ClientConfigurationException("Failed to start producer: " . $e->getMessage(), 0, $e);
+        }
+
         return $producer;
     }
 }

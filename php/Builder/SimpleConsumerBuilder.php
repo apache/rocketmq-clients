@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -23,130 +26,135 @@ use Apache\Rocketmq\Exception\ClientConfigurationException;
 use Apache\Rocketmq\SimpleConsumer;
 
 /**
- * Builder for creating SimpleConsumer instances
+ * Builder for creating SimpleConsumer instances.
+ *
+ * References Java SimpleConsumerBuilderImpl design:
+ * - consumerGroup regex validation
+ * - awaitDuration mandatory check
+ * - Positive value checks for numeric parameters
  */
 class SimpleConsumerBuilder {
+
+    private const CONSUMER_GROUP_PATTERN = '/^[%a-zA-Z0-9_-]+$/';
+
+    /** @var ClientConfiguration|null */
+    private ?ClientConfiguration $clientConfiguration = null;
+
+    /** @var string|null */
+    private ?string $consumerGroup = null;
+
+    /** @var string|null */
+    private ?string $topic = null;
+
+    /** @var int */
+    private int $maxMessageNum = 32;
+
+    /** @var int Invisible duration in seconds */
+    private int $invisibleDuration = 15;
+
+    /** @var int Await duration in seconds */
+    private int $awaitDuration = 30;
+
     /**
-     * @var ClientConfiguration|null
+     * Set client configuration.
      */
-    private $clientConfiguration;
-    
-    /**
-     * @var string|null
-     */
-    private $consumerGroup;
-    
-    /**
-     * @var string|null
-     */
-    private $topic;
-    
-    /**
-     * @var int
-     */
-    private $maxMessageNum = 32;
-    
-    /**
-     * @var int
-     */
-    private $invisibleDuration = 15;
-    
-    /**
-     * @var int
-     */
-    private $awaitDuration = 30;
-    
-    /**
-     * Set client configuration
-     *
-     * @param ClientConfiguration $clientConfiguration
-     * @return SimpleConsumerBuilder
-     */
-    public function setClientConfiguration(ClientConfiguration $clientConfiguration) {
+    public function setClientConfiguration(ClientConfiguration $clientConfiguration): self {
         $this->clientConfiguration = $clientConfiguration;
         return $this;
     }
-    
+
     /**
-     * Set consumer group
+     * Set consumer group.
      *
-     * @param string $consumerGroup
-     * @return SimpleConsumerBuilder
+     * @throws \InvalidArgumentException if consumerGroup does not match the naming pattern
      */
-    public function setConsumerGroup(string $consumerGroup) {
+    public function setConsumerGroup(string $consumerGroup): self {
+        if (!preg_match(self::CONSUMER_GROUP_PATTERN, $consumerGroup)) {
+            throw new \InvalidArgumentException(
+                sprintf("consumerGroup does not match the regex [regex=%s]", self::CONSUMER_GROUP_PATTERN)
+            );
+        }
         $this->consumerGroup = $consumerGroup;
         return $this;
     }
-    
+
     /**
-     * Set topic
-     *
-     * @param string $topic
-     * @return SimpleConsumerBuilder
+     * Set topic.
      */
-    public function setTopic(string $topic) {
+    public function setTopic(string $topic): self {
         $this->topic = $topic;
         return $this;
     }
-    
+
     /**
-     * Set max message number
+     * Set max message number per receive.
      *
-     * @param int $maxMessageNum
-     * @return SimpleConsumerBuilder
+     * @throws \InvalidArgumentException if maxMessageNum is not positive
      */
-    public function setMaxMessageNum(int $maxMessageNum) {
+    public function setMaxMessageNum(int $maxMessageNum): self {
+        if ($maxMessageNum <= 0) {
+            throw new \InvalidArgumentException("maxMessageNum must be greater than 0");
+        }
         $this->maxMessageNum = $maxMessageNum;
         return $this;
     }
-    
+
     /**
-     * Set invisible duration in seconds
+     * Set invisible duration in seconds.
      *
-     * @param int $invisibleDuration
-     * @return SimpleConsumerBuilder
+     * @throws \InvalidArgumentException if invisibleDuration is not positive
      */
-    public function setInvisibleDuration(int $invisibleDuration) {
+    public function setInvisibleDuration(int $invisibleDuration): self {
+        if ($invisibleDuration <= 0) {
+            throw new \InvalidArgumentException("invisibleDuration must be greater than 0");
+        }
         $this->invisibleDuration = $invisibleDuration;
         return $this;
     }
-    
+
     /**
-     * Set await duration in seconds
+     * Set await duration in seconds.
      *
-     * @param int $awaitDuration
-     * @return SimpleConsumerBuilder
+     * @throws \InvalidArgumentException if awaitDuration is not positive
      */
-    public function setAwaitDuration(int $awaitDuration) {
+    public function setAwaitDuration(int $awaitDuration): self {
+        if ($awaitDuration <= 0) {
+            throw new \InvalidArgumentException("awaitDuration must be greater than 0");
+        }
         $this->awaitDuration = $awaitDuration;
         return $this;
     }
-    
+
     /**
-     * Build and start the simple consumer
+     * Build and start the simple consumer.
      *
      * @return SimpleConsumer
-     * @throws ClientConfigurationException
+     * @throws ClientConfigurationException if required parameters are missing
      */
-    public function build() {
+    public function build(): SimpleConsumer {
         if ($this->clientConfiguration === null) {
-            throw new ClientConfigurationException("Client configuration must be set");
+            throw new ClientConfigurationException("clientConfiguration has not been set yet");
         }
-        
-        if (empty($this->consumerGroup)) {
-            throw new ClientConfigurationException("Consumer group must be set");
+
+        if ($this->consumerGroup === null || $this->consumerGroup === '') {
+            throw new ClientConfigurationException("consumerGroup has not been set yet");
         }
-        
-        if (empty($this->topic)) {
-            throw new ClientConfigurationException("Topic must be set");
+
+        if ($this->topic === null || $this->topic === '') {
+            throw new ClientConfigurationException("topic has not been set yet");
         }
-        
+
         $consumer = new SimpleConsumer($this->clientConfiguration, $this->consumerGroup, $this->topic);
         $consumer->setMaxMessageNum($this->maxMessageNum);
         $consumer->setInvisibleDuration($this->invisibleDuration);
         $consumer->setAwaitDuration($this->awaitDuration);
-        
-        $consumer->start();
+
+        try {
+            $consumer->start();
+        } catch (\Throwable $e) {
+            throw new ClientConfigurationException("Failed to start simple consumer: " . $e->getMessage(), 0, $e);
+        }
+
         return $consumer;
     }
 }

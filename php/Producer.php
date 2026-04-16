@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -314,7 +315,7 @@ class Producer implements ProducerInterface
                         [$this->topic, $attempt, $this->clientId]
                     );
                     break;
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     $lastException = $e;
                     Logger::warn(
                         "Failed to fetch topic route during startup, topic={}, attempt={}, maxAttempts={}, error={}, clientId={}",
@@ -340,7 +341,7 @@ class Producer implements ProducerInterface
                 $this->state = ClientState::RUNNING;
                 Logger::info("The rocketmq producer starts successfully, clientId={}", [$this->clientId]);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Transition state to FAILED
             if (ClientState::canTransition($this->state, ClientState::FAILED)) {
                 $this->state = ClientState::FAILED;
@@ -494,7 +495,7 @@ class Producer implements ProducerInterface
         foreach ($this->interceptors as $interceptor) {
             try {
                 $interceptor->doBefore($context, $messages);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Log error but do not interrupt flow
                 Logger::error("Exception raised while executing before-send interceptor, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 $context->setStatus(MessageHookPointsStatus::ERROR);
@@ -526,7 +527,7 @@ class Producer implements ProducerInterface
         foreach ($this->interceptors as $interceptor) {
             try {
                 $interceptor->doAfter($context, $messages);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Log error but do not interrupt flow
                 Logger::error("Exception raised while executing after-send interceptor, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             }
@@ -1217,7 +1218,7 @@ class Producer implements ProducerInterface
             
         } catch (ClientException $e) {
             throw $e;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Record failure metrics
             $this->metricsCollector->incrementCounter(MetricName::RECALL_FAILURE_TOTAL, [
                 MetricLabels::TOPIC => $topic,
@@ -1277,7 +1278,7 @@ class Producer implements ProducerInterface
             // Return call object for async handling
             return $call;
             
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Logger::error("Failed to send async recall message request, topic={}, recallHandle={}, error={}, clientId={}", [
                 $topic,
                 $recallHandle,
@@ -1566,7 +1567,7 @@ class Producer implements ProducerInterface
             }
             
             return $results;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Execute after-send interceptors (exception case)
             if (!empty($this->interceptors) && $context !== null) {
                 $this->doAfterSend($context, $messageObjects, null, $e);
@@ -1723,7 +1724,7 @@ class Producer implements ProducerInterface
             }
             
             return $sendReceipt;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Record failure metrics
             $this->metricsCollector->incrementCounter(MetricName::SEND_FAILURE_TOTAL, [
                 MetricLabels::TOPIC => $this->topic,
@@ -1771,7 +1772,7 @@ class Producer implements ProducerInterface
             }
             
             return $receipt;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Determine whether to retry
             if (!$this->retryPolicy->shouldRetry($attempt, $e)) {
                 // Not retryable or max retries reached, log final failure
@@ -2117,7 +2118,7 @@ class Producer implements ProducerInterface
             );
             
             Logger::info("Recover orphaned transaction message success, transactionId={$transactionId}, resolution={$resolution}, messageId={$messageId}, clientId={$this->clientId}");
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Logger::error("Exception raised while checking the transaction, messageId={$messageId}, transactionId={$transactionId}, clientId={$this->clientId}", ['error' => $e->getMessage()]);
         }
     }
@@ -2174,7 +2175,7 @@ class Producer implements ProducerInterface
                     $pool = ConnectionPool::getInstance();
                     $pool->returnConnection($this->config, $this->client);
                     Logger::debug("Connection returned to pool successfully, clientId={}", [$this->clientId]);
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     // Ignore exception when returning connection
                     Logger::error("Failed to return connection to pool, clientId={}", [
                         $this->clientId,
@@ -2219,7 +2220,7 @@ class Producer implements ProducerInterface
                 Logger::info("Shutdown the rocketmq producer successfully, clientId={}", [$this->clientId]);
             }
             
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Even if cleanup fails, set to TERMINATED
             $this->state = ClientState::TERMINATED;
             Logger::error("Failed to shutdown the rocketmq producer, clientId={}", [
@@ -2372,7 +2373,7 @@ class Producer implements ProducerInterface
         if (!ClientState::isTerminalState($this->state)) {
             try {
                 $this->shutdown(1); // Quick shutdown
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Ignore exceptions in destructor
                 Logger::error("Error during producer destruction, clientId={$this->clientId}", ['error' => $e->getMessage()]);
             }

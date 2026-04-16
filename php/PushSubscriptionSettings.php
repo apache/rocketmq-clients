@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -21,52 +24,39 @@ namespace Apache\Rocketmq;
 use Apache\Rocketmq\V2\ClientType;
 use Apache\Rocketmq\V2\Settings as V2Settings;
 use Apache\Rocketmq\V2\Subscription;
+use Apache\Rocketmq\V2\SubscriptionEntry;
 use Apache\Rocketmq\V2\Resource;
-use Apache\Rocketmq\V2\FilterExpression;
+use Apache\Rocketmq\V2\FilterExpression as V2FilterExpression;
+use Apache\Rocketmq\V2\FilterType;
 use Google\Protobuf\Duration;
 
 /**
- * Push subscription settings for PushConsumer
- * 
- * Reference: Java PushSubscriptionSettings
+ * Push subscription settings for PushConsumer.
+ *
+ * References Java PushSubscriptionSettings:
+ * - sync() applies server-returned retry policy
+ * - toProtobuf() serializes subscriptions with proper FilterExpression type/expression
  */
 class PushSubscriptionSettings extends ClientSettings {
-    /**
-     * @var string Consumer group
-     */
-    private $consumerGroup;
-    
-    /**
-     * @var array Topic => FilterExpression map
-     */
-    private $subscriptionExpressions = [];
-    
-    /**
-     * @var int Max cache message count
-     */
-    private $maxCacheMessageCount = 1000;
-    
-    /**
-     * @var int Max cache message size in bytes
-     */
-    private $maxCacheMessageSize = 64 * 1024 * 1024; // 64MB
-    
-    /**
-     * @var int Consumption thread count
-     */
-    private $consumptionThreadCount = 20;
-    
-    /**
-     * Constructor
-     * 
-     * @param string $namespace Namespace
-     * @param string $clientId Client ID
-     * @param string $endpoints Endpoints
-     * @param string $consumerGroup Consumer group
-     * @param array $subscriptionExpressions Topic => FilterExpression map
-     * @param int $maxAttempts Max retry attempts
-     * @param int $requestTimeoutMs Request timeout in milliseconds
-     */
+
+    /** @var string Consumer group */
+    private string $consumerGroup;
+
+    /** @var array<string, mixed> Topic => FilterExpression map */
+    private array $subscriptionExpressions;
+
+    /** @var int Max cache message count */
+    private int $maxCacheMessageCount = 1000;
+
+    /** @var int Max cache message size in bytes */
+    private int $maxCacheMessageSize = 67108864; // 64MB
+
+    /** @var int Consumption thread count */
+    private int $consumptionThreadCount = 20;
+
+    /** @var Duration|null Long polling timeout */
+    private ?Duration $longPollingTimeout = null;
+
     public function __construct(
         string $namespace,
         string $clientId,
@@ -84,132 +74,156 @@ class PushSubscriptionSettings extends ClientSettings {
             $maxAttempts,
             $requestTimeoutMs
         );
-        
+
         $this->consumerGroup = $consumerGroup;
         $this->subscriptionExpressions = $subscriptionExpressions;
     }
-    
+
     /**
      * {@inheritdoc}
      */
     public function toProtobuf(): V2Settings {
         $settings = new V2Settings();
         $settings->setAccessPoint($this->endpoints);
-        
-        // Set subscription configuration
+        $settings->setClientType(ClientType::PUSH_CONSUMER);
+        $settings->setRequestTimeout($this->requestTimeout);
+
         $subscription = new Subscription();
-        
-        // Set consumer group
+
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
         $groupResource->setResourceNamespace($this->namespace);
         $subscription->setGroup($groupResource);
-        
-        // Add subscription expressions
+
         foreach ($this->subscriptionExpressions as $topic => $filterExpression) {
-            $resource = new Resource();
-            $resource->setName($topic);
-            $resource->setResourceNamespace($this->namespace);
-            
-            $filterExpr = new FilterExpression();
-            $filterExpr->setTopic($resource);
-            // Note: FilterExpression type and expression would need to be set based on your implementation
-            
-            $subscription->getSubscriptions()[] = $filterExpr;
+            $topicResource = new Resource();
+            $topicResource->setName($topic);
+            $topicResource->setResourceNamespace($this->namespace);
+
+            $entry = new SubscriptionEntry();
+            $entry->setTopic($topicResource);
+
+            $v2Filter = new V2FilterExpression();
+            if (is_object($filterExpression) && method_exists($filterExpression, 'getExpression')) {
+                $v2Filter->setExpression($filterExpression->getExpression());
+                if (method_exists($filterExpression, 'getType')) {
+                    $type = $filterExpression->getType();
+                    $v2Filter->setType($type === 'SQL92' ? FilterType::SQL : FilterType::TAG);
+                } else {
+                    $v2Filter->setType(FilterType::TAG);
+                }
+            } elseif (is_string($filterExpression)) {
+                $v2Filter->setExpression($filterExpression);
+                $v2Filter->setType(FilterType::TAG);
+            }
+
+            $entry->setExpression($v2Filter);
+            $subscription->getSubscriptions()[] = $entry;
         }
-        
+
         $settings->setSubscription($subscription);
-        
+
+        if ($this->retryPolicy !== null) {
+            $backoffPolicy = new \Apache\Rocketmq\V2\RetryPolicy();
+            $backoffPolicy->setMaxAttempts($this->retryPolicy->getMaxAttempts());
+            $settings->setBackoffPolicy($backoffPolicy);
+        }
+
         return $settings;
     }
-    
+
     /**
-     * Get consumer group
-     * 
-     * @return string Consumer group
+     * Sync settings from server-returned protobuf.
+     *
+     * Applies: retryPolicy (maxAttempts, exponentialBackoff).
      */
+    public function sync(V2Settings $settings): void {
+        if (!$settings->hasSubscription()) {
+            Logger::error("[Bug] Unexpected pubSub case in subscription settings sync, clientId={$this->clientId}");
+            return;
+        }
+
+        // Sync retry policy
+        if ($settings->hasBackoffPolicy()) {
+            $backoffPolicy = $settings->getBackoffPolicy();
+            $maxAttempts = $backoffPolicy->getMaxAttempts();
+
+            if ($backoffPolicy->hasExponentialBackoff()) {
+                $exponential = $backoffPolicy->getExponentialBackoff();
+                $initialMs = 1000;
+                $maxMs = 60000;
+                $multiplier = 2.0;
+
+                if ($exponential->hasInitial()) {
+                    $initialMs = (int)($exponential->getInitial()->getSeconds() * 1000
+                        + $exponential->getInitial()->getNanos() / 1000000);
+                }
+                if ($exponential->hasMax()) {
+                    $maxMs = (int)($exponential->getMax()->getSeconds() * 1000
+                        + $exponential->getMax()->getNanos() / 1000000);
+                }
+                $multiplier = $exponential->getMultiplier() > 0 ? $exponential->getMultiplier() : 2.0;
+
+                $this->retryPolicy = new ExponentialBackoffRetryPolicy(
+                    $maxAttempts > 0 ? $maxAttempts : $this->maxAttempts,
+                    $initialMs,
+                    $maxMs,
+                    $multiplier
+                );
+            }
+
+            if ($maxAttempts > 0) {
+                $this->maxAttempts = $maxAttempts;
+            }
+        }
+    }
+
     public function getConsumerGroup(): string {
         return $this->consumerGroup;
     }
-    
-    /**
-     * Get subscription expressions
-     * 
-     * @return array Topic => FilterExpression map
-     */
+
     public function getSubscriptionExpressions(): array {
         return $this->subscriptionExpressions;
     }
-    
-    /**
-     * Add subscription expression
-     * 
-     * @param string $topic Topic name
-     * @param mixed $filterExpression Filter expression
-     * @return PushSubscriptionSettings This instance
-     */
-    public function addSubscription(string $topic, $filterExpression): PushSubscriptionSettings {
+
+    public function addSubscription(string $topic, $filterExpression): self {
         $this->subscriptionExpressions[$topic] = $filterExpression;
         return $this;
     }
-    
-    /**
-     * Get max cache message count
-     * 
-     * @return int Max cache message count
-     */
+
     public function getMaxCacheMessageCount(): int {
         return $this->maxCacheMessageCount;
     }
-    
-    /**
-     * Set max cache message count
-     * 
-     * @param int $count Max cache message count
-     * @return PushSubscriptionSettings This instance
-     */
-    public function setMaxCacheMessageCount(int $count): PushSubscriptionSettings {
+
+    public function setMaxCacheMessageCount(int $count): self {
         $this->maxCacheMessageCount = $count;
         return $this;
     }
-    
-    /**
-     * Get max cache message size
-     * 
-     * @return int Max cache message size in bytes
-     */
+
     public function getMaxCacheMessageSize(): int {
         return $this->maxCacheMessageSize;
     }
-    
-    /**
-     * Set max cache message size
-     * 
-     * @param int $size Max cache message size in bytes
-     * @return PushSubscriptionSettings This instance
-     */
-    public function setMaxCacheMessageSize(int $size): PushSubscriptionSettings {
+
+    public function setMaxCacheMessageSize(int $size): self {
         $this->maxCacheMessageSize = $size;
         return $this;
     }
-    
-    /**
-     * Get consumption thread count
-     * 
-     * @return int Consumption thread count
-     */
+
     public function getConsumptionThreadCount(): int {
         return $this->consumptionThreadCount;
     }
-    
-    /**
-     * Set consumption thread count
-     * 
-     * @param int $count Consumption thread count
-     * @return PushSubscriptionSettings This instance
-     */
-    public function setConsumptionThreadCount(int $count): PushSubscriptionSettings {
+
+    public function setConsumptionThreadCount(int $count): self {
         $this->consumptionThreadCount = $count;
+        return $this;
+    }
+
+    public function getLongPollingTimeout(): ?Duration {
+        return $this->longPollingTimeout;
+    }
+
+    public function setLongPollingTimeout(Duration $timeout): self {
+        $this->longPollingTimeout = $timeout;
         return $this;
     }
 }

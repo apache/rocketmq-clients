@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -25,36 +28,23 @@ use Apache\Rocketmq\V2\Resource;
 use Google\Protobuf\Duration;
 
 /**
- * Publishing settings for Producer
- * 
- * Reference: Java PublishingSettings
+ * Publishing settings for Producer.
+ *
+ * References Java PublishingSettings:
+ * - sync() applies server-returned configuration (retryPolicy, maxBodySize, validateMessageType)
+ * - toProtobuf() serializes local settings for telemetry handshake
  */
 class PublishingSettings extends ClientSettings {
-    /**
-     * @var array Topics to publish
-     */
-    private $topics = [];
-    
-    /**
-     * @var int Max message body size in bytes (default: 4MB)
-     */
-    private $maxBodySize = 4 * 1024 * 1024;
-    
-    /**
-     * @var bool Whether to validate message type
-     */
-    private $validateMessageType = true;
-    
-    /**
-     * Constructor
-     * 
-     * @param string $namespace Namespace
-     * @param string $clientId Client ID
-     * @param string $endpoints Endpoints
-     * @param array $topics Topics to publish
-     * @param int $maxAttempts Max retry attempts
-     * @param int $requestTimeoutMs Request timeout in milliseconds
-     */
+
+    /** @var string[] Topics to publish */
+    private array $topics;
+
+    /** @var int Max message body size in bytes (default: 4MB) */
+    private int $maxBodySize = 4194304;
+
+    /** @var bool Whether to validate message type */
+    private bool $validateMessageType = true;
+
     public function __construct(
         string $namespace,
         string $clientId,
@@ -71,91 +61,133 @@ class PublishingSettings extends ClientSettings {
             $maxAttempts,
             $requestTimeoutMs
         );
-        
+
         $this->topics = $topics;
     }
-    
+
     /**
      * {@inheritdoc}
      */
     public function toProtobuf(): V2Settings {
         $settings = new V2Settings();
         $settings->setAccessPoint($this->endpoints);
-        
-        // Set publishing configuration
+        $settings->setClientType(ClientType::PRODUCER);
+        $settings->setRequestTimeout($this->requestTimeout);
+
         $publishing = new Publishing();
-        
-        // Add topics
+        $publishing->setValidateMessageType($this->validateMessageType);
+
         foreach ($this->topics as $topic) {
             $resource = new Resource();
             $resource->setName($topic);
             $resource->setResourceNamespace($this->namespace);
             $publishing->getTopics()[] = $resource;
         }
-        
+
         $settings->setPublishing($publishing);
-        
+
+        if ($this->retryPolicy !== null) {
+            $backoffPolicy = new \Apache\Rocketmq\V2\RetryPolicy();
+            $backoffPolicy->setMaxAttempts($this->retryPolicy->getMaxAttempts());
+
+            $exponential = new \Apache\Rocketmq\V2\ExponentialBackoff();
+            $initial = new Duration();
+            $initial->setNanos($this->retryPolicy->getInitialBackoff() * 1000000);
+            $exponential->setInitial($initial);
+
+            $max = new Duration();
+            $max->setNanos($this->retryPolicy->getMaxBackoff() * 1000000);
+            $exponential->setMax($max);
+
+            $exponential->setMultiplier($this->retryPolicy->getBackoffMultiplier());
+            $backoffPolicy->setExponentialBackoff($exponential);
+
+            $settings->setBackoffPolicy($backoffPolicy);
+        }
+
         return $settings;
     }
-    
+
     /**
-     * Get topics
-     * 
-     * @return array Topics
+     * Sync settings from server-returned protobuf.
+     *
+     * Applies: retryPolicy, validateMessageType, maxBodySize.
      */
+    public function sync(V2Settings $settings): void {
+        if (!$settings->hasPublishing()) {
+            Logger::error("[Bug] Unexpected pubSub case in publishing settings sync, clientId={$this->clientId}");
+            return;
+        }
+
+        // Sync retry policy
+        if ($settings->hasBackoffPolicy()) {
+            $backoffPolicy = $settings->getBackoffPolicy();
+            $maxAttempts = $backoffPolicy->getMaxAttempts();
+
+            if ($backoffPolicy->hasExponentialBackoff()) {
+                $exponential = $backoffPolicy->getExponentialBackoff();
+                $initialMs = 100;
+                $maxMs = 5000;
+                $multiplier = 2.0;
+
+                if ($exponential->hasInitial()) {
+                    $initialMs = (int)($exponential->getInitial()->getSeconds() * 1000
+                        + $exponential->getInitial()->getNanos() / 1000000);
+                }
+                if ($exponential->hasMax()) {
+                    $maxMs = (int)($exponential->getMax()->getSeconds() * 1000
+                        + $exponential->getMax()->getNanos() / 1000000);
+                }
+                $multiplier = $exponential->getMultiplier() > 0 ? $exponential->getMultiplier() : 2.0;
+
+                $this->retryPolicy = new ExponentialBackoffRetryPolicy(
+                    $maxAttempts > 0 ? $maxAttempts : $this->maxAttempts,
+                    $initialMs,
+                    $maxMs,
+                    $multiplier
+                );
+            }
+
+            if ($maxAttempts > 0) {
+                $this->maxAttempts = $maxAttempts;
+            }
+        }
+
+        // Sync publishing-specific settings
+        $publishing = $settings->getPublishing();
+        $this->validateMessageType = $publishing->getValidateMessageType();
+
+        $maxBodySize = $publishing->getMaxBodySize();
+        if ($maxBodySize > 0) {
+            $this->maxBodySize = $maxBodySize;
+        }
+    }
+
     public function getTopics(): array {
         return $this->topics;
     }
-    
-    /**
-     * Add a topic
-     * 
-     * @param string $topic Topic name
-     * @return PublishingSettings This instance
-     */
-    public function addTopic(string $topic): PublishingSettings {
-        if (!in_array($topic, $this->topics)) {
+
+    public function addTopic(string $topic): self {
+        if (!in_array($topic, $this->topics, true)) {
             $this->topics[] = $topic;
         }
         return $this;
     }
-    
-    /**
-     * Get max body size
-     * 
-     * @return int Max body size in bytes
-     */
+
     public function getMaxBodySize(): int {
         return $this->maxBodySize;
     }
-    
-    /**
-     * Set max body size
-     * 
-     * @param int $maxBodySize Max body size in bytes
-     * @return PublishingSettings This instance
-     */
-    public function setMaxBodySize(int $maxBodySize): PublishingSettings {
+
+    public function setMaxBodySize(int $maxBodySize): self {
         $this->maxBodySize = $maxBodySize;
         return $this;
     }
-    
-    /**
-     * Check if message type validation is enabled
-     * 
-     * @return bool True if enabled
-     */
+
     public function isValidateMessageType(): bool {
         return $this->validateMessageType;
     }
-    
-    /**
-     * Enable or disable message type validation
-     * 
-     * @param bool $validate Whether to validate
-     * @return PublishingSettings This instance
-     */
-    public function setValidateMessageType(bool $validate): PublishingSettings {
+
+    public function setValidateMessageType(bool $validate): self {
         $this->validateMessageType = $validate;
         return $this;
     }
