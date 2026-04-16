@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,35 +22,22 @@ namespace Apache\Rocketmq\Exception;
 
 /**
  * Exception thrown when lite subscription quota is exceeded
- * 
- * This exception indicates that the number of lite topic subscriptions
- * has exceeded the configured quota limit for the consumer group.
  */
 class LiteSubscriptionQuotaExceededException extends ClientException {
-    /**
-     * @var string The lite topic name
-     */
-    private $liteTopic;
+    private int $responseCode;
+    private string $requestId;
     
-    /**
-     * Constructor
-     * 
-     * @param string $message Error message
-     * @param string $liteTopic The lite topic that exceeded quota
-     * @param int $code Error code
-     * @param \Throwable|null $previous Previous exception
-     */
-    public function __construct(string $message = "", string $liteTopic = "", int $code = 0, \Throwable $previous = null) {
-        $this->liteTopic = $liteTopic;
-        parent::__construct($message, $code, $previous);
+    public function __construct(int $responseCode, string $requestId, string $message, \Exception $previous = null) {
+        $this->responseCode = $responseCode;
+        $this->requestId = $requestId;
+        parent::__construct($message, $responseCode, $previous);
     }
     
-    /**
-     * Get the lite topic name
-     * 
-     * @return string Lite topic name
-     */
-    public function getLiteTopic(): string {
-        return $this->liteTopic;
+    public function getRequestId(): string {
+        return $this->requestId;
+    }
+    
+    public function getResponseCode(): int {
+        return $this->responseCode;
     }
 }

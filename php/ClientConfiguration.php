@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -148,18 +151,35 @@ class ClientConfiguration
     }
     
     /**
-     * Parse and normalize endpoint addresses
+     * Parse, validate, and normalize endpoint addresses
      * 
-     * @param string $endpoints Raw endpoint string
+     * @param string $endpoints Raw endpoint string (host:port or host1:port1;host2:port2)
      * @return string Normalized endpoint string
+     * @throws \InvalidArgumentException If endpoint format is invalid
      */
     private function parseEndpoints($endpoints)
     {
         // Remove http:// or https:// prefix
         $endpoints = preg_replace('#^https?://#', '', $endpoints);
+        $endpoints = trim($endpoints);
         
-        // Trim leading and trailing whitespace
-        return trim($endpoints);
+        if (empty($endpoints)) {
+            throw new \InvalidArgumentException("Endpoints must not be empty");
+        }
+        
+        // Validate each endpoint matches host:port format
+        $parts = explode(';', $endpoints);
+        foreach ($parts as $part) {
+            $part = trim($part);
+            if ($part === '') {
+                continue;
+            }
+            if (!preg_match('/^[a-zA-Z0-9._-]+:\d{1,5}$/', $part)) {
+                throw new \InvalidArgumentException("Invalid endpoint format: '{$part}', expected host:port");
+            }
+        }
+        
+        return $endpoints;
     }
     
     /**

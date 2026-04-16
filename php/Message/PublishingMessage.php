@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -98,14 +100,20 @@ class PublishingMessage implements GeneralMessage
     private $bornTimestamp;
     
     /**
+     * @var bool Whether transaction is enabled
+     */
+    private $txEnabled;
+    
+    /**
      * Constructor
      * 
      * @param Message $message Message to publish
+     * @param bool $txEnabled Whether this is a transactional message
      * @throws MessageException If validation fails
      */
-    public function __construct(Message $message)
+    public function __construct(Message $message, bool $txEnabled = false)
     {
-        // Validate message
+        $this->txEnabled = $txEnabled;
         $this->validate($message);
         
         $this->topic = $message->getTopic();
@@ -132,33 +140,44 @@ class PublishingMessage implements GeneralMessage
      */
     private function validate(Message $message): void
     {
-        // Validate topic
         if (empty($message->getTopic())) {
             throw new MessageException("Topic must not be empty");
         }
         
-        // Validate body
         $body = $message->getBody();
         if (empty($body)) {
             throw new MessageException("Message body must not be empty");
         }
         
-        // Validate body size (4MB limit)
         if (strlen($body) > 4194304) {
             throw new MessageException("Message body size exceeds 4MB limit");
         }
         
-        // Validate FIFO message
         if ($message->getMessageGroup() !== null) {
             if (empty($message->getMessageGroup())) {
                 throw new MessageException("Message group must not be empty for FIFO messages");
             }
         }
         
-        // Validate delay message
         if ($message->getDeliveryTimestamp() !== null) {
-            if ($message->getDeliveryTimestamp() <= time() * 1000) {
+            if ($message->getDeliveryTimestamp() <= (int)(microtime(true) * 1000)) {
                 throw new MessageException("Delivery timestamp must be in the future");
+            }
+        }
+        
+        // Transaction message conflict validation (matches Java PublishingMessageImpl)
+        if ($this->txEnabled) {
+            if ($message->getMessageGroup() !== null) {
+                throw new MessageException("Transactional message should not set message group");
+            }
+            if ($message->getDeliveryTimestamp() !== null) {
+                throw new MessageException("Transactional message should not set delivery timestamp");
+            }
+            if ($message->getLiteTopic() !== null) {
+                throw new MessageException("Transactional message should not set lite topic");
+            }
+            if ($message->getPriority() !== null) {
+                throw new MessageException("Transactional message should not set priority");
             }
         }
     }
@@ -166,10 +185,16 @@ class PublishingMessage implements GeneralMessage
     /**
      * Determine message type based on properties
      * 
+     * Follows Java PublishingMessageImpl type resolution cascade.
+     * 
      * @return int Message type
      */
     private function determineMessageType(): int
     {
+        if ($this->txEnabled) {
+            return MessageType::TRANSACTION;
+        }
+        
         if ($this->messageGroup !== null) {
             return MessageType::FIFO;
         }

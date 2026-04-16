@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -17,24 +18,13 @@ declare(strict_types=1);
  * limitations under the License.
  */
 
-namespace Apache\Rocketmq\Message;
+namespace Apache\Rocketmq\Exception;
 
 /**
- * Abstract message id, the implement must override {@link __toString()}, which indicates the message id using
- * string form.
+ * Exception thrown when client state is invalid
  */
-interface MessageId {
-    /**
-     * Get the version of the message-id.
-     * 
-     * @return string The version of message-id
-     */
-    public function getVersion(): string;
-    
-    /**
-     * The implementation <strong>must</strong> override this method, which indicates the message-id using string form.
-     * 
-     * @return string String-formed message id
-     */
-    public function __toString(): string;
+class ClientStateException extends ClientException {
+    public function __construct(string $message = '', int $code = 409, \Exception $previous = null) {
+        parent::__construct($message, $code, $previous);
+    }
 }

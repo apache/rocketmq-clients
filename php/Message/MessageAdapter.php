@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -90,57 +92,58 @@ class MessageAdapter implements Message {
         // Extract body
         $this->body = $v2Message->getBody();
         
-        // Extract system properties - only basic fields to ensure compatibility
+        // Extract system properties using has*() checks instead of try/catch
         if ($v2Message->hasSystemProperties()) {
             $sysProps = $v2Message->getSystemProperties();
             
             // Tag
-            try {
-                $this->tag = $sysProps->getTag();
-            } catch (\Exception $e) { /* Not available */ }
+            if ($sysProps->hasTag()) {
+                $tag = $sysProps->getTag();
+                if ($tag !== '') {
+                    $this->tag = $tag;
+                }
+            }
             
             // Keys
-            try {
-                $keysList = $sysProps->getKeys();
-                if (!empty($keysList)) {
-                    // Convert RepeatedField to PHP array
-                    $this->keys = iterator_to_array($keysList);
-                }
-            } catch (\Exception $e) { /* Not available */ }
+            $keysList = $sysProps->getKeys();
+            if ($keysList !== null) {
+                $this->keys = ($keysList instanceof \Traversable) ? iterator_to_array($keysList) : (array)$keysList;
+            }
             
             // Message group
-            try {
+            if ($sysProps->hasMessageGroup()) {
                 $messageGroup = $sysProps->getMessageGroup();
-                $this->messageGroup = !empty($messageGroup) ? $messageGroup : null;
-            } catch (\Exception $e) { /* Not available */ }
+                $this->messageGroup = ($messageGroup !== '') ? $messageGroup : null;
+            }
             
-            // Delivery timestamp
-            try {
-                if ($sysProps->hasDeliveryTimestamp()) {
-                    $timestamp = $sysProps->getDeliveryTimestamp();
-                    $this->deliveryTimestamp = $timestamp->getSeconds() * 1000 + intval($timestamp->getNanos() / 1000000);
-                }
-            } catch (\Exception $e) { /* Not available */ }
+            // Delivery timestamp (with millisecond precision)
+            if ($sysProps->hasDeliveryTimestamp()) {
+                $timestamp = $sysProps->getDeliveryTimestamp();
+                $this->deliveryTimestamp = (int)($timestamp->getSeconds() * 1000 + intval($timestamp->getNanos() / 1000000));
+            }
             
             // Priority
-            try {
-                if ($sysProps->hasPriority()) {
-                    $this->priority = $sysProps->getPriority();
-                }
-            } catch (\Exception $e) { /* Not available */ }
+            if ($sysProps->hasPriority()) {
+                $this->priority = $sysProps->getPriority();
+            }
             
             // Lite topic
-            try {
+            if ($sysProps->hasLiteTopic()) {
                 $liteTopic = $sysProps->getLiteTopic();
-                $this->liteTopic = !empty($liteTopic) ? $liteTopic : null;
-            } catch (\Exception $e) { /* Not available */ }
+                $this->liteTopic = ($liteTopic !== '') ? $liteTopic : null;
+            }
         }
         
-        // Extract custom properties - skip if method not available
-        if (method_exists($v2Message, 'getProperties')) {
+        // Extract custom properties
+        if (method_exists($v2Message, 'getUserProperties')) {
+            $userProps = $v2Message->getUserProperties();
+            if ($userProps !== null) {
+                $this->properties = ($userProps instanceof \Traversable) ? iterator_to_array($userProps) : (array)$userProps;
+            }
+        } elseif (method_exists($v2Message, 'getProperties')) {
             $propertiesList = $v2Message->getProperties();
             if (!empty($propertiesList)) {
-                $this->properties = $propertiesList;
+                $this->properties = (array)$propertiesList;
             }
         }
     }

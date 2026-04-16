@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -25,18 +27,20 @@ namespace Apache\Rocketmq\Exception;
  */
 class NotFoundException extends ClientException
 {
-    /**
-     * Constructor
-     * 
-     * @param string $message Error message
-     * @param int $code Error code
-     * @param \Throwable|null $previous Previous exception
-     */
-    public function __construct(
-        string $message = "Resource not found",
-        int $code = 404,
-        \Throwable $previous = null
-    ) {
-        parent::__construct($message, $code, $previous);
+    private int $responseCode;
+    private string $requestId;
+    
+    public function __construct(int $responseCode, string $requestId, string $message, \Exception $previous = null) {
+        $this->responseCode = $responseCode;
+        $this->requestId = $requestId;
+        parent::__construct($message, $responseCode, $previous);
+    }
+    
+    public function getRequestId(): string {
+        return $this->requestId;
+    }
+    
+    public function getResponseCode(): int {
+        return $this->responseCode;
     }
 }

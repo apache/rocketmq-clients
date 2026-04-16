@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -157,7 +159,19 @@ class Util {
      * 
      * @return int Timestamp in milliseconds
      */
-    public static function getCurrentTimestamp() {
+    public static function getCurrentTimestamp(): int {
         return (int)(microtime(true) * 1000);
+    }
+    
+    /**
+     * Calculate CRC32 checksum of data and return as uppercase hex string
+     * 
+     * Matches Java Utilities.crc32CheckSum() output format.
+     * 
+     * @param string $data Data to checksum
+     * @return string 8-character uppercase hex CRC32 checksum
+     */
+    public static function crc32Checksum(string $data): string {
+        return sprintf('%08X', crc32($data) & 0xffffffff);
     }
 }

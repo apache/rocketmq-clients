@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,49 +21,24 @@ declare(strict_types=1);
 namespace Apache\Rocketmq\Exception;
 
 /**
- * Exception for unauthorized access - indicates missing or invalid authentication credentials
+ * Exception for payload too large (HTTP 413 equivalent)
  * 
- * Reference: Java UnauthorizedException
+ * Reference: Java PayloadTooLargeException
  */
-class UnauthorizedException extends ClientException {
-    /**
-     * @var string Request ID from server response
-     */
-    private $requestId;
+class PayloadTooLargeException extends ClientException {
+    private int $responseCode;
+    private string $requestId;
     
-    /**
-     * @var int Response code from server
-     */
-    private $responseCode;
-    
-    /**
-     * UnauthorizedException constructor
-     *
-     * @param int $responseCode Response code from server
-     * @param string $requestId Request ID from server
-     * @param string $message Error message
-     * @param \Exception|null $previous Previous exception
-     */
     public function __construct(int $responseCode, string $requestId, string $message, \Exception $previous = null) {
         $this->responseCode = $responseCode;
         $this->requestId = $requestId;
         parent::__construct($message, $responseCode, $previous);
     }
     
-    /**
-     * Get request ID
-     * 
-     * @return string Request ID
-     */
     public function getRequestId(): string {
         return $this->requestId;
     }
     
-    /**
-     * Get response code
-     * 
-     * @return int Response code
-     */
     public function getResponseCode(): int {
         return $this->responseCode;
     }

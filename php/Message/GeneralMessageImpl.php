@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -160,12 +162,26 @@ class GeneralMessageImpl implements GeneralMessage
     /**
      * Set message ID
      * 
+     * @internal Used internally by factory methods and producer.
      * @param MessageId $messageId Message ID
      * @return void
      */
     public function setMessageId(MessageId $messageId): void
     {
         $this->messageId = $messageId;
+    }
+    
+    /**
+     * Create from MessageView (for received messages)
+     * 
+     * Matches Java GeneralMessageImpl(MessageView) constructor.
+     * 
+     * @param MessageViewImpl $messageView Message view
+     * @return GeneralMessageImpl
+     */
+    public static function fromMessageView(MessageViewImpl $messageView): GeneralMessageImpl
+    {
+        return new self($messageView);
     }
     
     /**

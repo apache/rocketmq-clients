@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,6 +20,7 @@
 
 namespace Apache\Rocketmq\Message;
 
+use Apache\Rocketmq\Logger;
 use Apache\Rocketmq\Route\Endpoints;
 use Apache\Rocketmq\Route\MessageQueue;
 use Apache\Rocketmq\Util;
@@ -442,66 +445,106 @@ class MessageViewImpl implements MessageView
         $body = $message->getBody()->toString();
         $corrupted = false;
         
-        // Body digest verification
-        $bodyDigest = $systemProperties->getBodyDigest();
-        $checksum = $bodyDigest->getChecksum();
-        $digestType = $bodyDigest->getType();
-        
-        switch ($digestType) {
-            case \Apache\Rocketmq\V2\DigestType::CRC32:
-                $expectedChecksum = Util::crc32Checksum($body);
-                if ($expectedChecksum !== $checksum) {
-                    $corrupted = true;
-                }
-                break;
-            case \Apache\Rocketmq\V2\DigestType::MD5:
-                $expectedChecksum = md5($body);
-                if ($expectedChecksum !== $checksum) {
-                    $corrupted = true;
-                }
-                break;
-            case \Apache\Rocketmq\V2\DigestType::SHA1:
-                $expectedChecksum = sha1($body);
-                if ($expectedChecksum !== $checksum) {
-                    $corrupted = true;
-                }
-                break;
-            default:
-                error_log("Unsupported message body digest algorithm: {$digestType}");
+        // Body digest verification (with null guard)
+        if ($systemProperties->hasBodyDigest()) {
+            $bodyDigest = $systemProperties->getBodyDigest();
+            $checksum = $bodyDigest->getChecksum();
+            $digestType = $bodyDigest->getType();
+            
+            switch ($digestType) {
+                case \Apache\Rocketmq\V2\DigestType::CRC32:
+                    $expectedChecksum = Util::crc32Checksum($body);
+                    if ($expectedChecksum !== $checksum) {
+                        Logger::error("Message body CRC32 checksum mismatch, topic={}, messageId={}, expected={}, actual={}", [
+                            $topic, (string)$messageId, $expectedChecksum, $checksum
+                        ]);
+                        $corrupted = true;
+                    }
+                    break;
+                case \Apache\Rocketmq\V2\DigestType::MD5:
+                    $expectedChecksum = md5($body);
+                    if ($expectedChecksum !== $checksum) {
+                        Logger::error("Message body MD5 checksum mismatch, topic={}, messageId={}, expected={}, actual={}", [
+                            $topic, (string)$messageId, $expectedChecksum, $checksum
+                        ]);
+                        $corrupted = true;
+                    }
+                    break;
+                case \Apache\Rocketmq\V2\DigestType::SHA1:
+                    $expectedChecksum = sha1($body);
+                    if ($expectedChecksum !== $checksum) {
+                        Logger::error("Message body SHA1 checksum mismatch, topic={}, messageId={}, expected={}, actual={}", [
+                            $topic, (string)$messageId, $expectedChecksum, $checksum
+                        ]);
+                        $corrupted = true;
+                    }
+                    break;
+                default:
+                    Logger::warning("Unsupported message body digest algorithm, topic={}, messageId={}, digestType={}", [
+                        $topic, (string)$messageId, $digestType
+                    ]);
+            }
         }
         
-        // Body decompression
+        // Body decompression (without @ error suppression)
         $bodyEncoding = $systemProperties->getBodyEncoding();
         switch ($bodyEncoding) {
             case \Apache\Rocketmq\V2\Encoding::GZIP:
-                $decompressed = @gzdecode($body);
+                $errorMessage = null;
+                set_error_handler(function (int $errno, string $errstr) use (&$errorMessage): bool {
+                    $errorMessage = $errstr;
+                    return true;
+                });
+                $decompressed = gzdecode($body);
+                restore_error_handler();
                 if ($decompressed === false) {
-                    error_log("Failed to uncompress message body");
+                    Logger::error("Failed to decompress GZIP message body, topic={}, messageId={}, error={}", [
+                        $topic, (string)$messageId, $errorMessage ?? 'unknown'
+                    ]);
                     $corrupted = true;
                 } else {
                     $body = $decompressed;
                 }
                 break;
             case \Apache\Rocketmq\V2\Encoding::IDENTITY:
-                // No decompression needed
                 break;
             default:
-                error_log("Unsupported message encoding: {$bodyEncoding}");
+                Logger::warning("Unsupported message encoding, topic={}, messageId={}, encoding={}", [
+                    $topic, (string)$messageId, $bodyEncoding
+                ]);
         }
         
         // Extract system properties
         $tag = $systemProperties->hasTag() ? $systemProperties->getTag() : null;
         $messageGroup = $systemProperties->hasMessageGroup() ? $systemProperties->getMessageGroup() : null;
         $liteTopic = $systemProperties->hasLiteTopic() ? $systemProperties->getLiteTopic() : null;
-        $deliveryTimestamp = $systemProperties->hasDeliveryTimestamp() ? 
-            (int)($systemProperties->getDeliveryTimestamp()->getSeconds()) : null;
+        
+        // Delivery timestamp with millisecond precision
+        $deliveryTimestamp = null;
+        if ($systemProperties->hasDeliveryTimestamp()) {
+            $ts = $systemProperties->getDeliveryTimestamp();
+            $deliveryTimestamp = (int)($ts->getSeconds() * 1000 + intval($ts->getNanos() / 1000000));
+        }
+        
         $priority = $systemProperties->hasPriority() ? $systemProperties->getPriority() : null;
-        $keys = $systemProperties->getKeysList();
+        
+        // Convert RepeatedField to PHP array
+        $keysList = $systemProperties->getKeys();
+        $keys = ($keysList instanceof \Traversable) ? iterator_to_array($keysList) : (array)$keysList;
+        
         $bornHost = $systemProperties->getBornHost();
-        $bornTimestamp = (int)($systemProperties->getBornTimestamp()->getSeconds() * 1000);
+        
+        // Born timestamp with millisecond precision (seconds + nanos)
+        $bornTs = $systemProperties->getBornTimestamp();
+        $bornTimestamp = (int)($bornTs->getSeconds() * 1000 + intval($bornTs->getNanos() / 1000000));
+        
         $deliveryAttempt = $systemProperties->getDeliveryAttempt();
         $offset = (int)$systemProperties->getQueueOffset();
-        $properties = $message->getUserPropertiesMap();
+        
+        // Convert MapField to PHP array
+        $userProps = $message->getUserProperties();
+        $properties = ($userProps instanceof \Traversable) ? iterator_to_array($userProps) : (array)$userProps;
+        
         $receiptHandle = $systemProperties->getReceiptHandle();
         
         return new self(

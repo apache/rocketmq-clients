@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -21,7 +23,7 @@ namespace Apache\Rocketmq\Message;
 /**
  * MessageIdCodec provides encoding and decoding for message IDs
  * 
- * References Java MessageIdCodec implementation (150 lines)
+ * References Java MessageIdCodec implementation
  * 
  * Message ID format (V1):
  * - Total: 34 characters (17 bytes in hex)
@@ -43,62 +45,36 @@ namespace Apache\Rocketmq\Message;
  */
 class MessageIdCodec
 {
-    const MESSAGE_ID_LENGTH_V1 = 34;
-    const MESSAGE_ID_VERSION_V0 = '00';
-    const MESSAGE_ID_VERSION_V1 = '01';
+    private const MESSAGE_ID_LENGTH_V1 = 34;
+    public const MESSAGE_ID_VERSION_V0 = '00';
+    public const MESSAGE_ID_VERSION_V1 = '01';
     
-    /**
-     * @var MessageIdCodec Singleton instance
-     */
-    private static $instance = null;
+    private static ?MessageIdCodec $instance = null;
     
-    /**
-     * @var string Fixed prefix (MAC + PID)
-     */
-    private $processFixedStringV1;
-    
-    /**
-     * @var int Seconds since custom epoch
-     */
-    private $secondsSinceCustomEpoch;
-    
-    /**
-     * @var int Start timestamp
-     */
-    private $secondsStartTimestamp;
-    
-    /**
-     * @var int Current seconds
-     */
-    private $seconds;
-    
-    /**
-     * @var int Sequence counter
-     */
-    private $sequence = 0;
+    private string $processFixedStringV1;
+    private int $secondsSinceCustomEpoch;
+    private int $secondsStartTimestamp;
+    private int $seconds;
+    private int $sequence = 0;
     
     /**
      * Private constructor for singleton
      */
     private function __construct()
     {
-        // Generate fixed prefix from MAC address and PID
         $mac = $this->getMacAddress();
-        $pid = getmypid() & 0xFFFF; // Lower 2 bytes
+        $pid = getmypid() & 0xFFFF;
         
         $this->processFixedStringV1 = sprintf('%s%04x', $mac, $pid);
         
-        // Initialize timestamp
         $customEpochMillis = $this->customEpochMillis();
         $this->secondsSinceCustomEpoch = (int)((microtime(true) * 1000 - $customEpochMillis) / 1000);
-        $this->secondsStartTimestamp = (int)hrtime(true) / 1000000000;
+        $this->secondsStartTimestamp = (int)(hrtime(true) / 1000000000);
         $this->seconds = $this->deltaSeconds();
     }
     
     /**
      * Get singleton instance
-     * 
-     * @return MessageIdCodec
      */
     public static function getInstance(): MessageIdCodec
     {
@@ -110,8 +86,6 @@ class MessageIdCodec
     
     /**
      * Custom epoch: 2021-01-01 00:00:00 UTC
-     * 
-     * @return int Custom epoch in milliseconds
      */
     private function customEpochMillis(): int
     {
@@ -119,20 +93,16 @@ class MessageIdCodec
     }
     
     /**
-     * Calculate delta seconds since start
-     * 
-     * @return int Delta seconds
+     * Calculate delta seconds since start using monotonic clock
      */
     private function deltaSeconds(): int
     {
-        $currentSeconds = (int)hrtime(true) / 1000000000;
+        $currentSeconds = (int)(hrtime(true) / 1000000000);
         return $this->secondsSinceCustomEpoch + ($currentSeconds - $this->secondsStartTimestamp);
     }
     
     /**
      * Generate next message ID (V1)
-     * 
-     * @return MessageId Message ID
      */
     public function nextMessageId(): MessageId
     {
@@ -141,9 +111,9 @@ class MessageIdCodec
             $this->seconds = $deltaSeconds;
         }
         
-        // Format: version(2) + mac(12) + pid(4) + timestamp(8) + sequence(8)
         $timestamp = sprintf('%08x', $this->seconds & 0xFFFFFFFF);
-        $sequence = sprintf('%08x', $this->sequence++);
+        $sequence = sprintf('%08x', $this->sequence);
+        $this->sequence = ($this->sequence + 1) & 0xFFFFFFFF;
         
         $suffix = $this->processFixedStringV1 . $timestamp . $sequence;
         
@@ -152,9 +122,6 @@ class MessageIdCodec
     
     /**
      * Decode message ID from string
-     * 
-     * @param string $messageId Message ID string
-     * @return MessageId Message ID
      */
     public function decode(string $messageId): MessageId
     {
@@ -170,30 +137,31 @@ class MessageIdCodec
     
     /**
      * Get MAC address (lower 6 bytes in hex)
-     * 
-     * @return string MAC address in hex
+     *
+     * Uses net_get_interfaces() when available (PHP sockets extension),
+     * falls back to random_bytes() matching Java's SecureRandom fallback.
      */
     private function getMacAddress(): string
     {
-        // Try to get MAC address from system
-        $mac = '000000000000'; // Default
-        
-        // Linux
-        if (PHP_OS === 'Linux' || PHP_OS === 'Linux2') {
-            $output = @shell_exec('cat /sys/class/net/eth0/address 2>/dev/null');
-            if ($output) {
-                $mac = str_replace(':', '', trim($output));
+        // Primary: use PHP's net_get_interfaces() API (sockets extension)
+        if (function_exists('net_get_interfaces')) {
+            $interfaces = net_get_interfaces();
+            if (is_array($interfaces)) {
+                foreach ($interfaces as $name => $info) {
+                    if ($name === 'lo' || $name === 'lo0') {
+                        continue;
+                    }
+                    if (isset($info['mac']) && $info['mac'] !== '00:00:00:00:00:00') {
+                        $mac = str_replace(':', '', $info['mac']);
+                        if (strlen($mac) === 12 && $mac !== '000000000000') {
+                            return strtolower($mac);
+                        }
+                    }
+                }
             }
         }
-        // macOS
-        elseif (PHP_OS === 'Darwin') {
-            $output = @shell_exec('ifconfig en0 | grep ether | awk \'{print $2}\' 2>/dev/null');
-            if ($output) {
-                $mac = str_replace(':', '', trim($output));
-            }
-        }
         
-        // Ensure 12 characters
-        return str_pad(strtolower($mac), 12, '0', STR_PAD_LEFT);
+        // Fallback: cryptographically secure random bytes (matches Java SecureRandom)
+        return bin2hex(random_bytes(6));
     }
 }

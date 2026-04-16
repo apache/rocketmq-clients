@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,94 +24,7 @@ namespace Apache\Rocketmq\Exception;
  * Base exception class for RocketMQ client
  */
 class ClientException extends \Exception {
-    /**
-     * ClientException constructor
-     *
-     * @param string $message
-     * @param int $code
-     * @param \Exception|null $previous
-     */
-    public function __construct($message, $code = 0, \Exception $previous = null) {
-        parent::__construct($message, $code, $previous);
-    }
-}
-
-/**
- * Exception thrown when client configuration is invalid
- */
-class ClientConfigurationException extends ClientException {
-    /**
-     * ClientConfigurationException constructor
-     *
-     * @param string $message
-     * @param int $code
-     * @param \Exception|null $previous
-     */
-    public function __construct($message, $code = 400, \Exception $previous = null) {
-        parent::__construct($message, $code, $previous);
-    }
-}
-
-/**
- * Exception thrown when client state is invalid
- */
-class ClientStateException extends ClientException {
-    /**
-     * ClientStateException constructor
-     *
-     * @param string $message
-     * @param int $code
-     * @param \Exception|null $previous
-     */
-    public function __construct($message, $code = 409, \Exception $previous = null) {
-        parent::__construct($message, $code, $previous);
-    }
-}
-
-/**
- * Exception thrown when network error occurs
- */
-class NetworkException extends ClientException {
-    /**
-     * NetworkException constructor
-     *
-     * @param string $message
-     * @param int $code
-     * @param \Exception|null $previous
-     */
-    public function __construct($message, $code = 503, \Exception $previous = null) {
-        parent::__construct($message, $code, $previous);
-    }
-}
-
-/**
- * Exception thrown when server returns error
- */
-class ServerException extends ClientException {
-    /**
-     * ServerException constructor
-     *
-     * @param string $message
-     * @param int $code
-     * @param \Exception|null $previous
-     */
-    public function __construct($message, $code = 500, \Exception $previous = null) {
-        parent::__construct($message, $code, $previous);
-    }
-}
-
-/**
- * Exception thrown when transaction-related error occurs
- */
-class TransactionException extends ClientException {
-    /**
-     * TransactionException constructor
-     *
-     * @param string $message
-     * @param int $code
-     * @param \Exception|null $previous
-     */
-    public function __construct($message, $code = 409, \Exception $previous = null) {
+    public function __construct(string $message = '', int $code = 0, \Exception $previous = null) {
         parent::__construct($message, $code, $previous);
     }
 }
