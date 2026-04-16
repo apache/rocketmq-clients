@@ -779,7 +779,7 @@ class Producer implements ProducerInterface
         
         // Set custom properties
         if (!empty($properties)) {
-            $message->setProperties($properties);
+            $message->setUserProperties($properties);
         }
         
         return $message;
@@ -1409,7 +1409,7 @@ class Producer implements ProducerInterface
         // Set custom properties
         $properties = $message->getProperties();
         if (!empty($properties)) {
-            $grpcMessage->setProperties($properties);
+            $grpcMessage->setUserProperties($properties);
         }
         
         return $grpcMessage;

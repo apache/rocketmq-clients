@@ -403,7 +403,7 @@ class MessageBuilder implements MessageBuilderInterface {
         
         // Set custom properties
         if (!empty($this->properties)) {
-            $v2Message->setProperties($this->properties);
+            $v2Message->setUserProperties($this->properties);
         }
         
         // Wrap V2\Message in adapter to implement Message interface
