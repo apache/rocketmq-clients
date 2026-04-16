@@ -238,10 +238,11 @@ class ConnectionPool {
                 // Add client ID to headers
                 $metaData['x-mq-client-id'] = [$clientId];
                 
-                // Add other required metadata
+                // Add other required metadata (aligned with Java Signature.java)
                 $metaData['x-mq-language'] = ['PHP'];
                 $metaData['x-mq-protocol'] = ['GRPC_V2'];
                 $metaData['x-mq-client-version'] = ['5.0.0'];
+                $metaData['x-mq-request-id'] = [uniqid('php-', true)];
                 
                 // Add namespace if available
                 $namespace = $clientConfig->getNamespace();
@@ -249,28 +250,33 @@ class ConnectionPool {
                     $metaData['x-mq-namespace'] = [$namespace];
                 }
                 
-                // Add authentication information
-                if ($clientConfig->hasCredentials()) {
-                    $credentials = $clientConfig->getCredentials();
+                // Add authentication information via SessionCredentialsProvider
+                $provider = $clientConfig->getCredentialsProvider();
+                if ($provider !== null) {
+                    $credentials = $provider->getSessionCredentials();
                     if ($credentials !== null) {
                         $accessKey = $credentials->getAccessKey();
-                        $secretKey = $credentials->getAccessSecret();
+                        $accessSecret = $credentials->getAccessSecret();
                         
-                        // Generate signature
-                        $dateTime = gmdate('Ymd\THis\Z');
-                        $signature = hash_hmac('sha1', $dateTime, $secretKey);
-                        
-                        $authorization = 'MQv2-HMAC-SHA1 ' .
-                            'Credential=' . $accessKey . ', ' .
-                            'SignedHeaders=x-mq-date-time, ' .
-                            'Signature=' . $signature;
-                        
-                        $metaData['authorization'] = [$authorization];
-                        $metaData['x-mq-date-time'] = [$dateTime];
-                        
-                        // Add session token if available
-                        if ($credentials->hasSecurityToken()) {
-                            $metaData['x-mq-session-token'] = [$credentials->getSecurityToken()];
+                        if (!empty($accessKey) && !empty($accessSecret)) {
+                            // Generate signature (aligned with Java TLSHelper.sign)
+                            // Java uses HMAC-SHA1 with uppercase hex output
+                            $dateTime = gmdate('Ymd\THis\Z');
+                            $signature = strtoupper(hash_hmac('sha1', $dateTime, $accessSecret));
+                            
+                            $authorization = 'MQv2-HMAC-SHA1 ' .
+                                'Credential=' . $accessKey . ', ' .
+                                'SignedHeaders=x-mq-date-time, ' .
+                                'Signature=' . $signature;
+                            
+                            $metaData['authorization'] = [$authorization];
+                            $metaData['x-mq-date-time'] = [$dateTime];
+                            
+                            // Add session token if available
+                            $securityToken = $credentials->tryGetSecurityToken();
+                            if ($securityToken !== null) {
+                                $metaData['x-mq-session-token'] = [$securityToken];
+                            }
                         }
                     }
                 }
