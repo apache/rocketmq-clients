@@ -77,5 +77,10 @@
     "test:coverage": "php vendor/bin/phpunit tests/ --no-configuration --coverage-html coverage",
     "lint": "phpcs --standard=PSR12 .",
     "fix": "phpcbf --standard=PSR12 ."
+  },
+  "config": {
+    "audit": {
+      "block-insecure": false
+    }
   }
 }

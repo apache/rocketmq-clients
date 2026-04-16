@@ -43,7 +43,7 @@ class BadRequestException extends ClientException {
      * @param string $message Error message
      * @param \Exception|null $previous Previous exception
      */
-    public function __construct(int $responseCode, string $requestId, string $message, \Exception $previous = null) {
+    public function __construct(int $responseCode, string $requestId, string $message, \Throwable $previous = null) {
         $this->responseCode = $responseCode;
         $this->requestId = $requestId;
         parent::__construct($message, $responseCode, $previous);

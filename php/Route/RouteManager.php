@@ -157,7 +157,9 @@ class RouteManager
         }
 
         $request = new QueryRouteRequest();
-        $request->setInfo(Resource::create()->setName($topic));
+        $topicResource = new Resource();
+        $topicResource->setName($topic);
+        $request->setInfo($topicResource);
         $request->setEndpoints($this->config->getEndpoints()->toProtobuf());
 
         $pool = ConnectionPool::getInstance();

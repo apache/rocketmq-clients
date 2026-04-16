@@ -24,7 +24,7 @@ namespace Apache\Rocketmq\Exception;
  * Exception thrown when client configuration is invalid
  */
 class ClientConfigurationException extends ClientException {
-    public function __construct(string $message = '', int $code = 400, \Exception $previous = null) {
+    public function __construct(string $message = '', int $code = 400, ?\Throwable $previous = null) {
         parent::__construct($message, $code, $previous);
     }
 }

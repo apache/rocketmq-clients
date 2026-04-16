@@ -24,7 +24,7 @@ namespace Apache\Rocketmq\Exception;
  * Exception thrown when transaction-related error occurs
  */
 class TransactionException extends ClientException {
-    public function __construct(string $message = '', int $code = 409, \Exception $previous = null) {
+    public function __construct(string $message = '', int $code = 409, \Throwable $previous = null) {
         parent::__construct($message, $code, $previous);
     }
 }

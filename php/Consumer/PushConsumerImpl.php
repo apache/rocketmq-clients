@@ -26,15 +26,14 @@ use Apache\Rocketmq\Exception\ClientStateException;
 use Apache\Rocketmq\Exception\NetworkException;
 use Apache\Rocketmq\Logger;
 use Apache\Rocketmq\Util;
-use Apache\Rocketmq\V2\Assignment;
-use Apache\Rocketmq\V2\Assignments;
 use Apache\Rocketmq\V2\ClientType;
-use Apache\Rocketmq\V2\FilterExpression;
 use Apache\Rocketmq\V2\HeartbeatRequest;
 use Apache\Rocketmq\V2\MessageQueue;
+use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryAssignmentRequest;
 use Apache\Rocketmq\V2\QueryAssignmentResponse;
 use Apache\Rocketmq\V2\Resource;
+use Apache\Rocketmq\V2\TelemetryCommand;
 use Apache\Rocketmq\V2\Settings;
 use Apache\Rocketmq\V2\Subscription;
 use Apache\Rocketmq\V2\SubscriptionEntry;
@@ -56,7 +55,7 @@ class PushConsumerImpl implements PushConsumer
     private string $clientId;
     /** @var array<string, FilterExpression> */
     private array $subscriptionExpressions = [];
-    /** @var array<string, Assignments> Cached assignments per topic */
+    /** @var array<string, \Google\Protobuf\Internal\RepeatedField> Cached assignments per topic */
     private array $cacheAssignments = [];
     /** @var callable */
     private $messageListener;
@@ -68,6 +67,12 @@ class PushConsumerImpl implements PushConsumer
     private int $consumptionThreadCount;
     private string $state = 'CREATED';
     private bool $running = false;
+    /** @var int|null Swoole timer ID for periodic assignment scanning */
+    private ?int $scanTimerId = null;
+    /** @var MessagingServiceClient|null Shared gRPC client with fixed clientId */
+    private ?MessagingServiceClient $client = null;
+    /** @var mixed Telemetry bidirectional stream call */
+    private $telemetryStream = null;
     private int $receptionTimes = 0;
     private int $receivedMessagesQuantity = 0;
     private int $consumptionOkQuantity = 0;
@@ -145,6 +150,12 @@ class PushConsumerImpl implements PushConsumer
         $this->state = 'STARTING';
 
         try {
+            // Create shared gRPC client with fixed clientId
+            $this->initClient();
+
+            // Establish Telemetry session to register with proxy
+            $this->initTelemetrySession();
+
             $this->heartbeat();
 
             $this->state = 'RUNNING';
@@ -171,6 +182,12 @@ class PushConsumerImpl implements PushConsumer
         $this->state = 'STOPPING';
         $this->running = false;
 
+        // Cancel periodic assignment scanning timer
+        if ($this->scanTimerId !== null) {
+            \Swoole\Timer::clear($this->scanTimerId);
+            $this->scanTimerId = null;
+        }
+
         $this->waitingReceiveRequestFinished();
 
         foreach ($this->processQueueTable as $mq => $pq) {
@@ -178,8 +195,28 @@ class PushConsumerImpl implements PushConsumer
         }
         $this->processQueueTable = [];
 
+        // Close telemetry stream
+        if ($this->telemetryStream !== null) {
+            try {
+                $this->telemetryStream->writesDone();
+            } catch (\Throwable $e) {
+                // Ignore
+            }
+            $this->telemetryStream = null;
+        }
+
+        $this->client = null;
+
         $this->state = 'TERMINATED';
         Logger::info("Shutdown the rocketmq push consumer successfully, clientId={$this->clientId}");
+    }
+
+    /**
+     * Alias for close()
+     */
+    public function shutdown(): void
+    {
+        $this->close();
     }
 
     private function checkRunning(): void
@@ -196,31 +233,15 @@ class PushConsumerImpl implements PushConsumer
      */
     private function heartbeat(): void
     {
+        $groupResource = new Resource();
+        $groupResource->setName($this->consumerGroup);
+
         $request = new HeartbeatRequest();
-
-        $settings = new Settings();
-        $settings->setClientType(ClientType::PUSH_CONSUMER);
-
-        $subscription = new Subscription();
-        $subscription->setGroup(Resource::create()->setName($this->consumerGroup));
-
-        foreach ($this->subscriptionExpressions as $topic => $filterExpression) {
-            $entry = new SubscriptionEntry();
-            $entry->setTopic(Resource::create()->setName($topic));
-            $entry->setFilterExpression($filterExpression);
-            $subscription->addEntries($entry);
-        }
-
-        $request->setSettings($settings);
-        $request->setSubscriptions([$subscription]);
-
-        $pool = ConnectionPool::getInstance();
-        $pool->setConfigFromClientConfiguration($this->config);
-        $client = $pool->getConnection($this->config);
+        $request->setGroup($groupResource);
+        $request->setClientType(ClientType::PUSH_CONSUMER);
 
         try {
-            $call = $client->Heartbeat($request);
-            $call->wait();
+            list($response, $status) = $this->client->Heartbeat($request)->wait();
             Logger::debug("Heartbeat sent successfully, consumerGroup={$this->consumerGroup}, clientId={$this->clientId}");
         } catch (\Throwable $e) {
             Logger::error("Failed to send heartbeat, consumerGroup={$this->consumerGroup}, clientId={$this->clientId}, error={$e->getMessage()}");
@@ -235,7 +256,20 @@ class PushConsumerImpl implements PushConsumer
 
     private function startAssignmentScanning(): void
     {
+        // Initial scan
         $this->scanAssignments();
+
+        // Schedule periodic scanning every 5 seconds (matching Java's scheduleWithFixedDelay)
+        $this->scanTimerId = \Swoole\Timer::tick(5000, function () {
+            if (!$this->running) {
+                return;
+            }
+            try {
+                $this->scanAssignments();
+            } catch (\Throwable $t) {
+                Logger::error("Exception raised while scanning assignments, clientId={$this->clientId}, error={$t->getMessage()}");
+            }
+        });
     }
 
     /**
@@ -251,40 +285,37 @@ class PushConsumerImpl implements PushConsumer
                 $existed = $this->cacheAssignments[$topic] ?? null;
                 $latest = $this->queryAssignment($topic);
 
-                if ($latest === null || empty($latest->getAssignmentList())) {
-                    if ($existed === null || empty($existed->getAssignmentList())) {
-                        Logger::debug("No assignments found for topic, topic={$topic}, clientId={$this->clientId}");
+                if ($latest === null || count($latest) === 0) {
+                    if ($existed === null || count($existed) === 0) {
                         continue;
                     }
                 }
 
-                if ($latest !== $existed) {
-                    $this->syncProcessQueue($topic, $latest, $filterExpression);
-                    $this->cacheAssignments[$topic] = $latest;
-                } else {
-                    $this->syncProcessQueue($topic, $latest, $filterExpression);
-                }
+                $this->syncProcessQueue($topic, $latest, $filterExpression);
+                $this->cacheAssignments[$topic] = $latest;
             } catch (\Throwable $e) {
-                Logger::error("Exception raised while scanning assignments, topic={$topic}, consumerGroup={$this->consumerGroup}, clientId={$this->clientId}, error={$e->getMessage()}");
+                Logger::error("Exception raised while scanning assignments for topic={$topic}, clientId={$this->clientId}, error={$e->getMessage()}");
             }
         }
     }
 
     /**
+     * @return \Google\Protobuf\Internal\RepeatedField|null
      * @throws ClientException|NetworkException If query fails
      */
-    private function queryAssignment(string $topic): ?Assignments
+    private function queryAssignment(string $topic)
     {
         $request = new QueryAssignmentRequest();
-        $request->setTopic(Resource::create()->setName($topic));
-        $request->setGroup(Resource::create()->setName($this->consumerGroup));
-
-        $pool = ConnectionPool::getInstance();
-        $client = $pool->getConnection($this->config);
+        $topicRes = new Resource();
+        $topicRes->setName($topic);
+        $request->setTopic($topicRes);
+        $groupRes = new Resource();
+        $groupRes->setName($this->consumerGroup);
+        $request->setGroup($groupRes);
 
         try {
-            $call = $client->QueryAssignment($request);
-            $response = $call->wait();
+            $call = $this->client->QueryAssignment($request);
+            list($response, $status) = $call->wait();
 
             if ($response instanceof QueryAssignmentResponse) {
                 return $response->getAssignments();
@@ -296,10 +327,10 @@ class PushConsumerImpl implements PushConsumer
         return null;
     }
 
-    private function syncProcessQueue(string $topic, Assignments $assignments, FilterExpression $filterExpression): void
+    private function syncProcessQueue(string $topic, iterable $assignments, FilterExpression $filterExpression): void
     {
         $latest = [];
-        foreach ($assignments->getAssignmentList() as $assignment) {
+        foreach ($assignments as $assignment) {
             $mq = $assignment->getMessageQueue();
             $latest[$this->getMessageQueueKey($mq)] = $mq;
         }
@@ -525,5 +556,85 @@ class PushConsumerImpl implements PushConsumer
     public function getConfig(): ClientConfiguration
     {
         return $this->config;
+    }
+
+    /**
+     * Get shared gRPC client (used by ProcessQueue)
+     */
+    public function getClient(): MessagingServiceClient
+    {
+        return $this->client;
+    }
+
+    /**
+     * Initialize shared gRPC client with fixed clientId
+     */
+    private function initClient(): void
+    {
+        $pool = ConnectionPool::getInstance();
+        $pool->setConfigFromClientConfiguration($this->config);
+        $this->client = $pool->getConnectionWithClientId($this->config, $this->clientId);
+        Logger::info("Shared gRPC client created with clientId={$this->clientId}");
+    }
+
+    /**
+     * Initialize Telemetry bidirectional stream session.
+     * 
+     * RocketMQ proxy requires clients to register via Telemetry before
+     * accepting ReceiveMessage calls (otherwise returns 40401 "disconnected").
+     */
+    private function initTelemetrySession(): void
+    {
+        try {
+            $this->telemetryStream = $this->client->Telemetry();
+
+            // Build Settings with PUSH_CONSUMER client type and subscription info
+            $settings = new Settings();
+            $settings->setClientType(ClientType::PUSH_CONSUMER);
+
+            $subscription = new Subscription();
+            $group = new Resource();
+            $group->setName($this->consumerGroup);
+            $subscription->setGroup($group);
+
+            $longPollingDuration = new \Google\Protobuf\Duration();
+            $longPollingDuration->setSeconds(15);
+            $subscription->setLongPollingTimeout($longPollingDuration);
+
+            // Add subscription entries for all topics
+            $entries = [];
+            foreach ($this->subscriptionExpressions as $topic => $filterExpr) {
+                $entry = new SubscriptionEntry();
+                $topicResource = new Resource();
+                $topicResource->setName($topic);
+                $entry->setTopic($topicResource);
+
+                $v2Filter = new \Apache\Rocketmq\V2\FilterExpression();
+                $v2Filter->setExpression($filterExpr->getExpression());
+                $v2Filter->setType(
+                    $filterExpr->getType() === FilterExpressionType::TAG
+                        ? \Apache\Rocketmq\V2\FilterType::TAG
+                        : \Apache\Rocketmq\V2\FilterType::SQL
+                );
+                $entry->setExpression($v2Filter);
+
+                $entries[] = $entry;
+            }
+            $subscription->setSubscriptions($entries);
+            $settings->setSubscription($subscription);
+
+            // Send settings via telemetry stream
+            $command = new TelemetryCommand();
+            $command->setSettings($settings);
+            $this->telemetryStream->write($command);
+
+            // Wait briefly for the proxy to process the registration
+            usleep(500000); // 500ms
+
+            Logger::info("Telemetry session established, clientId={$this->clientId}");
+        } catch (\Throwable $e) {
+            Logger::error("Failed to establish telemetry session, clientId={$this->clientId}, error={$e->getMessage()}");
+            throw $e;
+        }
     }
 }

@@ -122,23 +122,14 @@ try {
     echo "  ✓ Message listener registered\n\n";
     
     // ========================================
-    // Step 3: Start PushConsumer in background coroutine
+    // Step 3: PushConsumer is already started by build()
     // ========================================
-    echo "[Step 3] Starting PushConsumer in background...\n";
+    echo "[Step 3] PushConsumer already started by build()...\n";
     echo str_repeat("-", 60) . "\n";
     
-    // Start consumer in a separate coroutine (non-blocking)
-    \Swoole\Coroutine::create(function() use ($consumer) {
-        try {
-            $consumer->start();
-        } catch (\Exception $e) {
-            echo "PushConsumer error: " . $e->getMessage() . "\n";
-        }
-    });
-    
-    // Give consumer time to initialize
+    // Give consumer time to initialize and start receiving
     \Swoole\Coroutine::sleep(2);
-    echo "  ✓ PushConsumer started in background\n";
+    echo "  ✓ PushConsumer started and ready\n";
     echo "  ✓ Waiting for messages...\n\n";
     
     // ========================================

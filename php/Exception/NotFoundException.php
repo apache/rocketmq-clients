@@ -30,7 +30,7 @@ class NotFoundException extends ClientException
     private int $responseCode;
     private string $requestId;
     
-    public function __construct(int $responseCode, string $requestId, string $message, \Exception $previous = null) {
+    public function __construct(int $responseCode, string $requestId, string $message, \Throwable $previous = null) {
         $this->responseCode = $responseCode;
         $this->requestId = $requestId;
         parent::__construct($message, $responseCode, $previous);

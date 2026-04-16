@@ -21,9 +21,9 @@ declare(strict_types=1);
 
 namespace Apache\Rocketmq\Consumer;
 
-use Apache\Rocketmq\Connection\ConnectionPool;
 use Apache\Rocketmq\Logger;
-use Apache\Rocketmq\V2\FilterExpression;
+use Apache\Rocketmq\V2\FilterExpression as V2FilterExpression;
+use Apache\Rocketmq\V2\FilterType;
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
 use Apache\Rocketmq\V2\Resource;
@@ -54,7 +54,7 @@ class ProcessQueue
     /** @var MessageQueue */
     private MessageQueue $messageQueue;
 
-    /** @var FilterExpression */
+    /** @var FilterExpression Consumer-side filter expression */
     private FilterExpression $filterExpression;
 
     /** @var bool */
@@ -179,27 +179,58 @@ class ProcessQueue
         return false;
     }
 
+    /** @var int gRPC ReceiveMessage timeout in seconds (short to avoid blocking event loop) */
+    private const RECEIVE_TIMEOUT_SEC = 5;
+
     /**
-     * Fetch messages, applying backpressure if cache is full.
+     * Start continuous message fetching via Swoole Timer self-scheduling.
+     *
+     * References Java ProcessQueueImpl self-scheduling pattern:
+     * receiveMessage() → gRPC fetch → onReceiveMessageResult() → receiveMessage() (loop)
+     * On failure → receiveMessageLater(delay) → receiveMessage() (retry with backoff)
+     *
+     * Uses Timer::after() instead of Coroutine::create() because PHP gRPC extension
+     * performs C-level blocking I/O that doesn't yield to Swoole's coroutine scheduler.
      */
     public function fetchMessageImmediately(): void
     {
-        if ($this->dropped) {
-            Logger::info("Process queue has been dropped, no longer receiving messages");
+        // Defer to next event loop tick so start() returns immediately
+        \Swoole\Timer::after(1, function () {
+            $this->scheduleFetchCycle();
+        });
+    }
+
+    /**
+     * Single fetch cycle: check conditions → fetch → schedule next cycle.
+     */
+    private function scheduleFetchCycle(): void
+    {
+        if ($this->dropped || !$this->pushConsumer->isRunning()) {
+            Logger::info("ProcessQueue fetch loop exited, dropped=" . ($this->dropped ? 'true' : 'false') . ", mq=" . $this->getQueueDescription());
             return;
         }
 
         if ($this->isCacheFull()) {
-            Logger::error("Process queue cache is full, will receive message later");
-            usleep(self::RECEIVING_BACKOFF_WHEN_CACHE_FULL_US);
+            Logger::warn("Process queue cache is full, will receive message later, mq=" . $this->getQueueDescription());
+            $this->cacheFullTime = microtime(true);
+            \Swoole\Timer::after((int)(self::RECEIVING_BACKOFF_WHEN_CACHE_FULL_US / 1000), function () {
+                $this->scheduleFetchCycle();
+            });
             return;
         }
 
         try {
             $this->fetchMessage();
+            // Success: schedule next fetch immediately (1ms to yield event loop)
+            \Swoole\Timer::after(1, function () {
+                $this->scheduleFetchCycle();
+            });
         } catch (\Throwable $e) {
             Logger::error("Failed to fetch message: " . $e->getMessage() . ", mq=" . $this->getQueueDescription());
-            usleep(self::RECEIVING_FAILURE_BACKOFF_US);
+            // Failure: backoff then retry
+            \Swoole\Timer::after((int)(self::RECEIVING_FAILURE_BACKOFF_US / 1000), function () {
+                $this->scheduleFetchCycle();
+            });
         }
     }
 
@@ -212,18 +243,36 @@ class ProcessQueue
         $this->activityTime = microtime(true);
 
         $request = new ReceiveMessageRequest();
+
+        // Set consumer group (required field)
+        $groupResource = new Resource();
+        $groupResource->setName($this->pushConsumer->getConsumerGroup());
+        $request->setGroup($groupResource);
+
         $request->setMessageQueue($this->messageQueue);
-        $request->setFilterExpression($this->filterExpression);
+
+        // Convert Consumer\FilterExpression to V2\FilterExpression for gRPC
+        $v2Filter = new V2FilterExpression();
+        $v2Filter->setExpression($this->filterExpression->getExpression());
+        $filterType = $this->filterExpression->getType() === FilterExpressionType::TAG
+            ? FilterType::TAG
+            : FilterType::SQL;
+        $v2Filter->setType($filterType);
+        $request->setFilterExpression($v2Filter);
+
         $request->setBatchSize(32);
+        $request->setAutoRenew(true);
 
-        $duration = new \Google\Protobuf\Duration();
-        $duration->setSeconds(30);
-        $request->setInvisibleDuration($duration);
+        // Set long polling timeout
+        $longPollingTimeout = new \Google\Protobuf\Duration();
+        $longPollingTimeout->setSeconds(self::RECEIVE_TIMEOUT_SEC);
+        $request->setLongPollingTimeout($longPollingTimeout);
 
-        $pool = ConnectionPool::getInstance();
-        $client = $pool->getConnection($this->pushConsumer->getConfig());
+        $client = $this->pushConsumer->getClient();
 
-        $call = $client->ReceiveMessage($request);
+        // Set gRPC deadline: longPolling + extra margin for network
+        $deadlineUs = (self::RECEIVE_TIMEOUT_SEC + 3) * 1000 * 1000;
+        $call = $client->ReceiveMessage($request, [], ['timeout' => $deadlineUs]);
 
         $messages = [];
         foreach ($call->responses() as $response) {

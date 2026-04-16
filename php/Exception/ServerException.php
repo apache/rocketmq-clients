@@ -24,7 +24,7 @@ namespace Apache\Rocketmq\Exception;
  * Exception thrown when server returns error
  */
 class ServerException extends ClientException {
-    public function __construct(string $message = '', int $code = 500, \Exception $previous = null) {
+    public function __construct(string $message = '', int $code = 500, \Throwable $previous = null) {
         parent::__construct($message, $code, $previous);
     }
 }
