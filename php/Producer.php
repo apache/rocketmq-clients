@@ -25,6 +25,7 @@ require_once __DIR__ . '/ClientState.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/HealthChecker.php';
 require_once __DIR__ . '/Producer/Producer.php';
+require_once __DIR__ . '/Producer/PublishingLoadBalancer.php';
 
 // Load composer autoload if available
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
@@ -155,6 +156,11 @@ class Producer implements ProducerInterface
      * @var int Max attempts for message sending
      */
     private $maxAttempts = 3;
+    
+    /**
+     * @var PublishingLoadBalancer|null Publishing load balancer (for queue selection)
+     */
+    private $publishingLoadBalancer = null;
     
     /**
      * Private constructor to prevent direct instantiation
@@ -570,13 +576,14 @@ class Producer implements ProducerInterface
      */
     public function queryRoute($forceRefresh = false)
     {
-        // If force refresh, clear cache
+        // If force refresh, clear cache and load balancer
         if ($forceRefresh) {
             $this->routeCache->invalidate($this->topic);
+            $this->publishingLoadBalancer = null;
         }
         
         // Use cache to get route
-        return $this->routeCache->getOrCreate($this->topic, function() {
+        $response = $this->routeCache->getOrCreate($this->topic, function() {
             $qr = new QueryRouteRequest();
             $rs = new Resource();
             $rs->setResourceNamespace('');
@@ -594,6 +601,28 @@ class Producer implements ProducerInterface
             
             return $response;
         });
+        
+        // Create or update PublishingLoadBalancer from route response
+        $messageQueues = $response->getMessageQueues();
+        if (!empty($messageQueues)) {
+            try {
+                $this->publishingLoadBalancer = new PublishingLoadBalancer($messageQueues, $this->topic);
+                Logger::debug("PublishingLoadBalancer created/updated, topic={}, queueCount={}, clientId={}", [
+                    $this->topic,
+                    count($messageQueues),
+                    $this->clientId
+                ]);
+            } catch (\InvalidArgumentException $e) {
+                Logger::warn("Failed to create PublishingLoadBalancer, topic={}, error={}, clientId={}", [
+                    $this->topic,
+                    $e->getMessage(),
+                    $this->clientId
+                ]);
+                // Don't throw exception here - allow sending to continue with fallback logic
+            }
+        }
+        
+        return $response;
     }
     
     /**
