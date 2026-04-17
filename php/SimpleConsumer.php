@@ -46,6 +46,7 @@ use Apache\Rocketmq\V2\FilterType;
 use Apache\Rocketmq\V2\Permission;
 use Apache\Rocketmq\Consumer\FilterExpression;
 use Apache\Rocketmq\Consumer\FilterExpressionType;
+use Apache\Rocketmq\Consumer\SubscriptionLoadBalancer;
 use Grpc\ChannelCredentials;
 use const Grpc\STATUS_OK;
 
@@ -138,9 +139,9 @@ class SimpleConsumer
     private $subscriptionExpressions = [];
     
     /**
-     * @var array<string, array> Subscription route data cache (topic => [MessageQueue, ...])
+     * @var array<string, \Apache\Rocketmq\Consumer\SubscriptionLoadBalancer> Subscription load balancer cache (topic => SubscriptionLoadBalancer)
      * Aligned with Java SimpleConsumerImpl.subscriptionRouteDataCache
-     * Stores readable master queues for each subscribed topic
+     * Each topic has its own load balancer with independent round-robin index
      */
     private $subscriptionRouteDataCache = [];
     
@@ -149,11 +150,6 @@ class SimpleConsumer
      * Initialized with random value, aligned with Java RandomUtils.nextInt(0, Integer.MAX_VALUE)
      */
     private $topicIndex = 0;
-    
-    /**
-     * @var int Round-robin index for queue selection within a topic
-     */
-    private $queueIndex = 0;
     
     /**
      * @var string Client state: CREATED, STARTING, RUNNING, STOPPING, TERMINATED
@@ -224,10 +220,6 @@ class SimpleConsumer
         }
         
         $this->clientId = $this->generateClientId();
-        
-        // Initialize random queue index for better load balancing
-        // Aligned with Java RandomUtils.nextInt(0, Integer.MAX_VALUE)
-        $this->queueIndex = mt_rand(0, PHP_INT_MAX);
         
         // NOTE: No automatic subscription in constructor anymore
         // Users must explicitly call subscribe() to add subscriptions
@@ -319,11 +311,11 @@ class SimpleConsumer
         
         $this->subscriptionExpressions[$topic] = $filterExpression;
         
-        // Clear route cache for this specific topic when subscription changes
+        // Clear load balancer for this specific topic when subscription changes
         // This ensures fresh route data on next receive()
         if (isset($this->subscriptionRouteDataCache[$topic])) {
             unset($this->subscriptionRouteDataCache[$topic]);
-            Logger::debug("Cleared route cache for resubscribed topic, topic={}, clientId={}", [
+            Logger::debug("Cleared load balancer for resubscribed topic, topic={}, clientId={}", [
                 $topic,
                 $this->clientId
             ]);
@@ -346,10 +338,10 @@ class SimpleConsumer
     {
         unset($this->subscriptionExpressions[$topic]);
         
-        // Clear route cache for this topic (aligned with Java SimpleConsumerImpl)
+        // Clear load balancer for this topic (aligned with Java SimpleConsumerImpl)
         if (isset($this->subscriptionRouteDataCache[$topic])) {
             unset($this->subscriptionRouteDataCache[$topic]);
-            Logger::debug("Cleared route cache for unsubscribed topic, topic={}, clientId={}", [
+            Logger::debug("Cleared load balancer for unsubscribed topic, topic={}, clientId={}", [
                 $topic,
                 $this->clientId
             ]);
@@ -410,19 +402,19 @@ class SimpleConsumer
     {
         // Check if already cached in subscriptionRouteDataCache
         if (!empty($this->subscriptionRouteDataCache[$topic])) {
-            Logger::debug("Route data already cached, topic={}, queueCount={}, clientId={}", [
+            Logger::debug("Load balancer already cached, topic={}, queueCount={}, clientId={}", [
                 $topic,
-                count($this->subscriptionRouteDataCache[$topic]),
+                $this->subscriptionRouteDataCache[$topic]->getQueueCount(),
                 $this->clientId
             ]);
             return;
         }
         
-        // Query route and cache in subscriptionRouteDataCache
+        // Query route and create SubscriptionLoadBalancer
         $queues = $this->queryTopicRouteForTopic($topic);
-        $this->subscriptionRouteDataCache[$topic] = $queues;
+        $this->subscriptionRouteDataCache[$topic] = new SubscriptionLoadBalancer($queues);
         
-        Logger::info("Queried and cached route for subscribed topic, topic={}, queueCount={}, clientId={}", [
+        Logger::info("Created load balancer for subscribed topic, topic={}, queueCount={}, clientId={}", [
             $topic,
             count($queues),
             $this->clientId
@@ -441,7 +433,7 @@ class SimpleConsumer
     {
         // Use subscriptionRouteDataCache for the configured topic
         if (!empty($this->subscriptionRouteDataCache[$this->topic])) {
-            return $this->subscriptionRouteDataCache[$this->topic];
+            return $this->subscriptionRouteDataCache[$this->topic]->getMessageQueues();
         }
 
         $request = new QueryRouteRequest();
@@ -475,10 +467,10 @@ class SimpleConsumer
             throw new \Exception("No readable queue found for topic {$this->topic}");
         }
 
-        // Cache in subscriptionRouteDataCache (per-topic isolation)
-        $this->subscriptionRouteDataCache[$this->topic] = $queues;
+        // Create and cache SubscriptionLoadBalancer (per-topic isolation)
+        $this->subscriptionRouteDataCache[$this->topic] = new SubscriptionLoadBalancer($queues);
         
-        Logger::info("Queried topic route, topic={}, readableQueues={}, clientId={}", [
+        Logger::info("Created load balancer for topic, topic={}, readableQueues={}, clientId={}", [
             $this->topic, count($queues), $this->clientId
         ]);
 
@@ -510,30 +502,21 @@ class SimpleConsumer
      */
     private function takeMessageQueueForTopic(string $topic): MessageQueue
     {
-        // Check if route data is cached for this topic
-        if (!isset($this->subscriptionRouteDataCache[$topic]) || empty($this->subscriptionRouteDataCache[$topic])) {
-            // Query route and cache it
+        // Check if load balancer is cached for this topic
+        if (!isset($this->subscriptionRouteDataCache[$topic])) {
+            // Query route and create load balancer
             $queues = $this->queryTopicRouteForTopic($topic);
-            $this->subscriptionRouteDataCache[$topic] = $queues;
+            $this->subscriptionRouteDataCache[$topic] = new SubscriptionLoadBalancer($queues);
             
-            Logger::debug("Cached route for topic, topic={}, queueCount={}, clientId={}", [
+            Logger::debug("Created load balancer for topic, topic={}, queueCount={}, clientId={}", [
                 $topic,
                 count($queues),
                 $this->clientId
             ]);
         }
         
-        $queues = $this->subscriptionRouteDataCache[$topic];
-        
-        if (empty($queues)) {
-            throw new \Exception("No readable queue found for topic {$topic}");
-        }
-        
-        // Round-robin select queue (using queueIndex for both topic and queue selection)
-        $index = $this->queueIndex % count($queues);
-        $this->queueIndex++;
-        
-        return $queues[$index];
+        // Use SubscriptionLoadBalancer to select queue (each topic has independent index)
+        return $this->subscriptionRouteDataCache[$topic]->takeMessageQueue();
     }
     
     /**
@@ -1376,5 +1359,58 @@ class SimpleConsumer
     public function getTelemetrySession()
     {
         return $this->telemetrySession;
+    }
+    
+    /**
+     * Callback for topic route data update from Telemetry.
+     * Aligned with Java SimpleConsumerImpl.onTopicRouteDataUpdate0().
+     * 
+     * This method is called when the broker pushes updated route information via Telemetry session.
+     * It updates the SubscriptionLoadBalancer for the specified topic while preserving the round-robin index.
+     * 
+     * @param string $topic Topic name
+     * @param array $messageQueues Updated message queues from route data
+     * @return void
+     */
+    public function onTopicRouteDataUpdate(string $topic, array $messageQueues): void
+    {
+        if (!isset($this->subscriptionRouteDataCache[$topic])) {
+            // Create new load balancer if not exists
+            try {
+                $this->subscriptionRouteDataCache[$topic] = new SubscriptionLoadBalancer($messageQueues);
+                Logger::info("Created load balancer from telemetry update, topic={}, queueCount={}, clientId={}", [
+                    $topic,
+                    count($messageQueues),
+                    $this->clientId
+                ]);
+            } catch (\InvalidArgumentException $e) {
+                Logger::warn("Failed to create load balancer from telemetry update, topic={}, clientId={}, error={}", [
+                    $topic,
+                    $this->clientId,
+                    $e->getMessage()
+                ]);
+            }
+            return;
+        }
+        
+        // Update existing load balancer (preserves round-robin index)
+        try {
+            $oldLoadBalancer = $this->subscriptionRouteDataCache[$topic];
+            $this->subscriptionRouteDataCache[$topic] = $oldLoadBalancer->update($messageQueues);
+            
+            Logger::debug("Updated load balancer from telemetry, topic={}, oldQueueCount={}, newQueueCount={}, preservedIndex={}, clientId={}", [
+                $topic,
+                $oldLoadBalancer->getQueueCount(),
+                $this->subscriptionRouteDataCache[$topic]->getQueueCount(),
+                $this->subscriptionRouteDataCache[$topic]->getIndex(),
+                $this->clientId
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            Logger::warn("Failed to update load balancer from telemetry, topic={}, clientId={}, error={}", [
+                $topic,
+                $this->clientId,
+                $e->getMessage()
+            ]);
+        }
     }
 }
