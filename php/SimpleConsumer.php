@@ -221,6 +221,10 @@ class SimpleConsumer
         
         $this->clientId = $this->generateClientId();
         
+        // Initialize topic index with random value (aligned with Java RandomUtils.nextInt(0, Integer.MAX_VALUE))
+        // This ensures different consumers start from different topics in multi-topic scenarios
+        $this->topicIndex = mt_rand(0, PHP_INT_MAX);
+        
         // NOTE: No automatic subscription in constructor anymore
         // Users must explicitly call subscribe() to add subscriptions
         // This aligns with Java SimpleConsumerImpl design
@@ -894,10 +898,8 @@ class SimpleConsumer
      */
     private function receiveWithRetry($maxMessageNum = null, $invisibleDuration = null, $attempt = 1)
     {
-        // Check state
-        if ($this->state !== 'RUNNING' && $this->state !== 'CREATED') {
-            throw new \Exception("Consumer is not running (current state: {$this->state})");
-        }
+        // Check state - only RUNNING state can receive messages (aligned with Java)
+        $this->checkRunning();
         
         try {
             return $this->receiveInternal($maxMessageNum, $invisibleDuration);
@@ -931,17 +933,11 @@ class SimpleConsumer
      */
     private function receiveInternal($maxMessageNum = null, $invisibleDuration = null)
     {
-        // Check state - only RUNNING state can receive messages
-        if ($this->state !== 'RUNNING') {
-            Logger::error("Unable to receive message because consumer is not running, state={}, clientId={}", [
-                $this->state,
-                $this->clientId
-            ]);
-            throw new \Exception("Simple consumer is not running now");
-        }
+        // Check state using unified method (aligned with Java)
+        $this->checkRunning();
         
         // Validate parameters
-        $maxMessageNum = $maxMessageNum ?: $this->maxMessageNum;
+        $maxMessageNum = $maxMessageNum ?? $this->maxMessageNum;  // Use null coalescing operator
         if ($maxMessageNum <= 0) {
             Logger::error("maxMessageNum must be greater than 0, maxMessageNum={}, clientId={}", [
                 $maxMessageNum,
@@ -950,7 +946,7 @@ class SimpleConsumer
             throw new \InvalidArgumentException("maxMessageNum must be greater than 0");
         }
         
-        $invisibleDuration = $invisibleDuration ?: $this->invisibleDuration;
+        $invisibleDuration = $invisibleDuration ?? $this->invisibleDuration;
         
         // Check if has subscriptions (aligned with Java L162-164)
         if (empty($this->subscriptionExpressions)) {
@@ -959,9 +955,9 @@ class SimpleConsumer
         
         // Round-robin select topic from all subscribed topics (aligned with Java L159-166)
         $topics = array_keys($this->subscriptionExpressions);
-        $topicIndex = $this->queueIndex % count($topics);
-        $this->queueIndex++;
-        $selectedTopic = $topics[$topicIndex];
+        $topicIndexValue = $this->topicIndex % count($topics);
+        $this->topicIndex++;
+        $selectedTopic = $topics[$topicIndexValue];
         
         // Get filter expression for selected topic
         $filterExpression = $this->subscriptionExpressions[$selectedTopic];
