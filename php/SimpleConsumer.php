@@ -38,8 +38,12 @@ use Apache\Rocketmq\V2\HeartbeatRequest;
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\MessageType;
 use Apache\Rocketmq\V2\MessagingServiceClient;
+use Apache\Rocketmq\V2\QueryRouteRequest;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
 use Apache\Rocketmq\V2\Resource;
+use Apache\Rocketmq\V2\FilterExpression as V2FilterExpression;
+use Apache\Rocketmq\V2\FilterType;
+use Apache\Rocketmq\V2\Permission;
 use Grpc\ChannelCredentials;
 use const Grpc\STATUS_OK;
 
@@ -124,6 +128,16 @@ class SimpleConsumer
      * @var RetryPolicy Retry policy
      */
     private $retryPolicy;
+    
+    /**
+     * @var array Cached message queues from route query [MessageQueue, ...]
+     */
+    private $cachedMessageQueues = [];
+    
+    /**
+     * @var int Round-robin index for queue selection
+     */
+    private $queueIndex = 0;
     
     /**
      * @var string Client state: CREATED, STARTING, RUNNING, STOPPING, TERMINATED
@@ -281,6 +295,65 @@ class SimpleConsumer
             $this->client = $pool->getConnectionWithClientId($this->config, $this->clientId);
         }
         return $this->client;
+    }
+    
+    /**
+     * Query topic route and cache readable master queues.
+     * Aligned with Java SimpleConsumerImpl.getSubscriptionLoadBalancer() flow.
+     *
+     * @return array Array of MessageQueue objects
+     * @throws \Exception If route query fails
+     */
+    private function queryTopicRoute(): array
+    {
+        if (!empty($this->cachedMessageQueues)) {
+            return $this->cachedMessageQueues;
+        }
+
+        $request = new QueryRouteRequest();
+        $topicResource = new Resource();
+        $topicResource->setName($this->topic);
+        $request->setTopic($topicResource);
+
+        [$response, $status] = $this->getClient()->QueryRoute($request)->wait();
+
+        if ($status->code !== \Grpc\STATUS_OK) {
+            throw new \Exception("Failed to query route for topic {$this->topic}: {$status->details}");
+        }
+
+        $queues = [];
+        foreach ($response->getMessageQueues() as $mq) {
+            // Filter: only readable queues (aligned with Java SubscriptionLoadBalancer)
+            $perm = $mq->getPermission();
+            if ($perm === Permission::READ || $perm === Permission::READ_WRITE) {
+                $queues[] = $mq;
+            }
+        }
+
+        if (empty($queues)) {
+            throw new \Exception("No readable queue found for topic {$this->topic}");
+        }
+
+        $this->cachedMessageQueues = $queues;
+        Logger::info("Queried topic route, topic={}, readableQueues={}, clientId={}", [
+            $this->topic, count($queues), $this->clientId
+        ]);
+
+        return $queues;
+    }
+    
+    /**
+     * Select a message queue using round-robin.
+     * Aligned with Java SubscriptionLoadBalancer.takeMessageQueue().
+     *
+     * @return MessageQueue
+     */
+    private function takeMessageQueue(): MessageQueue
+    {
+        $queues = $this->queryTopicRoute();
+        $index = $this->queueIndex % count($queues);
+        $this->queueIndex++;
+        return $queues[$index];
     }
     
     /**
@@ -628,14 +701,17 @@ class SimpleConsumer
         $group->setName($this->consumerGroup);
         $request->setGroup($group);
         
-        // Set message queue
-        $mq = new MessageQueue();
-        $resource = new Resource();
-        $resource->setName($this->topic);
-        $mq->setTopic($resource);
-        $mq->setAcceptMessageTypes([MessageType::NORMAL]);
-        
+        // Get message queue from route query (with broker info)
+        // Aligned with Java SimpleConsumerImpl: route query -> load balancer -> takeMessageQueue
+        $mq = $this->takeMessageQueue();
         $request->setMessageQueue($mq);
+        
+        // Set filter expression (required - missing this causes server NPE)
+        // Aligned with Java ConsumerImpl.wrapFilterExpression()
+        $v2Filter = new V2FilterExpression();
+        $v2Filter->setExpression('*');
+        $v2Filter->setType(FilterType::TAG);
+        $request->setFilterExpression($v2Filter);
         
         // Set invisible duration (required for simple consumer)
         $invisibleDurationProto = new \Google\Protobuf\Duration();
@@ -645,8 +721,9 @@ class SimpleConsumer
         // Set batch size
         $request->setBatchSize($maxMessageNum);
         
-        // Enable auto renew
-        $request->setAutoRenew(true);
+        // SimpleConsumer uses auto_renew=false (Java ConsumerImpl line 275)
+        // PushConsumer uses auto_renew=true
+        $request->setAutoRenew(false);
         
         // Set long polling timeout
         $longPollingTimeout = new \Google\Protobuf\Duration();
