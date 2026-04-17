@@ -286,6 +286,23 @@ class SimpleConsumer
     }
     
     /**
+     * Check if consumer is in RUNNING state.
+     * Aligned with Java SimpleConsumerImpl.checkRunning().
+     * 
+     * @throws \RuntimeException If consumer is not running
+     */
+    private function checkRunning(): void
+    {
+        if ($this->state !== 'RUNNING') {
+            Logger::error("Simple consumer is not running, state={}, clientId={}", [
+                $this->state,
+                $this->clientId
+            ]);
+            throw new \RuntimeException("Simple consumer is not running now");
+        }
+    }
+    
+    /**
      * Subscribe to a topic with a filter expression.
      * Aligned with Java SimpleConsumerImpl.subscribe(topic, filterExpression).
      *
@@ -295,6 +312,9 @@ class SimpleConsumer
      */
     public function subscribe(string $topic, FilterExpression $filterExpression): self
     {
+        // Check consumer status (aligned with Java)
+        $this->checkRunning();
+        
         // Aligned with Java: query route data first before adding subscription
         // This ensures route information is cached and available when receiving messages
         try {
@@ -336,6 +356,9 @@ class SimpleConsumer
      */
     public function unsubscribe(string $topic): self
     {
+        // Check consumer status (aligned with Java)
+        $this->checkRunning();
+        
         unset($this->subscriptionExpressions[$topic]);
         
         // Clear load balancer for this topic (aligned with Java SimpleConsumerImpl)
@@ -830,6 +853,37 @@ class SimpleConsumer
     }
     
     /**
+     * Receive messages asynchronously using Swoole coroutine.
+     * Aligned with Java SimpleConsumerImpl.receiveAsync().
+     * 
+     * @param int $maxMessageNum Maximum message count
+     * @param int $invisibleDuration Message invisible duration (seconds)
+     * @return \Swoole\Coroutine\Channel Channel that will receive the result
+     * @throws \Exception If Swoole extension is not available
+     */
+    public function receiveAsync(int $maxMessageNum, int $invisibleDuration)
+    {
+        if (!extension_loaded('swoole')) {
+            throw new \RuntimeException("Swoole extension is required for async operations");
+        }
+        
+        // Create a channel to receive the result
+        $channel = new \Swoole\Coroutine\Channel(1);
+        
+        // Execute in a new coroutine
+        \Swoole\Coroutine::create(function() use ($maxMessageNum, $invisibleDuration, $channel) {
+            try {
+                $result = $this->receive($maxMessageNum, $invisibleDuration);
+                $channel->push(['success' => true, 'data' => $result]);
+            } catch (\Exception $e) {
+                $channel->push(['success' => false, 'error' => $e]);
+            }
+        });
+        
+        return $channel;
+    }
+    
+    /**
      * Receive messages (internal implementation, with retry)
      * 
      * @param int|null $maxMessageNum Maximum message count
@@ -993,14 +1047,45 @@ class SimpleConsumer
     
     /**
      * Acknowledge message (ACK, with retry)
+     * Aligned with Java SimpleConsumerImpl.ack() - returns void
      * 
      * @param \Apache\Rocketmq\V2\Message $message Message object
-     * @return bool Whether successful
+     * @return void
      * @throws \Exception If acknowledgement fails
      */
-    public function ack($message)
+    public function ack($message): void
     {
-        return $this->ackWithRetry($message);
+        $this->ackWithRetry($message);
+    }
+    
+    /**
+     * Acknowledge message asynchronously using Swoole coroutine.
+     * Aligned with Java SimpleConsumerImpl.ackAsync().
+     * 
+     * @param \Apache\Rocketmq\V2\Message $message Message object
+     * @return \Swoole\Coroutine\Channel Channel that will receive the result
+     * @throws \Exception If Swoole extension is not available
+     */
+    public function ackAsync($message)
+    {
+        if (!extension_loaded('swoole')) {
+            throw new \RuntimeException("Swoole extension is required for async operations");
+        }
+        
+        // Create a channel to receive the result
+        $channel = new \Swoole\Coroutine\Channel(1);
+        
+        // Execute in a new coroutine
+        \Swoole\Coroutine::create(function() use ($message, $channel) {
+            try {
+                $this->ack($message);
+                $channel->push(['success' => true]);
+            } catch (\Exception $e) {
+                $channel->push(['success' => false, 'error' => $e]);
+            }
+        });
+        
+        return $channel;
     }
     
     /**
@@ -1008,13 +1093,13 @@ class SimpleConsumer
      * 
      * @param \Apache\Rocketmq\V2\Message $message Message object
      * @param int $attempt Current attempt count
-     * @return bool Whether successful
+     * @return void
      * @throws \Exception If acknowledgement fails
      */
-    private function ackWithRetry($message, $attempt = 1)
+    private function ackWithRetry($message, $attempt = 1): void
     {
         try {
-            return $this->ackInternal($message);
+            $this->ackInternal($message);
         } catch (\Exception $e) {
             if (!$this->retryPolicy->shouldRetry($attempt, $e)) {
                 throw $e;
@@ -1025,7 +1110,7 @@ class SimpleConsumer
                 usleep($delayMs * 1000);
             }
             
-            return $this->ackWithRetry($message, $attempt + 1);
+            $this->ackWithRetry($message, $attempt + 1);
         }
     }
     
@@ -1033,19 +1118,13 @@ class SimpleConsumer
      * Acknowledge message (internal implementation, no retry)
      * 
      * @param \Apache\Rocketmq\V2\Message $message Message object
-     * @return bool Whether successful
+     * @return void
      * @throws \Exception If acknowledgement fails
      */
-    private function ackInternal($message)
+    private function ackInternal($message): void
     {
-        // Check state - only RUNNING state can ack messages
-        if ($this->state !== 'RUNNING') {
-            Logger::error("Unable to ack message because consumer is not running, state={}, clientId={}", [
-                $this->state,
-                $this->clientId
-            ]);
-            throw new \Exception("Simple consumer is not running now");
-        }
+        // Check state using unified method
+        $this->checkRunning();
         
         $receiptHandle = $message->getSystemProperties()->getReceiptHandle();
         $messageId = $message->getSystemProperties()->getMessageId();
@@ -1122,28 +1201,21 @@ class SimpleConsumer
             $topicName,
             $this->clientId
         ]);
-        
-        return true;
     }
     
     /**
      * Change message visibility duration
+     * Aligned with Java SimpleConsumerImpl.changeInvisibleDuration() - returns void and updates message
      * 
-     * @param \Apache\Rocketmq\V2\Message $message Message object
+     * @param \Apache\Rocketmq\V2\Message $message Message object (will be updated with new receipt handle)
      * @param int $durationSeconds New invisible duration (seconds)
-     * @return string New receipt handle
+     * @return void
      * @throws \Exception If change fails
      */
-    public function changeInvisibleDuration($message, $durationSeconds)
+    public function changeInvisibleDuration($message, $durationSeconds): void
     {
-        // Check state - only RUNNING state can change invisible duration
-        if ($this->state !== 'RUNNING') {
-            Logger::error("Unable to change invisible duration because consumer is not running, state={}, clientId={}", [
-                $this->state,
-                $this->clientId
-            ]);
-            throw new \Exception("Simple consumer is not running now");
-        }
+        // Check state using unified method
+        $this->checkRunning();
         
         $receiptHandle = $message->getSystemProperties()->getReceiptHandle();
         $messageId = $message->getSystemProperties()->getMessageId();
@@ -1204,15 +1276,46 @@ class SimpleConsumer
             );
         }
         
+        // Update message's receipt handle (aligned with Java)
         $newReceiptHandle = $response->getReceiptHandle();
+        $message->getSystemProperties()->setReceiptHandle($newReceiptHandle);
         
         Logger::info("Changed invisible duration successfully, messageId={}, duration={}s, clientId={}", [
             $messageId,
             $durationSeconds,
             $this->clientId
         ]);
+    }
+    
+    /**
+     * Change message visibility duration asynchronously using Swoole coroutine.
+     * Aligned with Java SimpleConsumerImpl.changeInvisibleDurationAsync().
+     * 
+     * @param \Apache\Rocketmq\V2\Message $message Message object (will be updated with new receipt handle)
+     * @param int $durationSeconds New invisible duration (seconds)
+     * @return \Swoole\Coroutine\Channel Channel that will receive the result
+     * @throws \Exception If Swoole extension is not available
+     */
+    public function changeInvisibleDurationAsync($message, int $durationSeconds)
+    {
+        if (!extension_loaded('swoole')) {
+            throw new \RuntimeException("Swoole extension is required for async operations");
+        }
         
-        return $newReceiptHandle;
+        // Create a channel to receive the result
+        $channel = new \Swoole\Coroutine\Channel(1);
+        
+        // Execute in a new coroutine
+        \Swoole\Coroutine::create(function() use ($message, $durationSeconds, $channel) {
+            try {
+                $this->changeInvisibleDuration($message, $durationSeconds);
+                $channel->push(['success' => true]);
+            } catch (\Exception $e) {
+                $channel->push(['success' => false, 'error' => $e]);
+            }
+        });
+        
+        return $channel;
     }
     
     /**
