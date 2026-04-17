@@ -70,6 +70,7 @@ use Apache\Rocketmq\V2\ReceiveMessageRequest;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SendMessageRequest;
 use Apache\Rocketmq\V2\SystemProperties;
+use Apache\Rocketmq\Producer\PublishingLoadBalancer;
 use Grpc\ChannelCredentials;
 use const Grpc\STATUS_OK;
 
@@ -603,9 +604,12 @@ class Producer implements ProducerInterface
         });
         
         // Create or update PublishingLoadBalancer from route response
-        $messageQueues = $response->getMessageQueues();
-        if (!empty($messageQueues)) {
+        $messageQueuesRepeated = $response->getMessageQueues();
+        if (!empty($messageQueuesRepeated)) {
             try {
+                // Convert Protobuf RepeatedField to PHP array
+                $messageQueues = iterator_to_array($messageQueuesRepeated);
+                
                 $this->publishingLoadBalancer = new PublishingLoadBalancer($messageQueues, $this->topic);
                 Logger::debug("PublishingLoadBalancer created/updated, topic={}, queueCount={}, clientId={}", [
                     $this->topic,

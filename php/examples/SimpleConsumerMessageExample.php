@@ -27,6 +27,8 @@ require_once __DIR__ . '/../ProducerSingleton.php';
 use Apache\Rocketmq\ClientConfiguration;
 use Apache\Rocketmq\Builder\MessageBuilder;
 use Apache\Rocketmq\SimpleConsumer;
+use Apache\Rocketmq\Consumer\FilterExpression;
+use Apache\Rocketmq\Consumer\FilterExpressionType;
 
 // Configuration
 $endpoints = '127.0.0.1:8080';
@@ -55,7 +57,12 @@ go(function () use ($topic, $consumerGroup, $endpoints) {
 
         $consumer = SimpleConsumer::getInstance($config, $consumerGroup, $topic);
         $consumer->start();
-        echo "  SimpleConsumer started\n\n";
+        echo "  SimpleConsumer started\n";
+        
+        // Subscribe to topic (required after start())
+        $filterExpression = new FilterExpression('*', FilterExpressionType::TAG);
+        $consumer->subscribe($topic, $filterExpression);
+        echo "  Subscribed to topic: {$topic}\n\n";
 
         // ========================================
         // Step 2: Send test messages
