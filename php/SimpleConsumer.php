@@ -138,12 +138,19 @@ class SimpleConsumer
     private $subscriptionExpressions = [];
     
     /**
-     * @var array Cached message queues from route query [MessageQueue, ...]
+     * @var array<string, array> Subscription route data cache (topic => [MessageQueue, ...])
+     * Aligned with Java SimpleConsumerImpl.subscriptionRouteDataCache
      */
-    private $cachedMessageQueues = [];
+    private $subscriptionRouteDataCache = [];
     
     /**
-     * @var int Round-robin index for queue selection
+     * @var int Round-robin index for topic selection (multi-topic support)
+     * Initialized with random value, aligned with Java RandomUtils.nextInt(0, Integer.MAX_VALUE)
+     */
+    private $topicIndex = 0;
+    
+    /**
+     * @var int Round-robin index for queue selection within a topic
      */
     private $queueIndex = 0;
     
@@ -216,6 +223,10 @@ class SimpleConsumer
         }
         
         $this->clientId = $this->generateClientId();
+        
+        // Initialize random queue index for better load balancing
+        // Aligned with Java RandomUtils.nextInt(0, Integer.MAX_VALUE)
+        $this->queueIndex = mt_rand(0, PHP_INT_MAX);
         
         // Default subscription: subscribe to topic with FilterExpression('*', TAG)
         // Aligned with Java FilterExpression.SUB_ALL
@@ -291,6 +302,20 @@ class SimpleConsumer
      */
     public function subscribe(string $topic, FilterExpression $filterExpression): self
     {
+        // Aligned with Java: query route data first before adding subscription
+        // This ensures route information is cached and available when receiving messages
+        try {
+            $this->getRouteData($topic);
+        } catch (\Exception $e) {
+            Logger::warn("Failed to query route during subscription, topic={}, clientId={}, error={}", [
+                $topic,
+                $this->clientId,
+                $e->getMessage()
+            ]);
+            // Don't throw exception here - allow subscription to be added even if route query fails
+            // Route will be queried again during receive()
+        }
+        
         $this->subscriptionExpressions[$topic] = $filterExpression;
         // Clear cached routes when subscription changes
         $this->cachedMessageQueues = [];
@@ -310,6 +335,16 @@ class SimpleConsumer
     public function unsubscribe(string $topic): self
     {
         unset($this->subscriptionExpressions[$topic]);
+        
+        // Clear route cache for this topic (aligned with Java SimpleConsumerImpl)
+        if (isset($this->subscriptionRouteDataCache[$topic])) {
+            unset($this->subscriptionRouteDataCache[$topic]);
+            Logger::debug("Cleared route cache for unsubscribed topic, topic={}, clientId={}", [
+                $topic,
+                $this->clientId
+            ]);
+        }
+        
         Logger::info("Unsubscribed topic, topic={}, clientId={}", [$topic, $this->clientId]);
         return $this;
     }
@@ -353,6 +388,42 @@ class SimpleConsumer
     }
     
     /**
+     * Get route data for a topic.
+     * Aligned with Java ClientImpl.getRouteData(topic).
+     * Queries the route from broker and caches readable queues.
+     *
+     * @param string $topic Topic to query route
+     * @return void
+     * @throws \Exception If route query fails
+     */
+    private function getRouteData(string $topic): void
+    {
+        // Query route using existing queryTopicRoute logic
+        // This will cache the result in cachedMessageQueues if topic matches
+        if ($topic === $this->topic) {
+            $this->queryTopicRoute();
+        } else {
+            // For other topics (multi-topic subscription), query directly
+            $request = new QueryRouteRequest();
+            $topicResource = new Resource();
+            $topicResource->setName($topic);
+            $request->setTopic($topicResource);
+
+            [$response, $status] = $this->getClient()->QueryRoute($request)->wait();
+
+            if ($status->code !== \Grpc\STATUS_OK) {
+                throw new \Exception("Failed to query route for topic {$topic}: {$status->details}");
+            }
+
+            Logger::info("Queried route for subscribed topic, topic={}, queueCount={}, clientId={}", [
+                $topic,
+                count($response->getMessageQueues()),
+                $this->clientId
+            ]);
+        }
+    }
+    
+    /**
      * Query topic route and cache readable master queues.
      * Aligned with Java SimpleConsumerImpl.getSubscriptionLoadBalancer() flow.
      *
@@ -378,9 +449,16 @@ class SimpleConsumer
 
         $queues = [];
         foreach ($response->getMessageQueues() as $mq) {
-            // Filter: only readable queues (aligned with Java SubscriptionLoadBalancer)
+            // Filter: only readable master queues (aligned with Java SubscriptionLoadBalancer.isReadableMasterQueue)
+            // Java: mq.getPermission().isReadable() && Utilities.MASTER_BROKER_ID == mq.getBroker().getId()
             $perm = $mq->getPermission();
-            if ($perm === Permission::READ || $perm === Permission::READ_WRITE) {
+            $isReadable = ($perm === Permission::READ || $perm === Permission::READ_WRITE);
+            
+            // Check if it's master broker (broker ID = 0, aligned with Java Utilities.MASTER_BROKER_ID)
+            $brokerId = $mq->getBroker()->getId();
+            $isMaster = ($brokerId === 0);
+            
+            if ($isReadable && $isMaster) {
                 $queues[] = $mq;
             }
         }
@@ -409,6 +487,91 @@ class SimpleConsumer
         $index = $this->queueIndex % count($queues);
         $this->queueIndex++;
         return $queues[$index];
+    }
+    
+    /**
+     * Select a message queue for specific topic using round-robin.
+     * Supports multi-topic subscription by caching routes per topic.
+     * Aligned with Java SimpleConsumerImpl.getSubscriptionLoadBalancer() + takeMessageQueue().
+     *
+     * @param string $topic Topic name
+     * @return MessageQueue Selected message queue
+     * @throws \Exception If route query fails or no readable queue found
+     */
+    private function takeMessageQueueForTopic(string $topic): MessageQueue
+    {
+        // Check if route data is cached for this topic
+        if (!isset($this->subscriptionRouteDataCache[$topic]) || empty($this->subscriptionRouteDataCache[$topic])) {
+            // Query route and cache it
+            $queues = $this->queryTopicRouteForTopic($topic);
+            $this->subscriptionRouteDataCache[$topic] = $queues;
+            
+            Logger::debug("Cached route for topic, topic={}, queueCount={}, clientId={}", [
+                $topic,
+                count($queues),
+                $this->clientId
+            ]);
+        }
+        
+        $queues = $this->subscriptionRouteDataCache[$topic];
+        
+        if (empty($queues)) {
+            throw new \Exception("No readable queue found for topic {$topic}");
+        }
+        
+        // Round-robin select queue (using queueIndex for both topic and queue selection)
+        $index = $this->queueIndex % count($queues);
+        $this->queueIndex++;
+        
+        return $queues[$index];
+    }
+    
+    /**
+     * Query topic route for specific topic and filter readable master queues.
+     * Similar to queryTopicRoute() but supports arbitrary topic parameter.
+     *
+     * @param string $topic Topic name
+     * @return array Array of MessageQueue objects
+     * @throws \Exception If route query fails
+     */
+    private function queryTopicRouteForTopic(string $topic): array
+    {
+        $request = new QueryRouteRequest();
+        $topicResource = new Resource();
+        $topicResource->setName($topic);
+        $request->setTopic($topicResource);
+
+        [$response, $status] = $this->getClient()->QueryRoute($request)->wait();
+
+        if ($status->code !== \Grpc\STATUS_OK) {
+            throw new \Exception("Failed to query route for topic {$topic}: {$status->details}");
+        }
+
+        $queues = [];
+        foreach ($response->getMessageQueues() as $mq) {
+            // Filter: only readable master queues (aligned with Java SubscriptionLoadBalancer.isReadableMasterQueue)
+            // Java: mq.getPermission().isReadable() && Utilities.MASTER_BROKER_ID == mq.getBroker().getId()
+            $perm = $mq->getPermission();
+            $isReadable = ($perm === Permission::READ || $perm === Permission::READ_WRITE);
+            
+            // Check if it's master broker (broker ID = 0, aligned with Java Utilities.MASTER_BROKER_ID)
+            $brokerId = $mq->getBroker()->getId();
+            $isMaster = ($brokerId === 0);
+            
+            if ($isReadable && $isMaster) {
+                $queues[] = $mq;
+            }
+        }
+
+        if (empty($queues)) {
+            throw new \Exception("No readable queue found for topic {$topic}");
+        }
+
+        Logger::info("Queried topic route, topic={}, readableQueues={}, clientId={}", [
+            $topic, count($queues), $this->clientId
+        ]);
+
+        return $queues;
     }
     
     /**
@@ -712,6 +875,7 @@ class SimpleConsumer
     
     /**
      * Receive messages (internal implementation, no retry)
+     * Aligned with Java SimpleConsumerImpl.receive0() - supports multi-topic round-robin
      * 
      * @param int|null $maxMessageNum Maximum message count
      * @param int|null $invisibleDuration Message invisible duration (seconds)
@@ -741,8 +905,22 @@ class SimpleConsumer
         
         $invisibleDuration = $invisibleDuration ?: $this->invisibleDuration;
         
-        Logger::debug("Receiving messages, topic={}, maxMessageNum={}, invisibleDuration={}s, awaitDuration={}s, clientId={}", [
-            $this->topic,
+        // Check if has subscriptions (aligned with Java L162-164)
+        if (empty($this->subscriptionExpressions)) {
+            throw new \InvalidArgumentException("There is no topic to receive message");
+        }
+        
+        // Round-robin select topic from all subscribed topics (aligned with Java L159-166)
+        $topics = array_keys($this->subscriptionExpressions);
+        $topicIndex = $this->queueIndex % count($topics);
+        $this->queueIndex++;
+        $selectedTopic = $topics[$topicIndex];
+        
+        // Get filter expression for selected topic
+        $filterExpression = $this->subscriptionExpressions[$selectedTopic];
+        
+        Logger::debug("Receiving messages, selectedTopic={}, maxMessageNum={}, invisibleDuration={}s, awaitDuration={}s, clientId={}", [
+            $selectedTopic,
             $maxMessageNum,
             $invisibleDuration,
             $this->awaitDuration,
@@ -756,28 +934,20 @@ class SimpleConsumer
         $group->setName($this->consumerGroup);
         $request->setGroup($group);
         
-        // Get message queue from route query (with broker info)
+        // Get message queue from route query for selected topic
         // Aligned with Java SimpleConsumerImpl: route query -> load balancer -> takeMessageQueue
-        $mq = $this->takeMessageQueue();
+        $mq = $this->takeMessageQueueForTopic($selectedTopic);
         $request->setMessageQueue($mq);
         
         // Set filter expression from subscription (required - missing this causes server NPE)
         // Aligned with Java SimpleConsumerImpl: filterExpression = subscriptionExpressions.get(topic)
-        // Then Java ConsumerImpl.wrapFilterExpression() converts it to protobuf
         $v2Filter = new V2FilterExpression();
-        $subscriptionFilter = $this->subscriptionExpressions[$this->topic] ?? null;
-        if ($subscriptionFilter !== null) {
-            $v2Filter->setExpression($subscriptionFilter->getExpression());
-            $v2Filter->setType(
-                $subscriptionFilter->getType() === FilterExpressionType::SQL92
-                    ? FilterType::SQL
-                    : FilterType::TAG
-            );
-        } else {
-            // Fallback: subscribe all (aligned with Java FilterExpression.SUB_ALL)
-            $v2Filter->setExpression('*');
-            $v2Filter->setType(FilterType::TAG);
-        }
+        $v2Filter->setExpression($filterExpression->getExpression());
+        $v2Filter->setType(
+            $filterExpression->getType() === FilterExpressionType::SQL92
+                ? FilterType::SQL
+                : FilterType::TAG
+        );
         $request->setFilterExpression($v2Filter);
         
         // Set invisible duration (required for simple consumer)
@@ -821,7 +991,7 @@ class SimpleConsumer
         
         Logger::info("Received {} messages, topic={}, clientId={}", [
             count($messages),
-            $this->topic,
+            $selectedTopic,
             $this->clientId
         ]);
         
