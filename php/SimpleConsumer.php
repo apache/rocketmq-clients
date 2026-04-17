@@ -140,6 +140,7 @@ class SimpleConsumer
     /**
      * @var array<string, array> Subscription route data cache (topic => [MessageQueue, ...])
      * Aligned with Java SimpleConsumerImpl.subscriptionRouteDataCache
+     * Stores readable master queues for each subscribed topic
      */
     private $subscriptionRouteDataCache = [];
     
@@ -228,9 +229,9 @@ class SimpleConsumer
         // Aligned with Java RandomUtils.nextInt(0, Integer.MAX_VALUE)
         $this->queueIndex = mt_rand(0, PHP_INT_MAX);
         
-        // Default subscription: subscribe to topic with FilterExpression('*', TAG)
-        // Aligned with Java FilterExpression.SUB_ALL
-        $this->subscriptionExpressions[$this->topic] = new FilterExpression('*', FilterExpressionType::TAG);
+        // NOTE: No automatic subscription in constructor anymore
+        // Users must explicitly call subscribe() to add subscriptions
+        // This aligns with Java SimpleConsumerImpl design
         
         // Auto-initialize metrics support
         $this->metricsCollector = new MetricsCollector($this->clientId);
@@ -317,8 +318,17 @@ class SimpleConsumer
         }
         
         $this->subscriptionExpressions[$topic] = $filterExpression;
-        // Clear cached routes when subscription changes
-        $this->cachedMessageQueues = [];
+        
+        // Clear route cache for this specific topic when subscription changes
+        // This ensures fresh route data on next receive()
+        if (isset($this->subscriptionRouteDataCache[$topic])) {
+            unset($this->subscriptionRouteDataCache[$topic]);
+            Logger::debug("Cleared route cache for resubscribed topic, topic={}, clientId={}", [
+                $topic,
+                $this->clientId
+            ]);
+        }
+        
         Logger::info("Subscribed topic with filter expression, topic={}, expression={}, type={}, clientId={}", [
             $topic, $filterExpression->getExpression(), $filterExpression->getType()->value(), $this->clientId
         ]);
@@ -390,7 +400,7 @@ class SimpleConsumer
     /**
      * Get route data for a topic.
      * Aligned with Java ClientImpl.getRouteData(topic).
-     * Queries the route from broker and caches readable queues.
+     * Queries the route from broker and caches readable queues in subscriptionRouteDataCache.
      *
      * @param string $topic Topic to query route
      * @return void
@@ -398,42 +408,40 @@ class SimpleConsumer
      */
     private function getRouteData(string $topic): void
     {
-        // Query route using existing queryTopicRoute logic
-        // This will cache the result in cachedMessageQueues if topic matches
-        if ($topic === $this->topic) {
-            $this->queryTopicRoute();
-        } else {
-            // For other topics (multi-topic subscription), query directly
-            $request = new QueryRouteRequest();
-            $topicResource = new Resource();
-            $topicResource->setName($topic);
-            $request->setTopic($topicResource);
-
-            [$response, $status] = $this->getClient()->QueryRoute($request)->wait();
-
-            if ($status->code !== \Grpc\STATUS_OK) {
-                throw new \Exception("Failed to query route for topic {$topic}: {$status->details}");
-            }
-
-            Logger::info("Queried route for subscribed topic, topic={}, queueCount={}, clientId={}", [
+        // Check if already cached in subscriptionRouteDataCache
+        if (!empty($this->subscriptionRouteDataCache[$topic])) {
+            Logger::debug("Route data already cached, topic={}, queueCount={}, clientId={}", [
                 $topic,
-                count($response->getMessageQueues()),
+                count($this->subscriptionRouteDataCache[$topic]),
                 $this->clientId
             ]);
+            return;
         }
+        
+        // Query route and cache in subscriptionRouteDataCache
+        $queues = $this->queryTopicRouteForTopic($topic);
+        $this->subscriptionRouteDataCache[$topic] = $queues;
+        
+        Logger::info("Queried and cached route for subscribed topic, topic={}, queueCount={}, clientId={}", [
+            $topic,
+            count($queues),
+            $this->clientId
+        ]);
     }
     
     /**
      * Query topic route and cache readable master queues.
      * Aligned with Java SimpleConsumerImpl.getSubscriptionLoadBalancer() flow.
+     * Uses per-topic isolated cache (subscriptionRouteDataCache).
      *
      * @return array Array of MessageQueue objects
      * @throws \Exception If route query fails
      */
     private function queryTopicRoute(): array
     {
-        if (!empty($this->cachedMessageQueues)) {
-            return $this->cachedMessageQueues;
+        // Use subscriptionRouteDataCache for the configured topic
+        if (!empty($this->subscriptionRouteDataCache[$this->topic])) {
+            return $this->subscriptionRouteDataCache[$this->topic];
         }
 
         $request = new QueryRouteRequest();
@@ -467,7 +475,9 @@ class SimpleConsumer
             throw new \Exception("No readable queue found for topic {$this->topic}");
         }
 
-        $this->cachedMessageQueues = $queues;
+        // Cache in subscriptionRouteDataCache (per-topic isolation)
+        $this->subscriptionRouteDataCache[$this->topic] = $queues;
+        
         Logger::info("Queried topic route, topic={}, readableQueues={}, clientId={}", [
             $this->topic, count($queues), $this->clientId
         ]);
