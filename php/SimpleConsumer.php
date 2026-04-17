@@ -320,18 +320,8 @@ class SimpleConsumer
         $this->checkRunning();
         
         // Aligned with Java: query route data first before adding subscription
-        // This ensures route information is cached and available when receiving messages
-        try {
-            $this->getRouteData($topic);
-        } catch (\Exception $e) {
-            Logger::warn("Failed to query route during subscription, topic={}, clientId={}, error={}", [
-                $topic,
-                $this->clientId,
-                $e->getMessage()
-            ]);
-            // Don't throw exception here - allow subscription to be added even if route query fails
-            // Route will be queried again during receive()
-        }
+        // If route query fails, exception will be thrown (strict alignment with Java behavior)
+        $this->getRouteData($topic);
         
         $this->subscriptionExpressions[$topic] = $filterExpression;
         
@@ -947,6 +937,15 @@ class SimpleConsumer
         }
         
         $invisibleDuration = $invisibleDuration ?? $this->invisibleDuration;
+        
+        // Validate invisibleDuration (aligned with Java Duration type safety)
+        if ($invisibleDuration <= 0) {
+            Logger::error("invisibleDuration must be greater than 0, invisibleDuration={}, clientId={}", [
+                $invisibleDuration,
+                $this->clientId
+            ]);
+            throw new \InvalidArgumentException("invisibleDuration must be greater than 0");
+        }
         
         // Check if has subscriptions (aligned with Java L162-164)
         if (empty($this->subscriptionExpressions)) {
