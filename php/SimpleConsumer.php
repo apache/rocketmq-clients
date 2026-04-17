@@ -44,6 +44,8 @@ use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\FilterExpression as V2FilterExpression;
 use Apache\Rocketmq\V2\FilterType;
 use Apache\Rocketmq\V2\Permission;
+use Apache\Rocketmq\Consumer\FilterExpression;
+use Apache\Rocketmq\Consumer\FilterExpressionType;
 use Grpc\ChannelCredentials;
 use const Grpc\STATUS_OK;
 
@@ -130,6 +132,12 @@ class SimpleConsumer
     private $retryPolicy;
     
     /**
+     * @var array<string, FilterExpression> Subscription expressions map (topic -> FilterExpression)
+     * Aligned with Java SimpleConsumerImpl.subscriptionExpressions
+     */
+    private $subscriptionExpressions = [];
+    
+    /**
      * @var array Cached message queues from route query [MessageQueue, ...]
      */
     private $cachedMessageQueues = [];
@@ -209,6 +217,10 @@ class SimpleConsumer
         
         $this->clientId = $this->generateClientId();
         
+        // Default subscription: subscribe to topic with FilterExpression('*', TAG)
+        // Aligned with Java FilterExpression.SUB_ALL
+        $this->subscriptionExpressions[$this->topic] = new FilterExpression('*', FilterExpressionType::TAG);
+        
         // Auto-initialize metrics support
         $this->metricsCollector = new MetricsCollector($this->clientId);
         $this->meterManager = new ClientMeterManager($this->clientId, $this->metricsCollector);
@@ -267,6 +279,49 @@ class SimpleConsumer
             $this->state = 'FAILED';
             throw new \Exception("Failed to start consumer: " . $e->getMessage(), 0, $e);
         }
+    }
+    
+    /**
+     * Subscribe to a topic with a filter expression.
+     * Aligned with Java SimpleConsumerImpl.subscribe(topic, filterExpression).
+     *
+     * @param string $topic Topic to subscribe
+     * @param FilterExpression $filterExpression Filter expression for the topic
+     * @return $this
+     */
+    public function subscribe(string $topic, FilterExpression $filterExpression): self
+    {
+        $this->subscriptionExpressions[$topic] = $filterExpression;
+        // Clear cached routes when subscription changes
+        $this->cachedMessageQueues = [];
+        Logger::info("Subscribed topic with filter expression, topic={}, expression={}, type={}, clientId={}", [
+            $topic, $filterExpression->getExpression(), $filterExpression->getType()->value(), $this->clientId
+        ]);
+        return $this;
+    }
+    
+    /**
+     * Unsubscribe from a topic.
+     * Aligned with Java SimpleConsumerImpl.unsubscribe(topic).
+     *
+     * @param string $topic Topic to unsubscribe
+     * @return $this
+     */
+    public function unsubscribe(string $topic): self
+    {
+        unset($this->subscriptionExpressions[$topic]);
+        Logger::info("Unsubscribed topic, topic={}, clientId={}", [$topic, $this->clientId]);
+        return $this;
+    }
+    
+    /**
+     * Get current subscription expressions.
+     *
+     * @return array<string, FilterExpression>
+     */
+    public function getSubscriptionExpressions(): array
+    {
+        return $this->subscriptionExpressions;
     }
     
     /**
@@ -706,11 +761,23 @@ class SimpleConsumer
         $mq = $this->takeMessageQueue();
         $request->setMessageQueue($mq);
         
-        // Set filter expression (required - missing this causes server NPE)
-        // Aligned with Java ConsumerImpl.wrapFilterExpression()
+        // Set filter expression from subscription (required - missing this causes server NPE)
+        // Aligned with Java SimpleConsumerImpl: filterExpression = subscriptionExpressions.get(topic)
+        // Then Java ConsumerImpl.wrapFilterExpression() converts it to protobuf
         $v2Filter = new V2FilterExpression();
-        $v2Filter->setExpression('*');
-        $v2Filter->setType(FilterType::TAG);
+        $subscriptionFilter = $this->subscriptionExpressions[$this->topic] ?? null;
+        if ($subscriptionFilter !== null) {
+            $v2Filter->setExpression($subscriptionFilter->getExpression());
+            $v2Filter->setType(
+                $subscriptionFilter->getType() === FilterExpressionType::SQL92
+                    ? FilterType::SQL
+                    : FilterType::TAG
+            );
+        } else {
+            // Fallback: subscribe all (aligned with Java FilterExpression.SUB_ALL)
+            $v2Filter->setExpression('*');
+            $v2Filter->setType(FilterType::TAG);
+        }
         $request->setFilterExpression($v2Filter);
         
         // Set invisible duration (required for simple consumer)

@@ -24,6 +24,7 @@ namespace Apache\Rocketmq\Builder;
 use Apache\Rocketmq\ClientConfiguration;
 use Apache\Rocketmq\Exception\ClientConfigurationException;
 use Apache\Rocketmq\SimpleConsumer;
+use Apache\Rocketmq\Consumer\FilterExpression;
 
 /**
  * Builder for creating SimpleConsumer instances.
@@ -54,6 +55,9 @@ class SimpleConsumerBuilder {
 
     /** @var int Await duration in seconds */
     private int $awaitDuration = 30;
+
+    /** @var array<string, FilterExpression> Subscription expressions (topic -> FilterExpression) */
+    private array $subscriptionExpressions = [];
 
     /**
      * Set client configuration.
@@ -126,6 +130,21 @@ class SimpleConsumerBuilder {
     }
 
     /**
+     * Set subscription expressions.
+     * Aligned with Java SimpleConsumerBuilderImpl.setSubscriptionExpressions().
+     *
+     * @param array<string, FilterExpression> $subscriptionExpressions Map of topic -> FilterExpression
+     * @throws \InvalidArgumentException if subscriptionExpressions is empty
+     */
+    public function setSubscriptionExpressions(array $subscriptionExpressions): self {
+        if (empty($subscriptionExpressions)) {
+            throw new \InvalidArgumentException("subscriptionExpressions should not be empty");
+        }
+        $this->subscriptionExpressions = $subscriptionExpressions;
+        return $this;
+    }
+
+    /**
      * Build and start the simple consumer.
      *
      * @return SimpleConsumer
@@ -148,6 +167,11 @@ class SimpleConsumerBuilder {
         $consumer->setMaxMessageNum($this->maxMessageNum);
         $consumer->setInvisibleDuration($this->invisibleDuration);
         $consumer->setAwaitDuration($this->awaitDuration);
+
+        // Apply subscription expressions if set via builder
+        foreach ($this->subscriptionExpressions as $topic => $filterExpression) {
+            $consumer->subscribe($topic, $filterExpression);
+        }
 
         try {
             $consumer->start();
