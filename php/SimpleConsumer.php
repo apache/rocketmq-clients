@@ -1217,8 +1217,35 @@ class SimpleConsumer
             ]);
         }
 
+        // Log MessageQueue details before setting namespace
+        try {
+            $mqTopicName = $mq->getTopic()->getName() ?? 'unknown';
+            $mqNamespace = $mq->getTopic()->getResourceNamespace() ?? 'empty';
+            $mqBroker = $mq->getBroker()->getName() ?? 'unknown';
+            $mqBrokerId = $mq->getBroker()->getId();
+            $mqQueueId = $mq->getQueueId();
+            $mqPermission = \Apache\Rocketmq\V2\Permission::name($mq->getPermission());
+            
+            Logger::info("MessageQueue details - topic={}, namespace={}, broker={}, brokerId={}, queueId={}, permission={}, clientId={}", [
+                $mqTopicName,
+                $mqNamespace,
+                $mqBroker,
+                $mqBrokerId,
+                $mqQueueId,
+                $mqPermission,
+                $this->clientId
+            ]);
+        } catch (\Throwable $e) {
+            // Ignore logging errors
+        }
+
         $mqTopic = $mq->getTopic();
         if ($mqTopic !== null && empty($mqTopic->getResourceNamespace())) {
+            Logger::info("Setting namespace for MessageQueue topic - topic={}, namespace={}, clientId={}", [
+                $mqTopic->getName() ?? 'unknown',
+                $this->config->getNamespace(),
+                $this->clientId
+            ]);
             $mqTopic->setResourceNamespace($this->config->getNamespace());
         }
         $request->setMessageQueue($mq);
