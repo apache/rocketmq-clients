@@ -463,19 +463,42 @@ class SimpleConsumer
     {
         // Use subscriptionRouteDataCache for the configured topic
         if (!empty($this->subscriptionRouteDataCache[$this->topic])) {
+            Logger::info("Using cached load balancer, topic={}, queueCount={}, clientId={}", [
+                $this->topic,
+                $this->subscriptionRouteDataCache[$this->topic]->getQueueCount(),
+                $this->clientId
+            ]);
             return $this->subscriptionRouteDataCache[$this->topic]->getMessageQueues();
         }
 
+        Logger::info("Querying route from broker, topic={}, clientId={}", [$this->topic, $this->clientId]);
+        
         $request = new QueryRouteRequest();
         $topicResource = new Resource();
         $topicResource->setName($this->topic);
         $request->setTopic($topicResource);
 
+        $startTime = microtime(true);
         [$response, $status] = $this->getClient()->QueryRoute($request)->wait();
+        $elapsed = round((microtime(true) - $startTime) * 1000, 2);
 
         if ($status->code !== \Grpc\STATUS_OK) {
+            Logger::error("RPC QueryRoute failed, topic={}, status_code={}, details={}, elapsed={}ms, clientId={}", [
+                $this->topic,
+                $status->code,
+                $status->details,
+                $elapsed,
+                $this->clientId
+            ]);
             throw new \Exception("Failed to query route for topic {$this->topic}: {$status->details}");
         }
+
+        Logger::info("RPC QueryRoute success, topic={}, totalQueues={}, elapsed={}ms, clientId={}", [
+            $this->topic,
+            count($response->getMessageQueues()),
+            $elapsed,
+            $this->clientId
+        ]);
 
         $queues = [];
         foreach ($response->getMessageQueues() as $mq) {
@@ -567,16 +590,34 @@ class SimpleConsumer
      */
     private function queryTopicRouteForTopic(string $topic): array
     {
+        Logger::info("Querying route from broker, topic={}, clientId={}", [$topic, $this->clientId]);
+        
         $request = new QueryRouteRequest();
         $topicResource = new Resource();
         $topicResource->setName($topic);
         $request->setTopic($topicResource);
 
+        $startTime = microtime(true);
         [$response, $status] = $this->getClient()->QueryRoute($request)->wait();
+        $elapsed = round((microtime(true) - $startTime) * 1000, 2);
 
         if ($status->code !== \Grpc\STATUS_OK) {
+            Logger::error("RPC QueryRoute failed, topic={}, status_code={}, details={}, elapsed={}ms, clientId={}", [
+                $topic,
+                $status->code,
+                $status->details,
+                $elapsed,
+                $this->clientId
+            ]);
             throw new \Exception("Failed to query route for topic {$topic}: {$status->details}");
         }
+
+        Logger::info("RPC QueryRoute success, topic={}, totalQueues={}, elapsed={}ms, clientId={}", [
+            $topic,
+            count($response->getMessageQueues()),
+            $elapsed,
+            $this->clientId
+        ]);
 
         $queues = [];
         foreach ($response->getMessageQueues() as $mq) {
