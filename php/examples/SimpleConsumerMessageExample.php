@@ -26,7 +26,7 @@ require_once __DIR__ . '/../ProducerSingleton.php';
 
 use Apache\Rocketmq\ClientConfiguration;
 use Apache\Rocketmq\Builder\MessageBuilder;
-use Apache\Rocketmq\SimpleConsumer;
+use Apache\Rocketmq\Builder\SimpleConsumerBuilder;
 use Apache\Rocketmq\Consumer\FilterExpression;
 use Apache\Rocketmq\Consumer\FilterExpressionType;
 
@@ -47,21 +47,26 @@ go(function () use ($topic, $consumerGroup, $endpoints) {
 
     try {
         // ========================================
-        // Step 1: Start SimpleConsumer
+        // Step 1: Create SimpleConsumer using Builder (aligned with Java)
         // ========================================
-        echo "[Step 1] Starting SimpleConsumer...\n";
+        echo "[Step 1] Creating SimpleConsumer via Builder...\n";
         echo str_repeat("-", 60) . "\n";
 
         $config = new ClientConfiguration($endpoints);
         $config->withSslEnabled(false);
-
-        $consumer = SimpleConsumer::getInstance($config, $consumerGroup, $topic);
-        $consumer->start();
-        echo "  SimpleConsumer started\n";
         
-        // Subscribe to topic (required after start())
+        // Set subscription expression (aligned with Java setSubscriptionExpressions)
         $filterExpression = new FilterExpression('*', FilterExpressionType::TAG);
-        $consumer->subscribe($topic, $filterExpression);
+
+        // Use Builder pattern (aligned with Java provider.newSimpleConsumerBuilder())
+        $consumer = (new SimpleConsumerBuilder())
+            ->setClientConfiguration($config)
+            ->setConsumerGroup($consumerGroup)
+            ->setTopic($topic)
+            ->setSubscriptionExpressions([$topic => $filterExpression])  // Set subscription during build
+            ->build();  // build() returns a started consumer (no need to call start())
+        
+        echo "  SimpleConsumer created and started via Builder\n";
         echo "  Subscribed to topic: {$topic}\n\n";
 
         // ========================================

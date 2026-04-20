@@ -163,7 +163,8 @@ class SimpleConsumerBuilder {
             throw new ClientConfigurationException("topic has not been set yet");
         }
 
-        $consumer = new SimpleConsumer($this->clientConfiguration, $this->consumerGroup, $this->topic);
+        // Use getInstance() to create instance (constructor is private)
+        $consumer = SimpleConsumer::getInstance($this->clientConfiguration, $this->consumerGroup, $this->topic);
         $consumer->setMaxMessageNum($this->maxMessageNum);
         $consumer->setInvisibleDuration($this->invisibleDuration);
         $consumer->setAwaitDuration($this->awaitDuration);

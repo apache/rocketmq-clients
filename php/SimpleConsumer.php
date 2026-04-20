@@ -316,8 +316,15 @@ class SimpleConsumer
      */
     public function subscribe(string $topic, FilterExpression $filterExpression): self
     {
-        // Check consumer status (aligned with Java)
-        $this->checkRunning();
+        // Allow subscription in CREATED or RUNNING state (aligned with Java builder pattern)
+        // Java sets subscriptions during build(), PHP allows it before or after start()
+        if ($this->state !== 'CREATED' && $this->state !== 'RUNNING') {
+            Logger::error("Cannot subscribe when consumer is in state={}, clientId={}", [
+                $this->state,
+                $this->clientId
+            ]);
+            throw new \RuntimeException("Cannot subscribe when consumer is not in CREATED or RUNNING state");
+        }
         
         // Aligned with Java: query route data first before adding subscription
         // If route query fails, exception will be thrown (strict alignment with Java behavior)
@@ -350,8 +357,14 @@ class SimpleConsumer
      */
     public function unsubscribe(string $topic): self
     {
-        // Check consumer status (aligned with Java)
-        $this->checkRunning();
+        // Allow unsubscription in CREATED or RUNNING state
+        if ($this->state !== 'CREATED' && $this->state !== 'RUNNING') {
+            Logger::error("Cannot unsubscribe when consumer is in state={}, clientId={}", [
+                $this->state,
+                $this->clientId
+            ]);
+            throw new \RuntimeException("Cannot unsubscribe when consumer is not in CREATED or RUNNING state");
+        }
         
         unset($this->subscriptionExpressions[$topic]);
         
