@@ -488,6 +488,14 @@ class SimpleConsumer
             $brokerId = $mq->getBroker()->getId();
             $isMaster = ($brokerId === 0);
             
+            Logger::info("Queue route info, topic={}, brokerId={}, perm={}, isReadable={}, isMaster={}", [
+                $this->topic,
+                $brokerId,
+                \Apache\Rocketmq\V2\Permission::name($perm),
+                $isReadable ? 'true' : 'false',
+                $isMaster ? 'true' : 'false'
+            ]);
+            
             if ($isReadable && $isMaster) {
                 $queues[] = $mq;
             }
@@ -580,6 +588,14 @@ class SimpleConsumer
             // Check if it's master broker (broker ID = 0, aligned with Java Utilities.MASTER_BROKER_ID)
             $brokerId = $mq->getBroker()->getId();
             $isMaster = ($brokerId === 0);
+            
+            Logger::info("Queue route info, topic={}, brokerId={}, perm={}, isReadable={}, isMaster={}", [
+                $topic,
+                $brokerId,
+                \Apache\Rocketmq\V2\Permission::name($perm),
+                $isReadable ? 'true' : 'false',
+                $isMaster ? 'true' : 'false'
+            ]);
             
             if ($isReadable && $isMaster) {
                 $queues[] = $mq;
