@@ -73,8 +73,8 @@ class ProcessQueue
     /** @var float Last activity timestamp (seconds with microseconds) */
     private float $activityTime;
 
-    /** @var float Timestamp when cache became full (0 = never) */
-    private float $cacheFullTime = 0.0;
+    /** @var float Timestamp when cache became full (PHP_FLOAT_MIN = never, aligned with Java Long.MIN_VALUE) */
+    private float $cacheFullTime;
 
     /** @var int Receive request count */
     private int $receptionTimes = 0;
@@ -106,6 +106,7 @@ class ProcessQueue
     public function drop(): void
     {
         $this->dropped = true;
+        Logger::info("Process queue has been dropped, mq=" . $this->getQueueDescription());
     }
 
     /**
@@ -129,17 +130,18 @@ class ProcessQueue
         }
 
         // Also check cache full time to prevent false positives
-        if ($this->cacheFullTime > 0.0) {
-            $afterCacheFullDuration = $now - $this->cacheFullTime;
-            if ($afterCacheFullDuration < $maxIdleSec) {
-                return false;
-            }
+        // Aligned with Java: if cacheFullTime is PHP_FLOAT_MIN (never full), 
+        // afterCacheFullDuration will be huge, so this check won't block expiration
+        $afterCacheFullDuration = $now - $this->cacheFullTime;
+        if ($afterCacheFullDuration < $maxIdleSec) {
+            return false;
         }
 
-        Logger::error(sprintf(
-            "Process queue is idle, idleDuration=%.1fs, maxIdleDuration=%ds, mq=%s",
+        Logger::warn(sprintf(
+            "Process queue is idle, idleDuration=%.1fs, maxIdleDuration=%ds, afterCacheFullDuration=%.1fs, mq=%s",
             $idleDuration,
             $maxIdleSec,
+            $afterCacheFullDuration,
             $this->getQueueDescription()
         ));
         return true;
@@ -155,8 +157,8 @@ class ProcessQueue
     {
         $countThreshold = $this->pushConsumer->cacheMessageCountThresholdPerQueue();
         if ($this->cachedMessageCount >= $countThreshold) {
-            Logger::error(sprintf(
-                "ProcessQueue cache count exceeds threshold, threshold=%d, actual=%d, mq=%s",
+            Logger::warn(sprintf(
+                "Process queue total cached messages quantity exceeds the threshold, threshold=%d, actual=%d, mq=%s",
                 $countThreshold,
                 $this->cachedMessageCount,
                 $this->getQueueDescription()
@@ -167,8 +169,8 @@ class ProcessQueue
 
         $sizeThreshold = $this->pushConsumer->cacheMessageSizeThresholdPerQueue();
         if ($this->cachedMessageSizeInBytes >= $sizeThreshold) {
-            Logger::error(sprintf(
-                "ProcessQueue cache size exceeds threshold, threshold=%d bytes, actual=%d bytes, mq=%s",
+            Logger::warn(sprintf(
+                "Process queue total cached messages memory exceeds the threshold, threshold=%d bytes, actual=%d bytes, mq=%s",
                 $sizeThreshold,
                 $this->cachedMessageSizeInBytes,
                 $this->getQueueDescription()
@@ -212,7 +214,7 @@ class ProcessQueue
         }
 
         if ($this->isCacheFull()) {
-            Logger::warn("Process queue cache is full, will receive message later, mq=" . $this->getQueueDescription());
+            Logger::warn("Process queue cache is full, would receive message later, mq=" . $this->getQueueDescription());
             $this->cacheFullTime = microtime(true);
             \Swoole\Timer::after((int)(self::RECEIVING_BACKOFF_WHEN_CACHE_FULL_US / 1000), function () {
                 $this->scheduleFetchCycle();
@@ -233,6 +235,28 @@ class ProcessQueue
                 $this->scheduleFetchCycle();
             });
         }
+    }
+
+    /**
+     * Calculate the reception batch size based on cache capacity.
+     *
+     * References Java ProcessQueueImpl.getReceptionBatchSize():
+     * Dynamically adjusts batch size to avoid exceeding cache thresholds.
+     *
+     * @return int Batch size (1 to maxBatchSize)
+     */
+    private function getReceptionBatchSize(): int
+    {
+        // Calculate remaining cache capacity by count
+        $countThreshold = $this->pushConsumer->cacheMessageCountThresholdPerQueue();
+        $remainingCount = $countThreshold - $this->cachedMessageCount;
+        $remainingCount = max($remainingCount, 1); // At least 1
+
+        // Get configured max batch size (default 32)
+        $maxBatchSize = 32; // TODO: Get from settings
+
+        // Return the smaller of remaining capacity and max batch size
+        return min($remainingCount, $maxBatchSize);
     }
 
     private function fetchMessage(): void
@@ -404,15 +428,31 @@ class ProcessQueue
         return $this->receivedMessagesQuantity;
     }
 
+    /**
+     * Log statistics and reset counters
+     * 
+     * References Java ProcessQueueImpl.doStats():
+     * - Logs process queue stats with clientId
+     * - Resets receptionTimes and receivedMessagesQuantity counters
+     */
     public function doStats(): void
     {
+        // Get current values before resetting
+        $receptionTimes = $this->receptionTimes;
+        $receivedMessagesQuantity = $this->receivedMessagesQuantity;
+        
+        // Reset counters (aligned with Java getAndSet(0))
+        $this->receptionTimes = 0;
+        $this->receivedMessagesQuantity = 0;
+
         Logger::info(sprintf(
-            "ProcessQueue stats: mq=%s, cachedCount=%d, cachedSize=%d, receptionTimes=%d, receivedTotal=%d",
+            "Process queue stats: clientId=%s, mq=%s, receptionTimes=%d, receivedMessageQuantity=%d, cachedMessageCount=%d, cachedMessageBytes=%d",
+            $this->pushConsumer->getClientId(),
             $this->getQueueDescription(),
+            $receptionTimes,
+            $receivedMessagesQuantity,
             $this->cachedMessageCount,
-            $this->cachedMessageSizeInBytes,
-            $this->receptionTimes,
-            $this->receivedMessagesQuantity
+            $this->cachedMessageSizeInBytes
         ));
     }
 

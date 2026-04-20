@@ -667,8 +667,9 @@ class SimpleConsumer
     {
         $request = new HeartbeatRequest();
         
-        // Set consumer group
+        // Set consumer group with namespace (aligned with Java getProtobufGroup())
         $group = new Resource();
+        $group->setResourceNamespace($this->config->getNamespace());
         $group->setName($this->consumerGroup);
         $request->setGroup($group);
         
@@ -1045,14 +1046,19 @@ class SimpleConsumer
         
         $request = new ReceiveMessageRequest();
         
-        // Set consumer group
+        // Set consumer group with namespace (aligned with Java getProtobufGroup())
         $group = new Resource();
+        $group->setResourceNamespace($this->config->getNamespace());
         $group->setName($this->consumerGroup);
         $request->setGroup($group);
         
         // Get message queue from route query for selected topic
         // Aligned with Java SimpleConsumerImpl: route query -> load balancer -> takeMessageQueue
         $mq = $this->takeMessageQueueForTopic($selectedTopic);
+        $mqTopic = $mq->getTopic();
+        if ($mqTopic !== null && empty($mqTopic->getResourceNamespace())) {
+            $mqTopic->setResourceNamespace($this->config->getNamespace());
+        }
         $request->setMessageQueue($mq);
         
         // Set filter expression from subscription (required - missing this causes server NPE)
@@ -1214,18 +1220,20 @@ class SimpleConsumer
         
         $request = new AckMessageRequest();
         
-        // Set consumer group (required)
+        // Set consumer group with namespace (aligned with Java getProtobufGroup())
         $group = new Resource();
+        $group->setResourceNamespace($this->config->getNamespace());
         $group->setName($this->consumerGroup);
         $request->setGroup($group);
         
-        // Set topic (required) - extract from message or use configured topic
+        // Set topic with namespace (required)
         $topicName = $this->topic;
         if ($message->hasTopic()) {
             $topicName = $message->getTopic()->getName();
         }
         
         $topicResource = new Resource();
+        $topicResource->setResourceNamespace($this->config->getNamespace());
         $topicResource->setName($topicName);
         $request->setTopic($topicResource);
         
@@ -1311,6 +1319,7 @@ class SimpleConsumer
         
         $mq = new MessageQueue();
         $resource = new Resource();
+        $resource->setResourceNamespace($this->config->getNamespace());
         $resource->setName($this->topic);
         $mq->setTopic($resource);
         $request->setMessageQueue($mq);

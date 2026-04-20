@@ -20,11 +20,13 @@ declare(strict_types=1);
 namespace Apache\Rocketmq\Consumer;
 
 use Apache\Rocketmq\ClientConfiguration;
+use Apache\Rocketmq\ClientMeterManager;
 use Apache\Rocketmq\Connection\ConnectionPool;
 use Apache\Rocketmq\Exception\ClientException;
 use Apache\Rocketmq\Exception\ClientStateException;
 use Apache\Rocketmq\Exception\NetworkException;
 use Apache\Rocketmq\Logger;
+use Apache\Rocketmq\MetricsCollector;
 use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\ClientType;
 use Apache\Rocketmq\V2\HeartbeatRequest;
@@ -37,6 +39,10 @@ use Apache\Rocketmq\V2\TelemetryCommand;
 use Apache\Rocketmq\V2\Settings;
 use Apache\Rocketmq\V2\Subscription;
 use Apache\Rocketmq\V2\SubscriptionEntry;
+
+// Import Assignment management classes
+use Apache\Rocketmq\Consumer\Assignment;
+use Apache\Rocketmq\Consumer\Assignments;
 
 /**
  * PushConsumer implementation referencing Java architecture
@@ -55,7 +61,7 @@ class PushConsumerImpl implements PushConsumer
     private string $clientId;
     /** @var array<string, FilterExpression> */
     private array $subscriptionExpressions = [];
-    /** @var array<string, \Google\Protobuf\Internal\RepeatedField> Cached assignments per topic */
+    /** @var array<string, Assignments|null> Cached assignments per topic */
     private array $cacheAssignments = [];
     /** @var callable */
     private $messageListener;
@@ -69,10 +75,14 @@ class PushConsumerImpl implements PushConsumer
     private bool $running = false;
     /** @var int|null Swoole timer ID for periodic assignment scanning */
     private ?int $scanTimerId = null;
+    /** @var int|null Swoole timer ID for periodic statistics logging */
+    private ?int $statsTimerId = null;
     /** @var MessagingServiceClient|null Shared gRPC client with fixed clientId */
     private ?MessagingServiceClient $client = null;
     /** @var mixed Telemetry bidirectional stream call */
     private $telemetryStream = null;
+    /** @var ClientMeterManager|null Metrics manager (optional) */
+    private ?ClientMeterManager $meterManager = null;
     private int $receptionTimes = 0;
     private int $receivedMessagesQuantity = 0;
     private int $consumptionOkQuantity = 0;
@@ -156,6 +166,9 @@ class PushConsumerImpl implements PushConsumer
             // Establish Telemetry session to register with proxy
             $this->initTelemetrySession();
 
+            // Initialize metrics system (aligned with Java)
+            $this->initMetrics();
+
             $this->heartbeat();
 
             $this->state = 'RUNNING';
@@ -188,6 +201,12 @@ class PushConsumerImpl implements PushConsumer
             $this->scanTimerId = null;
         }
 
+        // Cancel periodic statistics logging timer
+        if ($this->statsTimerId !== null) {
+            \Swoole\Timer::clear($this->statsTimerId);
+            $this->statsTimerId = null;
+        }
+
         $this->waitingReceiveRequestFinished();
 
         foreach ($this->processQueueTable as $mq => $pq) {
@@ -203,6 +222,16 @@ class PushConsumerImpl implements PushConsumer
                 // Ignore
             }
             $this->telemetryStream = null;
+        }
+
+        // Shutdown metrics manager
+        if ($this->meterManager !== null) {
+            try {
+                // MetricsCollector doesn't have shutdown, just clear reference
+                $this->meterManager = null;
+            } catch (\Throwable $e) {
+                Logger::error("Failed to shutdown metrics manager, clientId={$this->clientId}, error={$e->getMessage()}");
+            }
         }
 
         $this->client = null;
@@ -270,6 +299,18 @@ class PushConsumerImpl implements PushConsumer
                 Logger::error("Exception raised while scanning assignments, clientId={$this->clientId}, error={$t->getMessage()}");
             }
         });
+
+        // Schedule periodic statistics logging every 60 seconds (aligned with Java)
+        $this->statsTimerId = \Swoole\Timer::tick(60000, function () {
+            if (!$this->running) {
+                return;
+            }
+            try {
+                $this->doStats();
+            } catch (\Throwable $t) {
+                Logger::error("Exception raised while logging stats, clientId={$this->clientId}, error={$t->getMessage()}");
+            }
+        });
     }
 
     /**
@@ -285,12 +326,22 @@ class PushConsumerImpl implements PushConsumer
                 $existed = $this->cacheAssignments[$topic] ?? null;
                 $latest = $this->queryAssignment($topic);
 
-                if ($latest === null || count($latest) === 0) {
-                    if ($existed === null || count($existed) === 0) {
+                if ($latest === null || $latest->isEmpty()) {
+                    if ($existed === null || $existed->isEmpty()) {
+                        Logger::debug("Acquired empty assignments from remote, would scan later, topic={$topic}, clientId={$this->clientId}");
                         continue;
                     }
+                    Logger::warn("Attention!!! acquired empty assignments from remote, but existed assignments is not empty, topic={$topic}, clientId={$this->clientId}");
                 }
 
+                // Check if assignments changed (aligned with Java)
+                if (!$latest->equals($existed ?? new Assignments([]))) {
+                    Logger::info("Assignments of topic={$topic} has changed, {$existed} => {$latest}, clientId={$this->clientId}");
+                } else {
+                    Logger::debug("Assignments of topic={$topic} remains the same, assignments={$latest}, clientId={$this->clientId}");
+                }
+
+                // Sync process queues anyway (process queue may be dropped)
                 $this->syncProcessQueue($topic, $latest, $filterExpression);
                 $this->cacheAssignments[$topic] = $latest;
             } catch (\Throwable $e) {
@@ -306,19 +357,40 @@ class PushConsumerImpl implements PushConsumer
     private function queryAssignment(string $topic)
     {
         $request = new QueryAssignmentRequest();
+        
+        // Set topic with namespace (aligned with Java wrapQueryAssignmentRequest)
         $topicRes = new Resource();
+        $topicRes->setResourceNamespace($this->config->getNamespace());
         $topicRes->setName($topic);
         $request->setTopic($topicRes);
+        
+        // Set consumer group with namespace (aligned with Java getProtobufGroup)
         $groupRes = new Resource();
+        $groupRes->setResourceNamespace($this->config->getNamespace());
         $groupRes->setName($this->consumerGroup);
         $request->setGroup($groupRes);
+        
+        // Set endpoints
+        $request->setEndpoints($this->config->getEndpointsAsProtobuf());
 
         try {
             $call = $this->client->QueryAssignment($request);
             list($response, $status) = $call->wait();
 
             if ($response instanceof QueryAssignmentResponse) {
-                return $response->getAssignments();
+                // Convert Protobuf assignments to Assignment objects (aligned with Java)
+                $assignmentList = [];
+                $protobufAssignments = $response->getAssignments();
+                
+                if ($protobufAssignments !== null) {
+                    foreach ($protobufAssignments as $protobufAssignment) {
+                        $messageQueue = new MessageQueue();
+                        $messageQueue->__constructFromProtobuf($protobufAssignment->getMessageQueue());
+                        $assignmentList[] = new Assignment($messageQueue);
+                    }
+                }
+                
+                return new Assignments($assignmentList);
             }
         } catch (\Throwable $e) {
             throw new NetworkException("Failed to query assignment for topic {$topic}: " . $e->getMessage(), 0, $e);
@@ -327,16 +399,18 @@ class PushConsumerImpl implements PushConsumer
         return null;
     }
 
-    private function syncProcessQueue(string $topic, iterable $assignments, FilterExpression $filterExpression): void
+    private function syncProcessQueue(string $topic, Assignments $assignments, FilterExpression $filterExpression): void
     {
+        // Build latest message queue set (aligned with Java)
         $latest = [];
-        foreach ($assignments as $assignment) {
+        foreach ($assignments->getAssignmentList() as $assignment) {
             $mq = $assignment->getMessageQueue();
             $latest[$this->getMessageQueueKey($mq)] = $mq;
         }
 
         $activeMqs = [];
 
+        // Drop process queues that are no longer assigned or expired
         foreach ($this->processQueueTable as $key => $pq) {
             $mq = $pq->getMessageQueue();
             $mqTopic = $mq->getTopic()->getName();
@@ -346,26 +420,27 @@ class PushConsumerImpl implements PushConsumer
             }
 
             if (!isset($latest[$key])) {
-                Logger::info("Drop process queue (no longer assigned), topic={$topic}, mq={$key}, clientId={$this->clientId}");
+                Logger::info("Drop process queue according to the latest assignmentList, topic={$topic}, mq={$key}, clientId={$this->clientId}");
                 $this->dropProcessQueue($key);
                 continue;
             }
 
             if ($pq->expired()) {
-                Logger::warn("Drop process queue (expired), topic={$topic}, mq={$key}, clientId={$this->clientId}");
+                Logger::warn("Drop message queue because it is expired, topic={$topic}, mq={$key}, clientId={$this->clientId}");
                 $this->dropProcessQueue($key);
                 continue;
             }
-
+            
             $activeMqs[$key] = true;
         }
 
+        // Create new process queues for newly assigned message queues
         foreach ($latest as $key => $mq) {
             if (isset($activeMqs[$key])) {
                 continue;
             }
 
-            Logger::info("Create process queue for new assignment, topic={$topic}, mq={$key}, clientId={$this->clientId}");
+            Logger::info("Start to fetch message from remote, topic={$topic}, mq={$key}, clientId={$this->clientId}");
             $processQueue = $this->createProcessQueue($mq, $filterExpression);
             if ($processQueue !== null) {
                 $processQueue->fetchMessageImmediately();
@@ -507,9 +582,14 @@ class PushConsumerImpl implements PushConsumer
 
     /**
      * Log statistics and reset counters
+     * 
+     * References Java PushConsumerImpl.doStats():
+     * - Logs consumer-level stats and resets counters
+     * - Calls doStats() on all process queues
      */
     public function doStats(): void
     {
+        // Log consumer-level stats (aligned with Java)
         Logger::info(sprintf(
             "clientId=%s, consumerGroup=%s, receptionTimes=%d, receivedMessagesQuantity=%d, consumptionOkQuantity=%d, consumptionErrorQuantity=%d",
             $this->clientId,
@@ -520,10 +600,20 @@ class PushConsumerImpl implements PushConsumer
             $this->consumptionErrorQuantity
         ));
 
+        // Reset counters
         $this->receptionTimes = 0;
         $this->receivedMessagesQuantity = 0;
         $this->consumptionOkQuantity = 0;
         $this->consumptionErrorQuantity = 0;
+
+        // Call doStats() on all process queues (aligned with Java)
+        foreach ($this->processQueueTable as $pq) {
+            try {
+                $pq->doStats();
+            } catch (\Throwable $e) {
+                Logger::error("Exception raised while logging process queue stats, clientId={$this->clientId}, error={$e->getMessage()}");
+            }
+        }
     }
 
     /**
@@ -635,6 +725,43 @@ class PushConsumerImpl implements PushConsumer
         } catch (\Throwable $e) {
             Logger::error("Failed to establish telemetry session, clientId={$this->clientId}, error={$e->getMessage()}");
             throw $e;
+        }
+    }
+
+    /**
+     * Initialize metrics system with ProcessQueue gauge observer
+     * 
+     * References Java PushConsumerImpl.startUp():
+     * - Creates MetricsCollector and ClientMeterManager
+     * - Registers ProcessQueueGaugeObserver for real-time metrics
+     * - Enables automatic metric collection
+     */
+    private function initMetrics(): void
+    {
+        try {
+            // Create metrics collector
+            $metricsCollector = new MetricsCollector();
+            
+            // Create meter manager
+            $this->meterManager = new ClientMeterManager($this->clientId, $metricsCollector);
+            
+            // Register ProcessQueue gauge observer (aligned with Java)
+            $gaugeObserver = new ProcessQueueGaugeObserver(
+                $this->processQueueTable,
+                $this->clientId,
+                $this->consumerGroup
+            );
+            
+            $this->meterManager->setGaugeObserver($gaugeObserver);
+            
+            // Enable metrics with default settings
+            // In production, you can configure export endpoint from ClientConfiguration
+            $this->meterManager->enable(null, 60); // Export every 60 seconds
+            
+            Logger::info("Metrics system initialized, clientId={$this->clientId}");
+        } catch (\Throwable $e) {
+            Logger::error("Failed to initialize metrics system, clientId={$this->clientId}, error={$e->getMessage()}");
+            // Don't throw - metrics is optional, consumer should still work
         }
     }
 }

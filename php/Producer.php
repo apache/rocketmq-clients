@@ -765,6 +765,7 @@ class Producer implements ProducerInterface
         
         // Set topic
         $topic = new Resource();
+        $topic->setResourceNamespace($this->config->getNamespace());
         $topic->setName($this->topic);
         $message->setTopic($topic);
         
@@ -1345,6 +1346,7 @@ class Producer implements ProducerInterface
         
         // Set topic
         $topic = new Resource();
+        $topic->setResourceNamespace($this->config->getNamespace());
         $topic->setName($message->getTopic());
         $grpcMessage->setTopic($topic);
         
@@ -1732,7 +1734,7 @@ class Producer implements ProducerInterface
             if ($this->publishingLoadBalancer !== null) {
                 try {
                     // Select one candidate queue (with isolation support)
-                    $candidates = $this->publishingLoadBalancer->takeMessageQueues(1, []);
+                    $candidates = $this->publishingLoadBalancer->takeMessageQueues([], 1);
                     if (!empty($candidates)) {
                         $messageQueue = $candidates[0];
                         Logger::debug("Selected message queue for send, topic={}, broker={}, queueId={}", [
@@ -2088,8 +2090,8 @@ class Producer implements ProducerInterface
         
         // Set topic - use provided topic or fallback to producer's topic
         $topicResource = new Resource();
+        $topicResource->setResourceNamespace($this->config->getNamespace());
         $topicResource->setName($topic !== null ? $topic : $this->topic);
-        $topicResource->setResourceNamespace('');
         $request->setTopic($topicResource);
         
         // Set message ID and transaction ID
