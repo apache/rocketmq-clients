@@ -223,10 +223,10 @@ class AsyncTelemetrySession
         $settings->setClientType($this->clientType);
         
         // Set user agent
-        $userAgent = new \Apache\Rocketmq\V2\UserAgent();
-        $userAgent->setLanguage('PHP');
-        $userAgent->setVersion(\Apache\Rocketmq\Util::getSdkVersion());
-        $settings->setUserAgent($userAgent);
+        $ua = new \Apache\Rocketmq\V2\UA();
+        $ua->setLanguage(\Apache\Rocketmq\V2\Language::PHP);
+        $ua->setVersion(\Apache\Rocketmq\Util::getSdkVersion());
+        $settings->setUserAgent($ua);
         
         // Build subscription
         $subscription = new \Apache\Rocketmq\V2\Subscription();

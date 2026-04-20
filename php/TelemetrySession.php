@@ -190,13 +190,13 @@ class TelemetrySession {
      * Send initial handshake message
      */
     private function sendHandshake(): void {
-        $userAgent = new UserAgent();
-        $userAgent->setLanguage('PHP');
-        $userAgent->setVersion(self::getSdkVersion());
+        $ua = new \Apache\Rocketmq\V2\UA();
+        $ua->setLanguage(\Apache\Rocketmq\V2\Language::PHP);
+        $ua->setVersion(self::getSdkVersion());
 
         $settings = new Settings();
         $settings->setClientType(ClientType::PRODUCER);
-        $settings->setUserAgent($userAgent);
+        $settings->setUserAgent($ua);
 
         $this->sendSettings($settings);
         Logger::debug("Handshake sent, clientId={$this->clientId}");

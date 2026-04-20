@@ -174,4 +174,33 @@ class Util {
     public static function crc32Checksum(string $data): string {
         return sprintf('%08X', crc32($data) & 0xffffffff);
     }
+    
+    /**
+     * Get SDK version from composer.json or fallback to constant
+     * 
+     * Similar to Java MetadataUtils.getVersion()
+     * 
+     * @return string SDK version
+     */
+    public static function getSdkVersion(): string {
+        static $sdkVersion = null;
+        
+        if ($sdkVersion !== null) {
+            return $sdkVersion;
+        }
+        
+        // Try reading from composer.json
+        $composerFile = __DIR__ . '/composer.json';
+        if (file_exists($composerFile)) {
+            $composerData = @json_decode((string)file_get_contents($composerFile), true);
+            if (is_array($composerData) && isset($composerData['version']) && is_string($composerData['version'])) {
+                $sdkVersion = $composerData['version'];
+                return $sdkVersion;
+            }
+        }
+        
+        // Fallback
+        $sdkVersion = '5.0.0';
+        return $sdkVersion;
+    }
 }

@@ -966,10 +966,10 @@ class SimpleConsumer
         $settings->setClientType(\Apache\Rocketmq\V2\ClientType::SIMPLE_CONSUMER);
         
         // Set user agent
-        $userAgent = new \Apache\Rocketmq\V2\UserAgent();
-        $userAgent->setLanguage('PHP');
-        $userAgent->setVersion(Util::getSdkVersion());
-        $settings->setUserAgent($userAgent);
+        $ua = new \Apache\Rocketmq\V2\UA();
+        $ua->setLanguage(\Apache\Rocketmq\V2\Language::PHP);
+        $ua->setVersion(Util::getSdkVersion());
+        $settings->setUserAgent($ua);
         
         // Set request timeout
         $requestTimeout = new \Google\Protobuf\Duration();

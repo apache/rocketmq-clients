@@ -57,6 +57,7 @@
       "ClientMeterManager.php",
       "MetricsSupportTrait.php",
       "TelemetrySession.php",
+      "AsyncTelemetrySession.php",
       "SwooleAsyncSupport.php",
       "ClientSettings.php",
       "PublishingSettings.php",
