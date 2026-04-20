@@ -475,8 +475,10 @@ class SimpleConsumer
         
         $request = new QueryRouteRequest();
         $topicResource = new Resource();
+        $topicResource->setResourceNamespace($this->config->getNamespace());
         $topicResource->setName($this->topic);
         $request->setTopic($topicResource);
+        $request->setEndpoints($this->config->getEndpoints()->toProtobuf());
 
         $startTime = microtime(true);
         [$response, $status] = $this->getClient()->QueryRoute($request)->wait();
@@ -594,8 +596,10 @@ class SimpleConsumer
         
         $request = new QueryRouteRequest();
         $topicResource = new Resource();
+        $topicResource->setResourceNamespace($this->config->getNamespace());
         $topicResource->setName($topic);
         $request->setTopic($topicResource);
+        $request->setEndpoints($this->config->getEndpoints()->toProtobuf());
 
         $startTime = microtime(true);
         [$response, $status] = $this->getClient()->QueryRoute($request)->wait();

@@ -587,9 +587,10 @@ class Producer implements ProducerInterface
         $response = $this->routeCache->getOrCreate($this->topic, function() {
             $qr = new QueryRouteRequest();
             $rs = new Resource();
-            $rs->setResourceNamespace('');
+            $rs->setResourceNamespace($this->config->getNamespace());
             $rs->setName($this->topic);
             $qr->setTopic($rs);
+            $qr->setEndpoints($this->config->getEndpoints()->toProtobuf());
             
             list($response, $status) = $this->getClient()->QueryRoute($qr)->wait();
             
@@ -640,9 +641,10 @@ class Producer implements ProducerInterface
     {
         $qr = new QueryRouteRequest();
         $rs = new Resource();
-        $rs->setResourceNamespace('');
+        $rs->setResourceNamespace($this->config->getNamespace());
         $rs->setName($this->topic);
         $qr->setTopic($rs);
+        $qr->setEndpoints($this->config->getEndpoints()->toProtobuf());
         
         list($response, $status) = $this->getClient()->QueryRoute($qr)->wait();
         
