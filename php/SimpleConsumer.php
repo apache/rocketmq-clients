@@ -287,6 +287,12 @@ class SimpleConsumer
                         $this->clientId,
                         count($this->subscriptionExpressions)
                     ]);
+                                        
+                    // Wait for server to process settings before starting background timers
+                    usleep(500000); // 500ms
+                    Logger::debug("Waited 500ms for server to process initial settings, clientId={}", [
+                        $this->clientId
+                    ]);
                 } catch (\Throwable $e) {
                     Logger::warn("Failed to sync initial settings after startup, clientId={}, error={}", [
                         $this->clientId,
@@ -702,7 +708,57 @@ class SimpleConsumer
             ]);
             
             if ($isReadable && $isMaster) {
-                $queues[] = $mq;
+                // Ensure broker has endpoints set
+                $broker = $mq->getBroker();
+                
+                if ($broker !== null) {
+                    $existingEndpoints = $broker->getEndpoints();
+                    // Check if endpoints exist and has addresses
+                    $hasExistingEndpoints = ($existingEndpoints !== null && 
+                                            method_exists($existingEndpoints, 'getAddresses') && 
+                                            count($existingEndpoints->getAddresses()) > 0);
+                    
+                    // If broker doesn't have endpoints, try to set from client config
+                    if (!$hasExistingEndpoints) {
+                        Logger::warn("Broker has no endpoints, attempting to set from client config, topic={}, brokerId={}, clientId={}", [
+                            $topic,
+                            $brokerId,
+                            $this->clientId
+                        ]);
+                        
+                        $proxyEndpoints = $this->config->getEndpointsAsProtobuf();
+                        if ($proxyEndpoints !== null) {
+                            $broker->setEndpoints($proxyEndpoints);
+                            Logger::info("Set broker endpoints from client config, topic={}, brokerId={}, clientId={}", [
+                                $topic,
+                                $brokerId,
+                                $this->clientId
+                            ]);
+                        } else {
+                            Logger::warn("Client config also has no endpoints, skipping queue, topic={}, brokerId={}, clientId={}", [
+                                $topic,
+                                $brokerId,
+                                $this->clientId
+                            ]);
+                            continue;
+                        }
+                    } else {
+                        Logger::debug("Broker endpoints verified, topic={}, brokerId={}, addressCount={}, clientId={}", [
+                            $topic,
+                            $brokerId,
+                            count($existingEndpoints->getAddresses()),
+                            $this->clientId
+                        ]);
+                    }
+                    
+                    $queues[] = $mq;
+                } else {
+                    Logger::warn("Broker is null, skipping queue, topic={}, queueId={}, clientId={}", [
+                        $topic,
+                        $mq->getId(),
+                        $this->clientId
+                    ]);
+                }
             }
         }
 
