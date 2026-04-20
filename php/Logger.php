@@ -81,6 +81,10 @@ class Logger {
      * @return void
      */
     public static function init($logFile = null, $enabled = true, $minLevel = self::DEBUG) {
+        // Enable detailed gRPC logging by default
+        putenv('GRPC_VERBOSITY=DEBUG');
+        putenv('GRPC_TRACE=all');
+        
         // Set default log file to user's home directory
         if ($logFile === null) {
             $homeDir = getenv('HOME');

@@ -67,6 +67,10 @@ class ConnectionPool {
      * Private constructor
      */
     private function __construct() {
+        // Enable detailed gRPC logging for debugging
+        putenv('GRPC_VERBOSITY=DEBUG');
+        putenv('GRPC_TRACE=all');
+        
         // Initialize metrics collector
         $this->metricsCollector = new MetricsCollector('connection_pool');
         
@@ -284,6 +288,10 @@ class ConnectionPool {
                 return $metaData;
             },
             'timeout' => $this->config['connection_timeout'] * 1000, // Convert to milliseconds
+            
+            // Enable gRPC logging and tracing
+            'grpc.log_verbosity' => GRPC_LOG_DEBUG,
+            'grpc.trace' => 'all',
         ];
         
         return new MessagingServiceClient($clientConfig->getEndpoints(), $options);
