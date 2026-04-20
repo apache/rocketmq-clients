@@ -1223,12 +1223,12 @@ class SimpleConsumer
             $mqNamespace = $mq->getTopic()->getResourceNamespace() ?? 'empty';
             $mqBroker = $mq->getBroker()->getName() ?? 'unknown';
             $mqBrokerId = $mq->getBroker()->getId();
-            $mqQueueId = $mq->getQueueId();
+            $mqQueueId = $mq->getId();
             $mqPermission = \Apache\Rocketmq\V2\Permission::name($mq->getPermission());
             
             Logger::info("MessageQueue details - topic={}, namespace={}, broker={}, brokerId={}, queueId={}, permission={}, clientId={}", [
                 $mqTopicName,
-                $mqNamespace,
+                $mqNamespace ?: '(empty)',
                 $mqBroker,
                 $mqBrokerId,
                 $mqQueueId,
@@ -1236,7 +1236,10 @@ class SimpleConsumer
                 $this->clientId
             ]);
         } catch (\Throwable $e) {
-            // Ignore logging errors
+            Logger::warn("Failed to log MessageQueue details, error={}, clientId={}", [
+                $e->getMessage(),
+                $this->clientId
+            ]);
         }
 
         $mqTopic = $mq->getTopic();
