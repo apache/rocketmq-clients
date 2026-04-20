@@ -279,6 +279,27 @@ class SimpleConsumer
             // Initialize and start telemetry session
             $this->initializeTelemetrySession();
             
+            // Sync initial settings to server after telemetry session is ready (only if has subscriptions)
+            if ($this->telemetrySession && !empty($this->subscriptionExpressions)) {
+                try {
+                    $this->syncSettings();
+                    Logger::info("Initial settings synced after startup, clientId={}, subscriptionCount={}", [
+                        $this->clientId,
+                        count($this->subscriptionExpressions)
+                    ]);
+                } catch (\Throwable $e) {
+                    Logger::warn("Failed to sync initial settings after startup, clientId={}, error={}", [
+                        $this->clientId,
+                        $e->getMessage()
+                    ]);
+                    // Don't throw - consumer should still start even if initial sync fails
+                }
+            } elseif ($this->telemetrySession) {
+                Logger::debug("Skipping initial settings sync - no subscriptions configured, clientId={}", [
+                    $this->clientId
+                ]);
+            }
+            
             // Start background timers for heartbeat and settings sync
             $this->startBackgroundTimers();
             
