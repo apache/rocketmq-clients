@@ -158,6 +158,7 @@ class RouteManager
 
         $request = new QueryRouteRequest();
         $topicResource = new Resource();
+        $topicResource->setResourceNamespace($this->config->getNamespace());
         $topicResource->setName($topic);
         $request->setInfo($topicResource);
         $request->setEndpoints($this->config->getEndpoints()->toProtobuf());
