@@ -296,6 +296,72 @@ class ClientConfiguration
     }
     
     /**
+     * Convert endpoints string to Protobuf Endpoints object
+     * 
+     * References Java Endpoints(String) constructor implementation
+     * Parses endpoints string and creates Protobuf Endpoints object
+     * 
+     * @return \Apache\Rocketmq\V2\Endpoints Protobuf Endpoints object
+     */
+    public function getEndpointsAsProtobuf()
+    {
+        // Remove http:// or https:// prefix
+        $endpoints = preg_replace('#^https?://#', '', $this->endpoints);
+        $endpoints = trim($endpoints);
+        
+        // Split multiple endpoints by semicolon
+        $endpointParts = explode(';', $endpoints);
+        
+        $addresses = [];
+        $scheme = null;
+        
+        foreach ($endpointParts as $part) {
+            $part = trim($part);
+            if ($part === '') {
+                continue;
+            }
+            
+            // Parse host:port
+            $lastColonPos = strrpos($part, ':');
+            if ($lastColonPos === false) {
+                // No port specified, use default port 80
+                $host = $part;
+                $port = 80;
+            } else {
+                $host = substr($part, 0, $lastColonPos);
+                $port = intval(substr($part, $lastColonPos + 1));
+            }
+            
+            // Determine scheme based on host format
+            if ($scheme === null) {
+                if (preg_match('/^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/', $host)) {
+                    // IPv4
+                    $scheme = \Apache\Rocketmq\V2\AddressScheme::IPv4;
+                } elseif (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    // IPv6
+                    $scheme = \Apache\Rocketmq\V2\AddressScheme::IPv6;
+                } else {
+                    // Domain name
+                    $scheme = \Apache\Rocketmq\V2\AddressScheme::DOMAIN_NAME;
+                }
+            }
+            
+            // Create Address protobuf object
+            $address = new \Apache\Rocketmq\V2\Address();
+            $address->setHost($host);
+            $address->setPort($port);
+            $addresses[] = $address;
+        }
+        
+        // Create Endpoints protobuf object
+        $endpointsObj = new \Apache\Rocketmq\V2\Endpoints();
+        $endpointsObj->setScheme($scheme !== null ? $scheme : \Apache\Rocketmq\V2\AddressScheme::DOMAIN_NAME);
+        $endpointsObj->setAddresses($addresses);
+        
+        return $endpointsObj;
+    }
+    
+    /**
      * Get namespace
      * 
      * @return string Namespace

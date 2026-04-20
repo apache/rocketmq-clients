@@ -590,7 +590,7 @@ class Producer implements ProducerInterface
             $rs->setResourceNamespace($this->config->getNamespace());
             $rs->setName($this->topic);
             $qr->setTopic($rs);
-            $qr->setEndpoints($this->config->getEndpoints()->toProtobuf());
+            $qr->setEndpoints($this->config->getEndpointsAsProtobuf());
             
             list($response, $status) = $this->getClient()->QueryRoute($qr)->wait();
             
@@ -644,7 +644,7 @@ class Producer implements ProducerInterface
         $rs->setResourceNamespace($this->config->getNamespace());
         $rs->setName($this->topic);
         $qr->setTopic($rs);
-        $qr->setEndpoints($this->config->getEndpoints()->toProtobuf());
+        $qr->setEndpoints($this->config->getEndpointsAsProtobuf());
         
         list($response, $status) = $this->getClient()->QueryRoute($qr)->wait();
         

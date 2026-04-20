@@ -161,7 +161,7 @@ class RouteManager
         $topicResource->setResourceNamespace($this->config->getNamespace());
         $topicResource->setName($topic);
         $request->setInfo($topicResource);
-        $request->setEndpoints($this->config->getEndpoints()->toProtobuf());
+        $request->setEndpoints($this->config->getEndpointsAsProtobuf());
 
         $pool = ConnectionPool::getInstance();
         $pool->setConfigFromClientConfiguration($this->config);
