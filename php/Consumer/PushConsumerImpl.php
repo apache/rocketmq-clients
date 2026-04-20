@@ -426,7 +426,14 @@ class PushConsumerImpl implements PushConsumer
             }
 
             if ($pq->expired()) {
-                Logger::warn("Drop message queue because it is expired, topic={$topic}, mq={$key}, clientId={$this->clientId}");
+                // Log detailed MessageQueue info for expired queue (aligned with Java)
+                $mqDesc = 'unknown';
+                try {
+                    $mqDesc = $this->getMessageQueueDescription($pq->getMessageQueue());
+                } catch (\Throwable $e) {
+                    // Ignore
+                }
+                Logger::warn("Drop message queue because it is expired, topic={$topic}, mq={$mqDesc}, key={$key}, clientId={$this->clientId}");
                 $this->dropProcessQueue($key);
                 continue;
             }
@@ -440,7 +447,14 @@ class PushConsumerImpl implements PushConsumer
                 continue;
             }
 
-            Logger::info("Start to fetch message from remote, topic={$topic}, mq={$key}, clientId={$this->clientId}");
+            // Log detailed MessageQueue info for new queue (aligned with Java)
+            $mqDesc = 'unknown';
+            try {
+                $mqDesc = $this->getMessageQueueDescription($mq);
+            } catch (\Throwable $e) {
+                // Ignore
+            }
+            Logger::info("Start to fetch message from remote, topic={$topic}, mq={$mqDesc}, key={$key}, clientId={$this->clientId}");
             $processQueue = $this->createProcessQueue($mq, $filterExpression);
             if ($processQueue !== null) {
                 $processQueue->fetchMessageImmediately();
@@ -481,12 +495,71 @@ class PushConsumerImpl implements PushConsumer
         }
     }
 
+    /**
+     * Generate unique key for MessageQueue
+     * 
+     * Format: topic@broker:id (aligned with Java)
+     * Used as map key in processQueueTable.
+     * 
+     * @param MessageQueue $mq Message queue object
+     * @return string Unique key
+     */
     private function getMessageQueueKey(MessageQueue $mq): string
     {
         $topic = $mq->getTopic()->getName();
-        $broker = $mq->getBroker()->getName() ?? '';
-        $id = $mq->getId() ?? 0;
+        $broker = $mq->getBroker()->getName() ?? 'unknown';
+        $id = $mq->getId() ?? -1;
         return "{$topic}@{$broker}:{$id}";
+    }
+
+    /**
+     * Get detailed MessageQueue description for logging
+     * 
+     * Includes topic, namespace, broker name, queue ID, and endpoints.
+     * Aligned with Java MessageQueueImpl.toString() format.
+     * 
+     * @param MessageQueue $mq Message queue object
+     * @return string Detailed queue description
+     */
+    private function getMessageQueueDescription(MessageQueue $mq): string
+    {
+        try {
+            $topic = $mq->getTopic()->getName();
+            $topicNamespace = $mq->getTopic()->getResourceNamespace() ?? '';
+            $broker = $mq->getBroker()->getName() ?? 'unknown';
+            $id = $mq->getId() ?? -1;
+            
+            // Get broker endpoints if available
+            $endpointsStr = 'unknown';
+            try {
+                $endpoints = $mq->getBroker()->getEndpoints();
+                if ($endpoints !== null) {
+                    $addresses = $endpoints->getAddresses();
+                    if (!empty($addresses)) {
+                        $endpointList = [];
+                        foreach ($addresses as $addr) {
+                            $host = $addr->getHost() ?? 'unknown';
+                            $port = $addr->getPort() ?? 0;
+                            $endpointList[] = "{$host}:{$port}";
+                        }
+                        $endpointsStr = implode(',', $endpointList);
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore endpoint retrieval errors
+            }
+            
+            return sprintf(
+                "MessageQueue{topic=%s, namespace=%s, broker=%s, id=%d, endpoints=[%s]}",
+                $topic,
+                $topicNamespace,
+                $broker,
+                $id,
+                $endpointsStr
+            );
+        } catch (\Throwable $e) {
+            return 'MessageQueue{unknown}';
+        }
     }
 
     /**

@@ -1055,6 +1055,54 @@ class SimpleConsumer
         // Get message queue from route query for selected topic
         // Aligned with Java SimpleConsumerImpl: route query -> load balancer -> takeMessageQueue
         $mq = $this->takeMessageQueueForTopic($selectedTopic);
+        
+        // Log detailed MessageQueue info (aligned with Java)
+        try {
+            $topic = $mq->getTopic()->getName();
+            $topicNamespace = $mq->getTopic()->getResourceNamespace() ?? '';
+            $broker = $mq->getBroker()->getName() ?? 'unknown';
+            $id = $mq->getId() ?? -1;
+            
+            // Get broker endpoints if available
+            $endpointsStr = 'unknown';
+            try {
+                $endpoints = $mq->getBroker()->getEndpoints();
+                if ($endpoints !== null) {
+                    $addresses = $endpoints->getAddresses();
+                    if (!empty($addresses)) {
+                        $endpointList = [];
+                        foreach ($addresses as $addr) {
+                            $host = $addr->getHost() ?? 'unknown';
+                            $port = $addr->getPort() ?? 0;
+                            $endpointList[] = "{$host}:{$port}";
+                        }
+                        $endpointsStr = implode(',', $endpointList);
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore endpoint retrieval errors
+            }
+            
+            $mqDesc = sprintf(
+                "MessageQueue{topic=%s, namespace=%s, broker=%s, id=%d, endpoints=[%s]}",
+                $topic,
+                $topicNamespace,
+                $broker,
+                $id,
+                $endpointsStr
+            );
+            
+            Logger::info("Selected message queue for receive, mq={}, clientId={}", [
+                $mqDesc,
+                $this->clientId
+            ]);
+        } catch (\Throwable $e) {
+            Logger::debug("Selected message queue for receive, topic={}, clientId={}", [
+                $selectedTopic,
+                $this->clientId
+            ]);
+        }
+        
         $mqTopic = $mq->getTopic();
         if ($mqTopic !== null && empty($mqTopic->getResourceNamespace())) {
             $mqTopic->setResourceNamespace($this->config->getNamespace());

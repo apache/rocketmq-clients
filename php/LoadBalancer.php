@@ -170,10 +170,19 @@ class LeastActiveStrategy implements LoadBalancerStrategy {
         }
     }
 
+    /**
+     * Generate unique key for MessageQueue
+     * 
+     * Format: topic:broker:queueId
+     * Used to track active message queues per consumer.
+     * 
+     * @param MessageQueue $messageQueue Message queue object
+     * @return string Unique key
+     */
     private function getMessageQueueKey(MessageQueue $messageQueue): string {
         $topic = $messageQueue->getTopic()->getName();
-        $broker = $messageQueue->getBroker()->getName();
-        $queueId = $messageQueue->getId();
+        $broker = $messageQueue->getBroker()->getName() ?? 'unknown';
+        $queueId = $messageQueue->getId() ?? -1;
         return "{$topic}:{$broker}:{$queueId}";
     }
 

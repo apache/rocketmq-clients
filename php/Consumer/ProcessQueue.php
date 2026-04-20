@@ -456,15 +456,52 @@ class ProcessQueue
         ));
     }
 
+    /**
+     * Get detailed queue description for logging
+     * 
+     * Includes topic, broker name, queue ID, and broker endpoints.
+     * Aligned with Java MessageQueueImpl.toString() format.
+     * 
+     * @return string Formatted queue description
+     */
     private function getQueueDescription(): string
     {
         try {
             $topic = $this->messageQueue->getTopic()->getName();
-            $broker = $this->messageQueue->getBroker()->getName();
-            $id = $this->messageQueue->getId();
-            return "topic={$topic}, broker={$broker}, id={$id}";
+            $topicNamespace = $this->messageQueue->getTopic()->getResourceNamespace() ?? '';
+            $broker = $this->messageQueue->getBroker()->getName() ?? 'unknown';
+            $id = $this->messageQueue->getId() ?? -1;
+            
+            // Get broker endpoints if available
+            $endpointsStr = 'unknown';
+            try {
+                $endpoints = $this->messageQueue->getBroker()->getEndpoints();
+                if ($endpoints !== null) {
+                    $addresses = $endpoints->getAddresses();
+                    if (!empty($addresses)) {
+                        $endpointList = [];
+                        foreach ($addresses as $addr) {
+                            $host = $addr->getHost() ?? 'unknown';
+                            $port = $addr->getPort() ?? 0;
+                            $endpointList[] = "{$host}:{$port}";
+                        }
+                        $endpointsStr = implode(',', $endpointList);
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore endpoint retrieval errors
+            }
+            
+            return sprintf(
+                "MessageQueue{topic=%s, namespace=%s, broker=%s, id=%d, endpoints=[%s]}",
+                $topic,
+                $topicNamespace,
+                $broker,
+                $id,
+                $endpointsStr
+            );
         } catch (\Throwable $e) {
-            return 'unknown';
+            return 'MessageQueue{unknown}';
         }
     }
 }
