@@ -49,7 +49,10 @@ class Broker
     {
         $this->name = $broker->getName();
         $this->id = $broker->getId();
-        $this->endpoints = new Endpoints($broker->getEndpoints());
+        
+        // Create Endpoints object from Protobuf
+        $this->endpoints = new Endpoints();
+        $this->endpoints->__constructFromProtobuf($broker->getEndpoints());
     }
     
     /**

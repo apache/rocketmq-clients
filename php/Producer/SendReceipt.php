@@ -55,12 +55,14 @@ class SendReceipt {
     private $recallHandle;
     
     /**
-     * @var mixed Endpoints (broker address for transaction commit/rollback)
+     * @var \Apache\Rocketmq\Route\MessageQueue Message queue with broker information
      */
-    private $endpoints;
+    private $messageQueue;
     
     /**
      * Constructor
+     * 
+     * Aligned with Java SendReceiptImpl constructor.
      * 
      * @param string $messageId Message ID
      * @param string $topic Topic
@@ -68,7 +70,7 @@ class SendReceipt {
      * @param int $offset Offset
      * @param string|null $transactionId Transaction ID (for transaction messages)
      * @param string|null $recallHandle Recall handle (for message recall)
-     * @param mixed $endpoints Endpoints (broker address)
+     * @param \Apache\Rocketmq\Route\MessageQueue $messageQueue Message queue with broker information
      */
     public function __construct(
         string $messageId, 
@@ -77,7 +79,7 @@ class SendReceipt {
         int $offset,
         ?string $transactionId = null,
         ?string $recallHandle = null,
-        $endpoints = null
+        \Apache\Rocketmq\Route\MessageQueue $messageQueue = null
     ) {
         $this->messageId = $messageId;
         $this->topic = $topic;
@@ -85,7 +87,7 @@ class SendReceipt {
         $this->offset = $offset;
         $this->transactionId = $transactionId;
         $this->recallHandle = $recallHandle;
-        $this->endpoints = $endpoints;
+        $this->messageQueue = $messageQueue;
     }
     
     /**
@@ -143,12 +145,25 @@ class SendReceipt {
     }
     
     /**
-     * Get endpoints
+     * Get endpoints from message queue's broker
      * 
-     * @return mixed Endpoints (broker address for transaction operations)
+     * Aligned with Java: messageQueue.getBroker().getEndpoints()
+     * 
+     * @return \Apache\Rocketmq\Route\Endpoints|null Endpoints object or null if messageQueue not set
      */
-    public function getEndpoints() {
-        return $this->endpoints;
+    public function getEndpoints(): ?\Apache\Rocketmq\Route\Endpoints
+    {
+        return $this->messageQueue !== null ? $this->messageQueue->getBroker()->getEndpoints() : null;
+    }
+    
+    /**
+     * Get message queue
+     * 
+     * @return \Apache\Rocketmq\Route\MessageQueue|null Message queue or null if not set
+     */
+    public function getMessageQueue(): ?\Apache\Rocketmq\Route\MessageQueue
+    {
+        return $this->messageQueue;
     }
     
     /**

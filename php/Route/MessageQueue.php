@@ -69,7 +69,7 @@ class MessageQueue
         $this->permission = Permission::fromProtobuf($perm);
         
         $this->acceptMessageTypes = [];
-        foreach ($messageQueue->getAcceptMessageTypesList() as $type) {
+        foreach ($messageQueue->getAcceptMessageTypes() as $type) {
             $this->acceptMessageTypes[] = $type;
         }
         

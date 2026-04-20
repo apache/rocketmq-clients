@@ -1726,11 +1726,27 @@ class Producer implements ProducerInterface
                 }
             }
             
-            // Get current client's endpoints for transaction commit/rollback
-            // This ensures we send commit/rollback to the same broker that handled the half message
-            $endpoints = $this->config->getEndpoints();
+            // Select a message queue from load balancer for this send operation
+            // Aligned with Java: select MessageQueue and pass it to SendReceipt
+            $messageQueue = null;
+            if ($this->publishingLoadBalancer !== null) {
+                try {
+                    // Select one candidate queue (with isolation support)
+                    $candidates = $this->publishingLoadBalancer->takeMessageQueues(1, []);
+                    if (!empty($candidates)) {
+                        $messageQueue = $candidates[0];
+                        Logger::debug("Selected message queue for send, topic={}, broker={}, queueId={}", [
+                            $this->topic,
+                            $messageQueue->getBroker()->getName(),
+                            $messageQueue->getQueueId()
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    Logger::warn("Failed to select message queue, will use default, error={}", [$e->getMessage()]);
+                }
+            }
             
-            // Create send receipt with transaction support
+            // Create send receipt with message queue (aligned with Java)
             $sendReceipt = new SendReceipt(
                 $messageId, 
                 $topic, 
@@ -1738,7 +1754,7 @@ class Producer implements ProducerInterface
                 $offset,
                 $transactionId,
                 $recallHandle,
-                $endpoints  // Pass endpoints for transaction operations
+                $messageQueue  // Pass MessageQueue object instead of endpoints string
             );
             
             // Record success metrics
