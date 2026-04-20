@@ -48,8 +48,12 @@ class AsyncTelemetrySession
     private $clientId;
     private $consumerGroup;
     private $topic;
+    private $namespace;
     private $clientType;
     private $longPollingTimeout;
+    
+    /** @var array<string, \Apache\Rocketmq\Consumer\FilterExpression> Subscription expressions */
+    private $subscriptionExpressions = [];
     
     private $streamCall = null;
     private $isActive = false;
@@ -66,9 +70,10 @@ class AsyncTelemetrySession
      * @param BaseStub $client gRPC client
      * @param string $clientId Client ID
      * @param string $consumerGroup Consumer group name
-     * @param string $topic Topic name
+     * @param string $topic Topic name (for backward compatibility)
      * @param int $clientType Client type constant
      * @param int $longPollingTimeout Long polling timeout in seconds
+     * @param string $namespace Namespace (optional, defaults to empty)
      */
     public function __construct(
         BaseStub $client,
@@ -76,7 +81,8 @@ class AsyncTelemetrySession
         string $consumerGroup,
         string $topic,
         int $clientType,
-        int $longPollingTimeout = 30
+        int $longPollingTimeout = 30,
+        string $namespace = ''
     ) {
         if (!extension_loaded('swoole')) {
             throw new \RuntimeException(
@@ -89,6 +95,7 @@ class AsyncTelemetrySession
         $this->clientId = $clientId;
         $this->consumerGroup = $consumerGroup;
         $this->topic = $topic;
+        $this->namespace = $namespace;
         $this->clientType = $clientType;
         $this->longPollingTimeout = $longPollingTimeout;
     }
@@ -205,36 +212,132 @@ class AsyncTelemetrySession
     }
     
     /**
-     * Build Settings object
+     * Build Settings object (aligned with Java SimpleSubscriptionSettings.toProtobuf())
      * 
+     * @param array $subscriptionExpressions Topic -> FilterExpression map
      * @return \Apache\Rocketmq\V2\Settings
      */
-    private function buildSettings(): \Apache\Rocketmq\V2\Settings
+    private function buildSettings(array $subscriptionExpressions = []): \Apache\Rocketmq\V2\Settings
     {
         $settings = new \Apache\Rocketmq\V2\Settings();
         $settings->setClientType($this->clientType);
         
+        // Set user agent
+        $userAgent = new \Apache\Rocketmq\V2\UserAgent();
+        $userAgent->setLanguage('PHP');
+        $userAgent->setVersion(\Apache\Rocketmq\Util::getSdkVersion());
+        $settings->setUserAgent($userAgent);
+        
         // Build subscription
         $subscription = new \Apache\Rocketmq\V2\Subscription();
         
+        // Set group with namespace ✅
         $group = new \Apache\Rocketmq\V2\Resource();
+        $group->setResourceNamespace($this->namespace);  // 设置 namespace
         $group->setName($this->consumerGroup);
         $subscription->setGroup($group);
         
+        // Set long polling timeout
         $longPollingDuration = new \Google\Protobuf\Duration();
         $longPollingDuration->setSeconds($this->longPollingTimeout);
         $subscription->setLongPollingTimeout($longPollingDuration);
         
-        // Add subscription entry for the topic
-        $entry = new \Apache\Rocketmq\V2\SubscriptionEntry();
-        $topicResource = new \Apache\Rocketmq\V2\Resource();
-        $topicResource->setName($this->topic);
-        $entry->setTopic($topicResource);
+        // Build subscription entries from subscription expressions ✅
+        $subscriptionEntries = [];
+        if (!empty($subscriptionExpressions)) {
+            foreach ($subscriptionExpressions as $topic => $filterExpression) {
+                // Create topic resource with namespace ✅
+                $topicResource = new \Apache\Rocketmq\V2\Resource();
+                $topicResource->setResourceNamespace($this->namespace);  // 设置 namespace
+                $topicResource->setName($topic);
+                
+                // Create filter expression ✅
+                $v2FilterExpression = new \Apache\Rocketmq\V2\FilterExpression();
+                $v2FilterExpression->setExpression($filterExpression->getExpression());
+                
+                // Set filter type ✅
+                $filterType = $filterExpression->getType();
+                if ($filterType === \Apache\Rocketmq\Consumer\FilterExpressionType::SQL92) {
+                    $v2FilterExpression->setType(\Apache\Rocketmq\V2\FilterType::SQL);
+                } else {
+                    $v2FilterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);
+                }
+                
+                // Create subscription entry
+                $entry = new \Apache\Rocketmq\V2\SubscriptionEntry();
+                $entry->setTopic($topicResource);
+                $entry->setExpression($v2FilterExpression);
+                
+                $subscriptionEntries[] = $entry;
+            }
+        } else {
+            // Fallback: use single topic (backward compatibility)
+            $entry = new \Apache\Rocketmq\V2\SubscriptionEntry();
+            $topicResource = new \Apache\Rocketmq\V2\Resource();
+            $topicResource->setResourceNamespace($this->namespace);
+            $topicResource->setName($this->topic);
+            $entry->setTopic($topicResource);
+            
+            $subscriptionEntries[] = $entry;
+        }
         
-        $subscription->setSubscriptions([$entry]);
+        $subscription->setSubscriptions($subscriptionEntries);
         $settings->setSubscription($subscription);
         
         return $settings;
+    }
+    
+    /**
+     * Resend settings with updated subscription expressions
+     * This method can be called when subscriptions change (subscribe/unsubscribe)
+     * 
+     * @param array $subscriptionExpressions Topic -> FilterExpression map
+     * @return void
+     */
+    public function resendSettings(array $subscriptionExpressions = []): void
+    {
+        if (!$this->isActive || !$this->streamCall) {
+            Logger::warn("Cannot resend settings, session is not active, clientId={$this->clientId}");
+            return;
+        }
+        
+        // Update internal subscription expressions
+        if (!empty($subscriptionExpressions)) {
+            $this->subscriptionExpressions = $subscriptionExpressions;
+        }
+        
+        try {
+            // Build settings with current subscriptions
+            $settings = $this->buildSettings($this->subscriptionExpressions);
+            
+            // Create telemetry command
+            $command = new \Apache\Rocketmq\V2\TelemetryCommand();
+            $command->setSettings($settings);
+            
+            // Write to stream
+            $this->streamCall->write($command);
+            
+            Logger::info("Settings resent via async stream, clientId={}, subscriptionCount={}", [
+                $this->clientId,
+                count($this->subscriptionExpressions)
+            ]);
+        } catch (\Throwable $e) {
+            Logger::error("Failed to resend settings, clientId={$this->clientId}, error={$e->getMessage()}");
+            throw $e;
+        }
+    }
+    
+    /**
+     * Update subscription expressions and resend settings
+     * Convenience method that combines updating and resending
+     * 
+     * @param array $subscriptionExpressions Topic -> FilterExpression map
+     * @return void
+     */
+    public function updateSubscriptions(array $subscriptionExpressions): void
+    {
+        $this->subscriptionExpressions = $subscriptionExpressions;
+        $this->resendSettings($subscriptionExpressions);
     }
     
     /**

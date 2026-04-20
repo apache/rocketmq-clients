@@ -35,7 +35,8 @@ use Apache\Rocketmq\Util;
 use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\AckMessageRequest;
 use Apache\Rocketmq\V2\HeartbeatRequest;
-use Apache\Rocketmq\V2\MessageQueue;
+use Apache\Rocketmq\V2\MessageQueue as V2MessageQueue;
+use Apache\Rocketmq\Route\MessageQueue;
 use Apache\Rocketmq\V2\MessageType;
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -342,6 +343,25 @@ class SimpleConsumer
             ]);
         }
         
+        // Sync settings to server if consumer is running (aligned with Java)
+        // This notifies the server about the new subscription
+        if ($this->state === 'RUNNING') {
+            try {
+                $this->syncSettings();
+                Logger::info("Settings synced after subscribe, topic={}, clientId={}", [
+                    $topic,
+                    $this->clientId
+                ]);
+            } catch (\Throwable $e) {
+                Logger::warn("Failed to sync settings after subscribe, topic={}, clientId={}, error={}", [
+                    $topic,
+                    $this->clientId,
+                    $e->getMessage()
+                ]);
+                // Don't throw - subscription should still succeed even if sync fails
+            }
+        }
+        
         Logger::info("Subscribed topic with filter expression, topic={}, expression={}, type={}, clientId={}", [
             $topic, $filterExpression->getExpression(), $filterExpression->getType()->value(), $this->clientId
         ]);
@@ -375,6 +395,25 @@ class SimpleConsumer
                 $topic,
                 $this->clientId
             ]);
+        }
+        
+        // Sync settings to server if consumer is running (aligned with Java)
+        // This notifies the server about the removed subscription
+        if ($this->state === 'RUNNING') {
+            try {
+                $this->syncSettings();
+                Logger::info("Settings synced after unsubscribe, topic={}, clientId={}", [
+                    $topic,
+                    $this->clientId
+                ]);
+            } catch (\Throwable $e) {
+                Logger::warn("Failed to sync settings after unsubscribe, topic={}, clientId={}, error={}", [
+                    $topic,
+                    $this->clientId,
+                    $e->getMessage()
+                ]);
+                // Don't throw - unsubscription should still succeed even if sync fails
+            }
         }
         
         Logger::info("Unsubscribed topic, topic={}, clientId={}", [$topic, $this->clientId]);
@@ -902,10 +941,87 @@ class SimpleConsumer
             return;
         }
         
-        // For Swoole async session, it handles sync automatically
-        // For sync session, we would need to send Settings via Telemetry stream
-        // This is a placeholder for future implementation
-        Logger::info("Settings sync requested (not yet implemented for sync mode), clientId={}", [$this->clientId]);
+        // Build current settings with subscriptions
+        $settings = $this->buildCurrentSettings();
+        
+        // Send settings via telemetry session
+        $this->telemetrySession->sendSettings($settings);
+        
+        Logger::debug("Settings synced successfully, clientId={}, subscriptionCount={}", [
+            $this->clientId,
+            count($this->subscriptionExpressions)
+        ]);
+    }
+    
+    /**
+     * Build current settings with subscriptions (aligned with Java SimpleSubscriptionSettings.toProtobuf())
+     * 
+     * @return \Apache\Rocketmq\V2\Settings Settings object
+     */
+    private function buildCurrentSettings(): \Apache\Rocketmq\V2\Settings
+    {
+        $settings = new \Apache\Rocketmq\V2\Settings();
+        
+        // Set client type
+        $settings->setClientType(\Apache\Rocketmq\V2\ClientType::SIMPLE_CONSUMER);
+        
+        // Set user agent
+        $userAgent = new \Apache\Rocketmq\V2\UserAgent();
+        $userAgent->setLanguage('PHP');
+        $userAgent->setVersion(Util::getSdkVersion());
+        $settings->setUserAgent($userAgent);
+        
+        // Set request timeout
+        $requestTimeout = new \Google\Protobuf\Duration();
+        $requestTimeout->setSeconds($this->config->getRequestTimeout());
+        $settings->setRequestTimeout($requestTimeout);
+        
+        // Build subscription
+        $subscription = new \Apache\Rocketmq\V2\Subscription();
+        
+        // Set group with namespace
+        $group = new \Apache\Rocketmq\V2\Resource();
+        $group->setResourceNamespace($this->config->getNamespace());
+        $group->setName($this->consumerGroup);
+        $subscription->setGroup($group);
+        
+        // Set long polling timeout
+        $longPollingTimeout = new \Google\Protobuf\Duration();
+        $longPollingTimeout->setSeconds($this->awaitDuration);
+        $subscription->setLongPollingTimeout($longPollingTimeout);
+        
+        // Build subscription entries from subscription expressions
+        $subscriptionEntries = [];
+        foreach ($this->subscriptionExpressions as $topic => $filterExpression) {
+            // Create topic resource with namespace
+            $topicResource = new \Apache\Rocketmq\V2\Resource();
+            $topicResource->setResourceNamespace($this->config->getNamespace());
+            $topicResource->setName($topic);
+            
+            // Create filter expression
+            $v2FilterExpression = new \Apache\Rocketmq\V2\FilterExpression();
+            $v2FilterExpression->setExpression($filterExpression->getExpression());
+            
+            // Set filter type
+            $filterType = $filterExpression->getType();
+            if ($filterType === FilterExpressionType::SQL92) {
+                $v2FilterExpression->setType(\Apache\Rocketmq\V2\FilterType::SQL);
+            } else {
+                $v2FilterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);
+            }
+            
+            // Create subscription entry
+            $entry = new \Apache\Rocketmq\V2\SubscriptionEntry();
+            $entry->setTopic($topicResource);
+            $entry->setExpression($v2FilterExpression);
+            
+            $subscriptionEntries[] = $entry;
+        }
+        
+        $subscription->setSubscriptions($subscriptionEntries);
+        $settings->setSubscription($subscription);
+        
+        return $settings;
     }
     
     /**
@@ -1058,10 +1174,9 @@ class SimpleConsumer
         
         // Log detailed MessageQueue info (aligned with Java)
         try {
-            $topic = $mq->getTopic()->getName();
-            $topicNamespace = $mq->getTopic()->getResourceNamespace() ?? '';
+            $topic = $mq->getTopic();
             $broker = $mq->getBroker()->getName() ?? 'unknown';
-            $id = $mq->getId() ?? -1;
+            $id = $mq->getQueueId();
             
             // Get broker endpoints if available
             $endpointsStr = 'unknown';
@@ -1086,7 +1201,7 @@ class SimpleConsumer
             $mqDesc = sprintf(
                 "MessageQueue{topic=%s, namespace=%s, broker=%s, id=%d, endpoints=[%s]}",
                 $topic,
-                $topicNamespace,
+                $this->config->getNamespace(),
                 $broker,
                 $id,
                 $endpointsStr
@@ -1103,11 +1218,12 @@ class SimpleConsumer
             ]);
         }
         
-        $mqTopic = $mq->getTopic();
+        $protobufMq = $mq->toProtobuf();
+        $mqTopic = $protobufMq->getTopic();
         if ($mqTopic !== null && empty($mqTopic->getResourceNamespace())) {
             $mqTopic->setResourceNamespace($this->config->getNamespace());
         }
-        $request->setMessageQueue($mq);
+        $request->setMessageQueue($protobufMq);
         
         // Set filter expression from subscription (required - missing this causes server NPE)
         // Aligned with Java SimpleConsumerImpl: filterExpression = subscriptionExpressions.get(topic)
@@ -1365,7 +1481,8 @@ class SimpleConsumer
             (new \Google\Protobuf\Duration())->setSeconds($durationSeconds)
         );
         
-        $mq = new MessageQueue();
+        // Create V2\MessageQueue for request (Protobuf object)
+        $mq = new V2MessageQueue();
         $resource = new Resource();
         $resource->setResourceNamespace($this->config->getNamespace());
         $resource->setName($this->topic);

@@ -92,4 +92,29 @@ class SubscriptionLoadBalancer
     {
         return $this->topicRouteData->getQueueCount();
     }
+    
+    /**
+     * Take a message queue using round-robin strategy
+     * 
+     * Each call returns the next queue in sequence.
+     * This method is used by SimpleConsumer for message receiving.
+     * 
+     * @return MessageQueue Selected message queue
+     * @throws \InvalidArgumentException If no queues available
+     */
+    public function takeMessageQueue(): MessageQueue
+    {
+        $queues = $this->getMessageQueues();
+        
+        if (empty($queues)) {
+            throw new \InvalidArgumentException("No message queues available");
+        }
+        
+        // Round-robin: use internal index to track position
+        static $index = 0;
+        $selectedQueue = $queues[$index % count($queues)];
+        $index++;
+        
+        return $selectedQueue;
+    }
 }
