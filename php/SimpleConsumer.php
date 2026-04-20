@@ -1344,6 +1344,51 @@ class SimpleConsumer
             ]);
             $mqTopic->setResourceNamespace($this->config->getNamespace());
         }
+        
+        // Ensure broker has endpoints set before adding to request
+        $broker = $mq->getBroker();
+        if ($broker !== null) {
+            $brokerEndpoints = $broker->getEndpoints();
+            $hasEndpoints = ($brokerEndpoints !== null && 
+                           method_exists($brokerEndpoints, 'getAddresses') && 
+                           count($brokerEndpoints->getAddresses()) > 0);
+            
+            if (!$hasEndpoints) {
+                Logger::warn("Broker has no endpoints in MessageQueue, attempting to set from client config, topic={}, brokerId={}, queueId={}, clientId={}", [
+                    $mqTopicName,
+                    $mqBrokerId,
+                    $mqQueueId,
+                    $this->clientId
+                ]);
+                
+                $proxyEndpoints = $this->config->getEndpointsAsProtobuf();
+                if ($proxyEndpoints !== null) {
+                    $broker->setEndpoints($proxyEndpoints);
+                    Logger::info("Set broker endpoints from client config for MessageQueue, topic={}, brokerId={}, queueId={}, clientId={}", [
+                        $mqTopicName,
+                        $mqBrokerId,
+                        $mqQueueId,
+                        $this->clientId
+                    ]);
+                } else {
+                    Logger::warn("Client config also has no endpoints, MessageQueue may fail, topic={}, brokerId={}, queueId={}, clientId={}", [
+                        $mqTopicName,
+                        $mqBrokerId,
+                        $mqQueueId,
+                        $this->clientId
+                    ]);
+                }
+            } else {
+                Logger::debug("Broker endpoints verified in MessageQueue, topic={}, brokerId={}, queueId={}, addressCount={}, clientId={}", [
+                    $mqTopicName,
+                    $mqBrokerId,
+                    $mqQueueId,
+                    count($brokerEndpoints->getAddresses()),
+                    $this->clientId
+                ]);
+            }
+        }
+        
         $request->setMessageQueue($mq);
         
         // Set filter expression from subscription (required - missing this causes server NPE)
