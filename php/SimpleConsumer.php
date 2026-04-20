@@ -36,7 +36,6 @@ use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\AckMessageRequest;
 use Apache\Rocketmq\V2\HeartbeatRequest;
 use Apache\Rocketmq\V2\MessageQueue as V2MessageQueue;
-use Apache\Rocketmq\Route\MessageQueue;
 use Apache\Rocketmq\V2\MessageType;
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -1217,13 +1216,12 @@ class SimpleConsumer
                 $this->clientId
             ]);
         }
-        
-        $protobufMq = $mq->toProtobuf();
-        $mqTopic = $protobufMq->getTopic();
+
+        $mqTopic = $mq->getTopic();
         if ($mqTopic !== null && empty($mqTopic->getResourceNamespace())) {
             $mqTopic->setResourceNamespace($this->config->getNamespace());
         }
-        $request->setMessageQueue($protobufMq);
+        $request->setMessageQueue($mq);
         
         // Set filter expression from subscription (required - missing this causes server NPE)
         // Aligned with Java SimpleConsumerImpl: filterExpression = subscriptionExpressions.get(topic)
