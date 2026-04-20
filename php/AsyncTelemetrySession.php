@@ -200,8 +200,11 @@ class AsyncTelemetrySession
         if (!$this->isActive || !$this->streamCall) {
             throw new \Exception("Telemetry session is not active");
         }
+
+        $subscriptionExpressions = property_exists($this, 'currentSubscriptionExpressions') ?
+            $this->currentSubscriptionExpressions : [];
+        $settings = $this->buildSettings($subscriptionExpressions);
         
-        $settings = $this->buildSettings();
         $command = new TelemetryCommand();
         $command->setSettings($settings);
         
@@ -209,6 +212,20 @@ class AsyncTelemetrySession
         $this->streamCall->write($command);
         
         Logger::info("Settings sent via async stream, clientId={$this->clientId}");
+    }
+
+    public function sendCustomSettings(\Apache\Rocketmq\V2\Settings $settings): void
+    {
+        if (!$this->isActive() || !$this->streamCall) {
+            Logger::warn("Cannot send custom settings, session is not active or stream is closed, clientId={}", [
+                $this->clientId
+            ]);
+            return;
+        }
+        $command = new TelemetryCommand();
+        $command->setSettings($settings);
+        $this->streamCall->write($command);
+        Logger::info("Custom settings sent via async stream, clientId={$this->clientId}");
     }
     
     /**

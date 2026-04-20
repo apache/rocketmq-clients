@@ -944,12 +944,21 @@ class SimpleConsumer
         $settings = $this->buildCurrentSettings();
         
         // Send settings via telemetry session
-        $this->telemetrySession->sendSettings($settings);
-        
-        Logger::debug("Settings synced successfully, clientId={}, subscriptionCount={}", [
-            $this->clientId,
-            count($this->subscriptionExpressions)
-        ]);
+        // Use sendCustomSettings for AsyncTelemetrySession to avoid rebuilding subscription expressions
+        if ($this->telemetrySession instanceof AsyncTelemetrySession && 
+            method_exists($this->telemetrySession, 'sendCustomSettings')) {
+            $this->telemetrySession->sendCustomSettings($settings);
+            Logger::info("Settings synced via custom settings, clientId={}, subscriptionCount={}", [
+                $this->clientId,
+                count($this->subscriptionExpressions)
+            ]);
+        } else {
+            // Telemetry session does not support custom settings, skip sync
+            Logger::debug("Skipping settings sync - telemetry session does not support sendCustomSettings, clientId={}", [
+                $this->clientId
+            ]);
+            return;
+        }
     }
     
     /**
@@ -1019,6 +1028,13 @@ class SimpleConsumer
         
         $subscription->setSubscriptions($subscriptionEntries);
         $settings->setSubscription($subscription);
+        
+        Logger::debug("Built settings - clientType={}, subscriptionCount={}, hasSubscription={}, clientId={}", [
+            'SIMPLE_CONSUMER',
+            count($subscriptionEntries),
+            $settings->hasSubscription() ? 'true' : 'false',
+            $this->clientId
+        ]);
         
         return $settings;
     }
