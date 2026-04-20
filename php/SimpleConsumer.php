@@ -602,7 +602,7 @@ class SimpleConsumer
      * @return MessageQueue Selected message queue
      * @throws \Exception If route query fails or no readable queue found
      */
-    private function takeMessageQueueForTopic(string $topic): MessageQueue
+    private function takeMessageQueueForTopic(string $topic): \Apache\Rocketmq\V2\MessageQueue
     {
         // Check if load balancer is cached for this topic
         if (!isset($this->subscriptionRouteDataCache[$topic])) {
