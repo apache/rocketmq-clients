@@ -289,9 +289,6 @@ class ConnectionPool {
             },
             'timeout' => $this->config['connection_timeout'] * 1000, // Convert to milliseconds
             
-            // Enable gRPC logging and tracing
-            'grpc.log_verbosity' => GRPC_LOG_DEBUG,
-            'grpc.trace' => 'all',
         ];
         
         return new MessagingServiceClient($clientConfig->getEndpoints(), $options);
