@@ -1273,7 +1273,15 @@ class SimpleConsumer
         // Get message queue from route query for selected topic
         // Aligned with Java SimpleConsumerImpl: route query -> load balancer -> takeMessageQueue
         $mq = $this->takeMessageQueueForTopic($selectedTopic);
-        
+        $mqTopic = $mq->getTopic();
+        $mqTopicName = $mqTopic->getName() ?? 'unknown';
+        $mqTopicNamespace = $mqTopic->getResourceNamespace() ?? '(empty)';
+        Logger::INFO("DEBUG message queue topic before setMessageQueue, topic={}, topicNamespace={}, broker={}, clientId={}", [
+            $mqTopicName,
+            $mqTopicNamespace,
+            $mq->getBroker()->getName(),
+            $this->clientId
+        ]);
         // Log detailed MessageQueue info (aligned with Java)
         try {
             $topic = $mq->getTopic();
