@@ -1353,8 +1353,8 @@ class SimpleConsumer
 
             $broker = $mq->getBroker();
             if ($broker !== null) {
-                $neeBroker = clone $broker;
-                $newMq->setBroker($neeBroker);
+                $newBroker = clone $broker;
+                $newMq->setBroker($newBroker);
             }
             $mq = $newMq;
         }
@@ -1369,34 +1369,36 @@ class SimpleConsumer
             
             if (!$hasEndpoints) {
                 Logger::warn("Broker has no endpoints in MessageQueue, attempting to set from client config, topic={}, brokerId={}, queueId={}, clientId={}", [
-                    $mqTopicName,
-                    $mqBrokerId,
-                    $mqQueueId,
+                    $mqTopicName ?? ($mq->getTopic()->getName() ?? 'unknown'),
+                    $mqBrokerId ?? ($mq->getBroker()->getId() ?? 'unknown'),
+                    $mqQueueId ?? ($mq->getId() ?? 'unknown'),
                     $this->clientId
                 ]);
                 
                 $proxyEndpoints = $this->config->getEndpointsAsProtobuf();
                 if ($proxyEndpoints !== null) {
+                    $newBroker = clone $broker;
                     $broker->setEndpoints($proxyEndpoints);
+                    $mq->setBroker($newBroker);
                     Logger::info("Set broker endpoints from client config for MessageQueue, topic={}, brokerId={}, queueId={}, clientId={}", [
-                        $mqTopicName,
-                        $mqBrokerId,
-                        $mqQueueId,
+                        $mqTopicName ?? ($mq->getTopic()->getName() ?? 'unknown'),
+                        $mqBrokerId ?? ($mq->getBroker()->getId() ?? 'unknown'),
+                        $mqQueueId ?? ($mq->getId() ?? 'unknown'),
                         $this->clientId
                     ]);
                 } else {
                     Logger::warn("Client config also has no endpoints, MessageQueue may fail, topic={}, brokerId={}, queueId={}, clientId={}", [
-                        $mqTopicName,
-                        $mqBrokerId,
-                        $mqQueueId,
+                        $mqTopicName ?? ($mq->getTopic()->getName() ?? 'unknown'),
+                        $mqBrokerId ?? ($mq->getBroker()->getId() ?? 'unknown'),
+                        $mqQueueId ?? ($mq->getId() ?? 'unknown'),
                         $this->clientId
                     ]);
                 }
             } else {
                 Logger::debug("Broker endpoints verified in MessageQueue, topic={}, brokerId={}, queueId={}, addressCount={}, clientId={}", [
-                    $mqTopicName,
-                    $mqBrokerId,
-                    $mqQueueId,
+                    $mqTopicName ?? ($mq->getTopic()->getName() ?? 'unknown'),
+                    $mqBrokerId ?? ($mq->getBroker()->getId() ?? 'unknown'),
+                    $mqQueueId ?? ($mq->getId() ?? 'unknown'),
                     count($brokerEndpoints->getAddresses()),
                     $this->clientId
                 ]);
