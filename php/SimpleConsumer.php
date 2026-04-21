@@ -750,7 +750,17 @@ class SimpleConsumer
                             $this->clientId
                         ]);
                     }
-                    
+                    $mqTopic = $mq->getTopic();
+                    if ($mqTopic !== null && empty($mqTopic->getResourceNamespace())) {
+                        Logger::info("Setting namespace for MessageQueue topic, topic={}, namespace={}, queueId={}, clientId={}", [
+                            $mqTopic->getName() ?? 'unknown',
+                            $this->config->getNamespace(),
+                            $mq->getId(),
+                            $this->clientId
+                        ]);
+                        
+                        $mqTopic->setResourceNamespace($this->config->getNamespace());
+                    }
                     $queues[] = $mq;
                 } else {
                     Logger::warn("Broker is null, skipping queue, topic={}, queueId={}, clientId={}", [
