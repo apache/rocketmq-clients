@@ -1342,9 +1342,23 @@ class SimpleConsumer
                 $this->config->getNamespace(),
                 $this->clientId
             ]);
-            $mqTopic->setResourceNamespace($this->config->getNamespace());
+            $newTopic = new \Apache\Rocketmq\V2\Resource();
+            $newTopic->setName($mqTopic->getName());
+            $newTopic->setResourceNamespace($this->config->getNamespace());
+
+            $newMq = new \Apache\Rocketmq\V2\MessageQueue();
+            $newMq->setTopic($newTopic);
+            $newMq->setId($mq->getId());
+            $newMq->setPermission($mq->getPermission());
+
+            $broker = $mq->getBroker();
+            if ($broker !== null) {
+                $neeBroker = clone $broker;
+                $newMq->setBroker($neeBroker);
+            }
+            $mq = $newMq;
         }
-        
+
         // Ensure broker has endpoints set before adding to request
         $broker = $mq->getBroker();
         if ($broker !== null) {
