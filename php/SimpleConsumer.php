@@ -1312,8 +1312,9 @@ class SimpleConsumer
 
         // Log MessageQueue details before setting namespace
         try {
-            $mqTopicName = $mq->getTopic()->getName() ?? 'unknown';
-            $mqNamespace = $mq->getTopic()->getResourceNamespace() ?? 'empty';
+            $mqTopic = $mq->getTopic();
+            $mqTopicName = $mqTopic->getName() ?? 'unknown';
+            $mqNamespace = $mqTopic->getResourceNamespace() ?? 'empty';
             $mqBroker = $mq->getBroker()->getName() ?? 'unknown';
             $mqBrokerId = $mq->getBroker()->getId();
             $mqQueueId = $mq->getId();

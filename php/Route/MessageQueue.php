@@ -31,9 +31,9 @@ namespace Apache\Rocketmq\Route;
 class MessageQueue
 {
     /**
-     * @var string Topic name
+     * @var \Apache\Rocketmq\V2\Resource Topic resource (includes namespace and name)
      */
-    private $topic;
+    private $topicResource;
     
     /**
      * @var Broker Broker information
@@ -62,7 +62,8 @@ class MessageQueue
      */
     public function __construct(\Apache\Rocketmq\V2\MessageQueue $messageQueue)
     {
-        $this->topic = $messageQueue->getTopic()->getName();
+        // Store complete topic resource (aligned with Java MessageQueueImpl)
+        $this->topicResource = clone $messageQueue->getTopic();
         $this->queueId = $messageQueue->getId();
         
         $perm = $messageQueue->getPermission();
@@ -77,13 +78,23 @@ class MessageQueue
     }
     
     /**
+     * Get topic resource (includes namespace and name)
+     * 
+     * @return \Apache\Rocketmq\V2\Resource Topic resource
+     */
+    public function getTopicResource(): \Apache\Rocketmq\V2\Resource
+    {
+        return $this->topicResource;
+    }
+    
+    /**
      * Get topic name
      * 
      * @return string Topic name
      */
     public function getTopic(): string
     {
-        return $this->topic;
+        return $this->topicResource->getName();
     }
     
     /**
@@ -164,11 +175,9 @@ class MessageQueue
      */
     public function toProtobuf(): \Apache\Rocketmq\V2\MessageQueue
     {
-        $topicResource = new \Apache\Rocketmq\V2\Resource();
-        $topicResource->setName($this->topic);
-        
         $messageQueue = new \Apache\Rocketmq\V2\MessageQueue();
-        $messageQueue->setTopic($topicResource);
+        // Use stored topic resource which includes namespace (aligned with Java)
+        $messageQueue->setTopic(clone $this->topicResource);
         $messageQueue->setId($this->queueId);
         $messageQueue->setPermission(Permission::toProtobuf($this->permission));
         $messageQueue->setBroker($this->broker->toProtobuf());
@@ -187,7 +196,7 @@ class MessageQueue
      */
     public function getKey(): string
     {
-        return "{$this->topic}@{$this->broker->getName()}:{$this->queueId}";
+        return "{$this->topicResource->getName()}@{$this->broker->getName()}:{$this->queueId}";
     }
     
     /**
@@ -195,7 +204,7 @@ class MessageQueue
      */
     public function __toString(): string
     {
-        return "{$this->broker->getName()}.{$this->topic}.{$this->queueId}";
+        return "{$this->broker->getName()}.{$this->topicResource->getName()}.{$this->queueId}";
     }
     
     /**
@@ -206,7 +215,8 @@ class MessageQueue
      */
     public function equals(MessageQueue $other): bool
     {
-        return $this->topic === $other->topic
+        return $this->topicResource->getName() === $other->topicResource->getName()
+            && $this->topicResource->getResourceNamespace() === $other->topicResource->getResourceNamespace()
             && $this->queueId === $other->queueId
             && $this->permission === $other->permission
             && $this->broker->getName() === $other->broker->getName();
