@@ -58,27 +58,28 @@ echo "消息发送成功: " . $result->getMessageId() . "\n";
 $producer->close();
 ```
 
-#### 推送消费者
+#### 简单消费者
 
 ```php
 use Apache\Rocketmq\ClientServiceProvider;
 use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\Consumer\ConsumeResult;
 
 $provider = ClientServiceProvider::getInstance();
 $config = new ClientConfiguration('your-endpoints:8080');
 
-$consumer = $provider->newPushConsumerBuilder()
+$consumer = $provider->newSimpleConsumerBuilder()
     ->setClientConfiguration($config)
     ->setConsumerGroup('GID-test-group')
     ->setTopic('your-topic')
-    ->setMessageListener(function($message) {
-        echo "收到消息: " . $message->getBody() . "\n";
-        return ConsumeResult::SUCCESS;
-    })
     ->build();
 
-$consumer->start();
+$messages = $consumer->receive(10, 30);
+foreach ($messages as $message) {
+    echo "收到消息: " . $message->getBody() . "\n";
+    $consumer->ack($message);
+}
+
+$consumer->close();
 ```
 
 更多示例请参考 [examples](./examples) 目录，涵盖了不同的消息类型：
@@ -87,7 +88,6 @@ $consumer->start();
 - 延时/定时消息
 - 事务消息
 - 优先级消息
-- Lite Topic 消息
 
 ## 日志系统
 
@@ -110,10 +110,8 @@ export ROCKETMQ_LOG_LEVEL=DEBUG  # 可选值: DEBUG, INFO, WARN, ERROR
 - ✅ 延时/定时消息
 - ✅ 事务消息
 - ✅ 优先级消息
-- ✅ Lite Topic 消息
 - ✅ 消息标签和键
 - ✅ SimpleConsumer 模式（主动拉取）
-- ✅ PushConsumer 模式（监听推送）
 - ✅ 异步消息发送
 - ✅ 消息确认（ACK）
 
@@ -178,7 +176,6 @@ bash scripts/grpc_tool.sh generate
 - [ProducerDelayMessageExample.php](./examples/ProducerDelayMessageExample.php) - 延时消息
 - [ProducerTransactionMessageExample.php](./examples/ProducerTransactionMessageExample.php) - 事务消息
 - [ProducerPriorityMessageExample.php](./examples/ProducerPriorityMessageExample.php) - 优先级消息
-- [PushConsumerExample.php](./examples/PushConsumerExample.php) - 推送消费者
 - [SimpleConsumerExample.php](./examples/SimpleConsumerExample.php) - 简单消费者
 
 ## 测试

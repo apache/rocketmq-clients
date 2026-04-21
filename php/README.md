@@ -58,27 +58,28 @@ echo "Message sent: " . $result->getMessageId() . "\n";
 $producer->close();
 ```
 
-#### PushConsumer
+#### SimpleConsumer
 
 ```php
 use Apache\Rocketmq\ClientServiceProvider;
 use Apache\Rocketmq\ClientConfiguration;
-use Apache\Rocketmq\Consumer\ConsumeResult;
 
 $provider = ClientServiceProvider::getInstance();
 $config = new ClientConfiguration('your-endpoints:8080');
 
-$consumer = $provider->newPushConsumerBuilder()
+$consumer = $provider->newSimpleConsumerBuilder()
     ->setClientConfiguration($config)
     ->setConsumerGroup('GID-test-group')
     ->setTopic('your-topic')
-    ->setMessageListener(function($message) {
-        echo "Received: " . $message->getBody() . "\n";
-        return ConsumeResult::SUCCESS;
-    })
     ->build();
 
-$consumer->start();
+$messages = $consumer->receive(10, 30);
+foreach ($messages as $message) {
+    echo "Received: " . $message->getBody() . "\n";
+    $consumer->ack($message);
+}
+
+$consumer->close();
 ```
 
 More examples are available in the [examples](./examples) directory to help you work with different message types:
@@ -110,10 +111,8 @@ export ROCKETMQ_LOG_LEVEL=DEBUG  # Options: DEBUG, INFO, WARN, ERROR
 - ✅ Scheduled/delayed messages
 - ✅ Transaction messages
 - ✅ Priority messages
-- ✅ Lite topic messages
 - ✅ Message tags and keys
 - ✅ SimpleConsumer mode (active pull)
-- ✅ PushConsumer mode (listener push)
 - ✅ Async message sending
 - ✅ Message acknowledgment (ACK)
 
@@ -178,7 +177,6 @@ See the [examples](./examples) directory for complete working examples:
 - [ProducerDelayMessageExample.php](./examples/ProducerDelayMessageExample.php)
 - [ProducerTransactionMessageExample.php](./examples/ProducerTransactionMessageExample.php)
 - [ProducerPriorityMessageExample.php](./examples/ProducerPriorityMessageExample.php)
-- [PushConsumerExample.php](./examples/PushConsumerExample.php)
 - [SimpleConsumerExample.php](./examples/SimpleConsumerExample.php)
 
 ## Testing
