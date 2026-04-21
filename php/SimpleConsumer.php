@@ -1409,8 +1409,24 @@ class SimpleConsumer
         
         // Set filter expression from subscription (required - missing this causes server NPE)
         // Aligned with Java SimpleConsumerImpl: filterExpression = subscriptionExpressions.get(topic)
+        $expression = $filterExpression->getExpression();
+        if (empty($expression)) {
+            Logger::warn("FilterExpression is empty, using default '*', topic={}, clientId={}", [
+                $selectedTopic,
+                $this->clientId
+            ]);
+            $expression = '*';
+        }
+        
+        Logger::debug("Setting FilterExpression for receive request, topic={}, expression={}, type={}, clientId={}", [
+            $selectedTopic,
+            $expression,
+            $filterExpression->getType()->value(),
+            $this->clientId
+        ]);
+        
         $v2Filter = new V2FilterExpression();
-        $v2Filter->setExpression($filterExpression->getExpression());
+        $v2Filter->setExpression($expression);
         $v2Filter->setType(
             $filterExpression->getType() === FilterExpressionType::SQL92
                 ? FilterType::SQL
@@ -1419,6 +1435,19 @@ class SimpleConsumer
         $request->setFilterExpression($v2Filter);
         
         // Set invisible duration (required for simple consumer)
+        // Log the complete request for debugging
+        Logger::debug("ReceiveMessage request details - topic={}, group={}, queueId={}, broker={}, expression={}, batchSize={}, invisibleDuration={}, awaitDuration={}, clientId={}", [
+            $selectedTopic,
+            $this->consumerGroup,
+            $mq->getId(),
+            $mq->getBroker()->getName() ?? 'unknown',
+            $expression,
+            $maxMessageNum,
+            $invisibleDuration,
+            $this->awaitDuration,
+            $this->clientId
+        ]);
+        
         $invisibleDurationProto = new \Google\Protobuf\Duration();
         $invisibleDurationProto->setSeconds($invisibleDuration);
         $request->setInvisibleDuration($invisibleDurationProto);
