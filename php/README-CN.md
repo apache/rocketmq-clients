@@ -25,7 +25,7 @@
 composer install
 ```
 
-### 生成 gRPC 代码
+### 快速开始：生成 gRPC 代码
 
 在使用客户端之前，需要从 proto 文件生成 gRPC 代码：
 
@@ -83,6 +83,7 @@ $consumer->close();
 ```
 
 更多示例请参考 [examples](./examples) 目录，涵盖了不同的消息类型：
+
 - 普通消息
 - FIFO 顺序消息
 - 延时/定时消息
@@ -133,11 +134,13 @@ export ROCKETMQ_LOG_LEVEL=DEBUG  # 可选值: DEBUG, INFO, WARN, ERROR
 1. **Protocol Buffer 编译器**
 
    macOS:
+
    ```bash
    brew install protobuf
    ```
 
    Ubuntu/Debian:
+
    ```bash
    apt-get install protobuf-compiler
    ```
@@ -145,11 +148,13 @@ export ROCKETMQ_LOG_LEVEL=DEBUG  # 可选值: DEBUG, INFO, WARN, ERROR
 2. **gRPC PHP 插件**
 
    方法一 - 使用自动化脚本（推荐）：
+
    ```bash
    bash scripts/grpc_tool.sh install
    ```
 
    方法二 - 从源码编译：
+
    ```bash
    git clone --recursive https://github.com/grpc/grpc.git
    cd grpc
@@ -192,6 +197,7 @@ php tests/test_producer_consumer.php
 ### 问题：找不到 grpc_php_plugin
 
 **解决方案：** 使用以下命令安装插件：
+
 ```bash
 bash scripts/grpc_tool.sh install
 ```
@@ -199,6 +205,7 @@ bash scripts/grpc_tool.sh install
 ### 问题：清理 /tmp/grpc 时权限被拒绝
 
 **解决方案：** 使用 sudo 删除旧文件：
+
 ```bash
 sudo rm -rf /tmp/grpc
 ```

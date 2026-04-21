@@ -85,6 +85,12 @@ class Logger {
         putenv('GRPC_VERBOSITY=DEBUG');
         putenv('GRPC_TRACE=all');
         
+        // Check environment variable for log level override
+        $envLogLevel = getenv('ROCKETMQ_LOG_LEVEL');
+        if ($envLogLevel !== false) {
+            $minLevel = self::parseLogLevel($envLogLevel);
+        }
+        
         // Set default log file to user's home directory
         if ($logFile === null) {
             $homeDir = getenv('HOME');
@@ -106,9 +112,10 @@ class Logger {
         }
         
         // Log initialization
-        self::info("PHP RocketMQ client logger initialized, logFile={}, minLevel={}", [
+        self::info("Logger initialized, logFile={}, minLevel={}, pid={}", [
             $logFile,
-            self::getLevelString($minLevel)
+            self::getLevelString($minLevel),
+            getmypid()
         ]);
     }
     
@@ -227,8 +234,9 @@ class Logger {
         // Format context (exclude placeholder values)
         $contextStr = self::formatContext($context);
         
-        // Format log line: [timestamp] [level] [caller] message context
-        $logLine = "[{$timestamp}] [{$levelStr}] [{$callerInfo}] {$formattedMessage}{$contextStr}" . PHP_EOL;
+        // Format log line: [timestamp] [level] [pid] [thread] [caller] message context
+        // Aligned with Java RocketMQ log format
+        $logLine = "{$timestamp} {$levelStr} [" . getmypid() . "] [main] {$callerInfo} - {$formattedMessage}{$contextStr}" . PHP_EOL;
         
         // Write to file
         if (self::$fileHandle !== null) {
@@ -238,6 +246,42 @@ class Logger {
             // Fallback to error_log
             error_log($logLine);
         }
+    }
+    
+    /**
+     * Check if debug logging is enabled
+     * 
+     * @return bool True if debug level is enabled
+     */
+    public static function isDebugEnabled() {
+        return self::$enabled && self::$minLevel <= self::DEBUG;
+    }
+    
+    /**
+     * Check if info logging is enabled
+     * 
+     * @return bool True if info level is enabled
+     */
+    public static function isInfoEnabled() {
+        return self::$enabled && self::$minLevel <= self::INFO;
+    }
+    
+    /**
+     * Check if warn logging is enabled
+     * 
+     * @return bool True if warn level is enabled
+     */
+    public static function isWarnEnabled() {
+        return self::$enabled && self::$minLevel <= self::WARN;
+    }
+    
+    /**
+     * Check if error logging is enabled
+     * 
+     * @return bool True if error level is enabled
+     */
+    public static function isErrorEnabled() {
+        return self::$enabled && self::$minLevel <= self::ERROR;
     }
     
     /**
@@ -308,6 +352,30 @@ class Logger {
     }
     
     /**
+     * Parse log level from string
+     * 
+     * @param string $levelStr Log level string
+     * @return int Log level constant
+     */
+    private static function parseLogLevel($levelStr) {
+        $levelStr = strtoupper(trim($levelStr));
+        switch ($levelStr) {
+            case 'DEBUG':
+                return self::DEBUG;
+            case 'INFO':
+                return self::INFO;
+            case 'WARN':
+            case 'WARNING':
+                return self::WARN;
+            case 'ERROR':
+            case 'ERR':
+                return self::ERROR;
+            default:
+                return self::DEBUG; // Default to DEBUG for unknown values
+        }
+    }
+    
+    /**
      * Get level string
      * 
      * @param int $level Log level
@@ -330,22 +398,45 @@ class Logger {
     
     /**
      * Get caller information (class and method)
+     * Optimized to reduce overhead
      * 
      * @return string Caller information in format "Class::method"
      */
     private static function getCallerInfo() {
-        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 4);
+        static $cache = [];
+        
+        // Generate cache key from backtrace
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5);
+        $cacheKey = '';
+        foreach ($backtrace as $trace) {
+            if (isset($trace['class']) && isset($trace['function'])) {
+                $cacheKey .= $trace['class'] . '::' . $trace['function'] . '|';
+            }
+        }
+        
+        // Return cached result if available
+        if (isset($cache[$cacheKey])) {
+            return $cache[$cacheKey];
+        }
         
         // Find the first caller outside of Logger class
         foreach ($backtrace as $trace) {
             if (isset($trace['class']) && $trace['class'] !== __CLASS__) {
-                $class = isset($trace['class']) ? $trace['class'] : '';
+                $class = $trace['class'];
                 $method = isset($trace['function']) ? $trace['function'] : '';
                 
                 // Remove namespace prefix for brevity
                 $shortClass = basename(str_replace('\\', '/', $class));
                 
-                return "{$shortClass}::{$method}";
+                $callerInfo = "{$shortClass}::{$method}";
+                $cache[$cacheKey] = $callerInfo;
+                
+                // Limit cache size to prevent memory leaks
+                if (count($cache) > 100) {
+                    array_shift($cache);
+                }
+                
+                return $callerInfo;
             }
         }
         

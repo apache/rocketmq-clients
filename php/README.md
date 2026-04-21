@@ -25,7 +25,7 @@ Install dependencies using Composer:
 composer install
 ```
 
-### Generate gRPC Code
+### Quick Start: Generate gRPC Code
 
 Before using the client, you need to generate gRPC code from proto files:
 
@@ -83,6 +83,7 @@ $consumer->close();
 ```
 
 More examples are available in the [examples](./examples) directory to help you work with different message types:
+
 - Normal messages
 - FIFO ordered messages
 - Delayed/scheduled messages
@@ -134,11 +135,13 @@ export ROCKETMQ_LOG_LEVEL=DEBUG  # Options: DEBUG, INFO, WARN, ERROR
 1. **Protocol Buffer Compiler**
 
    macOS:
+
    ```bash
    brew install protobuf
    ```
 
    Ubuntu/Debian:
+
    ```bash
    apt-get install protobuf-compiler
    ```
@@ -146,11 +149,13 @@ export ROCKETMQ_LOG_LEVEL=DEBUG  # Options: DEBUG, INFO, WARN, ERROR
 2. **gRPC PHP Plugin**
 
    Method 1 - Using automated script (recommended):
+
    ```bash
    bash scripts/grpc_tool.sh install
    ```
 
    Method 2 - Compile from source:
+
    ```bash
    git clone --recursive https://github.com/grpc/grpc.git
    cd grpc
@@ -193,6 +198,7 @@ php tests/test_producer_consumer.php
 ### Issue: grpc_php_plugin not found
 
 **Solution:** Install the plugin using:
+
 ```bash
 bash scripts/grpc_tool.sh install
 ```
@@ -200,6 +206,7 @@ bash scripts/grpc_tool.sh install
 ### Issue: Permission denied when cleaning /tmp/grpc
 
 **Solution:** Use sudo to remove old files:
+
 ```bash
 sudo rm -rf /tmp/grpc
 ```
