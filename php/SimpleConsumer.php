@@ -1482,8 +1482,12 @@ class SimpleConsumer
         $longPollingTimeout = new \Google\Protobuf\Duration();
         $longPollingTimeout->setSeconds($this->awaitDuration);
         $request->setLongPollingTimeout($longPollingTimeout);
-        
-        $call = $this->getClient()->ReceiveMessage($request);
+
+        $metadata = [
+            'x-mq-namespace' => $this->config->getNamespace(),
+        ];
+
+        $call = $this->getClient()->ReceiveMessage($request, $metadata);
         
         $messages = [];
         
