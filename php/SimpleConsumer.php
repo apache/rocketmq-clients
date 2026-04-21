@@ -1484,7 +1484,7 @@ class SimpleConsumer
         $request->setLongPollingTimeout($longPollingTimeout);
 
         $metadata = [
-            'x-mq-namespace' => $this->config->getNamespace(),
+            'x-mq-namespace' => [$this->config->getNamespace()],
         ];
 
         $call = $this->getClient()->ReceiveMessage($request, $metadata);
