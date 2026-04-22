@@ -36,8 +36,8 @@ use crate::pb::{
     ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse,
     HeartbeatRequest, HeartbeatResponse, NotifyClientTerminationRequest,
     NotifyClientTerminationResponse, QueryAssignmentRequest, QueryAssignmentResponse,
-    QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest, ReceiveMessageResponse,
-    RecallMessageRequest, RecallMessageResponse, SendMessageRequest, SendMessageResponse,
+    QueryRouteRequest, QueryRouteResponse, RecallMessageRequest, RecallMessageResponse,
+    ReceiveMessageRequest, ReceiveMessageResponse, SendMessageRequest, SendMessageResponse,
     TelemetryCommand,
 };
 use crate::util::{PROTOCOL_VERSION, SDK_LANGUAGE, SDK_VERSION};

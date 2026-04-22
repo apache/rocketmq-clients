@@ -38,8 +38,8 @@ use crate::pb::receive_message_response::Content;
 use crate::pb::{
     AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, FilterExpression,
     HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, NotifyClientTerminationRequest,
-    QueryRouteRequest, ReceiveMessageRequest, RecallMessageRequest, RecallMessageResponse, Resource, SendMessageRequest, Status,
-    TelemetryCommand,
+    QueryRouteRequest, RecallMessageRequest, RecallMessageResponse, ReceiveMessageRequest,
+    Resource, SendMessageRequest, Status, TelemetryCommand,
 };
 use crate::session::RPCClient;
 #[double]

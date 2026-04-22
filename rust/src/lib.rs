@@ -117,7 +117,6 @@
 //!     }
 //! }
 //! ```
-//!
 
 // Export structs that are part of crate API.
 pub use producer::Producer;

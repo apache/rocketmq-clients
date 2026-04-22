@@ -44,7 +44,9 @@ async fn main() {
     // Build delay message
     let message = MessageBuilder::delay_message_builder(
         "delay_test",
-        "This is a delay message that will be recalled".as_bytes().to_vec(),
+        "This is a delay message that will be recalled"
+            .as_bytes()
+            .to_vec(),
         // deliver in 60 seconds
         SystemTime::now()
             .add(Duration::from_secs(60))
@@ -74,10 +76,8 @@ async fn main() {
     // Attempt to recall the message if recall_handle is available
     if let Some(recall_handle) = receipt.recall_handle() {
         println!("Attempting to recall the message...");
-        
-        let recall_result = producer
-            .recall_message("delay_test", recall_handle)
-            .await;
+
+        let recall_result = producer.recall_message("delay_test", recall_handle).await;
 
         match recall_result {
             Ok(recalled_message_id) => {

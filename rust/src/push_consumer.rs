@@ -655,7 +655,10 @@ impl FifoConsumerWorker {
         let mut grouped_messages: HashMap<Option<String>, Vec<MessageView>> = HashMap::new();
         for message in messages {
             let group = message.message_group().map(|s| s.to_string());
-            grouped_messages.entry(group).or_insert_with(Vec::new).push(message);
+            grouped_messages
+                .entry(group)
+                .or_insert_with(Vec::new)
+                .push(message);
         }
 
         info!(

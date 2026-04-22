@@ -33,7 +33,7 @@ async fn main() {
     let mut option = PushConsumerOption::default();
     option.set_consumer_group("test");
     option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
-    
+
     // Enable FIFO consume accelerator for parallel consumption by messageGroup
     // This allows messages with different messageGroups to be consumed in parallel
     // while maintaining FIFO order within the same messageGroup
