@@ -66,6 +66,23 @@ public interface SimpleConsumerBuilder {
     SimpleConsumerBuilder setAwaitDuration(Duration awaitDuration);
 
     /**
+     * Set the batch policy for the simple consumer.
+     *
+     * <p>When a {@link BatchPolicy} is set, the built {@link SimpleConsumer} will support
+     * {@link SimpleConsumer#batchReceive(java.time.Duration)} and {@link SimpleConsumer#batchAck(java.util.List)}.
+     * A background thread will continuously call {@link SimpleConsumer#receive(int, java.time.Duration)} to buffer
+     * messages locally; {@code batchReceive} then drains that buffer according to the policy.
+     *
+     * @param batchPolicy the batch policy; must not be {@code null}.
+     * @return the consumer builder instance.
+     */
+    default SimpleConsumerBuilder setBatchPolicy(BatchPolicy batchPolicy) {
+        // Default no-op so existing builder implementations are not broken;
+        // implementations that support batching should override this method.
+        return this;
+    }
+
+    /**
      * Finalize the build of the {@link SimpleConsumer} instance and start.
      *
      * <p>This method will block until the simple consumer starts successfully.

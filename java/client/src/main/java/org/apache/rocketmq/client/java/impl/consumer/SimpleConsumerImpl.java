@@ -164,7 +164,54 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             return Futures.immediateFailedFuture(e);
         }
         final String topic = topics.get(IntMath.mod(topicIndex.getAndIncrement(), topics.size()));
-        final FilterExpression filterExpression = copy.get(topic);
+        return receiveFromTopic(topic, copy.get(topic), maxMessageNum, invisibleDuration);
+    }
+
+    /**
+     * @see SimpleConsumer#receive(String, int, Duration)
+     */
+    @Override
+    public List<MessageView> receive(String topic, int maxMessageNum, Duration invisibleDuration)
+        throws ClientException {
+        final ListenableFuture<List<MessageView>> future = receive0(topic, maxMessageNum, invisibleDuration);
+        return handleClientFuture(future);
+    }
+
+    /**
+     * @see SimpleConsumer#receiveAsync(String, int, Duration)
+     */
+    @Override
+    public CompletableFuture<List<MessageView>> receiveAsync(String topic, int maxMessageNum,
+        Duration invisibleDuration) {
+        final ListenableFuture<List<MessageView>> future = receive0(topic, maxMessageNum, invisibleDuration);
+        return FutureConverter.toCompletableFuture(future);
+    }
+
+    public ListenableFuture<List<MessageView>> receive0(String topic, int maxMessageNum,
+        Duration invisibleDuration) {
+        if (!this.isRunning()) {
+            log.error("Unable to receive message because {} is not running, state={}, clientId={}",
+                clientType(), state(), clientId);
+            return Futures.immediateFailedFuture(
+                new IllegalStateException("Simple consumer is not running now"));
+        }
+        if (maxMessageNum <= 0) {
+            return Futures.immediateFailedFuture(
+                new IllegalArgumentException("maxMessageNum must be greater than 0"));
+        }
+        final FilterExpression filterExpression = subscriptionExpressions.get(topic);
+        if (filterExpression == null) {
+            return Futures.immediateFailedFuture(
+                new IllegalArgumentException("Topic [" + topic + "] is not subscribed"));
+        }
+        return receiveFromTopic(topic, filterExpression, maxMessageNum, invisibleDuration);
+    }
+
+    /**
+     * Common helper that fetches messages from a specific topic.
+     */
+    private ListenableFuture<List<MessageView>> receiveFromTopic(String topic,
+        FilterExpression filterExpression, int maxMessageNum, Duration invisibleDuration) {
         final ListenableFuture<SubscriptionLoadBalancer> routeFuture = getSubscriptionLoadBalancer(topic);
         final ListenableFuture<ReceiveMessageResult> future0 = Futures.transformAsync(routeFuture, result -> {
             final MessageQueueImpl mq = result.takeMessageQueue();
@@ -221,7 +268,17 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
      */
     @Override
     public void changeInvisibleDuration(MessageView messageView, Duration invisibleDuration) throws ClientException {
-        final ListenableFuture<Void> future = changeInvisibleDuration0(messageView, invisibleDuration);
+        final ListenableFuture<Void> future = changeInvisibleDuration0(messageView, invisibleDuration, false);
+        handleClientFuture(future);
+    }
+
+    /**
+     * @see SimpleConsumer#changeInvisibleDuration(MessageView, Duration, boolean)
+     */
+    @Override
+    public void changeInvisibleDuration(MessageView messageView, Duration invisibleDuration, boolean suspend)
+        throws ClientException {
+        final ListenableFuture<Void> future = changeInvisibleDuration0(messageView, invisibleDuration, suspend);
         handleClientFuture(future);
     }
 
@@ -230,11 +287,22 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
      */
     @Override
     public CompletableFuture<Void> changeInvisibleDurationAsync(MessageView messageView, Duration invisibleDuration) {
-        final ListenableFuture<Void> future = changeInvisibleDuration0(messageView, invisibleDuration);
+        final ListenableFuture<Void> future = changeInvisibleDuration0(messageView, invisibleDuration, false);
         return FutureConverter.toCompletableFuture(future);
     }
 
-    public ListenableFuture<Void> changeInvisibleDuration0(MessageView messageView, Duration invisibleDuration) {
+    /**
+     * @see SimpleConsumer#changeInvisibleDurationAsync(MessageView, Duration, boolean)
+     */
+    @Override
+    public CompletableFuture<Void> changeInvisibleDurationAsync(MessageView messageView, Duration invisibleDuration,
+        boolean suspend) {
+        final ListenableFuture<Void> future = changeInvisibleDuration0(messageView, invisibleDuration, suspend);
+        return FutureConverter.toCompletableFuture(future);
+    }
+
+    public ListenableFuture<Void> changeInvisibleDuration0(MessageView messageView, Duration invisibleDuration,
+        boolean suspend) {
         // Check consumer status.
         if (!this.isRunning()) {
             log.error("Unable to change invisible duration because {} is not running, state={}, clientId={}",
@@ -249,7 +317,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
         final RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future =
-            changeInvisibleDuration(impl, invisibleDuration);
+            changeInvisibleDuration(impl, invisibleDuration, suspend);
         return Futures.transformAsync(future, response -> {
             // Refresh receipt handle manually.
             impl.setReceiptHandle(response.getReceiptHandle());
@@ -262,6 +330,42 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     @Override
     public void close() {
         this.stopAsync().awaitTerminated();
+    }
+
+    /**
+     * @see SimpleConsumer#batchAck(List)
+     */
+    @Override
+    public void batchAck(List<MessageView> messageViews) throws ClientException {
+        final ListenableFuture<Void> future = batchAck0(messageViews);
+        handleClientFuture(future);
+    }
+
+    /**
+     * @see SimpleConsumer#batchAckAsync(List)
+     */
+    @Override
+    public CompletableFuture<Void> batchAckAsync(List<MessageView> messageViews) {
+        final ListenableFuture<Void> future = batchAck0(messageViews);
+        return FutureConverter.toCompletableFuture(future);
+    }
+
+    private ListenableFuture<Void> batchAck0(List<MessageView> messageViews) {
+        if (!this.isRunning()) {
+            log.error("Unable to batch ack because {} is not running, state={}, clientId={}",
+                clientType(), this.state(), clientId);
+            return Futures.immediateFailedFuture(
+                new IllegalStateException("Simple consumer is not running now"));
+        }
+        final List<MessageViewImpl> impls = new ArrayList<>(messageViews.size());
+        for (MessageView mv : messageViews) {
+            if (!(mv instanceof MessageViewImpl)) {
+                return Futures.immediateFailedFuture(
+                    new IllegalArgumentException("Failed downcasting for messageView"));
+            }
+            impls.add((MessageViewImpl) mv);
+        }
+        return batchAckMessages(impls);
     }
 
     @Override

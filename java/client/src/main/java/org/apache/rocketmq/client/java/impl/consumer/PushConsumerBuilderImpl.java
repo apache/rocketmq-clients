@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.consumer.BatchMessageListener;
+import org.apache.rocketmq.client.apis.consumer.BatchPolicy;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
@@ -49,6 +51,8 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     private int consumptionThreadCount = 20;
     private boolean enableFifoConsumeAccelerator = false;
     private boolean enableMessageInterceptorFiltering = false;
+    private BatchMessageListener batchMessageListener = null;
+    private BatchPolicy batchPolicy = null;
 
     /**
      * @see PushConsumerBuilder#setClientConfiguration(ClientConfiguration)
@@ -133,8 +137,21 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     /**
      * @see PushConsumerBuilder#setEnableMessageInterceptorFiltering(boolean)
      */
+    @Override
     public PushConsumerBuilder setEnableMessageInterceptorFiltering(boolean enableMessageInterceptorFiltering) {
         this.enableMessageInterceptorFiltering = enableMessageInterceptorFiltering;
+        return this;
+    }
+
+    /**
+     * @see PushConsumerBuilder#setBatchMessageListener(BatchMessageListener, BatchPolicy)
+     */
+    @Override
+    public PushConsumerBuilder setBatchMessageListener(BatchMessageListener batchMessageListener,
+        BatchPolicy batchPolicy) {
+        this.batchMessageListener = checkNotNull(batchMessageListener,
+            "batchMessageListener should not be null");
+        this.batchPolicy = checkNotNull(batchPolicy, "batchPolicy should not be null");
         return this;
     }
 
@@ -145,11 +162,29 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     public PushConsumer build() throws ClientException {
         checkNotNull(clientConfiguration, "clientConfiguration has not been set yet");
         checkNotNull(consumerGroup, "consumerGroup has not been set yet");
-        checkNotNull(messageListener, "messageListener has not been set yet");
+        final boolean hasSingle = messageListener != null;
+        final boolean hasBatch = batchMessageListener != null;
+        checkArgument(hasSingle || hasBatch,
+            "either messageListener or batchMessageListener must be set");
+        checkArgument(!(hasSingle && hasBatch),
+            "messageListener and batchMessageListener are mutually exclusive");
         checkArgument(!subscriptionExpressions.isEmpty(), "subscriptionExpressions have not been set yet");
-        final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, consumerGroup,
-            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
-            consumptionThreadCount, enableFifoConsumeAccelerator, enableMessageInterceptorFiltering);
+        final PushConsumerImpl pushConsumer;
+        if (hasBatch) {
+            checkArgument(maxCacheMessageCount >= batchPolicy.getMaxBatchCount(),
+                "maxCacheMessageCount must be >= batchPolicy.maxBatchCount, but %s < %s",
+                maxCacheMessageCount, batchPolicy.getMaxBatchCount());
+            checkArgument(maxCacheMessageSizeInBytes >= batchPolicy.getMaxBatchBytes(),
+                "maxCacheMessageSizeInBytes must be >= batchPolicy.maxBatchBytes, but %s < %s",
+                maxCacheMessageSizeInBytes, batchPolicy.getMaxBatchBytes());
+            pushConsumer = new PushConsumerImpl(clientConfiguration, consumerGroup,
+                subscriptionExpressions, batchMessageListener, batchPolicy, maxCacheMessageCount,
+                maxCacheMessageSizeInBytes, consumptionThreadCount, enableMessageInterceptorFiltering);
+        } else {
+            pushConsumer = new PushConsumerImpl(clientConfiguration, consumerGroup,
+                subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
+                consumptionThreadCount, enableFifoConsumeAccelerator, enableMessageInterceptorFiltering);
+        }
         pushConsumer.startAsync().awaitRunning();
         return pushConsumer;
     }

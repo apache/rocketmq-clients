@@ -27,6 +27,7 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -119,6 +120,63 @@ public class ConsumerImplTest extends TestBase {
             pushConsumer.changeInvisibleDuration(messageView, Duration.ofSeconds(15));
         final ChangeInvisibleDurationResponse response = future0.get();
         Assert.assertEquals(response, future.get());
+    }
+
+    @Test
+    public void testBatchAckChunking() throws ExecutionException, InterruptedException {
+        int maxCacheMessageCount = 8;
+        int maxCacheMessageSizeInBytes = 1024;
+        int consumptionThreadCount = 4;
+        PushConsumerImpl pushConsumer = Mockito.spy(new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
+            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
+            consumptionThreadCount));
+        final ClientManager clientManager = Mockito.mock(ClientManager.class);
+        Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
+        final RpcFuture<AckMessageRequest, AckMessageResponse> ackFuture = okAckMessageResponseFuture();
+        Mockito.doReturn(ackFuture).when(clientManager).ackMessage(any(Endpoints.class),
+            any(AckMessageRequest.class), any(Duration.class));
+
+        // Create more messages than MAX_ACK_ENTRIES_PER_RPC (512) to trigger chunking.
+        final int totalMessages = ConsumerImpl.MAX_ACK_ENTRIES_PER_RPC + 10; // 522
+        final List<MessageViewImpl> messages = new ArrayList<>(totalMessages);
+        for (int i = 0; i < totalMessages; i++) {
+            messages.add(fakeMessageViewImpl());
+        }
+
+        final ListenableFuture<Void> result = pushConsumer.batchAckMessages(messages);
+        result.get();
+
+        // All messages share the same endpoint/topic, so should be split into 2 RPCs: 32 + 10.
+        Mockito.verify(clientManager, Mockito.times(2))
+            .ackMessage(any(Endpoints.class), any(AckMessageRequest.class), any(Duration.class));
+    }
+
+    @Test
+    public void testBatchAckNoCunkingWhenWithinLimit() throws ExecutionException, InterruptedException {
+        int maxCacheMessageCount = 8;
+        int maxCacheMessageSizeInBytes = 1024;
+        int consumptionThreadCount = 4;
+        PushConsumerImpl pushConsumer = Mockito.spy(new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
+            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
+            consumptionThreadCount));
+        final ClientManager clientManager = Mockito.mock(ClientManager.class);
+        Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
+        final RpcFuture<AckMessageRequest, AckMessageResponse> ackFuture = okAckMessageResponseFuture();
+        Mockito.doReturn(ackFuture).when(clientManager).ackMessage(any(Endpoints.class),
+            any(AckMessageRequest.class), any(Duration.class));
+
+        // Create fewer messages than the limit — should result in a single RPC.
+        final int totalMessages = 5;
+        final List<MessageViewImpl> messages = new ArrayList<>(totalMessages);
+        for (int i = 0; i < totalMessages; i++) {
+            messages.add(fakeMessageViewImpl());
+        }
+
+        final ListenableFuture<Void> result = pushConsumer.batchAckMessages(messages);
+        result.get();
+
+        Mockito.verify(clientManager, Mockito.times(1))
+            .ackMessage(any(Endpoints.class), any(AckMessageRequest.class), any(Duration.class));
     }
 
 }

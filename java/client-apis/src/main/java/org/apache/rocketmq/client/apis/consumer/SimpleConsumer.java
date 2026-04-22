@@ -79,11 +79,7 @@ public interface SimpleConsumer extends Closeable {
     /**
      * Remove subscription expression dynamically by topic.
      *
-     * <p>It stops the backend task to fetch messages from remote, and besides that, the locally cached message whose
-     * topic
-     * was removed before would not be delivered to {@link MessageListener} anymore.
-     *
-     * <p>Nothing occurs if the specified topic does not exist in subscription expressions of the push consumer.
+     * <p>Nothing occurs if the specified topic does not exist in subscription expressions of the consumer.
      *
      * @param topic the topic to remove the subscription.
      * @return simple consumer instance.
@@ -110,6 +106,21 @@ public interface SimpleConsumer extends Closeable {
     List<MessageView> receive(int maxMessageNum, Duration invisibleDuration) throws ClientException;
 
     /**
+     * Fetch messages from a <strong>specific topic</strong> synchronously.
+     *
+     * <p>Unlike {@link #receive(int, Duration)} which round-robins across all subscribed topics (and may
+     * be blocked by a topic with no messages), this method targets a single topic so that the caller
+     * has full control over which topic to poll.
+     *
+     * @param topic             the topic to receive messages from; must be subscribed.
+     * @param maxMessageNum     max message num of server returned.
+     * @param invisibleDuration set the invisibleDuration of messages to return from the server.
+     * @return list of message view.
+     * @throws IllegalArgumentException if the topic is not subscribed.
+     */
+    List<MessageView> receive(String topic, int maxMessageNum, Duration invisibleDuration) throws ClientException;
+
+    /**
      * Fetch messages from the server asynchronously.
      * <p> This method returns immediately if there are messages available.
      * Otherwise, it will await the passed timeout. If the timeout expires, an empty map will be returned.
@@ -120,6 +131,20 @@ public interface SimpleConsumer extends Closeable {
      * @return list of message view.
      */
     CompletableFuture<List<MessageView>> receiveAsync(int maxMessageNum, Duration invisibleDuration);
+
+    /**
+     * Fetch messages from a <strong>specific topic</strong> asynchronously.
+     *
+     * <p>Same semantics as {@link #receive(String, int, Duration)} but returns a
+     * {@link CompletableFuture} immediately.
+     *
+     * @param topic             the topic to receive messages from; must be subscribed.
+     * @param maxMessageNum     max message num of server returned.
+     * @param invisibleDuration set the invisibleDuration of messages to return from the server.
+     * @return list of message view.
+     * @throws IllegalArgumentException if the topic is not subscribed.
+     */
+    CompletableFuture<List<MessageView>> receiveAsync(String topic, int maxMessageNum, Duration invisibleDuration);
 
     /**
      * Ack message to server synchronously, server commit this message.
@@ -153,6 +178,21 @@ public interface SimpleConsumer extends Closeable {
     void changeInvisibleDuration(MessageView messageView, Duration invisibleDuration) throws ClientException;
 
     /**
+     * Changes the invisible duration of a specified message synchronously, with an option to
+     * suspend retry-count increment on the server.
+     *
+     * <p>When {@code suspend} is {@code true}, the server will <em>not</em> increment the
+     * delivery attempt counter for this message.  This is useful for messages that are released
+     * back to the server due to client-side cache eviction rather than a genuine processing failure.
+     *
+     * @param messageView       the message view to change invisible time.
+     * @param invisibleDuration new timestamp the message could be visible and re-consume which start from current time.
+     * @param suspend           if {@code true}, the server will not increment the retry times.
+     */
+    void changeInvisibleDuration(MessageView messageView, Duration invisibleDuration, boolean suspend)
+        throws ClientException;
+
+    /**
      * Changes the invisible duration of a specified message asynchronously.
      *
      * <p> The origin invisible duration for a message decide by ack request.
@@ -164,6 +204,115 @@ public interface SimpleConsumer extends Closeable {
      * @return CompletableFuture of this request.
      */
     CompletableFuture<Void> changeInvisibleDurationAsync(MessageView messageView, Duration invisibleDuration);
+
+    /**
+     * Asynchronous variant of {@link #changeInvisibleDuration(MessageView, Duration, boolean)}.
+     *
+     * @param messageView       the message view to change invisible time.
+     * @param invisibleDuration new timestamp the message could be visible and re-consume which start from current time.
+     * @param suspend           if {@code true}, the server will not increment the retry times.
+     * @return CompletableFuture of this request.
+     */
+    CompletableFuture<Void> changeInvisibleDurationAsync(MessageView messageView, Duration invisibleDuration,
+        boolean suspend);
+
+    /**
+     * Batch-fetch messages synchronously by issuing adaptive concurrent {@code receive} calls.
+     *
+     * <p>This method blocks until either {@link BatchPolicy#getMaxBatchCount()} messages have been
+     * collected, the total body size reaches {@link BatchPolicy#getMaxBatchBytes()}, or
+     * {@link BatchPolicy#getMaxWaitTime()} has elapsed since the first message was received.
+     *
+     * <p>A {@link BatchPolicy} must have been set via
+     * {@link SimpleConsumerBuilder#setBatchPolicy(BatchPolicy)} before calling this method; otherwise an
+     * {@link UnsupportedOperationException} is thrown.
+     *
+     * @param invisibleDuration the invisible duration assigned to each message on the server side.
+     *                          Note that the <em>effective</em> invisible window on the server is
+     *                          {@code invisibleDuration + batchPolicy.maxWaitTime}.
+     * @return a list of messages (size &le; {@link BatchPolicy#getMaxBatchCount()}).
+     * @throws ClientException          if an unrecoverable error occurs.
+     * @throws UnsupportedOperationException if no {@link BatchPolicy} has been configured.
+     */
+    default List<MessageView> batchReceive(Duration invisibleDuration) throws ClientException {
+        throw new UnsupportedOperationException("batchReceive is not supported without a BatchPolicy. "
+            + "Call SimpleConsumerBuilder#setBatchPolicy first.");
+    }
+
+    /**
+     * Batch-fetch messages from a <strong>specific topic</strong> synchronously.
+     *
+     * <p>Same semantics as {@link #batchReceive(Duration)} but targets a single topic,
+     * giving the caller precise control over which topic to poll.
+     *
+     * @param topic             the topic to receive messages from; must be subscribed.
+     * @param invisibleDuration the invisible duration assigned to each message on the server side.
+     * @return a list of messages (size &le; {@link BatchPolicy#getMaxBatchCount()}).
+     * @throws ClientException          if an unrecoverable error occurs.
+     * @throws UnsupportedOperationException if no {@link BatchPolicy} has been configured.
+     */
+    default List<MessageView> batchReceive(String topic, Duration invisibleDuration) throws ClientException {
+        throw new UnsupportedOperationException("batchReceive is not supported without a BatchPolicy. "
+            + "Call SimpleConsumerBuilder#setBatchPolicy first.");
+    }
+
+    /**
+     * Batch-fetch messages asynchronously by issuing adaptive concurrent {@code receive} calls.
+     *
+     * <p>Same semantics as {@link #batchReceive(Duration)} but returns a {@link CompletableFuture}
+     * immediately.  Each call is independent; there is no internal queue or background thread.
+     *
+     * @param invisibleDuration the invisible duration assigned to each message on the server side.
+     * @return a {@link CompletableFuture} that completes with a list of messages.
+     * @throws UnsupportedOperationException if no {@link BatchPolicy} has been configured.
+     */
+    default CompletableFuture<List<MessageView>> batchReceiveAsync(Duration invisibleDuration) {
+        throw new UnsupportedOperationException("batchReceiveAsync is not supported without a BatchPolicy. "
+            + "Call SimpleConsumerBuilder#setBatchPolicy first.");
+    }
+
+    /**
+     * Batch-fetch messages from a <strong>specific topic</strong> asynchronously.
+     *
+     * <p>Same semantics as {@link #batchReceive(String, Duration)} but returns a
+     * {@link CompletableFuture} immediately.
+     *
+     * @param topic             the topic to receive messages from; must be subscribed.
+     * @param invisibleDuration the invisible duration assigned to each message on the server side.
+     * @return a {@link CompletableFuture} that completes with a list of messages.
+     * @throws UnsupportedOperationException if no {@link BatchPolicy} has been configured.
+     */
+    default CompletableFuture<List<MessageView>> batchReceiveAsync(String topic, Duration invisibleDuration) {
+        throw new UnsupportedOperationException("batchReceiveAsync is not supported without a BatchPolicy. "
+            + "Call SimpleConsumerBuilder#setBatchPolicy first.");
+    }
+
+    /**
+     * Acknowledges a list of messages in batch.
+     *
+     * <p>All entries are grouped by (topic, broker) and each group is further split into chunks
+     * of a bounded size to prevent oversized RPC payloads.  Each chunk is sent as a single
+     * {@code AckMessageRequest}, which is significantly more efficient than calling
+     * {@link #ack(MessageView)} in a loop.
+     *
+     * @param messageViews the messages to acknowledge; must not be {@code null}.
+     * @throws ClientException if an unrecoverable error occurs.
+     */
+    default void batchAck(List<MessageView> messageViews) throws ClientException {
+        throw new UnsupportedOperationException("batchAck is not supported without a BatchPolicy. "
+            + "Call SimpleConsumerBuilder#setBatchPolicy first.");
+    }
+
+    /**
+     * Asynchronous variant of {@link #batchAck(List)}.
+     *
+     * @param messageViews the messages to acknowledge; must not be {@code null}.
+     * @return a {@link CompletableFuture} that completes when all ack RPCs have finished.
+     */
+    default CompletableFuture<Void> batchAckAsync(List<MessageView> messageViews) {
+        throw new UnsupportedOperationException("batchAckAsync is not supported without a BatchPolicy. "
+            + "Call SimpleConsumerBuilder#setBatchPolicy first.");
+    }
 
     /**
      * Close the simple consumer and release all related resources.
