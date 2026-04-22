@@ -208,6 +208,10 @@ pub struct SystemProperties {
     /// Information to identify whether this message is from dead letter queue.
     #[prost(message, optional, tag = "20")]
     pub dead_letter_queue: ::core::option::Option<DeadLetterQueue>,
+    /// Message priority, higher value means higher priority.
+    /// Only valid for priority messages.
+    #[prost(int32, optional, tag = "21")]
+    pub priority: ::core::option::Option<i32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1036,6 +1040,9 @@ pub struct SendResultEntry {
     pub transaction_id: ::prost::alloc::string::String,
     #[prost(int64, tag = "4")]
     pub offset: i64,
+    /// Unique handle to identify message to recall, support delay message for now.
+    #[prost(string, tag = "5")]
+    pub recall_handle: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1400,6 +1407,23 @@ pub struct QueryOffsetResponse {
     pub status: ::core::option::Option<Status>,
     #[prost(int64, tag = "2")]
     pub offset: i64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecallMessageRequest {
+    #[prost(message, optional, tag = "1")]
+    pub topic: ::core::option::Option<Resource>,
+    /// Refer to SendResultEntry.
+    #[prost(string, tag = "2")]
+    pub recall_handle: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecallMessageResponse {
+    #[prost(message, optional, tag = "1")]
+    pub status: ::core::option::Option<Status>,
+    #[prost(string, tag = "2")]
+    pub message_id: ::prost::alloc::string::String,
 }
 /// Generated client implementations.
 pub mod messaging_service_client {
@@ -1990,6 +2014,39 @@ pub mod messaging_service_client {
                     GrpcMethod::new(
                         "apache.rocketmq.v2.MessagingService",
                         "ChangeInvisibleDuration",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Recall a message,
+        /// for delay message, should recall before delivery time, like the rollback operation of transaction message,
+        /// for normal message, not supported for now.
+        pub async fn recall_message(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecallMessageRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecallMessageResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/apache.rocketmq.v2.MessagingService/RecallMessage",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "apache.rocketmq.v2.MessagingService",
+                        "RecallMessage",
                     ),
                 );
             self.inner.unary(req, path, codec).await

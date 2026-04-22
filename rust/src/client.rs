@@ -38,7 +38,7 @@ use crate::pb::receive_message_response::Content;
 use crate::pb::{
     AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, FilterExpression,
     HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, NotifyClientTerminationRequest,
-    QueryRouteRequest, ReceiveMessageRequest, Resource, SendMessageRequest, Status,
+    QueryRouteRequest, ReceiveMessageRequest, RecallMessageRequest, RecallMessageResponse, Resource, SendMessageRequest, Status,
     TelemetryCommand,
 };
 use crate::session::RPCClient;
@@ -341,6 +341,18 @@ impl Client {
         .await
     }
 
+    pub(crate) async fn recall_message(
+        &self,
+        endpoints: &Endpoints,
+        request: RecallMessageRequest,
+    ) -> Result<RecallMessageResponse, ClientError> {
+        self.recall_message_inner(
+            self.get_session_with_endpoints(endpoints).await.unwrap(),
+            request,
+        )
+        .await
+    }
+
     pub(crate) async fn send_message_inner<T: RPCClient + 'static>(
         &self,
         mut rpc_client: T,
@@ -355,6 +367,15 @@ impl Client {
             .iter()
             .map(SendReceipt::from_pb_send_result)
             .collect())
+    }
+
+    pub(crate) async fn recall_message_inner<T: RPCClient + 'static>(
+        &self,
+        mut rpc_client: T,
+        request: RecallMessageRequest,
+    ) -> Result<RecallMessageResponse, ClientError> {
+        let response = rpc_client.recall_message(request).await?;
+        Ok(response)
     }
 
     pub(crate) async fn receive_message(

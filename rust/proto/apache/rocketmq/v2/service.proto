@@ -66,6 +66,8 @@ message SendResultEntry {
   string message_id = 2;
   string transaction_id = 3;
   int64 offset = 4;
+  // Unique handle to identify message to recall, support delay message for now.
+  string recall_handle = 5;
 }
 
 message SendMessageResponse {
@@ -292,6 +294,17 @@ message QueryOffsetResponse {
   int64 offset = 2;
 }
 
+message RecallMessageRequest {
+  Resource topic = 1;
+  // Refer to SendResultEntry.
+  string recall_handle = 2;
+}
+
+message RecallMessageResponse {
+  Status status = 1;
+  string message_id = 2;
+}
+
 // For all the RPCs in MessagingService, the following error handling policies
 // apply:
 //
@@ -407,5 +420,11 @@ service MessagingService {
   // not capable of processing the message timely, it may use
   // ChangeInvisibleDuration to lengthen invisible duration.
   rpc ChangeInvisibleDuration(ChangeInvisibleDurationRequest) returns (ChangeInvisibleDurationResponse) {
+  }
+
+  // Recall a message,
+  // for delay message, should recall before delivery time, like the rollback operation of transaction message,
+  // for normal message, not supported for now.
+  rpc RecallMessage(RecallMessageRequest) returns (RecallMessageResponse) {
   }
 }

@@ -124,6 +124,7 @@ pub use producer::Producer;
 pub use push_consumer::MessageListener;
 pub use push_consumer::PushConsumer;
 pub use simple_consumer::SimpleConsumer;
+pub use model::transaction::Transaction;
 
 #[allow(dead_code)]
 pub mod conf;

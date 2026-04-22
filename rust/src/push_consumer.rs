@@ -623,39 +623,125 @@ impl FifoConsumerWorker {
     ) -> Result<(), ClientError> {
         let messages =
             PushConsumer::receive_messages(&mut self.rpc_client, message_queue, option).await?;
-        for message in messages {
-            let mut delivery_attempt = message.delivery_attempt();
-            let max_delivery_attempts = retry_policy.get_max_attempts();
-            loop {
-                let consume_result = (self.message_listener)(&message);
-                match consume_result {
-                    ConsumeResult::SUCCESS => {
-                        ack_processor.ack_message(message).await;
-                        break;
-                    }
-                    ConsumeResult::FAILURE => {
-                        delivery_attempt += 1;
-                        if delivery_attempt > max_delivery_attempts {
-                            ack_processor
-                                .forward_to_deadletter_queue(
-                                    message,
-                                    delivery_attempt,
-                                    max_delivery_attempts,
-                                )
-                                .await;
-                            break;
-                        } else {
-                            tokio::time::sleep(
-                                retry_policy.get_next_attempt_delay(delivery_attempt),
-                            )
-                            .await;
-                        }
-                    }
-                }
+        
+        // If FIFO consume accelerator is enabled, consume messages in parallel by messageGroup
+        if option.enable_fifo_consume_accelerator() && !messages.is_empty() {
+            self.consume_with_accelerator(messages, ack_processor, retry_policy)
+                .await;
+        } else {
+            // Use sequential consumption for standard FIFO behavior
+            for message in messages {
+                self.consume_message_sequentially(message, ack_processor, retry_policy)
+                    .await;
             }
         }
 
         Ok(())
+    }
+
+    /// Consume messages with accelerator: messages with the same messageGroup are consumed sequentially,
+    /// but messages with different messageGroups are consumed in parallel.
+    async fn consume_with_accelerator(
+        &self,
+        messages: Vec<MessageView>,
+        ack_processor: &mut AckEntryProcessor,
+        retry_policy: &BackOffRetryPolicy,
+    ) {
+        use std::collections::HashMap;
+        
+        let message_count = messages.len();
+        
+        // Group messages by message_group
+        let mut grouped_messages: HashMap<Option<String>, Vec<MessageView>> = HashMap::new();
+        for message in messages {
+            let group = message.message_group().map(|s| s.to_string());
+            grouped_messages.entry(group).or_insert_with(Vec::new).push(message);
+        }
+
+        info!(
+            "FIFO consume accelerator enabled, message_count={}, group_count={}",
+            message_count,
+            grouped_messages.len()
+        );
+
+        // Spawn a task for each message group to consume messages in parallel
+        let mut handles = vec![];
+        for (_group, group_messages) in grouped_messages {
+            let message_listener = Arc::clone(&self.message_listener);
+            let mut ack_processor_shadow = ack_processor.shadow_self();
+            let retry_policy = retry_policy.clone();
+
+            let handle = tokio::spawn(async move {
+                // Within the same group, consume messages sequentially
+                for message in group_messages {
+                    Self::consume_message_sequentially_static(
+                        message,
+                        &message_listener,
+                        &mut ack_processor_shadow,
+                        &retry_policy,
+                    )
+                    .await;
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all group tasks to complete
+        for handle in handles {
+            let _ = handle.await;
+        }
+    }
+
+    /// Consume a single message sequentially with retries (instance method)
+    async fn consume_message_sequentially(
+        &self,
+        message: MessageView,
+        ack_processor: &mut AckEntryProcessor,
+        retry_policy: &BackOffRetryPolicy,
+    ) {
+        Self::consume_message_sequentially_static(
+            message,
+            &self.message_listener,
+            ack_processor,
+            retry_policy,
+        )
+        .await;
+    }
+
+    /// Consume a single message sequentially with retries (static method for use in spawned tasks)
+    async fn consume_message_sequentially_static(
+        message: MessageView,
+        message_listener: &Arc<MessageListener>,
+        ack_processor: &mut AckEntryProcessor,
+        retry_policy: &BackOffRetryPolicy,
+    ) {
+        let mut delivery_attempt = message.delivery_attempt();
+        let max_delivery_attempts = retry_policy.get_max_attempts();
+        loop {
+            let consume_result = (message_listener)(&message);
+            match consume_result {
+                ConsumeResult::SUCCESS => {
+                    ack_processor.ack_message(message).await;
+                    break;
+                }
+                ConsumeResult::FAILURE => {
+                    delivery_attempt += 1;
+                    if delivery_attempt > max_delivery_attempts {
+                        ack_processor
+                            .forward_to_deadletter_queue(
+                                message,
+                                delivery_attempt,
+                                max_delivery_attempts,
+                            )
+                            .await;
+                        break;
+                    } else {
+                        tokio::time::sleep(retry_policy.get_next_attempt_delay(delivery_attempt))
+                            .await;
+                    }
+                }
+            }
+        }
     }
 }
 

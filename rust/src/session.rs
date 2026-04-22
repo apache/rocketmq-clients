@@ -37,7 +37,8 @@ use crate::pb::{
     HeartbeatRequest, HeartbeatResponse, NotifyClientTerminationRequest,
     NotifyClientTerminationResponse, QueryAssignmentRequest, QueryAssignmentResponse,
     QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest, ReceiveMessageResponse,
-    SendMessageRequest, SendMessageResponse, TelemetryCommand,
+    RecallMessageRequest, RecallMessageResponse, SendMessageRequest, SendMessageResponse,
+    TelemetryCommand,
 };
 use crate::util::{PROTOCOL_VERSION, SDK_LANGUAGE, SDK_VERSION};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
@@ -49,6 +50,7 @@ const OPERATION_UPDATE_SETTINGS: &str = "session.update_settings";
 const OPERATION_QUERY_ROUTE: &str = "rpc.query_route";
 const OPERATION_HEARTBEAT: &str = "rpc.heartbeat";
 const OPERATION_SEND_MESSAGE: &str = "rpc.send_message";
+const OPERATION_RECALL_MESSAGE: &str = "rpc.recall_message";
 const OPERATION_RECEIVE_MESSAGE: &str = "rpc.receive_message";
 const OPERATION_ACK_MESSAGE: &str = "rpc.ack_message";
 const OPERATION_CHANGE_INVISIBLE_DURATION: &str = "rpc.change_invisible_duration";
@@ -72,6 +74,10 @@ pub(crate) trait RPCClient {
         &mut self,
         request: SendMessageRequest,
     ) -> Result<SendMessageResponse, ClientError>;
+    async fn recall_message(
+        &mut self,
+        request: RecallMessageRequest,
+    ) -> Result<RecallMessageResponse, ClientError>;
     async fn receive_message(
         &mut self,
         request: ReceiveMessageRequest,
@@ -464,6 +470,22 @@ impl RPCClient for Session {
         Ok(response.into_inner())
     }
 
+    async fn recall_message(
+        &mut self,
+        request: RecallMessageRequest,
+    ) -> Result<RecallMessageResponse, ClientError> {
+        let request = self.sign(request);
+        let response = self.stub.recall_message(request).await.map_err(|e| {
+            ClientError::new(
+                ErrorKind::ClientInternal,
+                "send rpc recall_message failed",
+                OPERATION_RECALL_MESSAGE,
+            )
+            .set_source(e)
+        })?;
+        Ok(response.into_inner())
+    }
+
     async fn receive_message(
         &mut self,
         request: ReceiveMessageRequest,
@@ -680,6 +702,10 @@ mock! {
             &mut self,
             request: ForwardMessageToDeadLetterQueueRequest,
         ) -> Result<ForwardMessageToDeadLetterQueueResponse, ClientError>;
+        async fn recall_message(
+            &mut self,
+            request: RecallMessageRequest,
+        ) -> Result<RecallMessageResponse, ClientError>;
     }
 
 }

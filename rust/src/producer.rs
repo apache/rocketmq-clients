@@ -38,7 +38,7 @@ use crate::model::transaction::{
 use crate::pb;
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, Settings};
-use crate::pb::{Encoding, EndTransactionRequest, Resource, SystemProperties, TransactionSource};
+use crate::pb::{Encoding, EndTransactionRequest, RecallMessageRequest, Resource, SystemProperties, TransactionSource};
 use crate::session::RPCClient;
 use crate::util::{
     build_endpoints_by_message_queue, build_producer_settings, handle_response_status,
@@ -71,6 +71,7 @@ impl Producer {
     const OPERATION_SEND_MESSAGE: &'static str = "producer.send_message";
     const OPERATION_SEND_TRANSACTION_MESSAGE: &'static str = "producer.send_transaction_message";
     const OPERATION_END_TRANSACTION: &'static str = "producer.end_transaction";
+    const OPERATION_RECALL_MESSAGE: &'static str = "producer.recall_message";
     /// Create a new producer instance
     ///
     /// # Arguments
@@ -313,6 +314,8 @@ impl Producer {
                 .take_delivery_timestamp()
                 .map(|seconds| Timestamp { seconds, nanos: 0 });
 
+            let priority = message.take_priority();
+
             if message.transaction_enabled() {
                 message_group = None;
                 delivery_timestamp = None;
@@ -335,6 +338,7 @@ impl Producer {
                     message_id: message.take_message_id(),
                     message_group,
                     delivery_timestamp,
+                    priority,
                     message_type: message.get_message_type() as i32,
                     born_host: HOST_NAME.clone(),
                     born_timestamp: born_timestamp.clone(),
@@ -458,6 +462,86 @@ impl Producer {
             let _ = tx.send(());
         }
         self.client.shutdown().await
+    }
+
+    /// Recall a scheduled/delayed message before it is delivered.
+    ///
+    /// This operation requires server support and only works for delay/timed messages.
+    /// The recall_handle can be obtained from SendReceipt after sending a delay message.
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - the topic of the message to recall
+    /// * `recall_handle` - the handle returned when sending the delay message
+    ///
+    /// # Returns
+    ///
+    /// Returns the message_id of the recalled message if successful.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let send_receipt = producer.send(delay_message).await?;
+    /// if let Some(recall_handle) = send_receipt.recall_handle() {
+    ///     let recalled_message_id = producer.recall_message("topic", recall_handle).await?;
+    ///     println!("Recalled message: {}", recalled_message_id);
+    /// }
+    /// ```
+    pub async fn recall_message(
+        &self,
+        topic: impl Into<String>,
+        recall_handle: impl Into<String>,
+    ) -> Result<String, ClientError> {
+        let topic_name = topic.into();
+        let recall_handle_str = recall_handle.into();
+
+        let route = self.client.topic_route(&topic_name, true).await?;
+        let endpoints = route
+            .queue
+            .first()
+            .ok_or_else(|| {
+                ClientError::new(
+                    ErrorKind::NoBrokerAvailable,
+                    "no message queue available",
+                    Self::OPERATION_RECALL_MESSAGE,
+                )
+            })?
+            .broker
+            .as_ref()
+            .ok_or_else(|| {
+                ClientError::new(
+                    ErrorKind::NoBrokerAvailable,
+                    "no broker available",
+                    Self::OPERATION_RECALL_MESSAGE,
+                )
+            })?
+            .endpoints
+            .as_ref()
+            .ok_or_else(|| {
+                ClientError::new(
+                    ErrorKind::NoBrokerAvailable,
+                    "no endpoints available",
+                    Self::OPERATION_RECALL_MESSAGE,
+                )
+            });
+
+        let endpoints = crate::model::common::Endpoints::from_pb_endpoints(endpoints?.clone());
+
+        let request = RecallMessageRequest {
+            topic: Some(Resource {
+                name: topic_name,
+                resource_namespace: self.get_resource_namespace(),
+            }),
+            recall_handle: recall_handle_str,
+        };
+
+        let response = self
+            .client
+            .recall_message(&endpoints, request)
+            .await?;
+        handle_response_status(response.status, Self::OPERATION_RECALL_MESSAGE)?;
+
+        Ok(response.message_id)
     }
 }
 
@@ -617,6 +701,7 @@ mod tests {
             delivery_timestamp: None,
             transaction_enabled: false,
             message_type: MessageType::TRANSACTION,
+            priority: None,
         }];
         let result = producer.transform_messages_to_protobuf(messages).await;
         assert!(result.is_err());

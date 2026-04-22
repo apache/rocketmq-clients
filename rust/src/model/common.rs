@@ -238,6 +238,7 @@ impl FilterExpression {
 pub struct SendReceipt {
     message_id: String,
     transaction_id: String,
+    recall_handle: Option<String>,
 }
 
 impl SendReceipt {
@@ -245,6 +246,11 @@ impl SendReceipt {
         SendReceipt {
             message_id: entry.message_id.clone(),
             transaction_id: entry.transaction_id.clone(),
+            recall_handle: if entry.recall_handle.is_empty() {
+                None
+            } else {
+                Some(entry.recall_handle.clone())
+            },
         }
     }
 
@@ -256,6 +262,12 @@ impl SendReceipt {
     /// Get transaction id
     pub fn transaction_id(&self) -> &str {
         &self.transaction_id
+    }
+
+    /// Get recall handle for delay/timed messages
+    /// This handle can be used to recall the message before delivery
+    pub fn recall_handle(&self) -> Option<&str> {
+        self.recall_handle.as_deref()
     }
 }
 

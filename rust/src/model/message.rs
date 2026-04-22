@@ -21,7 +21,7 @@ use std::collections::HashMap;
 
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::Endpoints;
-use crate::model::message::MessageType::{DELAY, FIFO, NORMAL, TRANSACTION};
+use crate::model::message::MessageType::{DELAY, FIFO, NORMAL, PRIORITY, TRANSACTION};
 use crate::model::message_id::UNIQ_ID_GENERATOR;
 use crate::pb;
 
@@ -31,6 +31,7 @@ pub enum MessageType {
     FIFO = 2,
     DELAY = 3,
     TRANSACTION = 4,
+    PRIORITY = 5,
 }
 
 /// [`Message`] is the data model for sending.
@@ -43,6 +44,7 @@ pub trait Message {
     fn take_properties(&mut self) -> HashMap<String, String>;
     fn take_message_group(&mut self) -> Option<String>;
     fn take_delivery_timestamp(&mut self) -> Option<i64>;
+    fn take_priority(&mut self) -> Option<i32>;
     fn transaction_enabled(&mut self) -> bool;
     fn get_message_type(&self) -> MessageType;
 }
@@ -68,6 +70,7 @@ pub(crate) struct MessageImpl {
     pub(crate) delivery_timestamp: Option<i64>,
     pub(crate) transaction_enabled: bool,
     pub(crate) message_type: MessageType,
+    pub(crate) priority: Option<i32>,
 }
 
 impl Message for MessageImpl {
@@ -103,6 +106,10 @@ impl Message for MessageImpl {
         self.delivery_timestamp.take()
     }
 
+    fn take_priority(&mut self) -> Option<i32> {
+        self.priority.take()
+    }
+
     fn transaction_enabled(&mut self) -> bool {
         self.transaction_enabled
     }
@@ -134,6 +141,7 @@ impl MessageBuilder {
                 delivery_timestamp: None,
                 transaction_enabled: false,
                 message_type: NORMAL,
+                priority: None,
             },
         }
     }
@@ -162,6 +170,7 @@ impl MessageBuilder {
                 delivery_timestamp: None,
                 transaction_enabled: false,
                 message_type: FIFO,
+                priority: None,
             },
         }
     }
@@ -190,6 +199,7 @@ impl MessageBuilder {
                 delivery_timestamp: Some(delay_time),
                 transaction_enabled: false,
                 message_type: DELAY,
+                priority: None,
             },
         }
     }
@@ -213,6 +223,7 @@ impl MessageBuilder {
                 delivery_timestamp: None,
                 transaction_enabled: true,
                 message_type: TRANSACTION,
+                priority: None,
             },
         }
     }
@@ -279,6 +290,43 @@ impl MessageBuilder {
         self
     }
 
+    /// Create a new [`MessageBuilder`] for building a priority message.
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - topic of the message
+    /// * `body` - message body
+    /// * `priority` - message priority (1-10, higher value means higher priority)
+    pub fn priority_message_builder(
+        topic: impl Into<String>,
+        body: Vec<u8>,
+        priority: i32,
+    ) -> MessageBuilder {
+        MessageBuilder {
+            message: MessageImpl {
+                message_id: UNIQ_ID_GENERATOR.lock().next_id(),
+                topic: topic.into(),
+                body: Some(body),
+                tag: None,
+                keys: None,
+                properties: None,
+                message_group: None,
+                delivery_timestamp: None,
+                transaction_enabled: false,
+                message_type: PRIORITY,
+                priority: Some(priority),
+            },
+        }
+    }
+
+    /// Set message priority (1-10, higher value means higher priority).
+    /// Only valid for priority messages.
+    pub fn set_priority(mut self, priority: i32) -> Self {
+        self.message.priority = Some(priority);
+        self.message.message_type = PRIORITY;
+        self
+    }
+
     fn check_message(&self) -> Result<(), String> {
         if self.message.topic.is_empty() {
             return Err("Topic is empty.".to_string());
@@ -338,6 +386,7 @@ pub struct MessageView {
     pub(crate) born_timestamp: i64,
     pub(crate) delivery_attempt: i32,
     pub(crate) endpoints: Endpoints,
+    pub(crate) priority: Option<i32>,
 }
 
 impl AckMessageEntry for MessageView {
@@ -377,6 +426,7 @@ impl MessageView {
             born_timestamp: system_properties.born_timestamp.map_or(0, |t| t.seconds),
             delivery_attempt: system_properties.delivery_attempt.unwrap_or(0),
             endpoints,
+            priority: system_properties.priority,
         })
     }
 
@@ -438,6 +488,11 @@ impl MessageView {
     /// Get delivery attempt of message
     pub fn delivery_attempt(&self) -> i32 {
         self.delivery_attempt
+    }
+
+    /// Get message priority (1-10, higher value means higher priority)
+    pub fn priority(&self) -> Option<i32> {
+        self.priority
     }
 }
 

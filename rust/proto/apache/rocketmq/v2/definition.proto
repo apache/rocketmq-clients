@@ -270,6 +270,10 @@ message SystemProperties {
 
   // Information to identify whether this message is from dead letter queue.
   optional DeadLetterQueue dead_letter_queue = 20;
+
+  // Message priority, higher value means higher priority.
+  // Only valid for priority messages.
+  optional int32 priority = 21;
 }
 
 message DeadLetterQueue {
