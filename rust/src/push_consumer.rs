@@ -181,8 +181,8 @@ impl PushConsumer {
                                                 response.assignments,
                                                 retry_policy_inner.clone(),
                                             ).await;
-                                            if result.is_err() {
-                                                error!("process assignments failed: {:?}", result.unwrap_err());
+                                            if let Err(e) = result {
+                                                error!("process assignments failed: {:?}", e);
                                             }
                                     } else {
                                         error!("query assignment failed, no status in response.");
@@ -314,8 +314,7 @@ impl PushConsumer {
         let mut _delivery_timestamp: Option<prost_types::Timestamp> = None;
 
         for response in responses {
-            if response.content.is_some() {
-                let content = response.content.unwrap();
+            if let Some(content) = response.content {
                 match content {
                     Content::Status(response_status) => {
                         // Store the status for later processing
@@ -623,7 +622,7 @@ impl FifoConsumerWorker {
     ) -> Result<(), ClientError> {
         let messages =
             PushConsumer::receive_messages(&mut self.rpc_client, message_queue, option).await?;
-        
+
         // If FIFO consume accelerator is enabled, consume messages in parallel by messageGroup
         if option.enable_fifo_consume_accelerator() && !messages.is_empty() {
             self.consume_with_accelerator(messages, ack_processor, retry_policy)
@@ -648,16 +647,16 @@ impl FifoConsumerWorker {
         retry_policy: &BackOffRetryPolicy,
     ) {
         use std::collections::HashMap;
-        
+
         let message_count = messages.len();
-        
+
         // Group messages by message_group
         let mut grouped_messages: HashMap<Option<String>, Vec<MessageView>> = HashMap::new();
         for message in messages {
             let group = message.message_group().map(|s| s.to_string());
             grouped_messages
                 .entry(group)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(message);
         }
 

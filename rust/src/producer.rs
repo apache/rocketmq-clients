@@ -38,7 +38,10 @@ use crate::model::transaction::{
 use crate::pb;
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, Settings};
-use crate::pb::{Encoding, EndTransactionRequest, RecallMessageRequest, Resource, SystemProperties, TransactionSource};
+use crate::pb::{
+    Encoding, EndTransactionRequest, RecallMessageRequest, Resource, SystemProperties,
+    TransactionSource,
+};
 use crate::session::RPCClient;
 use crate::util::{
     build_endpoints_by_message_queue, build_producer_settings, handle_response_status,
@@ -535,10 +538,7 @@ impl Producer {
             recall_handle: recall_handle_str,
         };
 
-        let response = self
-            .client
-            .recall_message(&endpoints, request)
-            .await?;
+        let response = self.client.recall_message(&endpoints, request).await?;
         handle_response_status(response.status, Self::OPERATION_RECALL_MESSAGE)?;
 
         Ok(response.message_id)

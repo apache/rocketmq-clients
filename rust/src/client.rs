@@ -147,10 +147,10 @@ impl Client {
                 select! {
                     _ = heartbeat_interval.tick() => {
                         let sessions = session_manager.get_all_sessions().await;
-                        if sessions.is_err() {
+                        if let Err(e) = sessions {
                             error!(
                                 "send heartbeat failed: failed to get sessions: {}",
-                                sessions.unwrap_err()
+                                e
                             );
                             continue;
                         }
@@ -158,19 +158,19 @@ impl Client {
                         for session in sessions.unwrap() {
                             let peer = session.peer().to_string();
                             let response = Self::heart_beat_inner(session, &group, &namespace, &client_type).await;
-                            if response.is_err() {
+                            if let Err(e) = response {
                                 error!(
                                     "send heartbeat failed: failed to send heartbeat rpc: {}",
-                                    response.unwrap_err()
+                                    e
                                 );
                                 continue;
                             }
                             let result =
                                 handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
-                            if result.is_err() {
+                            if let Err(e) = result {
                                 error!(
                                     "send heartbeat failed: server return error: {}",
-                                    result.unwrap_err()
+                                    e
                                 );
                                 continue;
                             }
@@ -179,15 +179,15 @@ impl Client {
                     },
                     _ = sync_settings_interval.tick() => {
                         let sessions = session_manager.get_all_sessions().await;
-                        if sessions.is_err() {
-                            error!("sync settings failed: failed to get sessions: {}", sessions.unwrap_err());
+                        if let Err(e) = sessions {
+                            error!("sync settings failed: failed to get sessions: {}", e);
                             continue;
                         }
                         for mut session in sessions.unwrap() {
                             let peer = session.peer().to_string();
                             let result = session.update_settings(settings.clone()).await;
-                            if result.is_err() {
-                                error!("sync settings failed: failed to call rpc: {}", result.unwrap_err());
+                            if let Err(e) = result {
+                                error!("sync settings failed: failed to call rpc: {}", e);
                                 continue;
                             }
                             debug!("sync settings success, peer = {}", peer);
@@ -196,8 +196,8 @@ impl Client {
                     },
                     _ = sync_route_timer.tick() => {
                         let result = route_manager.sync_route_data(&mut rpc_client).await;
-                        if result.is_err() {
-                            error!("sync route failed: {}", result.unwrap_err());
+                        if let Err(e) = result {
+                            error!("sync route failed: {}", e);
                         }
                     },
                     _ = &mut shutdown_rx => {
