@@ -153,15 +153,9 @@ jobs:
       - uses: actions/checkout@v2
       - name: Collect build result
         run: |
-          if echo java-${{ needs.java-build.result }},\
-          cpp-${{ needs.cpp-build.result }},\
-          csharp-${{ needs.csharp-build.result }},\
-          golang-${{ needs.golang-build.result }},\
-          php-${{ needs.php-build.result }},\
-          rust-${{ needs.rust-build.result }},\
-          nodejs-${{ needs.nodejs-build.result }},\
-          python-${{ needs.python-build.result }} | grep -E 'cancelled|failure' -o > null
-          then
+          RESULTS="java-${{ needs.java-build.result }},cpp-${{ needs.cpp-build.result }},csharp-${{ needs.csharp-build.result }},golang-${{ needs.golang-build.result }},php-${{ needs.php-build.result }},rust-${{ needs.rust-build.result }},nodejs-${{ needs.nodejs-build.result }},python-${{ needs.python-build.result }}"
+          echo "Build results: $RESULTS"
+          if echo "$RESULTS" | grep -qE 'cancelled|failure'; then
             echo "There are failed/cancelled builds"
             exit 1 
           else
