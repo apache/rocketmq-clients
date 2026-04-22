@@ -17,13 +17,20 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import java.time.Duration;
+import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.consumer.BatchPolicy;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
+import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 
 public class PushConsumerBuilderImplTest extends TestBase {
+
+    private final Map<String, FilterExpression> subscriptionExpressions =
+        createSubscriptionExpressions(FAKE_TOPIC_0);
 
     @Test(expected = NullPointerException.class)
     public void testSetClientConfigurationWithNull() {
@@ -69,5 +76,40 @@ public class PushConsumerBuilderImplTest extends TestBase {
         builder.setClientConfiguration(clientConfiguration).setConsumerGroup(FAKE_CONSUMER_GROUP_0)
             .setMessageListener(messageView -> ConsumeResult.SUCCESS)
             .build();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildWithoutAnyListener() throws ClientException {
+        final PushConsumerBuilderImpl builder = new PushConsumerBuilderImpl();
+        ClientConfiguration clientConfiguration =
+            ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
+        builder.setClientConfiguration(clientConfiguration).setConsumerGroup(FAKE_CONSUMER_GROUP_0)
+            .setSubscriptionExpressions(subscriptionExpressions)
+            .build();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildWithBothListeners() throws ClientException {
+        final PushConsumerBuilderImpl builder = new PushConsumerBuilderImpl();
+        ClientConfiguration clientConfiguration =
+            ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
+        builder.setClientConfiguration(clientConfiguration).setConsumerGroup(FAKE_CONSUMER_GROUP_0)
+            .setSubscriptionExpressions(subscriptionExpressions)
+            .setMessageListener(messageView -> ConsumeResult.SUCCESS)
+            .setBatchMessageListener(views -> ConsumeResult.SUCCESS,
+                new BatchPolicy(10, Duration.ofSeconds(5)))
+            .build();
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testSetBatchMessageListenerWithNullListener() {
+        final PushConsumerBuilderImpl builder = new PushConsumerBuilderImpl();
+        builder.setBatchMessageListener(null, new BatchPolicy(10, Duration.ofSeconds(5)));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testSetBatchMessageListenerWithNullPolicy() {
+        final PushConsumerBuilderImpl builder = new PushConsumerBuilderImpl();
+        builder.setBatchMessageListener(views -> ConsumeResult.SUCCESS, null);
     }
 }
