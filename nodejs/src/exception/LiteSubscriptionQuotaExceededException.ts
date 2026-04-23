@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-import { ClientException } from './ClientException';
+import { ClientException } from '../exception/ClientException';
 
-export class InternalErrorException extends ClientException {
-  constructor(code: number, message: string, requestId?: string) {
-    super(code, message, requestId);
-    this.name = 'InternalErrorException';
-    // Mark this as a potentially retryable error (temporary server-side issue)
-    (this as any).retryable = true;
-  }
-
-  /**
-   * Check if this error is retryable.
-   * Internal server errors are typically temporary and can be retried.
-   */
-  isRetryable(): boolean {
-    return true;
+/**
+ * Exception thrown when lite subscription quota is exceeded.
+ */
+export class LiteSubscriptionQuotaExceededException extends ClientException {
+  constructor(responseCode: number, requestId: string | null, message: string) {
+    super(responseCode, message, requestId ?? undefined);
+    this.name = 'LiteSubscriptionQuotaExceededException';
   }
 }

@@ -42,6 +42,8 @@ export class MessageView {
   readonly offset?: number;
   readonly decodeTimestamp: Date;
   readonly properties = new Map<string, string>();
+  readonly liteTopic?: string;
+  readonly priority?: number;
 
   constructor(message: MessagePB, messageQueue?: MessageQueue, transportDeliveryTimestamp?: Date) {
     const systemProperties = message.getSystemProperties()!;
@@ -86,9 +88,134 @@ export class MessageView {
     this.offset = systemProperties.getQueueOffset();
     this.receiptHandle = systemProperties.getReceiptHandle()!;
     this.transportDeliveryTimestamp = transportDeliveryTimestamp;
+    this.liteTopic = systemProperties.getLiteTopic();
+    this.priority = systemProperties.getPriority();
     if (messageQueue) {
       this.endpoints = messageQueue.broker.endpoints;
     }
     this.body = bodyBytes;
+  }
+
+  /**
+   * Get the lite topic, which makes sense only when the topic type is LITE.
+   *
+   * @return lite topic, which is optional, undefined means lite topic is not specified.
+   */
+  getLiteTopic(): string | undefined {
+    return this.liteTopic;
+  }
+
+  /**
+   * Get the priority of the message, which makes sense only when topic type is priority.
+   *
+   * @return message priority, which is optional, undefined means priority is not specified.
+   */
+  getPriority(): number | undefined {
+    return this.priority;
+  }
+
+  /**
+   * Get the unique id of the message.
+   *
+   * @return unique id.
+   */
+  getMessageId(): string {
+    return this.messageId;
+  }
+
+  /**
+   * Get the topic of the message, which is the first classifier for the message.
+   *
+   * @return topic of the message.
+   */
+  getTopic(): string {
+    return this.topic;
+  }
+
+  /**
+   * Get the deep copy of the message body, which means any modification of the return value does not
+   * affect the built-in message body.
+   *
+   * @return the deep copy of message body.
+   */
+  getBody(): Buffer {
+    return Buffer.from(this.body);
+  }
+
+  /**
+   * Get the deep copy of message properties, which makes the modifies of return value does
+   * not affect the message itself.
+   *
+   * @return the deep copy of message properties.
+   */
+  getProperties(): Map<string, string> {
+    return new Map(this.properties);
+  }
+
+  /**
+   * Get the tag of the message, which is the second classifier besides the topic.
+   *
+   * @return the tag of message, which is optional, undefined means tag does not exist.
+   */
+  getTag(): string | undefined {
+    return this.tag;
+  }
+
+  /**
+   * Get the key collection of the message, which means any modification of the return value does not affect the
+   * built-in message key collection.
+   *
+   * @return copy of the key collection of the message, empty array means message key is not specified.
+   */
+  getKeys(): string[] {
+    return [ ...this.keys ];
+  }
+
+  /**
+   * Get the message group, which makes sense only when the topic type is FIFO(First In, First Out).
+   *
+   * @return message group, which is optional, undefined means message group is not specified.
+   */
+  getMessageGroup(): string | undefined {
+    return this.messageGroup;
+  }
+
+  /**
+   * Get the expected delivery timestamp, which makes sense only when the topic type is delay.
+   *
+   * @return message expected delivery timestamp, which is optional, undefined means delivery timestamp is not specified.
+   */
+  getDeliveryTimestamp(): Date | undefined {
+    return this.deliveryTimestamp;
+  }
+
+  /**
+   * Get the born host of the message.
+   *
+   * @return born host of the message.
+   */
+  getBornHost(): string {
+    return this.bornHost;
+  }
+
+  /**
+   * Get the born timestamp of the message.
+   *
+   * <p>Born time means the timestamp that the message is prepared to send rather than the timestamp the
+   * Message was built.
+   *
+   * @return born timestamp of the message.
+   */
+  getBornTimestamp(): Date | undefined {
+    return this.bornTimestamp;
+  }
+
+  /**
+   * Get the delivery attempt for the message.
+   *
+   * @return delivery attempt.
+   */
+  getDeliveryAttempt(): number | undefined {
+    return this.deliveryAttempt;
   }
 }

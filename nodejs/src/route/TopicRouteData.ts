@@ -35,4 +35,40 @@ export class TopicRouteData {
     }
     return Array.from(endpointsMap.values());
   }
+
+  /**
+   * Get the count of message queues.
+   * @return number of message queues
+   */
+  getQueueCount(): number {
+    return this.messageQueues.length;
+  }
+
+  /**
+   * Check if the route data is empty.
+   * @return true if no message queues available
+   */
+  isEmpty(): boolean {
+    return this.messageQueues.length === 0;
+  }
+
+  equals(other: TopicRouteData): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    if (this.messageQueues.length !== other.messageQueues.length) return false;
+    for (let i = 0; i < this.messageQueues.length; i++) {
+      if (!this.messageQueues[i].equals(other.messageQueues[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    for (const mq of this.messageQueues) {
+      hash = hash * 31 + mq.hashCode();
+    }
+    return hash;
+  }
 }

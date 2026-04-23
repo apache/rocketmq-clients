@@ -46,6 +46,8 @@ import {
   ReceiveMessageResponse,
   SendMessageRequest,
   SendMessageResponse,
+  SyncLiteSubscriptionRequest,
+  SyncLiteSubscriptionResponse,
   UpdateOffsetRequest,
   UpdateOffsetResponse,
 } from '../../proto/apache/rocketmq/v2/service_pb';
@@ -250,6 +252,17 @@ export class RpcClient {
     const deadline = this.#getDeadline(duration);
     return new Promise<RecallMessageResponse>((resolve, reject) => {
       client.recallMessage(request, metadata, { deadline }, (e, res) => {
+        if (e) return reject(e);
+        resolve(res);
+      });
+    });
+  }
+
+  async syncLiteSubscription(request: SyncLiteSubscriptionRequest, metadata: Metadata, duration: number) {
+    const client = this.#getAndActivityRpcClient();
+    const deadline = this.#getDeadline(duration);
+    return new Promise<SyncLiteSubscriptionResponse>((resolve, reject) => {
+      client.syncLiteSubscription(request, metadata, { deadline }, (e, res) => {
         if (e) return reject(e);
         resolve(res);
       });

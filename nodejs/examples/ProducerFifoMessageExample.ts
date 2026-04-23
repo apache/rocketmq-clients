@@ -17,10 +17,10 @@
 
 /**
  * Producer with FIFO Message Example
- * 
+ *
  * This example demonstrates how to send FIFO (First-In-First-Out) messages
  * that will be consumed in order by PushConsumer with FIFO support.
- * 
+ *
  * Key points for FIFO messages:
  * - Messages with the same messageGroup are stored and delivered in order
  * - Different messageGroups can be consumed concurrently
@@ -46,7 +46,7 @@ async function main() {
 
     // Send FIFO messages with different message groups
     // Messages within the same group will be consumed in strict order
-    
+
     // Group 1: Order processing sequence
     console.log('Sending FIFO messages for Group 1 (Order-001)...');
     await sendFifoMessages(producer, 'Order-001', [
@@ -72,22 +72,6 @@ async function main() {
       { type: 'TRANSFER', accountId: 'Alice', amount: 100, balance: 700 },
     ]);
 
-    // Send some messages without group (will be consumed concurrently)
-    console.log('\nSending non-FIFO messages (no messageGroup)...');
-    for (let i = 0; i < 3; i++) {
-      const receipt = await producer.send({
-        topic: topics.fifo,
-        tag: 'non-fifo',
-        body: Buffer.from(JSON.stringify({
-          type: 'NON_FIFO',
-          index: i,
-          timestamp: Date.now(),
-          note: 'This message has no messageGroup, will be consumed concurrently',
-        })),
-      });
-      console.log(`Non-FIFO message ${i} sent:`, receipt.messageId);
-    }
-
     console.log('\n✓ All FIFO messages sent successfully!');
     console.log('\nNote: Start PushConsumerFifoMessageExample to consume these messages.');
     console.log('Messages with the same messageGroup will be consumed in strict order.\n');
@@ -104,13 +88,13 @@ async function main() {
 async function sendFifoMessages(
   producer: Producer,
   messageGroup: string,
-  messages: Array<Record<string, any>>
+  messages: Array<Record<string, any>>,
 ) {
   console.log(`\n  Sending ${messages.length} messages to group "${messageGroup}"...`);
-  
+
   for (let i = 0; i < messages.length; i++) {
     const messageData = messages[i];
-    
+
     const receipt = await producer.send({
       topic: topics.fifo,
       tag: 'fifo-message',
@@ -122,7 +106,7 @@ async function sendFifoMessages(
       })),
       messageGroup, // Required for FIFO ordering
     });
-    
+
     console.log(`    [${i + 1}/${messages.length}] Sent:`, {
       messageId: receipt.messageId,
       sequence: i + 1,
@@ -132,7 +116,7 @@ async function sendFifoMessages(
     // Small delay between messages to ensure clear sequencing
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  
+
   console.log(`  ✓ Completed sending ${messages.length} messages for group "${messageGroup}"`);
 }
 

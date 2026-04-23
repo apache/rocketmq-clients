@@ -29,6 +29,7 @@ import {
   RecoverOrphanedTransactionCommand,
   VerifyMessageCommand,
   PrintThreadStackTraceCommand,
+  ReconnectEndpointsCommand,
   TelemetryCommand,
   ThreadStackTrace,
   HeartbeatRequest,
@@ -74,7 +75,6 @@ export interface BaseClientOptions {
  */
 export abstract class BaseClient {
   readonly clientId = ClientId.create();
-  readonly clientType = ClientType.CLIENT_TYPE_UNSPECIFIED;
   readonly sslEnabled: boolean;
   readonly #sessionCredentials?: SessionCredentials;
   readonly namespace: string;
@@ -83,6 +83,8 @@ export abstract class BaseClient {
   protected readonly requestTimeout: number;
   protected readonly topics = new Set<string>();
   protected readonly topicRouteCache = new Map<string, TopicRouteData>();
+  // In-flight route query futures to avoid duplicate queries for the same topic
+  protected readonly inflightRouteFutures = new Map<string, Promise<TopicRouteData>>();
   protected readonly logger: ILogger;
   protected readonly rpcClientManager: RpcClientManager;
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
@@ -91,11 +93,36 @@ export abstract class BaseClient {
   #timers: NodeJS.Timeout[] = [];
   #running = false;
 
+  /**
+   * Get the client type.
+   * Subclasses should override this method to return their specific client type.
+   *
+   * @return The client type identifier
+   */
+  protected getClientType(): ClientType {
+    return ClientType.CLIENT_TYPE_UNSPECIFIED;
+  }
+
   constructor(options: BaseClientOptions) {
+    // Validate required parameters
+    if (!options.endpoints) {
+      throw new TypeError('endpoints is required');
+    }
+    if (typeof options.endpoints !== 'string' || options.endpoints.trim().length === 0) {
+      throw new TypeError('endpoints must be a non-empty string');
+    }
+
+    // Validate optional parameters
+    if (options.requestTimeout !== undefined) {
+      if (typeof options.requestTimeout !== 'number' || options.requestTimeout < 1000) {
+        throw new RangeError('requestTimeout must be a number >= 1000ms');
+      }
+    }
+
     this.logger = options.logger ?? getDefaultLogger();
     this.sslEnabled = options.sslEnabled === true;
     this.endpoints = new Endpoints(options.endpoints);
-    this.namespace = options.namespace;
+    this.namespace = options.namespace ?? '';
     this.#sessionCredentials = options.sessionCredentials;
     // https://rocketmq.apache.org/docs/introduction/03limits/
     // Default request timeout is 3000ms
@@ -103,7 +130,9 @@ export abstract class BaseClient {
     this.rpcClientManager = new RpcClientManager(this, this.logger);
     if (options.topics) {
       for (const topic of options.topics) {
-        this.topics.add(topic);
+        if (topic && topic.trim().length > 0) {
+          this.topics.add(topic);
+        }
       }
     }
   }
@@ -128,17 +157,53 @@ export abstract class BaseClient {
   async #startup() {
     this.logger.info('Begin to execute startup flow, clientId=%s, topics=%d',
       this.clientId, this.topics.size);
-    // fetch topic route
-    await this.updateRoutes();
+
+    // Fetch topic route with retry mechanism (align with Java client)
+    const maxAttempts = 3;
+    let lastError: Error | undefined;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await this.updateRoutes();
+        this.logger.info('Fetch topic route successfully during startup, clientId=%s, attempt=%d',
+          this.clientId, attempt);
+        break;
+      } catch (e) {
+        lastError = e as Error;
+        if (attempt < maxAttempts) {
+          const backoffMs = 1000 * attempt; // Simple linear backoff: 1s, 2s, 3s
+          this.logger.warn('Fetch topic route failed during startup, will retry, clientId=%s, attempt=%d/%d, error=%s, backoff=%dms',
+            this.clientId, attempt, maxAttempts, e instanceof Error ? e.message : String(e), backoffMs);
+          await this.sleep(backoffMs);
+        } else {
+          this.logger.error('Fetch topic route failed after %d attempts, clientId=%s, error=%s',
+            maxAttempts, this.clientId, e instanceof Error ? e.message : String(e));
+        }
+      }
+    }
+
+    if (lastError && !this.topicRouteCache.size) {
+      throw new Error(`Failed to fetch topic routes after ${maxAttempts} attempts`, { cause: lastError });
+    }
+
     this.logger.info('Topic routes updated, clientId=%s', this.clientId);
     // update topic route every 30s
     this.#timers.push(setInterval(async () => {
-      this.updateRoutes();
+      try {
+        await this.updateRoutes();
+      } catch (e) {
+        this.logger.error('Failed to update routes periodically, clientId=%s, error=%s',
+          this.clientId, e instanceof Error ? e.message : String(e));
+      }
     }, 30000));
 
     // sync settings every 5m
     this.#timers.push(setInterval(async () => {
-      this.#syncSettings();
+      try {
+        this.#syncSettings();
+      } catch (e) {
+        this.logger.error('Failed to sync settings, clientId=%s, error=%s',
+          this.clientId, e instanceof Error ? e.message : String(e));
+      }
     }, 5 * 60000));
 
     // heartbeat every 10s
@@ -168,29 +233,62 @@ export abstract class BaseClient {
     return this.#running;
   }
 
+  protected sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   async shutdown() {
     this.logger.info('Begin to shutdown the rocketmq client, clientId=%s', this.clientId);
     this.#running = false;
+
+    // 1. Clear all timers
     while (this.#timers.length > 0) {
       const timer = this.#timers.pop();
-      clearInterval(timer);
+      if (timer) {
+        clearInterval(timer);
+      }
     }
 
+    // 2. Notify server termination
     await this.#notifyClientTermination();
 
+    // 3. Release all telemetry sessions
     this.logger.info('Begin to release all telemetry sessions, clientId=%s', this.clientId);
     this.#releaseTelemetrySessions();
     this.logger.info('Release all telemetry sessions successfully, clientId=%s', this.clientId);
 
+    // 4. Close RPC connections
     this.rpcClientManager.close();
+
+    // 5. Clear caches
+    this.topicRouteCache.clear();
+    this.inflightRouteFutures.clear();
+    this.isolated.clear();
+
     this.logger.info('Shutdown the rocketmq client successfully, clientId=%s', this.clientId);
     this.logger.close && this.logger.close();
   }
 
   async #doHeartbeat() {
-    const request = this.wrapHeartbeatRequest();
-    for (const endpoints of this.getTotalRouteEndpoints()) {
-      await this.rpcClientManager.heartbeat(endpoints, request, this.requestTimeout);
+    try {
+      const request = this.wrapHeartbeatRequest();
+      const endpointsList = this.getTotalRouteEndpoints();
+      if (endpointsList.length === 0) {
+        debug('No endpoints available for heartbeat, clientId=%s', this.clientId);
+        return;
+      }
+      for (const endpoints of endpointsList) {
+        try {
+          await this.rpcClientManager.heartbeat(endpoints, request, this.requestTimeout);
+        } catch (e) {
+          // Log but don't throw - heartbeat is best-effort
+          this.logger.warn('Heartbeat failed for endpoints=%s, clientId=%s, error=%s',
+            endpoints.facade, this.clientId, e instanceof Error ? e.message : String(e));
+        }
+      }
+    } catch (e) {
+      this.logger.error('Unexpected error in heartbeat, clientId=%s, error=%s',
+        this.clientId, e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -226,31 +324,60 @@ export abstract class BaseClient {
     }
   }
 
-  protected async getRouteData(topic: string) {
-    let topicRouteData = this.topicRouteCache.get(topic);
-    if (!topicRouteData) {
-      this.topics.add(topic);
-      topicRouteData = await this.#fetchTopicRoute(topic);
+  protected async getRouteData(topic: string): Promise<TopicRouteData> {
+    // Check cache first
+    const cached = this.topicRouteCache.get(topic);
+    if (cached) {
+      return cached;
     }
-    return topicRouteData;
+
+    // Check if there's an in-flight request for this topic
+    const inFlight = this.inflightRouteFutures.get(topic);
+    if (inFlight) {
+      debug('Reusing in-flight route query for topic=%s', topic);
+      return inFlight;
+    }
+
+    // Add topic to topics set
+    this.topics.add(topic);
+
+    // Create new route query and cache the promise
+    const future = this.#fetchTopicRoute(topic);
+    this.inflightRouteFutures.set(topic, future);
+
+    try {
+      const result = await future;
+      return result;
+    } finally {
+      // Clean up in-flight cache after completion (success or failure)
+      this.inflightRouteFutures.delete(topic);
+    }
   }
 
   async #fetchTopicRoute(topic: string) {
     const req = new QueryRouteRequest();
     req.setTopic(createResource(topic));
     req.setEndpoints(this.endpoints.toProtobuf());
-    const response = await this.rpcClientManager.queryRoute(this.endpoints, req, this.requestTimeout);
-    StatusChecker.check(response.getStatus()?.toObject());
-    const topicRouteData = new TopicRouteData(response.getMessageQueuesList());
-    const newEndpoints = this.findNewRouteEndpoints(topicRouteData.getTotalEndpoints());
-    for (const endpoints of newEndpoints) {
-      // sync current settings to new endpoints
-      this.getTelemetrySession(endpoints).syncSettings();
+
+    try {
+      const response = await this.rpcClientManager.queryRoute(this.endpoints, req, this.requestTimeout);
+      StatusChecker.check(response.getStatus()?.toObject());
+      const topicRouteData = new TopicRouteData(response.getMessageQueuesList());
+      const newEndpoints = this.findNewRouteEndpoints(topicRouteData.getTotalEndpoints());
+      for (const endpoints of newEndpoints) {
+        // sync current settings to new endpoints
+        this.getTelemetrySession(endpoints).syncSettings();
+      }
+      this.topicRouteCache.set(topic, topicRouteData);
+      this.onTopicRouteDataUpdate(topic, topicRouteData);
+      debug('fetchTopicRoute topic=%o topicRouteData=%j', topic, topicRouteData);
+      return topicRouteData;
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      this.logger.error('Failed to fetch topic route, clientId=%s, topic=%s, endpoints=%s, error=%s',
+        this.clientId, topic, this.endpoints.facade, error.message);
+      throw error;
     }
-    this.topicRouteCache.set(topic, topicRouteData);
-    this.onTopicRouteDataUpdate(topic, topicRouteData);
-    debug('fetchTopicRoute topic=%o topicRouteData=%j', topic, topicRouteData);
-    return topicRouteData;
   }
 
   #syncSettings() {
@@ -400,5 +527,32 @@ export abstract class BaseClient {
     telemetryCommand.setThreadStackTrace(new ThreadStackTrace().setThreadStackTrace('mock stack').setNonce(nonce));
     telemetryCommand.setStatus(new Status().setCode(Code.OK));
     this.telemetry(endpoints, telemetryCommand);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onReconnectEndpointsCommand(endpoints: Endpoints, _command: ReconnectEndpointsCommand) {
+    this.logger.info('Received reconnect endpoints command from remote, will refresh telemetry session, endpoints=%s, clientId=%s',
+      endpoints, this.clientId);
+    // Refresh the telemetry session to use the latest endpoints
+    const session = this.getTelemetrySession(endpoints);
+    session.refresh();
+  }
+
+  /**
+   * Get the endpoints of this client.
+   *
+   * @return The endpoints
+   */
+  getEndpoints(): Endpoints {
+    return this.endpoints;
+  }
+
+  /**
+   * Get the RPC client manager.
+   *
+   * @return The RPC client manager
+   */
+  getRpcClientManager(): RpcClientManager {
+    return this.rpcClientManager;
   }
 }

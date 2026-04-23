@@ -21,3 +21,4 @@ export * from './message';
 export * from './producer';
 export * from './retry';
 export * from './route';
+export * from './client';

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { SessionCredentials } from '../src/client';
+import { SessionCredentials } from '../src';
 
 export const endpoints = process.env.ROCKETMQ_NODEJS_CLIENT_ENDPOINTS ?? '127.0.0.1:8080';
 export const namespace = process.env.ROCKETMQ_NODEJS_CLIENT_NAMESPACE ?? '';
@@ -28,6 +28,11 @@ export const topics = {
 
 export const consumerGroup = process.env.ROCKETMQ_NODEJS_CLIENT_GROUP ?? 'nodejs-unittest-group';
 export const tag = process.env.TAG ?? '*';
+
+// Lite topic configuration
+export const liteTopicConfig = {
+  parentTopic: process.env.ROCKETMQ_NODEJS_LITE_PARENT_TOPIC ?? 'yourParentTopic',
+};
 
 export let sessionCredentials: SessionCredentials | undefined;
 if (process.env.ROCKETMQ_NODEJS_CLIENT_KEY && process.env.ROCKETMQ_NODEJS_CLIENT_SECRET) {

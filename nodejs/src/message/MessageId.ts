@@ -53,6 +53,24 @@ export class MessageId {
   toString() {
     return this.id;
   }
+
+  equals(other: MessageId): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.id === other.id;
+  }
+
+  hashCode(): number {
+    let hash = 0;
+    for (let i = 0; i < this.id.length; i++) {
+      const char = this.id.charCodeAt(i);
+      // eslint-disable-next-line no-bitwise
+      hash = ((hash << 5) - hash) + char;
+      // eslint-disable-next-line no-bitwise
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+  }
 }
 
 const MAX_UINT32 = 0xFFFFFFFF;
