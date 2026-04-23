@@ -74,6 +74,8 @@ tonic-build = "0.10.2"
 which = "7.0.3"
 version_check = "0.9.4"
 regex = "1.7.3"
+# Pin tempfile to avoid getrandom 0.4+ which requires Rust 2024 edition
+tempfile = ">=3.0, <3.15"
 
 [dev-dependencies]
 awaitility = "0.3.0"
