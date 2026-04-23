@@ -483,7 +483,22 @@ impl Producer {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
+    /// use rocketmq::model::message::MessageBuilder;
+    /// use std::time::{SystemTime, Duration};
+    ///
+    /// // Create and send a delay message
+    /// let delay_message = MessageBuilder::delay_message_builder(
+    ///     "topic",
+    ///     b"message body".to_vec(),
+    ///     (SystemTime::now() + Duration::from_secs(60))
+    ///         .duration_since(SystemTime::UNIX_EPOCH)
+    ///         .unwrap()
+    ///         .as_secs() as i64,
+    /// )
+    /// .build()
+    /// .unwrap();
+    ///
     /// let send_receipt = producer.send(delay_message).await?;
     /// if let Some(recall_handle) = send_receipt.recall_handle() {
     ///     let recalled_message_id = producer.recall_message("topic", recall_handle).await?;
