@@ -66,6 +66,8 @@ ring = "0.16.20"
 tokio-util = { version = "=0.7.10", features = ["rt"] }
 # Pin indexmap to avoid hashbrown 0.17+ which requires Rust 2024 edition
 indexmap = ">=2.0, <2.8"
+# Explicitly pin hashbrown to versions compatible with Rust 1.74
+hashbrown = ">=0.12, <0.16"
 
 [build-dependencies]
 tonic-build = "0.10.2"
