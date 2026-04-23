@@ -283,15 +283,9 @@ class SimpleConsumer
             if ($this->telemetrySession && !empty($this->subscriptionExpressions)) {
                 try {
                     $this->syncSettings();
-                    Logger::info("Initial settings synced after startup, clientId={}, subscriptionCount={}", [
+                    Logger::debug("Initial settings synced after startup, clientId={}, subscriptionCount={}", [
                         $this->clientId,
                         count($this->subscriptionExpressions)
-                    ]);
-                                        
-                    // Wait for server to process settings before starting background timers
-                    usleep(500000); // 500ms
-                    Logger::debug("Waited 500ms for server to process initial settings, clientId={}", [
-                        $this->clientId
                     ]);
                 } catch (\Throwable $e) {
                     Logger::warn("Failed to sync initial settings after startup, clientId={}, error={}", [
@@ -301,9 +295,7 @@ class SimpleConsumer
                     // Don't throw - consumer should still start even if initial sync fails
                 }
             } elseif ($this->telemetrySession) {
-                Logger::debug("Skipping initial settings sync - no subscriptions configured, clientId={}", [
-                    $this->clientId
-                ]);
+
             }
             
             // Start background timers for heartbeat and settings sync
@@ -363,10 +355,6 @@ class SimpleConsumer
         // This ensures fresh route data on next receive()
         if (isset($this->subscriptionRouteDataCache[$topic])) {
             unset($this->subscriptionRouteDataCache[$topic]);
-            Logger::debug("Cleared load balancer for resubscribed topic, topic={}, clientId={}", [
-                $topic,
-                $this->clientId
-            ]);
         }
         
         // Sync settings to server if consumer is running (aligned with Java)
@@ -374,10 +362,6 @@ class SimpleConsumer
         if ($this->state === 'RUNNING') {
             try {
                 $this->syncSettings();
-                Logger::info("Settings synced after subscribe, topic={}, clientId={}", [
-                    $topic,
-                    $this->clientId
-                ]);
             } catch (\Throwable $e) {
                 Logger::warn("Failed to sync settings after subscribe, topic={}, clientId={}, error={}", [
                     $topic,
@@ -387,10 +371,6 @@ class SimpleConsumer
                 // Don't throw - subscription should still succeed even if sync fails
             }
         }
-        
-        Logger::info("Subscribed topic with filter expression, topic={}, expression={}, type={}, clientId={}", [
-            $topic, $filterExpression->getExpression(), $filterExpression->getType()->value(), $this->clientId
-        ]);
         return $this;
     }
     
@@ -417,10 +397,6 @@ class SimpleConsumer
         // Clear load balancer for this topic (aligned with Java SimpleConsumerImpl)
         if (isset($this->subscriptionRouteDataCache[$topic])) {
             unset($this->subscriptionRouteDataCache[$topic]);
-            Logger::debug("Cleared load balancer for unsubscribed topic, topic={}, clientId={}", [
-                $topic,
-                $this->clientId
-            ]);
         }
         
         // Sync settings to server if consumer is running (aligned with Java)
@@ -428,10 +404,6 @@ class SimpleConsumer
         if ($this->state === 'RUNNING') {
             try {
                 $this->syncSettings();
-                Logger::info("Settings synced after unsubscribe, topic={}, clientId={}", [
-                    $topic,
-                    $this->clientId
-                ]);
             } catch (\Throwable $e) {
                 Logger::warn("Failed to sync settings after unsubscribe, topic={}, clientId={}, error={}", [
                     $topic,
@@ -441,8 +413,6 @@ class SimpleConsumer
                 // Don't throw - unsubscription should still succeed even if sync fails
             }
         }
-        
-        Logger::info("Unsubscribed topic, topic={}, clientId={}", [$topic, $this->clientId]);
         return $this;
     }
     
@@ -497,23 +467,12 @@ class SimpleConsumer
     {
         // Check if already cached in subscriptionRouteDataCache
         if (!empty($this->subscriptionRouteDataCache[$topic])) {
-            Logger::debug("Load balancer already cached, topic={}, queueCount={}, clientId={}", [
-                $topic,
-                $this->subscriptionRouteDataCache[$topic]->getQueueCount(),
-                $this->clientId
-            ]);
             return;
         }
         
         // Query route and create SubscriptionLoadBalancer
         $queues = $this->queryTopicRouteForTopic($topic);
         $this->subscriptionRouteDataCache[$topic] = new SubscriptionLoadBalancer($queues);
-        
-        Logger::info("Created load balancer for subscribed topic, topic={}, queueCount={}, clientId={}", [
-            $topic,
-            count($queues),
-            $this->clientId
-        ]);
     }
     
     /**
@@ -528,16 +487,9 @@ class SimpleConsumer
     {
         // Use subscriptionRouteDataCache for the configured topic
         if (!empty($this->subscriptionRouteDataCache[$this->topic])) {
-            Logger::info("Using cached load balancer, topic={}, queueCount={}, clientId={}", [
-                $this->topic,
-                $this->subscriptionRouteDataCache[$this->topic]->getQueueCount(),
-                $this->clientId
-            ]);
             return $this->subscriptionRouteDataCache[$this->topic]->getMessageQueues();
         }
 
-        Logger::info("Querying route from broker, topic={}, clientId={}", [$this->topic, $this->clientId]);
-        
         $request = new QueryRouteRequest();
         $topicResource = new Resource();
         $topicResource->setResourceNamespace($this->config->getNamespace());
@@ -560,13 +512,6 @@ class SimpleConsumer
             throw new \Exception("Failed to query route for topic {$this->topic}: {$status->details}");
         }
 
-        Logger::info("RPC QueryRoute success, topic={}, totalQueues={}, elapsed={}ms, clientId={}", [
-            $this->topic,
-            count($response->getMessageQueues()),
-            $elapsed,
-            $this->clientId
-        ]);
-
         $queues = [];
         foreach ($response->getMessageQueues() as $mq) {
             // Filter: only readable master queues (aligned with Java SubscriptionLoadBalancer.isReadableMasterQueue)
@@ -577,14 +522,6 @@ class SimpleConsumer
             // Check if it's master broker (broker ID = 0, aligned with Java Utilities.MASTER_BROKER_ID)
             $brokerId = $mq->getBroker()->getId();
             $isMaster = ($brokerId === 0);
-            
-            Logger::info("Queue route info, topic={}, brokerId={}, perm={}, isReadable={}, isMaster={}", [
-                $this->topic,
-                $brokerId,
-                \Apache\Rocketmq\V2\Permission::name($perm),
-                $isReadable ? 'true' : 'false',
-                $isMaster ? 'true' : 'false'
-            ]);
             
             if ($isReadable && $isMaster) {
                 $queues[] = $mq;
@@ -597,10 +534,6 @@ class SimpleConsumer
 
         // Create and cache SubscriptionLoadBalancer (per-topic isolation)
         $this->subscriptionRouteDataCache[$this->topic] = new SubscriptionLoadBalancer($queues);
-        
-        Logger::info("Created load balancer for topic, topic={}, readableQueues={}, clientId={}", [
-            $this->topic, count($queues), $this->clientId
-        ]);
 
         return $queues;
     }
@@ -635,12 +568,6 @@ class SimpleConsumer
             // Query route and create load balancer
             $queues = $this->queryTopicRouteForTopic($topic);
             $this->subscriptionRouteDataCache[$topic] = new SubscriptionLoadBalancer($queues);
-            
-            Logger::debug("Created load balancer for topic, topic={}, queueCount={}, clientId={}", [
-                $topic,
-                count($queues),
-                $this->clientId
-            ]);
         }
         
         // Use SubscriptionLoadBalancer to select queue (each topic has independent index)
@@ -657,8 +584,6 @@ class SimpleConsumer
      */
     private function queryTopicRouteForTopic(string $topic): array
     {
-        Logger::info("Querying route from broker, topic={}, clientId={}", [$topic, $this->clientId]);
-        
         $request = new QueryRouteRequest();
         $topicResource = new Resource();
         $topicResource->setResourceNamespace($this->config->getNamespace());
@@ -681,13 +606,6 @@ class SimpleConsumer
             throw new \Exception("Failed to query route for topic {$topic}: {$status->details}");
         }
 
-        Logger::info("RPC QueryRoute success, topic={}, totalQueues={}, elapsed={}ms, clientId={}", [
-            $topic,
-            count($response->getMessageQueues()),
-            $elapsed,
-            $this->clientId
-        ]);
-
         $queues = [];
         foreach ($response->getMessageQueues() as $mq) {
             // Filter: only readable master queues (aligned with Java SubscriptionLoadBalancer.isReadableMasterQueue)
@@ -698,14 +616,6 @@ class SimpleConsumer
             // Check if it's master broker (broker ID = 0, aligned with Java Utilities.MASTER_BROKER_ID)
             $brokerId = $mq->getBroker()->getId();
             $isMaster = ($brokerId === 0);
-            
-            Logger::info("Queue route info, topic={}, brokerId={}, perm={}, isReadable={}, isMaster={}", [
-                $topic,
-                $brokerId,
-                \Apache\Rocketmq\V2\Permission::name($perm),
-                $isReadable ? 'true' : 'false',
-                $isMaster ? 'true' : 'false'
-            ]);
             
             if ($isReadable && $isMaster) {
                 // Ensure broker has endpoints set
@@ -720,20 +630,9 @@ class SimpleConsumer
                     
                     // If broker doesn't have endpoints, try to set from client config
                     if (!$hasExistingEndpoints) {
-                        Logger::warn("Broker has no endpoints, attempting to set from client config, topic={}, brokerId={}, clientId={}", [
-                            $topic,
-                            $brokerId,
-                            $this->clientId
-                        ]);
-                        
                         $proxyEndpoints = $this->config->getEndpointsAsProtobuf();
                         if ($proxyEndpoints !== null) {
                             $broker->setEndpoints($proxyEndpoints);
-                            Logger::info("Set broker endpoints from client config, topic={}, brokerId={}, clientId={}", [
-                                $topic,
-                                $brokerId,
-                                $this->clientId
-                            ]);
                         } else {
                             Logger::warn("Client config also has no endpoints, skipping queue, topic={}, brokerId={}, clientId={}", [
                                 $topic,
@@ -742,23 +641,9 @@ class SimpleConsumer
                             ]);
                             continue;
                         }
-                    } else {
-                        Logger::debug("Broker endpoints verified, topic={}, brokerId={}, addressCount={}, clientId={}", [
-                            $topic,
-                            $brokerId,
-                            count($existingEndpoints->getAddresses()),
-                            $this->clientId
-                        ]);
                     }
                     $mqTopic = $mq->getTopic();
                     if ($mqTopic !== null && empty($mqTopic->getResourceNamespace())) {
-                        Logger::info("Setting namespace for MessageQueue topic, topic={}, namespace={}, queueId={}, clientId={}", [
-                            $mqTopic->getName() ?? 'unknown',
-                            $this->config->getNamespace(),
-                            $mq->getId(),
-                            $this->clientId
-                        ]);
-                        
                         $mqTopic->setResourceNamespace($this->config->getNamespace());
                     }
                     $queues[] = $mq;
@@ -775,10 +660,6 @@ class SimpleConsumer
         if (empty($queues)) {
             throw new \Exception("No readable queue found for topic {$topic}");
         }
-
-        Logger::info("Queried topic route, topic={}, readableQueues={}, clientId={}", [
-            $topic, count($queues), $this->clientId
-        ]);
 
         return $queues;
     }
@@ -834,11 +715,6 @@ class SimpleConsumer
         // Enable the meter manager
         $this->meterManager->enable($exportEndpoint, $exportInterval);
         
-        Logger::info("Metrics enabled for Consumer, clientId={}, exportEndpoint={}", [
-            $this->clientId,
-            $exportEndpoint ?? 'local-only'
-        ]);
-        
         return $this;
     }
     
@@ -850,7 +726,6 @@ class SimpleConsumer
     public function disableMetrics(): self {
         if ($this->meterManager !== null) {
             $this->meterManager->disable();
-            Logger::info("Metrics disabled for Consumer, clientId={}", [$this->clientId]);
         }
         
         return $this;
@@ -885,7 +760,6 @@ class SimpleConsumer
                     $this->awaitDuration
                 );
                 $this->telemetrySession->start();
-                Logger::info("AsyncTelemetrySession started with Swoole, clientId={}", [$this->clientId]);
                 return;
             } catch (\Exception $e) {
                 Logger::warn("Failed to start AsyncTelemetrySession, clientId={}", [$this->clientId, "error" => $e->getMessage()]);
@@ -894,7 +768,6 @@ class SimpleConsumer
         }
         
         // Fallback: disable telemetry (RocketMQ Proxy has compatibility issues)
-        Logger::info("Note: Telemetry session disabled (Swoole not available or failed), clientId={}", [$this->clientId]);
         $this->telemetrySession = null;
     }
     
@@ -908,8 +781,6 @@ class SimpleConsumer
     {
         // Use Swoole timer if available (preferred over pcntl_fork)
         if (extension_loaded('swoole') && class_exists('\Swoole\Timer')) {
-            Logger::info("Starting Swoole timer for heartbeat, interval={}s, clientId={}", [self::HEARTBEAT_INTERVAL, $this->clientId]);
-            
             \Swoole\Timer::tick(self::HEARTBEAT_INTERVAL * 1000, function($timerId) {
                 if ($this->state !== 'RUNNING') {
                     \Swoole\Timer::clear($timerId);
@@ -918,7 +789,6 @@ class SimpleConsumer
                 
                 try {
                     $this->heartbeat();
-                    Logger::debug("Heartbeat sent, clientId={}", [$this->clientId]);
                 } catch (\Exception $e) {
                     Logger::warn("Warning: Heartbeat failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 }
@@ -933,7 +803,6 @@ class SimpleConsumer
                 
                 try {
                     $this->syncSettings();
-                    Logger::debug("Settings synced, clientId={}", [$this->clientId]);
                 } catch (\Exception $e) {
                     Logger::warn("Warning: Settings sync failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 }
@@ -955,11 +824,6 @@ class SimpleConsumer
             Logger::error("Error: Failed to fork heartbeat timer process, clientId={}", [$this->clientId]);
             return;
         } elseif ($this->heartbeatTimerPid > 0) {
-            Logger::info("Started background heartbeat timer (PID: {}), interval={}s, clientId={}", [
-                $this->heartbeatTimerPid,
-                self::HEARTBEAT_INTERVAL,
-                $this->clientId
-            ]);
             return;
         } else {
             // Child process: run heartbeat loop
@@ -976,8 +840,6 @@ class SimpleConsumer
      */
     private function runHeartbeatLoop(): void
     {
-        Logger::info("Heartbeat timer started, clientId={}", [$this->clientId]);
-        
         $lastSettingsSync = time();
         $cycleCount = 0;
         
@@ -993,7 +855,6 @@ class SimpleConsumer
             // Send heartbeat
             try {
                 $this->heartbeat();
-                Logger::debug("Heartbeat sent (cycle #{}), clientId={}", [$cycleCount, $this->clientId]);
             } catch (\Exception $e) {
                 Logger::warn("Warning: Heartbeat failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
             }
@@ -1004,14 +865,11 @@ class SimpleConsumer
                 try {
                     $this->syncSettings();
                     $lastSettingsSync = $now;
-                    Logger::debug("Settings synced, clientId={}", [$this->clientId]);
                 } catch (\Exception $e) {
                     Logger::warn("Warning: Settings sync failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
                 }
             }
         }
-        
-        Logger::info("Heartbeat timer stopped, clientId={}", [$this->clientId]);
     }
     
     /**
@@ -1035,15 +893,8 @@ class SimpleConsumer
         if ($this->telemetrySession instanceof AsyncTelemetrySession && 
             method_exists($this->telemetrySession, 'sendCustomSettings')) {
             $this->telemetrySession->sendCustomSettings($settings);
-            Logger::info("Settings synced via custom settings, clientId={}, subscriptionCount={}", [
-                $this->clientId,
-                count($this->subscriptionExpressions)
-            ]);
         } else {
             // Telemetry session does not support custom settings, skip sync
-            Logger::debug("Skipping settings sync - telemetry session does not support sendCustomSettings, clientId={}", [
-                $this->clientId
-            ]);
             return;
         }
     }
@@ -1115,13 +966,6 @@ class SimpleConsumer
         
         $subscription->setSubscriptions($subscriptionEntries);
         $settings->setSubscription($subscription);
-        
-        Logger::debug("Built settings - clientType={}, subscriptionCount={}, hasSubscription={}, clientId={}", [
-            'SIMPLE_CONSUMER',
-            count($subscriptionEntries),
-            $settings->hasSubscription() ? 'true' : 'false',
-            $this->clientId
-        ]);
         
         return $settings;
     }
@@ -1254,14 +1098,6 @@ class SimpleConsumer
         // Get filter expression for selected topic
         $filterExpression = $this->subscriptionExpressions[$selectedTopic];
         
-        Logger::debug("Receiving messages, selectedTopic={}, maxMessageNum={}, invisibleDuration={}s, awaitDuration={}s, clientId={}", [
-            $selectedTopic,
-            $maxMessageNum,
-            $invisibleDuration,
-            $this->awaitDuration,
-            $this->clientId
-        ]);
-        
         $request = new ReceiveMessageRequest();
         
         // Set consumer group with namespace (aligned with Java getProtobufGroup())
@@ -1273,94 +1109,9 @@ class SimpleConsumer
         // Get message queue from route query for selected topic
         // Aligned with Java SimpleConsumerImpl: route query -> load balancer -> takeMessageQueue
         $mq = $this->takeMessageQueueForTopic($selectedTopic);
-        $mqTopic = $mq->getTopic();
-        $mqTopicName = $mqTopic->getName() ?? 'unknown';
-        $mqTopicNamespace = $mqTopic->getResourceNamespace() ?? '(empty)';
-        Logger::INFO("DEBUG message queue topic before setMessageQueue, topic={}, topicNamespace={}, broker={}, clientId={}", [
-            $mqTopicName,
-            $mqTopicNamespace,
-            $mq->getBroker()->getName(),
-            $this->clientId
-        ]);
-        // Log detailed MessageQueue info (aligned with Java)
-        try {
-            $topic = $mq->getTopic();
-            $broker = $mq->getBroker()->getName() ?? 'unknown';
-            $id = $mq->getQueueId();
-            
-            // Get broker endpoints if available
-            $endpointsStr = 'unknown';
-            try {
-                $endpoints = $mq->getBroker()->getEndpoints();
-                if ($endpoints !== null) {
-                    $addresses = $endpoints->getAddresses();
-                    if (!empty($addresses)) {
-                        $endpointList = [];
-                        foreach ($addresses as $addr) {
-                            $host = $addr->getHost() ?? 'unknown';
-                            $port = $addr->getPort() ?? 0;
-                            $endpointList[] = "{$host}:{$port}";
-                        }
-                        $endpointsStr = implode(',', $endpointList);
-                    }
-                }
-            } catch (\Throwable $e) {
-                // Ignore endpoint retrieval errors
-            }
-            
-            $mqDesc = sprintf(
-                "MessageQueue{topic=%s, namespace=%s, broker=%s, id=%d, endpoints=[%s]}",
-                $topic,
-                $this->config->getNamespace(),
-                $broker,
-                $id,
-                $endpointsStr
-            );
-            
-            Logger::info("Selected message queue for receive, mq={}, clientId={}", [
-                $mqDesc,
-                $this->clientId
-            ]);
-        } catch (\Throwable $e) {
-            Logger::debug("Selected message queue for receive, topic={}, clientId={}", [
-                $selectedTopic,
-                $this->clientId
-            ]);
-        }
-
-        // Log MessageQueue details before setting namespace
-        try {
-            $mqTopic = $mq->getTopic();
-            $mqTopicName = $mqTopic->getName() ?? 'unknown';
-            $mqNamespace = $mqTopic->getResourceNamespace() ?? 'empty';
-            $mqBroker = $mq->getBroker()->getName() ?? 'unknown';
-            $mqBrokerId = $mq->getBroker()->getId();
-            $mqQueueId = $mq->getId();
-            $mqPermission = \Apache\Rocketmq\V2\Permission::name($mq->getPermission());
-            
-            Logger::info("MessageQueue details - topic={}, namespace={}, broker={}, brokerId={}, queueId={}, permission={}, clientId={}", [
-                $mqTopicName,
-                $mqNamespace ?: '(empty)',
-                $mqBroker,
-                $mqBrokerId,
-                $mqQueueId,
-                $mqPermission,
-                $this->clientId
-            ]);
-        } catch (\Throwable $e) {
-            Logger::warn("Failed to log MessageQueue details, error={}, clientId={}", [
-                $e->getMessage(),
-                $this->clientId
-            ]);
-        }
 
         $mqTopic = $mq->getTopic();
         if ($mqTopic !== null && empty($mqTopic->getResourceNamespace())) {
-            Logger::info("Setting namespace for MessageQueue topic - topic={}, namespace={}, clientId={}", [
-                $mqTopic->getName() ?? 'unknown',
-                $this->config->getNamespace(),
-                $this->clientId
-            ]);
             $newTopic = new \Apache\Rocketmq\V2\Resource();
             $newTopic->setName($mqTopic->getName());
             $newTopic->setResourceNamespace($this->config->getNamespace());
@@ -1387,24 +1138,11 @@ class SimpleConsumer
                            count($brokerEndpoints->getAddresses()) > 0);
             
             if (!$hasEndpoints) {
-                Logger::warn("Broker has no endpoints in MessageQueue, attempting to set from client config, topic={}, brokerId={}, queueId={}, clientId={}", [
-                    $mqTopicName ?? ($mq->getTopic()->getName() ?? 'unknown'),
-                    $mqBrokerId ?? ($mq->getBroker()->getId() ?? 'unknown'),
-                    $mqQueueId ?? ($mq->getId() ?? 'unknown'),
-                    $this->clientId
-                ]);
-                
                 $proxyEndpoints = $this->config->getEndpointsAsProtobuf();
                 if ($proxyEndpoints !== null) {
                     $newBroker = clone $broker;
                     $broker->setEndpoints($proxyEndpoints);
                     $mq->setBroker($newBroker);
-                    Logger::info("Set broker endpoints from client config for MessageQueue, topic={}, brokerId={}, queueId={}, clientId={}", [
-                        $mqTopicName ?? ($mq->getTopic()->getName() ?? 'unknown'),
-                        $mqBrokerId ?? ($mq->getBroker()->getId() ?? 'unknown'),
-                        $mqQueueId ?? ($mq->getId() ?? 'unknown'),
-                        $this->clientId
-                    ]);
                 } else {
                     Logger::warn("Client config also has no endpoints, MessageQueue may fail, topic={}, brokerId={}, queueId={}, clientId={}", [
                         $mqTopicName ?? ($mq->getTopic()->getName() ?? 'unknown'),
@@ -1413,14 +1151,6 @@ class SimpleConsumer
                         $this->clientId
                     ]);
                 }
-            } else {
-                Logger::debug("Broker endpoints verified in MessageQueue, topic={}, brokerId={}, queueId={}, addressCount={}, clientId={}", [
-                    $mqTopicName ?? ($mq->getTopic()->getName() ?? 'unknown'),
-                    $mqBrokerId ?? ($mq->getBroker()->getId() ?? 'unknown'),
-                    $mqQueueId ?? ($mq->getId() ?? 'unknown'),
-                    count($brokerEndpoints->getAddresses()),
-                    $this->clientId
-                ]);
             }
         }
         
@@ -1437,13 +1167,6 @@ class SimpleConsumer
             $expression = '*';
         }
         
-        Logger::debug("Setting FilterExpression for receive request, topic={}, expression={}, type={}, clientId={}", [
-            $selectedTopic,
-            $expression,
-            $filterExpression->getType()->value(),
-            $this->clientId
-        ]);
-        
         $v2Filter = new V2FilterExpression();
         $v2Filter->setExpression($expression);
         $v2Filter->setType(
@@ -1454,18 +1177,6 @@ class SimpleConsumer
         $request->setFilterExpression($v2Filter);
         
         // Set invisible duration (required for simple consumer)
-        // Log the complete request for debugging
-        Logger::debug("ReceiveMessage request details - topic={}, group={}, queueId={}, broker={}, expression={}, batchSize={}, invisibleDuration={}, awaitDuration={}, clientId={}", [
-            $selectedTopic,
-            $this->consumerGroup,
-            $mq->getId(),
-            $mq->getBroker()->getName() ?? 'unknown',
-            $expression,
-            $maxMessageNum,
-            $invisibleDuration,
-            $this->awaitDuration,
-            $this->clientId
-        ]);
         
         $invisibleDurationProto = new \Google\Protobuf\Duration();
         $invisibleDurationProto->setSeconds($invisibleDuration);
@@ -1495,25 +1206,8 @@ class SimpleConsumer
         foreach ($call->responses() as $response) {
             if ($response->hasMessage()) {
                 $messages[] = $response->getMessage();
-            } else {
-                // Log status for debugging
-                if ($response->hasStatus()) {
-                    $statusCode = $response->getStatus()->getCode();
-                    $statusMessage = $response->getStatus()->getMessage();
-                    Logger::debug("ReceiveMessage response - Code: {}, Message: {}, clientId={}", [
-                        $statusCode,
-                        $statusMessage,
-                        $this->clientId
-                    ]);
-                }
             }
         }
-        
-        Logger::info("Received {} messages, topic={}, clientId={}", [
-            count($messages),
-            $selectedTopic,
-            $this->clientId
-        ]);
         
         return $messages;
     }
@@ -1610,12 +1304,6 @@ class SimpleConsumer
             throw new \Exception("Message has no receipt_handle, cannot ACK");
         }
         
-        Logger::debug("Acknowledging message, messageId={}, topic={}, clientId={}", [
-            $messageId,
-            $this->topic,
-            $this->clientId
-        ]);
-        
         $request = new AckMessageRequest();
         
         // Set consumer group with namespace (aligned with Java getProtobufGroup())
@@ -1670,12 +1358,6 @@ class SimpleConsumer
                 $response->getStatus()->getCode()
             );
         }
-        
-        Logger::info("Message acknowledged successfully, messageId={}, topic={}, clientId={}", [
-            $messageId,
-            $topicName,
-            $this->clientId
-        ]);
     }
     
     /**
@@ -1702,12 +1384,6 @@ class SimpleConsumer
             ]);
             throw new \Exception("Message has no receipt_handle, cannot change visibility duration");
         }
-        
-        Logger::debug("Changing invisible duration, messageId={}, duration={}s, clientId={}", [
-            $messageId,
-            $durationSeconds,
-            $this->clientId
-        ]);
         
         $request = new \Apache\Rocketmq\V2\ChangeInvisibleDurationRequest();
         $request->setReceiptHandle($receiptHandle);
@@ -1756,12 +1432,6 @@ class SimpleConsumer
         // Update message's receipt handle (aligned with Java)
         $newReceiptHandle = $response->getReceiptHandle();
         $message->getSystemProperties()->setReceiptHandle($newReceiptHandle);
-        
-        Logger::info("Changed invisible duration successfully, messageId={}, duration={}s, clientId={}", [
-            $messageId,
-            $durationSeconds,
-            $this->clientId
-        ]);
     }
     
     /**
@@ -1810,17 +1480,14 @@ class SimpleConsumer
         
         // Stop background heartbeat timer
         if ($this->heartbeatTimerPid !== null && $this->heartbeatTimerPid > 0) {
-            Logger::info("Stopping background heartbeat timer (PID: {$this->heartbeatTimerPid}), clientId={$this->clientId}");
             posix_kill($this->heartbeatTimerPid, SIGTERM);
             pcntl_waitpid($this->heartbeatTimerPid, $status);
             $this->heartbeatTimerPid = null;
-            Logger::info("Background heartbeat timer stopped, clientId={$this->clientId}");
         }
         
         // Shutdown meter manager
         if ($this->meterManager !== null) {
             $this->meterManager->shutdown();
-            Logger::info("Meter manager shutdown, clientId={}", [$this->clientId]);
         }
         
         if ($this->client !== null) {
@@ -1958,11 +1625,6 @@ class SimpleConsumer
             // Create new load balancer if not exists
             try {
                 $this->subscriptionRouteDataCache[$topic] = new SubscriptionLoadBalancer($messageQueues);
-                Logger::info("Created load balancer from telemetry update, topic={}, queueCount={}, clientId={}", [
-                    $topic,
-                    count($messageQueues),
-                    $this->clientId
-                ]);
             } catch (\InvalidArgumentException $e) {
                 Logger::warn("Failed to create load balancer from telemetry update, topic={}, clientId={}, error={}", [
                     $topic,
@@ -1977,14 +1639,6 @@ class SimpleConsumer
         try {
             $oldLoadBalancer = $this->subscriptionRouteDataCache[$topic];
             $this->subscriptionRouteDataCache[$topic] = $oldLoadBalancer->update($messageQueues);
-            
-            Logger::debug("Updated load balancer from telemetry, topic={}, oldQueueCount={}, newQueueCount={}, preservedIndex={}, clientId={}", [
-                $topic,
-                $oldLoadBalancer->getQueueCount(),
-                $this->subscriptionRouteDataCache[$topic]->getQueueCount(),
-                $this->subscriptionRouteDataCache[$topic]->getIndex(),
-                $this->clientId
-            ]);
         } catch (\InvalidArgumentException $e) {
             Logger::warn("Failed to update load balancer from telemetry, topic={}, clientId={}, error={}", [
                 $topic,
