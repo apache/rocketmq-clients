@@ -348,6 +348,25 @@ namespace Org.Apache.Rocketmq
             return recallReceipt;
         }
 
+        /// <summary>
+        /// Recalls a timed/delay message asynchronously using the recall handle.
+        /// This is useful for recalling messages that were scheduled for future delivery.
+        /// </summary>
+        /// <param name="topic">The topic of the message to recall.</param>
+        /// <param name="recallhandle">The recall handle obtained when sending the delay message.</param>
+        /// <returns>A task representing the asynchronous operation, containing the recall receipt.</returns>
+        public Task<IRecallReceipt> RecallMessageAsync(string topic, string recallhandle)
+        {
+            return RecallMessage0(topic, recallhandle).ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    throw t.Exception;
+                }
+                return (IRecallReceipt)t.Result;
+            }, TaskContinuationOptions.ExecuteSynchronously);
+        }
+
         private async Task<RecallReceipt> RecallMessage0(string topic, string recallhandle)
         {
             if (State.Running != State)

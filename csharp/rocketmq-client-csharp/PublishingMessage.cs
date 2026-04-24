@@ -44,8 +44,11 @@ namespace Org.Apache.Rocketmq
 
             // Generate message id.
             MessageId = MessageIdGenerator.GetInstance().Next();
+            
             // For NORMAL message.
-            if (string.IsNullOrEmpty(message.MessageGroup) && !message.DeliveryTimestamp.HasValue &&
+            if (string.IsNullOrEmpty(message.MessageGroup) &&
+                !message.Priority.HasValue &&
+                !message.DeliveryTimestamp.HasValue &&
                 !txEnabled)
             {
                 MessageType = MessageType.Normal;
@@ -66,11 +69,21 @@ namespace Org.Apache.Rocketmq
                 return;
             }
 
+            // For PRIORITY message.
+            if (message.Priority.HasValue && !txEnabled)
+            {
+                MessageType = MessageType.Priority;
+                return;
+            }
+
             // For TRANSACTION message.
-            if (!string.IsNullOrEmpty(message.MessageGroup) || message.DeliveryTimestamp.HasValue || !txEnabled)
+            if (!string.IsNullOrEmpty(message.MessageGroup) ||
+                message.Priority.HasValue || 
+                message.DeliveryTimestamp.HasValue || 
+                !txEnabled)
             {
                 throw new InternalErrorException(
-                    "Transactional message should not set messageGroup or deliveryTimestamp");
+                    "Transactional message should not set messageGroup, priority or deliveryTimestamp");
             }
 
             MessageType = MessageType.Transaction;
@@ -101,6 +114,11 @@ namespace Org.Apache.Rocketmq
             if (null != MessageGroup)
             {
                 systemProperties.MessageGroup = MessageGroup;
+            }
+
+            if (Priority.HasValue)
+            {
+                systemProperties.Priority = Priority.Value;
             }
 
             var topicResource = new Proto.Resource

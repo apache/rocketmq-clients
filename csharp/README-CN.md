@@ -37,6 +37,17 @@ dotnet add package RocketMQ.Client
 你可以从 [Nuget Gallery](https://www.nuget.org/packages/RocketMQ.Client) 从获取最新的 `RocketMQ.Client`
 版本，我们提供了[代码示例](./examples)来帮助你快速开始。
 
+### 可用示例
+
+- **ProducerNormalMessageExample**: 普通消息发送示例
+- **ProducerFifoMessageExample**: FIFO（顺序）消息发送示例
+- **ProducerDelayMessageExample**: 延迟/定时消息发送示例
+- **ProducerPriorityMessageExample**: 优先级消息发送示例 ✨ NEW
+- **ProducerWithRecallingTimedMessageExample**: 带召回功能的定时消息示例 ✨ NEW
+- **ProducerTransactionMessageExample**: 事务消息发送示例
+- **PushConsumerExample**: Push消费者示例（支持FIFO消费加速器）
+- **SimpleConsumerExample**: Simple消费者示例
+
 ## 构建
 
 本项目的布局大致遵循[此处的指南](https://docs.microsoft.com/en-us/dotnet/core/tutorials/library-with-visual-studio-code?pivots=dotnet-5-0)

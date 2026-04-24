@@ -27,7 +27,8 @@ namespace Org.Apache.Rocketmq
         internal static readonly Regex TopicRegex = new Regex("^[%a-zA-Z0-9_-]+$");
 
         private Message(string topic, byte[] body, string tag, List<string> keys,
-            Dictionary<string, string> properties, DateTime? deliveryTimestamp, string messageGroup)
+            Dictionary<string, string> properties, DateTime? deliveryTimestamp, string messageGroup,
+            int? priority)
         {
             Topic = topic;
             Tag = tag;
@@ -36,6 +37,7 @@ namespace Org.Apache.Rocketmq
             Properties = properties;
             DeliveryTimestamp = deliveryTimestamp;
             MessageGroup = messageGroup;
+            Priority = priority;
         }
 
         internal Message(Message message)
@@ -47,6 +49,7 @@ namespace Org.Apache.Rocketmq
             Properties = message.Properties;
             MessageGroup = message.MessageGroup;
             DeliveryTimestamp = message.DeliveryTimestamp;
+            Priority = message.Priority;
         }
 
         public string Topic { get; }
@@ -62,12 +65,18 @@ namespace Org.Apache.Rocketmq
 
         public string MessageGroup { get; }
 
+        /// <summary>
+        /// Gets the priority of the message, which makes sense only when the topic type is PRIORITY.
+        /// Priority must be greater than or equal to 0.
+        /// </summary>
+        public int? Priority { get; }
+
         public override string ToString()
         {
             return
                 $"{nameof(Topic)}: {Topic}, {nameof(Tag)}: {Tag}, {nameof(Keys)}: {string.Join(", ", Keys)}, {nameof(Properties)}: " +
                 $"{string.Join(", ", Properties.Select(kvp => kvp.ToString()))}, {nameof(DeliveryTimestamp)}: {DeliveryTimestamp}, {nameof(MessageGroup)}: " +
-                $"{MessageGroup}";
+                $"{MessageGroup}, {nameof(Priority)}: {Priority}";
         }
 
         public class Builder
@@ -79,6 +88,7 @@ namespace Org.Apache.Rocketmq
             private readonly Dictionary<string, string> _properties = new Dictionary<string, string>();
             private DateTime? _deliveryTimestamp;
             private string _messageGroup;
+            private int? _priority;
 
             public Builder SetTopic(string topic)
             {
@@ -131,6 +141,8 @@ namespace Org.Apache.Rocketmq
             {
                 Preconditions.CheckArgument(null == _messageGroup,
                     "deliveryTimestamp and messageGroup should not be set at same time");
+                Preconditions.CheckArgument(!_priority.HasValue,
+                    "deliveryTimestamp and priority should not be set at same time");
                 _deliveryTimestamp = DateTimeKind.Utc == deliveryTimestamp.Kind
                     ? TimeZoneInfo.ConvertTimeFromUtc(deliveryTimestamp, TimeZoneInfo.Local)
                     : deliveryTimestamp;
@@ -143,7 +155,25 @@ namespace Org.Apache.Rocketmq
                     "messageGroup should not be null or white space");
                 Preconditions.CheckArgument(null == _deliveryTimestamp,
                     "messageGroup and deliveryTimestamp should not be set at same time");
+                Preconditions.CheckArgument(!_priority.HasValue,
+                    "messageGroup and priority should not be set at same time");
                 _messageGroup = messageGroup;
+                return this;
+            }
+
+            /// <summary>
+            /// Sets the priority for priority message. Priority must be greater than or equal to 0.
+            /// Priority and messageGroup/deliveryTimestamp should not be set at the same time.
+            /// </summary>
+            public Builder SetPriority(int priority)
+            {
+                Preconditions.CheckArgument(priority >= 0,
+                    "priority must be greater than or equal to 0");
+                Preconditions.CheckArgument(null == _deliveryTimestamp,
+                    "priority and deliveryTimestamp should not be set at same time");
+                Preconditions.CheckArgument(null == _messageGroup,
+                    "priority and messageGroup should not be set at same time");
+                _priority = priority;
                 return this;
             }
 
@@ -151,7 +181,8 @@ namespace Org.Apache.Rocketmq
             {
                 Preconditions.CheckArgument(null != _topic, "topic has not been set yet");
                 Preconditions.CheckArgument(null != _body, "body has not been set yet");
-                return new Message(_topic, _body, _tag, _keys, _properties, _deliveryTimestamp, _messageGroup);
+                return new Message(_topic, _body, _tag, _keys, _properties, _deliveryTimestamp, _messageGroup,
+                    _priority);
             }
         }
     }

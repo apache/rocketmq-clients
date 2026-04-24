@@ -25,6 +25,7 @@ namespace Org.Apache.Rocketmq
         Normal,
         Fifo,
         Delay,
+        Priority,
         Transaction
     }
 
@@ -40,6 +41,8 @@ namespace Org.Apache.Rocketmq
                     return MessageType.Fifo;
                 case Proto.MessageType.Delay:
                     return MessageType.Delay;
+                case Proto.MessageType.Priority:
+                    return MessageType.Priority;
                 case Proto.MessageType.Transaction:
                     return MessageType.Transaction;
                 case Proto.MessageType.Unspecified:
@@ -55,6 +58,7 @@ namespace Org.Apache.Rocketmq
                 MessageType.Normal => Proto.MessageType.Normal,
                 MessageType.Fifo => Proto.MessageType.Fifo,
                 MessageType.Delay => Proto.MessageType.Delay,
+                MessageType.Priority => Proto.MessageType.Priority,
                 MessageType.Transaction => Proto.MessageType.Transaction,
                 _ => Proto.MessageType.Unspecified
             };
