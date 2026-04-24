@@ -21,6 +21,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"hash/crc32"
 	"strconv"
 	"strings"
@@ -79,6 +80,7 @@ type Message struct {
 	LiteTopic    *string
 
 	deliveryTimestamp  *time.Time
+	priority           *int32
 	parentTraceContext *string
 }
 
@@ -87,6 +89,7 @@ type SendReceipt struct {
 	TransactionId string
 	Offset        int64
 	Endpoints     *v2.Endpoints
+	RecallHandle  string
 }
 
 func (msg *Message) SetTag(tag string) {
@@ -136,6 +139,27 @@ func (msg *Message) GetDeliveryTimestamp() *time.Time {
 	return msg.deliveryTimestamp
 }
 
+func (msg *Message) SetPriority(priority int32) error {
+	if priority < 0 {
+		return fmt.Errorf("priority must be greater than or equal to 0")
+	}
+	if msg.messageGroup != nil {
+		return fmt.Errorf("priority and messageGroup should not be set at same time")
+	}
+	if msg.deliveryTimestamp != nil {
+		return fmt.Errorf("priority and deliveryTimestamp should not be set at same time")
+	}
+	if msg.LiteTopic != nil {
+		return fmt.Errorf("priority and liteTopic should not be set at same time")
+	}
+	msg.priority = &priority
+	return nil
+}
+
+func (msg *Message) GetPriority() *int32 {
+	return msg.priority
+}
+
 func (msg *Message) SetMessageGroup(messageGroup string) {
 	msg.messageGroup = &messageGroup
 }
@@ -151,6 +175,7 @@ func (msg *Message) GetMessageCommon() *MessageCommon {
 		tag:                msg.Tag,
 		messageGroup:       msg.messageGroup,
 		deliveryTimestamp:  msg.deliveryTimestamp,
+		priority:           msg.priority,
 		parentTraceContext: msg.parentTraceContext,
 		keys:               msg.keys,
 		properties:         msg.properties,
@@ -166,6 +191,7 @@ type MessageCommon struct {
 	keys                        []string
 	messageGroup                *string
 	deliveryTimestamp           *time.Time
+	priority                    *int32
 	bornHost                    *string
 	parentTraceContext          *string
 	traceContext                *string

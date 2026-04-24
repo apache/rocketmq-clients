@@ -35,6 +35,7 @@ type Producer interface {
 	Send(context.Context, *Message) ([]*SendReceipt, error)
 	SendWithTransaction(context.Context, *Message, Transaction) ([]*SendReceipt, error)
 	SendAsync(context.Context, *Message, func(context.Context, []*SendReceipt, error))
+	Recall(ctx context.Context, topic string, recallHandle string) (string, error)
 	BeginTransaction() Transaction
 	Start() error
 	GracefulStop() error
@@ -257,6 +258,7 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 			TransactionId: resp.GetEntries()[i].GetTransactionId(),
 			Offset:        resp.GetEntries()[i].GetOffset(),
 			Endpoints:     endpoints,
+			RecallHandle:  resp.GetEntries()[i].GetRecallHandle(),
 		})
 	}
 	if attempt > 1 {
@@ -351,6 +353,51 @@ func (p *defaultProducer) SendAsync(ctx context.Context, msg *Message, f func(co
 		resp, err := p.send0(ctx, msgs, false)
 		f(ctx, resp, err)
 	}()
+}
+
+func (p *defaultProducer) Recall(ctx context.Context, topic string, recallHandle string) (string, error) {
+	if !p.isOn() {
+		return "", fmt.Errorf("producer is not running")
+	}
+	if recallHandle == "" {
+		return "", fmt.Errorf("recall handle is invalid")
+	}
+
+	ctx = p.cli.Sign(ctx)
+	request := &v2.RecallMessageRequest{
+		Topic: &v2.Resource{
+			Name:              topic,
+			ResourceNamespace: p.cli.config.NameSpace,
+		},
+		RecallHandle: recallHandle,
+	}
+
+	// Get endpoints for the topic
+	endpoints := &v2.Endpoints{}
+	p.pSetting.topics.Range(func(key, value interface{}) bool {
+		if key == topic {
+			route, err := p.cli.getMessageQueues(ctx, topic)
+			if err == nil && len(route) > 0 {
+				endpoints = route[0].GetBroker().GetEndpoints()
+			}
+			return false
+		}
+		return true
+	})
+
+	resp, err := p.cli.clientManager.RecallMessage(ctx, endpoints, request, p.pSetting.GetRequestTimeout())
+	if err != nil {
+		return "", err
+	}
+
+	if resp.GetStatus().GetCode() != v2.Code_OK {
+		return "", &ErrRpcStatus{
+			Code:    int32(resp.Status.GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
+	}
+
+	return resp.GetMessageId(), nil
 }
 
 func (p *defaultProducer) SendWithTransaction(ctx context.Context, msg *Message, transaction Transaction) ([]*SendReceipt, error) {
