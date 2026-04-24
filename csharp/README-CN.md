@@ -66,10 +66,10 @@ dotnet test -l "console;verbosity=detailed"
 
 默认的 `LoggerFactory` 是 [NLog](https://nlog-project.org/)。与 Java 客户端类似，我们允许使用环境变量来自定义日志相关的配置：
 
-* `rocketmq_log_level`：日志输出级别，默认为 INFO。
-* `rocketmq_log_root`
+- `rocketmq_log_level`：日志输出级别，默认为 INFO。
+- `rocketmq_log_root`
   ：日志输出的根目录。默认路径为 `$HOME/logs/rocketmq`，因此完整路径为 `$HOME/logs/rocketmq/rocketmq-client.log`。
-* `rocketmq_log_file_maxIndex`：要保留的日志文件的最大数量。默认值为 10，单个日志文件的大小限制为 64 MB。暂不支持调整。
+- `rocketmq_log_file_maxIndex`：要保留的日志文件的最大数量。默认值为 10，单个日志文件的大小限制为 64 MB。暂不支持调整。
 
 如果你想使用自定义的 `LoggerFactory`，可以使用 `MqLogManager.UseLoggerFactory` 方法来配置。
 
