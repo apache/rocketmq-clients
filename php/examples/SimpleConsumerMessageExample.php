@@ -50,7 +50,7 @@ use Apache\Rocketmq\Consumer\FilterExpressionType;
 // Configuration
 $endpoints = '127.0.0.1:8080';
 $topic = 'topic-normal';
-$consumerGroup = 'GID-normal-consumer';
+$consumerGroup = 'GID-normal-consumer_topic-normal';
 
 echo "========================================\n";
 echo "  SimpleConsumer Message Test\n";

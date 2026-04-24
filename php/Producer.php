@@ -857,6 +857,9 @@ class Producer implements ProducerInterface
             $keys ?? 'null'
         ]);
         
+        // Build message with messageGroup
+        $message = $this->buildMessage($body, $tag, $keys, $messageGroup, null);
+        
         // Set message type to FIFO
         $systemProperties = $message->getSystemProperties();
         $systemProperties->setMessageType(MessageType::FIFO);
@@ -1643,7 +1646,9 @@ class Producer implements ProducerInterface
                     // Select one candidate queue (with isolation support)
                     $candidates = $this->publishingLoadBalancer->takeMessageQueues([], 1);
                     if (!empty($candidates)) {
-                        $messageQueue = $candidates[0];
+                        // Convert V2\MessageQueue to Route\MessageQueue
+                        $v2MessageQueue = $candidates[0];
+                        $messageQueue = new \Apache\Rocketmq\Route\MessageQueue($v2MessageQueue);
                         Logger::debug("Selected message queue for send, topic={}, broker={}, queueId={}", [
                             $this->topic,
                             $messageQueue->getBroker()->getName(),

@@ -289,19 +289,29 @@ class PublishingLoadBalancer
             return '';
         }
         
-        // Try to get addresses from endpoints
-        if (method_exists($endpoints, 'getAddresses')) {
-            $addresses = $endpoints->getAddresses();
-            if (is_array($addresses) && !empty($addresses)) {
-                // Return first address as string
-                $firstAddress = $addresses[0];
-                if (method_exists($firstAddress, 'getHost') && method_exists($firstAddress, 'getPort')) {
-                    return $firstAddress->getHost() . ':' . $firstAddress->getPort();
+        try {
+            // Try to get addresses from endpoints
+            if (method_exists($endpoints, 'getAddresses')) {
+                $addresses = $endpoints->getAddresses();
+                if (is_array($addresses) && !empty($addresses)) {
+                    // Return first address as string
+                    $firstAddress = $addresses[0];
+                    if (is_object($firstAddress)) {
+                        if (method_exists($firstAddress, 'getHost') && method_exists($firstAddress, 'getPort')) {
+                            $host = $firstAddress->getHost();
+                            $port = $firstAddress->getPort();
+                            return $host . ':' . $port;
+                        }
+                    }
                 }
             }
+            
+            // Fallback: use serialize or spl_object_hash for unique identification
+            return 'endpoint_' . spl_object_hash($endpoints);
+        } catch (\Throwable $e) {
+            // If all else fails, use object hash
+            Logger::warn("Failed to convert endpoints to string, using object hash, error={}", [$e->getMessage()]);
+            return 'endpoint_' . spl_object_hash($endpoints);
         }
-        
-        // Fallback: convert to string
-        return (string)$endpoints;
     }
 }

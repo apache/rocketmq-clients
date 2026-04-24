@@ -280,22 +280,17 @@ class SimpleConsumer
             $this->initializeTelemetrySession();
             
             // Sync initial settings to server after telemetry session is ready (only if has subscriptions)
-            if ($this->telemetrySession && !empty($this->subscriptionExpressions)) {
-                try {
-                    $this->syncSettings();
-                    Logger::debug("Initial settings synced after startup, clientId={}, subscriptionCount={}", [
-                        $this->clientId,
-                        count($this->subscriptionExpressions)
-                    ]);
-                } catch (\Throwable $e) {
-                    Logger::warn("Failed to sync initial settings after startup, clientId={}, error={}", [
-                        $this->clientId,
-                        $e->getMessage()
-                    ]);
-                    // Don't throw - consumer should still start even if initial sync fails
-                }
-            } elseif ($this->telemetrySession) {
-
+            if (!empty($this->subscriptionExpressions)) {
+                // Initial settings sync is critical - must succeed before consumer can start
+                $this->syncSettings();
+                Logger::debug("Initial settings synced after startup, clientId={}, subscriptionCount={}", [
+                    $this->clientId,
+                    count($this->subscriptionExpressions)
+                ]);
+            } else {
+                Logger::warn("No subscriptions configured at startup. Consumer will not receive messages until subscribe() is called, clientId={}", [
+                    $this->clientId
+                ]);
             }
             
             // Start background timers for heartbeat and settings sync
@@ -360,16 +355,8 @@ class SimpleConsumer
         // Sync settings to server if consumer is running (aligned with Java)
         // This notifies the server about the new subscription
         if ($this->state === 'RUNNING') {
-            try {
-                $this->syncSettings();
-            } catch (\Throwable $e) {
-                Logger::warn("Failed to sync settings after subscribe, topic={}, clientId={}, error={}", [
-                    $topic,
-                    $this->clientId,
-                    $e->getMessage()
-                ]);
-                // Don't throw - subscription should still succeed even if sync fails
-            }
+            // Settings sync is critical for subscription changes
+            $this->syncSettings();
         }
         return $this;
     }
@@ -402,16 +389,8 @@ class SimpleConsumer
         // Sync settings to server if consumer is running (aligned with Java)
         // This notifies the server about the removed subscription
         if ($this->state === 'RUNNING') {
-            try {
-                $this->syncSettings();
-            } catch (\Throwable $e) {
-                Logger::warn("Failed to sync settings after unsubscribe, topic={}, clientId={}, error={}", [
-                    $topic,
-                    $this->clientId,
-                    $e->getMessage()
-                ]);
-                // Don't throw - unsubscription should still succeed even if sync fails
-            }
+            // Settings sync is critical for unsubscription changes
+            $this->syncSettings();
         }
         return $this;
     }
@@ -658,8 +637,15 @@ class SimpleConsumer
         }
 
         if (empty($queues)) {
+            Logger::error("No readable queue found for topic {}, clientId={}", [$topic, $this->clientId]);
             throw new \Exception("No readable queue found for topic {$topic}");
         }
+
+        Logger::debug("QueryRoute success for topic {}, readableQueues={}, clientId={}", [
+            $topic,
+            count($queues),
+            $this->clientId
+        ]);
 
         return $queues;
     }
@@ -748,27 +734,48 @@ class SimpleConsumer
      */
     private function initializeTelemetrySession(): void
     {
-        // Try to use Swoole async implementation if available
-        if (extension_loaded('swoole') && class_exists('Apache\Rocketmq\AsyncTelemetrySession')) {
-            try {
-                $this->telemetrySession = new AsyncTelemetrySession(
-                    $this->getClient(),
-                    $this->clientId,
-                    $this->consumerGroup,
-                    $this->topic,
-                    \Apache\Rocketmq\V2\ClientType::SIMPLE_CONSUMER,
-                    $this->awaitDuration
-                );
-                $this->telemetrySession->start();
-                return;
-            } catch (\Exception $e) {
-                Logger::warn("Failed to start AsyncTelemetrySession, clientId={}", [$this->clientId, "error" => $e->getMessage()]);
-                Logger::warn("Falling back to disabled telemetry, clientId={}", [$this->clientId]);
-            }
+        // Telemetry session is required for proper operation
+        // Without it, settings cannot be synced to server, which will cause issues with receiveMessage
+        
+        if (!extension_loaded('swoole')) {
+            throw new \Exception(
+                "Swoole extension is required for SimpleConsumer. " .
+                "Telemetry session (bidirectional gRPC stream) depends on Swoole coroutines. " .
+                "Please install Swoole: pecl install swoole"
+            );
         }
         
-        // Fallback: disable telemetry (RocketMQ Proxy has compatibility issues)
-        $this->telemetrySession = null;
+        if (!class_exists('Apache\Rocketmq\AsyncTelemetrySession')) {
+            throw new \Exception(
+                "AsyncTelemetrySession class not found. " .
+                "Please ensure all PHP SDK files are properly loaded."
+            );
+        }
+        
+        try {
+            $this->telemetrySession = new AsyncTelemetrySession(
+                $this->getClient(),
+                $this->clientId,
+                $this->consumerGroup,
+                $this->topic,
+                \Apache\Rocketmq\V2\ClientType::SIMPLE_CONSUMER,
+                $this->awaitDuration
+            );
+            $this->telemetrySession->start();
+            
+            Logger::info("Telemetry session initialized successfully, clientId={}", [$this->clientId]);
+        } catch (\Exception $e) {
+            Logger::error("Failed to initialize telemetry session, clientId={}, error={}", [
+                $this->clientId,
+                $e->getMessage()
+            ]);
+            throw new \Exception(
+                "Failed to start SimpleConsumer: Telemetry session initialization failed. " .
+                "This is required for proper operation. Error: " . $e->getMessage(),
+                0,
+                $e
+            );
+        }
     }
     
     /**
@@ -881,8 +888,10 @@ class SimpleConsumer
     private function syncSettings(): void
     {
         if (!$this->telemetrySession) {
-            Logger::warn("Warning: Cannot sync settings, telemetry session is null, clientId={}", [$this->clientId]);
-            return;
+            throw new \Exception(
+                "Cannot sync settings: Telemetry session is not initialized. " .
+                "This indicates a critical initialization failure. clientId={$this->clientId}"
+            );
         }
         
         // Build current settings with subscriptions
@@ -894,8 +903,10 @@ class SimpleConsumer
             method_exists($this->telemetrySession, 'sendCustomSettings')) {
             $this->telemetrySession->sendCustomSettings($settings);
         } else {
-            // Telemetry session does not support custom settings, skip sync
-            return;
+            throw new \Exception(
+                "Telemetry session does not support sendCustomSettings. " .
+                "This should not happen with AsyncTelemetrySession. clientId={$this->clientId}"
+            );
         }
     }
     
@@ -1063,6 +1074,12 @@ class SimpleConsumer
         // Check state using unified method (aligned with Java)
         $this->checkRunning();
         
+        Logger::debug("SimpleConsumer.receive called, maxMessageNum={}, invisibleDuration={}, clientId={}", [
+            $maxMessageNum ?? $this->maxMessageNum,
+            $invisibleDuration ?? $this->invisibleDuration,
+            $this->clientId
+        ]);
+        
         // Validate parameters
         $maxMessageNum = $maxMessageNum ?? $this->maxMessageNum;  // Use null coalescing operator
         if ($maxMessageNum <= 0) {
@@ -1086,8 +1103,15 @@ class SimpleConsumer
         
         // Check if has subscriptions (aligned with Java L162-164)
         if (empty($this->subscriptionExpressions)) {
+            Logger::error("No subscriptions configured, cannot receive messages, clientId={}", [$this->clientId]);
             throw new \InvalidArgumentException("There is no topic to receive message");
         }
+        
+        Logger::debug("Subscriptions found, count={}, topics={}, clientId={}", [
+            count($this->subscriptionExpressions),
+            implode(',', array_keys($this->subscriptionExpressions)),
+            $this->clientId
+        ]);
         
         // Round-robin select topic from all subscribed topics (aligned with Java L159-166)
         $topics = array_keys($this->subscriptionExpressions);
@@ -1198,6 +1222,14 @@ class SimpleConsumer
             'x-mq-namespace' => [$this->config->getNamespace()],
         ];
 
+        Logger::debug("Sending ReceiveMessage request, topic={}, broker={}, queueId={}, batchSize={}, clientId={}", [
+            $selectedTopic,
+            $mq->getBroker()->getName(),
+            $mq->getId(),
+            $maxMessageNum,
+            $this->clientId
+        ]);
+
         $call = $this->getClient()->ReceiveMessage($request, $metadata);
         
         $messages = [];
@@ -1208,6 +1240,11 @@ class SimpleConsumer
                 $messages[] = $response->getMessage();
             }
         }
+        
+        Logger::debug("ReceiveMessage response received, messageCount={}, clientId={}", [
+            count($messages),
+            $this->clientId
+        ]);
         
         return $messages;
     }
