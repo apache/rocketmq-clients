@@ -74,10 +74,14 @@ class TelemetrySession {
     /** @var callable|null */
     private $backgroundTask = null;
     private static ?string $sdkVersion = null;
+    
+    /** @var int Client type for handshake (PRODUCER, PUSH_CONSUMER, SIMPLE_CONSUMER) */
+    private int $clientType = \Apache\Rocketmq\V2\ClientType::PRODUCER;
 
-    public function __construct(string $clientId, BaseStub $client) {
+    public function __construct(string $clientId, BaseStub $client, int $clientType = \Apache\Rocketmq\V2\ClientType::PRODUCER) {
         $this->clientId = $clientId;
         $this->client = $client;
+        $this->clientType = $clientType;
     }
 
     /**
@@ -166,7 +170,16 @@ class TelemetrySession {
         }
 
         try {
+            Logger::debug("Writing telemetry command to stream, hasSettings={}, clientId={}", [
+                $command->hasSettings(),
+                $this->clientId
+            ]);
+            
+            // Note: BidiStreamingCall::write() returns void (not boolean)
+            // It throws exception on failure, so we rely on exception handling
             $this->streamCall->write($command);
+            
+            Logger::debug("Telemetry command written successfully, clientId={$this->clientId}");
         } catch (\Throwable $e) {
             Logger::error("Failed to send telemetry command, clientId={$this->clientId}, error={$e->getMessage()}");
             throw $e;
@@ -195,54 +208,22 @@ class TelemetrySession {
         $ua->setVersion(self::getSdkVersion());
 
         $settings = new Settings();
-        $settings->setClientType(ClientType::PRODUCER);
+        $settings->setClientType($this->clientType);
         $settings->setUserAgent($ua);
 
         $this->sendSettings($settings);
-        Logger::debug("Handshake sent, clientId={$this->clientId}");
+        Logger::debug("Handshake sent with clientType={$this->clientType}, clientId={$this->clientId}");
     }
 
     /**
      * Start background listener for incoming messages
+     * Note: Disabled to avoid Swoole coroutine compatibility issues
      */
     private function startBackgroundListener(): void {
-        // Disable background listener to avoid blocking in Swoole environment
-        // We only need to send Settings, not receive responses
-        Logger::debug("Background listener disabled (send-only mode), clientId={$this->clientId}");
-    }
-
-    /**
-     * Start Swoole coroutine-based listener
-     */
-    private function startSwooleListener(): void {
-        go(function() {
-            Logger::debug("Started Swoole coroutine listener, clientId={$this->clientId}");
-
-            while ($this->active && $this->streamCall !== null) {
-                try {
-                    $response = $this->streamCall->read();
-
-                    if ($response === null) {
-                        usleep(100000); // 100ms
-                        continue;
-                    }
-
-                    if ($response instanceof TelemetryResponse) {
-                        $this->handleResponse($response);
-                    }
-                } catch (\Throwable $e) {
-                    Logger::error("Error in Swoole listener, clientId={$this->clientId}, error={$e->getMessage()}");
-
-                    if ($this->reconnectAttempts < self::MAX_RECONNECT_ATTEMPTS) {
-                        $this->attemptReconnect();
-                    } else {
-                        Logger::error("Max reconnect attempts reached, stopping session, clientId={$this->clientId}");
-                        $this->stop();
-                        break;
-                    }
-                }
-            }
-        });
+        // Background listener is disabled
+        // In pure gRPC environment (without Swoole), we would use a separate thread
+        // For now, we only send Settings and don't listen for responses
+        Logger::debug("Background listener disabled (pure gRPC mode), clientId={$this->clientId}");
     }
 
     /**

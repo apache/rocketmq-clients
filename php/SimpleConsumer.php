@@ -848,13 +848,15 @@ class SimpleConsumer
         
         try {
             // Create and start TelemetrySession (uses official gRPC extension)
+            // IMPORTANT: Pass SIMPLE_CONSUMER client type for correct handshake
             $this->telemetrySession = new TelemetrySession(
                 $this->clientId,
-                $this->getClient()
+                $this->getClient(),
+                \Apache\Rocketmq\V2\ClientType::SIMPLE_CONSUMER
             );
             $this->telemetrySession->start();
             
-            Logger::info("Telemetry session started successfully, clientId={}", [$this->clientId]);
+            Logger::info("Telemetry session started successfully with SIMPLE_CONSUMER type, clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
             Logger::error("Failed to initialize telemetry session, clientId={}, error={}", [
                 $this->clientId,
@@ -871,105 +873,15 @@ class SimpleConsumer
     
     /**
      * Start background timers for heartbeat and settings sync
-     * Similar to Java's ClientManagerImpl scheduler
-     * 
-     * @return void
+     * Note: Disabled in pure gRPC mode to avoid Swoole dependencies
      */
     private function startBackgroundTimers(): void
     {
-        // Use Swoole timer if available (preferred over pcntl_fork)
-        if (extension_loaded('swoole') && class_exists('\Swoole\Timer')) {
-            \Swoole\Timer::tick(self::HEARTBEAT_INTERVAL * 1000, function($timerId) {
-                if ($this->state !== 'RUNNING') {
-                    \Swoole\Timer::clear($timerId);
-                    return;
-                }
-                
-                try {
-                    $this->heartbeat();
-                } catch (\Exception $e) {
-                    Logger::warn("Warning: Heartbeat failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
-                }
-            });
-            
-            // Sync settings every 5 minutes (Java default)
-            \Swoole\Timer::tick(self::SETTINGS_SYNC_INTERVAL * 1000, function($timerId) {
-                if ($this->state !== 'RUNNING') {
-                    \Swoole\Timer::clear($timerId);
-                    return;
-                }
-                
-                try {
-                    $this->syncSettings();
-                } catch (\Exception $e) {
-                    Logger::warn("Warning: Settings sync failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
-                }
-            });
-            
-            return;
-        }
-        
-        // Fallback to pcntl_fork if Swoole timer not available
-        if (!function_exists('pcntl_fork')) {
-            Logger::warn("Warning: Neither Swoole timer nor pcntl_fork available, background timers disabled, clientId={}", [$this->clientId]);
-            return;
-        }
-        
-        // Start heartbeat timer using pcntl_fork
-        $this->heartbeatTimerPid = pcntl_fork();
-        
-        if ($this->heartbeatTimerPid == -1) {
-            Logger::error("Error: Failed to fork heartbeat timer process, clientId={}", [$this->clientId]);
-            return;
-        } elseif ($this->heartbeatTimerPid > 0) {
-            return;
-        } else {
-            // Child process: run heartbeat loop
-            $this->runHeartbeatLoop();
-            exit(0);
-        }
+        // Background timers are disabled in pure gRPC mode
+        // In production, you would use a separate process or cron job for periodic tasks
+        Logger::debug("Background timers disabled (pure gRPC mode), clientId={$this->clientId}");
     }
-    
-    /**
-     * Run heartbeat loop in background process
-     * Sends heartbeat and syncs settings periodically
-     * 
-     * @return void
-     */
-    private function runHeartbeatLoop(): void
-    {
-        $lastSettingsSync = time();
-        $cycleCount = 0;
-        
-        while ($this->state === 'RUNNING') {
-            sleep(self::HEARTBEAT_INTERVAL);
-            
-            if ($this->state !== 'RUNNING') {
-                break;
-            }
-            
-            $cycleCount++;
-            
-            // Send heartbeat
-            try {
-                $this->heartbeat();
-            } catch (\Exception $e) {
-                Logger::warn("Warning: Heartbeat failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
-            }
-            
-            // Sync settings every SETTINGS_SYNC_INTERVAL seconds (Java default: 5min)
-            $now = time();
-            if (($now - $lastSettingsSync) >= self::SETTINGS_SYNC_INTERVAL) {
-                try {
-                    $this->syncSettings();
-                    $lastSettingsSync = $now;
-                } catch (\Exception $e) {
-                    Logger::warn("Warning: Settings sync failed, clientId={}", [$this->clientId, 'error' => $e->getMessage()]);
-                }
-            }
-        }
-    }
-    
+
     /**
      * Sync settings to server (similar to Java's client.syncSettings())
      * 
