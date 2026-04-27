@@ -26,7 +26,7 @@
   "require": {
     "php": ">=7.4",
     "google/protobuf": "^3.3",
-    "grpc/grpc": "^1.80",
+    "grpc/grpc": "^1.0",
     "hanson/foundation-sdk": "^5.0"
   },
   "autoload": {
@@ -58,6 +58,7 @@
       "MetricsSupportTrait.php",
       "TelemetrySession.php",
       "AsyncTelemetrySession.php",
+      "SwooleAsyncTelemetrySession.php",
       "SwooleAsyncSupport.php",
       "ClientSettings.php",
       "PublishingSettings.php",

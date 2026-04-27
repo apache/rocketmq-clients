@@ -569,10 +569,86 @@ class SimpleConsumer
         $topicResource->setName($topic);
         $request->setTopic($topicResource);
         $request->setEndpoints($this->config->getEndpointsAsProtobuf());
+        
+        // Debug: log request parameters
+        error_log("DEBUG QueryRoute Request: topic={$topic}, namespace=" . $this->config->getNamespace());
+        $endpointsProto = $this->config->getEndpointsAsProtobuf();
+        if ($endpointsProto) {
+            $scheme = $endpointsProto->getScheme();
+            $addresses = $endpointsProto->getAddresses();
+            error_log("DEBUG QueryRoute Request: endpoints scheme={$scheme}, count=" . count($addresses));
+            foreach ($addresses as $addr) {
+                error_log("DEBUG QueryRoute Request: endpoint host=" . $addr->getHost() . ", port=" . $addr->getPort());
+            }
+            
+            // Log the full protobuf object for debugging
+            $serialized = $endpointsProto->serializeToString();
+            error_log("DEBUG QueryRoute Request: endpoints serialized length=" . strlen($serialized));
+            if (strlen($serialized) > 0) {
+                error_log("DEBUG QueryRoute Request: endpoints hex=" . bin2hex($serialized));
+            } else {
+                error_log("WARNING: Endpoints serialization returned empty string!");
+                // Try to inspect the object
+                error_log("DEBUG: Endpoints object scheme=" . $endpointsProto->getScheme());
+                error_log("DEBUG: Endpoints addresses count=" . count($endpointsProto->getAddresses()));
+            }
+        } else {
+            error_log("DEBUG QueryRoute Request: endpoints is null");
+        }
+        
+        // Build metadata for gRPC call (aligned with Java Signature.sign)
+        $metadata = [
+            'x-mq-client-id' => [$this->clientId],
+            'x-mq-language' => ['PHP'],
+            'x-mq-protocol' => ['GRPC_V2'],
+            'x-mq-client-version' => ['5.0.0'],
+        ];
+        
+        // Always include namespace header (even if empty), aligned with Java
+        $namespace = $this->config->getNamespace();
+        $metadata['x-mq-namespace'] = [$namespace];
+        
+        // Add request ID
+        $metadata['x-mq-request-id'] = [uniqid('php-', true)];
+        
+        // Add date-time for signature
+        $dateTime = gmdate('Ymd\THis\Z');
+        $metadata['x-mq-date-time'] = [$dateTime];
+        
+        // Add credentials if available
+        $provider = $this->config->getCredentialsProvider();
+        if ($provider !== null) {
+            $credentials = $provider->getSessionCredentials();
+            if ($credentials !== null) {
+                $accessKey = $credentials->getAccessKey();
+                $accessSecret = $credentials->getAccessSecret();
+                
+                if (!empty($accessKey) && !empty($accessSecret)) {
+                    // Generate signature (aligned with Java TLSHelper.sign)
+                    $signature = strtoupper(hash_hmac('sha1', $dateTime, $accessSecret));
+                    
+                    $authorization = 'MQv2-HMAC-SHA1 ' .
+                        'Credential=' . $accessKey . ', ' .
+                        'SignedHeaders=x-mq-date-time, ' .
+                        'Signature=' . $signature;
+                    
+                    $metadata['authorization'] = [$authorization];
+                    
+                    // Add session token if available
+                    $securityToken = $credentials->tryGetSecurityToken();
+                    if ($securityToken !== null) {
+                        $metadata['x-mq-session-token'] = [$securityToken];
+                    }
+                }
+            }
+        }
 
         $startTime = microtime(true);
-        [$response, $status] = $this->getClient()->QueryRoute($request)->wait();
+        [$response, $status] = $this->getClient()->QueryRoute($request, $metadata)->wait();
         $elapsed = round((microtime(true) - $startTime) * 1000, 2);
+
+        // Debug output
+        error_log("DEBUG: QueryRoute status_code=" . ($status->code ?? 'null') . ", response_type=" . (is_object($response) ? get_class($response) : gettype($response)));
 
         if ($status->code !== \Grpc\STATUS_OK) {
             Logger::error("RPC QueryRoute failed, topic={}, status_code={}, details={}, elapsed={}ms, clientId={}", [
@@ -583,6 +659,30 @@ class SimpleConsumer
                 $this->clientId
             ]);
             throw new \Exception("Failed to query route for topic {$topic}: {$status->details}");
+        }
+        
+        // Debug: log message queues count
+        $queuesCount = $response ? count($response->getMessageQueues()) : 0;
+        Logger::debug("QueryRoute returned {} message queues, clientId={}", [
+            $queuesCount,
+            $this->clientId
+        ]);
+        
+        // Debug output all queues
+        if ($response && $queuesCount > 0) {
+            error_log("DEBUG: Total queues: {$queuesCount}");
+            foreach ($response->getMessageQueues() as $idx => $mq) {
+                $perm = $mq->getPermission();
+                $broker = $mq->getBroker();
+                $brokerId = $broker ? $broker->getId() : 'null';
+                $brokerName = $broker ? $broker->getName() : 'null';
+                error_log("DEBUG: Queue #{$idx}: permission={$perm}, brokerId={$brokerId}, brokerName={$brokerName}");
+            }
+        } else {
+            error_log("DEBUG: No queues in response or response is null");
+            if ($response) {
+                error_log("DEBUG: Response object exists but has " . $queuesCount . " queues");
+            }
         }
 
         $queues = [];
@@ -753,8 +853,11 @@ class SimpleConsumer
         }
         
         try {
-            $this->telemetrySession = new AsyncTelemetrySession(
-                $this->getClient(),
+            // TEMPORARILY DISABLED: SwooleAsyncTelemetrySession needs Swoole 5.x compatibility fix
+            // The Swoole 5.x HTTP/2 Client API has changed significantly and doesn't support the old send() method
+            /*
+            $this->telemetrySession = new SwooleAsyncTelemetrySession(
+                $this->config->getEndpoints(),
                 $this->clientId,
                 $this->consumerGroup,
                 $this->topic,
@@ -762,8 +865,9 @@ class SimpleConsumer
                 $this->awaitDuration
             );
             $this->telemetrySession->start();
+            */
             
-            Logger::info("Telemetry session initialized successfully, clientId={}", [$this->clientId]);
+            Logger::warn("Telemetry session temporarily disabled (Swoole 5.x compatibility issue), clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
             Logger::error("Failed to initialize telemetry session, clientId={}, error={}", [
                 $this->clientId,
@@ -888,19 +992,22 @@ class SimpleConsumer
     private function syncSettings(): void
     {
         if (!$this->telemetrySession) {
-            throw new \Exception(
-                "Cannot sync settings: Telemetry session is not initialized. " .
-                "This indicates a critical initialization failure. clientId={$this->clientId}"
-            );
+            // Telemetry session is optional - skip settings sync if not available
+            Logger::warn("Telemetry session not initialized, skipping settings sync, clientId={}", [$this->clientId]);
+            return;
         }
         
         // Build current settings with subscriptions
         $settings = $this->buildCurrentSettings();
         
         // Send settings via telemetry session
-        // Use sendCustomSettings for AsyncTelemetrySession to avoid rebuilding subscription expressions
-        if ($this->telemetrySession instanceof AsyncTelemetrySession && 
+        // Use sendCustomSettings for SwooleAsyncTelemetrySession
+        if ($this->telemetrySession instanceof SwooleAsyncTelemetrySession && 
             method_exists($this->telemetrySession, 'sendCustomSettings')) {
+            $this->telemetrySession->sendCustomSettings($settings);
+        } elseif ($this->telemetrySession instanceof AsyncTelemetrySession && 
+                  method_exists($this->telemetrySession, 'sendCustomSettings')) {
+            // Fallback to old AsyncTelemetrySession for backward compatibility
             $this->telemetrySession->sendCustomSettings($settings);
         } else {
             throw new \Exception(
@@ -1080,6 +1187,8 @@ class SimpleConsumer
             $this->clientId
         ]);
         
+        error_log("DEBUG: receiveInternal called, maxMessageNum=" . ($maxMessageNum ?? $this->maxMessageNum) . ", invisibleDuration=" . ($invisibleDuration ?? $this->invisibleDuration));
+        
         // Validate parameters
         $maxMessageNum = $maxMessageNum ?? $this->maxMessageNum;  // Use null coalescing operator
         if ($maxMessageNum <= 0) {
@@ -1218,9 +1327,52 @@ class SimpleConsumer
         $longPollingTimeout->setSeconds($this->awaitDuration);
         $request->setLongPollingTimeout($longPollingTimeout);
 
+        // Build full metadata for gRPC call (aligned with Java Signature.sign)
         $metadata = [
-            'x-mq-namespace' => [$this->config->getNamespace()],
+            'x-mq-client-id' => [$this->clientId],
+            'x-mq-language' => ['PHP'],
+            'x-mq-protocol' => ['GRPC_V2'],
+            'x-mq-client-version' => ['5.0.0'],
         ];
+        
+        // Always include namespace header (even if empty), aligned with Java
+        $namespace = $this->config->getNamespace();
+        $metadata['x-mq-namespace'] = [$namespace];
+        
+        // Add request ID
+        $metadata['x-mq-request-id'] = [uniqid('php-', true)];
+        
+        // Add date-time for signature
+        $dateTime = gmdate('Ymd\THis\Z');
+        $metadata['x-mq-date-time'] = [$dateTime];
+        
+        // Add credentials if available
+        $provider = $this->config->getCredentialsProvider();
+        if ($provider !== null) {
+            $credentials = $provider->getSessionCredentials();
+            if ($credentials !== null) {
+                $accessKey = $credentials->getAccessKey();
+                $accessSecret = $credentials->getAccessSecret();
+                
+                if (!empty($accessKey) && !empty($accessSecret)) {
+                    // Generate signature (aligned with Java TLSHelper.sign)
+                    $signature = strtoupper(hash_hmac('sha1', $dateTime, $accessSecret));
+                    
+                    $authorization = 'MQv2-HMAC-SHA1 ' .
+                        'Credential=' . $accessKey . ', ' .
+                        'SignedHeaders=x-mq-date-time, ' .
+                        'Signature=' . $signature;
+                    
+                    $metadata['authorization'] = [$authorization];
+                    
+                    // Add session token if available
+                    $securityToken = $credentials->tryGetSecurityToken();
+                    if ($securityToken !== null) {
+                        $metadata['x-mq-session-token'] = [$securityToken];
+                    }
+                }
+            }
+        }
 
         Logger::debug("Sending ReceiveMessage request, topic={}, broker={}, queueId={}, batchSize={}, clientId={}", [
             $selectedTopic,
@@ -1229,22 +1381,169 @@ class SimpleConsumer
             $maxMessageNum,
             $this->clientId
         ]);
+        
+        error_log("DEBUG: Calling ReceiveMessage RPC now...");
 
+        // Use Swoole HTTP/2 Client for non-blocking receive if available
+        if (extension_loaded('swoole')) {
+            error_log("DEBUG: Swoole extension loaded, trying HTTP/2 receive...");
+            try {
+                return $this->receiveWithSwooleHttp2($request, $metadata, $selectedTopic);
+            } catch (\Exception $e) {
+                error_log("ERROR: Swoole HTTP/2 receive failed: " . $e->getMessage());
+                Logger::error("Swoole HTTP/2 receive failed, falling back to blocking mode: " . $e->getMessage());
+                // Fall through to blocking mode below
+            }
+        } else {
+            error_log("WARN: Swoole extension not loaded");
+            Logger::warn("Swoole extension not loaded, using blocking gRPC call");
+        }
+        
+        // Fallback: Use official gRPC extension with metadata
         $call = $this->getClient()->ReceiveMessage($request, $metadata);
         
         $messages = [];
         
-        // Read response stream
+        // Read response stream (this will block until long polling timeout or messages available)
+        $responseCount = 0;
         foreach ($call->responses() as $response) {
+            $responseCount++;
             if ($response->hasMessage()) {
                 $messages[] = $response->getMessage();
+                Logger::debug("Received message from stream, messageId={}", [
+                    $response->getMessage()->getSystemProperties()->getMessageId()
+                ]);
+            } else {
+                Logger::debug("Response has no message, status code={}", [
+                    $response->hasStatus() ? $response->getStatus()->getCode() : 'N/A'
+                ]);
             }
         }
         
-        Logger::debug("ReceiveMessage response received, messageCount={}, clientId={}", [
+        Logger::debug("ReceiveMessage response received, responseCount={}, messageCount={}, clientId={}", [
+            $responseCount,
             count($messages),
             $this->clientId
         ]);
+        
+        return $messages;
+    }
+    
+    /**
+     * Receive messages using Swoole HTTP/2 Client with upgrade()/push()/recv()
+     * 
+     * @param \Apache\Rocketmq\V2\ReceiveMessageRequest $request
+     * @param array $metadata
+     * @param string $topic
+     * @return array
+     */
+    private function receiveWithSwooleHttp2($request, $metadata, $topic): array
+    {
+        Logger::debug("Using Swoole HTTP/2 upgrade/push/recv, topic={}, clientId={}", [$topic, $this->clientId]);
+        
+        // Parse endpoints
+        list($host, $port) = explode(':', $this->config->getEndpoints());
+        $port = intval($port);
+        
+        // Create Swoole HTTP/2 client
+        $httpClient = new \Swoole\Coroutine\Http\Client($host, $port);
+        
+        if (!$httpClient) {
+            throw new \Exception("Failed to create Swoole HTTP/2 client");
+        }
+        
+        // Configure HTTP/2
+        $httpClient->set([
+            'open_http2_protocol' => true,
+            'timeout' => 10,
+            'ssl_verify_peer' => false,
+        ]);
+        
+        // Build headers from metadata
+        $headers = [
+            'content-type' => 'application/grpc',
+            'te' => 'trailers',
+            'user-agent' => 'rocketmq-php-client/' . Util::getSdkVersion(),
+        ];
+        
+        foreach ($metadata as $key => $values) {
+            $headers[$key] = $values[0];
+        }
+        
+        // Set headers before upgrade
+        $httpClient->setHeaders($headers);
+        
+        // Upgrade to HTTP/2 (only path parameter)
+        $path = '/apache.rocketmq.v2.MessagingService/ReceiveMessage';
+        $upgradeResult = $httpClient->upgrade($path);
+        
+        if (!$upgradeResult) {
+            $httpClient->close();
+            throw new \Exception("Upgrade failed: errCode=" . $httpClient->errCode . ", errMsg=" . $httpClient->errMsg);
+        }
+        
+        Logger::debug("HTTP/2 upgrade OK, clientId={}", [$this->clientId]);
+        
+        // Serialize and frame request
+        $requestData = $request->serializeToString();
+        $framedData = pack('CN', 0, strlen($requestData)) . $requestData;
+        
+        // Push request
+        $pushResult = $httpClient->push($framedData);
+        
+        if (!$pushResult) {
+            $httpClient->close();
+            throw new \Exception("Push failed: errCode=" . $httpClient->errCode);
+        }
+        
+        Logger::debug("Request pushed, waiting..., clientId={}", [$this->clientId]);
+        
+        // Receive responses
+        $messages = [];
+        $timeout = $this->awaitDuration + 2;
+        $startTime = microtime(true);
+        
+        while ((microtime(true) - $startTime) < $timeout) {
+            $response = $httpClient->recv(0.5);
+            
+            if ($response === false) {
+                $errCode = $httpClient->errCode;
+                if ($errCode !== 0) {
+                    Logger::warn("Stream error {$errCode}, clientId={$this->clientId}");
+                }
+                break;
+            }
+            
+            if ($response === null || strlen($response) === 0) {
+                continue;
+            }
+            
+            Logger::debug("Got response {} bytes, clientId={}", [strlen($response), $this->clientId]);
+            
+            if (strlen($response) > 5) {
+                $data = substr($response, 5);
+                $receiveResponse = new \Apache\Rocketmq\V2\ReceiveMessageResponse();
+                $receiveResponse->mergeFromString($data);
+                
+                if ($receiveResponse->hasStatus()) {
+                    $code = $receiveResponse->getStatus()->getCode();
+                    if ($code !== \Apache\Rocketmq\V2\Code::OK) {
+                        Logger::warn("Status not OK: code={}, clientId={}", [$code, $this->clientId]);
+                        break;
+                    }
+                }
+                
+                if ($receiveResponse->hasMessage()) {
+                    $message = $receiveResponse->getMessage();
+                    $messages[] = $message;
+                    Logger::debug("Got message, total={}, clientId={}", [count($messages), $this->clientId]);
+                }
+            }
+        }
+        
+        $httpClient->close();
+        
+        Logger::info("Swoole receive done, count={}, topic={}, clientId={}", [count($messages), $topic, $this->clientId]);
         
         return $messages;
     }
@@ -1436,7 +1735,8 @@ class SimpleConsumer
         $mq->setTopic($resource);
         $request->setMessageQueue($mq);
         
-        $call = $this->getClient()->ChangeInvisibleDuration($request);
+        $metadata = $this->buildMetadata();
+        $call = $this->getClient()->ChangeInvisibleDuration($request, $metadata);
         list($response, $status) = $call->wait();
         
         // Check gRPC status

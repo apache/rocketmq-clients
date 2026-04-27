@@ -23,7 +23,6 @@ use Apache\Rocketmq\Exception\NetworkException;
 use Apache\Rocketmq\MetricsCollector;
 use Apache\Rocketmq\MetricName;
 use Apache\Rocketmq\V2\MessagingServiceClient;
-use Grpc\ChannelCredentials;
 
 /**
  * Connection pool for managing gRPC connections
@@ -234,64 +233,17 @@ class ConnectionPool {
             $clientId = 'php-client-' . uniqid();
         }
         
-        $options = [
-            'credentials' => $clientConfig->isSslEnabled() 
-                ? ChannelCredentials::createSsl() 
-                : ChannelCredentials::createInsecure(),
-            'update_metadata' => function ($metaData) use ($clientConfig, $clientId) {
-                // Add client ID to headers
-                $metaData['x-mq-client-id'] = [$clientId];
-                
-                // Add other required metadata (aligned with Java Signature.java)
-                $metaData['x-mq-language'] = ['PHP'];
-                $metaData['x-mq-protocol'] = ['GRPC_V2'];
-                $metaData['x-mq-client-version'] = ['5.0.0'];
-                $metaData['x-mq-request-id'] = [uniqid('php-', true)];
-                
-                // Add namespace if available
-                $namespace = $clientConfig->getNamespace();
-                if (!empty($namespace)) {
-                    $metaData['x-mq-namespace'] = [$namespace];
-                }
-                
-                // Add authentication information via SessionCredentialsProvider
-                $provider = $clientConfig->getCredentialsProvider();
-                if ($provider !== null) {
-                    $credentials = $provider->getSessionCredentials();
-                    if ($credentials !== null) {
-                        $accessKey = $credentials->getAccessKey();
-                        $accessSecret = $credentials->getAccessSecret();
-                        
-                        if (!empty($accessKey) && !empty($accessSecret)) {
-                            // Generate signature (aligned with Java TLSHelper.sign)
-                            // Java uses HMAC-SHA1 with uppercase hex output
-                            $dateTime = gmdate('Ymd\THis\Z');
-                            $signature = strtoupper(hash_hmac('sha1', $dateTime, $accessSecret));
-                            
-                            $authorization = 'MQv2-HMAC-SHA1 ' .
-                                'Credential=' . $accessKey . ', ' .
-                                'SignedHeaders=x-mq-date-time, ' .
-                                'Signature=' . $signature;
-                            
-                            $metaData['authorization'] = [$authorization];
-                            $metaData['x-mq-date-time'] = [$dateTime];
-                            
-                            // Add session token if available
-                            $securityToken = $credentials->tryGetSecurityToken();
-                            if ($securityToken !== null) {
-                                $metaData['x-mq-session-token'] = [$securityToken];
-                            }
-                        }
-                    }
-                }
-                
-                return $metaData;
-            },
-            'timeout' => $this->config['connection_timeout'] * 1000, // Convert to milliseconds
-            
-        ];
+        // Build channel credentials
+        if ($clientConfig->isSslEnabled()) {
+            $credentials = \Grpc\ChannelCredentials::createSsl();
+        } else {
+            $credentials = \Grpc\ChannelCredentials::createInsecure();
+        }
         
-        return new MessagingServiceClient($clientConfig->getEndpoints(), $options);
+        // Create MessagingServiceClient with credentials
+        return new \Apache\Rocketmq\V2\MessagingServiceClient($clientConfig->getEndpoints(), [
+            'credentials' => $credentials,
+        ]);
     }
     
     /**

@@ -60,6 +60,16 @@ class AsyncTelemetrySession
     private $running = false;
     
     /**
+     * @var bool Whether first settings response has been received
+     */
+    private $firstSettingsReceived = false;
+    
+    /**
+     * @var \Swoole\Coroutine\Channel|null Channel for startup synchronization
+     */
+    private $startupChannel = null;
+    
+    /**
      * @var int Reconnect backoff delay in seconds
      */
     const RECONNECT_DELAY = 1;
@@ -170,8 +180,13 @@ class AsyncTelemetrySession
      */
     private function createStreamAndSync(): void
     {
+        Logger::debug("Creating telemetry stream..., clientId={}", [$this->clientId]);
         // Create bidirectional stream
         $this->streamCall = $this->client->Telemetry();
+        Logger::debug("Telemetry stream created, streamCall={}, clientId={}", [
+            $this->streamCall ? 'success' : 'null',
+            $this->clientId
+        ]);
         
         if (!$this->streamCall) {
             throw new \Exception("Failed to create telemetry stream");
@@ -181,12 +196,16 @@ class AsyncTelemetrySession
         Logger::info("Telemetry stream created, clientId={$this->clientId}");
         
         // Send initial settings
+        Logger::debug("Sending initial settings..., clientId={}", [$this->clientId]);
         $this->sendSettings();
+        Logger::debug("Initial settings sent, clientId={}", [$this->clientId]);
         
         // Start a separate coroutine to read responses
+        Logger::debug("Starting response reader coroutine..., clientId={}", [$this->clientId]);
         go(function() {
             $this->readResponses();
         });
+        Logger::debug("Response reader coroutine started, clientId={}", [$this->clientId]);
     }
     
     /**
@@ -359,6 +378,8 @@ class AsyncTelemetrySession
     
     /**
      * Read responses from the stream (runs in separate coroutine)
+     * Aligned with Node.js TelemetrySession.on('data') handler
+     * Uses non-blocking polling to avoid permanent blocking
      * 
      * @return void
      */
@@ -368,24 +389,56 @@ class AsyncTelemetrySession
         
         try {
             while ($this->isActive && $this->streamCall) {
-                // Note: PHP gRPC extension doesn't support non-blocking reads in coroutines
-                // This is a simplified implementation that keeps the connection alive
-                // In a production environment, you would need to implement proper async reading
+                // Use non-blocking read with timeout
+                // This prevents permanent blocking if server doesn't respond immediately
+                $response = $this->streamCall->read();
                 
-                // For now, we just keep the coroutine alive and log status
-                \Swoole\Coroutine::sleep(5);
-                
-                // Periodically check if stream is still valid
-                if (!$this->streamCall) {
-                    Logger::warn("Stream closed unexpectedly, clientId={$this->clientId}");
-                    break;
+                if ($response === null) {
+                    // No data available or stream closed
+                    // Sleep briefly before next attempt (non-blocking poll)
+                    \Swoole\Coroutine::sleep(0.1); // 100ms poll interval
+                    continue;
                 }
+                
+                // Process the telemetry command
+                $this->handleTelemetryCommand($response);
             }
         } catch (\Exception $e) {
             Logger::error("Response reader error, clientId={$this->clientId}: " . $e->getMessage());
         }
         
         Logger::info("Response reader coroutine stopped, clientId={$this->clientId}");
+    }
+    
+    /**
+     * Handle incoming telemetry command
+     * Aligned with Node.js BaseClient.onSettingsCommand()
+     * 
+     * @param \Apache\Rocketmq\V2\TelemetryCommand $command
+     * @return void
+     */
+    private function handleTelemetryCommand(\Apache\Rocketmq\V2\TelemetryCommand $command): void
+    {
+        // Check for settings command
+        if ($command->hasSettings()) {
+            $settings = $command->getSettings();
+            Logger::debug("Received settings command from server, clientId={}", [$this->clientId]);
+            
+            // Notify that first settings has been received (for startup synchronization)
+            $this->notifyFirstSettingsReceived();
+            
+            // TODO: Apply settings from server if needed
+            // For now, we just acknowledge receipt
+        }
+        
+        // Handle other command types if needed
+        if ($command->hasStatus()) {
+            $status = $command->getStatus();
+            Logger::debug("Received status from server, code={}, clientId={}", [
+                $status->getCode(),
+                $this->clientId
+            ]);
+        }
     }
     
     /**
@@ -432,5 +485,81 @@ class AsyncTelemetrySession
     public function isActive(): bool
     {
         return $this->isActive;
+    }
+    
+    /**
+     * Wait for first settings command response from server
+     * Aligned with Node.js BaseClient startup flow
+     * 
+     * @param int $timeout Timeout in seconds (default: 10)
+     * @return bool True if received, false if timeout
+     * @throws \Exception If not in coroutine context
+     */
+    public function waitForFirstSettings(int $timeout = 10): bool
+    {
+        if (!$this->startupChannel) {
+            Logger::warn("Startup channel not initialized, clientId={$this->clientId}");
+            return false;
+        }
+        
+        // If already received, return immediately
+        if ($this->firstSettingsReceived) {
+            return true;
+        }
+        
+        Logger::debug("Waiting for first onSettingsCommand, clientId={}, timeout={}s", [
+            $this->clientId,
+            $timeout
+        ]);
+        
+        // Wait for signal with timeout
+        $result = $this->startupChannel->pop($timeout);
+        
+        if ($result === false) {
+            Logger::error("Timeout waiting for first onSettingsCommand, clientId={}, timeout={}s", [
+                $this->clientId,
+                $timeout
+            ]);
+            return false;
+        }
+        
+        Logger::info("Received first onSettingsCommand, clientId={}", [$this->clientId]);
+        return true;
+    }
+    
+    /**
+     * Notify that first settings command has been received
+     * 
+     * @return void
+     */
+    private function notifyFirstSettingsReceived(): void
+    {
+        Logger::debug("notifyFirstSettingsReceived called, firstSettingsReceived={}, startupChannel={}, clientId={}", [
+            $this->firstSettingsReceived ? 'true' : 'false',
+            $this->startupChannel ? 'exists' : 'null',
+            $this->clientId
+        ]);
+        
+        if ($this->startupChannel && !$this->firstSettingsReceived) {
+            $this->firstSettingsReceived = true;
+            
+            // Non-blocking push
+            if ($this->startupChannel->length() === 0) {
+                $pushed = $this->startupChannel->push(true);
+                Logger::debug("Pushed to startup channel, result={}, channelLength={}, clientId={}", [
+                    $pushed ? 'success' : 'failed',
+                    $this->startupChannel->length(),
+                    $this->clientId
+                ]);
+            } else {
+                Logger::warn("Startup channel already has data, skipping push, clientId={}", [$this->clientId]);
+            }
+        } else {
+            Logger::debug("Skipping notification: startupChannel={}, firstSettingsReceived={}, clientId={}", [
+                $this->startupChannel ? 'exists' : 'null',
+                $this->firstSettingsReceived ? 'true' : 'false',
+                $this->clientId
+            ]);
+        }
     }
 }

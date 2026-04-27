@@ -547,9 +547,65 @@ class Producer implements ProducerInterface
             $pool = ConnectionPool::getInstance();
             // Set connection pool configuration from client configuration
             $pool->setConfigFromClientConfiguration($this->config);
-            $this->client = $pool->getConnection($this->config);
+            $this->client = $pool->getConnectionWithClientId($this->config, $this->clientId);
         }
         return $this->client;
+    }
+    
+    /**
+     * Build gRPC metadata for RPC calls (aligned with Java Signature.sign)
+     * 
+     * @return array Metadata array for gRPC calls
+     */
+    private function buildMetadata(): array
+    {
+        $metadata = [
+            'x-mq-client-id' => [$this->clientId],
+            'x-mq-language' => ['PHP'],
+            'x-mq-protocol' => ['GRPC_V2'],
+            'x-mq-client-version' => ['5.0.0'],
+        ];
+        
+        // Always include namespace header (even if empty), aligned with Java
+        $namespace = $this->config->getNamespace();
+        $metadata['x-mq-namespace'] = [$namespace];
+        
+        // Add request ID
+        $metadata['x-mq-request-id'] = [uniqid('php-', true)];
+        
+        // Add date-time for signature
+        $dateTime = gmdate('Ymd\THis\Z');
+        $metadata['x-mq-date-time'] = [$dateTime];
+        
+        // Add credentials if available
+        $provider = $this->config->getCredentialsProvider();
+        if ($provider !== null) {
+            $credentials = $provider->getSessionCredentials();
+            if ($credentials !== null) {
+                $accessKey = $credentials->getAccessKey();
+                $accessSecret = $credentials->getAccessSecret();
+                
+                if (!empty($accessKey) && !empty($accessSecret)) {
+                    // Generate signature (aligned with Java TLSHelper.sign)
+                    $signature = strtoupper(hash_hmac('sha1', $dateTime, $accessSecret));
+                    
+                    $authorization = 'MQv2-HMAC-SHA1 ' .
+                        'Credential=' . $accessKey . ', ' .
+                        'SignedHeaders=x-mq-date-time, ' .
+                        'Signature=' . $signature;
+                    
+                    $metadata['authorization'] = [$authorization];
+                    
+                    // Add session token if available
+                    $securityToken = $credentials->tryGetSecurityToken();
+                    if ($securityToken !== null) {
+                        $metadata['x-mq-session-token'] = [$securityToken];
+                    }
+                }
+            }
+        }
+        
+        return $metadata;
     }
     
     /**
@@ -1571,7 +1627,13 @@ class Producer implements ProducerInterface
             $request = new SendMessageRequest();
             $request->setMessages([$message]);
             
-            $call = $this->getClient()->SendMessage($request);
+            $metadata = $this->buildMetadata();
+            Logger::debug("Sending message with metadata, clientId={}, x-mq-client-id={}", [
+                $this->clientId,
+                $metadata['x-mq-client-id'][0] ?? 'NOT SET'
+            ]);
+            
+            $call = $this->getClient()->SendMessage($request, $metadata);
             list($response, $status) = $call->wait();
             
             // Check gRPC status
@@ -1816,7 +1878,8 @@ class Producer implements ProducerInterface
             $request = new SendMessageRequest();
             $request->setMessages([$grpcMessage]);
             
-            $call = $this->getClient()->SendMessage($request);
+            $metadata = $this->buildMetadata();
+            $call = $this->getClient()->SendMessage($request, $metadata);
             
             if ($callback !== null) {
                 // Use gRPC async callback
@@ -1857,7 +1920,8 @@ class Producer implements ProducerInterface
             $request = new SendMessageRequest();
             $request->setMessages([$messageObj]);
             
-            $call = $this->getClient()->SendMessage($request);
+            $metadata = $this->buildMetadata();
+            $call = $this->getClient()->SendMessage($request, $metadata);
             
             // Use gRPC async callback
             $call->wait(function($response, $error) use ($callback, $messageObj) {
