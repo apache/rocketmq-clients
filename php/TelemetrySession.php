@@ -104,10 +104,22 @@ class TelemetrySession {
             $this->active = true;
             $this->reconnectAttempts = 0;
 
+            // Send initial handshake
             $this->sendHandshake();
+            
+            // CRITICAL FIX: Execute a non-blocking read() immediately after write()
+            // to force gRPC PHP to flush the buffer and send data to network.
+            // This is a mandatory requirement for PHP gRPC bidirectional streams.
+            try {
+                $response = @$this->streamCall->read();
+                Logger::debug("Initial read() executed to flush Telemetry buffer, clientId={$this->clientId}");
+            } catch (\Throwable $e) {
+                Logger::debug("Initial read() triggered buffer flush (expected), clientId={$this->clientId}");
+            }
+            
             $this->startBackgroundListener();
 
-            Logger::info("Telemetry session started successfully, clientId={$this->clientId}");
+            Logger::info("Telemetry session started successfully with buffer flush, clientId={$this->clientId}");
         } catch (\Throwable $e) {
             Logger::error("Failed to start telemetry session, clientId={$this->clientId}, error={$e->getMessage()}");
             throw $e;
@@ -175,11 +187,9 @@ class TelemetrySession {
                 $this->clientId
             ]);
             
-            // Note: BidiStreamingCall::write() returns void (not boolean)
-            // It throws exception on failure, so we rely on exception handling
             $this->streamCall->write($command);
             
-            Logger::debug("Telemetry command written successfully, clientId={$this->clientId}");
+            Logger::debug("Telemetry command written to buffer, clientId={$this->clientId}");
         } catch (\Throwable $e) {
             Logger::error("Failed to send telemetry command, clientId={$this->clientId}, error={$e->getMessage()}");
             throw $e;
