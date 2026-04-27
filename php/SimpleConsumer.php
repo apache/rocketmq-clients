@@ -853,10 +853,8 @@ class SimpleConsumer
         }
         
         try {
-            // TEMPORARILY DISABLED: SwooleAsyncTelemetrySession needs Swoole 5.x compatibility fix
-            // The Swoole 5.x HTTP/2 Client API has changed significantly and doesn't support the old send() method
-            /*
-            $this->telemetrySession = new SwooleAsyncTelemetrySession(
+            // Create and start GrpcTelemetrySession (uses official gRPC extension with Swoole coroutine)
+            $this->telemetrySession = new GrpcTelemetrySession(
                 $this->config->getEndpoints(),
                 $this->clientId,
                 $this->consumerGroup,
@@ -865,9 +863,8 @@ class SimpleConsumer
                 $this->awaitDuration
             );
             $this->telemetrySession->start();
-            */
             
-            Logger::warn("Telemetry session temporarily disabled (Swoole 5.x compatibility issue), clientId={}", [$this->clientId]);
+            Logger::info("Telemetry session started successfully, clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
             Logger::error("Failed to initialize telemetry session, clientId={}, error={}", [
                 $this->clientId,
@@ -1001,8 +998,10 @@ class SimpleConsumer
         $settings = $this->buildCurrentSettings();
         
         // Send settings via telemetry session
-        // Use sendCustomSettings for SwooleAsyncTelemetrySession
-        if ($this->telemetrySession instanceof SwooleAsyncTelemetrySession && 
+        // Use sendCustomSettings for different TelemetrySession implementations
+        if ($this->telemetrySession instanceof GrpcTelemetrySession) {
+            $this->telemetrySession->sendCustomSettings($settings);
+        } elseif ($this->telemetrySession instanceof SwooleAsyncTelemetrySession && 
             method_exists($this->telemetrySession, 'sendCustomSettings')) {
             $this->telemetrySession->sendCustomSettings($settings);
         } elseif ($this->telemetrySession instanceof AsyncTelemetrySession && 
@@ -1384,23 +1383,10 @@ class SimpleConsumer
         
         error_log("DEBUG: Calling ReceiveMessage RPC now...");
 
-        // Use Swoole HTTP/2 Client for non-blocking receive if available
-        if (extension_loaded('swoole')) {
-            error_log("DEBUG: Swoole extension loaded, trying HTTP/2 receive...");
-            try {
-                return $this->receiveWithSwooleHttp2($request, $metadata, $selectedTopic);
-            } catch (\Exception $e) {
-                error_log("ERROR: Swoole HTTP/2 receive failed: " . $e->getMessage());
-                Logger::error("Swoole HTTP/2 receive failed, falling back to blocking mode: " . $e->getMessage());
-                // Fall through to blocking mode below
-            }
-        } else {
-            error_log("WARN: Swoole extension not loaded");
-            Logger::warn("Swoole extension not loaded, using blocking gRPC call");
-        }
-        
-        // Fallback: Use official gRPC extension with metadata
+        // Use official gRPC extension with metadata (blocking but reliable)
+        error_log("DEBUG: About to call ReceiveMessage RPC...");
         $call = $this->getClient()->ReceiveMessage($request, $metadata);
+        error_log("DEBUG: ReceiveMessage RPC call returned, iterating responses...");
         
         $messages = [];
         
@@ -1408,17 +1394,28 @@ class SimpleConsumer
         $responseCount = 0;
         foreach ($call->responses() as $response) {
             $responseCount++;
+            error_log("DEBUG: Got response #{$responseCount}");
+            
+            if ($response->hasStatus()) {
+                $status = $response->getStatus();
+                error_log("DEBUG: Response has status, code=" . $status->getCode() . ", message=" . $status->getMessage());
+            }
+            
             if ($response->hasMessage()) {
                 $messages[] = $response->getMessage();
+                error_log("DEBUG: Received message, messageId=" . $response->getMessage()->getSystemProperties()->getMessageId());
                 Logger::debug("Received message from stream, messageId={}", [
                     $response->getMessage()->getSystemProperties()->getMessageId()
                 ]);
             } else {
+                error_log("DEBUG: Response has no message");
                 Logger::debug("Response has no message, status code={}", [
                     $response->hasStatus() ? $response->getStatus()->getCode() : 'N/A'
                 ]);
             }
         }
+        
+        error_log("DEBUG: Response iteration complete, responseCount={$responseCount}, messageCount=" . count($messages));
         
         Logger::debug("ReceiveMessage response received, responseCount={}, messageCount={}, clientId={}", [
             $responseCount,

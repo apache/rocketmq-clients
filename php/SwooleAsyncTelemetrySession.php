@@ -193,14 +193,9 @@ class SwooleAsyncTelemetrySession
             'timeout' => 10,
             'ssl_verify_peer' => false,
         ]);
-            
-        // In Swoole 5.x, connection is established automatically when calling send()
-        // No need to call connect() explicitly
+        
         Logger::debug("Swoole HTTP/2 client configured for {$this->endpoints}, clientId={}", [$this->clientId]);
-            
-        // Upgrade to gRPC stream using HTTP/2
-        $path = '/apache.rocketmq.v2.MessagingService/Telemetry';
-            
+        
         // Build request headers
         $headers = [
             'content-type' => 'application/grpc',
@@ -209,21 +204,25 @@ class SwooleAsyncTelemetrySession
             'x-mq-protocol' => 'v2',
             'x-mq-client-id' => $this->clientId,
         ];
-            
+        
         // Add namespace if set
         if (!empty($this->namespace)) {
             $headers['x-mq-namespace'] = $this->namespace;
         }
-            
-        // Start streaming request
-        $streamId = $httpClient->send($path, '', $headers);
-            
-        if ($streamId <= 0) {
-            throw new \Exception("Failed to start gRPC stream: errCode=" . $httpClient->errCode);
+        
+        // Set headers before upgrade
+        $httpClient->setHeaders($headers);
+        
+        // Upgrade to HTTP/2 (for bidirectional gRPC stream)
+        $path = '/apache.rocketmq.v2.MessagingService/Telemetry';
+        $upgradeResult = $httpClient->upgrade($path);
+        
+        if (!$upgradeResult) {
+            throw new \Exception("Failed to upgrade to HTTP/2: errCode=" . $httpClient->errCode . ", errMsg=" . $httpClient->errMsg);
         }
-            
+        
         $this->httpClient = $httpClient;
-        $this->streamId = $streamId;
+        $this->streamId = 1; // Pseudo stream ID for compatibility
         
         // Create SwooleStreamingCall for bidirectional communication
         $this->streamCall = new SwooleStreamingCall(
@@ -257,7 +256,7 @@ class SwooleAsyncTelemetrySession
      */
     private function sendSettings(): void
     {
-        if (!$this->isActive || !$this->httpClient || $this->streamId <= 0) {
+        if (!$this->isActive || !$this->httpClient) {
             Logger::warn("Cannot send settings, session is not active, clientId={$this->clientId}");
             return;
         }
@@ -273,14 +272,14 @@ class SwooleAsyncTelemetrySession
         $data = $command->serializeToString();
         $framedData = pack('CN', 0, strlen($data)) . $data;
         
-        // Write to stream
-        $result = $this->httpClient->write($this->streamId, $framedData, false);
+        // Push to stream (Swoole 5.x uses push instead of write)
+        $result = $this->httpClient->push($framedData);
         
         if (!$result) {
-            throw new \Exception("Failed to send settings: errCode=" . $this->httpClient->errCode);
+            throw new \Exception("Failed to send settings: errCode=" . $this->httpClient->errCode . ", errMsg=" . $this->httpClient->errMsg);
         }
         
-        Logger::info("Settings sent via Swoole HTTP/2 stream, clientId={$this->clientId}");
+        Logger::info("Settings sent via Swoole HTTP/2 push, clientId={$this->clientId}");
     }
     
     /**
@@ -291,7 +290,7 @@ class SwooleAsyncTelemetrySession
      */
     public function sendCustomSettings(\Apache\Rocketmq\V2\Settings $settings): void
     {
-        if (!$this->isActive || !$this->httpClient || $this->streamId <= 0) {
+        if (!$this->isActive || !$this->httpClient) {
             Logger::warn("Cannot send custom settings, session is not active, clientId={$this->clientId}");
             return;
         }
@@ -303,14 +302,15 @@ class SwooleAsyncTelemetrySession
         $data = $command->serializeToString();
         $framedData = pack('CN', 0, strlen($data)) . $data;
         
-        $result = $this->httpClient->write($this->streamId, $framedData, false);
+        // Push to stream (Swoole 5.x uses push instead of write)
+        $result = $this->httpClient->push($framedData);
         
         if (!$result) {
-            Logger::error("Failed to send custom settings, clientId={$this->clientId}");
+            Logger::error("Failed to send custom settings: errCode=" . $this->httpClient->errCode . ", errMsg=" . $this->httpClient->errMsg . ", clientId={$this->clientId}");
             return;
         }
         
-        Logger::info("Custom settings sent via Swoole HTTP/2 stream, clientId={$this->clientId}");
+        Logger::info("Custom settings sent via Swoole HTTP/2 push, clientId={$this->clientId}");
     }
     
     /**
@@ -324,10 +324,11 @@ class SwooleAsyncTelemetrySession
         Logger::info("Starting response processing loop, clientId={$this->clientId}");
         
         $pollCount = 0;
-        while ($this->isActive && $this->running && $this->httpClient && $this->streamId > 0) {
+        while ($this->isActive && $this->running && $this->httpClient) {
             try {
                 // Non-blocking receive with short timeout (0.5 second)
-                $response = $this->httpClient->recv($this->streamId, 0.5);
+                // Swoole 5.x recv() doesn't take streamId parameter
+                $response = $this->httpClient->recv(0.5);
                 
                 if ($response === false) {
                     // Error or stream closed
@@ -338,14 +339,7 @@ class SwooleAsyncTelemetrySession
                         Logger::warn("Stream error, errCode={$errCode}, errMsg={$errMsg}, clientId={$this->clientId}");
                     }
                     
-                    // Check if stream still exists
-                    if (!$this->httpClient->isStreamExist($this->streamId)) {
-                        Logger::warn("Stream lost after {$pollCount} polls, clientId={$this->clientId}");
-                        break;
-                    }
-                    
-                    // Continue polling
-                    continue;
+                    break;
                 }
                 
                 if ($response === null || strlen($response) === 0) {
@@ -482,15 +476,6 @@ class SwooleAsyncTelemetrySession
     {
         $this->running = false;
         $this->isActive = false;
-        
-        // End the stream
-        if ($this->httpClient && $this->streamId > 0) {
-            try {
-                $this->httpClient->write($this->streamId, null, true);
-            } catch (\Exception $e) {
-                Logger::error("Error ending stream: " . $e->getMessage());
-            }
-        }
         
         // Close HTTP/2 client
         if ($this->httpClient) {
