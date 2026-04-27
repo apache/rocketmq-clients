@@ -846,38 +846,17 @@ class SimpleConsumer
         // Telemetry session is required for proper operation
         // Without it, settings cannot be synced to server, which will cause issues with receiveMessage
         
-        if (!extension_loaded('pcntl')) {
-            throw new \Exception(
-                "PCNTL extension is required for ProcessTelemetrySession. " .
-                "Please enable PCNTL: --enable-pcntl"
-            );
-        }
-        
-        if (!extension_loaded('posix')) {
-            throw new \Exception(
-                "POSIX extension is required for ProcessTelemetrySession. " .
-                "Please enable POSIX: --enable-posix"
-            );
-        }
-        
-        if (!extension_loaded('sockets')) {
-            throw new \Exception(
-                "Sockets extension is required for ProcessTelemetrySession IPC. " .
-                "Please enable sockets: --enable-sockets"
-            );
-        }
-        
         try {
-            // Create and start ProcessTelemetrySession (uses child process with official gRPC extension)
-            $this->telemetrySession = new ProcessTelemetrySession(
+            // Create and start TelemetrySession (uses official gRPC extension)
+            $this->telemetrySession = new TelemetrySession(
                 $this->clientId,
-                $this->config->getEndpoints()
+                $this->getClient()
             );
             $this->telemetrySession->start();
             
-            Logger::info("Process Telemetry session started successfully, clientId={}", [$this->clientId]);
+            Logger::info("Telemetry session started successfully, clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
-            Logger::error("Failed to initialize Process telemetry session, clientId={}, error={}", [
+            Logger::error("Failed to initialize telemetry session, clientId={}, error={}", [
                 $this->clientId,
                 $e->getMessage()
             ]);
@@ -1009,15 +988,8 @@ class SimpleConsumer
         $settings = $this->buildCurrentSettings();
         
         // Send settings via telemetry session
-        if ($this->telemetrySession instanceof ProcessTelemetrySession) {
-            $this->telemetrySession->sendCustomSettings($settings);
-        } elseif ($this->telemetrySession instanceof SwooleTelemetrySession) {
+        if ($this->telemetrySession instanceof TelemetrySession) {
             $this->telemetrySession->sendSettings($settings);
-        } elseif ($this->telemetrySession instanceof TelemetrySession) {
-            $this->telemetrySession->sendSettings($settings);
-        } elseif (method_exists($this->telemetrySession, 'sendCustomSettings')) {
-            // Fallback for other implementations
-            $this->telemetrySession->sendCustomSettings($settings);
         } else {
             throw new \Exception(
                 "Telemetry session does not support sendCustomSettings. " .
