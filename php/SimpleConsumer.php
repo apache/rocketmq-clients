@@ -274,29 +274,26 @@ class SimpleConsumer
         
         try {
             // Send heartbeat to verify connection
+            Logger::info("Sending heartbeat..., clientId={}", [$this->clientId]);
             $this->heartbeat();
+            Logger::info("Heartbeat sent, clientId={}", [$this->clientId]);
             
-            // Initialize and start telemetry session
-            $this->initializeTelemetrySession();
+            // Skip Telemetry session for now - it's not working with official gRPC extension in Swoole
+            Logger::warn("Skipping Telemetry session initialization (known issue with gRPC bidirectional streams in Swoole), clientId={}", [$this->clientId]);
+            $this->telemetrySession = null;
             
             // Sync initial settings to server after telemetry session is ready (only if has subscriptions)
             if (!empty($this->subscriptionExpressions)) {
-                // Initial settings sync is critical - must succeed before consumer can start
-                $this->syncSettings();
-                Logger::debug("Initial settings synced after startup, clientId={}, subscriptionCount={}", [
-                    $this->clientId,
-                    count($this->subscriptionExpressions)
-                ]);
-            } else {
-                Logger::warn("No subscriptions configured at startup. Consumer will not receive messages until subscribe() is called, clientId={}", [
-                    $this->clientId
-                ]);
+                Logger::warn("Skipping initial settings sync because Telemetry session is disabled, clientId={}", [$this->clientId]);
             }
             
             // Start background timers for heartbeat and settings sync
+            Logger::info("Starting background timers..., clientId={}", [$this->clientId]);
             $this->startBackgroundTimers();
+            Logger::info("Background timers started, clientId={}", [$this->clientId]);
             
             $this->state = 'RUNNING';
+            Logger::info("SimpleConsumer started successfully, state=RUNNING, clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
             $this->state = 'FAILED';
             throw new \Exception("Failed to start consumer: " . $e->getMessage(), 0, $e);

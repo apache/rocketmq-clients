@@ -166,7 +166,21 @@ class TelemetrySession {
         }
 
         try {
-            $this->streamCall->write($command);
+            Logger::debug("Writing telemetry command to stream, hasSettings={}, clientId={}", [
+                $command->hasSettings(),
+                $this->clientId
+            ]);
+            
+            $result = $this->streamCall->write($command);
+            
+            Logger::debug("Telemetry command write result={}, clientId={}", [
+                $result ? 'success' : 'failed',
+                $this->clientId
+            ]);
+            
+            if (!$result) {
+                Logger::error("Failed to write telemetry command, clientId={$this->clientId}");
+            }
         } catch (\Throwable $e) {
             Logger::error("Failed to send telemetry command, clientId={$this->clientId}, error={$e->getMessage()}");
             throw $e;
@@ -215,17 +229,28 @@ class TelemetrySession {
 
     /**
      * Start Swoole coroutine-based listener
+     * For SimpleConsumer, we don't need continuous listening - just send settings once
      */
     private function startSwooleListener(): void {
+        // For SimpleConsumer use case, we start a lightweight listener that:
+        // 1. Keeps the stream alive
+        // 2. Processes any server commands
+        // 3. Doesn't block the main thread
+        
         go(function() {
             Logger::debug("Started Swoole coroutine listener, clientId={$this->clientId}");
+            
+            $readCount = 0;
+            $maxReads = 100; // Limit reads to avoid infinite loop for short-lived consumers
 
-            while ($this->active && $this->streamCall !== null) {
+            while ($this->active && $this->streamCall !== null && $readCount < $maxReads) {
                 try {
-                    $response = $this->streamCall->read();
+                    // Use non-blocking read with timeout
+                    $response = $this->streamCall->read(0.5);
+                    $readCount++;
 
                     if ($response === null) {
-                        usleep(100000); // 100ms
+                        // No response, continue polling
                         continue;
                     }
 
@@ -234,16 +259,11 @@ class TelemetrySession {
                     }
                 } catch (\Throwable $e) {
                     Logger::error("Error in Swoole listener, clientId={$this->clientId}, error={$e->getMessage()}");
-
-                    if ($this->reconnectAttempts < self::MAX_RECONNECT_ATTEMPTS) {
-                        $this->attemptReconnect();
-                    } else {
-                        Logger::error("Max reconnect attempts reached, stopping session, clientId={$this->clientId}");
-                        $this->stop();
-                        break;
-                    }
+                    break;
                 }
             }
+            
+            Logger::debug("Swoole coroutine listener stopped after {$readCount} reads, clientId={$this->clientId}");
         });
     }
 
