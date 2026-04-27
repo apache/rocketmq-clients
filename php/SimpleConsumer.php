@@ -278,13 +278,25 @@ class SimpleConsumer
             $this->heartbeat();
             Logger::info("Heartbeat sent, clientId={}", [$this->clientId]);
             
-            // Skip Telemetry session for now - it's not working with official gRPC extension in Swoole
-            Logger::warn("Skipping Telemetry session initialization (known issue with gRPC bidirectional streams in Swoole), clientId={}", [$this->clientId]);
-            $this->telemetrySession = null;
+            // Initialize and start Swoole-based Telemetry session
+            Logger::info("Initializing Swoole Telemetry session..., clientId={}", [$this->clientId]);
+            $this->initializeTelemetrySession();
+            Logger::info("Telemetry session initialized, clientId={}", [$this->clientId]);
             
             // Sync initial settings to server after telemetry session is ready (only if has subscriptions)
             if (!empty($this->subscriptionExpressions)) {
-                Logger::warn("Skipping initial settings sync because Telemetry session is disabled, clientId={}", [$this->clientId]);
+                Logger::info("Syncing initial settings..., clientId={}", [$this->clientId]);
+                // Initial settings sync is critical - must succeed before consumer can start
+                $this->syncSettings();
+                Logger::info("Initial settings synced, clientId={}", [$this->clientId]);
+                Logger::debug("Initial settings synced after startup, clientId={}, subscriptionCount={}", [
+                    $this->clientId,
+                    count($this->subscriptionExpressions)
+                ]);
+            } else {
+                Logger::warn("No subscriptions configured at startup. Consumer will not receive messages until subscribe() is called, clientId={}", [
+                    $this->clientId
+                ]);
             }
             
             // Start background timers for heartbeat and settings sync
@@ -834,32 +846,38 @@ class SimpleConsumer
         // Telemetry session is required for proper operation
         // Without it, settings cannot be synced to server, which will cause issues with receiveMessage
         
-        if (!extension_loaded('swoole')) {
+        if (!extension_loaded('pcntl')) {
             throw new \Exception(
-                "Swoole extension is required for SimpleConsumer. " .
-                "Telemetry session (bidirectional gRPC stream) depends on Swoole coroutines. " .
-                "Please install Swoole: pecl install swoole"
+                "PCNTL extension is required for ProcessTelemetrySession. " .
+                "Please enable PCNTL: --enable-pcntl"
             );
         }
         
-        if (!class_exists('Apache\Rocketmq\AsyncTelemetrySession')) {
+        if (!extension_loaded('posix')) {
             throw new \Exception(
-                "AsyncTelemetrySession class not found. " .
-                "Please ensure all PHP SDK files are properly loaded."
+                "POSIX extension is required for ProcessTelemetrySession. " .
+                "Please enable POSIX: --enable-posix"
+            );
+        }
+        
+        if (!extension_loaded('sockets')) {
+            throw new \Exception(
+                "Sockets extension is required for ProcessTelemetrySession IPC. " .
+                "Please enable sockets: --enable-sockets"
             );
         }
         
         try {
-            // Create and start TelemetrySession (uses official gRPC extension)
-            $this->telemetrySession = new TelemetrySession(
+            // Create and start ProcessTelemetrySession (uses child process with official gRPC extension)
+            $this->telemetrySession = new ProcessTelemetrySession(
                 $this->clientId,
-                $this->getClient()
+                $this->config->getEndpoints()
             );
             $this->telemetrySession->start();
             
-            Logger::info("Telemetry session started successfully, clientId={}", [$this->clientId]);
+            Logger::info("Process Telemetry session started successfully, clientId={}", [$this->clientId]);
         } catch (\Exception $e) {
-            Logger::error("Failed to initialize telemetry session, clientId={}, error={}", [
+            Logger::error("Failed to initialize Process telemetry session, clientId={}, error={}", [
                 $this->clientId,
                 $e->getMessage()
             ]);
@@ -991,7 +1009,11 @@ class SimpleConsumer
         $settings = $this->buildCurrentSettings();
         
         // Send settings via telemetry session
-        if ($this->telemetrySession instanceof TelemetrySession) {
+        if ($this->telemetrySession instanceof ProcessTelemetrySession) {
+            $this->telemetrySession->sendCustomSettings($settings);
+        } elseif ($this->telemetrySession instanceof SwooleTelemetrySession) {
+            $this->telemetrySession->sendSettings($settings);
+        } elseif ($this->telemetrySession instanceof TelemetrySession) {
             $this->telemetrySession->sendSettings($settings);
         } elseif (method_exists($this->telemetrySession, 'sendCustomSettings')) {
             // Fallback for other implementations
