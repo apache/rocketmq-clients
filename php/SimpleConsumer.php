@@ -853,14 +853,10 @@ class SimpleConsumer
         }
         
         try {
-            // Create and start GrpcTelemetrySession (uses official gRPC extension with Swoole coroutine)
-            $this->telemetrySession = new GrpcTelemetrySession(
-                $this->config->getEndpoints(),
+            // Create and start TelemetrySession (uses official gRPC extension)
+            $this->telemetrySession = new TelemetrySession(
                 $this->clientId,
-                $this->consumerGroup,
-                $this->topic,
-                \Apache\Rocketmq\V2\ClientType::SIMPLE_CONSUMER,
-                $this->awaitDuration
+                $this->getClient()
             );
             $this->telemetrySession->start();
             
@@ -998,15 +994,10 @@ class SimpleConsumer
         $settings = $this->buildCurrentSettings();
         
         // Send settings via telemetry session
-        // Use sendCustomSettings for different TelemetrySession implementations
-        if ($this->telemetrySession instanceof GrpcTelemetrySession) {
-            $this->telemetrySession->sendCustomSettings($settings);
-        } elseif ($this->telemetrySession instanceof SwooleAsyncTelemetrySession && 
-            method_exists($this->telemetrySession, 'sendCustomSettings')) {
-            $this->telemetrySession->sendCustomSettings($settings);
-        } elseif ($this->telemetrySession instanceof AsyncTelemetrySession && 
-                  method_exists($this->telemetrySession, 'sendCustomSettings')) {
-            // Fallback to old AsyncTelemetrySession for backward compatibility
+        if ($this->telemetrySession instanceof TelemetrySession) {
+            $this->telemetrySession->sendSettings($settings);
+        } elseif (method_exists($this->telemetrySession, 'sendCustomSettings')) {
+            // Fallback for other implementations
             $this->telemetrySession->sendCustomSettings($settings);
         } else {
             throw new \Exception(
