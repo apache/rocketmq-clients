@@ -23,16 +23,17 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
     endpoints,
     namespace,
     sessionCredentials,
-    maxAttempts: 2,
+    maxAttempts: 3,
   });
   await producer.startup();
 
   try {
-    // 发送延迟消息
+    // Send delay message
+    const deliveryTimestamp = new Date(Date.now() + 5000); // Deliver after 5 seconds
     const receipt = await producer.send({
       topic: topics.delay,
       tag: 'rocketmq-delay',
-      delay: 5000,
+      deliveryTimestamp,
       body: Buffer.from(JSON.stringify({
         hello: 'rocketmq-client-nodejs world ',
         now: Date(),
@@ -41,41 +42,8 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
 
     console.log('✅ Message sent successfully');
     console.log('   - Message ID:', receipt.messageId);
-    console.log('   - Recall Handle:', receipt.recallHandle);
+    console.log('   - Delivery Timestamp:', deliveryTimestamp.toISOString());
     console.log('   - Offset:', receipt.offset);
-
-    // 检查 recallHandle 是否存在
-    if (!receipt.recallHandle || receipt.recallHandle.trim() === '') {
-      console.warn('\n⚠️  Warning: Recall handle is empty');
-      console.log('This might be because:');
-      console.log('1. The topic is not configured as DELAY type');
-      console.log('2. Broker does not support mixed message type');
-      console.log('3. The message was not recognized as a delay message');
-
-      // 尝试检查 Topic 配置
-      console.log('\n💡 Suggestion: Check if the topic "time-topic" has message.type=DELAY attribute');
-    } else {
-      console.log('\n🔄 Attempting to recall message...');
-
-      try {
-        const recallReceipt = await producer.recallMessage(topics.delay, receipt.recallHandle);
-        console.log('✅ Message recalled successfully!');
-        console.log('   - Recalled Message ID:', recallReceipt.messageId);
-      } catch (recallError) {
-        console.error('❌ Failed to recall message:');
-        console.error('   Error:', (recallError as Error).message);
-        console.error('   Status Code:', (recallError as any).code);
-
-        // 提供更多调试信息
-        if ((recallError as Error).message.includes('recall handle is invalid')) {
-          console.log('\n📝 Possible reasons:');
-          console.log('   1. The recall handle format is incorrect');
-          console.log('   2. The message has already been delivered/consumed');
-          console.log('   3. The recall time window has expired');
-          console.log('   4. Broker configuration issue (enableMixedMessageType=false)');
-        }
-      }
-    }
   } catch (error) {
     console.error('❌ Error sending message:', error);
   } finally {

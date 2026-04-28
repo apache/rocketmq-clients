@@ -47,6 +47,7 @@ namespace Org.Apache.Rocketmq
         private readonly IMessageListener _messageListener;
         private readonly int _maxCacheMessageCount;
         private readonly int _maxCacheMessageSizeInBytes;
+        private readonly bool _enableFifoConsumeAccelerator;
 
         private readonly ConcurrentDictionary<MessageQueue, ProcessQueue> _processQueueTable;
         private ConsumeService _consumeService;
@@ -60,13 +61,21 @@ namespace Org.Apache.Rocketmq
         private readonly CancellationTokenSource _changeInvisibleDurationCts;
         private readonly CancellationTokenSource _forwardMsgToDeadLetterQueueCts;
 
+        private int _inflightReceiveCount;
+
+        /// <summary>Poll interval for shutdown waits and post-drain ACK grace delay (aligned to 1s).</summary>
+        private static readonly TimeSpan ShutdownStepDelay = TimeSpan.FromSeconds(1);
+
+        private static readonly TimeSpan ShutdownCacheDrainWarnInterval = TimeSpan.FromSeconds(10);
+
         /// <summary>
         /// The caller is supposed to have validated the arguments and handled throwing exception or
         /// logging warnings already, so we avoid repeating args check here.
         /// </summary>
         public PushConsumer(ClientConfig clientConfig, string consumerGroup,
             ConcurrentDictionary<string, FilterExpression> subscriptionExpressions, IMessageListener messageListener,
-            int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount)
+            int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
+            bool enableFifoConsumeAccelerator = false)
             : base(clientConfig, consumerGroup)
         {
             _clientConfig = clientConfig;
@@ -78,6 +87,7 @@ namespace Org.Apache.Rocketmq
             _messageListener = messageListener;
             _maxCacheMessageCount = maxCacheMessageCount;
             _maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
+            _enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
 
             _scanAssignmentCts = new CancellationTokenSource();
 
@@ -123,19 +133,36 @@ namespace Org.Apache.Rocketmq
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Shutdown order (aligned with golang PushConsumer GracefulStop):
+        /// 1. Stopping: no new receive requests; cancel assignment scan and receive backoff scheduling.
+        /// 2. Wait inflight receive requests finished or timeout (request timeout + long polling timeout).
+        /// 3. Wait all locally cached messages drained (listener + async ack/evict); warn every 10s with count.
+        /// 4. One-second delay for async ack.
+        /// 5. Cancel consumption and rpc-side retry tokens, then shutdown client (RPC).
+        /// </summary>
         protected override async Task Shutdown()
         {
             try
             {
                 State = State.Stopping;
                 Logger.LogInformation($"Begin to shutdown the rocketmq push consumer, clientId={ClientId}");
+                _scanAssignmentCts.Cancel();
                 _receiveMsgCts.Cancel();
+
+                Logger.LogInformation($"Waiting for the inflight receive requests to be finished, clientId={ClientId}");
+                await WaitInflightReceiveFinishedAsync().ConfigureAwait(false);
+
+                await WaitCachedMessagesDrainedAsync().ConfigureAwait(false);
+
+                await Task.Delay(ShutdownStepDelay).ConfigureAwait(false);
+
+                _consumptionCts.Cancel();
                 _ackMsgCts.Cancel();
                 _changeInvisibleDurationCts.Cancel();
                 _forwardMsgToDeadLetterQueueCts.Cancel();
-                _scanAssignmentCts.Cancel();
-                await base.Shutdown();
-                _consumptionCts.Cancel();
+
+                await base.Shutdown().ConfigureAwait(false);
                 Logger.LogInformation($"Shutdown the rocketmq push consumer successfully, clientId={ClientId}");
                 State = State.Terminated;
             }
@@ -146,13 +173,78 @@ namespace Org.Apache.Rocketmq
             }
         }
 
+        internal void NotifyReceiveMessageStarted()
+        {
+            Interlocked.Increment(ref _inflightReceiveCount);
+        }
+
+        internal void NotifyReceiveMessageFinished()
+        {
+            Interlocked.Decrement(ref _inflightReceiveCount);
+        }
+
+        private int GetTotalCachedMessageCount()
+        {
+            var sum = 0;
+            foreach (var kv in _processQueueTable)
+            {
+                sum += kv.Value.CachedMessagesCount();
+            }
+
+            return sum;
+        }
+
+        private async Task WaitInflightReceiveFinishedAsync()
+        {
+            var maxWait = _clientConfig.RequestTimeout + _pushSubscriptionSettings.GetLongPollingTimeout();
+            var deadline = DateTime.UtcNow + maxWait;
+            while (Interlocked.Add(ref _inflightReceiveCount, 0) > 0)
+            {
+                if (DateTime.UtcNow >= deadline)
+                {
+                    Logger.LogWarning(
+                        "Timeout waiting for all inflight receive requests to be finished, clientId={ClientId}, inflightReceiveCount={Inflight}",
+                        ClientId, Interlocked.Add(ref _inflightReceiveCount, 0));
+                    break;
+                }
+
+                await Task.Delay(ShutdownStepDelay).ConfigureAwait(false);
+            }
+
+            if (Interlocked.Add(ref _inflightReceiveCount, 0) <= 0)
+            {
+                Logger.LogInformation($"All inflight receive requests have been finished, clientId={ClientId}");
+            }
+        }
+
+        private async Task WaitCachedMessagesDrainedAsync()
+        {
+            var nextWarnUtc = DateTime.UtcNow + ShutdownCacheDrainWarnInterval;
+            while (GetTotalCachedMessageCount() > 0)
+            {
+                await Task.Delay(ShutdownStepDelay).ConfigureAwait(false);
+                var now = DateTime.UtcNow;
+                if (now < nextWarnUtc)
+                {
+                    continue;
+                }
+
+                Logger.LogWarning(
+                    "Shutdown waiting for local cached messages to drain, cachedMessageCount={Cached}, clientId={ClientId}",
+                    GetTotalCachedMessageCount(), ClientId);
+                nextWarnUtc = now + ShutdownCacheDrainWarnInterval;
+            }
+        }
+
         private ConsumeService CreateConsumerService()
         {
             if (_pushSubscriptionSettings.IsFifo())
             {
                 Logger.LogInformation(
-                    $"Create FIFO consume service, consumerGroup={_consumerGroup}, clientId={ClientId}");
-                return new FifoConsumeService(ClientId, _messageListener, _consumptionTaskScheduler, _consumptionCts.Token);
+                    "Create FIFO consume service, consumerGroup={ConsumerGroup}, clientId={ClientId}, enableFifoConsumeAccelerator={Accelerator}",
+                    _consumerGroup, ClientId, _enableFifoConsumeAccelerator);
+                return new FifoConsumeService(ClientId, _messageListener, _consumptionTaskScheduler, _consumptionCts.Token,
+                    _enableFifoConsumeAccelerator);
             }
             Logger.LogInformation(
                 $"Create standard consume service, consumerGroup={_consumerGroup}, clientId={ClientId}");
@@ -200,6 +292,11 @@ namespace Org.Apache.Rocketmq
 
         internal void ScanAssignments()
         {
+            if (State != State.Running)
+            {
+                return;
+            }
+
             try
             {
                 Logger.LogDebug($"Start to scan assignments periodically, clientId={ClientId}");
@@ -614,6 +711,7 @@ namespace Org.Apache.Rocketmq
             private int _maxCacheMessageCount = 1024;
             private int _maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
             private int _consumptionThreadCount = 20;
+            private bool _enableFifoConsumeAccelerator;
 
             public Builder SetClientConfig(ClientConfig clientConfig)
             {
@@ -673,6 +771,17 @@ namespace Org.Apache.Rocketmq
                 return this;
             }
 
+            /// <summary>
+            /// When the subscription is FIFO and this is true, messages in one receive batch are consumed in parallel
+            /// across distinct <see cref="MessageView.MessageGroup"/> values; order within each group stays serial
+            /// (aligned with golang WithPushEnableFifoConsumeAccelerator).
+            /// </summary>
+            public Builder SetEnableFifoConsumeAccelerator(bool enableFifoConsumeAccelerator)
+            {
+                _enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
+                return this;
+            }
+
             public async Task<PushConsumer> Build()
             {
                 Preconditions.CheckArgument(null != _clientConfig, "clientConfig has not been set yet");
@@ -682,7 +791,7 @@ namespace Org.Apache.Rocketmq
                 Preconditions.CheckArgument(null != _messageListener, "messageListener has not been set yet");
                 var pushConsumer = new PushConsumer(_clientConfig, _consumerGroup, _subscriptionExpressions,
                     _messageListener, _maxCacheMessageCount,
-                    _maxCacheMessageSizeInBytes, _consumptionThreadCount);
+                    _maxCacheMessageSizeInBytes, _consumptionThreadCount, _enableFifoConsumeAccelerator);
                 await pushConsumer.Start();
                 return pushConsumer;
             }

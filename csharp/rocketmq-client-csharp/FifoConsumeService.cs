@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,15 +27,74 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<FifoConsumeService>();
 
+        private readonly bool _enableFifoConsumeAccelerator;
+
         public FifoConsumeService(string clientId, IMessageListener messageListener,
-            TaskScheduler consumptionExecutor, CancellationToken consumptionCtsToken) :
+            TaskScheduler consumptionExecutor, CancellationToken consumptionCtsToken,
+            bool enableFifoConsumeAccelerator = false) :
             base(clientId, messageListener, consumptionExecutor, consumptionCtsToken)
         {
+            _enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
+        }
+
+        /// <summary>
+        /// Groups FIFO batch by <see cref="MessageView.MessageGroup"/> (aligned with golang fifoConsumeService / groupMessageBy).
+        /// Messages with null or empty group go to <paramref name="withoutGroup"/> and share one serial chain.
+        /// </summary>
+        internal static void GroupFifoBatchByMessageGroup(IReadOnlyList<MessageView> messageViews,
+            out Dictionary<string, List<MessageView>> byGroup, out List<MessageView> withoutGroup)
+        {
+            byGroup = new Dictionary<string, List<MessageView>>();
+            withoutGroup = new List<MessageView>();
+            foreach (var mv in messageViews)
+            {
+                var g = mv.MessageGroup;
+                if (string.IsNullOrEmpty(g))
+                {
+                    withoutGroup.Add(mv);
+                }
+                else if (!byGroup.TryGetValue(g, out var list))
+                {
+                    list = new List<MessageView>();
+                    byGroup[g] = list;
+                    list.Add(mv);
+                }
+                else
+                {
+                    list.Add(mv);
+                }
+            }
         }
 
         public override void Consume(ProcessQueue pq, List<MessageView> messageViews)
         {
-            ConsumeIteratively(pq, messageViews.GetEnumerator());
+            if (!_enableFifoConsumeAccelerator || messageViews.Count <= 1)
+            {
+                ConsumeIteratively(pq, messageViews.GetEnumerator());
+                return;
+            }
+
+            GroupFifoBatchByMessageGroup(messageViews, out var byGroup, out var withoutGroup);
+
+            var groupNum = byGroup.Count;
+            if (withoutGroup.Count > 0)
+            {
+                groupNum++;
+            }
+
+            Logger.LogDebug(
+                "FifoConsumeService parallel consume, messageViewsNum={Count}, groupNum={GroupNum}, clientId={ClientId}",
+                messageViews.Count, groupNum, ClientId);
+
+            foreach (var group in byGroup.Values)
+            {
+                ConsumeIteratively(pq, group.GetEnumerator());
+            }
+
+            if (withoutGroup.Count > 0)
+            {
+                ConsumeIteratively(pq, withoutGroup.GetEnumerator());
+            }
         }
 
         public void ConsumeIteratively(ProcessQueue pq, IEnumerator<MessageView> iterator)

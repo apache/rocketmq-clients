@@ -24,7 +24,7 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
     endpoints,
     namespace,
     sessionCredentials,
-    maxAttempts: 2,
+    maxAttempts: 3,
   });
   await producer.startup();
 

@@ -19,7 +19,7 @@ import {
   MessageQueue as MessageQueuePB, MessageType, Permission,
   Resource,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
-import { createResource } from '../util';
+import { createResource, hashCodeOfString } from '../util';
 import { Broker } from './Broker';
 
 export class MessageQueue {
@@ -45,5 +45,23 @@ export class MessageQueue {
     messageQueue.setPermission(this.permission);
     messageQueue.setAcceptMessageTypesList(this.acceptMessageTypesList);
     return messageQueue;
+  }
+
+  equals(other: MessageQueue): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.queueId === other.queueId &&
+      this.topic.name === other.topic.name &&
+      this.broker.equals(other.broker) &&
+      this.permission === other.permission;
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    hash = hash * 31 + this.queueId;
+    hash = hash * 31 + hashCodeOfString(this.topic.name);
+    hash = hash * 31 + this.broker.hashCode();
+    hash = hash * 31 + this.permission;
+    return hash;
   }
 }

@@ -30,8 +30,8 @@ export class SimpleSubscriptionSettings extends Settings {
   readonly group: string;
   readonly subscriptionExpressions: Map<string, FilterExpression>;
 
-  constructor(namespace: string, clientId: string, accessPoint: Endpoints, group: string, requestTimeout: number, longPollingTimeout: number, subscriptionExpressions: Map<string, FilterExpression>) {
-    super(namespace, clientId, ClientType.SIMPLE_CONSUMER, accessPoint, requestTimeout);
+  constructor(namespace: string, clientId: string, clientType: ClientType, accessPoint: Endpoints, group: string, requestTimeout: number, longPollingTimeout: number, subscriptionExpressions: Map<string, FilterExpression>) {
+    super(namespace, clientId, clientType, accessPoint, requestTimeout);
     this.longPollingTimeout = longPollingTimeout;
     this.group = group;
     this.subscriptionExpressions = subscriptionExpressions;

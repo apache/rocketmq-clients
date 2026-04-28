@@ -461,12 +461,17 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 			if status.Code(err) == codes.DeadlineExceeded {
 				nextAttemptId = request.GetAttemptId()
 			}
-			dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, MessageHookPointsStatus_ERROR)
-			// add some check to skip no message
-			dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%d, "+
-				"nextAttemptId=%s, clientId=%s, err=%w", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
-				clientId, err)
-
+			rpcErr, isRpcErr := AsErrRpcStatus(err)
+			isNoNewMessage := isRpcErr && rpcErr.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND)
+			if isNoNewMessage {
+				dpq.consumer.cli.log.Debugf("No new message, mq=%s, endpoints=%v, clientId=%s",
+					dpq.mqstr, endpoints, clientId)
+			} else {
+				dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, MessageHookPointsStatus_ERROR)
+				dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%d, "+
+					"nextAttemptId=%s, clientId=%s, err=%w", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
+					clientId, err)
+			}
 			dpq.onReceiveMessageException(err, nextAttemptId)
 		}
 	}()

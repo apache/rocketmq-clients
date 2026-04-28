@@ -40,6 +40,14 @@ export class Assignments {
     return true;
   }
 
+  hashCode(): number {
+    let hash = 17;
+    for (const assignment of this.#assignmentList) {
+      hash = hash * 31 + assignment.hashCode();
+    }
+    return hash;
+  }
+
   toString(): string {
     return `Assignments{assignmentList=[${this.#assignmentList.map(a => a.toString()).join(', ')}]}`;
   }

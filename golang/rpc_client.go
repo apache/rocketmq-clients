@@ -46,6 +46,7 @@ type RpcClient interface {
 	ChangeInvisibleDuration(ctx context.Context, request *v2.ChangeInvisibleDurationRequest) (*v2.ChangeInvisibleDurationResponse, error)
 	ForwardMessageToDeadLetterQueue(ctx context.Context, request *v2.ForwardMessageToDeadLetterQueueRequest) (*v2.ForwardMessageToDeadLetterQueueResponse, error)
 	SyncLiteSubscription(ctx context.Context, request *v2.SyncLiteSubscriptionRequest) (*v2.SyncLiteSubscriptionResponse, error)
+	RecallMessage(ctx context.Context, request *v2.RecallMessageRequest) (*v2.RecallMessageResponse, error)
 	idleDuration() time.Duration
 	GetTarget() string
 }
@@ -209,5 +210,14 @@ func (rc *rpcClient) SyncLiteSubscription(ctx context.Context, request *v2.SyncL
 	rc.mux.Unlock()
 	resp, err := rc.msc.SyncLiteSubscription(ctx, request)
 	sugarBaseLogger.Debugf("SyncLiteSubscription request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
+}
+
+func (rc *rpcClient) RecallMessage(ctx context.Context, request *v2.RecallMessageRequest) (*v2.RecallMessageResponse, error) {
+	rc.mux.Lock()
+	rc.activityNanoTime = time.Now()
+	rc.mux.Unlock()
+	resp, err := rc.msc.RecallMessage(ctx, request)
+	sugarBaseLogger.Debugf("recallMessage request: %v, response: %v, err: %v", request, resp, err)
 	return resp, err
 }

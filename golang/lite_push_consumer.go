@@ -157,16 +157,29 @@ func (lpc *defaultLitePushConsumer) syncAllLiteSubscription() {
 }
 
 func (lpc *defaultLitePushConsumer) syncLiteSubscription(context context.Context, action v2.LiteSubscriptionAction, diff []string) error {
+	topic := lpc.litePushConsumerSettings.bindTopic
+	group := lpc.litePushConsumerSettings.groupName
+	clientId := lpc.litePushConsumerSettings.clientId
+
 	endpoints := lpc.cli.accessPoint
 	request := v2.SyncLiteSubscriptionRequest{
 		Action: action,
 		Topic: &v2.Resource{
-			Name:              lpc.litePushConsumerSettings.bindTopic,
+			Name:              topic,
 			ResourceNamespace: lpc.cli.config.NameSpace,
 		},
-		Group:        lpc.litePushConsumerSettings.groupName,
+		Group:        group,
 		LiteTopicSet: diff,
 	}
+
+	if action == v2.LiteSubscriptionAction_COMPLETE_ADD {
+		sugarBaseLogger.Infof("syncLiteSubscription action:%s, topic:%s, group:%s, clientId:%s, liteTopicCount:%d",
+			action, topic, group, clientId, len(diff))
+	} else {
+		sugarBaseLogger.Infof("syncLiteSubscription action:%s, topic:%s, group:%s, clientId:%s, liteTopics:%v",
+			action, topic, group, clientId, diff)
+	}
+
 	context = lpc.cli.Sign(context)
 	if v, err := lpc.defaultPushConsumer.cli.clientManager.SyncLiteSubscription(context, endpoints, &request, lpc.pcSettings.requestTimeout); err != nil {
 		return err

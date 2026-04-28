@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
@@ -36,7 +35,6 @@ import org.apache.rocketmq.client.java.misc.ClientId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings("UnstableApiUsage")
 class FifoConsumeService extends ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(FifoConsumeService.class);
     private final boolean enableFifoConsumeAccelerator;
@@ -54,41 +52,58 @@ class FifoConsumeService extends ConsumeService {
             consumeIteratively(pq, messageViews.iterator());
             return;
         }
-        Map<String, List<MessageViewImpl>> messageViewsGroupByMessageGroup = new HashMap<>();
-        List<MessageViewImpl> messageViewsWithoutMessageGroup = new ArrayList<>();
+        Map<String, List<MessageViewImpl>> messageViewsGroupByGroupKey = new HashMap<>();
         for (MessageViewImpl messageView : messageViews) {
-            Optional<String> messageGroup = messageView.getMessageGroup();
-            if (messageGroup.isPresent()) {
-                messageViewsGroupByMessageGroup.computeIfAbsent(messageGroup.get(), k -> new ArrayList<>())
-                    .add(messageView);
-            } else {
-                messageViewsWithoutMessageGroup.add(messageView);
-            }
+            // Group messages by group key. Default to null-key group for unkeyed messages.
+            String groupKey = getMessageGroupKey(messageView);
+            messageViewsGroupByGroupKey.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(messageView);
         }
-
         log.debug("FifoConsumeService parallel consume, messageViewsNum={}, groupNum={}", messageViews.size(),
-            messageViewsGroupByMessageGroup.size() + (messageViewsWithoutMessageGroup.isEmpty() ? 0 : 1));
+            messageViewsGroupByGroupKey.size());
 
-        messageViewsGroupByMessageGroup.values().forEach(list -> consumeIteratively(pq, list.iterator()));
-        consumeIteratively(pq, messageViewsWithoutMessageGroup.iterator());
+        messageViewsGroupByGroupKey.values().forEach(list -> consumeIteratively(pq, list.iterator()));
     }
 
-    public void consumeIteratively(ProcessQueue pq, Iterator<MessageViewImpl> iterator) {
-        if (!iterator.hasNext()) {
-            return;
-        }
-        final MessageViewImpl messageView = iterator.next();
-        if (messageView.isCorrupted()) {
-            // Discard corrupted message.
-            log.error("Message is corrupted for FIFO consumption, prepare to discard it, mq={}, messageId={}, "
-                + "clientId={}", pq.getMessageQueue(), messageView.getMessageId(), clientId);
-            pq.discardFifoMessage(messageView);
-            consumeIteratively(pq, iterator);
+    /**
+     * Get the group key for the given message view.
+     * Subclasses should override this method to provide different grouping logic.
+     */
+    protected String getMessageGroupKey(MessageViewImpl messageView) {
+        return messageView.getMessageGroup().orElse(null);
+    }
+
+    /**
+     * Consume messages iteratively using the provided iterator.
+     * This method handles corrupted messages and continues processing the next valid message.
+     */
+    protected void consumeIteratively(ProcessQueue pq, Iterator<MessageViewImpl> iterator) {
+        MessageViewImpl messageView = getNextValidMessage(pq, iterator);
+        if (messageView == null) {
             return;
         }
         final ListenableFuture<ConsumeResult> future0 = consume(messageView);
         ListenableFuture<Void> future = Futures.transformAsync(future0, result -> pq.eraseFifoMessage(messageView,
             result), MoreExecutors.directExecutor());
         future.addListener(() -> consumeIteratively(pq, iterator), MoreExecutors.directExecutor());
+    }
+
+    /**
+     * Get the next valid message from the iterator.
+     * Skip corrupted messages and return the first valid one.
+     * Returns null if there are no more messages.
+     */
+    protected MessageViewImpl getNextValidMessage(ProcessQueue pq, Iterator<MessageViewImpl> iterator) {
+        while (iterator.hasNext()) {
+            final MessageViewImpl messageView = iterator.next();
+            if (messageView.isCorrupted()) {
+                // Discard corrupted message.
+                log.error("Message is corrupted for FIFO consumption, prepare to discard it, mq={}, messageId={}, "
+                    + "clientId={}", pq.getMessageQueue(), messageView.getMessageId(), clientId);
+                pq.discardFifoMessage(messageView);
+                continue;
+            }
+            return messageView;
+        }
+        return null;
     }
 }

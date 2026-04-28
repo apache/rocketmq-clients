@@ -26,7 +26,7 @@ const { TransactionResolution } = pkg;
     endpoints,
     namespace,
     sessionCredentials,
-    maxAttempts: 2,
+    maxAttempts: 3,
     checker: {
       async check(messageView) {
         console.log(messageView);

@@ -16,6 +16,7 @@
  */
 
 import { Broker as BrokerPB } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { hashCodeOfString } from '../util';
 import { Endpoints } from './Endpoints';
 
 export class Broker implements BrokerPB.AsObject {
@@ -35,5 +36,21 @@ export class Broker implements BrokerPB.AsObject {
     broker.setId(this.id);
     broker.setEndpoints(this.endpoints.toProtobuf());
     return broker;
+  }
+
+  equals(other: Broker): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.id === other.id &&
+      this.name === other.name &&
+      this.endpoints.equals(other.endpoints);
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    hash = hash * 31 + this.id;
+    hash = hash * 31 + hashCodeOfString(this.name);
+    hash = hash * 31 + this.endpoints.hashCode();
+    return hash;
   }
 }

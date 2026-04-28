@@ -21,6 +21,7 @@ import {
   ChangeInvisibleDurationRequest,
   ReceiveMessageRequest, ReceiveMessageResponse,
 } from '../../proto/apache/rocketmq/v2/service_pb';
+import { ClientType } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { MessageView } from '../message';
 import { MessageQueue } from '../route';
 import { StatusChecker } from '../exception';
@@ -56,28 +57,46 @@ export abstract class Consumer extends BaseClient {
     const endpoints = mq.broker.endpoints;
     const timeout = this.requestTimeout + awaitDuration;
     let status: Status.AsObject | undefined;
-    const responses = await this.rpcClientManager.receiveMessage(endpoints, request, timeout);
-    const messageList: Message[] = [];
-    let transportDeliveryTimestamp: Date | undefined;
-    for (const response of responses) {
-      switch (response.getContentCase()) {
-        case ReceiveMessageResponse.ContentCase.STATUS:
-          status = response.getStatus()?.toObject();
-          break;
-        case ReceiveMessageResponse.ContentCase.MESSAGE:
-          messageList.push(response.getMessage()!);
-          break;
-        case ReceiveMessageResponse.ContentCase.DELIVERY_TIMESTAMP:
-          transportDeliveryTimestamp = response.getDeliveryTimestamp()?.toDate();
-          break;
-        default:
-          // this.logger.warn("[Bug] Not recognized content for receive message response, mq={}, " +
-          //                 "clientId={}, response={}", mq, clientId, response);
+
+    try {
+      this.logger.debug?.('Receiving messages from broker, topic=%s, endpoints=%s, batchSize=%d, clientId=%s',
+        request.getMessageQueue()?.getTopic()?.getName(), endpoints, request.getBatchSize(), (this as any).clientId);
+
+      const responses = await this.rpcClientManager.receiveMessage(endpoints, request, timeout);
+      const messageList: Message[] = [];
+      let transportDeliveryTimestamp: Date | undefined;
+
+      for (const response of responses) {
+        switch (response.getContentCase()) {
+          case ReceiveMessageResponse.ContentCase.STATUS:
+            status = response.getStatus()?.toObject();
+            break;
+          case ReceiveMessageResponse.ContentCase.MESSAGE:
+            messageList.push(response.getMessage()!);
+            break;
+          case ReceiveMessageResponse.ContentCase.DELIVERY_TIMESTAMP:
+            transportDeliveryTimestamp = response.getDeliveryTimestamp()?.toDate();
+            break;
+          default:
+            // this.logger.warn("[Bug] Not recognized content for receive message response, mq={}, " +
+            //                 "clientId={}, response={}", mq, clientId, response);
+        }
       }
+
+      StatusChecker.check(status);
+
+      if (messageList.length > 0) {
+        this.logger.debug?.('Received %d messages successfully, topic=%s, endpoints=%s, clientId=%s',
+          messageList.length, request.getMessageQueue()?.getTopic()?.getName(), endpoints, (this as any).clientId);
+      }
+
+      const messages = messageList.map(message => new MessageView(message, mq, transportDeliveryTimestamp));
+      return messages;
+    } catch (err) {
+      this.logger.error('Failed to receive messages, topic=%s, endpoints=%s, clientId=%s, error=%s',
+        request.getMessageQueue()?.getTopic()?.getName(), endpoints, (this as any).clientId, err);
+      throw err;
     }
-    StatusChecker.check(status);
-    const messages = messageList.map(message => new MessageView(message, mq, transportDeliveryTimestamp));
-    return messages;
   }
 
   protected async ackMessage(messageView: MessageView) {
@@ -125,5 +144,25 @@ export abstract class Consumer extends BaseClient {
   async forwardMessageToDeadLetterQueueViaRpc(endpoints: any, request: any, timeout: number) {
     const res = await this.rpcClientManager.forwardMessageToDeadLetterQueue(endpoints, request, timeout);
     return res;
+  }
+
+  /**
+   * Get the consumer group name.
+   *
+   * @return Consumer group name
+   */
+  getConsumerGroup(): string {
+    return this.consumerGroup;
+  }
+
+  /**
+   * Check if this is a lite consumer.
+   *
+   * @return true if this is a LITE_PUSH_CONSUMER or LITE_SIMPLE_CONSUMER
+   */
+  protected isLiteConsumer(): boolean {
+    const clientType = (this as any).getClientType?.();
+    return clientType === ClientType.LITE_PUSH_CONSUMER
+        || clientType === ClientType.LITE_SIMPLE_CONSUMER;
   }
 }

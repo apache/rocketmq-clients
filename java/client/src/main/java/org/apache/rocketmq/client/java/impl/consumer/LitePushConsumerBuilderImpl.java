@@ -42,6 +42,7 @@ public class LitePushConsumerBuilderImpl implements LitePushConsumerBuilder {
     protected int maxCacheMessageCount = 1024;
     protected int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
     protected int consumptionThreadCount = 20;
+    protected boolean enableFifoConsumeAccelerator = false;
 
     @Override
     public LitePushConsumerBuilder bindTopic(String bindTopic) {
@@ -91,6 +92,12 @@ public class LitePushConsumerBuilderImpl implements LitePushConsumerBuilder {
     public LitePushConsumerBuilder setConsumptionThreadCount(int consumptionThreadCount) {
         checkArgument(consumptionThreadCount > 0, "consumptionThreadCount should be positive");
         this.consumptionThreadCount = consumptionThreadCount;
+        return this;
+    }
+
+    @Override
+    public LitePushConsumerBuilder setEnableFifoConsumeAccelerator(boolean enableFifoConsumeAccelerator) {
+        this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
         return this;
     }
 
