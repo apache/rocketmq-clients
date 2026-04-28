@@ -242,6 +242,27 @@ func (m *MockClientManager) SyncLiteSubscription(ctx context.Context, endpoints 
 	return ret0, ret1
 }
 
+// SyncLiteSubscription indicates an expected call of SyncLiteSubscription.
+func (mr *MockClientManagerMockRecorder) SyncLiteSubscription(ctx, endpoints, request, duration interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncLiteSubscription", reflect.TypeOf((*MockClientManager)(nil).SyncLiteSubscription), ctx, endpoints, request, duration)
+}
+
+// RecallMessage mocks base method.
+func (m *MockClientManager) RecallMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.RecallMessageRequest, duration time.Duration) (*v2.RecallMessageResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecallMessage", ctx, endpoints, request, duration)
+	ret0, _ := ret[0].(*v2.RecallMessageResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RecallMessage indicates an expected call of RecallMessage.
+func (mr *MockClientManagerMockRecorder) RecallMessage(ctx, endpoints, request, duration interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecallMessage", reflect.TypeOf((*MockClientManager)(nil).RecallMessage), ctx, endpoints, request, duration)
+}
+
 // UnRegisterClient indicates an expected call of UnRegisterClient.
 func (mr *MockClientManagerMockRecorder) UnRegisterClient(client interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()

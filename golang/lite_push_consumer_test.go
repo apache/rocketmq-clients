@@ -177,6 +177,10 @@ func (m *mockedClientManager) SyncLiteSubscription(ctx context.Context, endpoint
 	return m.mockRpcClient.SyncLiteSubscription(ctx, request)
 }
 
+func (m *mockedClientManager) RecallMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.RecallMessageRequest, duration time.Duration) (*v2.RecallMessageResponse, error) {
+	return nil, nil
+}
+
 func TestLitePushConsumer_SubscribeLite(t *testing.T) {
 	setupTest(t)
 	defer teardownTest()
