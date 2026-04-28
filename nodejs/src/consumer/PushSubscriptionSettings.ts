@@ -37,13 +37,14 @@ export class PushSubscriptionSettings extends Settings {
   constructor(
     namespace: string,
     clientId: string,
+    clientType: ClientType,
     accessPoint: Endpoints,
     consumerGroup: string,
     requestTimeout: number,
     subscriptionExpressions: Map<string, FilterExpression>,
     longPollingTimeout?: number,
   ) {
-    super(namespace, clientId, ClientType.PUSH_CONSUMER, accessPoint, requestTimeout);
+    super(namespace, clientId, clientType, accessPoint, requestTimeout);
     this.#group = consumerGroup;
     this.#subscriptionExpressions = subscriptionExpressions;
     if (longPollingTimeout !== undefined) {

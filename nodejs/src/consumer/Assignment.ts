@@ -27,10 +27,11 @@ export class Assignment {
   equals(other: Assignment): boolean {
     if (this === other) return true;
     if (!other) return false;
-    return this.messageQueue === other.messageQueue ||
-      (this.messageQueue.queueId === other.messageQueue.queueId &&
-       this.messageQueue.topic.name === other.messageQueue.topic.name &&
-       this.messageQueue.broker.name === other.messageQueue.broker.name);
+    return this.messageQueue.equals(other.messageQueue);
+  }
+
+  hashCode(): number {
+    return this.messageQueue.hashCode();
   }
 
   toString(): string {

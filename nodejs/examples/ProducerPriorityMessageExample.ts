@@ -16,103 +16,153 @@
  */
 
 /**
- * This example demonstrates how to send priority messages using Apache RocketMQ.
+ * Producer with Priority Message Example
  *
- * Priority messages allow you to assign different priority levels to messages,
- * ensuring that higher priority messages are processed before lower priority ones.
+ * This example demonstrates how to send priority messages that will be
+ * consumed based on their priority level. Higher priority messages are
+ * delivered before lower priority ones.
  *
- * Key points:
- * - Priority is a non-negative number (0, 1, 2, ...)
+ * Key points for priority messages:
+ * - Priority must be >= 0
  * - Higher priority messages are delivered first
- * - Priority cannot be set together with deliveryTimestamp or messageGroup
- * - Messages without priority are treated as normal priority
+ * - Cannot be used with messageGroup, deliveryTimestamp, or liteTopic
+ * - Transactional messages cannot have priority set
  */
-
-import { Producer } from '../src/producer/Producer';
-import { Message } from '../src/message/Message';
-
-// Replace with your actual configuration
-const ENDPOINT = process.env.ROCKETMQ_ENDPOINT || 'yourEndpoint';
-const ACCESS_KEY = process.env.ROCKETMQ_ACCESS_KEY || 'yourAccessKey';
-const SECRET_KEY = process.env.ROCKETMQ_SECRET_KEY || 'yourSecretKey';
+import { Producer } from '../src';
+import { endpoints, sessionCredentials, namespace } from './ProducerSingleton';
 
 async function main() {
-  // Create a producer instance
+  console.log('========== Producer Priority Message Example ==========');
+
+  // Create producer instance
   const producer = new Producer({
-    namespace: process.env.ROCKETMQ_NAMESPACE || 'yourNamespace',
-    endpoints: ENDPOINT,
-    sessionCredentials: {
-      accessKey: ACCESS_KEY,
-      accessSecret: SECRET_KEY,
-    },
-    topics: [ 'yourPriorityTopic' ],
-    requestTimeout: 3000,
+    namespace,
+    endpoints,
+    sessionCredentials,
+    maxAttempts: 3,
   });
 
   try {
-    // Start the producer
     await producer.startup();
-    console.log('Producer started successfully');
+    console.log('Producer started successfully!\n');
 
-    // Define message body
-    const body = Buffer.from('This is a priority message for Apache RocketMQ', 'utf-8');
-    const tag = 'yourMessageTagA';
+    // Send messages with different priority levels
+    console.log('Sending priority messages...');
 
-    // Send high priority message (priority = 1, highest)
-    const highPriorityMessage = new Message({
+    // Low priority message (priority = 1)
+    console.log('\n1. Sending LOW priority message (priority=1)...');
+    const lowPriorityReceipt = await producer.send({
       topic: 'yourPriorityTopic',
-      body,
-      tag,
-      keys: [ 'high-priority-key' ],
-      priority: 1, // High priority
+      tag: 'low-priority',
+      body: Buffer.from(JSON.stringify({
+        type: 'LOW_PRIORITY',
+        content: 'This is a low priority notification',
+        timestamp: Date.now(),
+      })),
+      priority: 1, // Lower number = lower priority
     });
+    console.log('   ✓ Low priority message sent:', lowPriorityReceipt.messageId);
 
-    const highPriorityReceipt = await producer.send(highPriorityMessage);
-    console.log('[High Priority] Message sent successfully, messageId=%s', highPriorityReceipt.messageId);
-
-    // Send medium priority message (priority = 5)
-    const mediumPriorityMessage = new Message({
+    // Medium priority message (priority = 5)
+    console.log('\n2. Sending MEDIUM priority message (priority=5)...');
+    const mediumPriorityReceipt = await producer.send({
       topic: 'yourPriorityTopic',
-      body: Buffer.from('Medium priority message', 'utf-8'),
-      tag,
-      keys: [ 'medium-priority-key' ],
+      tag: 'medium-priority',
+      body: Buffer.from(JSON.stringify({
+        type: 'MEDIUM_PRIORITY',
+        content: 'This is a medium priority alert',
+        timestamp: Date.now(),
+      })),
       priority: 5, // Medium priority
     });
+    console.log('   ✓ Medium priority message sent:', mediumPriorityReceipt.messageId);
 
-    const mediumPriorityReceipt = await producer.send(mediumPriorityMessage);
-    console.log('[Medium Priority] Message sent successfully, messageId=%s', mediumPriorityReceipt.messageId);
-
-    // Send low priority message (priority = 10)
-    const lowPriorityMessage = new Message({
+    // High priority message (priority = 10)
+    console.log('\n3. Sending HIGH priority message (priority=10)...');
+    const highPriorityReceipt = await producer.send({
       topic: 'yourPriorityTopic',
-      body: Buffer.from('Low priority message', 'utf-8'),
-      tag,
-      keys: [ 'low-priority-key' ],
-      priority: 10, // Low priority
+      tag: 'high-priority',
+      body: Buffer.from(JSON.stringify({
+        type: 'HIGH_PRIORITY',
+        content: 'This is a high priority urgent alert',
+        timestamp: Date.now(),
+      })),
+      priority: 10, // Higher number = higher priority
     });
+    console.log('   ✓ High priority message sent:', highPriorityReceipt.messageId);
 
-    const lowPriorityReceipt = await producer.send(lowPriorityMessage);
-    console.log('[Low Priority] Message sent successfully, messageId=%s', lowPriorityReceipt.messageId);
-
-    // Send normal message (no priority specified)
-    const normalMessage = new Message({
+    // Critical priority message (priority = 100)
+    console.log('\n4. Sending CRITICAL priority message (priority=100)...');
+    const criticalReceipt = await producer.send({
       topic: 'yourPriorityTopic',
-      body: Buffer.from('Normal priority message', 'utf-8'),
-      tag,
-      keys: [ 'normal-key' ],
+      tag: 'critical-priority',
+      body: Buffer.from(JSON.stringify({
+        type: 'CRITICAL_PRIORITY',
+        content: 'This is a critical emergency notification',
+        timestamp: Date.now(),
+      })),
+      priority: 100, // Very high priority
     });
+    console.log('   ✓ Critical priority message sent:', criticalReceipt.messageId);
 
-    const normalReceipt = await producer.send(normalMessage);
-    console.log('[Normal Priority] Message sent successfully, messageId=%s', normalReceipt.messageId);
+    console.log('\n✓ All priority messages sent successfully!');
+    console.log('\nNote: Messages will be delivered to consumers based on priority.');
+    console.log('Higher priority messages (e.g., priority=100) will be delivered');
+    console.log('before lower priority ones (e.g., priority=1).\n');
+
+    // Demonstrate mutual exclusivity constraints
+    console.log('Demonstrating mutual exclusivity constraints...\n');
+
+    try {
+      // This will fail: priority + messageGroup
+      await producer.send({
+        topic: 'yourPriorityTopic',
+        body: Buffer.from('test'),
+        priority: 5,
+        messageGroup: 'group-1',
+      });
+      console.log('✗ ERROR: Should have failed when setting both priority and messageGroup');
+    } catch (error: any) {
+      console.log('✓ Correctly rejected: priority + messageGroup');
+      console.log(`  Error: ${error.message}\n`);
+    }
+
+    try {
+      // This will fail: priority + deliveryTimestamp
+      await producer.send({
+        topic: 'yourPriorityTopic',
+        body: Buffer.from('test'),
+        priority: 5,
+        deliveryTimestamp: new Date(Date.now() + 60000),
+      });
+      console.log('✗ ERROR: Should have failed when setting both priority and deliveryTimestamp');
+    } catch (error: any) {
+      console.log('✓ Correctly rejected: priority + deliveryTimestamp');
+      console.log(`  Error: ${error.message}\n`);
+    }
+
+    try {
+      // This will fail: negative priority
+      await producer.send({
+        topic: 'yourPriorityTopic',
+        body: Buffer.from('test'),
+        priority: -1,
+      });
+      console.log('✗ ERROR: Should have failed with negative priority');
+    } catch (error: any) {
+      console.log('✓ Correctly rejected: negative priority');
+      console.log(`  Error: ${error.message}\n`);
+    }
+
+    console.log('All validation checks passed!\n');
 
   } catch (error) {
     console.error('Failed to send priority messages:', error);
+    throw error;
   } finally {
-    // Close the producer when done
     await producer.shutdown();
-    console.log('Producer closed');
   }
 }
 
-// Run the example
+// Run example
 main().catch(console.error);

@@ -33,7 +33,7 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
     endpoints,
     namespace,
     sessionCredentials,
-    maxAttempts: 2,
+    maxAttempts: 3,
   });
   try {
     await producer.startup();
@@ -42,10 +42,11 @@ import { topics, endpoints, sessionCredentials, namespace } from './ProducerSing
     // Send delay messages
     const sendReceipts: any[] = [];
     for (let i = 0; i < 5; i++) {
+      const deliveryTimestamp = new Date(Date.now() + 10000); // Deliver after 10 seconds, enough time to recall
       const receipt = await producer.send({
         topic: topics.delay,
         tag: 'recall-test',
-        delay: 10000, // 10 seconds delay, enough time to recall
+        deliveryTimestamp,
         body: Buffer.from(JSON.stringify({
           id: i,
           message: `Delay message ${i} - will be recalled`,

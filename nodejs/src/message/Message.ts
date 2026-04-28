@@ -22,9 +22,9 @@ export interface MessageOptions {
   messageGroup?: string;
   keys?: string[];
   properties?: Map<string, string>;
-  delay?: number;
   deliveryTimestamp?: Date;
   priority?: number;
+  liteTopic?: string;
 }
 
 export class Message {
@@ -36,9 +36,10 @@ export class Message {
   properties?: Map<string, string>;
   deliveryTimestamp?: Date;
   priority?: number;
+  liteTopic?: string;
 
   constructor(options: MessageOptions) {
-    // Validate priority and mutual exclusivity
+    // Validate mutual exclusivity - priority
     if (options.priority !== undefined) {
       if (options.priority < 0) {
         throw new Error('priority must be greater than or equal to 0');
@@ -49,6 +50,26 @@ export class Message {
       if (options.messageGroup) {
         throw new Error('priority and messageGroup should not be set at same time');
       }
+      if (options.liteTopic) {
+        throw new Error('priority and liteTopic should not be set at same time');
+      }
+    }
+
+    // Validate mutual exclusivity - liteTopic
+    if (options.liteTopic !== undefined) {
+      if (options.deliveryTimestamp) {
+        throw new Error('liteTopic and deliveryTimestamp should not be set at same time');
+      }
+      if (options.messageGroup) {
+        throw new Error('liteTopic and messageGroup should not be set at same time');
+      }
+    }
+
+    // Validate mutual exclusivity - deliveryTimestamp
+    if (options.deliveryTimestamp !== undefined) {
+      if (options.messageGroup) {
+        throw new Error('deliveryTimestamp and messageGroup should not be set at same time');
+      }
     }
 
     this.topic = options.topic;
@@ -57,11 +78,17 @@ export class Message {
     this.messageGroup = options.messageGroup;
     this.keys = options.keys ?? [];
     this.properties = options.properties;
-    let deliveryTimestamp = options.deliveryTimestamp;
-    if (options.delay && !deliveryTimestamp) {
-      deliveryTimestamp = new Date(Date.now() + options.delay);
-    }
-    this.deliveryTimestamp = deliveryTimestamp;
+    this.deliveryTimestamp = options.deliveryTimestamp;
     this.priority = options.priority;
+    this.liteTopic = options.liteTopic;
+  }
+
+  /**
+   * Returns a string representation of the message.
+   */
+  toString(): string {
+    return `Message{topic='${this.topic}', tag=${this.tag}, messageGroup=${this.messageGroup}, ` +
+      `liteTopic=${this.liteTopic}, priority=${this.priority}, deliveryTimestamp=${this.deliveryTimestamp}, ` +
+      `keys=[${this.keys.join(', ')}], properties=${JSON.stringify(this.properties)}}`;
   }
 }

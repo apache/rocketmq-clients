@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { ClientType } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { ClientType, MessageType, Permission } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
   AckMessageRequest,
   ChangeInvisibleDurationRequest,
@@ -26,7 +26,8 @@ import {
   ReceiveMessageRequest,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { MessageView } from '../message';
-import { MessageQueue, TopicRouteData } from '../route';
+import { Broker, MessageQueue, TopicRouteData } from '../route';
+import { MessageQueue as MessageQueuePB, Broker as BrokerPB } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { StatusChecker } from '../exception';
 import { RetryPolicy } from '../retry';
 import { createDuration, createResource } from '../util';
@@ -91,7 +92,7 @@ export class PushConsumer extends Consumer {
     this.#enableFifoConsumeAccelerator = options.enableFifoConsumeAccelerator ?? false;
 
     this.#pushSubscriptionSettings = new PushSubscriptionSettings(
-      options.namespace, this.clientId, this.endpoints,
+      options.namespace, this.clientId, this.getClientType(), this.endpoints,
       this.consumerGroup, this.requestTimeout, this.#subscriptionExpressions,
     );
   }
@@ -104,9 +105,7 @@ export class PushConsumer extends Consumer {
     try {
       this.#consumeService = this.#createConsumeService();
       // Start scanning assignments periodically
-      this.logger.info('Starting assignment scanning, clientId=%s', this.clientId);
-      setTimeout(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_DELAY);
-      this.#scanAssignmentTimer = setInterval(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_PERIOD);
+      this.startAssignmentScanning();
       this.logger.info('Push consumer started successfully, clientId=%s', this.clientId);
     } catch (err) {
       this.logger.error('Failed to start push consumer, cleaning up resources, clientId=%s, error=%s',
@@ -118,6 +117,15 @@ export class PushConsumer extends Consumer {
       }
       throw err;
     }
+  }
+
+  /**
+   * Start assignment scanning. Can be overridden by subclasses.
+   */
+  protected startAssignmentScanning() {
+    this.logger.info('Starting assignment scanning, clientId=%s', this.clientId);
+    setTimeout(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_DELAY);
+    this.#scanAssignmentTimer = setInterval(() => this.#scanAssignments(), ASSIGNMENT_SCAN_SCHEDULE_PERIOD);
   }
 
   async shutdown() {
@@ -148,9 +156,18 @@ export class PushConsumer extends Consumer {
     return this.#pushSubscriptionSettings;
   }
 
+  /**
+   * Get the client type for push consumer.
+   *
+   * @return The client type identifier
+   */
+  protected getClientType(): ClientType {
+    return ClientType.PUSH_CONSUMER;
+  }
+
   protected wrapHeartbeatRequest() {
     return new HeartbeatRequest()
-      .setClientType(ClientType.PUSH_CONSUMER)
+      .setClientType(this.getClientType())
       .setGroup(createResource(this.consumerGroup));
   }
 
@@ -286,30 +303,50 @@ export class PushConsumer extends Consumer {
     const request = new AckMessageRequest()
       .setGroup(createResource(this.consumerGroup))
       .setTopic(createResource(messageView.topic));
-    request.addEntries()
+    const entry = request.addEntries()
       .setMessageId(messageView.messageId)
       .setReceiptHandle(messageView.receiptHandle);
+
+    // For lite consumers, must set liteTopic in ACK request
+    if (this.isLiteConsumer() && messageView.liteTopic) {
+      entry.setLiteTopic(messageView.liteTopic);
+    }
+
     return request;
   }
 
   wrapChangeInvisibleDurationRequest(messageView: MessageView, invisibleDuration: number) {
-    return new ChangeInvisibleDurationRequest()
+    const request = new ChangeInvisibleDurationRequest()
       .setGroup(createResource(this.consumerGroup))
       .setTopic(createResource(messageView.topic))
       .setReceiptHandle(messageView.receiptHandle)
       .setInvisibleDuration(createDuration(invisibleDuration))
       .setMessageId(messageView.messageId);
+
+    // For lite consumers, must set liteTopic in request
+    if (this.isLiteConsumer() && messageView.liteTopic) {
+      request.setLiteTopic(messageView.liteTopic);
+    }
+
+    return request;
   }
 
   wrapForwardMessageToDeadLetterQueueRequest(messageView: MessageView) {
     const retryPolicy = this.getRetryPolicy();
-    return new ForwardMessageToDeadLetterQueueRequest()
+    const request = new ForwardMessageToDeadLetterQueueRequest()
       .setGroup(createResource(this.consumerGroup))
       .setTopic(createResource(messageView.topic))
       .setReceiptHandle(messageView.receiptHandle)
       .setMessageId(messageView.messageId)
       .setDeliveryAttempt(messageView.deliveryAttempt ?? 0)
       .setMaxDeliveryAttempts(retryPolicy?.getMaxAttempts() ?? 1);
+
+    // For lite consumers, must set liteTopic in request
+    if (this.isLiteConsumer() && messageView.liteTopic) {
+      request.setLiteTopic(messageView.liteTopic);
+    }
+
+    return request;
   }
 
   // --- Internal: queue size and cache threshold ---
@@ -469,5 +506,58 @@ export class PushConsumer extends Consumer {
     const processQueue = new ProcessQueue(this, mq, filterExpression);
     this.#processQueueTable.set(mqKey, { mq, pq: processQueue });
     return processQueue;
+  }
+
+  /**
+   * Create a virtual process queue for Lite consumer.
+   * Lite consumers use a special message queue with queueId=-1 to receive messages.
+   * This method creates the virtual queue and starts fetching messages immediately.
+   *
+   * @param topic - The bind topic name
+   * @param filterExpression - The filter expression for message filtering
+   */
+  protected createVirtualProcessQueueForLite(topic: string, filterExpression: FilterExpression) {
+    // Validate parameters
+    if (!topic || topic.trim().length === 0) {
+      throw new Error('topic should not be blank');
+    }
+    if (!filterExpression) {
+      throw new Error('filterExpression should not be null');
+    }
+
+    // Create a virtual broker with default endpoints
+    const brokerPb = new BrokerPB();
+    brokerPb.setName('virtual-broker');
+    brokerPb.setId(0);
+    brokerPb.setEndpoints(this.endpoints.toProtobuf());
+    const broker = new Broker(brokerPb.toObject());
+
+    // Create a virtual message queue with queueId=-1
+    const virtualMqPb = new MessageQueuePB();
+    virtualMqPb.setId(-1); // Virtual queue ID for Lite consumer
+    virtualMqPb.setTopic(createResource(topic));
+    virtualMqPb.setBroker(broker.toProtobuf());
+    virtualMqPb.setPermission(Permission.READ);
+    virtualMqPb.setAcceptMessageTypesList([ MessageType.LITE ]);
+
+    const virtualMq = new MessageQueue(virtualMqPb);
+
+    // Create process queue for the virtual message queue
+    const mqKey = this.#mqKey(virtualMq);
+    if (this.#processQueueTable.has(mqKey)) {
+      this.logger.info('Virtual process queue already exists, mq=%s, clientId=%s', mqKey, this.clientId);
+      return;
+    }
+
+    const processQueue = new ProcessQueue(this, virtualMq, filterExpression);
+    this.#processQueueTable.set(mqKey, { mq: virtualMq, pq: processQueue });
+
+    this.logger.info('Created virtual process queue for Lite consumer, mq=%s, clientId=%s',
+      mqKey, this.clientId);
+
+    // Start fetching messages immediately
+    this.logger.info('Start to fetch lite messages from virtual queue, mq=%s, clientId=%s',
+      mqKey, this.clientId);
+    processQueue.fetchMessageImmediately();
   }
 }

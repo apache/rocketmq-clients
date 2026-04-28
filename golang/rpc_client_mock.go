@@ -229,6 +229,21 @@ func (mr *MockRpcClientMockRecorder) SyncLiteSubscription(ctx, request interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncLiteSubscription", reflect.TypeOf((*MockRpcClient)(nil).SyncLiteSubscription), ctx, request)
 }
 
+// RecallMessage mocks base method.
+func (m *MockRpcClient) RecallMessage(ctx context.Context, request *v2.RecallMessageRequest) (*v2.RecallMessageResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecallMessage", ctx, request)
+	ret0, _ := ret[0].(*v2.RecallMessageResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RecallMessage indicates an expected call of RecallMessage.
+func (mr *MockRpcClientMockRecorder) RecallMessage(ctx, request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecallMessage", reflect.TypeOf((*MockRpcClient)(nil).RecallMessage), ctx, request)
+}
+
 // Telemetry mocks base method.
 func (m *MockRpcClient) Telemetry(ctx context.Context) (v2.MessagingService_TelemetryClient, error) {
 	m.ctrl.T.Helper()

@@ -57,7 +57,7 @@ var NewPublishingMessage = func(msg *Message, namespace string, settings *produc
 	// Generate message id.
 	pMsg.messageId = GetMessageIdCodecInstance().NextMessageId().String()
 	// Normal message.
-	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && !txEnabled && msg.GetLiteTopic() == nil {
+	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && msg.GetPriority() == nil && !txEnabled && msg.GetLiteTopic() == nil {
 		pMsg.messageType = v2.MessageType_NORMAL
 		return pMsg, nil
 	}
@@ -71,18 +71,23 @@ var NewPublishingMessage = func(msg *Message, namespace string, settings *produc
 		pMsg.messageType = v2.MessageType_DELAY
 		return pMsg, nil
 	}
+	// Priority message.
+	if msg.GetPriority() != nil && !txEnabled {
+		pMsg.messageType = v2.MessageType_PRIORITY
+		return pMsg, nil
+	}
 	// Lite message.
 	if msg.GetLiteTopic() != nil && !txEnabled {
 		pMsg.messageType = v2.MessageType_LITE
 		return pMsg, nil
 	}
 	// Transaction message.
-	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && txEnabled {
+	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && msg.GetPriority() == nil && txEnabled {
 		pMsg.messageType = v2.MessageType_TRANSACTION
 		return pMsg, nil
 	}
-	// Transaction semantics is conflicted with fifo/delay.
-	return nil, fmt.Errorf("transactional message should not set messageGroup or deliveryTimestamp")
+	// Transaction semantics is conflicted with fifo/delay/priority/lite.
+	return nil, fmt.Errorf("transactional message should not set messageGroup, deliveryTimestamp, priority or liteTopic")
 }
 
 func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
@@ -120,6 +125,9 @@ func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
 	}
 	if pMsg.msg.LiteTopic != nil {
 		msg.SystemProperties.LiteTopic = pMsg.msg.LiteTopic
+	}
+	if pMsg.msg.priority != nil {
+		msg.SystemProperties.Priority = pMsg.msg.priority
 	}
 	return msg, nil
 }

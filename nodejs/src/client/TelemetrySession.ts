@@ -26,6 +26,7 @@ export class TelemetrySession {
   #baseClient: BaseClient;
   #logger: ILogger;
   #stream: ClientDuplexStream<TelemetryCommand, TelemetryCommand>;
+  #isRefreshing = false;
 
   constructor(baseClient: BaseClient, endpoints: Endpoints, logger: ILogger) {
     this.#endpoints = endpoints;
@@ -39,8 +40,13 @@ export class TelemetrySession {
   release() {
     this.#logger.info('Begin to release telemetry session, endpoints=%s, clientId=%s',
       this.#endpoints, this.#baseClient.clientId);
-    this.#stream.end();
-    this.#stream.removeAllListeners();
+    try {
+      this.#stream.end();
+      this.#stream.removeAllListeners();
+    } catch (e) {
+      this.#logger.warn('Failed to release telemetry session gracefully, endpoints=%s, clientId=%s, error=%s',
+        this.#endpoints, this.#baseClient.clientId, e instanceof Error ? e.message : String(e));
+    }
   }
 
   write(command: TelemetryCommand) {
@@ -50,6 +56,28 @@ export class TelemetrySession {
   syncSettings() {
     const command = this.#baseClient.settingsCommand();
     this.write(command);
+  }
+
+  refresh() {
+    if (this.#isRefreshing) {
+      this.#logger.warn('Telemetry session is already refreshing, skip this request, endpoints=%s, clientId=%s',
+        this.#endpoints, this.#baseClient.clientId);
+      return;
+    }
+
+    this.#isRefreshing = true;
+    this.#logger.info('Refreshing telemetry session, endpoints=%s, clientId=%s',
+      this.#endpoints, this.#baseClient.clientId);
+
+    try {
+      this.release();
+      this.#renewStream(false);
+    } catch (err) {
+      this.#logger.error('Failed to refresh telemetry session, endpoints=%s, clientId=%s, error=%s',
+        this.#endpoints, this.#baseClient.clientId, err);
+    } finally {
+      this.#isRefreshing = false;
+    }
   }
 
   #renewStream(inited: boolean) {
@@ -98,6 +126,12 @@ export class TelemetrySession {
         this.#logger.info('Receive thread stack print command from remote, endpoints=%s, clientId=%s',
           endpoints, clientId);
         this.#baseClient.onPrintThreadStackTraceCommand(endpoints, command.getPrintThreadStackTraceCommand()!);
+        break;
+      }
+      case TelemetryCommand.CommandCase.RECONNECT_ENDPOINTS_COMMAND: {
+        this.#logger.info('Receive reconnect endpoints command from remote, endpoints=%s, clientId=%s',
+          endpoints, clientId);
+        this.#baseClient.onReconnectEndpointsCommand(endpoints, command.getReconnectEndpointsCommand()!);
         break;
       }
       default: {
