@@ -46,6 +46,8 @@ public class PushSubscriptionSettingsTest extends TestBase {
             .setNamespace(FAKE_NAMESPACE)
             .setRequestTimeout(requestTimeout)
             .setEndpoints(FAKE_ENDPOINTS)
+            .addClientProperty("app", "order-service")
+            .addClientProperty("env", "prod")
             .build();
         ClientId clientId = new ClientId();
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
@@ -57,6 +59,8 @@ public class PushSubscriptionSettingsTest extends TestBase {
         final Settings settings = pushSubscriptionSettings.toProtobuf();
         Assert.assertEquals(settings.getClientType(), ClientType.PUSH_CONSUMER);
         Assert.assertEquals(settings.getRequestTimeout(), Durations.fromNanos(requestTimeout.toNanos()));
+        Assert.assertEquals("order-service", settings.getClientPropertiesMap().get("app"));
+        Assert.assertEquals("prod", settings.getClientPropertiesMap().get("env"));
         Assert.assertTrue(settings.hasSubscription());
         final Subscription subscription = settings.getSubscription();
         Assert.assertEquals(subscription.getGroup(),
