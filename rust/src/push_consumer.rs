@@ -235,7 +235,7 @@ impl PushConsumer {
     /// Start with external telemetry channel (for LitePushConsumer)
     pub async fn start_with_telemetry(
         &mut self,
-        telemetry_command_tx: mpsc::Sender<pb::TelemetryCommand>,
+        _telemetry_command_tx: mpsc::Sender<pb::TelemetryCommand>,
     ) -> Result<(), ClientError> {
         // Extract the command channel from TelemetryCommand
         let (command_tx, _command_rx) = mpsc::channel(16);
@@ -255,7 +255,7 @@ impl PushConsumer {
         route_manager
             .sync_topic_routes(&mut rpc_client, topics)
             .await?;
-        
+
         info!("PushConsumer started with external telemetry");
         Ok(())
     }

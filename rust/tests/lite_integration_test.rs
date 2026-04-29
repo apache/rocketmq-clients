@@ -16,7 +16,7 @@
  */
 
 //! Integration tests for Lite functionality.
-//! 
+//!
 //! These tests verify that Lite modules compile and can be used correctly.
 //! Note: Integration tests don't trigger automock, so they use real Client types.
 
@@ -30,12 +30,9 @@ mod lite_tests {
     #[test]
     fn test_lite_message_builder() {
         // Test that lite message builder works
-        let message = MessageBuilder::lite_message_builder(
-            "parent_topic",
-            vec![1, 2, 3],
-            "lite_topic_001",
-        )
-        .build();
+        let message =
+            MessageBuilder::lite_message_builder("parent_topic", vec![1, 2, 3], "lite_topic_001")
+                .build();
 
         assert!(message.is_ok());
         let mut msg = message.unwrap();
@@ -55,16 +52,15 @@ mod lite_tests {
     fn test_lite_push_consumer_compilation() {
         // This test verifies that LitePushConsumer can be instantiated
         // (without actually connecting to a server)
-        
+
         let mut client_option = ClientOption::default();
         client_option.set_access_url("http://localhost:8080");
 
         let mut option = PushConsumerOption::default();
         option.set_consumer_group("test_group");
 
-        let message_listener = Box::new(|_: &rocketmq::model::message::MessageView| {
-            rocketmq::ConsumeResult::SUCCESS
-        });
+        let message_listener =
+            Box::new(|_: &rocketmq::model::message::MessageView| rocketmq::ConsumeResult::SUCCESS);
 
         // This should compile without errors
         let result = LitePushConsumer::new(

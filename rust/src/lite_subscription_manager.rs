@@ -22,12 +22,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use parking_lot::Mutex;
-use tokio::sync::mpsc;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
 use crate::client::Client;
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::Endpoints;
 use crate::model::offset_option::OffsetOption;
 use crate::pb;
 use crate::pb::{LiteSubscriptionAction, Resource, SyncLiteSubscriptionRequest};
@@ -73,7 +71,7 @@ impl LiteSubscriptionManager {
     /// Start the subscription manager - sync all subscriptions after startup
     pub async fn start(&self) -> Result<(), ClientError> {
         self.sync_all_lite_subscription().await?;
-        
+
         // Schedule periodic sync every 30 seconds
         let manager = self.clone_for_scheduler();
         tokio::spawn(async move {
@@ -85,7 +83,7 @@ impl LiteSubscriptionManager {
                 }
             }
         });
-        
+
         Ok(())
     }
 
@@ -156,7 +154,7 @@ impl LiteSubscriptionManager {
 
         // Add to local set
         self.lite_topic_set.lock().insert(lite_topic.clone());
-        
+
         info!(
             "SubscribeLite {}, topic={}, group={}",
             lite_topic,
@@ -184,7 +182,7 @@ impl LiteSubscriptionManager {
 
         // Remove from local set
         self.lite_topic_set.lock().remove(&lite_topic);
-        
+
         info!(
             "UnsubscribeLite {}, topic={}, group={}",
             lite_topic,
@@ -234,11 +232,11 @@ impl LiteSubscriptionManager {
         };
 
         let mut rpc_client = self.client.get_session().await?;
-        
+
         let response = rpc_client.sync_lite_subscription(request).await?;
-        
+
         handle_response_status(response.status, OPERATION_SYNC_LITE_SUBSCRIPTION)?;
-        
+
         Ok(())
     }
 
@@ -250,7 +248,7 @@ impl LiteSubscriptionManager {
             self.get_consumer_group_name(),
             self.get_bind_topic_name()
         );
-        
+
         if !lite_topic.is_empty() {
             self.lite_topic_set.lock().remove(&lite_topic);
         }
@@ -284,14 +282,17 @@ impl LiteSubscriptionManager {
     fn check_lite_subscription_quota(&self, delta: i32) -> Result<(), ClientError> {
         let current_size = self.lite_topic_set.lock().len() as i32;
         let quota = *self.lite_subscription_quota.lock();
-        
+
         if current_size + delta > quota {
             return Err(ClientError::new(
                 ErrorKind::Server,
                 &format!("Lite subscription quota exceeded {}", quota),
                 OPERATION_SYNC_LITE_SUBSCRIPTION,
             )
-            .with_context("code", format!("{}", pb::Code::LiteSubscriptionQuotaExceeded as i32)));
+            .with_context(
+                "code",
+                format!("{}", pb::Code::LiteSubscriptionQuotaExceeded as i32),
+            ));
         }
 
         Ok(())

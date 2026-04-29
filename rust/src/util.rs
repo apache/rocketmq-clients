@@ -312,18 +312,17 @@ pub fn handle_receive_message_status(
         Code::Forbidden => Err(ClientError::new(ErrorKind::Server, "forbidden", operation)
             .with_context("code", format!("{}", status.code))
             .with_context("message", status.message.clone())),
-        Code::NotFound | Code::TopicNotFound | Code::ConsumerGroupNotFound | Code::OffsetNotFound => {
-            Err(ClientError::new(ErrorKind::Server, "not found", operation)
+        Code::NotFound
+        | Code::TopicNotFound
+        | Code::ConsumerGroupNotFound
+        | Code::OffsetNotFound => Err(ClientError::new(ErrorKind::Server, "not found", operation)
+            .with_context("code", format!("{}", status.code))
+            .with_context("message", status.message.clone())),
+        Code::PayloadTooLarge | Code::MessageBodyTooLarge | Code::MessageBodyEmpty => Err(
+            ClientError::new(ErrorKind::Server, "payload too large", operation)
                 .with_context("code", format!("{}", status.code))
-                .with_context("message", status.message.clone()))
-        }
-        Code::PayloadTooLarge | Code::MessageBodyTooLarge | Code::MessageBodyEmpty => {
-            Err(
-                ClientError::new(ErrorKind::Server, "payload too large", operation)
-                    .with_context("code", format!("{}", status.code))
-                    .with_context("message", status.message.clone()),
-            )
-        }
+                .with_context("message", status.message.clone()),
+        ),
         Code::TooManyRequests
         | Code::LiteTopicQuotaExceeded
         | Code::LiteSubscriptionQuotaExceeded => {

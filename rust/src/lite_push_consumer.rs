@@ -23,14 +23,13 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::client::Client;
 use crate::conf::{ClientOption, PushConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::lite_subscription_manager::LiteSubscriptionManager;
 use crate::model::common::ClientType;
-use crate::model::message::MessageView;
 use crate::model::offset_option::OffsetOption;
 use crate::pb;
 use crate::push_consumer::{MessageListener, PushConsumer};
@@ -54,7 +53,10 @@ pub trait LitePushConsumerTrait {
     ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
 
     /// Unsubscribe from a lite topic
-    fn unsubscribe_lite(&self, lite_topic: String) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
+    fn unsubscribe_lite(
+        &self,
+        lite_topic: String,
+    ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
 
     /// Get the set of subscribed lite topics
     fn get_lite_topic_set(&self) -> HashSet<String>;
@@ -107,7 +109,7 @@ impl LitePushConsumer {
 
         // Build settings with lite subscription configuration
         let settings = build_push_consumer_settings(&option);
-        
+
         let client = Client::new(client_option, settings)?;
         let client_arc = Arc::new(client);
 
@@ -122,11 +124,8 @@ impl LitePushConsumer {
         ));
 
         // Create inner PushConsumer
-        let inner = PushConsumer::new_with_client(
-            Arc::clone(&client_arc),
-            option,
-            message_listener,
-        )?;
+        let inner =
+            PushConsumer::new_with_client(Arc::clone(&client_arc), option, message_listener)?;
 
         Ok(Self {
             inner,
@@ -139,10 +138,12 @@ impl LitePushConsumer {
     /// Start the LitePushConsumer
     pub async fn start(&mut self) -> Result<(), ClientError> {
         info!("Starting LitePushConsumer...");
-        
+
         // Start the inner push consumer
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
-        self.inner.start_with_telemetry(telemetry_command_tx).await?;
+        self.inner
+            .start_with_telemetry(telemetry_command_tx)
+            .await?;
 
         // Start lite subscription manager
         self.lite_subscription_manager.start().await?;
@@ -162,9 +163,11 @@ impl LitePushConsumer {
                 {
                     manager.on_notify_unsubscribe_lite_command(cmd.lite_topic.clone());
                 }
-                
+
                 // Handle settings updates
-                if let Some(pb::telemetry_command::Command::Settings(ref settings)) = command.command {
+                if let Some(pb::telemetry_command::Command::Settings(ref settings)) =
+                    command.command
+                {
                     manager.sync_settings(settings);
                 }
             }
@@ -193,7 +196,9 @@ impl LitePushConsumerTrait for LitePushConsumer {
     }
 
     async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
-        self.lite_subscription_manager.unsubscribe_lite(lite_topic).await
+        self.lite_subscription_manager
+            .unsubscribe_lite(lite_topic)
+            .await
     }
 
     fn get_lite_topic_set(&self) -> HashSet<String> {
@@ -201,12 +206,14 @@ impl LitePushConsumerTrait for LitePushConsumer {
     }
 
     fn get_consumer_group(&self) -> String {
-        self.lite_subscription_manager.get_consumer_group_name().to_string()
+        self.lite_subscription_manager
+            .get_consumer_group_name()
+            .to_string()
     }
 
     async fn shutdown(&mut self) -> Result<(), ClientError> {
         info!("Shutting down LitePushConsumer...");
-        
+
         if let Some(token) = self.shutdown_token.take() {
             token.cancel();
         }
@@ -217,7 +224,7 @@ impl LitePushConsumerTrait for LitePushConsumer {
         }
 
         self.inner.shutdown_ref().await?;
-        
+
         info!("LitePushConsumer shutdown successfully");
         Ok(())
     }

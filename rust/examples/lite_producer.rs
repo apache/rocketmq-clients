@@ -50,9 +50,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Build a lite message
     // Note: lite_topic cannot be used with message_group, delivery_timestamp, or priority
     let message = MessageBuilder::lite_message_builder(
-        "parent_topic",           // Parent topic name
-        body.to_vec(),            // Message body
-        "lite-topic-1",           // Lite topic name
+        "parent_topic", // Parent topic name
+        body.to_vec(),  // Message body
+        "lite-topic-1", // Lite topic name
     )
     .set_keys(vec!["yourMessageKey-3ee439f945d7".to_string()])
     .build()?;

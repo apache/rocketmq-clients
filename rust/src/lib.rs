@@ -119,14 +119,14 @@
 //! ```
 
 // Export structs that are part of crate API.
+#[cfg(not(test))]
+pub use lite_push_consumer::{LitePushConsumer, LitePushConsumerTrait};
 pub use model::common::ConsumeResult;
 pub use model::transaction::Transaction;
 pub use producer::Producer;
 pub use push_consumer::MessageListener;
 pub use push_consumer::PushConsumer;
 pub use simple_consumer::SimpleConsumer;
-#[cfg(not(test))]
-pub use lite_push_consumer::{LitePushConsumer, LitePushConsumerTrait};
 
 // Export offset_option types
 pub use model::offset_option::{OffsetOption, OffsetPolicy};
@@ -146,10 +146,10 @@ mod session;
 pub mod model;
 mod util;
 
-mod producer;
-mod push_consumer;
-mod simple_consumer;
 #[cfg(not(test))]
 mod lite_push_consumer;
 #[cfg(not(test))]
 mod lite_subscription_manager;
+mod producer;
+mod push_consumer;
+mod simple_consumer;

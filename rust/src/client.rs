@@ -117,13 +117,13 @@ impl Client {
     pub(crate) fn clone_for_lite_consumer(&self) -> Self {
         let mut new_option = self.option.clone();
         new_option.client_type = ClientType::LitePushConsumer;
-        
+
         // Create new settings with LitePushConsumer type
         let new_settings = TelemetryCommand {
             command: self.settings.command.clone(),
             status: None,
         };
-        
+
         Self {
             option: new_option,
             session_manager: Arc::new(SessionManager::new(self.id.clone(), &self.option)),

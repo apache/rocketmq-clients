@@ -72,9 +72,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         //
         // Possible failure scenarios:
         // 1. Network request errors - can be retried
-        // 2. Quota verification failures (LiteSubscriptionQuotaExceededException) - 
+        // 2. Quota verification failures (LiteSubscriptionQuotaExceededException) -
         //    evaluate whether quota is insufficient and unsubscribe unused topics
-        
+
         match consumer.subscribe_lite("lite-topic-1".to_string()).await {
             Ok(_) => println!("Subscribed to lite-topic-1"),
             Err(e) => eprintln!("Failed to subscribe to lite-topic-1: {:?}", e),

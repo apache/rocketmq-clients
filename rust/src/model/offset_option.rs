@@ -95,15 +95,9 @@ impl OffsetOption {
     /// Convert to protobuf OffsetOption
     pub(crate) fn to_protobuf(&self) -> pb::OffsetOption {
         let offset_type = match &self.offset_type {
-            OffsetType::Policy(policy) => {
-                pb::offset_option::OffsetType::Policy(*policy as i32)
-            }
-            OffsetType::Offset(offset) => {
-                pb::offset_option::OffsetType::Offset(*offset)
-            }
-            OffsetType::TailN(n) => {
-                pb::offset_option::OffsetType::TailN(*n)
-            }
+            OffsetType::Policy(policy) => pb::offset_option::OffsetType::Policy(*policy as i32),
+            OffsetType::Offset(offset) => pb::offset_option::OffsetType::Offset(*offset),
+            OffsetType::TailN(n) => pb::offset_option::OffsetType::TailN(*n),
             OffsetType::Timestamp(timestamp) => {
                 pb::offset_option::OffsetType::Timestamp(*timestamp)
             }
@@ -124,7 +118,7 @@ mod tests {
         let option = OffsetOption::from_policy(OffsetPolicy::Last);
         let pb = option.to_protobuf();
         assert!(pb.offset_type.is_some());
-        
+
         if let Some(pb::offset_option::OffsetType::Policy(policy)) = pb.offset_type {
             assert_eq!(policy, 0);
         } else {
@@ -136,7 +130,7 @@ mod tests {
     fn test_offset_option_from_policy_min() {
         let option = OffsetOption::from_policy(OffsetPolicy::Min);
         let pb = option.to_protobuf();
-        
+
         if let Some(pb::offset_option::OffsetType::Policy(policy)) = pb.offset_type {
             assert_eq!(policy, 1);
         } else {
@@ -148,7 +142,7 @@ mod tests {
     fn test_offset_option_from_policy_max() {
         let option = OffsetOption::from_policy(OffsetPolicy::Max);
         let pb = option.to_protobuf();
-        
+
         if let Some(pb::offset_option::OffsetType::Policy(policy)) = pb.offset_type {
             assert_eq!(policy, 2);
         } else {
@@ -160,7 +154,7 @@ mod tests {
     fn test_offset_option_from_offset() {
         let option = OffsetOption::from_offset(12345);
         let pb = option.to_protobuf();
-        
+
         if let Some(pb::offset_option::OffsetType::Offset(offset)) = pb.offset_type {
             assert_eq!(offset, 12345);
         } else {
@@ -172,7 +166,7 @@ mod tests {
     fn test_offset_option_from_offset_negative() {
         let option = OffsetOption::from_offset(-100);
         let pb = option.to_protobuf();
-        
+
         if let Some(pb::offset_option::OffsetType::Offset(offset)) = pb.offset_type {
             assert_eq!(offset, -100);
         } else {
@@ -184,7 +178,7 @@ mod tests {
     fn test_offset_option_from_tail_n() {
         let option = OffsetOption::from_tail_n(100);
         let pb = option.to_protobuf();
-        
+
         if let Some(pb::offset_option::OffsetType::TailN(n)) = pb.offset_type {
             assert_eq!(n, 100);
         } else {
@@ -197,7 +191,7 @@ mod tests {
         let timestamp = 1234567890000;
         let option = OffsetOption::from_timestamp(timestamp);
         let pb = option.to_protobuf();
-        
+
         if let Some(pb::offset_option::OffsetType::Timestamp(ts)) = pb.offset_type {
             assert_eq!(ts, timestamp);
         } else {
@@ -223,7 +217,7 @@ mod tests {
         let policy1 = OffsetPolicy::Last;
         let policy2 = policy1; // Copy
         let policy3 = policy1.clone(); // Clone
-        
+
         assert_eq!(policy1, policy2);
         assert_eq!(policy1, policy3);
     }

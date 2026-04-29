@@ -400,10 +400,15 @@ impl MessageBuilder {
         // Lite topic validation
         if self.message.lite_topic.is_some() {
             if self.message.message_group.is_some() {
-                return Err("lite_topic and message_group can not be set at the same time.".to_string());
+                return Err(
+                    "lite_topic and message_group can not be set at the same time.".to_string(),
+                );
             }
             if self.message.delivery_timestamp.is_some() {
-                return Err("lite_topic and delivery_timestamp can not be set at the same time.".to_string());
+                return Err(
+                    "lite_topic and delivery_timestamp can not be set at the same time."
+                        .to_string(),
+                );
             }
             if self.message.priority.is_some() {
                 return Err("lite_topic and priority can not be set at the same time.".to_string());
@@ -630,7 +635,10 @@ mod tests {
                 .build();
         assert!(message.is_ok());
         let mut message = message.unwrap();
-        assert_eq!(message.take_lite_topic(), Some("lite_topic_001".to_string()));
+        assert_eq!(
+            message.take_lite_topic(),
+            Some("lite_topic_001".to_string())
+        );
         assert_eq!(message.get_message_type(), LITE);
 
         // Test lite topic conflicts with message_group
@@ -805,19 +813,16 @@ mod tests {
     #[test]
     fn test_lite_message_builder_with_all_fields() {
         // Test lite message builder with additional fields
-        let message = MessageBuilder::lite_message_builder(
-            "parent_topic",
-            vec![7, 8, 9],
-            "lite_topic_full",
-        )
-        .set_tag("test-tag")
-        .set_keys(vec!["key1".to_string(), "key2".to_string()])
-        .set_properties({
-            let mut props = HashMap::new();
-            props.insert("prop1".to_string(), "value1".to_string());
-            props
-        })
-        .build();
+        let message =
+            MessageBuilder::lite_message_builder("parent_topic", vec![7, 8, 9], "lite_topic_full")
+                .set_tag("test-tag")
+                .set_keys(vec!["key1".to_string(), "key2".to_string()])
+                .set_properties({
+                    let mut props = HashMap::new();
+                    props.insert("prop1".to_string(), "value1".to_string());
+                    props
+                })
+                .build();
 
         assert!(message.is_ok());
         let mut msg = message.unwrap();
@@ -825,7 +830,10 @@ mod tests {
         assert_eq!(msg.take_lite_topic(), Some("lite_topic_full".to_string()));
         assert_eq!(msg.take_body(), vec![7, 8, 9]);
         assert_eq!(msg.take_tag(), Some("test-tag".to_string()));
-        assert_eq!(msg.take_keys(), vec!["key1".to_string(), "key2".to_string()]);
+        assert_eq!(
+            msg.take_keys(),
+            vec!["key1".to_string(), "key2".to_string()]
+        );
         assert_eq!(msg.get_message_type(), LITE);
     }
 
@@ -836,7 +844,7 @@ mod tests {
         assert_eq!(FIFO as i32, 2);
         assert_eq!(DELAY as i32, 3);
         assert_eq!(TRANSACTION as i32, 4);
-        assert_eq!(LITE as i32, 5);  // LITE should be 5
-        assert_eq!(PRIORITY as i32, 6);  // PRIORITY should be 6
+        assert_eq!(LITE as i32, 5); // LITE should be 5
+        assert_eq!(PRIORITY as i32, 6); // PRIORITY should be 6
     }
 }
