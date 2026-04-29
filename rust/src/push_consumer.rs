@@ -303,6 +303,7 @@ impl PushConsumer {
             long_polling_timeout: Some(
                 prost_types::Duration::try_from(*option.long_polling_timeout()).unwrap(),
             ),
+            attempt_id: None,
         };
         let responses = rpc_client.receive_message(request).await?;
         let mut messages: Vec<MessageView> = Vec::with_capacity(option.batch_size() as usize);
@@ -857,6 +858,7 @@ impl AckEntryProcessor {
             message_id: message.message_id().to_string(),
             delivery_attempt,
             max_delivery_attempts,
+            lite_topic: None,
         };
         let response = self.rpc_client.forward_to_deadletter_queue(request).await?;
         handle_response_status(response.status, OPERATION_FORWARD_TO_DEADLETTER_QUEUE)
@@ -881,6 +883,8 @@ impl AckEntryProcessor {
                     )
                 },
             )?),
+            lite_topic: None,
+            suspend: None,
         };
         let response = self.rpc_client.change_invisible_duration(request).await?;
         handle_response_status(response.status, OPERATION_CHANGE_INVISIBLE_DURATION)
@@ -984,6 +988,7 @@ impl AckEntryProcessor {
             entries: vec![pb::AckMessageEntry {
                 message_id: ack_entry.message_id().to_string(),
                 receipt_handle: ack_entry.receipt_handle().to_string(),
+                lite_topic: None,
             }],
         };
         let response = self.rpc_client.ack_message(request).await?;

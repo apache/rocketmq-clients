@@ -417,6 +417,7 @@ impl Client {
             long_polling_timeout: Some(
                 Duration::try_from(*self.option.long_polling_timeout()).unwrap(),
             ),
+            attempt_id: None,
         };
         let responses = rpc_client.receive_message(request).await?;
 
@@ -465,6 +466,7 @@ impl Client {
                 vec![pb::AckMessageEntry {
                     message_id: ack_entry.message_id(),
                     receipt_handle: ack_entry.receipt_handle(),
+                    lite_topic: None,
                 }],
             )
             .await?;
@@ -532,6 +534,8 @@ impl Client {
             receipt_handle,
             invisible_duration: Some(invisible_duration),
             message_id,
+            lite_topic: None,
+            suspend: None,
         };
         let response = rpc_client.change_invisible_duration(request).await?;
         handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
