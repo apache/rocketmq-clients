@@ -20,6 +20,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Org.Apache.Rocketmq;
 
 namespace Org.Apache.Rocketmq.Examples
 {
@@ -35,7 +36,7 @@ namespace Org.Apache.Rocketmq.Examples
     /// </summary>
     internal static class LitePushConsumerExample
     {
-        private static readonly ILogger Logger = MqLogManager.CreateLogger<LitePushConsumerExample>();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(LitePushConsumerExample).FullName);
 
         internal static async Task QuickStart()
         {
@@ -48,23 +49,13 @@ namespace Org.Apache.Rocketmq.Examples
             const string bindTopic = "topic-lite";
             const string consumerGroup = "GID-lite-consumer";
 
-            // Create message listener
-            var messageListener = new MessageListener(async messageView =>
-            {
-                var body = Encoding.UTF8.GetString(messageView.Body.Span);
-                Logger.LogInformation($"Received lite message: messageId={messageView.MessageId}, " +
-                                    $"topic={messageView.Topic}, liteTopic={messageView.LiteTopic}, " +
-                                    $"body={body}");
-                return ConsumeResult.SUCCESS;
-            });
-
             // Build lite push consumer
             Logger.LogInformation($"Creating LitePushConsumer, bindTopic={bindTopic}, consumerGroup={consumerGroup}");
             var litePushConsumer = await new LitePushConsumer.Builder()
                 .SetClientConfig(clientConfig)
                 .SetConsumerGroup(consumerGroup)
                 .SetBindTopic(bindTopic)
-                .SetMessageListener(messageListener)
+                .SetMessageListener(new CustomMessageListener())
                 .SetMaxCacheMessageCount(1024)
                 .SetMaxCacheMessageSizeInBytes(64 * 1024 * 1024)
                 .SetConsumptionThreadCount(20)
@@ -108,6 +99,17 @@ namespace Org.Apache.Rocketmq.Examples
                 // Shutdown the consumer
                 await litePushConsumer.DisposeAsync();
                 Logger.LogInformation("LitePushConsumer shutdown completed");
+            }
+        }
+
+        private class CustomMessageListener : IMessageListener
+        {
+            public ConsumeResult Consume(MessageView messageView)
+            {
+                var body = Encoding.UTF8.GetString(messageView.Body);
+                Logger.LogInformation($"Received lite message: messageId={messageView.MessageId}, " +
+                                    $"topic={messageView.Topic}, body={body}");
+                return ConsumeResult.SUCCESS;
             }
         }
     }
