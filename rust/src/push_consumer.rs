@@ -713,8 +713,6 @@ impl FifoConsumerWorker {
         ack_processor: &mut AckEntryProcessor,
         retry_policy: &BackOffRetryPolicy,
     ) {
-        use std::collections::HashMap;
-
         let message_count = messages.len();
 
         // Group messages by message_group

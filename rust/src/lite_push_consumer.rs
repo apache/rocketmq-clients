@@ -20,6 +20,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
@@ -38,25 +39,20 @@ use crate::util::build_push_consumer_settings;
 const OPERATION_NEW_LITE_PUSH_CONSUMER: &str = "lite_push_consumer.new";
 
 /// LitePushConsumer trait defining the interface for lite push consumers
+#[async_trait]
 pub trait LitePushConsumerTrait {
     /// Subscribe to a lite topic
-    fn subscribe_lite(
-        &self,
-        lite_topic: String,
-    ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
+    async fn subscribe_lite(&self, lite_topic: String) -> Result<(), ClientError>;
 
     /// Subscribe to a lite topic with offset option
-    fn subscribe_lite_with_offset(
+    async fn subscribe_lite_with_offset(
         &self,
         lite_topic: String,
         offset_option: OffsetOption,
-    ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
+    ) -> Result<(), ClientError>;
 
     /// Unsubscribe from a lite topic
-    fn unsubscribe_lite(
-        &self,
-        lite_topic: String,
-    ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
+    async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError>;
 
     /// Get the set of subscribed lite topics
     fn get_lite_topic_set(&self) -> HashSet<String>;
@@ -65,7 +61,7 @@ pub trait LitePushConsumerTrait {
     fn get_consumer_group(&self) -> String;
 
     /// Shutdown the consumer
-    fn shutdown(&mut self) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
+    async fn shutdown(&mut self) -> Result<(), ClientError>;
 }
 
 /// LitePushConsumer implementation
@@ -178,6 +174,7 @@ impl LitePushConsumer {
     }
 }
 
+#[async_trait]
 impl LitePushConsumerTrait for LitePushConsumer {
     async fn subscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
         self.lite_subscription_manager
