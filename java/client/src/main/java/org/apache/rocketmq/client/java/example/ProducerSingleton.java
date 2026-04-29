@@ -57,6 +57,9 @@ public class ProducerSingleton {
             // Due to the lazy loading of gRPC, when the network conditions are poor or the load of the application
             // at startup is high, the first startup may fail, and you can try multiple startups.
             // .setMaxStartupAttempts(3)
+            // Set client properties for server-side client runtime identification.
+            .addClientProperty("app", "yourAppName")
+            .addClientProperty("env", "yourEnvironment")
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
         final ProducerBuilder builder = provider.newProducerBuilder()

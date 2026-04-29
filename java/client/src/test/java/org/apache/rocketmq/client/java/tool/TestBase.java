@@ -51,11 +51,7 @@ import com.google.protobuf.ByteString;
 import io.grpc.Metadata;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -393,7 +389,7 @@ public class TestBase {
 
     protected PublishingSettings fakeProducerSettings() {
         return new PublishingSettings(FAKE_NAMESPACE, FAKE_CLIENT_ID, fakeEndpoints(),
-            fakeExponentialBackoffRetryPolicy(), Duration.ofSeconds(1), new HashSet<>());
+            fakeExponentialBackoffRetryPolicy(), Duration.ofSeconds(1), new HashSet<>(), Collections.emptyMap());
     }
 
     protected SendReceiptImpl fakeSendReceiptImpl(

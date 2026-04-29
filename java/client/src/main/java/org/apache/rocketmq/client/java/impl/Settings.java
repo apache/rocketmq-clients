@@ -19,6 +19,9 @@ package org.apache.rocketmq.client.java.impl;
 
 import com.google.common.base.MoreObjects;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.ExcludeFromJacocoGeneratedReport;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
@@ -31,20 +34,22 @@ public abstract class Settings {
     protected final Endpoints accessPoint;
     protected volatile RetryPolicy retryPolicy;
     protected final Duration requestTimeout;
+    protected final Map<String, String> clientProperties;
 
     public Settings(String namespace, ClientId clientId, ClientType clientType, Endpoints accessPoint,
-        RetryPolicy retryPolicy, Duration requestTimeout) {
+        RetryPolicy retryPolicy, Duration requestTimeout, Map<String, String> clientProperties) {
         this.namespace = namespace;
         this.clientId = clientId;
         this.clientType = clientType;
         this.accessPoint = accessPoint;
         this.retryPolicy = retryPolicy;
         this.requestTimeout = requestTimeout;
+        this.clientProperties = Collections.unmodifiableMap(new LinkedHashMap<>(clientProperties));
     }
 
     public Settings(String namespace, ClientId clientId, ClientType clientType, Endpoints accessPoint,
-        Duration requestTimeout) {
-        this(namespace, clientId, clientType, accessPoint, null, requestTimeout);
+        Duration requestTimeout, Map<String, String> clientProperties) {
+        this(namespace, clientId, clientType, accessPoint, null, requestTimeout, clientProperties);
     }
 
     public abstract apache.rocketmq.v2.Settings toProtobuf();
@@ -53,6 +58,10 @@ public abstract class Settings {
 
     public RetryPolicy getRetryPolicy() {
         return retryPolicy;
+    }
+
+    public Map<String, String> getClientProperties() {
+        return clientProperties;
     }
 
     @ExcludeFromJacocoGeneratedReport
@@ -64,6 +73,7 @@ public abstract class Settings {
             .add("accessPoint", accessPoint)
             .add("retryPolicy", retryPolicy)
             .add("requestTimeout", requestTimeout)
+            .add("clientProperties", clientProperties)
             .toString();
     }
 }

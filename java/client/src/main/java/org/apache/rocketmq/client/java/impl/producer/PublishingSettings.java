@@ -22,6 +22,7 @@ import apache.rocketmq.v2.Resource;
 import com.google.common.base.MoreObjects;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.java.impl.ClientType;
@@ -46,8 +47,9 @@ public class PublishingSettings extends Settings {
     private volatile boolean validateMessageType = true;
 
     public PublishingSettings(String namespace, ClientId clientId, Endpoints accessPoint,
-        ExponentialBackoffRetryPolicy retryPolicy, Duration requestTimeout, Set<String> topics) {
-        super(namespace, clientId, ClientType.PRODUCER, accessPoint, retryPolicy, requestTimeout);
+        ExponentialBackoffRetryPolicy retryPolicy, Duration requestTimeout, Set<String> topics,
+        Map<String, String> clientProperties) {
+        super(namespace, clientId, ClientType.PRODUCER, accessPoint, retryPolicy, requestTimeout, clientProperties);
         this.topics = topics;
     }
 
@@ -71,7 +73,8 @@ public class PublishingSettings extends Settings {
             .build();
         final apache.rocketmq.v2.Settings.Builder builder = apache.rocketmq.v2.Settings.newBuilder()
             .setAccessPoint(accessPoint.toProtobuf()).setClientType(clientType.toProtobuf())
-            .setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos())).setPublishing(publishing);
+            .setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos())).setPublishing(publishing)
+            .putAllClientProperties(clientProperties);
         return builder.setBackoffPolicy(retryPolicy.toProtobuf()).setUserAgent(UserAgent.INSTANCE.toProtoBuf()).build();
     }
 
@@ -100,6 +103,7 @@ public class PublishingSettings extends Settings {
             .add("accessPoint", accessPoint)
             .add("retryPolicy", retryPolicy)
             .add("requestTimeout", requestTimeout)
+            .add("clientProperties", clientProperties)
             .add("topics", topics)
             .add("maxBodySizeBytes", maxBodySizeBytes)
             .toString();

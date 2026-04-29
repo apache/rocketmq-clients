@@ -115,7 +115,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         super(clientConfiguration, topics);
         ExponentialBackoffRetryPolicy retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(maxAttempts);
         this.publishingSettings = new PublishingSettings(clientConfiguration.getNamespace(), clientId, endpoints,
-            retryPolicy, clientConfiguration.getRequestTimeout(), topics);
+            retryPolicy, clientConfiguration.getRequestTimeout(), topics, clientConfiguration.getClientProperties());
         this.checker = checker;
         this.publishingRouteDataCache = new ConcurrentHashMap<>();
     }

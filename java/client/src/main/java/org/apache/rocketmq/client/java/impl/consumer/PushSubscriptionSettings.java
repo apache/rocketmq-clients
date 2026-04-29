@@ -59,7 +59,8 @@ public class PushSubscriptionSettings extends Settings {
         String group,
         Map<String, FilterExpression> subscriptionExpression
     ) {
-        super(configuration.getNamespace(), clientId, clientType, endpoints, configuration.getRequestTimeout());
+        super(configuration.getNamespace(), clientId, clientType, endpoints, configuration.getRequestTimeout(),
+            configuration.getClientProperties());
         this.group = new Resource(configuration.getNamespace(), group);
         this.subscriptionExpressions = subscriptionExpression;
     }
@@ -107,7 +108,8 @@ public class PushSubscriptionSettings extends Settings {
             Subscription.newBuilder().setGroup(group.toProtobuf()).addAllSubscriptions(subscriptionEntries).build();
         return apache.rocketmq.v2.Settings.newBuilder().setAccessPoint(accessPoint.toProtobuf())
             .setClientType(clientType.toProtobuf()).setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos()))
-            .setSubscription(subscription).setUserAgent(UserAgent.INSTANCE.toProtoBuf()).build();
+            .setSubscription(subscription).setUserAgent(UserAgent.INSTANCE.toProtoBuf())
+            .putAllClientProperties(clientProperties).build();
     }
 
     @Override
@@ -144,6 +146,7 @@ public class PushSubscriptionSettings extends Settings {
             .add("accessPoint", accessPoint)
             .add("retryPolicy", retryPolicy)
             .add("requestTimeout", requestTimeout)
+            .add("clientProperties", clientProperties)
             .add("group", group)
             .add("subscriptionExpressions", subscriptionExpressions)
             .add("fifo", fifo)
