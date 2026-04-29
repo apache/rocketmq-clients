@@ -20,4 +20,5 @@
 pub mod common;
 pub mod message;
 pub(crate) mod message_id;
+pub mod offset_option;
 pub mod transaction;

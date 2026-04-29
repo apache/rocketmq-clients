@@ -31,8 +31,8 @@ pub enum MessageType {
     FIFO = 2,
     DELAY = 3,
     TRANSACTION = 4,
-    PRIORITY = 5,
-    LITE = 6,
+    LITE = 5,
+    PRIORITY = 6,
 }
 
 /// [`Message`] is the data model for sending.
@@ -742,5 +742,101 @@ mod tests {
             AckMessageEntry::endpoints(&message_view).endpoint_url(),
             "localhost:8081"
         );
+    }
+
+    #[test]
+    fn test_lite_message_view() {
+        // Test MessageView with lite_topic
+        let message_view = MessageView::from_pb_message(
+            pb::Message {
+                topic: Some(pb::Resource {
+                    name: "parent_topic".to_string(),
+                    ..Default::default()
+                }),
+                body: vec![1, 2, 3],
+                user_properties: HashMap::new(),
+                system_properties: Some(pb::SystemProperties {
+                    message_id: "lite_msg_id".to_string(),
+                    receipt_handle: Some("receipt_handle".to_string()),
+                    lite_topic: Some("lite_topic_001".to_string()),
+                    message_type: LITE as i32,
+                    ..Default::default()
+                }),
+            },
+            Endpoints::from_url("localhost:8081").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(message_view.message_id(), "lite_msg_id");
+        assert_eq!(message_view.topic(), "parent_topic");
+        assert_eq!(message_view.lite_topic(), Some("lite_topic_001"));
+        assert_eq!(message_view.body(), &[1, 2, 3]);
+    }
+
+    #[test]
+    fn test_lite_message_without_lite_topic() {
+        // Test MessageView without lite_topic
+        let message_view = MessageView::from_pb_message(
+            pb::Message {
+                topic: Some(pb::Resource {
+                    name: "normal_topic".to_string(),
+                    ..Default::default()
+                }),
+                body: vec![4, 5, 6],
+                user_properties: HashMap::new(),
+                system_properties: Some(pb::SystemProperties {
+                    message_id: "normal_msg_id".to_string(),
+                    receipt_handle: Some("receipt_handle".to_string()),
+                    lite_topic: None,
+                    message_type: NORMAL as i32,
+                    ..Default::default()
+                }),
+            },
+            Endpoints::from_url("localhost:8081").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(message_view.message_id(), "normal_msg_id");
+        assert_eq!(message_view.topic(), "normal_topic");
+        assert_eq!(message_view.lite_topic(), None);
+        assert_eq!(message_view.body(), &[4, 5, 6]);
+    }
+
+    #[test]
+    fn test_lite_message_builder_with_all_fields() {
+        // Test lite message builder with additional fields
+        let message = MessageBuilder::lite_message_builder(
+            "parent_topic",
+            vec![7, 8, 9],
+            "lite_topic_full",
+        )
+        .set_tag("test-tag")
+        .set_keys(vec!["key1".to_string(), "key2".to_string()])
+        .set_properties({
+            let mut props = HashMap::new();
+            props.insert("prop1".to_string(), "value1".to_string());
+            props
+        })
+        .build();
+
+        assert!(message.is_ok());
+        let mut msg = message.unwrap();
+        assert_eq!(msg.take_topic(), "parent_topic");
+        assert_eq!(msg.take_lite_topic(), Some("lite_topic_full".to_string()));
+        assert_eq!(msg.take_body(), vec![7, 8, 9]);
+        assert_eq!(msg.take_tag(), Some("test-tag".to_string()));
+        assert_eq!(msg.take_keys(), vec!["key1".to_string(), "key2".to_string()]);
+        assert_eq!(msg.get_message_type(), LITE);
+    }
+
+    #[test]
+    fn test_lite_message_type_enum_value() {
+        // Verify MessageType enum values match proto definition
+        assert_eq!(NORMAL as i32, 1);
+        assert_eq!(FIFO as i32, 2);
+        assert_eq!(DELAY as i32, 3);
+        assert_eq!(TRANSACTION as i32, 4);
+        assert_eq!(LITE as i32, 5);  // LITE should be 5
+        assert_eq!(PRIORITY as i32, 6);  // PRIORITY should be 6
     }
 }

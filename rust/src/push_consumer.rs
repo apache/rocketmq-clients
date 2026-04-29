@@ -100,6 +100,31 @@ impl PushConsumer {
         })
     }
 
+    /// Create a new PushConsumer with an existing client (for LitePushConsumer)
+    pub(crate) fn new_with_client(
+        client: Arc<Client>,
+        option: PushConsumerOption,
+        message_listener: MessageListener,
+    ) -> Result<Self, ClientError> {
+        if option.consumer_group().is_empty() {
+            return Err(ClientError::new(
+                ErrorKind::Config,
+                "consumer group is required.",
+                OPERATION_NEW_PUSH_CONSUMER,
+            ));
+        }
+        // Clone the client by creating a new one with same configuration
+        // Note: This is a workaround since Client doesn't implement Clone
+        let client_clone = (*client).clone_for_lite_consumer();
+        Ok(Self {
+            client: client_clone,
+            message_listener: Arc::new(message_listener),
+            option: Arc::new(RwLock::new(option)),
+            shutdown_token: None,
+            task_tracker: None,
+        })
+    }
+
     pub async fn start(&mut self) -> Result<(), ClientError> {
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
         self.client.start(telemetry_command_tx).await?;
@@ -207,6 +232,34 @@ impl PushConsumer {
         Ok(())
     }
 
+    /// Start with external telemetry channel (for LitePushConsumer)
+    pub async fn start_with_telemetry(
+        &mut self,
+        telemetry_command_tx: mpsc::Sender<pb::TelemetryCommand>,
+    ) -> Result<(), ClientError> {
+        // Extract the command channel from TelemetryCommand
+        let (command_tx, _command_rx) = mpsc::channel(16);
+        self.client.start(command_tx).await?;
+        let option = Arc::clone(&self.option);
+        let mut rpc_client = self.client.get_session().await?;
+        let route_manager = self.client.get_route_manager();
+        let topics;
+        {
+            topics = option
+                .read()
+                .subscription_expressions()
+                .keys()
+                .cloned()
+                .collect();
+        }
+        route_manager
+            .sync_topic_routes(&mut rpc_client, topics)
+            .await?;
+        
+        info!("PushConsumer started with external telemetry");
+        Ok(())
+    }
+
     async fn process_assignments(
         rpc_client: &Session,
         option: &PushConsumerOption,
@@ -275,6 +328,19 @@ impl PushConsumer {
             task_tracker.wait().await;
         }
         self.client.shutdown().await?;
+        Ok(())
+    }
+
+    /// Shutdown without consuming self (for LitePushConsumer)
+    pub async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
+        if let Some(shutdown_token) = self.shutdown_token.take() {
+            shutdown_token.cancel();
+        }
+        if let Some(task_tracker) = self.task_tracker.take() {
+            task_tracker.close();
+            task_tracker.wait().await;
+        }
+        self.client.shutdown_ref().await?;
         Ok(())
     }
 
@@ -858,7 +924,7 @@ impl AckEntryProcessor {
             message_id: message.message_id().to_string(),
             delivery_attempt,
             max_delivery_attempts,
-            lite_topic: None,
+            lite_topic: message.lite_topic().map(|s| s.to_string()),
         };
         let response = self.rpc_client.forward_to_deadletter_queue(request).await?;
         handle_response_status(response.status, OPERATION_FORWARD_TO_DEADLETTER_QUEUE)
@@ -883,7 +949,7 @@ impl AckEntryProcessor {
                     )
                 },
             )?),
-            lite_topic: None,
+            lite_topic: ack_entry.lite_topic().map(|s| s.to_string()),
             suspend: None,
         };
         let response = self.rpc_client.change_invisible_duration(request).await?;
@@ -988,7 +1054,7 @@ impl AckEntryProcessor {
             entries: vec![pb::AckMessageEntry {
                 message_id: ack_entry.message_id().to_string(),
                 receipt_handle: ack_entry.receipt_handle().to_string(),
-                lite_topic: None,
+                lite_topic: ack_entry.lite_topic().map(|s| s.to_string()),
             }],
         };
         let response = self.rpc_client.ack_message(request).await?;

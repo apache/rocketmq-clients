@@ -113,6 +113,29 @@ impl Client {
         self.route_manager.clone()
     }
 
+    /// Clone client for LitePushConsumer (creates a new client with same config but different type)
+    pub(crate) fn clone_for_lite_consumer(&self) -> Self {
+        let mut new_option = self.option.clone();
+        new_option.client_type = ClientType::LitePushConsumer;
+        
+        // Create new settings with LitePushConsumer type
+        let new_settings = TelemetryCommand {
+            command: self.settings.command.clone(),
+            status: None,
+        };
+        
+        Self {
+            option: new_option,
+            session_manager: Arc::new(SessionManager::new(self.id.clone(), &self.option)),
+            route_manager: self.route_manager.clone(),
+            id: self.id.clone(),
+            access_endpoints: self.access_endpoints.clone(),
+            settings: new_settings,
+            telemetry_command_tx: None,
+            shutdown_tx: None,
+        }
+    }
+
     pub(crate) async fn start(
         &mut self,
         telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command>,
@@ -224,6 +247,24 @@ impl Client {
     }
 
     pub(crate) async fn shutdown(mut self) -> Result<(), ClientError> {
+        self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
+        let mut rpc_client = self.get_session().await?;
+        self.telemetry_command_tx = None;
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
+        let group = self.option.group.as_ref().map(|group| Resource {
+            name: group.to_string(),
+            resource_namespace: self.option.namespace.to_string(),
+        });
+        let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
+        handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
+        self.session_manager.shutdown().await;
+        Ok(())
+    }
+
+    /// Shutdown without consuming self (for internal use)
+    pub(crate) async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
         self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
         let mut rpc_client = self.get_session().await?;
         self.telemetry_command_tx = None;

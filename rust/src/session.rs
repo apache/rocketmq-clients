@@ -106,6 +106,10 @@ pub(crate) trait RPCClient {
         &mut self,
         request: ForwardMessageToDeadLetterQueueRequest,
     ) -> Result<ForwardMessageToDeadLetterQueueResponse, ClientError>;
+    async fn sync_lite_subscription(
+        &mut self,
+        request: crate::pb::SyncLiteSubscriptionRequest,
+    ) -> Result<crate::pb::SyncLiteSubscriptionResponse, ClientError>;
 }
 
 #[derive(Debug)]
@@ -635,6 +639,26 @@ impl RPCClient for Session {
             })?;
         Ok(response.into_inner())
     }
+
+    async fn sync_lite_subscription(
+        &mut self,
+        request: crate::pb::SyncLiteSubscriptionRequest,
+    ) -> Result<crate::pb::SyncLiteSubscriptionResponse, ClientError> {
+        let request = self.sign(request);
+        let response = self
+            .stub
+            .sync_lite_subscription(request)
+            .await
+            .map_err(|e| {
+                ClientError::new(
+                    ErrorKind::ClientInternal,
+                    "send rpc sync_lite_subscription failed",
+                    "sync_lite_subscription",
+                )
+                .set_source(e)
+            })?;
+        Ok(response.into_inner())
+    }
 }
 
 mock! {
@@ -706,6 +730,10 @@ mock! {
             &mut self,
             request: RecallMessageRequest,
         ) -> Result<RecallMessageResponse, ClientError>;
+        async fn sync_lite_subscription(
+            &mut self,
+            request: crate::pb::SyncLiteSubscriptionRequest,
+        ) -> Result<crate::pb::SyncLiteSubscriptionResponse, ClientError>;
     }
 
 }

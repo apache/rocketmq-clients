@@ -319,6 +319,34 @@ impl Producer {
 
             let priority = message.take_priority();
 
+            let lite_topic = message.take_lite_topic();
+
+            // Validate lite topic constraints
+            if lite_topic.is_some() {
+                // Lite topic cannot be used with message_group, delivery_timestamp, or priority
+                if message_group.is_some() {
+                    return Err(ClientError::new(
+                        ErrorKind::InvalidMessage,
+                        "lite_topic and message_group cannot be set at the same time",
+                        Self::OPERATION_SEND_MESSAGE,
+                    ));
+                }
+                if delivery_timestamp.is_some() {
+                    return Err(ClientError::new(
+                        ErrorKind::InvalidMessage,
+                        "lite_topic and delivery_timestamp cannot be set at the same time",
+                        Self::OPERATION_SEND_MESSAGE,
+                    ));
+                }
+                if priority.is_some() {
+                    return Err(ClientError::new(
+                        ErrorKind::InvalidMessage,
+                        "lite_topic and priority cannot be set at the same time",
+                        Self::OPERATION_SEND_MESSAGE,
+                    ));
+                }
+            }
+
             if message.transaction_enabled() {
                 message_group = None;
                 delivery_timestamp = None;
@@ -342,6 +370,7 @@ impl Producer {
                     message_group,
                     delivery_timestamp,
                     priority,
+                    lite_topic,
                     message_type: message.get_message_type() as i32,
                     born_host: HOST_NAME.clone(),
                     born_timestamp: born_timestamp.clone(),
