@@ -29,15 +29,19 @@ import (
 )
 
 type producerOptions struct {
-	clientFunc  NewClientFunc
-	maxAttempts int32
-	topics      []string
-	checker     *TransactionChecker
+	clientFunc     NewClientFunc
+	maxAttempts    int32
+	topics         []string
+	checker        *TransactionChecker
+	asyncWorkers   int
+	asyncQueueSize int
 }
 
 var defaultProducerOptions = producerOptions{
-	clientFunc:  NewClient,
-	maxAttempts: 3,
+	clientFunc:     NewClient,
+	maxAttempts:    3,
+	asyncWorkers:   10,
+	asyncQueueSize: 1000,
 }
 
 // A ProducerOption sets options such as tls.Config, etc.
@@ -84,6 +88,18 @@ func WithTopics(t ...string) ProducerOption {
 func WithTransactionChecker(checker *TransactionChecker) ProducerOption {
 	return newFuncProducerOption(func(o *producerOptions) {
 		o.checker = checker
+	})
+}
+
+func WithAsyncWorkers(asyncWorkers int) ProducerOption {
+	return newFuncProducerOption(func(o *producerOptions) {
+		o.asyncWorkers = asyncWorkers
+	})
+}
+
+func WithAsyncQueueSize(asyncQueueSize int) ProducerOption {
+	return newFuncProducerOption(func(o *producerOptions) {
+		o.asyncQueueSize = asyncQueueSize
 	})
 }
 
