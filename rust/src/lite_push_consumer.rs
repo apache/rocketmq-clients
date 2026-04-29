@@ -104,8 +104,10 @@ impl LitePushConsumer {
         };
 
         // Build settings with lite subscription configuration
-        let settings = build_push_consumer_settings(&option);
-
+        let mut settings = build_push_consumer_settings(&option);
+        if let Some(pb::telemetry_command::Command::Settings(ref mut s)) = settings.command {
+            s.client_type = Some(pb::ClientType::LitePushConsumer as i32);
+        }
         // Create the main client for PushConsumer
         let client = Client::new(client_option, settings)?;
 
