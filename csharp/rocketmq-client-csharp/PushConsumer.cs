@@ -623,6 +623,12 @@ namespace Org.Apache.Rocketmq
             }
         }
 
+        internal override void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
+        {
+            base.OnSettingsCommand(endpoints, settings);
+            // LitePushConsumer will override this to handle lite subscription quota sync
+        }
+
         internal override NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
         {
             return new NotifyClientTerminationRequest()
@@ -693,13 +699,63 @@ namespace Org.Apache.Rocketmq
             return _consumeService;
         }
 
-        private Proto.Resource GetProtobufGroup()
+        protected Proto.Resource GetProtobufGroup()
         {
             return new Proto.Resource()
             {
                 ResourceNamespace = _clientConfig.Namespace,
                 Name = ConsumerGroup
             };
+        }
+
+        /// <summary>
+        /// Check if the consumer is running.
+        /// </summary>
+        internal void CheckRunning()
+        {
+            if (State != State.Running)
+            {
+                throw new InvalidOperationException("Push consumer is not running");
+            }
+        }
+
+        /// <summary>
+        /// Get the client ID.
+        /// </summary>
+        internal string GetClientId()
+        {
+            return ClientId;
+        }
+
+        /// <summary>
+        /// Check if the consumer is disposed.
+        /// </summary>
+        internal bool IsDisposed()
+        {
+            return State == State.Terminated || State == State.Failed;
+        }
+
+        /// <summary>
+        /// Get the request timeout from client config.
+        /// </summary>
+        internal TimeSpan GetRequestTimeout()
+        {
+            return _clientConfig.RequestTimeout;
+        }
+
+        /// <summary>
+        /// Get the namespace from client config.
+        /// </summary>
+        internal string Namespace => _clientConfig.Namespace;
+
+        /// <summary>
+        /// Sync lite subscription for lite push consumer.
+        /// </summary>
+        internal async Task<Proto.SyncLiteSubscriptionResponse> SyncLiteSubscription(
+            Proto.SyncLiteSubscriptionRequest request, TimeSpan timeout)
+        {
+            var invocation = await ClientManager.SyncLiteSubscription(Endpoints, request, timeout);
+            return invocation.Response;
         }
 
         public class Builder

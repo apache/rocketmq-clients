@@ -119,6 +119,13 @@ namespace Org.Apache.Rocketmq
                                 _client.OnPrintThreadStackTraceCommand(_endpoints, response.PrintThreadStackTraceCommand);
                                 break;
                             }
+                        case Proto.TelemetryCommand.CommandOneofCase.NotifyUnsubscribeLiteCommand:
+                            {
+                                Logger.LogInformation(
+                                    $"Receive notify unsubscribe lite command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
+                                _client.OnNotifyUnsubscribeLiteCommand(_endpoints, response.NotifyUnsubscribeLiteCommand);
+                                break;
+                            }
                         default:
                             {
                                 Logger.LogWarning(

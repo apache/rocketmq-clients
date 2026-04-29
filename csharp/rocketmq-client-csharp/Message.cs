@@ -28,7 +28,7 @@ namespace Org.Apache.Rocketmq
 
         private Message(string topic, byte[] body, string tag, List<string> keys,
             Dictionary<string, string> properties, DateTime? deliveryTimestamp, string messageGroup,
-            int? priority)
+            int? priority, string liteTopic)
         {
             Topic = topic;
             Tag = tag;
@@ -38,6 +38,7 @@ namespace Org.Apache.Rocketmq
             DeliveryTimestamp = deliveryTimestamp;
             MessageGroup = messageGroup;
             Priority = priority;
+            LiteTopic = liteTopic;
         }
 
         internal Message(Message message)
@@ -50,6 +51,7 @@ namespace Org.Apache.Rocketmq
             MessageGroup = message.MessageGroup;
             DeliveryTimestamp = message.DeliveryTimestamp;
             Priority = message.Priority;
+            LiteTopic = message.LiteTopic;
         }
 
         public string Topic { get; }
@@ -66,8 +68,16 @@ namespace Org.Apache.Rocketmq
         public string MessageGroup { get; }
 
         /// <summary>
-        /// Gets the priority of the message, which makes sense only when the topic type is PRIORITY.
-        /// Priority must be greater than or equal to 0.
+        /// Gets the lite topic for dynamic topic routing.
+        /// Only applicable for LITE message type. Enables flexible message routing without pre-defining all topics.
+        /// Cannot be used with: messageGroup, deliveryTimestamp, or priority.
+        /// </summary>
+        public string LiteTopic { get; }
+
+        /// <summary>
+        /// Gets the priority of the message.
+        /// Only applicable for PRIORITY topic type. Higher values indicate higher priority.
+        /// Priority must be >= 0 and cannot be used with: messageGroup, deliveryTimestamp, or liteTopic.
         /// </summary>
         public int? Priority { get; }
 
@@ -76,7 +86,7 @@ namespace Org.Apache.Rocketmq
             return
                 $"{nameof(Topic)}: {Topic}, {nameof(Tag)}: {Tag}, {nameof(Keys)}: {string.Join(", ", Keys)}, {nameof(Properties)}: " +
                 $"{string.Join(", ", Properties.Select(kvp => kvp.ToString()))}, {nameof(DeliveryTimestamp)}: {DeliveryTimestamp}, {nameof(MessageGroup)}: " +
-                $"{MessageGroup}, {nameof(Priority)}: {Priority}";
+                $"{MessageGroup}, {nameof(Priority)}: {Priority}, {nameof(LiteTopic)}: {LiteTopic}";
         }
 
         public class Builder
@@ -89,6 +99,7 @@ namespace Org.Apache.Rocketmq
             private DateTime? _deliveryTimestamp;
             private string _messageGroup;
             private int? _priority;
+            private string _liteTopic;
 
             public Builder SetTopic(string topic)
             {
@@ -143,6 +154,8 @@ namespace Org.Apache.Rocketmq
                     "deliveryTimestamp and messageGroup should not be set at same time");
                 Preconditions.CheckArgument(!_priority.HasValue,
                     "deliveryTimestamp and priority should not be set at same time");
+                Preconditions.CheckArgument(null == _liteTopic,
+                    "deliveryTimestamp and liteTopic should not be set at same time");
                 _deliveryTimestamp = DateTimeKind.Utc == deliveryTimestamp.Kind
                     ? TimeZoneInfo.ConvertTimeFromUtc(deliveryTimestamp, TimeZoneInfo.Local)
                     : deliveryTimestamp;
@@ -157,14 +170,42 @@ namespace Org.Apache.Rocketmq
                     "messageGroup and deliveryTimestamp should not be set at same time");
                 Preconditions.CheckArgument(!_priority.HasValue,
                     "messageGroup and priority should not be set at same time");
+                Preconditions.CheckArgument(null == _liteTopic,
+                    "messageGroup and liteTopic should not be set at same time");
                 _messageGroup = messageGroup;
                 return this;
             }
 
             /// <summary>
-            /// Sets the priority for priority message. Priority must be greater than or equal to 0.
-            /// Priority and messageGroup/deliveryTimestamp should not be set at the same time.
+            /// Sets the lite topic for lite message.
+            /// LiteTopic enables dynamic topic routing without pre-defining all topics.
+            /// Cannot be used together with: messageGroup, deliveryTimestamp, or priority.
             /// </summary>
+            /// <param name="liteTopic">The lite topic name for dynamic routing.</param>
+            /// <returns>The builder instance for method chaining.</returns>
+            /// <exception cref="ArgumentException">Thrown when liteTopic is empty or conflicts with other message properties.</exception>
+            public Builder SetLiteTopic(string liteTopic)
+            {
+                Preconditions.CheckArgument(null == _deliveryTimestamp,
+                    "liteTopic and deliveryTimestamp should not be set at same time");
+                Preconditions.CheckArgument(null == _messageGroup,
+                    "liteTopic and messageGroup should not be set at same time");
+                Preconditions.CheckArgument(null == _priority,
+                    "liteTopic and priority should not be set at same time");
+                Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(liteTopic),
+                    "liteTopic should not be null or white space");
+                _liteTopic = liteTopic;
+                return this;
+            }
+
+            /// <summary>
+            /// Sets the priority for priority message.
+            /// Priority must be >= 0 (higher value = higher priority).
+            /// Cannot be used together with: messageGroup, deliveryTimestamp, or liteTopic.
+            /// </summary>
+            /// <param name="priority">The priority level. Higher values indicate higher priority.</param>
+            /// <returns>The builder instance for method chaining.</returns>
+            /// <exception cref="ArgumentException">Thrown when priority is negative or conflicts with other message properties.</exception>
             public Builder SetPriority(int priority)
             {
                 Preconditions.CheckArgument(priority >= 0,
@@ -173,6 +214,8 @@ namespace Org.Apache.Rocketmq
                     "priority and deliveryTimestamp should not be set at same time");
                 Preconditions.CheckArgument(null == _messageGroup,
                     "priority and messageGroup should not be set at same time");
+                Preconditions.CheckArgument(null == _liteTopic,
+                    "priority and liteTopic should not be set at same time");
                 _priority = priority;
                 return this;
             }
@@ -182,7 +225,7 @@ namespace Org.Apache.Rocketmq
                 Preconditions.CheckArgument(null != _topic, "topic has not been set yet");
                 Preconditions.CheckArgument(null != _body, "body has not been set yet");
                 return new Message(_topic, _body, _tag, _keys, _properties, _deliveryTimestamp, _messageGroup,
-                    _priority);
+                    _priority, _liteTopic);
             }
         }
     }

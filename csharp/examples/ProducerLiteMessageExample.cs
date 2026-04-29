@@ -24,18 +24,17 @@ using Org.Apache.Rocketmq;
 namespace examples
 {
     /// <summary>
-    /// Demonstrates how to send priority messages using Apache RocketMQ C# client.
-    /// Priority messages allow you to assign different priority levels to messages,
-    /// where higher priority messages are consumed before lower priority ones.
+    /// Demonstrates how to send lite messages using Apache RocketMQ C# client.
+    /// Lite messages use dynamic topic routing without pre-defining all topics.
     /// 
     /// Key Points:
-    /// - Priority must be >= 0 (higher value = higher priority)
-    /// - Cannot be used with: messageGroup, deliveryTimestamp, or liteTopic
-    /// - Consumer Group for testing: GID-priority-consumer
+    /// - LiteTopic enables flexible message routing
+    /// - Cannot be used with: messageGroup, deliveryTimestamp, or priority
+    /// - Parent topic must be configured for lite messaging
     /// </summary>
-    internal static class ProducerPriorityMessageExample
+    internal static class ProducerLiteMessageExample
     {
-        private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(ProducerPriorityMessageExample).FullName);
+        private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(ProducerLiteMessageExample).FullName);
 
         private static readonly string AccessKey = Environment.GetEnvironmentVariable("ROCKETMQ_ACCESS_KEY");
         private static readonly string SecretKey = Environment.GetEnvironmentVariable("ROCKETMQ_SECRET_KEY");
@@ -51,46 +50,45 @@ namespace examples
                 .SetEndpoints("127.0.0.1:8081")
                 .Build();
 
-            const string topic = "topic-priority";
+            const string parentTopic = "topic-lite";
             
             // Create producer with singleton pattern (recommended)
             var producer = await new Producer.Builder()
-                .SetTopics(topic)  // Prefetch topic route for better performance
+                .SetTopics(parentTopic)  // Prefetch topic route for better performance
                 .SetClientConfig(clientConfig)
                 .Build();
 
             // Define message content
-            var body = Encoding.UTF8.GetBytes("This is a priority message for testing");
-            const string tag = "PriorityTest";
+            var body = Encoding.UTF8.GetBytes("This is a lite message for testing");
+            const string tag = "LiteTest";
             
-            Logger.LogInformation($"Consumer Group: GID-priority-consumer");
-            Logger.LogInformation("Sending messages with different priority levels (higher value = higher priority)...");
+            Logger.LogInformation("Sending lite messages with different lite topics...");
             
-            // Send messages with priority levels from low to high
-            var priorities = new[] { 1, 3, 5, 8, 10 };
+            // Send messages with different lite topics for dynamic routing
+            var liteTopics = new[] { "order-created", "order-updated", "order-completed" };
 
-            foreach (var priority in priorities)
+            foreach (var liteTopic in liteTopics)
             {
                 var message = new Message.Builder()
-                    .SetTopic(topic)
+                    .SetTopic(parentTopic)
                     .SetBody(body)
                     .SetTag(tag)
-                    .SetKeys($"priority-{priority}")
-                    .SetPriority(priority)  // Higher priority messages are consumed first
+                    .SetKeys($"lite-{liteTopic}")
+                    .SetLiteTopic(liteTopic)  // Dynamic topic routing
                     .Build();
 
                 try
                 {
                     var sendReceipt = await producer.Send(message);
-                    Logger.LogInformation($"Sent priority message successfully, messageId={sendReceipt.MessageId}, priority={priority}");
+                    Logger.LogInformation($"Sent lite message successfully, messageId={sendReceipt.MessageId}, liteTopic={liteTopic}");
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, $"Failed to send priority message, priority={priority}");
+                    Logger.LogError(ex, $"Failed to send lite message, liteTopic={liteTopic}");
                 }
             }
 
-            Logger.LogInformation("\nAll priority messages sent. Messages will be consumed in priority order (highest first).");
+            Logger.LogInformation("\nAll lite messages sent. Messages will be routed based on their lite topics.");
 
             // Close the producer if you don't need it anymore.
             await producer.DisposeAsync();

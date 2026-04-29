@@ -15,30 +15,23 @@
  * limitations under the License.
  */
 
-using Proto = Apache.Rocketmq.V2;
+using System;
 
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    public enum ClientType
+    /// <summary>
+    /// Exception thrown when lite subscription quota is exceeded.
+    /// </summary>
+    public class LiteSubscriptionQuotaExceededException : ClientException
     {
-        Producer,
-        SimpleConsumer,
-        PushConsumer,
-        LitePushConsumer
-    }
-
-    public static class ClientTypeHelper
-    {
-        public static Proto.ClientType ToProtobuf(ClientType clientType)
+        public LiteSubscriptionQuotaExceededException(string message) 
+            : base(message)
         {
-            return clientType switch
-            {
-                ClientType.Producer => Proto.ClientType.Producer,
-                ClientType.SimpleConsumer => Proto.ClientType.SimpleConsumer,
-                ClientType.PushConsumer => Proto.ClientType.PushConsumer,
-                ClientType.LitePushConsumer => Proto.ClientType.LitePushConsumer,
-                _ => Proto.ClientType.Unspecified
-            };
+        }
+
+        public LiteSubscriptionQuotaExceededException(string message, Exception innerException) 
+            : base(message, innerException)
+        {
         }
     }
 }

@@ -47,6 +47,7 @@ namespace Org.Apache.Rocketmq
             
             // For NORMAL message.
             if (string.IsNullOrEmpty(message.MessageGroup) &&
+                string.IsNullOrEmpty(message.LiteTopic) &&
                 !message.Priority.HasValue &&
                 !message.DeliveryTimestamp.HasValue &&
                 !txEnabled)
@@ -59,6 +60,13 @@ namespace Org.Apache.Rocketmq
             if (!string.IsNullOrEmpty(message.MessageGroup) && !txEnabled)
             {
                 MessageType = MessageType.Fifo;
+                return;
+            }
+
+            // For LITE message.
+            if (!string.IsNullOrEmpty(message.LiteTopic) && !txEnabled)
+            {
+                MessageType = MessageType.Lite;
                 return;
             }
 
@@ -77,16 +85,23 @@ namespace Org.Apache.Rocketmq
             }
 
             // For TRANSACTION message.
-            if (!string.IsNullOrEmpty(message.MessageGroup) ||
-                message.Priority.HasValue || 
-                message.DeliveryTimestamp.HasValue || 
-                !txEnabled)
+            if (txEnabled)
             {
-                throw new InternalErrorException(
-                    "Transactional message should not set messageGroup, priority or deliveryTimestamp");
+                // Transaction semantics is conflicted with fifo/lite/delay/priority
+                if (!string.IsNullOrEmpty(message.MessageGroup) ||
+                    !string.IsNullOrEmpty(message.LiteTopic) ||
+                    message.Priority.HasValue || 
+                    message.DeliveryTimestamp.HasValue)
+                {
+                    throw new InternalErrorException(
+                        "Transactional message should not set messageGroup, liteTopic, priority or deliveryTimestamp");
+                }
+                MessageType = MessageType.Transaction;
+                return;
             }
 
-            MessageType = MessageType.Transaction;
+            // Should not reach here
+            throw new InternalErrorException("Failed to determine message type");
         }
 
         public Proto::Message ToProtobuf(string namespaceName, int queueId)
@@ -114,6 +129,11 @@ namespace Org.Apache.Rocketmq
             if (null != MessageGroup)
             {
                 systemProperties.MessageGroup = MessageGroup;
+            }
+
+            if (!string.IsNullOrEmpty(LiteTopic))
+            {
+                systemProperties.LiteTopic = LiteTopic;
             }
 
             if (Priority.HasValue)
