@@ -101,8 +101,9 @@ impl PushConsumer {
     }
 
     /// Create a new PushConsumer with an existing client (for LitePushConsumer)
+    /// The client should already be configured with the correct ClientType
     pub(crate) fn new_with_client(
-        client: Arc<Client>,
+        client: Client,
         option: PushConsumerOption,
         message_listener: MessageListener,
     ) -> Result<Self, ClientError> {
@@ -113,11 +114,8 @@ impl PushConsumer {
                 OPERATION_NEW_PUSH_CONSUMER,
             ));
         }
-        // Clone the client by creating a new one with same configuration
-        // Note: This is a workaround since Client doesn't implement Clone
-        let client_clone = (*client).clone_for_lite_consumer();
         Ok(Self {
-            client: client_clone,
+            client,
             message_listener: Arc::new(message_listener),
             option: Arc::new(RwLock::new(option)),
             shutdown_token: None,

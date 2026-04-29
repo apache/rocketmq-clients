@@ -45,7 +45,11 @@ pub trait LitePushConsumerTrait {
     async fn subscribe_lite(&self, lite_topic: String) -> Result<(), ClientError>;
 
     /// Subscribe to a lite topic with offset option
-    async fn subscribe_lite_with_offset(&self, lite_topic: String, offset_option: OffsetOption) -> Result<(), ClientError>;
+    async fn subscribe_lite_with_offset(
+        &self,
+        lite_topic: String,
+        offset_option: OffsetOption,
+    ) -> Result<(), ClientError>;
 
     /// Unsubscribe from a lite topic
     async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError>;
@@ -92,7 +96,7 @@ impl LitePushConsumer {
             ));
         }
 
-        // Set client type to LitePushConsumer
+        // Create base client with LitePushConsumer type
         let client_option = ClientOption {
             client_type: ClientType::LitePushConsumer,
             group: Some(option.consumer_group().to_string()),
@@ -102,22 +106,22 @@ impl LitePushConsumer {
         // Build settings with lite subscription configuration
         let settings = build_push_consumer_settings(&option);
 
+        // Create the main client for PushConsumer
         let client = Client::new(client_option, settings)?;
-        let client_arc = Arc::new(client);
 
-        // Create lite subscription manager
+        // Clone client for LiteSubscriptionManager using clone_for_lite_consumer
+        // This ensures both clients have the correct LitePushConsumer type
         let namespace = option.namespace().to_string();
         let consumer_group = option.consumer_group().to_string();
         let lite_subscription_manager = Arc::new(LiteSubscriptionManager::new(
-            Arc::clone(&client_arc),
+            Arc::new(client.clone_for_lite_consumer()),
             bind_topic.clone(),
             namespace,
             consumer_group,
         ));
 
-        // Create inner PushConsumer
-        let inner =
-            PushConsumer::new_with_client(Arc::clone(&client_arc), option, message_listener)?;
+        // Create inner PushConsumer with the main client
+        let inner = PushConsumer::new_with_client(client, option, message_listener)?;
 
         Ok(Self {
             inner,
@@ -178,11 +182,7 @@ impl LitePushConsumerTrait for LitePushConsumer {
             .await
     }
 
-    async fn subscribe_lite_with_offset(
-        &self,
-        lite_topic: String,
-        offset_option: OffsetOption,
-    ) -> Result<(), ClientError> {
+    async fn subscribe_lite_with_offset(&self, lite_topic: String, offset_option: OffsetOption) -> Result<(), ClientError> {
         self.lite_subscription_manager
             .subscribe_lite(lite_topic, Some(offset_option))
             .await

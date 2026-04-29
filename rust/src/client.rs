@@ -41,6 +41,7 @@ use crate::pb::{
     QueryRouteRequest, RecallMessageRequest, RecallMessageResponse, ReceiveMessageRequest,
     Resource, SendMessageRequest, Status, TelemetryCommand,
 };
+use crate::pb::telemetry_command::Command;
 use crate::session::RPCClient;
 #[double]
 use crate::session::Session;
@@ -119,14 +120,15 @@ impl Client {
         new_option.client_type = ClientType::LitePushConsumer;
 
         // Create new settings with LitePushConsumer type
-        let new_settings = TelemetryCommand {
-            command: self.settings.command.clone(),
-            status: None,
-        };
+        let mut new_settings = self.settings.clone();
+        if let Some(Command::Settings(ref mut settings)) = &mut new_settings.command {
+            settings.client_type = Some(pb::ClientType::LitePushConsumer as i32);
+        }
+        let session_manager = Arc::new(SessionManager::new(self.id.clone(), &new_option));
 
         Self {
             option: new_option,
-            session_manager: Arc::new(SessionManager::new(self.id.clone(), &self.option)),
+            session_manager,
             route_manager: self.route_manager.clone(),
             id: self.id.clone(),
             access_endpoints: self.access_endpoints.clone(),
