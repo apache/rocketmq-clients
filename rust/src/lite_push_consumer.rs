@@ -182,7 +182,11 @@ impl LitePushConsumerTrait for LitePushConsumer {
             .await
     }
 
-    async fn subscribe_lite_with_offset(&self, lite_topic: String, offset_option: OffsetOption) -> Result<(), ClientError> {
+    async fn subscribe_lite_with_offset(
+        &self,
+        lite_topic: String,
+        offset_option: OffsetOption,
+    ) -> Result<(), ClientError> {
         self.lite_subscription_manager
             .subscribe_lite(lite_topic, Some(offset_option))
             .await

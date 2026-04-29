@@ -36,12 +36,12 @@ use crate::model::message::AckMessageEntry;
 use crate::pb;
 use crate::pb::receive_message_response::Content;
 use crate::pb::{
-    AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, FilterExpression,
-    HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, NotifyClientTerminationRequest,
-    QueryRouteRequest, RecallMessageRequest, RecallMessageResponse, ReceiveMessageRequest,
-    Resource, SendMessageRequest, Status, TelemetryCommand,
+    telemetry_command::Command, AckMessageRequest, AckMessageResultEntry,
+    ChangeInvisibleDurationRequest, FilterExpression, HeartbeatRequest, HeartbeatResponse, Message,
+    MessageQueue, NotifyClientTerminationRequest, QueryRouteRequest, RecallMessageRequest,
+    RecallMessageResponse, ReceiveMessageRequest, Resource, SendMessageRequest, Status,
+    TelemetryCommand,
 };
-use crate::pb::telemetry_command::Command;
 use crate::session::RPCClient;
 #[double]
 use crate::session::Session;
