@@ -45,11 +45,7 @@ pub trait LitePushConsumerTrait {
     async fn subscribe_lite(&self, lite_topic: String) -> Result<(), ClientError>;
 
     /// Subscribe to a lite topic with offset option
-    async fn subscribe_lite_with_offset(
-        &self,
-        lite_topic: String,
-        offset_option: OffsetOption,
-    ) -> Result<(), ClientError>;
+    async fn subscribe_lite_with_offset(&self, lite_topic: String, offset_option: OffsetOption) -> Result<(), ClientError>;
 
     /// Unsubscribe from a lite topic
     async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError>;
