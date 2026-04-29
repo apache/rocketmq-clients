@@ -717,6 +717,7 @@ mod tests {
             transaction_enabled: false,
             message_type: MessageType::TRANSACTION,
             priority: None,
+            lite_topic: None,
         }];
         let result = producer.transform_messages_to_protobuf(messages).await;
         assert!(result.is_err());

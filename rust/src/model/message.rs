@@ -21,17 +21,18 @@ use std::collections::HashMap;
 
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::Endpoints;
-use crate::model::message::MessageType::{DELAY, FIFO, NORMAL, PRIORITY, TRANSACTION};
+use crate::model::message::MessageType::{DELAY, FIFO, LITE, NORMAL, PRIORITY, TRANSACTION};
 use crate::model::message_id::UNIQ_ID_GENERATOR;
 use crate::pb;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MessageType {
     NORMAL = 1,
     FIFO = 2,
     DELAY = 3,
     TRANSACTION = 4,
     PRIORITY = 5,
+    LITE = 6,
 }
 
 /// [`Message`] is the data model for sending.
@@ -45,6 +46,7 @@ pub trait Message {
     fn take_message_group(&mut self) -> Option<String>;
     fn take_delivery_timestamp(&mut self) -> Option<i64>;
     fn take_priority(&mut self) -> Option<i32>;
+    fn take_lite_topic(&mut self) -> Option<String>;
     fn transaction_enabled(&mut self) -> bool;
     fn get_message_type(&self) -> MessageType;
 }
@@ -71,6 +73,7 @@ pub(crate) struct MessageImpl {
     pub(crate) transaction_enabled: bool,
     pub(crate) message_type: MessageType,
     pub(crate) priority: Option<i32>,
+    pub(crate) lite_topic: Option<String>,
 }
 
 impl Message for MessageImpl {
@@ -110,6 +113,10 @@ impl Message for MessageImpl {
         self.priority.take()
     }
 
+    fn take_lite_topic(&mut self) -> Option<String> {
+        self.lite_topic.take()
+    }
+
     fn transaction_enabled(&mut self) -> bool {
         self.transaction_enabled
     }
@@ -142,6 +149,7 @@ impl MessageBuilder {
                 transaction_enabled: false,
                 message_type: NORMAL,
                 priority: None,
+                lite_topic: None,
             },
         }
     }
@@ -171,6 +179,7 @@ impl MessageBuilder {
                 transaction_enabled: false,
                 message_type: FIFO,
                 priority: None,
+                lite_topic: None,
             },
         }
     }
@@ -200,6 +209,7 @@ impl MessageBuilder {
                 transaction_enabled: false,
                 message_type: DELAY,
                 priority: None,
+                lite_topic: None,
             },
         }
     }
@@ -224,6 +234,7 @@ impl MessageBuilder {
                 transaction_enabled: true,
                 message_type: TRANSACTION,
                 priority: None,
+                lite_topic: None,
             },
         }
     }
@@ -315,6 +326,7 @@ impl MessageBuilder {
                 transaction_enabled: false,
                 message_type: PRIORITY,
                 priority: Some(priority),
+                lite_topic: None,
             },
         }
     }
@@ -324,6 +336,44 @@ impl MessageBuilder {
     pub fn set_priority(mut self, priority: i32) -> Self {
         self.message.priority = Some(priority);
         self.message.message_type = PRIORITY;
+        self
+    }
+
+    /// Create a new [`MessageBuilder`] for building a lite message.
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - parent topic of the message
+    /// * `body` - message body
+    /// * `lite_topic` - lite topic name
+    pub fn lite_message_builder(
+        topic: impl Into<String>,
+        body: Vec<u8>,
+        lite_topic: impl Into<String>,
+    ) -> MessageBuilder {
+        MessageBuilder {
+            message: MessageImpl {
+                message_id: UNIQ_ID_GENERATOR.lock().next_id(),
+                topic: topic.into(),
+                body: Some(body),
+                tag: None,
+                keys: None,
+                properties: None,
+                message_group: None,
+                delivery_timestamp: None,
+                transaction_enabled: false,
+                message_type: LITE,
+                priority: None,
+                lite_topic: Some(lite_topic.into()),
+            },
+        }
+    }
+
+    /// Set lite topic for lite message.
+    /// Lite topic cannot be set with message_group, delivery_timestamp, or priority at the same time.
+    pub fn set_lite_topic(mut self, lite_topic: impl Into<String>) -> Self {
+        self.message.lite_topic = Some(lite_topic.into());
+        self.message.message_type = LITE;
         self
     }
 
@@ -346,6 +396,18 @@ impl MessageBuilder {
                 "message_group and delivery_timestamp can not be set for transaction message."
                     .to_string(),
             );
+        }
+        // Lite topic validation
+        if self.message.lite_topic.is_some() {
+            if self.message.message_group.is_some() {
+                return Err("lite_topic and message_group can not be set at the same time.".to_string());
+            }
+            if self.message.delivery_timestamp.is_some() {
+                return Err("lite_topic and delivery_timestamp can not be set at the same time.".to_string());
+            }
+            if self.message.priority.is_some() {
+                return Err("lite_topic and priority can not be set at the same time.".to_string());
+            }
         }
         Ok(())
     }
@@ -387,6 +449,7 @@ pub struct MessageView {
     pub(crate) delivery_attempt: i32,
     pub(crate) endpoints: Endpoints,
     pub(crate) priority: Option<i32>,
+    pub(crate) lite_topic: Option<String>,
 }
 
 impl AckMessageEntry for MessageView {
@@ -427,6 +490,7 @@ impl MessageView {
             delivery_attempt: system_properties.delivery_attempt.unwrap_or(0),
             endpoints,
             priority: system_properties.priority,
+            lite_topic: system_properties.lite_topic,
         })
     }
 
@@ -494,6 +558,11 @@ impl MessageView {
     pub fn priority(&self) -> Option<i32> {
         self.priority
     }
+
+    /// Get lite topic of lite message
+    pub fn lite_topic(&self) -> Option<&str> {
+        self.lite_topic.as_deref()
+    }
 }
 
 #[cfg(test)]
@@ -554,6 +623,60 @@ mod tests {
         let message = MessageBuilder::transaction_message_builder("test", vec![1, 2, 3]).build();
         let mut message = message.unwrap();
         assert!(message.transaction_enabled());
+
+        // Test lite message builder
+        let message =
+            MessageBuilder::lite_message_builder("parent_topic", vec![1, 2, 3], "lite_topic_001")
+                .build();
+        assert!(message.is_ok());
+        let mut message = message.unwrap();
+        assert_eq!(message.take_lite_topic(), Some("lite_topic_001".to_string()));
+        assert_eq!(message.get_message_type(), LITE);
+
+        // Test lite topic conflicts with message_group
+        let message = MessageBuilder::builder()
+            .set_topic("test")
+            .set_body(vec![1, 2, 3])
+            .set_lite_topic("lite_topic")
+            .set_message_group("group")
+            .build();
+        assert!(message.is_err());
+        let err = message.err().unwrap();
+        assert_eq!(err.kind, ErrorKind::InvalidMessage);
+        assert_eq!(
+            err.message,
+            "lite_topic and message_group can not be set at the same time."
+        );
+
+        // Test lite topic conflicts with delivery_timestamp
+        let message = MessageBuilder::builder()
+            .set_topic("test")
+            .set_body(vec![1, 2, 3])
+            .set_lite_topic("lite_topic")
+            .set_delivery_timestamp(123456789)
+            .build();
+        assert!(message.is_err());
+        let err = message.err().unwrap();
+        assert_eq!(err.kind, ErrorKind::InvalidMessage);
+        assert_eq!(
+            err.message,
+            "lite_topic and delivery_timestamp can not be set at the same time."
+        );
+
+        // Test lite topic conflicts with priority
+        let message = MessageBuilder::builder()
+            .set_topic("test")
+            .set_body(vec![1, 2, 3])
+            .set_lite_topic("lite_topic")
+            .set_priority(5)
+            .build();
+        assert!(message.is_err());
+        let err = message.err().unwrap();
+        assert_eq!(err.kind, ErrorKind::InvalidMessage);
+        assert_eq!(
+            err.message,
+            "lite_topic and priority can not be set at the same time."
+        );
     }
 
     #[test]
