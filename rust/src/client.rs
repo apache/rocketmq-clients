@@ -243,7 +243,7 @@ impl Client {
         Ok(())
     }
 
-    fn check_started(&self, operation: &'static str) -> Result<(), ClientError> {
+    pub(crate) fn check_started(&self, operation: &'static str) -> Result<(), ClientError> {
         if !self.is_started() {
             return Err(ClientError::new(
                 ErrorKind::ClientIsNotRunning,

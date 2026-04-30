@@ -114,8 +114,19 @@ impl LiteSubscriptionManager {
         self.lite_topic_set.lock().clone()
     }
 
-    /// Sync settings from server (uses interior mutability via Mutex)
+    /// Sync settings from server (reference Java: check hasSubscription first)
     pub fn sync_settings(&self, settings: &pb::Settings) {
+        // Check if settings has subscription (similar to Java's settings.hasSubscription())
+        let has_subscription = matches!(
+            &settings.pub_sub,
+            Some(pb::settings::PubSub::Subscription(_))
+        );
+
+        if !has_subscription {
+            return;
+        }
+
+        // Now we know it's a Subscription variant, extract and sync
         if let Some(pb::settings::PubSub::Subscription(subscription)) = &settings.pub_sub {
             if let Some(quota) = subscription.lite_subscription_quota {
                 *self.lite_subscription_quota.lock() = quota;
@@ -128,12 +139,16 @@ impl LiteSubscriptionManager {
         }
     }
 
-    /// Subscribe to a lite topic
+    /// Subscribe to a lite topic (reference Java: checkRunning first)
     pub async fn subscribe_lite(
         &self,
         lite_topic: String,
         offset_option: Option<OffsetOption>,
     ) -> Result<(), ClientError> {
+        // Check if client is running (reference Java: consumerImpl.checkRunning())
+        self.client
+            .check_started(OPERATION_SYNC_LITE_SUBSCRIPTION)?;
+
         // Check if already subscribed
         if self.lite_topic_set.lock().contains(&lite_topic) {
             return Ok(());
@@ -158,17 +173,22 @@ impl LiteSubscriptionManager {
         self.lite_topic_set.lock().insert(lite_topic.clone());
 
         info!(
-            "SubscribeLite {}, topic={}, group={}",
+            "SubscribeLite {}, topic={}, group={}, clientId={}",
             lite_topic,
             self.get_bind_topic_name(),
-            self.get_consumer_group_name()
+            self.get_consumer_group_name(),
+            self.client.client_id()
         );
 
         Ok(())
     }
 
-    /// Unsubscribe from a lite topic
+    /// Unsubscribe from a lite topic (reference Java: checkRunning first)
     pub async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
+        // Check if client is running (reference Java: consumerImpl.checkRunning() line 119)
+        self.client
+            .check_started(OPERATION_SYNC_LITE_SUBSCRIPTION)?;
+
         // Check if subscribed
         if !self.lite_topic_set.lock().contains(&lite_topic) {
             return Ok(());
@@ -186,10 +206,11 @@ impl LiteSubscriptionManager {
         self.lite_topic_set.lock().remove(&lite_topic);
 
         info!(
-            "UnsubscribeLite {}, topic={}, group={}",
+            "UnsubscribeLite {}, topic={}, group={}, clientId={}",
             lite_topic,
             self.get_bind_topic_name(),
-            self.get_consumer_group_name()
+            self.get_consumer_group_name(),
+            self.client.client_id()
         );
 
         Ok(())

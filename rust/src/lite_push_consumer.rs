@@ -330,6 +330,9 @@ impl LitePushConsumer {
                 }
 
                 // Handle settings updates from server
+                // Reference Java: LitePushConsumerImpl.onSettingsCommand()
+                // super.onSettingsCommand(endpoints, settings) is handled by inner PushConsumer
+                // liteSubscriptionManager.sync(settings) is called here
                 if let Some(pb::telemetry_command::Command::Settings(ref settings_cmd)) =
                     command.command
                 {
@@ -339,7 +342,7 @@ impl LitePushConsumer {
                     );
                     // Sync settings to LitePushSubscriptionSettings (uses interior mutability)
                     settings.sync_from_server(settings_cmd);
-                    // Also sync to LiteSubscriptionManager (uses interior mutability)
+                    // Also sync to LiteSubscriptionManager (reference Java: liteSubscriptionManager.sync(settings))
                     manager.sync_settings(settings_cmd);
                 }
             }
