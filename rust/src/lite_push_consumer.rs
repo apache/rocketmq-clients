@@ -25,7 +25,7 @@ use parking_lot::Mutex;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
-use tracing::info;
+use tracing::{debug, error, info, warn};
 
 use crate::client::Client;
 use crate::conf::{ClientOption, PushConsumerOption};
@@ -42,21 +42,18 @@ const OPERATION_NEW_LITE_PUSH_CONSUMER: &str = "lite_push_consumer.new";
 /// LitePushSubscriptionSettings manages settings specific to LitePushConsumer
 pub struct LitePushSubscriptionSettings {
     bind_topic: String,
-    #[allow(dead_code)]
     namespace: String,
-    #[allow(dead_code)]
     consumer_group: String,
-    #[allow(dead_code)]
     fifo: bool,
     lite_subscription_quota: Arc<Mutex<i32>>,
     max_lite_topic_size: Arc<Mutex<i32>>,
 }
 
 impl LitePushSubscriptionSettings {
-    /// Create new LitePushSubscriptionSettings
+    /// Create new LitePushSubscriptionSettings with default subscription expression
     pub fn new(bind_topic: String, namespace: String, consumer_group: String) -> Self {
         Self {
-            bind_topic,
+            bind_topic: bind_topic.clone(),
             namespace,
             consumer_group,
             fifo: true, // LitePushConsumer always uses FIFO mode
@@ -94,7 +91,7 @@ impl LitePushSubscriptionSettings {
         *self.lite_subscription_quota.lock()
     }
 
-    /// Set lite subscription quota
+    /// Set lite subscription quota (uses interior mutability via Mutex)
     pub fn set_lite_subscription_quota(&self, quota: i32) {
         *self.lite_subscription_quota.lock() = quota;
     }
@@ -105,12 +102,12 @@ impl LitePushSubscriptionSettings {
         *self.max_lite_topic_size.lock()
     }
 
-    /// Set max lite topic size
+    /// Set max lite topic size (uses interior mutability via Mutex)
     pub fn set_max_lite_topic_size(&self, size: i32) {
         *self.max_lite_topic_size.lock() = size;
     }
 
-    /// Sync settings from server
+    /// Sync settings from server (uses interior mutability via Mutex)
     pub fn sync_from_server(&self, settings: &pb::Settings) {
         if let Some(pb::settings::PubSub::Subscription(subscription)) = &settings.pub_sub {
             if let Some(quota) = subscription.lite_subscription_quota {
@@ -241,16 +238,17 @@ impl LitePushConsumer {
 
     /// Start the LitePushConsumer
     pub async fn start(&mut self) -> Result<(), ClientError> {
-        info!("Starting LitePushConsumer...");
+        let bind_topic = self.settings.bind_topic().to_string();
+        let consumer_group = self.settings.consumer_group().to_string();
+        let client_id = self.lite_client.client_id().to_string();
 
-        // Start the inner push consumer
-        let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
-        self.inner
-            .start_with_telemetry(telemetry_command_tx)
-            .await?;
+        info!(
+            "Begin to start the LitePushConsumer, bindTopic={}, consumerGroup={}, clientId={}",
+            bind_topic, consumer_group, client_id
+        );
 
         // Pre-fetch bindTopic route to initialize infrastructure
-        let bind_topic = self.settings.bind_topic().to_string();
+        // This ensures the routing information is available before starting consumption
         match self.lite_client.topic_route(&bind_topic, false).await {
             Ok(route) => {
                 info!(
@@ -260,18 +258,56 @@ impl LitePushConsumer {
                 );
             }
             Err(e) => {
-                info!(
-                    "Failed to pre-fetch route for bindTopic={}, error={:?}",
+                warn!(
+                    "Failed to pre-fetch route for bindTopic={}, error={:?}. Will retry later.",
                     bind_topic, e
                 );
-                // Don't fail startup if route fetch fails, it will be retried later
+                // Don't fail startup if route fetch fails, it will be retried by sync mechanism
             }
         }
 
-        // Start lite subscription manager
-        self.lite_subscription_manager.start().await?;
+        // Start the inner push consumer with telemetry channel
+        let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
+        if let Err(e) = self.inner.start_with_telemetry(telemetry_command_tx).await {
+            error!(
+                "Failed to start LitePushConsumer inner, bindTopic={}, clientId={}, error={:?}",
+                bind_topic, client_id, e
+            );
+            // Attempt graceful shutdown on failure (reference Go/Python pattern)
+            if let Err(shutdown_err) = self.shutdown().await {
+                error!(
+                    "Failed to shutdown after start failure, clientId={}, error={:?}",
+                    client_id, shutdown_err
+                );
+            }
+            return Err(ClientError::new(
+                ErrorKind::ClientInternal,
+                &format!("startUp err={:?}", e),
+                "lite_push_consumer.start",
+            ));
+        }
 
-        // Setup telemetry command handling
+        // Start lite subscription manager to sync subscriptions
+        if let Err(e) = self.lite_subscription_manager.start().await {
+            error!(
+                "Failed to start LiteSubscriptionManager, bindTopic={}, clientId={}, error={:?}",
+                bind_topic, client_id, e
+            );
+            // Attempt graceful shutdown on failure
+            if let Err(shutdown_err) = self.shutdown().await {
+                error!(
+                    "Failed to shutdown after start failure, clientId={}, error={:?}",
+                    client_id, shutdown_err
+                );
+            }
+            return Err(ClientError::new(
+                ErrorKind::ClientInternal,
+                &format!("startUp err={:?}", e),
+                "lite_push_consumer.start",
+            ));
+        }
+
+        // Setup telemetry command handling for dynamic subscription management
         let shutdown_token = CancellationToken::new();
         self.shutdown_token = Some(shutdown_token.clone());
         let task_tracker = TaskTracker::new();
@@ -279,28 +315,44 @@ impl LitePushConsumer {
 
         let manager = Arc::clone(&self.lite_subscription_manager);
         let settings = Arc::clone(&self.settings);
+        let client_id_clone = client_id.clone();
         task_tracker.spawn(async move {
             while let Some(command) = telemetry_command_rx.recv().await {
-                // Handle NotifyUnsubscribeLiteCommand
+                // Handle NotifyUnsubscribeLiteCommand from server
                 if let Some(pb::telemetry_command::Command::NotifyUnsubscribeLiteCommand(ref cmd)) =
                     command.command
                 {
+                    info!(
+                        "Received unsubscribe notification for lite topic: {}, clientId={}",
+                        cmd.lite_topic, client_id_clone
+                    );
                     manager.on_notify_unsubscribe_lite_command(cmd.lite_topic.clone());
                 }
 
-                // Handle settings updates
+                // Handle settings updates from server
                 if let Some(pb::telemetry_command::Command::Settings(ref settings_cmd)) =
                     command.command
                 {
-                    // Sync settings to LitePushSubscriptionSettings
+                    debug!(
+                        "Received settings update from server, clientId={}",
+                        client_id_clone
+                    );
+                    // Sync settings to LitePushSubscriptionSettings (uses interior mutability)
                     settings.sync_from_server(settings_cmd);
-                    // Also sync to LiteSubscriptionManager
+                    // Also sync to LiteSubscriptionManager (uses interior mutability)
                     manager.sync_settings(settings_cmd);
                 }
             }
+            info!(
+                "Telemetry command handler stopped, clientId={}",
+                client_id_clone
+            );
         });
 
-        info!("LitePushConsumer started successfully");
+        info!(
+            "The LitePushConsumer starts successfully, bindTopic={}, consumerGroup={}, clientId={}",
+            bind_topic, consumer_group, client_id
+        );
         Ok(())
     }
 }

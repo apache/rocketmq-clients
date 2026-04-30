@@ -114,14 +114,16 @@ impl LiteSubscriptionManager {
         self.lite_topic_set.lock().clone()
     }
 
-    /// Sync settings from server
+    /// Sync settings from server (uses interior mutability via Mutex)
     pub fn sync_settings(&self, settings: &pb::Settings) {
         if let Some(pb::settings::PubSub::Subscription(subscription)) = &settings.pub_sub {
             if let Some(quota) = subscription.lite_subscription_quota {
                 *self.lite_subscription_quota.lock() = quota;
+                info!("Updated lite subscription quota to {}", quota);
             }
             if let Some(max_size) = subscription.max_lite_topic_size {
                 *self.max_lite_topic_size.lock() = max_size;
+                info!("Updated max lite topic size to {}", max_size);
             }
         }
     }

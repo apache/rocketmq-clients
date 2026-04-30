@@ -114,7 +114,7 @@ impl Client {
         self.route_manager.clone()
     }
 
-    /// Clone client for LitePushConsumer (creates a new client with same config but different type)
+    /// Clone client for LitePushConsumer (shares SessionManager for true Lite mode)
     pub(crate) fn clone_for_lite_consumer(&self) -> Self {
         let mut new_option = self.option.clone();
         new_option.client_type = ClientType::LitePushConsumer;
@@ -123,8 +123,15 @@ impl Client {
         let mut new_settings = self.settings.clone();
         if let Some(Command::Settings(ref mut settings)) = &mut new_settings.command {
             settings.client_type = Some(pb::ClientType::LitePushConsumer as i32);
+
+            // Ensure FIFO is set for LitePushConsumer
+            if let Some(pb::settings::PubSub::Subscription(ref mut sub)) = settings.pub_sub {
+                sub.fifo = Some(true);
+            }
         }
-        let session_manager = Arc::new(SessionManager::new(self.id.clone(), &new_option));
+
+        // Share the same SessionManager to enable true Lite mode with shared telemetry session
+        let session_manager = Arc::clone(&self.session_manager);
 
         Self {
             option: new_option,
