@@ -210,6 +210,9 @@ pub struct FilterExpression {
 }
 
 impl FilterExpression {
+    /// Wildcard expression that matches all messages
+    pub const SUB_ALL: &'static str = "*";
+
     /// Create a new filter expression
     ///
     /// # Arguments
@@ -220,6 +223,14 @@ impl FilterExpression {
         FilterExpression {
             filter_type,
             expression: expression.into(),
+        }
+    }
+
+    /// Create a default filter expression that subscribes to all messages (tag="*")
+    pub fn sub_all() -> Self {
+        FilterExpression {
+            filter_type: FilterType::Tag,
+            expression: Self::SUB_ALL.to_string(),
         }
     }
 

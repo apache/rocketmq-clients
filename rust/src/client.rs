@@ -287,6 +287,16 @@ impl Client {
         &self.id
     }
 
+    /// Get the client type
+    pub(crate) fn get_client_type(&self) -> ClientType {
+        self.option.client_type.clone()
+    }
+
+    /// Check if this is a lite consumer (LitePushConsumer or LiteSimpleConsumer)
+    pub(crate) fn is_lite_consumer(&self) -> bool {
+        matches!(self.option.client_type, ClientType::LitePushConsumer)
+    }
+
     fn generate_client_id() -> String {
         let host = match hostname::get() {
             Ok(name) => name,

@@ -321,6 +321,11 @@ impl PushConsumerOption {
             .insert(topic.into(), filter_expression);
     }
 
+    /// Set subscription expressions (replaces all existing subscriptions)
+    pub fn set_subscription_expressions(&mut self, expressions: HashMap<String, FilterExpression>) {
+        self.subscription_expressions = expressions;
+    }
+
     pub fn get_filter_expression(&self, topic: &str) -> Option<&FilterExpression> {
         self.subscription_expressions.get(topic)
     }

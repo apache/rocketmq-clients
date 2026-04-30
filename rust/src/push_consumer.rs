@@ -556,10 +556,12 @@ impl MessageQueueActor {
             let message_queue = self.message_queue.clone();
             let option = self.option.clone();
             let retry_policy = self.retry_policy.clone();
+            // TODO: Pass is_lite_consumer from Client when LitePushConsumer is fully integrated
             let mut ack_processor = AckEntryProcessor::new(
                 self.rpc_client.shadow_session(),
                 self.option.get_consumer_group_resource(),
                 self.message_queue.topic.to_owned(),
+                false, // Default to false for now, will be set by LitePushConsumer
             );
             ack_processor.start().await?;
             let shutdown_token = shutdown_token.clone();
@@ -811,17 +813,24 @@ struct AckEntryProcessor {
     rpc_client: Session,
     consumer_group: Resource,
     topic: Resource,
+    is_lite_consumer: bool, // Flag to indicate if this is a lite consumer
     ack_entry_sender: Option<mpsc::Sender<AckEntryItem>>,
     shutdown_token: Option<CancellationToken>,
     task_tracker: Option<TaskTracker>,
 }
 
 impl AckEntryProcessor {
-    fn new(rpc_client: Session, consumer_group: Resource, topic: Resource) -> Self {
+    fn new(
+        rpc_client: Session,
+        consumer_group: Resource,
+        topic: Resource,
+        is_lite_consumer: bool,
+    ) -> Self {
         Self {
             rpc_client,
             consumer_group,
             topic,
+            is_lite_consumer,
             ack_entry_sender: None,
             shutdown_token: None,
             task_tracker: None,
@@ -833,6 +842,7 @@ impl AckEntryProcessor {
             rpc_client: self.rpc_client.shadow_session(),
             consumer_group: self.consumer_group.clone(),
             topic: self.topic.clone(),
+            is_lite_consumer: self.is_lite_consumer,
             ack_entry_sender: None,
             shutdown_token: None,
             task_tracker: None,
@@ -913,6 +923,13 @@ impl AckEntryProcessor {
         delivery_attempt: i32,
         max_delivery_attempts: i32,
     ) -> Result<(), ClientError> {
+        // Only set lite_topic for lite consumers (reference Java implementation)
+        let lite_topic = if self.is_lite_consumer {
+            message.lite_topic().map(|s| s.to_string())
+        } else {
+            None
+        };
+
         let request = ForwardMessageToDeadLetterQueueRequest {
             group: Some(self.consumer_group.clone()),
             topic: Some(self.topic.clone()),
@@ -920,7 +937,7 @@ impl AckEntryProcessor {
             message_id: message.message_id().to_string(),
             delivery_attempt,
             max_delivery_attempts,
-            lite_topic: message.lite_topic().map(|s| s.to_string()),
+            lite_topic,
         };
         let response = self.rpc_client.forward_to_deadletter_queue(request).await?;
         handle_response_status(response.status, OPERATION_FORWARD_TO_DEADLETTER_QUEUE)
@@ -931,6 +948,13 @@ impl AckEntryProcessor {
         ack_entry: &MessageView,
         invisible_duration: Duration,
     ) -> Result<(), ClientError> {
+        // Only set lite_topic for lite consumers (reference Java implementation)
+        let lite_topic = if self.is_lite_consumer {
+            ack_entry.lite_topic().map(|s| s.to_string())
+        } else {
+            None
+        };
+
         let request = ChangeInvisibleDurationRequest {
             group: Some(self.consumer_group.clone()),
             topic: Some(self.topic.clone()),
@@ -945,7 +969,7 @@ impl AckEntryProcessor {
                     )
                 },
             )?),
-            lite_topic: ack_entry.lite_topic().map(|s| s.to_string()),
+            lite_topic,
             suspend: None,
         };
         let response = self.rpc_client.change_invisible_duration(request).await?;
@@ -1044,13 +1068,20 @@ impl AckEntryProcessor {
     }
 
     async fn ack_message_inner(&mut self, ack_entry: &MessageView) -> Result<(), ClientError> {
+        // Only set lite_topic for lite consumers (reference Java implementation)
+        let lite_topic = if self.is_lite_consumer {
+            ack_entry.lite_topic().map(|s| s.to_string())
+        } else {
+            None
+        };
+
         let request = AckMessageRequest {
             group: Some(self.consumer_group.clone()),
             topic: Some(self.topic.clone()),
             entries: vec![pb::AckMessageEntry {
                 message_id: ack_entry.message_id().to_string(),
                 receipt_handle: ack_entry.receipt_handle().to_string(),
-                lite_topic: ack_entry.lite_topic().map(|s| s.to_string()),
+                lite_topic,
             }],
         };
         let response = self.rpc_client.ack_message(request).await?;
@@ -1520,7 +1551,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1569,7 +1600,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1615,7 +1646,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1670,7 +1701,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1716,7 +1747,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1770,7 +1801,7 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -1831,7 +1862,7 @@ mod tests {
                 entries: vec![],
             })
         });
-        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
         let result = ConsumerWorker::Standard(consumer_worker)
@@ -1890,7 +1921,7 @@ mod tests {
                     receipt_handle: "".to_string(),
                 })
             });
-        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
         let result = ConsumerWorker::Standard(consumer_worker)
@@ -1943,7 +1974,7 @@ mod tests {
                 entries: vec![],
             })
         });
-        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
         let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
@@ -2004,7 +2035,7 @@ mod tests {
                     }),
                 })
             });
-        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic);
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
         let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
