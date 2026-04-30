@@ -288,11 +288,13 @@ impl Client {
     }
 
     /// Get the client type
+    #[allow(dead_code)]
     pub(crate) fn get_client_type(&self) -> ClientType {
         self.option.client_type.clone()
     }
 
     /// Check if this is a lite consumer (LitePushConsumer or LiteSimpleConsumer)
+    #[allow(dead_code)]
     pub(crate) fn is_lite_consumer(&self) -> bool {
         matches!(self.option.client_type, ClientType::LitePushConsumer)
     }

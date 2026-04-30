@@ -42,8 +42,11 @@ const OPERATION_NEW_LITE_PUSH_CONSUMER: &str = "lite_push_consumer.new";
 /// LitePushSubscriptionSettings manages settings specific to LitePushConsumer
 pub struct LitePushSubscriptionSettings {
     bind_topic: String,
+    #[allow(dead_code)]
     namespace: String,
+    #[allow(dead_code)]
     consumer_group: String,
+    #[allow(dead_code)]
     fifo: bool,
     lite_subscription_quota: Arc<Mutex<i32>>,
     max_lite_topic_size: Arc<Mutex<i32>>,
@@ -68,21 +71,25 @@ impl LitePushSubscriptionSettings {
     }
 
     /// Get namespace
+    #[allow(dead_code)]
     pub fn namespace(&self) -> &str {
         &self.namespace
     }
 
     /// Get consumer group
+    #[allow(dead_code)]
     pub fn consumer_group(&self) -> &str {
         &self.consumer_group
     }
 
     /// Check if FIFO mode is enabled
+    #[allow(dead_code)]
     pub fn fifo(&self) -> bool {
         self.fifo
     }
 
     /// Get lite subscription quota
+    #[allow(dead_code)]
     pub fn lite_subscription_quota(&self) -> i32 {
         *self.lite_subscription_quota.lock()
     }
@@ -93,6 +100,7 @@ impl LitePushSubscriptionSettings {
     }
 
     /// Get max lite topic size
+    #[allow(dead_code)]
     pub fn max_lite_topic_size(&self) -> i32 {
         *self.max_lite_topic_size.lock()
     }
