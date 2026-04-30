@@ -53,9 +53,19 @@ namespace Org.Apache.Rocketmq
 
         public void Start()
         {
-            // Sync all after startup for subscribeLite("*")
+            // Sync all after startup to initialize lite subscription infrastructure
+            // This triggers the initial sync even if liteTopicSet is empty
             Logger.LogInformation($"Starting LiteSubscriptionManager, bindTopic={GetBindTopicName()}, consumerGroup={GetConsumerGroupName()}");
-            SyncAllLiteSubscription();
+            
+            try
+            {
+                SyncAllLiteSubscription();
+                Logger.LogInformation($"Initial lite subscription sync completed successfully");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, $"Failed to perform initial lite subscription sync");
+            }
             
             // Schedule periodic sync every 30 seconds using Timer
             var timer = new System.Threading.Timer(

@@ -667,6 +667,15 @@ namespace Org.Apache.Rocketmq
         }
 
         /// <summary>
+        /// Get client type for this push consumer.
+        /// </summary>
+        /// <returns>The client type (PUSH_CONSUMER).</returns>
+        protected override ClientType GetClientType()
+        {
+            return ClientType.PushConsumer;
+        }
+
+        /// <summary>
         /// Gets the load balancing group for the consumer.
         /// </summary>
         /// <returns>The consumer load balancing group.</returns>

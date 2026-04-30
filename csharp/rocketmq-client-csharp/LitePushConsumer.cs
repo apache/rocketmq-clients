@@ -73,7 +73,28 @@ namespace Org.Apache.Rocketmq
         protected override async Task Start()
         {
             await base.Start();
+            
+            // Manually fetch route for bind topic to ensure it's available before lite subscription sync
+            // This triggers infrastructure initialization (Telemetry Session, routing, etc.)
+            try
+            {
+                Logger.LogInformation($"Fetching route for bind topic: {_bindTopic}, clientId={ClientId}");
+                var routeData = await GetRouteData(_bindTopic);
+                Logger.LogInformation($"Successfully fetched route for bind topic: {_bindTopic}, " +
+                                    $"messageQueueCount={routeData.MessageQueues.Count}, clientId={ClientId}");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, $"Failed to fetch route for bind topic: {_bindTopic}, clientId={ClientId}. " +
+                                  $"Lite subscription sync may be affected.");
+                // Don't throw here, allow the consumer to start anyway
+            }
+            
+            // Start LiteSubscriptionManager which will:
+            // 1. Perform initial sync of all lite subscriptions (even if empty)
+            // 2. Schedule periodic sync every 30 seconds
             _liteSubscriptionManager.Start();
+            
             Logger.LogInformation($"LitePushConsumer started successfully, clientId={ClientId}, bindTopic={_bindTopic}, consumerGroup={ConsumerGroup}");
         }
 
@@ -153,6 +174,32 @@ namespace Org.Apache.Rocketmq
         }
 
         /// <summary>
+        /// Get settings with LITE_PUSH_CONSUMER client type.
+        /// </summary>
+        internal override Settings GetSettings()
+        {
+            // Create LitePushSubscriptionSettings with correct ClientType
+            var clientConfig = GetClientConfig();
+            var liteSettings = new LitePushSubscriptionSettings(
+                clientConfig.Namespace,
+                ClientId,
+                Endpoints,
+                ConsumerGroup,
+                clientConfig.RequestTimeout,
+                GetSubscriptionExpressions());
+            return liteSettings;
+        }
+
+        /// <summary>
+        /// Get client type for this lite push consumer.
+        /// </summary>
+        /// <returns>The client type (LITE_PUSH_CONSUMER).</returns>
+        protected override ClientType GetClientType()
+        {
+            return ClientType.LitePushConsumer;
+        }
+
+        /// <summary>
         /// Get the bind topic for lite subscriptions.
         /// </summary>
         public string GetBindTopic()
@@ -195,6 +242,11 @@ namespace Org.Apache.Rocketmq
             {
                 Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(bindTopic), "bindTopic should not be null or empty");
                 _bindTopic = bindTopic;
+                // Default subscription: (bindTopic, *) for code reuse.
+                _subscriptionExpressions = new ConcurrentDictionary<string, FilterExpression>
+                {
+                    [bindTopic] = FilterExpression.SubAll
+                };
                 return this;
             }
 
