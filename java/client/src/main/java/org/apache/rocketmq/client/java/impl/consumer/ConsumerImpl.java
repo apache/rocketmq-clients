@@ -40,7 +40,9 @@ import com.google.protobuf.util.Timestamps;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -67,7 +69,15 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings({"NullableProblems"})
 public abstract class ConsumerImpl extends ClientImpl {
     static final Pattern CONSUMER_GROUP_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
+
+    /**
+     * Maximum number of ack entries packed into a single {@link AckMessageRequest}.
+     * Prevents oversized gRPC payloads and reduces server-side per-request pressure.
+     */
+    static final int MAX_ACK_ENTRIES_PER_RPC = 512;
+
     private static final Logger log = LoggerFactory.getLogger(ConsumerImpl.class);
+
     protected final Resource groupResource;
 
     ConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup, Set<String> topics) {
@@ -142,6 +152,11 @@ public abstract class ConsumerImpl extends ClientImpl {
 
     protected ChangeInvisibleDurationRequest wrapChangeInvisibleDuration(MessageViewImpl messageView,
         Duration invisibleDuration) {
+        return wrapChangeInvisibleDuration(messageView, invisibleDuration, false);
+    }
+
+    protected ChangeInvisibleDurationRequest wrapChangeInvisibleDuration(MessageViewImpl messageView,
+        Duration invisibleDuration, boolean suspend) {
         final apache.rocketmq.v2.Resource topicResource = apache.rocketmq.v2.Resource.newBuilder()
             .setResourceNamespace(clientConfiguration.getNamespace())
             .setName(messageView.getTopic()).build();
@@ -151,6 +166,9 @@ public abstract class ConsumerImpl extends ClientImpl {
             .setReceiptHandle(messageView.getReceiptHandle())
             .setInvisibleDuration(Durations.fromNanos(invisibleDuration.toNanos()))
             .setMessageId(messageView.getMessageId().toString());
+        if (suspend) {
+            builder.setSuspend(true);
+        }
         if (isLiteConsumer()) {
             if (messageView.getLiteTopic().isPresent()) {
                 builder.setLiteTopic(messageView.getLiteTopic().get());
@@ -158,6 +176,90 @@ public abstract class ConsumerImpl extends ClientImpl {
             }
         }
         return builder.build();
+    }
+
+    /**
+     * Acknowledges a batch of messages grouped by (endpoints, topic).
+     *
+     * <p>Messages are first grouped by their target endpoints and topic.  Each group is then
+     * further split into chunks of at most {@link #MAX_ACK_ENTRIES_PER_RPC} entries to keep
+     * individual gRPC payloads small and to reduce server-side per-request pressure.
+     *
+     * @param messageViews the messages to acknowledge; all elements must be {@link MessageViewImpl}.
+     * @return a future that completes when <em>all</em> underlying RPCs have completed.
+     */
+    protected ListenableFuture<Void> batchAckMessages(List<MessageViewImpl> messageViews) {
+        // Group messages by (endpoints, topic) so that each RPC covers one broker + topic.
+        final Map<Endpoints, Map<String /* topic */, List<MessageViewImpl>>> grouped = new HashMap<>();
+        for (MessageViewImpl mv : messageViews) {
+            grouped.computeIfAbsent(mv.getEndpoints(), k -> new HashMap<>())
+                .computeIfAbsent(mv.getTopic(), k -> new ArrayList<>())
+                .add(mv);
+        }
+
+        final List<ListenableFuture<Void>> futures = new ArrayList<>();
+        for (Map.Entry<Endpoints, Map<String, List<MessageViewImpl>>> endpointsEntry : grouped.entrySet()) {
+            final Endpoints endpoints = endpointsEntry.getKey();
+            for (Map.Entry<String, List<MessageViewImpl>> topicEntry : endpointsEntry.getValue().entrySet()) {
+                final List<MessageViewImpl> batch = topicEntry.getValue();
+                // Split into chunks to avoid oversized RPC payloads.
+                for (int i = 0; i < batch.size(); i += MAX_ACK_ENTRIES_PER_RPC) {
+                    final int end = Math.min(i + MAX_ACK_ENTRIES_PER_RPC, batch.size());
+                    futures.add(doBatchAck(endpoints, batch.subList(i, end)));
+                }
+            }
+        }
+        return Futures.whenAllComplete(futures).call(() -> {
+            // Propagate the first failure if any.
+            for (ListenableFuture<Void> f : futures) {
+                f.get(); // throws ExecutionException on failure
+            }
+            return null;
+        }, MoreExecutors.directExecutor());
+    }
+
+    private ListenableFuture<Void> doBatchAck(Endpoints endpoints, List<MessageViewImpl> batch) {
+        final List<GeneralMessage> generalMessages = new ArrayList<>(batch.size());
+        for (MessageViewImpl mv : batch) {
+            generalMessages.add(new GeneralMessageImpl(mv));
+        }
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.ACK);
+        doBefore(context, generalMessages);
+
+        final AckMessageRequest.Builder requestBuilder = AckMessageRequest.newBuilder()
+            .setGroup(getProtobufGroup())
+            .setTopic(apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(clientConfiguration.getNamespace())
+                .setName(batch.get(0).getTopic())
+                .build());
+        for (MessageViewImpl mv : batch) {
+            final AckMessageEntry.Builder entryBuilder = AckMessageEntry.newBuilder()
+                .setMessageId(mv.getMessageId().toString())
+                .setReceiptHandle(mv.getReceiptHandle());
+            if (isLiteConsumer()) {
+                mv.getLiteTopic().ifPresent(entryBuilder::setLiteTopic);
+            }
+            requestBuilder.addEntries(entryBuilder.build());
+        }
+
+        final RpcFuture<AckMessageRequest, AckMessageResponse> future;
+        try {
+            final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+            future = this.getClientManager().ackMessage(endpoints, requestBuilder.build(), requestTimeout);
+        } catch (Throwable t) {
+            return Futures.immediateFailedFuture(t);
+        }
+        return Futures.transformAsync(future, response -> {
+            final Status status = response.getStatus();
+            final Code code = status.getCode();
+            MessageHookPointsStatus hookPointsStatus = Code.OK.equals(code)
+                ? MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
+            MessageInterceptorContextImpl context0 =
+                new MessageInterceptorContextImpl(context, hookPointsStatus);
+            doAfter(context0, generalMessages);
+            StatusChecker.check(status, future);
+            return Futures.immediateVoidFuture();
+        }, MoreExecutors.directExecutor());
     }
 
     protected RpcFuture<AckMessageRequest, AckMessageResponse> ackMessage(MessageViewImpl messageView) {
@@ -196,13 +298,19 @@ public abstract class ConsumerImpl extends ClientImpl {
 
     RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> changeInvisibleDuration(
         MessageViewImpl messageView, Duration invisibleDuration) {
+        return changeInvisibleDuration(messageView, invisibleDuration, false);
+    }
+
+    RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> changeInvisibleDuration(
+        MessageViewImpl messageView, Duration invisibleDuration, boolean suspend) {
         final Endpoints endpoints = messageView.getEndpoints();
         RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future;
         final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
         final MessageInterceptorContextImpl context =
             new MessageInterceptorContextImpl(MessageHookPoints.CHANGE_INVISIBLE_DURATION);
         doBefore(context, generalMessages);
-        final ChangeInvisibleDurationRequest request = wrapChangeInvisibleDuration(messageView, invisibleDuration);
+        final ChangeInvisibleDurationRequest request =
+            wrapChangeInvisibleDuration(messageView, invisibleDuration, suspend);
         final Duration requestTimeout = clientConfiguration.getRequestTimeout();
         future = this.getClientManager().changeInvisibleDuration(endpoints, request, requestTimeout);
         final MessageId messageId = messageView.getMessageId();

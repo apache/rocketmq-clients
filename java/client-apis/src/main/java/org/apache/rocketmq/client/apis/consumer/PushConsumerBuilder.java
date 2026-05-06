@@ -100,6 +100,19 @@ public interface PushConsumerBuilder {
     PushConsumerBuilder setEnableMessageInterceptorFiltering(boolean enableMessageInterceptorFiltering);
 
     /**
+     * Register a batch message listener together with a {@link BatchPolicy}.
+     *
+     * <p>When set, messages will be accumulated locally according to the {@link BatchPolicy} and
+     * dispatched to the {@link BatchMessageListener} in batches. This is mutually exclusive with
+     * {@link #setMessageListener(MessageListener)} &mdash; only one of them should be set.
+     *
+     * @param batchMessageListener the batch message listener.
+     * @param batchPolicy          the policy that controls batch aggregation.
+     * @return the consumer builder instance.
+     */
+    PushConsumerBuilder setBatchMessageListener(BatchMessageListener batchMessageListener, BatchPolicy batchPolicy);
+
+    /**
      * Finalize the build of {@link PushConsumer} and start.
      *
      * <p>This method will block until the push consumer starts successfully.

@@ -50,6 +50,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.consumer.BatchMessageListener;
+import org.apache.rocketmq.client.apis.consumer.BatchPolicy;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
@@ -96,6 +98,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
     private final ConcurrentMap<String /* topic */, Assignments> cacheAssignments;
     private final MessageListener messageListener;
+    private final BatchMessageListener batchMessageListener;
+    private final BatchPolicy batchPolicy;
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
     private final boolean enableFifoConsumeAccelerator;
@@ -125,12 +129,43 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator) {
-        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
-            maxCacheMessageSizeInBytes, consumptionThreadCount, enableFifoConsumeAccelerator, false);
+        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener,
+            null, null,
+            maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount,
+            enableFifoConsumeAccelerator, false);
     }
 
     public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
+        int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
+        boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering) {
+        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener,
+            null, null,
+            maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount,
+            enableFifoConsumeAccelerator, enableMessageInterceptorFiltering);
+    }
+
+    /**
+     * Batch consumption constructor.
+     */
+    public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
+        Map<String, FilterExpression> subscriptionExpressions,
+        BatchMessageListener batchMessageListener, BatchPolicy batchPolicy,
+        int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
+        boolean enableMessageInterceptorFiltering) {
+        this(clientConfiguration, consumerGroup, subscriptionExpressions, null,
+            batchMessageListener, batchPolicy,
+            maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount,
+            false, enableMessageInterceptorFiltering);
+    }
+
+    /**
+     * Full constructor (internal). Either {@code messageListener} or {@code batchMessageListener}
+     * should be non-null, not both.
+     */
+    private PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
+        Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
+        BatchMessageListener batchMessageListener, BatchPolicy batchPolicy,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
@@ -139,6 +174,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         this.subscriptionExpressions = subscriptionExpressions;
         this.cacheAssignments = new ConcurrentHashMap<>();
         this.messageListener = messageListener;
+        this.batchMessageListener = batchMessageListener;
+        this.batchPolicy = batchPolicy;
         this.maxCacheMessageCount = maxCacheMessageCount;
         this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
@@ -163,11 +200,13 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         this.addMessageInterceptor(inflightRequestCountInterceptor);
     }
 
+    @VisibleForTesting
     public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
-        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, maxCacheMessageCount,
-            maxCacheMessageSizeInBytes, consumptionThreadCount, true, false);
+        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener,
+            null, null,
+            maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount, true, false);
     }
 
     @Override
@@ -213,6 +252,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         }
         log.info("Waiting for the inflight receive requests to be finished, clientId={}", clientId);
         waitingReceiveRequestFinished();
+        log.info("Flush remaining buffered messages in consume service, clientId={}", clientId);
+        this.consumeService.close();
         log.info("Begin to Shutdown consumption executor, clientId={}", clientId);
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
@@ -246,6 +287,12 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     protected ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
+        if (batchMessageListener != null) {
+            log.info("Create batch consume service, consumerGroup={}, clientId={}, batchPolicy={}",
+                getConsumerGroup(), clientId, batchPolicy);
+            return new BatchConsumeService(clientId, batchMessageListener, batchPolicy,
+                consumptionExecutor, this, scheduler);
+        }
         if (getSettings().isFifo()) {
             log.info("Create {}FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
                 isLiteConsumer() ? "Lite " : "", getConsumerGroup(), clientId, enableFifoConsumeAccelerator);

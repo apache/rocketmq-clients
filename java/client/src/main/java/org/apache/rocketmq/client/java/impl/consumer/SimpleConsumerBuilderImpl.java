@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.consumer.BatchPolicy;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumerBuilder;
@@ -35,6 +36,7 @@ public class SimpleConsumerBuilderImpl implements SimpleConsumerBuilder {
     private String consumerGroup = null;
     private Map<String, FilterExpression> subscriptionExpressions = new ConcurrentHashMap<>();
     private Duration awaitDuration = null;
+    private BatchPolicy batchPolicy = null;
 
     /**
      * @see SimpleConsumerBuilder#setClientConfiguration(ClientConfiguration)
@@ -72,6 +74,13 @@ public class SimpleConsumerBuilderImpl implements SimpleConsumerBuilder {
     }
 
     @Override
+    public SimpleConsumerBuilder setBatchPolicy(BatchPolicy batchPolicy) {
+        checkNotNull(batchPolicy, "batchPolicy should not be null");
+        this.batchPolicy = batchPolicy;
+        return this;
+    }
+
+    @Override
     public SimpleConsumer build() throws ClientException {
         checkNotNull(clientConfiguration, "clientConfiguration has not been set yet");
         checkNotNull(consumerGroup, "consumerGroup has not been set yet");
@@ -80,6 +89,9 @@ public class SimpleConsumerBuilderImpl implements SimpleConsumerBuilder {
         final SimpleConsumerImpl consumer = new SimpleConsumerImpl(clientConfiguration, consumerGroup, awaitDuration,
             subscriptionExpressions);
         consumer.startAsync().awaitRunning();
+        if (batchPolicy != null) {
+            return BatchingSimpleConsumerImpl.create(consumer, batchPolicy);
+        }
         return consumer;
     }
 }
