@@ -128,6 +128,8 @@ impl LitePushConsumer {
         }
 
         // Reference Java: ImmutableMap.of(bindTopic, FilterExpression.SUB_ALL)
+        // This ensures the subscription_table contains bind_topic so that scan_assignments
+        // can query assignments and start messageQueueActor for the bind topic
         let mut option_with_default_subscription = option.clone();
         option_with_default_subscription.set_subscription_expressions(
             std::collections::HashMap::from([(bind_topic.clone(), crate::model::common::FilterExpression::sub_all())]),
@@ -143,6 +145,7 @@ impl LitePushConsumer {
         let consumer_group = option.consumer_group().to_string();
 
         // Reference Java: ConsumerImpl constructor
+        // Create the main client for consumption (inner PushConsumer)
         let client_option = ClientOption {
             client_type: ClientType::LitePushConsumer,
             group: Some(option.consumer_group().to_string()),
@@ -154,6 +157,12 @@ impl LitePushConsumer {
         // Reference Java: LiteSubscriptionManager(consumerImpl, new Resource(bindTopic), groupResource)
         // clone_for_lite_consumer creates a lightweight Client clone sharing the same SessionManager.
         // This simulates Java's approach where LiteSubscriptionManager uses consumerImpl directly.
+        // 
+        // Dual Client Architecture:
+        // - inner client: Used by PushConsumer for message consumption (owns the client)
+        // - lite_client: Used by LiteSubscriptionManager for subscription management (cloned, shares SessionManager)
+        // Both clients share the same SessionManager via Arc::clone, enabling true Lite mode
+        // where they use the same underlying telemetry session and connection.
         let lite_client = Arc::new(client.clone_for_lite_consumer());
         let lite_subscription_manager = Arc::new(LiteSubscriptionManager::new(
             Arc::clone(&lite_client),
@@ -162,8 +171,14 @@ impl LitePushConsumer {
             consumer_group,
         ));
 
-        // Create inner PushConsumer with the main client (owns the client for consumption)
-        let inner = PushConsumer::new_with_client(client, option, message_listener)?;
+        // Create inner PushConsumer with option_with_default_subscription
+        // This is CRITICAL: The inner PushConsumer must use option_with_default_subscription
+        // to ensure subscription_table contains bind_topic. This allows scan_assignments to
+        // query assignments for the bind topic and start messageQueueActor.
+        // 
+        // Reference Java: LitePushConsumerImpl extends PushConsumerImpl, which uses the
+        // subscriptionExpressions set in the builder (ImmutableMap.of(bindTopic, SUB_ALL))
+        let inner = PushConsumer::new_with_client(client, option_with_default_subscription, message_listener)?;
 
         Ok(Self {
             inner,
@@ -321,6 +336,10 @@ impl LitePushConsumerTrait for LitePushConsumer {
     ///
     /// Reference Java: LitePushConsumerImpl.subscribeLite(String)
     async fn subscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
+        // Check if client is started (public API validation)
+        // Use inner's client because lite_client is a clone without shutdown_tx
+        self.inner.check_started("lite_push_consumer.subscribe_lite")?;
+        
         self.lite_subscription_manager
             .subscribe_lite(lite_topic, None)
             .await
@@ -334,6 +353,10 @@ impl LitePushConsumerTrait for LitePushConsumer {
         lite_topic: String,
         offset_option: OffsetOption,
     ) -> Result<(), ClientError> {
+        // Check if client is started (public API validation)
+        // Use inner's client because lite_client is a clone without shutdown_tx
+        self.inner.check_started("lite_push_consumer.subscribe_lite_with_offset")?;
+        
         self.lite_subscription_manager
             .subscribe_lite(lite_topic, Some(offset_option))
             .await
@@ -343,6 +366,10 @@ impl LitePushConsumerTrait for LitePushConsumer {
     ///
     /// Reference Java: LitePushConsumerImpl.unsubscribeLite(String)
     async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
+        // Check if client is started (public API validation)
+        // Use inner's client because lite_client is a clone without shutdown_tx
+        self.inner.check_started("lite_push_consumer.unsubscribe_lite")?;
+        
         self.lite_subscription_manager
             .unsubscribe_lite(lite_topic)
             .await

@@ -145,23 +145,26 @@ impl LiteSubscriptionManager {
         lite_topic: String,
         offset_option: Option<OffsetOption>,
     ) -> Result<(), ClientError> {
-        // Check if client is running (reference Java: consumerImpl.checkRunning())
-        self.client
-            .check_started(OPERATION_SYNC_LITE_SUBSCRIPTION)?;
-
+        // For LitePushConsumer, we skip the check_started check because:
+        // 1. The cloned client intentionally has shutdown_tx = None to avoid duplicate shutdown
+        // 2. But it shares the same SessionManager, so sessions are still valid
+        // 3. The original client manages the lifecycle, not the clone
+        // Note: The public API (LitePushConsumerTrait::subscribe_lite) should validate state
+        
         // Check if already subscribed
         if self.lite_topic_set.lock().contains(&lite_topic) {
             return Ok(());
         }
 
-        // Validate lite topic
+        // Validate lite topic format and length
         let max_size = *self.max_lite_topic_size.lock();
         self.validate_lite_topic(&lite_topic, max_size)?;
 
-        // Check quota
+        // Check quota before adding new subscription
         self.check_lite_subscription_quota(1)?;
 
-        // Sync subscription to server
+        // Sync subscription to server using PartialAdd action
+        // This adds the new lite topic to the existing set on the server
         self.sync_lite_subscription(
             LiteSubscriptionAction::PartialAdd,
             vec![lite_topic.clone()],
@@ -169,7 +172,7 @@ impl LiteSubscriptionManager {
         )
         .await?;
 
-        // Add to local set
+        // Add to local set after successful sync
         self.lite_topic_set.lock().insert(lite_topic.clone());
 
         info!(
@@ -218,9 +221,11 @@ impl LiteSubscriptionManager {
 
     /// Sync all lite subscriptions periodically
     async fn sync_all_lite_subscription(&self) -> Result<(), ClientError> {
-        // Check if client is running (reference Java: consumerImpl.checkRunning())
-        self.client
-            .check_started(OPERATION_SYNC_LITE_SUBSCRIPTION)?;
+        // For LitePushConsumer, we skip the check_started check because:
+        // 1. The cloned client intentionally has shutdown_tx = None to avoid duplicate shutdown
+        // 2. But it shares the same SessionManager, so sessions are still valid
+        // 3. The original client manages the lifecycle, not the clone
+        // Note: subscribe_lite and unsubscribe_lite still check started status via the public API
 
         // Check quota
         self.check_lite_subscription_quota(0)?;
@@ -258,7 +263,9 @@ impl LiteSubscriptionManager {
             offset_option: offset_option.map(|opt| opt.to_protobuf()),
         };
 
-        let mut rpc_client = self.client.get_session().await?;
+        // Use get_session_for_lite_consumer for LitePushConsumer
+        // This method skips check_started and handles missing telemetry channel
+        let mut rpc_client = self.client.get_session_for_lite_consumer().await?;
 
         let response = rpc_client.sync_lite_subscription(request).await?;
 

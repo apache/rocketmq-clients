@@ -123,6 +123,11 @@ impl PushConsumer {
         })
     }
 
+    /// Check if the PushConsumer is started
+    pub(crate) fn check_started(&self, operation: &'static str) -> Result<(), ClientError> {
+        self.client.check_started(operation)
+    }
+
     pub async fn start(&mut self) -> Result<(), ClientError> {
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
         self.client.start(telemetry_command_tx).await?;
@@ -1009,12 +1014,10 @@ impl AckEntryProcessor {
         delivery_attempt: i32,
         max_delivery_attempts: i32,
     ) -> Result<(), ClientError> {
-        // Only set lite_topic for lite consumers (reference Java implementation)
-        let lite_topic = if self.is_lite_consumer {
-            message.lite_topic().map(|s| s.to_string())
-        } else {
-            None
-        };
+        // Directly get lite_topic from message if it exists
+        // This solves the duplicate consumption problem by ensuring ForwardToDeadLetterQueue requests
+        // always include lite_topic when the message has it, regardless of client type flag
+        let lite_topic = message.lite_topic().map(|s| s.to_string());
 
         let request = ForwardMessageToDeadLetterQueueRequest {
             group: Some(self.consumer_group.clone()),
@@ -1034,12 +1037,10 @@ impl AckEntryProcessor {
         ack_entry: &MessageView,
         invisible_duration: Duration,
     ) -> Result<(), ClientError> {
-        // Only set lite_topic for lite consumers (reference Java implementation)
-        let lite_topic = if self.is_lite_consumer {
-            ack_entry.lite_topic().map(|s| s.to_string())
-        } else {
-            None
-        };
+        // Directly get lite_topic from message if it exists
+        // This solves the duplicate consumption problem by ensuring ChangeInvisibleDuration requests
+        // always include lite_topic when the message has it, regardless of client type flag
+        let lite_topic = ack_entry.lite_topic().map(|s| s.to_string());
 
         let request = ChangeInvisibleDurationRequest {
             group: Some(self.consumer_group.clone()),
@@ -1154,12 +1155,10 @@ impl AckEntryProcessor {
     }
 
     async fn ack_message_inner(&mut self, ack_entry: &MessageView) -> Result<(), ClientError> {
-        // Only set lite_topic for lite consumers (reference Java implementation)
-        let lite_topic = if self.is_lite_consumer {
-            ack_entry.lite_topic().map(|s| s.to_string())
-        } else {
-            None
-        };
+        // Directly get lite_topic from message if it exists
+        // This solves the duplicate consumption problem by ensuring ACK requests
+        // always include lite_topic when the message has it, regardless of client type flag
+        let lite_topic = ack_entry.lite_topic().map(|s| s.to_string());
 
         let request = AckMessageRequest {
             group: Some(self.consumer_group.clone()),
