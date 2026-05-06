@@ -37,6 +37,17 @@ dotnet add package RocketMQ.Client
 你可以从 [Nuget Gallery](https://www.nuget.org/packages/RocketMQ.Client) 从获取最新的 `RocketMQ.Client`
 版本，我们提供了[代码示例](./examples)来帮助你快速开始。
 
+### 可用示例
+
+- **ProducerNormalMessageExample**: 普通消息发送示例
+- **ProducerFifoMessageExample**: FIFO（顺序）消息发送示例
+- **ProducerDelayMessageExample**: 延迟/定时消息发送示例
+- **ProducerPriorityMessageExample**: 优先级消息发送示例 ✨ NEW
+- **ProducerWithRecallingTimedMessageExample**: 带召回功能的定时消息示例 ✨ NEW
+- **ProducerTransactionMessageExample**: 事务消息发送示例
+- **PushConsumerExample**: Push消费者示例（支持FIFO消费加速器）
+- **SimpleConsumerExample**: Simple消费者示例
+
 ## 构建
 
 本项目的布局大致遵循[此处的指南](https://docs.microsoft.com/en-us/dotnet/core/tutorials/library-with-visual-studio-code?pivots=dotnet-5-0)
@@ -55,10 +66,10 @@ dotnet test -l "console;verbosity=detailed"
 
 默认的 `LoggerFactory` 是 [NLog](https://nlog-project.org/)。与 Java 客户端类似，我们允许使用环境变量来自定义日志相关的配置：
 
-* `rocketmq_log_level`：日志输出级别，默认为 INFO。
-* `rocketmq_log_root`
+- `rocketmq_log_level`：日志输出级别，默认为 INFO。
+- `rocketmq_log_root`
   ：日志输出的根目录。默认路径为 `$HOME/logs/rocketmq`，因此完整路径为 `$HOME/logs/rocketmq/rocketmq-client.log`。
-* `rocketmq_log_file_maxIndex`：要保留的日志文件的最大数量。默认值为 10，单个日志文件的大小限制为 64 MB。暂不支持调整。
+- `rocketmq_log_file_maxIndex`：要保留的日志文件的最大数量。默认值为 10，单个日志文件的大小限制为 64 MB。暂不支持调整。
 
 如果你想使用自定义的 `LoggerFactory`，可以使用 `MqLogManager.UseLoggerFactory` 方法来配置。
 
