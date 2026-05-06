@@ -142,6 +142,16 @@ namespace Org.Apache.Rocketmq
         Task<RpcInvocation<EndTransactionRequest, EndTransactionResponse>> EndTransaction(Endpoints endpoints,
             EndTransactionRequest request, TimeSpan timeout);
 
+        /// <summary>
+        /// Sync lite subscription info for lite push consumer.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request for syncing lite subscription.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns>Task of response.</returns>
+        Task<RpcInvocation<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse>> SyncLiteSubscription(
+            Endpoints endpoints, SyncLiteSubscriptionRequest request, TimeSpan timeout);
+
         Task Shutdown();
     }
 }
