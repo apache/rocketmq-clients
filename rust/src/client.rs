@@ -171,8 +171,8 @@ impl Client {
             id: self.id.clone(),
             access_endpoints: self.access_endpoints.clone(),
             settings: new_settings,
-            telemetry_command_tx: None,  // Will be set during start()
-            shutdown_tx: None,           // Intentionally None to avoid duplicate shutdown
+            telemetry_command_tx: None, // Will be set during start()
+            shutdown_tx: None,          // Intentionally None to avoid duplicate shutdown
         }
     }
 
@@ -339,6 +339,7 @@ impl Client {
 
     /// Verify that this client shares the same SessionManager with another client
     /// This is useful for verifying Lite mode session sharing
+    #[allow(dead_code)]
     pub(crate) fn shares_session_manager_with(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.session_manager, &other.session_manager)
     }
@@ -362,7 +363,7 @@ impl Client {
         // 1. The cloned client intentionally has shutdown_tx = None to avoid duplicate shutdown
         // 2. But it shares the same SessionManager, so sessions are still valid
         // 3. The original client manages the lifecycle, not the clone
-        
+
         // Handle missing telemetry_command_tx by creating a virtual channel
         // This is safe because:
         // - The cloned client shares SessionManager with the original
@@ -377,11 +378,7 @@ impl Client {
 
         let session = self
             .session_manager
-            .get_or_create_session(
-                &self.access_endpoints,
-                self.settings.clone(),
-                telemetry_tx,
-            )
+            .get_or_create_session(&self.access_endpoints, self.settings.clone(), telemetry_tx)
             .await?;
         Ok(session)
     }
@@ -1409,36 +1406,42 @@ pub(crate) mod tests {
     #[test]
     fn test_clone_for_lite_consumer() {
         let _m = MTX.lock();
-        
+
         // Create original client
         let original_client = new_client_for_test();
-        
+
         // Clone for lite consumer
         let lite_client = original_client.clone_for_lite_consumer();
-        
+
         // Verify client type is changed
-        assert!(matches!(lite_client.option.client_type, ClientType::LitePushConsumer));
-        
+        assert!(matches!(
+            lite_client.option.client_type,
+            ClientType::LitePushConsumer
+        ));
+
         // Verify settings are updated
         if let Some(Command::Settings(ref settings)) = lite_client.settings.command {
-            assert_eq!(settings.client_type, Some(pb::ClientType::LitePushConsumer as i32));
-            
+            assert_eq!(
+                settings.client_type,
+                Some(pb::ClientType::LitePushConsumer as i32)
+            );
+
             // Verify FIFO is enabled
             if let Some(pb::settings::PubSub::Subscription(ref sub)) = settings.pub_sub {
                 assert_eq!(sub.fifo, Some(true));
             }
         }
-        
+
         // Verify SessionManager is shared
         assert!(original_client.shares_session_manager_with(&lite_client));
-        
+
         // Verify other fields are cloned correctly
         assert_eq!(original_client.id, lite_client.id);
         assert_eq!(
             original_client.access_endpoints.endpoint_url(),
             lite_client.access_endpoints.endpoint_url()
         );
-        
+
         // Verify telemetry_command_tx and shutdown_tx are reset
         assert!(lite_client.telemetry_command_tx.is_none());
         assert!(lite_client.shutdown_tx.is_none());
@@ -1447,11 +1450,11 @@ pub(crate) mod tests {
     #[test]
     fn test_is_lite_consumer() {
         let _m = MTX.lock();
-        
+
         // Create original client (not lite)
         let original_client = new_client_for_test();
         assert!(!original_client.is_lite_consumer());
-        
+
         // Clone for lite consumer
         let lite_client = original_client.clone_for_lite_consumer();
         assert!(lite_client.is_lite_consumer());
@@ -1460,7 +1463,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn test_lite_consumer_session_sharing() {
         let _m = MTX.lock();
-        
+
         let context = MockSession::new_context();
         context.expect().returning(|_, _, _| {
             let mut session = MockSession::default();
@@ -1470,25 +1473,25 @@ pub(crate) mod tests {
                 .returning(|| MockSession::default());
             Ok(session)
         });
-        
+
         // Create original client
         let session_manager = new_session_manager();
         let mut original_client = new_client_with_session_manager(session_manager);
         let (tx1, _rx1) = mpsc::channel(16);
         let _ = original_client.start(tx1).await;
-        
+
         // Clone for lite consumer
         let mut lite_client = original_client.clone_for_lite_consumer();
         let (tx2, _rx2) = mpsc::channel(16);
         let _ = lite_client.start(tx2).await;
-        
+
         // Verify they share the same SessionManager
         assert!(original_client.shares_session_manager_with(&lite_client));
-        
+
         // Both clients should be able to get sessions
         let result1 = original_client.get_session().await;
         assert!(result1.is_ok());
-        
+
         let result2 = lite_client.get_session().await;
         assert!(result2.is_ok());
     }
@@ -1496,7 +1499,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn test_get_session_for_lite_consumer() {
         let _m = MTX.lock();
-        
+
         let context = MockSession::new_context();
         context.expect().returning(|_, _, _| {
             let mut session = MockSession::default();
@@ -1506,24 +1509,24 @@ pub(crate) mod tests {
                 .returning(|| MockSession::default());
             Ok(session)
         });
-        
+
         // Create original client and start it
         let session_manager = new_session_manager();
         let mut original_client = new_client_with_session_manager(session_manager);
         let (tx1, _rx1) = mpsc::channel(16);
         let _ = original_client.start(tx1).await;
-        
+
         // Clone for lite consumer (this clone has shutdown_tx = None)
         let lite_client = original_client.clone_for_lite_consumer();
-        
+
         // Verify the lite client is not "started" (shutdown_tx is None)
         assert!(!lite_client.is_started());
-        
+
         // But it should still be able to get a session using get_session_for_lite_consumer
         // This method skips check_started and creates a virtual telemetry channel
         let result = lite_client.get_session_for_lite_consumer().await;
         assert!(result.is_ok());
-        
+
         // Verify they share the same SessionManager
         assert!(original_client.shares_session_manager_with(&lite_client));
     }
@@ -1531,15 +1534,15 @@ pub(crate) mod tests {
     #[test]
     fn test_is_lite_consumer_with_clone() {
         let _m = MTX.lock();
-        
+
         // Create original client with LitePushConsumer type
         let mut option = ClientOption::default();
         option.client_type = ClientType::LitePushConsumer;
         option.group = Some("group".to_string());
-        
+
         let original_client = Client::new(option, TelemetryCommand::default()).unwrap();
         assert!(original_client.is_lite_consumer());
-        
+
         // Clone should also be lite consumer
         let cloned_client = original_client.clone_for_lite_consumer();
         assert!(cloned_client.is_lite_consumer());

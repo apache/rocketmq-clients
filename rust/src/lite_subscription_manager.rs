@@ -150,7 +150,7 @@ impl LiteSubscriptionManager {
         // 2. But it shares the same SessionManager, so sessions are still valid
         // 3. The original client manages the lifecycle, not the clone
         // Note: The public API (LitePushConsumerTrait::subscribe_lite) should validate state
-        
+
         // Check if already subscribed
         if self.lite_topic_set.lock().contains(&lite_topic) {
             return Ok(());
@@ -327,8 +327,10 @@ impl LiteSubscriptionManager {
         if current_size + delta > quota {
             return Err(ClientError::new(
                 ErrorKind::Server,
-                &format!("Lite subscription quota exceeded: current={}, delta={}, quota={}", 
-                    current_size, delta, quota),
+                &format!(
+                    "Lite subscription quota exceeded: current={}, delta={}, quota={}",
+                    current_size, delta, quota
+                ),
                 OPERATION_SYNC_LITE_SUBSCRIPTION,
             )
             .with_context(

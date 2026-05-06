@@ -258,7 +258,7 @@ impl PushConsumer {
         route_manager
             .sync_topic_routes(&mut rpc_client, topics)
             .await?;
-        
+
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
         let message_listener = Arc::clone(&self.message_listener);
         let retry_policy: Arc<Mutex<Option<BackOffRetryPolicy>>> = Arc::new(Mutex::new(None));
