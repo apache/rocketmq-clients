@@ -55,7 +55,7 @@ minitrace = "0.4"
 byteorder = "1"
 mac_address = "1.1.4"
 hex = "0.4.3"
-time = { version = "0.3", features = ["formatting", "local-offset"] }
+time = { version = ">=0.3.20, <0.3.37", features = ["formatting", "local-offset"] }
 once_cell = "1.18.0"
 
 mockall = "0.11.4"
@@ -64,12 +64,18 @@ mockall_double = "0.3.0"
 siphasher = "0.3.10"
 ring = "0.16.20"
 tokio-util = { version = "=0.7.10", features = ["rt"] }
+# Pin indexmap to avoid hashbrown 0.17+ which requires Rust 2024 edition
+indexmap = ">=2.0, <2.8"
+# Explicitly pin hashbrown to versions compatible with Rust 1.74
+hashbrown = ">=0.12, <0.16"
 
 [build-dependencies]
 tonic-build = "0.10.2"
 which = "7.0.3"
 version_check = "0.9.4"
 regex = "1.7.3"
+# Pin tempfile to avoid getrandom 0.4+ which requires Rust 2024 edition
+tempfile = ">=3.0, <3.15"
 
 [dev-dependencies]
 awaitility = "0.3.0"

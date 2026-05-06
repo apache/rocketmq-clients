@@ -169,6 +169,7 @@ mod tests {
                 message_id: "".to_string(),
                 transaction_id: "".to_string(),
                 offset: 0,
+                recall_handle: "".to_string(),
             }),
         );
         transaction.commit().await
@@ -196,6 +197,7 @@ mod tests {
                 message_id: "".to_string(),
                 transaction_id: "".to_string(),
                 offset: 0,
+                recall_handle: "".to_string(),
             }),
         );
         transaction.rollback().await
