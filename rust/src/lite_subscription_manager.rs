@@ -218,6 +218,10 @@ impl LiteSubscriptionManager {
 
     /// Sync all lite subscriptions periodically
     async fn sync_all_lite_subscription(&self) -> Result<(), ClientError> {
+        // Check if client is running (reference Java: consumerImpl.checkRunning())
+        self.client
+            .check_started(OPERATION_SYNC_LITE_SUBSCRIPTION)?;
+
         // Check quota
         self.check_lite_subscription_quota(0)?;
 
@@ -306,10 +310,18 @@ impl LiteSubscriptionManager {
         let current_size = self.lite_topic_set.lock().len() as i32;
         let quota = *self.lite_subscription_quota.lock();
 
+        // If quota is 0, it means the server hasn't returned the quota yet.
+        // In this case, we should allow subscriptions to proceed.
+        // Once the server returns the quota, it will be updated via sync_settings().
+        if quota == 0 {
+            return Ok(());
+        }
+
         if current_size + delta > quota {
             return Err(ClientError::new(
                 ErrorKind::Server,
-                &format!("Lite subscription quota exceeded {}", quota),
+                &format!("Lite subscription quota exceeded: current={}, delta={}, quota={}", 
+                    current_size, delta, quota),
                 OPERATION_SYNC_LITE_SUBSCRIPTION,
             )
             .with_context(
@@ -367,6 +379,10 @@ mod tests {
             "namespace".to_string(),
             "group".to_string(),
         );
+
+        // When quota is 0 (not set by server yet), should allow subscriptions
+        assert!(manager.check_lite_subscription_quota(1).is_ok());
+        assert!(manager.check_lite_subscription_quota(100).is_ok());
 
         // Set quota to 5
         *manager.lite_subscription_quota.lock() = 5;

@@ -236,7 +236,7 @@ impl PushConsumer {
         _telemetry_command_tx: mpsc::Sender<pb::TelemetryCommand>,
     ) -> Result<(), ClientError> {
         // Extract the command channel from TelemetryCommand
-        let (command_tx, _command_rx) = mpsc::channel(16);
+        let (command_tx, mut command_rx) = mpsc::channel(16);
         self.client.start(command_tx).await?;
         let option = Arc::clone(&self.option);
         let mut rpc_client = self.client.get_session().await?;
@@ -253,6 +253,92 @@ impl PushConsumer {
         route_manager
             .sync_topic_routes(&mut rpc_client, topics)
             .await?;
+        
+        let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
+        let message_listener = Arc::clone(&self.message_listener);
+        let retry_policy: Arc<Mutex<Option<BackOffRetryPolicy>>> = Arc::new(Mutex::new(None));
+
+        let shutdown_token = CancellationToken::new();
+        self.shutdown_token = Some(shutdown_token.clone());
+        let task_tracker = TaskTracker::new();
+        self.task_tracker = Some(task_tracker.clone());
+
+        task_tracker.spawn(async move {
+            let mut scan_assignments_timer =
+                tokio::time::interval(std::time::Duration::from_secs(30));
+            loop {
+                select! {
+                    command = command_rx.recv() => {
+                        if let Some(command) = command {
+                            let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
+                            if let Ok(remote_backoff_policy) = remote_backoff_policy {
+                                retry_policy.lock().replace(remote_backoff_policy);
+                            }
+                        }
+                    }
+                    _ = scan_assignments_timer.tick() => {
+                        let option_retry_policy;
+                        {
+                            option_retry_policy = retry_policy.lock().clone();
+                        }
+                        if option_retry_policy.is_none() {
+                            warn!("retry policy is not set. skip scanning.");
+                            continue;
+                        }
+                        let retry_policy_inner = option_retry_policy.unwrap();
+                        let consumer_option;
+                        {
+                            consumer_option = option.read().clone();
+                        }
+                        let subscription_table = consumer_option.subscription_expressions();
+                        // query endpoints from topic route
+                        for topic in subscription_table.keys() {
+                            if let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) {
+                                let request = QueryAssignmentRequest {
+                                    topic: Some(Resource {
+                                        name: topic.to_string(),
+                                        resource_namespace: consumer_option.namespace().to_string(),
+                                    }),
+                                    group: Some(Resource {
+                                        name: consumer_option.consumer_group().to_string(),
+                                        resource_namespace: consumer_option.namespace().to_string(),
+                                    }),
+                                    endpoints: Some(endpoints.into_inner()),
+                                };
+                                let result = rpc_client.query_assignment(request).await;
+                                if let Ok(response) = result {
+                                    if handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
+                                            let result = Self::process_assignments(
+                                                &rpc_client,
+                                                &consumer_option,
+                                                Arc::clone(&message_listener),
+                                                &mut actor_table,
+                                                response.assignments,
+                                                retry_policy_inner.clone(),
+                                            ).await;
+                                            if let Err(e) = result {
+                                                error!("process assignments failed: {:?}", e);
+                                            }
+                                    } else {
+                                        error!("query assignment failed, no status in response.");
+                                    }
+                                } else {
+                                    error!("query assignment failed: {:?}", result.unwrap_err());
+                                }
+                            }
+                        }
+                    }
+                    _ = shutdown_token.cancelled() => {
+                        let entries = actor_table.drain();
+                        info!("shutdown {:?} actors", entries.len());
+                        for (_, actor) in entries {
+                            let _ = actor.shutdown().await;
+                        }
+                        break;
+                    }
+                }
+            }
+        });
 
         info!("PushConsumer started with external telemetry");
         Ok(())
