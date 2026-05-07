@@ -87,7 +87,7 @@ func getLogWriter() zapcore.WriteSyncer {
 	clientLogRoot := utils.GetenvWithDef(CLIENT_LOG_ROOT, homeDir+"/logs/rocketmq")
 	clientLogMaxIndex := utils.GetenvWithDef(CLIENT_LOG_MAXINDEX, "10")
 	clientLogFileName := utils.GetenvWithDef(CLIENT_LOG_FILENAME, "rocketmq_client_go.log")
-	clientLogMaxFileSize := utils.GetenvWithDef(CLIENT_LOG_FILESIZE, "1073741824")
+	clientLogMaxFileSize := utils.GetenvWithDef(CLIENT_LOG_FILESIZE, "100") // unit: MB
 
 	logFileName := clientLogRoot + "/" + clientLogFileName
 	maxFileIndex, err := strconv.Atoi(clientLogMaxIndex)
@@ -104,6 +104,7 @@ func getLogWriter() zapcore.WriteSyncer {
 		Filename:   logFileName,
 		MaxSize:    maxFileSize,
 		MaxBackups: maxFileIndex,
+		LocalTime:  true, // use local time, default is UTC
 		Compress:   false,
 	}
 	return zapcore.AddSync(lumberJackLogger)
