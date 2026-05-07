@@ -38,6 +38,10 @@ const (
 	CLIENT_LOG_FILENAME = "rocketmq.client.logFileName"
 	// CLIENT_LOG_ASYNC_QUEUESIZE = "rocketmq.client.logAsyncQueueSize"
 	ENABLE_CONSOLE_APPENDER = "mq.consoleAppender.enabled"
+
+	// Default log configuration values
+	defaultLogMaxIndex    = 10
+	defaultLogMaxFileSize = 100 // unit: MB
 )
 
 var sugarBaseLogger *zap.SugaredLogger
@@ -85,20 +89,20 @@ func getLogWriter() zapcore.WriteSyncer {
 		homeDir = "/tmp" // fallback to /tmp if home dir cannot be determined
 	}
 	clientLogRoot := utils.GetenvWithDef(CLIENT_LOG_ROOT, homeDir+"/logs/rocketmq")
-	clientLogMaxIndex := utils.GetenvWithDef(CLIENT_LOG_MAXINDEX, "10")
+	clientLogMaxIndexStr := utils.GetenvWithDef(CLIENT_LOG_MAXINDEX, strconv.Itoa(defaultLogMaxIndex))
 	clientLogFileName := utils.GetenvWithDef(CLIENT_LOG_FILENAME, "rocketmq_client_go.log")
-	clientLogMaxFileSize := utils.GetenvWithDef(CLIENT_LOG_FILESIZE, "100") // unit: MB
+	clientLogMaxFileSizeStr := utils.GetenvWithDef(CLIENT_LOG_FILESIZE, strconv.Itoa(defaultLogMaxFileSize)) // unit: MB
 
 	logFileName := clientLogRoot + "/" + clientLogFileName
-	maxFileIndex, err := strconv.Atoi(clientLogMaxIndex)
+	maxFileIndex, err := strconv.Atoi(clientLogMaxIndexStr)
 	if err != nil {
-		log.Printf("%s='%s' is invalid and has been replaced with the default value %s", CLIENT_LOG_MAXINDEX, clientLogMaxIndex, "10")
-		maxFileIndex = 10
+		log.Printf("%s='%s' is invalid and has been replaced with the default value %d", CLIENT_LOG_MAXINDEX, clientLogMaxIndexStr, defaultLogMaxIndex)
+		maxFileIndex = defaultLogMaxIndex
 	}
-	maxFileSize, err := strconv.Atoi(clientLogMaxFileSize)
+	maxFileSize, err := strconv.Atoi(clientLogMaxFileSizeStr)
 	if err != nil {
-		log.Printf("%s='%s' is invalid and has been replaced with the default value %s", CLIENT_LOG_FILESIZE, clientLogMaxFileSize, "1073741824")
-		maxFileSize = 1073741824
+		log.Printf("%s='%s' is invalid and has been replaced with the default value %d", CLIENT_LOG_FILESIZE, clientLogMaxFileSizeStr, defaultLogMaxFileSize)
+		maxFileSize = defaultLogMaxFileSize
 	}
 	lumberJackLogger := &lumberjack.Logger{
 		Filename:   logFileName,
