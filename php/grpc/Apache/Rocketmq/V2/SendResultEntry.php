@@ -29,6 +29,12 @@ class SendResultEntry extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>int64 offset = 4;</code>
      */
     protected $offset = 0;
+    /**
+     * Unique handle to identify message to recall, support delay message for now.
+     *
+     * Generated from protobuf field <code>string recall_handle = 5;</code>
+     */
+    protected $recall_handle = '';
 
     /**
      * Constructor.
@@ -40,6 +46,8 @@ class SendResultEntry extends \Google\Protobuf\Internal\Message
      *     @type string $message_id
      *     @type string $transaction_id
      *     @type int|string $offset
+     *     @type string $recall_handle
+     *           Unique handle to identify message to recall, support delay message for now.
      * }
      */
     public function __construct($data = NULL) {
@@ -141,6 +149,32 @@ class SendResultEntry extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkInt64($var);
         $this->offset = $var;
+
+        return $this;
+    }
+
+    /**
+     * Unique handle to identify message to recall, support delay message for now.
+     *
+     * Generated from protobuf field <code>string recall_handle = 5;</code>
+     * @return string
+     */
+    public function getRecallHandle()
+    {
+        return $this->recall_handle;
+    }
+
+    /**
+     * Unique handle to identify message to recall, support delay message for now.
+     *
+     * Generated from protobuf field <code>string recall_handle = 5;</code>
+     * @param string $var
+     * @return $this
+     */
+    public function setRecallHandle($var)
+    {
+        GPBUtil::checkString($var, True);
+        $this->recall_handle = $var;
 
         return $this;
     }
