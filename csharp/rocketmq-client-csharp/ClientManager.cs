@@ -194,5 +194,14 @@ namespace Org.Apache.Rocketmq
             return new RpcInvocation<Proto.EndTransactionRequest, Proto.EndTransactionResponse>(
                 request, response, metadata);
         }
+
+        public async Task<RpcInvocation<Proto.SyncLiteSubscriptionRequest, Proto.SyncLiteSubscriptionResponse>> SyncLiteSubscription(
+            Endpoints endpoints, Proto.SyncLiteSubscriptionRequest request, TimeSpan timeout)
+        {
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).SyncLiteSubscription(metadata, request, timeout);
+            return new RpcInvocation<Proto.SyncLiteSubscriptionRequest, Proto.SyncLiteSubscriptionResponse>(
+                request, response, metadata);
+        }
     }
 }

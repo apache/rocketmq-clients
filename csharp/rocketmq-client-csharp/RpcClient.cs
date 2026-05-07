@@ -198,5 +198,15 @@ namespace Org.Apache.Rocketmq
             var call = _stub.RecallMessageAsync(request, callOptions);
             return await call.ResponseAsync;
         }
+
+        public async Task<Proto::SyncLiteSubscriptionResponse> SyncLiteSubscription(Metadata metadata,
+            Proto.SyncLiteSubscriptionRequest request, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow.Add(timeout);
+            var callOptions = new CallOptions(metadata, deadline);
+
+            var call = _stub.SyncLiteSubscriptionAsync(request, callOptions);
+            return await call.ResponseAsync;
+        }
     }
 }

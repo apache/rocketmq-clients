@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-namespace Org.Apache.Rocketmq
-{
-    public class FilterExpression
-    {
-        /// <summary>
-        /// Subscribe to all messages (wildcard expression).
-        /// </summary>
-        public static readonly FilterExpression SubAll = new FilterExpression("*");
+using System;
 
-        public FilterExpression(string expression, ExpressionType type = ExpressionType.Tag)
+namespace Org.Apache.Rocketmq.Error
+{
+    /// <summary>
+    /// Exception thrown when lite subscription quota is exceeded.
+    /// </summary>
+    public class LiteSubscriptionQuotaExceededException : ClientException
+    {
+        public LiteSubscriptionQuotaExceededException(string message) 
+            : base(message)
         {
-            Expression = expression;
-            Type = type;
         }
 
-        public ExpressionType Type { get; }
-        public string Expression { get; }
+        public LiteSubscriptionQuotaExceededException(string message, Exception innerException) 
+            : base(message, innerException)
+        {
+        }
     }
 }

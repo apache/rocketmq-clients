@@ -117,6 +117,13 @@ func (cs *defaultClientSession) startUp() {
 
 			response, err := observer.Recv()
 			if err != nil {
+				// If the client has not yet initialized, propagate the error to startUp() so it can
+				// return immediately instead of blocking forever waiting for settings.
+				if !cs.cli.inited.Load() {
+					cs.cli.startUpError = fmt.Errorf("failed to sync settings during startUp: %w", err)
+					cs.cli.log.Error(cs.cli.startUpError)
+					return
+				}
 				// we are recovering
 				if !cs.recovering {
 					cs.cli.log.Infof("Encountered error while receiving TelemetryCommand, trying to recover, err=%v", err)
@@ -231,6 +238,7 @@ type defaultClient struct {
 	endpointsTelemetryClientsLock sync.RWMutex
 	on                            atomic.Bool
 	inited                        atomic.Bool
+	startUpError                  error
 	clientImpl                    isClient
 	ReceiveReconnect              bool
 	notifyUnsubscribeLiteFunc     func(*v2.NotifyUnsubscribeLiteCommand)
@@ -590,6 +598,9 @@ func (cli *defaultClient) startUp() error {
 
 	// wait syncSettings finish
 	for !cli.inited.Load() {
+		if cli.startUpError != nil {
+			return cli.startUpError
+		}
 		sugarBaseLogger.Infoln("wait for sync settings finish")
 		time.Sleep(time.Second)
 	}

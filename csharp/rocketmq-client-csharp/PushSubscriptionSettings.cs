@@ -28,15 +28,24 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<PushSubscriptionSettings>();
 
-        private readonly Resource _group;
-        private readonly ConcurrentDictionary<string, FilterExpression> _subscriptionExpressions;
+        protected readonly Resource _group;
+        protected readonly ConcurrentDictionary<string, FilterExpression> _subscriptionExpressions;
         private volatile bool _fifo = false;
         private volatile int _receiveBatchSize = 32;
         private TimeSpan _longPollingTimeout = TimeSpan.FromSeconds(30);
 
         public PushSubscriptionSettings(string namespaceName, string clientId, Endpoints endpoints, string consumerGroup,
             TimeSpan requestTimeout, ConcurrentDictionary<string, FilterExpression> subscriptionExpressions)
-            : base(namespaceName, clientId, ClientType.PushConsumer, endpoints, requestTimeout)
+            : this(namespaceName, clientId, ClientType.PushConsumer, endpoints, consumerGroup, requestTimeout, subscriptionExpressions)
+        {
+        }
+
+        /// <summary>
+        /// Protected constructor for derived classes to specify custom ClientType.
+        /// </summary>
+        protected PushSubscriptionSettings(string namespaceName, string clientId, ClientType clientType, Endpoints endpoints, string consumerGroup,
+            TimeSpan requestTimeout, ConcurrentDictionary<string, FilterExpression> subscriptionExpressions)
+            : base(namespaceName, clientId, clientType, endpoints, requestTimeout)
         {
             _group = new Resource(namespaceName, consumerGroup);
             _subscriptionExpressions = subscriptionExpressions;

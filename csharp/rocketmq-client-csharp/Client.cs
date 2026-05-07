@@ -502,11 +502,17 @@ namespace Org.Apache.Rocketmq
             await session.WriteAsync(telemetryCommand);
         }
 
-        internal void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
+        internal virtual void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
         {
             var metric = new Metric(settings.Metric ?? new Proto.Metric());
             ClientMeterManager.Reset(metric);
             GetSettings().Sync(settings);
+        }
+
+        internal virtual void OnNotifyUnsubscribeLiteCommand(Endpoints endpoints, Proto.NotifyUnsubscribeLiteCommand command)
+        {
+            // Default implementation does nothing
+            // LitePushConsumer will override this to handle lite topic unsubscription
         }
     }
 }
