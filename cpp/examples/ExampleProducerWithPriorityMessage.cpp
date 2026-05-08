@@ -25,22 +25,13 @@
 using namespace rocketmq;
 
 int main() {
-  // Create producer configuration
-  ProducerConfiguration config;
-  config.setEndpoints("127.0.0.1:9876");
-  
-  // Create producer instance
-  auto producer = Producer::newBuilder().withConfiguration(config).build();
-  
-  // Start the producer
-  std::error_code ec;
-  producer.start(ec);
-  if (ec) {
-    std::cerr << "Failed to start producer: " << ec.message() << std::endl;
-    return -1;
-  }
-  
-  std::cout << "Producer started successfully" << std::endl;
+  // Create producer configuration with topic
+  auto producer = Producer::newBuilder()
+                      .withConfiguration(Configuration::newBuilder()
+                                             .withEndpoints("127.0.0.1:9876")
+                                             .build())
+                      .withTopics({"PriorityMessageTopic"})
+                      .build();
   
   // Send priority messages with different priority levels
   for (int i = 0; i < 5; ++i) {
@@ -54,6 +45,7 @@ int main() {
                        .build();
     
     // Send the message
+    std::error_code ec;
     auto send_receipt = producer.send(std::move(message), ec);
     if (ec) {
       std::cerr << "Failed to send message: " << ec.message() << std::endl;
@@ -66,13 +58,6 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   
-  // Shutdown the producer
-  producer.shutdown(ec);
-  if (ec) {
-    std::cerr << "Failed to shutdown producer: " << ec.message() << std::endl;
-    return -1;
-  }
-  
-  std::cout << "Producer shutdown successfully" << std::endl;
+  std::cout << "Producer finished sending messages" << std::endl;
   return 0;
 }
