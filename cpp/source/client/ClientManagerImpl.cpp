@@ -813,6 +813,11 @@ MessageConstSharedPtr ClientManagerImpl::wrapMessage(const rmq::Message& item) {
     builder.withGroup(system_properties.message_group());
   }
 
+  // Priority
+  if (system_properties.has_priority()) {
+    builder.withPriority(system_properties.priority());
+  }
+
   // Message-Id
   const auto& message_id = system_properties.message_id();
   builder.withId(message_id);
