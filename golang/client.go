@@ -647,7 +647,9 @@ func (cli *defaultClient) GracefulStop() error {
 		return fmt.Errorf("client has been closed")
 	}
 	cli.notifyClientTermination()
-	cli.clientManager.UnRegisterClient(cli)
+	if cli.clientManager != nil {
+		cli.clientManager.UnRegisterClient(cli)
+	}
 	cli.done <- struct{}{}
 	close(cli.done)
 	cli.clientMeterProvider.Reset(&v2.Metric{
