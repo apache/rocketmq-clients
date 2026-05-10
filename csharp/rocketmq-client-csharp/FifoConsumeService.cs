@@ -30,9 +30,9 @@ namespace Org.Apache.Rocketmq
         private readonly bool _enableFifoConsumeAccelerator;
 
         public FifoConsumeService(string clientId, IMessageListener messageListener,
-            TaskScheduler consumptionExecutor, CancellationToken consumptionCtsToken,
+            SemaphoreSlim concurrencySemaphore, CancellationToken consumptionCtsToken,
             bool enableFifoConsumeAccelerator = false) :
-            base(clientId, messageListener, consumptionExecutor, consumptionCtsToken)
+            base(clientId, messageListener, concurrencySemaphore, consumptionCtsToken)
         {
             _enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
         }

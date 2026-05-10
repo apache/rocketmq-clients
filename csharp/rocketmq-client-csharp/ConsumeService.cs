@@ -29,15 +29,15 @@ namespace Org.Apache.Rocketmq
 
         protected readonly string ClientId;
         private readonly IMessageListener _messageListener;
-        private readonly TaskScheduler _consumptionTaskScheduler;
+        private readonly SemaphoreSlim _concurrencySemaphore;
         private readonly CancellationToken _consumptionCtsToken;
 
-        public ConsumeService(string clientId, IMessageListener messageListener, TaskScheduler consumptionTaskScheduler,
+        public ConsumeService(string clientId, IMessageListener messageListener, SemaphoreSlim concurrencySemaphore,
             CancellationToken consumptionCtsToken)
         {
             ClientId = clientId;
             _messageListener = messageListener;
-            _consumptionTaskScheduler = consumptionTaskScheduler;
+            _concurrencySemaphore = concurrencySemaphore;
             _consumptionCtsToken = consumptionCtsToken;
         }
 
@@ -48,36 +48,33 @@ namespace Org.Apache.Rocketmq
             return Consume(messageView, TimeSpan.Zero);
         }
 
-        public Task<ConsumeResult> Consume(MessageView messageView, TimeSpan delay)
+        public async Task<ConsumeResult> Consume(MessageView messageView, TimeSpan delay)
         {
             var task = new ConsumeTask(ClientId, _messageListener, messageView);
-            var delayMilliseconds = (int)delay.TotalMilliseconds;
 
-            if (delayMilliseconds <= 0)
+            if (delay > TimeSpan.Zero)
             {
-                return Task.Factory.StartNew(() => task.Call(), _consumptionCtsToken, TaskCreationOptions.None,
-                    _consumptionTaskScheduler);
+                await Task.Delay(delay, _consumptionCtsToken).ConfigureAwait(false);
             }
 
-            var tcs = new TaskCompletionSource<ConsumeResult>();
-
-            Task.Run(async () =>
+            await _concurrencySemaphore.WaitAsync(_consumptionCtsToken).ConfigureAwait(false);
+            try
             {
-                try
-                {
-                    await Task.Delay(delay, _consumptionCtsToken);
-                    var result = await Task.Factory.StartNew(() => task.Call(), _consumptionCtsToken,
-                        TaskCreationOptions.None, _consumptionTaskScheduler);
-                    tcs.SetResult(result);
-                }
-                catch (Exception e)
-                {
-                    Logger.LogError(e, $"Error while consuming message, clientId={ClientId}");
-                    tcs.SetException(e);
-                }
-            }, _consumptionCtsToken);
-
-            return tcs.Task;
+                return await Task.Run(() => task.Call(), _consumptionCtsToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(e, "Error while consuming message, clientId={ClientId}", ClientId);
+                throw;
+            }
+            finally
+            {
+                _concurrencySemaphore.Release();
+            }
         }
     }
 }
