@@ -291,7 +291,12 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             final boolean fifo = getSettings().isFifo();
             log.info("Create {}batch consume service, consumerGroup={}, clientId={}, batchPolicy={}",
                 fifo ? "FIFO " : "", getConsumerGroup(), clientId, batchPolicy);
-            // todo
+            if (fifo) {
+                return new FifoBatchConsumeService(clientId, batchMessageListener, batchPolicy,
+                    consumptionExecutor, this, scheduler, this::getRetryPolicy);
+            }
+            return new BatchConsumeService(clientId, batchMessageListener, batchPolicy,
+                consumptionExecutor, this, scheduler);
         }
         if (getSettings().isFifo()) {
             log.info("Create {}FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",

@@ -55,6 +55,23 @@ public abstract class ConsumeService {
         this.scheduler = scheduler;
     }
 
+    protected ConsumeService(ClientId clientId, ThreadPoolExecutor consumptionExecutor,
+        MessageInterceptor messageInterceptor, ScheduledExecutorService scheduler) {
+        this(clientId, null, consumptionExecutor, messageInterceptor, scheduler);
+    }
+
+    protected ThreadPoolExecutor getConsumptionExecutor() {
+        return consumptionExecutor;
+    }
+
+    protected MessageInterceptor getMessageInterceptor() {
+        return messageInterceptor;
+    }
+
+    protected ScheduledExecutorService getScheduler() {
+        return scheduler;
+    }
+
     public abstract void consume(ProcessQueue pq, List<MessageViewImpl> messageViews);
 
     /**
