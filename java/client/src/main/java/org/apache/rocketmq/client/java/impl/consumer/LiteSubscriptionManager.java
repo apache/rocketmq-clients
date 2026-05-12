@@ -20,7 +20,6 @@ package org.apache.rocketmq.client.java.impl.consumer;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.LiteSubscriptionAction;
 import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
-import apache.rocketmq.v2.Status;
 import apache.rocketmq.v2.Subscription;
 import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
 import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
@@ -30,8 +29,10 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +43,7 @@ import org.apache.rocketmq.client.java.exception.LiteSubscriptionQuotaExceededEx
 import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.misc.ProtobufUtils;
+import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -159,14 +161,19 @@ public class LiteSubscriptionManager {
             builder.setOffsetOption(ProtobufUtils.toProtobufOffsetOption(offsetOption));
         }
 
+        final SyncLiteSubscriptionRequest request = builder.build();
         final Duration requestTimeout = consumerImpl.getClientConfiguration().getRequestTimeout();
-        RpcFuture<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse> future = consumerImpl.getClientManager()
-            .syncLiteSubscription(consumerImpl.getEndpoints(), builder.build(), requestTimeout);
-        return Futures.transformAsync(future, response -> {
-            final Status status = response.getStatus();
-            StatusChecker.check(status, future);
-            return Futures.immediateVoidFuture();
-        }, MoreExecutors.directExecutor());
+        final Set<Endpoints> totalRouteEndpoints = consumerImpl.getTotalRouteEndpoints();
+        List<ListenableFuture<Void>> futures = new ArrayList<>();
+        for (Endpoints endpoints : totalRouteEndpoints) {
+            final RpcFuture<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse> rpcFuture =
+                consumerImpl.getClientManager().syncLiteSubscription(endpoints, request, requestTimeout);
+            futures.add(Futures.transformAsync(rpcFuture, response -> {
+                StatusChecker.check(response.getStatus(), rpcFuture);
+                return Futures.immediateVoidFuture();
+            }, MoreExecutors.directExecutor()));
+        }
+        return Futures.transform(Futures.allAsList(futures), input -> null, MoreExecutors.directExecutor());
     }
 
     void onNotifyUnsubscribeLiteCommand(NotifyUnsubscribeLiteCommand command) {
