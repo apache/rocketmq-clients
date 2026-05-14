@@ -36,9 +36,10 @@ use crate::model::message::AckMessageEntry;
 use crate::pb;
 use crate::pb::receive_message_response::Content;
 use crate::pb::{
-    AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, FilterExpression,
-    HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, NotifyClientTerminationRequest,
-    QueryRouteRequest, ReceiveMessageRequest, Resource, SendMessageRequest, Status,
+    telemetry_command::Command, AckMessageRequest, AckMessageResultEntry,
+    ChangeInvisibleDurationRequest, FilterExpression, HeartbeatRequest, HeartbeatResponse, Message,
+    MessageQueue, NotifyClientTerminationRequest, QueryRouteRequest, RecallMessageRequest,
+    RecallMessageResponse, ReceiveMessageRequest, Resource, SendMessageRequest, Status,
     TelemetryCommand,
 };
 use crate::session::RPCClient;
@@ -113,6 +114,68 @@ impl Client {
         self.route_manager.clone()
     }
 
+    /// Clone client for LitePushConsumer (shares SessionManager for true Lite mode)
+    ///
+    /// This method creates a lightweight clone of the client specifically for LitePushConsumer
+    /// and LiteSubscriptionManager. The key feature is that it shares the same SessionManager
+    /// with the original client, enabling true Lite mode where both clients use the same
+    /// telemetry session.
+    ///
+    /// Key design decisions:
+    /// - **SessionManager Sharing**: Uses Arc::clone to share the same SessionManager instance,
+    ///   ensuring both the original client and the cloned Lite client use the same telemetry
+    ///   session. This is the core of true Lite mode.
+    /// - **Client Type**: Changed to LitePushConsumer to identify this as a lite consumer.
+    /// - **FIFO Mode**: Explicitly enabled for LitePushConsumer to ensure ordered message consumption.
+    /// - **No shutdown_tx Copy**: Sets shutdown_tx to None to avoid duplicate shutdown signals.
+    ///   Only the original client should trigger shutdown to prevent race conditions.
+    /// - **Lightweight Clone**: Only clones necessary fields, avoiding unnecessary deep copies.
+    ///
+    /// Usage:
+    /// ```ignore
+    /// let lite_client = original_client.clone_for_lite_consumer();
+    /// // Use lite_client for LiteSubscriptionManager
+    /// // Both clients share the same SessionManager and telemetry session
+    /// ```
+    pub(crate) fn clone_for_lite_consumer(&self) -> Self {
+        // Update client type to LitePushConsumer
+        let mut new_option = self.option.clone();
+        new_option.client_type = ClientType::LitePushConsumer;
+
+        // Create new settings with LitePushConsumer type and FIFO enabled
+        let mut new_settings = self.settings.clone();
+        if let Some(Command::Settings(ref mut settings)) = &mut new_settings.command {
+            // Set client type to LitePushConsumer
+            settings.client_type = Some(pb::ClientType::LitePushConsumer as i32);
+
+            // Ensure FIFO is enabled for LitePushConsumer
+            // This is critical for maintaining message order in lite mode
+            if let Some(pb::settings::PubSub::Subscription(ref mut sub)) = settings.pub_sub {
+                sub.fifo = Some(true);
+            }
+        }
+
+        // Share the same SessionManager via Arc::clone
+        // This is the KEY feature that enables true Lite mode:
+        // - Both clients use the same telemetry session
+        // - No duplicate connections to the server
+        // - Shared state management
+        let session_manager = Arc::clone(&self.session_manager);
+
+        // Create the lightweight clone
+        // Note: shutdown_tx is set to None to avoid duplicate shutdown signals
+        Self {
+            option: new_option,
+            session_manager,
+            route_manager: self.route_manager.clone(),
+            id: self.id.clone(),
+            access_endpoints: self.access_endpoints.clone(),
+            settings: new_settings,
+            telemetry_command_tx: None, // Will be set during start()
+            shutdown_tx: None,          // Intentionally None to avoid duplicate shutdown
+        }
+    }
+
     pub(crate) async fn start(
         &mut self,
         telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command>,
@@ -147,10 +210,10 @@ impl Client {
                 select! {
                     _ = heartbeat_interval.tick() => {
                         let sessions = session_manager.get_all_sessions().await;
-                        if sessions.is_err() {
+                        if let Err(e) = sessions {
                             error!(
                                 "send heartbeat failed: failed to get sessions: {}",
-                                sessions.unwrap_err()
+                                e
                             );
                             continue;
                         }
@@ -158,19 +221,19 @@ impl Client {
                         for session in sessions.unwrap() {
                             let peer = session.peer().to_string();
                             let response = Self::heart_beat_inner(session, &group, &namespace, &client_type).await;
-                            if response.is_err() {
+                            if let Err(e) = response {
                                 error!(
                                     "send heartbeat failed: failed to send heartbeat rpc: {}",
-                                    response.unwrap_err()
+                                    e
                                 );
                                 continue;
                             }
                             let result =
                                 handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
-                            if result.is_err() {
+                            if let Err(e) = result {
                                 error!(
                                     "send heartbeat failed: server return error: {}",
-                                    result.unwrap_err()
+                                    e
                                 );
                                 continue;
                             }
@@ -179,15 +242,15 @@ impl Client {
                     },
                     _ = sync_settings_interval.tick() => {
                         let sessions = session_manager.get_all_sessions().await;
-                        if sessions.is_err() {
-                            error!("sync settings failed: failed to get sessions: {}", sessions.unwrap_err());
+                        if let Err(e) = sessions {
+                            error!("sync settings failed: failed to get sessions: {}", e);
                             continue;
                         }
                         for mut session in sessions.unwrap() {
                             let peer = session.peer().to_string();
                             let result = session.update_settings(settings.clone()).await;
-                            if result.is_err() {
-                                error!("sync settings failed: failed to call rpc: {}", result.unwrap_err());
+                            if let Err(e) = result {
+                                error!("sync settings failed: failed to call rpc: {}", e);
                                 continue;
                             }
                             debug!("sync settings success, peer = {}", peer);
@@ -196,8 +259,8 @@ impl Client {
                     },
                     _ = sync_route_timer.tick() => {
                         let result = route_manager.sync_route_data(&mut rpc_client).await;
-                        if result.is_err() {
-                            error!("sync route failed: {}", result.unwrap_err());
+                        if let Err(e) = result {
+                            error!("sync route failed: {}", e);
                         }
                     },
                     _ = &mut shutdown_rx => {
@@ -211,7 +274,7 @@ impl Client {
         Ok(())
     }
 
-    fn check_started(&self, operation: &'static str) -> Result<(), ClientError> {
+    pub(crate) fn check_started(&self, operation: &'static str) -> Result<(), ClientError> {
         if !self.is_started() {
             return Err(ClientError::new(
                 ErrorKind::ClientIsNotRunning,
@@ -240,8 +303,84 @@ impl Client {
         Ok(())
     }
 
+    /// Shutdown without consuming self (for internal use)
+    pub(crate) async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
+        self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
+        let mut rpc_client = self.get_session().await?;
+        self.telemetry_command_tx = None;
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
+        let group = self.option.group.as_ref().map(|group| Resource {
+            name: group.to_string(),
+            resource_namespace: self.option.namespace.to_string(),
+        });
+        let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
+        handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
+        self.session_manager.shutdown().await;
+        Ok(())
+    }
+
     pub(crate) fn client_id(&self) -> &str {
         &self.id
+    }
+
+    /// Get the client type
+    #[allow(dead_code)]
+    pub(crate) fn get_client_type(&self) -> ClientType {
+        self.option.client_type.clone()
+    }
+
+    /// Check if this is a lite consumer (LitePushConsumer or LiteSimpleConsumer)
+    #[allow(dead_code)]
+    pub(crate) fn is_lite_consumer(&self) -> bool {
+        matches!(self.option.client_type, ClientType::LitePushConsumer)
+    }
+
+    /// Verify that this client shares the same SessionManager with another client
+    /// This is useful for verifying Lite mode session sharing
+    #[allow(dead_code)]
+    pub(crate) fn shares_session_manager_with(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.session_manager, &other.session_manager)
+    }
+
+    /// Get session for LitePushConsumer without checking if client is started
+    ///
+    /// This method is specifically designed for LitePushConsumer which uses a cloned client.
+    /// The cloned client doesn't have shutdown_tx set (to avoid duplicate shutdown), so
+    /// is_started() would return false. However, it shares the same SessionManager as the
+    /// original client, so it can still get sessions.
+    ///
+    /// Key features:
+    /// - Skips the check_started validation (cloned clients don't have shutdown_tx)
+    /// - Creates a virtual telemetry channel if missing (for cloned clients)
+    /// - Shares the same SessionManager, ensuring the same underlying connection
+    ///
+    /// This enables true Lite mode where both the original and cloned clients
+    /// use the same telemetry session through shared SessionManager.
+    pub(crate) async fn get_session_for_lite_consumer(&self) -> Result<Session, ClientError> {
+        // For LitePushConsumer, we skip the check_started check because:
+        // 1. The cloned client intentionally has shutdown_tx = None to avoid duplicate shutdown
+        // 2. But it shares the same SessionManager, so sessions are still valid
+        // 3. The original client manages the lifecycle, not the clone
+
+        // Handle missing telemetry_command_tx by creating a virtual channel
+        // This is safe because:
+        // - The cloned client shares SessionManager with the original
+        // - The original client's telemetry channel is already established
+        // - The virtual channel won't be used for actual communication
+        let telemetry_tx = self.telemetry_command_tx.clone().unwrap_or_else(|| {
+            // Create a virtual/dummy channel for cloned clients
+            // This channel won't receive actual messages, but satisfies the API requirement
+            let (tx, _rx) = mpsc::channel(1);
+            tx
+        });
+
+        let session = self
+            .session_manager
+            .get_or_create_session(&self.access_endpoints, self.settings.clone(), telemetry_tx)
+            .await?;
+        Ok(session)
     }
 
     fn generate_client_id() -> String {
@@ -341,6 +480,18 @@ impl Client {
         .await
     }
 
+    pub(crate) async fn recall_message(
+        &self,
+        endpoints: &Endpoints,
+        request: RecallMessageRequest,
+    ) -> Result<RecallMessageResponse, ClientError> {
+        self.recall_message_inner(
+            self.get_session_with_endpoints(endpoints).await.unwrap(),
+            request,
+        )
+        .await
+    }
+
     pub(crate) async fn send_message_inner<T: RPCClient + 'static>(
         &self,
         mut rpc_client: T,
@@ -355,6 +506,15 @@ impl Client {
             .iter()
             .map(SendReceipt::from_pb_send_result)
             .collect())
+    }
+
+    pub(crate) async fn recall_message_inner<T: RPCClient + 'static>(
+        &self,
+        mut rpc_client: T,
+        request: RecallMessageRequest,
+    ) -> Result<RecallMessageResponse, ClientError> {
+        let response = rpc_client.recall_message(request).await?;
+        Ok(response)
     }
 
     pub(crate) async fn receive_message(
@@ -396,6 +556,7 @@ impl Client {
             long_polling_timeout: Some(
                 Duration::try_from(*self.option.long_polling_timeout()).unwrap(),
             ),
+            attempt_id: None,
         };
         let responses = rpc_client.receive_message(request).await?;
 
@@ -444,6 +605,7 @@ impl Client {
                 vec![pb::AckMessageEntry {
                     message_id: ack_entry.message_id(),
                     receipt_handle: ack_entry.receipt_handle(),
+                    lite_topic: None,
                 }],
             )
             .await?;
@@ -511,6 +673,8 @@ impl Client {
             receipt_handle,
             invisible_duration: Some(invisible_duration),
             message_id,
+            lite_topic: None,
+            suspend: None,
         };
         let response = rpc_client.change_invisible_duration(request).await?;
         handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
@@ -1237,5 +1401,150 @@ pub(crate) mod tests {
         assert_eq!(error.kind, ErrorKind::Server);
         assert_eq!(error.message, "server return an error");
         assert_eq!(error.operation, "client.ack_message");
+    }
+
+    #[test]
+    fn test_clone_for_lite_consumer() {
+        let _m = MTX.lock();
+
+        // Create original client
+        let original_client = new_client_for_test();
+
+        // Clone for lite consumer
+        let lite_client = original_client.clone_for_lite_consumer();
+
+        // Verify client type is changed
+        assert!(matches!(
+            lite_client.option.client_type,
+            ClientType::LitePushConsumer
+        ));
+
+        // Verify settings are updated
+        if let Some(Command::Settings(ref settings)) = lite_client.settings.command {
+            assert_eq!(
+                settings.client_type,
+                Some(pb::ClientType::LitePushConsumer as i32)
+            );
+
+            // Verify FIFO is enabled
+            if let Some(pb::settings::PubSub::Subscription(ref sub)) = settings.pub_sub {
+                assert_eq!(sub.fifo, Some(true));
+            }
+        }
+
+        // Verify SessionManager is shared
+        assert!(original_client.shares_session_manager_with(&lite_client));
+
+        // Verify other fields are cloned correctly
+        assert_eq!(original_client.id, lite_client.id);
+        assert_eq!(
+            original_client.access_endpoints.endpoint_url(),
+            lite_client.access_endpoints.endpoint_url()
+        );
+
+        // Verify telemetry_command_tx and shutdown_tx are reset
+        assert!(lite_client.telemetry_command_tx.is_none());
+        assert!(lite_client.shutdown_tx.is_none());
+    }
+
+    #[test]
+    fn test_is_lite_consumer() {
+        let _m = MTX.lock();
+
+        // Create original client (not lite)
+        let original_client = new_client_for_test();
+        assert!(!original_client.is_lite_consumer());
+
+        // Clone for lite consumer
+        let lite_client = original_client.clone_for_lite_consumer();
+        assert!(lite_client.is_lite_consumer());
+    }
+
+    #[tokio::test]
+    async fn test_lite_consumer_session_sharing() {
+        let _m = MTX.lock();
+
+        let context = MockSession::new_context();
+        context.expect().returning(|_, _, _| {
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session
+                .expect_shadow_session()
+                .returning(|| MockSession::default());
+            Ok(session)
+        });
+
+        // Create original client
+        let session_manager = new_session_manager();
+        let mut original_client = new_client_with_session_manager(session_manager);
+        let (tx1, _rx1) = mpsc::channel(16);
+        let _ = original_client.start(tx1).await;
+
+        // Clone for lite consumer
+        let mut lite_client = original_client.clone_for_lite_consumer();
+        let (tx2, _rx2) = mpsc::channel(16);
+        let _ = lite_client.start(tx2).await;
+
+        // Verify they share the same SessionManager
+        assert!(original_client.shares_session_manager_with(&lite_client));
+
+        // Both clients should be able to get sessions
+        let result1 = original_client.get_session().await;
+        assert!(result1.is_ok());
+
+        let result2 = lite_client.get_session().await;
+        assert!(result2.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_session_for_lite_consumer() {
+        let _m = MTX.lock();
+
+        let context = MockSession::new_context();
+        context.expect().returning(|_, _, _| {
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session
+                .expect_shadow_session()
+                .returning(|| MockSession::default());
+            Ok(session)
+        });
+
+        // Create original client and start it
+        let session_manager = new_session_manager();
+        let mut original_client = new_client_with_session_manager(session_manager);
+        let (tx1, _rx1) = mpsc::channel(16);
+        let _ = original_client.start(tx1).await;
+
+        // Clone for lite consumer (this clone has shutdown_tx = None)
+        let lite_client = original_client.clone_for_lite_consumer();
+
+        // Verify the lite client is not "started" (shutdown_tx is None)
+        assert!(!lite_client.is_started());
+
+        // But it should still be able to get a session using get_session_for_lite_consumer
+        // This method skips check_started and creates a virtual telemetry channel
+        let result = lite_client.get_session_for_lite_consumer().await;
+        assert!(result.is_ok());
+
+        // Verify they share the same SessionManager
+        assert!(original_client.shares_session_manager_with(&lite_client));
+    }
+
+    #[test]
+    fn test_is_lite_consumer_with_clone() {
+        let _m = MTX.lock();
+
+        // Create original client with LitePushConsumer type
+        let mut option = ClientOption::default();
+        option.client_type = ClientType::LitePushConsumer;
+        option.group = Some("group".to_string());
+
+        let original_client = Client::new(option, TelemetryCommand::default()).unwrap();
+        assert!(original_client.is_lite_consumer());
+
+        // Clone should also be lite consumer
+        let cloned_client = original_client.clone_for_lite_consumer();
+        assert!(cloned_client.is_lite_consumer());
     }
 }

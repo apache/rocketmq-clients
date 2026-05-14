@@ -263,6 +263,7 @@ pub struct PushConsumerOption {
     long_polling_timeout: Duration,
     subscription_expressions: HashMap<String, FilterExpression>,
     fifo: bool,
+    enable_fifo_consume_accelerator: bool,
     batch_size: i32,
     consumer_worker_count_each_queue: usize,
 }
@@ -276,6 +277,7 @@ impl Default for PushConsumerOption {
             long_polling_timeout: Duration::from_secs(40),
             subscription_expressions: HashMap::new(),
             fifo: false,
+            enable_fifo_consume_accelerator: false,
             batch_size: 32,
             consumer_worker_count_each_queue: 4,
         }
@@ -319,6 +321,11 @@ impl PushConsumerOption {
             .insert(topic.into(), filter_expression);
     }
 
+    /// Set subscription expressions (replaces all existing subscriptions)
+    pub fn set_subscription_expressions(&mut self, expressions: HashMap<String, FilterExpression>) {
+        self.subscription_expressions = expressions;
+    }
+
     pub fn get_filter_expression(&self, topic: &str) -> Option<&FilterExpression> {
         self.subscription_expressions.get(topic)
     }
@@ -327,8 +334,21 @@ impl PushConsumerOption {
         self.fifo
     }
 
-    pub(crate) fn set_fifo(&mut self, fifo: bool) {
+    /// Set whether to use FIFO consumer
+    pub fn set_fifo(&mut self, fifo: bool) {
         self.fifo = fifo;
+    }
+
+    /// Check if FIFO consume accelerator is enabled
+    pub fn enable_fifo_consume_accelerator(&self) -> bool {
+        self.enable_fifo_consume_accelerator
+    }
+
+    /// Enable or disable FIFO consume accelerator.
+    /// If enabled, the consumer will consume messages in parallel by messageGroup,
+    /// it may increase the probability of repeatedly consuming the same message.
+    pub fn set_enable_fifo_consume_accelerator(&mut self, enable: bool) {
+        self.enable_fifo_consume_accelerator = enable;
     }
 
     pub fn batch_size(&self) -> i32 {

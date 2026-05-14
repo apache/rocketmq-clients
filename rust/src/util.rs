@@ -142,6 +142,8 @@ pub(crate) fn build_simple_consumer_settings(option: &SimpleConsumerOption) -> T
                     seconds: option.long_polling_timeout().as_secs() as i64,
                     nanos: option.long_polling_timeout().subsec_nanos() as i32,
                 }),
+                lite_subscription_quota: None,
+                max_lite_topic_size: None,
             })),
             user_agent: Some(Ua {
                 language: SDK_LANGUAGE as i32,
@@ -190,6 +192,8 @@ pub(crate) fn build_push_consumer_settings(option: &PushConsumerOption) -> Telem
                     seconds: option.long_polling_timeout().as_secs() as i64,
                     nanos: option.long_polling_timeout().subsec_nanos() as i32,
                 }),
+                lite_subscription_quota: None,
+                max_lite_topic_size: None,
             })),
             user_agent: Some(Ua {
                 language: SDK_LANGUAGE as i32,
@@ -284,7 +288,9 @@ pub fn handle_receive_message_status(
         | Code::UnrecognizedClientType
         | Code::MessageCorrupted
         | Code::ClientIdRequired
-        | Code::IllegalPollingTime => {
+        | Code::IllegalPollingTime
+        | Code::IllegalOffset
+        | Code::IllegalLiteTopic => {
             Err(
                 ClientError::new(ErrorKind::Config, "bad request", operation)
                     .with_context("code", format!("{}", status.code))
@@ -306,19 +312,20 @@ pub fn handle_receive_message_status(
         Code::Forbidden => Err(ClientError::new(ErrorKind::Server, "forbidden", operation)
             .with_context("code", format!("{}", status.code))
             .with_context("message", status.message.clone())),
-        Code::NotFound | Code::TopicNotFound | Code::ConsumerGroupNotFound => {
-            Err(ClientError::new(ErrorKind::Server, "not found", operation)
+        Code::NotFound
+        | Code::TopicNotFound
+        | Code::ConsumerGroupNotFound
+        | Code::OffsetNotFound => Err(ClientError::new(ErrorKind::Server, "not found", operation)
+            .with_context("code", format!("{}", status.code))
+            .with_context("message", status.message.clone())),
+        Code::PayloadTooLarge | Code::MessageBodyTooLarge | Code::MessageBodyEmpty => Err(
+            ClientError::new(ErrorKind::Server, "payload too large", operation)
                 .with_context("code", format!("{}", status.code))
-                .with_context("message", status.message.clone()))
-        }
-        Code::PayloadTooLarge | Code::MessageBodyTooLarge => {
-            Err(
-                ClientError::new(ErrorKind::Server, "payload too large", operation)
-                    .with_context("code", format!("{}", status.code))
-                    .with_context("message", status.message.clone()),
-            )
-        }
-        Code::TooManyRequests => {
+                .with_context("message", status.message.clone()),
+        ),
+        Code::TooManyRequests
+        | Code::LiteTopicQuotaExceeded
+        | Code::LiteSubscriptionQuotaExceeded => {
             Err(
                 ClientError::new(ErrorKind::Server, "too many requests", operation)
                     .with_context("code", format!("{}", status.code))
