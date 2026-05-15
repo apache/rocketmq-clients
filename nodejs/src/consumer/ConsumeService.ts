@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 import { MessageView } from '../message';
 import { ConsumeResult } from './ConsumeResult';
 import { ConsumeTask } from './ConsumeTask';
@@ -25,6 +24,7 @@ export abstract class ConsumeService {
   protected readonly clientId: string;
   readonly #messageListener: MessageListener;
   #aborted = false;
+  #pendingTimers: Set<NodeJS.Timeout> = new Set();
 
   constructor(clientId: string, messageListener: MessageListener) {
     this.clientId = clientId;
@@ -39,16 +39,34 @@ export abstract class ConsumeService {
     }
     const task = new ConsumeTask(this.clientId, this.#messageListener, messageView);
     if (delay <= 0) {
-      return task.call();
+      return this.#executeTask(task);
     }
-    await new Promise<void>(resolve => setTimeout(resolve, delay));
-    if (this.#aborted) {
-      return ConsumeResult.FAILURE;
-    }
-    return task.call();
+    return new Promise(resolve => {
+      const timer = setTimeout(async () => {
+        this.#pendingTimers.delete(timer);
+        if (this.#aborted) {
+          resolve(ConsumeResult.FAILURE);
+          return;
+        }
+        const result = await this.#executeTask(task);
+        resolve(result);
+      }, delay);
+      this.#pendingTimers.add(timer);
+    });
   }
 
+  async #executeTask(task: ConsumeTask): Promise<ConsumeResult> {
+    try {
+      return await task.call();
+    } catch (error) {
+      return ConsumeResult.FAILURE;
+    }
+  }
   abort() {
     this.#aborted = true;
+    for (const timer of this.#pendingTimers) {
+      clearTimeout(timer);
+    }
+    this.#pendingTimers.clear();
   }
 }

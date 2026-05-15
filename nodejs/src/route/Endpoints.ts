@@ -87,11 +87,15 @@ export class Endpoints {
 
   hashCode(): number {
     let hash = 17;
-    hash = hash * 31 + this.scheme;
-    hash = hash * 31 + hashCodeOfString(this.facade);
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.scheme) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + hashCodeOfString(this.facade)) | 0;
     for (const addr of this.addressesList) {
-      hash = hash * 31 + hashCodeOfString(addr.host);
-      hash = hash * 31 + addr.port;
+      // eslint-disable-next-line no-bitwise
+      hash = (hash * 31 + hashCodeOfString(addr.host)) | 0;
+      // eslint-disable-next-line no-bitwise
+      hash = (hash * 31 + addr.port) | 0;
     }
     return hash;
   }

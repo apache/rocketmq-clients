@@ -30,8 +30,7 @@ export class ConsumeTask {
 
   async call(): Promise<ConsumeResult> {
     try {
-      const result = await this.#messageListener.consume(this.#messageView);
-      return result;
+      return await this.#messageListener.consume(this.#messageView);
     } catch (e) {
       // Message listener raised an exception while consuming messages
       return ConsumeResult.FAILURE;

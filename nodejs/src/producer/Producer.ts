@@ -105,7 +105,7 @@ export class Producer extends BaseClient {
     transactionId: string, resolution: TransactionResolution, source: TransactionSource = TransactionSource.SOURCE_CLIENT) {
     const resolutionStr = resolution === TransactionResolution.COMMIT ? 'COMMIT' : 'ROLLBACK';
     const sourceStr = TransactionSource[source];
-    this.logger.info('Begin to end transaction, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
+    this.logger.debug?.('Begin to end transaction, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
       messageId, transactionId, resolutionStr, sourceStr, this.clientId);
 
     const request = new EndTransactionRequest()
@@ -117,7 +117,7 @@ export class Producer extends BaseClient {
     const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
     StatusChecker.check(response.getStatus()?.toObject());
 
-    this.logger.info('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
+    this.logger.debug?.('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
       messageId, transactionId, resolutionStr, sourceStr, this.clientId);
   }
 

@@ -59,7 +59,7 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
     super({
       ...options,
       subscriptions,
-    });
+    } as PushConsumerOptions);
 
     this.bindTopic = new Resource(options.namespace, options.bindTopic);
 

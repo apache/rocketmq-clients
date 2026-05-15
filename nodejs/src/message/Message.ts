@@ -22,6 +22,7 @@ export interface MessageOptions {
   messageGroup?: string;
   keys?: string[];
   properties?: Map<string, string>;
+  delay?: number;
   deliveryTimestamp?: Date;
   priority?: number;
   liteTopic?: string;
@@ -39,46 +40,43 @@ export class Message {
   liteTopic?: string;
 
   constructor(options: MessageOptions) {
-    // Validate mutual exclusivity - priority
-    if (options.priority !== undefined) {
-      if (options.priority < 0) {
+    let finalDeliveryTimestamp = options.deliveryTimestamp;
+    if (options.delay && !finalDeliveryTimestamp) {
+      finalDeliveryTimestamp = new Date(Date.now() + options.delay);
+    }
+
+    const hasPriority = options.priority !== undefined;
+    const hasLiteTopic = options.liteTopic !== undefined;
+    const hasTimedDelivery = finalDeliveryTimestamp !== undefined;
+    const hasGroup = options.messageGroup !== undefined;
+
+    if (hasPriority) {
+      if (options.priority === undefined || options.priority < 0) {
         throw new Error('priority must be greater than or equal to 0');
       }
-      if (options.deliveryTimestamp) {
-        throw new Error('priority and deliveryTimestamp should not be set at same time');
-      }
-      if (options.messageGroup) {
-        throw new Error('priority and messageGroup should not be set at same time');
-      }
-      if (options.liteTopic) {
-        throw new Error('priority and liteTopic should not be set at same time');
+      if (hasTimedDelivery || hasGroup || hasLiteTopic) {
+        throw new Error('priority is mutually exclusive with delay, deliveryTimestamp, messageGroup, and liteTopic');
       }
     }
 
-    // Validate mutual exclusivity - liteTopic
-    if (options.liteTopic !== undefined) {
-      if (options.deliveryTimestamp) {
-        throw new Error('liteTopic and deliveryTimestamp should not be set at same time');
-      }
-      if (options.messageGroup) {
-        throw new Error('liteTopic and messageGroup should not be set at same time');
+    if (hasLiteTopic) {
+      if (hasTimedDelivery || hasGroup) {
+        throw new Error('liteTopic is mutually exclusive with delay, deliveryTimestamp, and messageGroup');
       }
     }
 
-    // Validate mutual exclusivity - deliveryTimestamp
-    if (options.deliveryTimestamp !== undefined) {
-      if (options.messageGroup) {
-        throw new Error('deliveryTimestamp and messageGroup should not be set at same time');
-      }
+    if (hasTimedDelivery && hasGroup) {
+      throw new Error('delay/deliveryTimestamp is mutually exclusive with messageGroup');
     }
 
+    // 4. Assign properties
     this.topic = options.topic;
     this.body = options.body;
     this.tag = options.tag;
     this.messageGroup = options.messageGroup;
     this.keys = options.keys ?? [];
     this.properties = options.properties;
-    this.deliveryTimestamp = options.deliveryTimestamp;
+    this.deliveryTimestamp = finalDeliveryTimestamp;
     this.priority = options.priority;
     this.liteTopic = options.liteTopic;
   }

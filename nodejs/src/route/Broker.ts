@@ -48,9 +48,12 @@ export class Broker implements BrokerPB.AsObject {
 
   hashCode(): number {
     let hash = 17;
-    hash = hash * 31 + this.id;
-    hash = hash * 31 + hashCodeOfString(this.name);
-    hash = hash * 31 + this.endpoints.hashCode();
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.id) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + hashCodeOfString(this.name)) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.endpoints.hashCode()) | 0;
     return hash;
   }
 }
