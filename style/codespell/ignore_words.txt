@@ -4,3 +4,6 @@ errorprone
 crate
 # csharp keyword
 atleast
+# package-lock.json false positives (base64 hashes and package binary names)
+ba
+marge
