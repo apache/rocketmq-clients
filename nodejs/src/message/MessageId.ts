@@ -61,13 +61,11 @@ export class MessageId {
   }
 
   hashCode(): number {
-    let hash = 0;
+    let hash = 17;
     for (let i = 0; i < this.id.length; i++) {
       const char = this.id.charCodeAt(i);
       // eslint-disable-next-line no-bitwise
-      hash = ((hash << 5) - hash) + char;
-      // eslint-disable-next-line no-bitwise
-      hash = hash & hash; // Convert to 32bit integer
+      hash = (hash * 31 + char) | 0;
     }
     return hash;
   }

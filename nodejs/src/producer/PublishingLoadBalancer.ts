@@ -98,7 +98,8 @@ export class PublishingLoadBalancer {
   hashCode(): number {
     let hash = 17;
     for (const mq of this.#messageQueues) {
-      hash = hash * 31 + mq.hashCode();
+      // eslint-disable-next-line no-bitwise
+      hash = (hash * 31 + mq.hashCode()) | 0;
     }
     return hash;
   }

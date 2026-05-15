@@ -46,8 +46,10 @@ export class FilterExpression {
 
   hashCode(): number {
     let hash = 17;
-    hash = hash * 31 + hashCodeOfString(this.expression);
-    hash = hash * 31 + this.filterType;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + hashCodeOfString(this.expression)) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.filterType) | 0;
     return hash;
   }
 

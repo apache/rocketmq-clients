@@ -158,11 +158,10 @@ export abstract class Consumer extends BaseClient {
   /**
    * Check if this is a lite consumer.
    *
-   * @return true if this is a LITE_PUSH_CONSUMER or LITE_SIMPLE_CONSUMER
+   * @return true if this is a LITE_PUSH_CONSUMER
    */
   protected isLiteConsumer(): boolean {
     const clientType = (this as any).getClientType?.();
-    return clientType === ClientType.LITE_PUSH_CONSUMER
-        || clientType === ClientType.LITE_SIMPLE_CONSUMER;
+    return clientType === ClientType.LITE_PUSH_CONSUMER;
   }
 }
