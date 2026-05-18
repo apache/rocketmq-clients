@@ -90,8 +90,17 @@ class TelemetrySession
     }
     
     /**
+     * 同步发送 Settings（兼容 syncSettings 调用）
+     * 参考 Java ClientSessionImpl.syncSettings() - 只是发送 Settings 命令，然后返回 SettableFuture
+     */
+    public function syncSettings($settingsCommand)
+    {
+        return $this->establishAndSyncSettings($settingsCommand);
+    }
+
+    /**
      * 建立 Telemetry Stream 并同步 Settings
-     * 
+     *
      * @param TelemetryCommand $settingsCommand Settings 命令
      * @return bool 是否成功同步
      * @throws \RuntimeException 如果同步失败或超时

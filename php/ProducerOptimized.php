@@ -19,6 +19,9 @@
 namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/MessageId.php';
+require_once __DIR__ . '/MessageIdImpl.php';
+require_once __DIR__ . '/MessageIdCodec.php';
 require_once __DIR__ . '/TelemetrySession.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
@@ -40,17 +43,19 @@ use Apache\Rocketmq\V2\TransactionSource;
 use Grpc\ChannelCredentials;
 use Google\Protobuf\Timestamp;
 use Google\Protobuf\Duration;
+use Apache\Rocketmq\V2\Encoding;
+use Apache\Rocketmq\V2\MessageType as V2MessageType;
 
 /**
- * Producer - 消息生产者（参考 Java ProducerImpl 实现）
- * 
- * 核心特性：
- * 1. 单例 TelemetrySession 管理
- * 2. PublishingLoadBalancer（Topic 级别的 MessageQueue 负载均衡）
- * 3. 完整的状态管理（FSM）
- * 4. 事务消息支持
- * 5. 延迟消息撤回（Recall）
- * 6. 拦截器支持（Hook Points）
+ * Producer - Message producer (reference implementation based on Java ProducerImpl)
+ *
+ * Core features:
+ * 1. Singleton TelemetrySession management
+ * 2. PublishingLoadBalancer (Topic-level MessageQueue load balancing)
+ * 3. Complete state management (FSM)
+ * 4. Transaction message support
+ * 5. Delayed message recall
+ * 6. Interceptor support (Hook Points)
  */
 class ProducerOptimized
 {
@@ -64,9 +69,10 @@ class ProducerOptimized
     private $requestTimeout = 3000; // ms
     private $topics = [];
     private $isolatedEndpoints = [];
+    private $namespace = '';
     
     /**
-     * 构造函数
+     * Constructor
      * 
      * @param string $endpoints gRPC 服务端点
      * @param array $options 配置选项
@@ -78,6 +84,7 @@ class ProducerOptimized
         $this->maxAttempts = $options['maxAttempts'] ?? 3;
         $this->requestTimeout = $options['requestTimeout'] ?? 3000;
         $this->topics = $options['topics'] ?? [];
+        $this->namespace = $options['namespace'] ?? '';
         
         // 创建 gRPC 客户端
         $this->client = new MessagingServiceClient($endpoints, [
@@ -89,7 +96,7 @@ class ProducerOptimized
     }
     
     /**
-     * 启动 Producer
+     * Start the Producer
      */
     public function start()
     {
@@ -119,46 +126,46 @@ class ProducerOptimized
     }
     
     /**
-     * 同步发送消息（参考 Java send 方法）
-     * 
-     * @param Message $message 消息对象
-     * @return array 发送结果 ['messageId' => ..., 'transactionId' => ..., 'status' => ...]
+     * Synchronously send a message (reference Java send method)
+     *
+     * @param Message $message Message object
+     * @return array Send result ['messageId' => ..., 'transactionId' => ..., 'status' => ...]
      */
     public function send(Message $message)
     {
-        // 检查 Producer 状态
+        // Check Producer status
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
         }
-        
-        // 验证消息
+
+        // Validate message
         $this->validateMessage($message);
-        
-        // 获取 Topic
+
+        // Get Topic
         $topic = $message->getTopic()->getName();
-        
-        // 获取 PublishingLoadBalancer
+
+        // Get PublishingLoadBalancer
         $loadBalancer = $this->getPublishingLoadBalancer($topic);
-        
-        // 选择 MessageQueue（轮询）
+
+        // Select MessageQueue (round-robin)
         $messageQueue = $loadBalancer->takeMessageQueue($this->isolatedEndpoints, 1);
         
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
         }
         
-        // 构建发送请求
+        // Build send request
         $request = $this->wrapSendMessageRequest([$message], $messageQueue[0]);
-        
-        // 执行发送（带重试）
+
+        // Execute send (with retry)
         return $this->sendMessageWithRetry($request, $message, $this->maxAttempts);
     }
     
     /**
-     * 异步发送消息（TODO: 需要 Swoole 协程支持）
-     * 
-     * @param Message $message 消息对象
-     * @return \Generator 协程生成器
+     * Asynchronously send a message (TODO: Requires Swoole coroutine support)
+     *
+     * @param Message $message Message object
+     * @return \Generator Coroutine generator
      */
     public function sendAsync(Message $message)
     {
@@ -167,11 +174,11 @@ class ProducerOptimized
     }
     
     /**
-     * 发送事务消息
-     * 
-     * @param Message $message 消息对象
-     * @param Transaction $transaction 事务对象
-     * @return array 发送结果
+     * Send a transaction message
+     *
+     * @param Message $message Message object
+     * @param Transaction $transaction Transaction object
+     * @return array Send result
      */
     public function sendWithTransaction(Message $message, $transaction)
     {
@@ -179,18 +186,18 @@ class ProducerOptimized
             throw new \RuntimeException("Producer is not running now");
         }
         
-        // TODO: 实现事务消息逻辑
-        // 1. 发送半消息（Half Message）
-        // 2. 执行本地事务
-        // 3. 提交或回滚事务
+        // TODO: Implement transaction message logic
+        // 1. Send half message
+        // 2. Execute local transaction
+        // 3. Commit or rollback transaction
         
         throw new \RuntimeException("Transaction message not implemented yet");
     }
     
     /**
-     * 开始事务
-     * 
-     * @return Transaction 事务对象
+     * Begin a transaction
+     *
+     * @return Transaction Transaction object
      */
     public function beginTransaction()
     {
@@ -198,16 +205,16 @@ class ProducerOptimized
             throw new \RuntimeException("Producer is not running now");
         }
         
-        // TODO: 实现 Transaction 类
+        // TODO: Implement Transaction class
         return new Transaction($this);
     }
     
     /**
-     * 提交事务
-     * 
-     * @param string $messageId 消息 ID
-     * @param string $transactionId 事务 ID
-     * @param string $topic Topic 名称
+     * Commit a transaction
+     *
+     * @param string $messageId Message ID
+     * @param string $transactionId Transaction ID
+     * @param string $topic Topic name
      */
     public function commitTransaction($messageId, $transactionId, $topic)
     {
@@ -215,11 +222,11 @@ class ProducerOptimized
     }
     
     /**
-     * 回滚事务
-     * 
-     * @param string $messageId 消息 ID
-     * @param string $transactionId 事务 ID
-     * @param string $topic Topic 名称
+     * Rollback a transaction
+     *
+     * @param string $messageId Message ID
+     * @param string $transactionId Transaction ID
+     * @param string $topic Topic name
      */
     public function rollbackTransaction($messageId, $transactionId, $topic)
     {
@@ -227,11 +234,11 @@ class ProducerOptimized
     }
     
     /**
-     * 撤回延迟消息
-     * 
-     * @param string $topic Topic 名称
-     * @param string $recallHandle 撤回句柄
-     * @return array 撤回结果
+     * Recall a delayed message
+     *
+     * @param string $topic Topic name
+     * @param string $recallHandle Recall handle
+     * @return array Recall result
      */
     public function recallMessage($topic, $recallHandle)
     {
@@ -260,10 +267,10 @@ class ProducerOptimized
     }
     
     /**
-     * 异步撤回消息（TODO: 需要 Swoole 协程支持）
-     * 
-     * @param string $topic Topic 名称
-     * @param string $recallHandle 撤回句柄
+     * Asynchronously recall a message (TODO: Requires Swoole coroutine support)
+     *
+     * @param string $topic Topic name
+     * @param string $recallHandle Recall handle
      * @return \Generator
      */
     public function recallMessageAsync($topic, $recallHandle)
@@ -272,7 +279,7 @@ class ProducerOptimized
     }
     
     /**
-     * 关闭 Producer
+     * Shutdown the Producer
      */
     public function shutdown()
     {
@@ -292,7 +299,7 @@ class ProducerOptimized
     }
     
     /**
-     * 获取 Client ID
+     * Get Client ID
      */
     public function getClientId()
     {
@@ -300,7 +307,7 @@ class ProducerOptimized
     }
     
     /**
-     * 检查是否正在运行
+     * Check if running
      */
     public function isRunning()
     {
@@ -308,7 +315,7 @@ class ProducerOptimized
     }
     
     /**
-     * 析构函数
+     * Destructor
      */
     public function __destruct()
     {
@@ -318,19 +325,19 @@ class ProducerOptimized
     // ==================== Private Methods ====================
     
     /**
-     * 建立 Telemetry Session
+     * Establish Telemetry Session
      */
     private function establishTelemetrySession()
     {
-        // 创建 UserAgent
+        // Create UserAgent
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
         $ua->setVersion('5.0.0');
         
-        // 创建 Publishing 配置
+        // Create Publishing configuration
         $publishing = new Publishing();
         
-        // 添加 Topics
+        // Add Topics
         $topicResources = [];
         foreach ($this->topics as $topicName) {
             $topicResource = new Resource();
@@ -339,38 +346,38 @@ class ProducerOptimized
         }
         $publishing->setTopics($topicResources);
         
-        // 创建 Settings
+        // Create Settings
         $settings = new Settings();
         $settings->setClientType(ClientType::PRODUCER);
         $settings->setUserAgent($ua);
         $settings->setPublishing($publishing);
         
-        // 创建 TelemetryCommand
+        // Create TelemetryCommand
         $command = new TelemetryCommand();
         $command->setSettings($settings);
         
-        // 同步发送 Settings
+        // Synchronously send Settings
         $success = $this->telemetrySession->syncSettings($command);
         
         if (!$success) {
             throw new \RuntimeException("Failed to establish Telemetry Session");
         }
         
-        // 等待服务端处理
+        // Wait for server processing
         usleep(500000); // 500ms
     }
     
     /**
-     * 验证消息
+     * Validate message
      */
     private function validateMessage(Message $message)
     {
-        // 检查 Topic
+        // Check Topic
         if (!$message->hasTopic() || empty($message->getTopic()->getName())) {
             throw new \InvalidArgumentException("Message topic is required");
         }
         
-        // 检查消息体
+        // Check message body
         if (empty($message->getBody())) {
             throw new \InvalidArgumentException("Message body is required");
         }
@@ -419,14 +426,136 @@ class ProducerOptimized
     }
     
     /**
+     * Convert a Message to enriched protobuf Message
+     * Reference: Java PublishingMessageImpl.toProtobuf(namespace, mq)
+     */
+    private function toProtobufMessage(Message $msg, $messageQueue)
+    {
+        // Generate message ID
+        $messageId = MessageIdCodec::getInstance()->nextMessageId()->toString();
+
+        // Build SystemProperties
+        $systemProperties = new SystemProperties();
+        $systemProperties->setMessageId($messageId);
+        $systemProperties->setBornTimestamp($this->createTimestamp());
+        $systemProperties->setBornHost(gethostname() ?: 'localhost');
+        $systemProperties->setBodyEncoding(Encoding::IDENTITY);
+        $systemProperties->setQueueId($messageQueue->getId());
+        $systemProperties->setMessageType($this->detectMessageType($msg));
+
+        // Copy optional system properties from input message
+        $inputSysProps = $msg->getSystemProperties();
+        if ($inputSysProps) {
+            if (method_exists($inputSysProps, 'getTag') && $inputSysProps->hasTag()) {
+                $systemProperties->setTag($inputSysProps->getTag());
+            }
+            if (method_exists($inputSysProps, 'getKeys')) {
+                $keys = $inputSysProps->getKeys();
+                if (!empty($keys)) {
+                    $systemProperties->setKeys($keys);
+                }
+            }
+            if (method_exists($inputSysProps, 'getMessageGroup') && $inputSysProps->hasMessageGroup()) {
+                $systemProperties->setMessageGroup($inputSysProps->getMessageGroup());
+            }
+            if (method_exists($inputSysProps, 'getDeliveryTimestamp') && $inputSysProps->hasDeliveryTimestamp()) {
+                $systemProperties->setDeliveryTimestamp($inputSysProps->getDeliveryTimestamp());
+            }
+            if (method_exists($inputSysProps, 'getLiteTopic') && $inputSysProps->hasLiteTopic()) {
+                $systemProperties->setLiteTopic($inputSysProps->getLiteTopic());
+            }
+            if (method_exists($inputSysProps, 'getPriority') && $inputSysProps->hasPriority()) {
+                $systemProperties->setPriority($inputSysProps->getPriority());
+            }
+            if (method_exists($inputSysProps, 'getTraceContext') && $inputSysProps->hasTraceContext()) {
+                $systemProperties->setTraceContext($inputSysProps->getTraceContext());
+            }
+        }
+
+        // Build topic Resource with namespace
+        $topicResource = new Resource();
+        $topicResource->setName($msg->getTopic()->getName());
+        if (!empty($this->namespace)) {
+            $topicResource->setResourceNamespace($this->namespace);
+        }
+
+        // Build protobuf Message
+        $protoMsg = new Message();
+        $protoMsg->setTopic($topicResource);
+        $protoMsg->setBody($msg->getBody());
+        $protoMsg->setSystemProperties($systemProperties);
+
+        // Copy user properties
+        $userProps = $msg->getUserProperties();
+        if (!empty($userProps)) {
+            foreach ($userProps as $key => $value) {
+                $protoMsg->getUserProperties()[$key] = $value;
+            }
+        }
+
+        return $protoMsg;
+    }
+
+    /**
+     * Detect message type based on message properties
+     * Reference: Java PublishingMessageImpl constructor
+     */
+    private function detectMessageType(Message $msg)
+    {
+        $sysProps = $msg->getSystemProperties();
+        $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
+        $hasLiteTopic = $sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic();
+        $hasPriority = $sysProps && method_exists($sysProps, 'hasPriority') && $sysProps->hasPriority();
+        $hasDeliveryTimestamp = $sysProps && method_exists($sysProps, 'hasDeliveryTimestamp') && $sysProps->hasDeliveryTimestamp();
+
+        // FIFO message
+        if ($hasMessageGroup) {
+            return V2MessageType::FIFO;
+        }
+        // Delay message
+        if ($hasDeliveryTimestamp) {
+            return V2MessageType::DELAY;
+        }
+        // Lite message
+        if ($hasLiteTopic) {
+            return V2MessageType::LITE;
+        }
+        // Priority message
+        if ($hasPriority) {
+            return V2MessageType::PRIORITY;
+        }
+
+        return V2MessageType::NORMAL;
+    }
+
+    /**
+     * Create a Protobuf Timestamp with current time
+     */
+    private function createTimestamp()
+    {
+        $now = microtime(true);
+        $seconds = (int)$now;
+        $nanos = (int)(($now - $seconds) * 1000000000);
+
+        $timestamp = new Timestamp();
+        $timestamp->setSeconds($seconds);
+        $timestamp->setNanos($nanos);
+        return $timestamp;
+    }
+
+    /**
      * 构建 SendMessageRequest
      */
     private function wrapSendMessageRequest($messages, $messageQueue)
     {
-        // SendMessageRequest 只接受 messages，MessageQueue 在消息内部指定
+        $enrichedMessages = [];
+        foreach ($messages as $msg) {
+            $enrichedMessages[] = $this->toProtobufMessage($msg, $messageQueue);
+        }
+
         $request = new SendMessageRequest();
-        $request->setMessages($messages);
-        
+        $request->setMessages($enrichedMessages);
+
         return $request;
     }
     
@@ -558,28 +687,25 @@ class PublishingLoadBalancer
     {
         // 初始化随机索引（参考 Java RandomUtils.nextInt）
         $this->index = rand(0, PHP_INT_MAX);
-        
+
         // 过滤可写的 MessageQueue
         if ($routeData && method_exists($routeData, 'getMessageQueues')) {
             $allQueues = $routeData->getMessageQueues();
-            
+            $writableCount = 0;
+
             foreach ($allQueues as $queue) {
-                // 检查权限是否为可写
                 // Permission: 1=READ_ONLY, 2=WRITE_ONLY, 4=NONE, 6=READ_WRITE
                 $permission = $queue->getPermission();
-                
-                // 接受 WRITE_ONLY(2), READ_WRITE(6), 或者 NONE(4) 用于兼容
+                // Accept WRITE_ONLY(2), READ_WRITE(6), or NONE(4) for compatibility
                 if ($permission == 2 || $permission == 4 || $permission == 6) {
                     $this->messageQueues[] = $queue;
-                    error_log("[PublishingLoadBalancer] Added queue with permission: {$permission}");
-                } else {
-                    error_log("[PublishingLoadBalancer] Skipped queue with permission: {$permission} (not writable)");
+                    $writableCount++;
                 }
             }
-            
-            error_log("[PublishingLoadBalancer] Total writable queues: " . count($this->messageQueues) . " / " . count($allQueues));
+
+            error_log("[PublishingLoadBalancer] Topic queues: {$writableCount} writable / " . count($allQueues) . " total");
         }
-        
+
         if (empty($this->messageQueues)) {
             throw new \InvalidArgumentException("No writable message queue found");
         }

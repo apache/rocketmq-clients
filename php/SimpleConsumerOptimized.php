@@ -474,13 +474,8 @@ class SimpleConsumerOptimized
         $awaitDurationObj = $this->createDurationFromSeconds($awaitDuration);
         $request->setLongPollingTimeout($awaitDurationObj);
         
-        error_log("[SimpleConsumer] Created ReceiveMessageRequest:");
-        error_log("  - BatchSize: {$maxMessageNum}");
-        error_log("  - AttemptId: {$attemptId}");
-        error_log("  - InvisibleDuration: {$invisibleDuration}s (" . $invisibleDurationObj->getSeconds() . "s + " . $invisibleDurationObj->getNanos() . "ns)");
-        error_log("  - LongPollingTimeout: {$awaitDuration}s (" . $awaitDurationObj->getSeconds() . "s + " . $awaitDurationObj->getNanos() . "ns)");
-        error_log("  - AutoRenew: false");
-        
+        error_log("[SimpleConsumer] ReceiveMessageRequest: batchSize={$maxMessageNum}, invisibleDuration={$invisibleDuration}s");
+
         return $request;
     }
     
@@ -524,10 +519,11 @@ class SimpleConsumerOptimized
         } else {
             $endpoints = $broker->getEndpoints();
             $addresses = $endpoints->getAddresses();
-            
-            error_log("[SimpleConsumer] Broker endpoints addresses count: " . count($addresses));
-            
-            if (empty($addresses)) {
+
+            $addressCount = count($addresses);
+            error_log("[SimpleConsumer] Broker endpoints addresses count: {$addressCount}");
+
+            if ($addressCount === 0) {
                 error_log("[SimpleConsumer] No addresses found in broker endpoints, using default");
                 $brokerAddress = $this->endpoints;
             } else {
@@ -571,7 +567,11 @@ class SimpleConsumerOptimized
         
         try {
             // 使用 $this->client 而不是创建新的 brokerClient
-            $call = $this->client->ReceiveMessage($request, $metadata);
+            // 【关键修复】设置 gRPC 调用超时（deadline），这样服务端 ContextInitPipeline 才能获取到 remainingMs
+            // 服务端代码: ctx.getDeadline().timeRemaining(TimeUnit.MILLISECONDS)
+            // 如果没有 deadline，timeRemaining 为 null，导致 NPE
+            $callOptions = ['timeout' => $totalTimeoutMs * 1000]; // PHP gRPC timeout 单位为微秒
+            $call = $this->client->ReceiveMessage($request, $metadata, $callOptions);
             
             foreach ($call->responses() as $response) {
                 $responseCount++;
@@ -598,7 +598,7 @@ class SimpleConsumerOptimized
                     
                     if ($message->hasSystemProperties()) {
                         $sysProps = $message->getSystemProperties();
-                        if ($sysProps->hasMessageId()) {
+                        if ($sysProps->getMessageId() !== null && $sysProps->getMessageId() !== '') {
                             error_log("[SimpleConsumer]   Message ID: " . $sysProps->getMessageId());
                         }
                     }
@@ -634,29 +634,48 @@ class SimpleConsumerOptimized
     {
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        
+
         $topic = $this->extractTopic($messageView);
         $topicResource = new Resource();
         $topicResource->setName($topic);
-        
+
+        // Build AckMessageEntry
+        $entry = new \Apache\Rocketmq\V2\AckMessageEntry();
+        $messageId = $this->extractMessageId($messageView);
+        if ($messageId) {
+            $entry->setMessageId($messageId);
+        }
+        $entry->setReceiptHandle($receiptHandle);
+
         $request = new AckMessageRequest();
         $request->setGroup($groupResource);
         $request->setTopic($topicResource);
-        $request->setReceiptHandle($receiptHandle);
-        
+        $request->setEntries([$entry]);
+
         $metadata = $this->buildMetadata();
-        
+
         list($response, $status) = $this->client->AckMessage($request, $metadata)->wait();
-        
+
         if ($status->code !== 0) {
             throw new \RuntimeException("Ack message failed: " . $status->details);
         }
-        
-        // 检查响应状态
+
+        // Check response entries for individual ack results
         if ($response->hasStatus()) {
             $statusCode = $response->getStatus()->getCode();
             if ($statusCode !== 20000) {
                 throw new \RuntimeException("Ack message failed with code: " . $statusCode);
+            }
+        }
+        // Also check individual entry results
+        $entries = $response->getEntries();
+        if (!empty($entries)) {
+            $resultEntry = $entries[0];
+            if ($resultEntry->hasStatus()) {
+                $entryCode = $resultEntry->getStatus()->getCode();
+                if ($entryCode !== 20000) {
+                    throw new \RuntimeException("Ack entry failed with code: " . $entryCode);
+                }
             }
         }
     }
@@ -681,6 +700,11 @@ class SimpleConsumerOptimized
         $request->setTopic($topicResource);
         $request->setReceiptHandle($receiptHandle);
         $request->setInvisibleDuration($duration);
+
+        $messageId = $this->extractMessageId($messageView);
+        if ($messageId) {
+            $request->setMessageId($messageId);
+        }
         
         $metadata = $this->buildMetadata();
         
@@ -701,6 +725,20 @@ class SimpleConsumerOptimized
             $sysProps = $messageView->getSystemProperties();
             if (method_exists($sysProps, 'getReceiptHandle')) {
                 return $sysProps->getReceiptHandle();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 提取 Message ID
+     */
+    private function extractMessageId($messageView)
+    {
+        if (method_exists($messageView, 'getSystemProperties')) {
+            $sysProps = $messageView->getSystemProperties();
+            if (method_exists($sysProps, 'getMessageId')) {
+                return $sysProps->getMessageId();
             }
         }
         return null;
@@ -760,23 +798,19 @@ class SubscriptionLoadBalancer
     {
         if ($routeData && method_exists($routeData, 'getMessageQueues')) {
             $allQueues = $routeData->getMessageQueues();
-            
-            // 过滤可读的 MessageQueue
+            $readableCount = 0;
+
             // Permission: 1=READ_ONLY, 2=WRITE_ONLY, 4=NONE, 6=READ_WRITE
             foreach ($allQueues as $queue) {
                 $permission = $queue->getPermission();
-                
-                // 接受 READ_ONLY(1), READ_WRITE(6), 或者 NONE(4) 用于兼容
-                // 注意：RocketMQ v5 中 Permission=4 可能表示默认权限，应该接受
+                // Accept READ_ONLY(1), READ_WRITE(6), or NONE(4) for compatibility
                 if ($permission == 1 || $permission == 4 || $permission == 6) {
                     $this->messageQueues[] = $queue;
-                    error_log("[SubscriptionLoadBalancer] Added queue with permission: {$permission}");
-                } else {
-                    error_log("[SubscriptionLoadBalancer] Skipped queue with permission: {$permission} (not readable)");
+                    $readableCount++;
                 }
             }
-            
-            error_log("[SubscriptionLoadBalancer] Total readable queues: " . count($this->messageQueues) . " / " . count($allQueues));
+
+            error_log("[SubscriptionLoadBalancer] Topic queues: {$readableCount} readable / " . count($allQueues) . " total");
         }
     }
     

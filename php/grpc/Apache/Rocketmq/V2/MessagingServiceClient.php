@@ -16,7 +16,8 @@ class MessagingServiceClient extends BaseStub
     }
 
     /**
-     * Query route information for a topic
+     * Queries the route entries of the requested topic in the perspective of the
+     * given endpoints.
      */
     public function QueryRoute(\Apache\Rocketmq\V2\QueryRouteRequest $argument, $metadata = [], $options = []) {
         return $this->_simpleRequest(
@@ -29,32 +30,21 @@ class MessagingServiceClient extends BaseStub
     }
 
     /**
-     * Telemetry bidirectional stream
+     * Producer or consumer sends HeartbeatRequest to servers periodically to
+     * keep-alive.
      */
-    public function Telemetry($metadata = [], $options = []) {
-        return $this->_bidiRequest(
-            '/apache.rocketmq.v2.MessagingService/Telemetry',
-            ['\Apache\Rocketmq\V2\TelemetryCommand', 'decode'],
-            $metadata,
-            $options
-        );
-    }
-
-    /**
-     * Receive messages
-     */
-    public function ReceiveMessage(\Apache\Rocketmq\V2\ReceiveMessageRequest $argument, $metadata = [], $options = []) {
-        return $this->_serverStreamRequest(
-            '/apache.rocketmq.v2.MessagingService/ReceiveMessage',
+    public function Heartbeat(\Apache\Rocketmq\V2\HeartbeatRequest $argument, $metadata = [], $options = []) {
+        return $this->_simpleRequest(
+            '/apache.rocketmq.v2.MessagingService/Heartbeat',
             $argument,
-            ['\Apache\Rocketmq\V2\ReceiveMessageResponse', 'decode'],
+            ['\Apache\Rocketmq\V2\HeartbeatResponse', 'decode'],
             $metadata,
             $options
         );
     }
 
     /**
-     * Send messages
+     * Delivers messages to brokers.
      */
     public function SendMessage(\Apache\Rocketmq\V2\SendMessageRequest $argument, $metadata = [], $options = []) {
         return $this->_simpleRequest(
@@ -67,13 +57,117 @@ class MessagingServiceClient extends BaseStub
     }
 
     /**
-     * End transaction
+     * Receives messages from the server in batch manner.
+     */
+    public function ReceiveMessage(\Apache\Rocketmq\V2\ReceiveMessageRequest $argument, $metadata = [], $options = []) {
+        return $this->_serverStreamRequest(
+            '/apache.rocketmq.v2.MessagingService/ReceiveMessage',
+            $argument,
+            ['\Apache\Rocketmq\V2\ReceiveMessageResponse', 'decode'],
+            $metadata,
+            $options
+        );
+    }
+
+    /**
+     * Acknowledges the message associated with the receipt_handle.
+     */
+    public function AckMessage(\Apache\Rocketmq\V2\AckMessageRequest $argument, $metadata = [], $options = []) {
+        return $this->_simpleRequest(
+            '/apache.rocketmq.v2.MessagingService/AckMessage',
+            $argument,
+            ['\Apache\Rocketmq\V2\AckMessageResponse', 'decode'],
+            $metadata,
+            $options
+        );
+    }
+
+    /**
+     * Forwards one message to dead letter queue.
+     */
+    public function ForwardMessageToDeadLetterQueue(\Apache\Rocketmq\V2\ForwardMessageToDeadLetterQueueRequest $argument, $metadata = [], $options = []) {
+        return $this->_simpleRequest(
+            '/apache.rocketmq.v2.MessagingService/ForwardMessageToDeadLetterQueue',
+            $argument,
+            ['\Apache\Rocketmq\V2\ForwardMessageToDeadLetterQueueResponse', 'decode'],
+            $metadata,
+            $options
+        );
+    }
+
+    /**
+     * Commits or rollback one transactional message.
      */
     public function EndTransaction(\Apache\Rocketmq\V2\EndTransactionRequest $argument, $metadata = [], $options = []) {
         return $this->_simpleRequest(
             '/apache.rocketmq.v2.MessagingService/EndTransaction',
             $argument,
             ['\Apache\Rocketmq\V2\EndTransactionResponse', 'decode'],
+            $metadata,
+            $options
+        );
+    }
+
+    /**
+     * Telemetry bidirectional stream.
+     */
+    public function Telemetry($metadata = [], $options = []) {
+        return $this->_bidiRequest(
+            '/apache.rocketmq.v2.MessagingService/Telemetry',
+            ['\Apache\Rocketmq\V2\TelemetryCommand', 'decode'],
+            $metadata,
+            $options
+        );
+    }
+
+    /**
+     * Notify the server that the client is terminated.
+     */
+    public function NotifyClientTermination(\Apache\Rocketmq\V2\NotifyClientTerminationRequest $argument, $metadata = [], $options = []) {
+        return $this->_simpleRequest(
+            '/apache.rocketmq.v2.MessagingService/NotifyClientTermination',
+            $argument,
+            ['\Apache\Rocketmq\V2\NotifyClientTerminationResponse', 'decode'],
+            $metadata,
+            $options
+        );
+    }
+
+    /**
+     * Once a message is retrieved from consume queue on behalf of the group, it
+     * will be kept invisible to other clients for a period of time.
+     */
+    public function ChangeInvisibleDuration(\Apache\Rocketmq\V2\ChangeInvisibleDurationRequest $argument, $metadata = [], $options = []) {
+        return $this->_simpleRequest(
+            '/apache.rocketmq.v2.MessagingService/ChangeInvisibleDuration',
+            $argument,
+            ['\Apache\Rocketmq\V2\ChangeInvisibleDurationResponse', 'decode'],
+            $metadata,
+            $options
+        );
+    }
+
+    /**
+     * Queries the assigned route info of a topic for current consumer.
+     */
+    public function QueryAssignment(\Apache\Rocketmq\V2\QueryAssignmentRequest $argument, $metadata = [], $options = []) {
+        return $this->_simpleRequest(
+            '/apache.rocketmq.v2.MessagingService/QueryAssignment',
+            $argument,
+            ['\Apache\Rocketmq\V2\QueryAssignmentResponse', 'decode'],
+            $metadata,
+            $options
+        );
+    }
+
+    /**
+     * Recalls a delay/timed message.
+     */
+    public function RecallMessage(\Apache\Rocketmq\V2\RecallMessageRequest $argument, $metadata = [], $options = []) {
+        return $this->_simpleRequest(
+            '/apache.rocketmq.v2.MessagingService/RecallMessage',
+            $argument,
+            ['\Apache\Rocketmq\V2\RecallMessageResponse', 'decode'],
             $metadata,
             $options
         );
