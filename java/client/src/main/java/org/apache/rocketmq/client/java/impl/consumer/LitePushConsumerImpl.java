@@ -20,14 +20,18 @@ package org.apache.rocketmq.client.java.impl.consumer;
 import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.Settings;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.LitePushConsumer;
 import org.apache.rocketmq.client.apis.consumer.OffsetOption;
 import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.Endpoints;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushConsumer {
+    private static final Logger log = LoggerFactory.getLogger(LitePushConsumerImpl.class);
 
     private final LiteSubscriptionManager liteSubscriptionManager;
 
@@ -81,6 +85,19 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     @Override
     protected ClientType clientType() {
         return ClientType.LITE_PUSH_CONSUMER;
+    }
+
+    @Override
+    protected ConsumeService createConsumeService() {
+        final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
+        if (getSettings().isFifo()) {
+            log.info("Create Lite FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
+                getConsumerGroup(), clientId, enableFifoConsumeAccelerator);
+            return new LiteFifoConsumeService(clientId, messageListener, consumptionExecutor, this,
+                scheduler, enableFifoConsumeAccelerator);
+        }
+        log.info("Create Lite standard consume service, consumerGroup={}, clientId={}", getConsumerGroup(), clientId);
+        return new LiteStandardConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
     }
 
 }
