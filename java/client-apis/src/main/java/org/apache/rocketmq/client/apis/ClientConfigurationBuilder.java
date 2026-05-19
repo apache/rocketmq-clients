@@ -181,6 +181,7 @@ public class ClientConfigurationBuilder {
     public ClientConfiguration build() {
         checkNotNull(endpoints, "endpoints should not be null");
         checkNotNull(requestTimeout, "requestTimeout should not be null");
+        // Keep build() defensive for maps supplied through setClientProperties or future builder paths.
         validateClientProperties(clientProperties);
         return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled, namespace,
             maxStartupAttempts, clientProperties);
@@ -194,6 +195,13 @@ public class ClientConfigurationBuilder {
         validateClientProperties(properties, false);
     }
 
+    /**
+     * Performs a client-side pre-check for client properties before the settings are reported to the server.
+     *
+     * <p>This validation mirrors the public proto constraints as closely as possible without depending on generated
+     * proto classes in the client-apis module. The server still has final authority and may reject the properties with
+     * its own validation result.
+     */
     private static void validateClientProperties(Map<String, String> properties, boolean validateEntries) {
         checkArgument(properties.size() <= MAX_CLIENT_PROPERTIES_ENTRIES,
             "clientProperties should not contain more than %s entries", MAX_CLIENT_PROPERTIES_ENTRIES);
@@ -225,7 +233,51 @@ public class ClientConfigurationBuilder {
             "client property value length should not exceed %s characters", MAX_CLIENT_PROPERTY_VALUE_LENGTH);
     }
 
+    /**
+     * Computes the serialized size of one {@code client_properties} map entry in protobuf wire format.
+     *
+     * <p>A {@code map<string, string>} field is encoded as repeated entry messages. Each entry is written as Settings
+     * field 9, containing key field 1 and value field 2. Client property keys are constrained to ASCII, so
+     * {@link String#length()} equals the UTF-8 byte size for keys; values may contain non-ASCII characters and must use
+     * their UTF-8 byte size.
+     */
     private static int computeClientPropertySize(String key, String value) {
-        return key.getBytes(StandardCharsets.UTF_8).length + value.getBytes(StandardCharsets.UTF_8).length;
+        int keySize = key.length();
+        int valueSize = value.getBytes(StandardCharsets.UTF_8).length;
+        int entrySize = computeTagSize(1)
+            + computeUInt32SizeNoTag(keySize)
+            + keySize
+            + computeTagSize(2)
+            + computeUInt32SizeNoTag(valueSize)
+            + valueSize;
+        return computeTagSize(9)
+            + computeUInt32SizeNoTag(entrySize)
+            + entrySize;
+    }
+
+    /**
+     * Computes the protobuf wire-format size of a field tag for the given field number.
+     */
+    private static int computeTagSize(int fieldNumber) {
+        return computeUInt32SizeNoTag(fieldNumber << 3);
+    }
+
+    /**
+     * Computes the protobuf unsigned int32 varint size.
+     */
+    private static int computeUInt32SizeNoTag(int value) {
+        if ((value & (~0 << 7)) == 0) {
+            return 1;
+        }
+        if ((value & (~0 << 14)) == 0) {
+            return 2;
+        }
+        if ((value & (~0 << 21)) == 0) {
+            return 3;
+        }
+        if ((value & (~0 << 28)) == 0) {
+            return 4;
+        }
+        return 5;
     }
 }

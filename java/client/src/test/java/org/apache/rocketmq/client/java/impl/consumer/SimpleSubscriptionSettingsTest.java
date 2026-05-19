@@ -44,8 +44,8 @@ public class SimpleSubscriptionSettingsTest extends TestBase {
             .setNamespace(FAKE_NAMESPACE)
             .setRequestTimeout(requestTimeout)
             .setEndpoints(FAKE_ENDPOINTS)
-            .addClientProperty("app", "order-service")
-            .addClientProperty("env", "prod")
+            .addClientProperty("key1", "value1")
+            .addClientProperty("key2", "value2")
             .build();
         ClientId clientId = new ClientId();
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
@@ -59,8 +59,8 @@ public class SimpleSubscriptionSettingsTest extends TestBase {
         final Settings settings = simpleSubscriptionSettings.toProtobuf();
         Assert.assertEquals(settings.getClientType(), ClientType.SIMPLE_CONSUMER);
         Assert.assertEquals(settings.getRequestTimeout(), Durations.fromNanos(requestTimeout.toNanos()));
-        Assert.assertEquals("order-service", settings.getClientPropertiesMap().get("app"));
-        Assert.assertEquals("prod", settings.getClientPropertiesMap().get("env"));
+        Assert.assertEquals("value1", settings.getClientPropertiesMap().get("key1"));
+        Assert.assertEquals("value2", settings.getClientPropertiesMap().get("key2"));
         Assert.assertTrue(settings.hasSubscription());
         final Subscription subscription = settings.getSubscription();
         Assert.assertEquals(subscription.getGroup(),
