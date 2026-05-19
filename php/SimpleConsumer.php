@@ -496,30 +496,6 @@ class SimpleConsumer
     }
 
     /**
-     * Notify server that this client is terminating.
-     */
-    private function notifyClientTermination()
-    {
-        $request = new NotifyClientTerminationRequest();
-        $groupResource = new Resource();
-        $groupResource->setName($this->consumerGroup);
-        $request->setGroup($groupResource);
-
-        $metadata = $this->buildMetadata();
-
-        try {
-            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
-            if ($status->code === 0) {
-                $this->logger->debug("NotifyClientTermination sent successfully");
-            } else {
-                $this->logger->warning("NotifyClientTermination failed: " . $status->details);
-            }
-        } catch (\Exception $e) {
-            $this->logger->warning("NotifyClientTermination exception: " . $e->getMessage());
-        }
-    }
-
-    /**
      * Build metadata for gRPC calls
      */
     private function buildMetadata()
