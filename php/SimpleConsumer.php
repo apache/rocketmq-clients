@@ -20,6 +20,8 @@ namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/TelemetrySession.php';
+require_once __DIR__ . '/Logger.php';
+require_once __DIR__ . '/Signature.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -33,6 +35,9 @@ use Apache\Rocketmq\V2\Language;
 use Apache\Rocketmq\V2\TelemetryCommand;
 use Apache\Rocketmq\V2\Subscription;
 use Apache\Rocketmq\V2\SubscriptionEntry;
+use Apache\Rocketmq\V2\AckMessageRequest;
+use Apache\Rocketmq\V2\AckMessageEntry;
+use Apache\Rocketmq\V2\NotifyClientTerminationRequest;
 use Grpc\ChannelCredentials;
 use Google\Protobuf\Duration;
 
@@ -53,6 +58,9 @@ class SimpleConsumer
     private $telemetrySession;
     private $subscriptions = [];
     private $isStarted = false;
+    private $logger;
+    private $credentials = null;
+    private $namespace = '';
     
     /**
      * Constructor
@@ -74,17 +82,42 @@ class SimpleConsumer
         
         // Initialize Telemetry Session (singleton)
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints);
+        $this->logger = Logger::getInstance('SimpleConsumer');
     }
     
     /**
      * Subscribe to a topic
-     * 
+     *
      * @param string $topic Topic name
      * @param string $expression Filter expression (default "*")
+     * @return $this
      */
     public function subscribe($topic, $expression = '*')
     {
         $this->subscriptions[$topic] = $expression;
+        return $this;
+    }
+
+    /**
+     * Unsubscribe from a topic
+     *
+     * @param string $topic Topic name
+     * @return $this
+     */
+    public function unsubscribe($topic)
+    {
+        unset($this->subscriptions[$topic]);
+        return $this;
+    }
+
+    /**
+     * Get all subscription expressions
+     *
+     * @return array
+     */
+    public function getSubscriptionExpressions()
+    {
+        return $this->subscriptions;
     }
     
     /**
@@ -288,12 +321,217 @@ class SimpleConsumer
     /**
      * Acknowledge messages
      *
-     * @param array $receiptHandles Receipt handle list
+     * @param array $messages List of message objects to acknowledge
      */
-    public function ack($receiptHandles)
+    public function ack($messages)
     {
-        // TODO: Implement ACK logic
-        // Need to use AckMessageRequest
+        if (!$this->isStarted) {
+            throw new \RuntimeException("Consumer not started");
+        }
+
+        if (empty($messages)) {
+            return;
+        }
+
+        // Group messages by topic for batch ack
+        $messagesByTopic = [];
+        foreach ($messages as $message) {
+            $topic = $this->extractTopic($message);
+            if (!$topic) {
+                continue;
+            }
+            if (!isset($messagesByTopic[$topic])) {
+                $messagesByTopic[$topic] = [];
+            }
+            $messagesByTopic[$topic][] = $message;
+        }
+
+        foreach ($messagesByTopic as $topic => $topicMessages) {
+            $this->ackMessagesForTopic($topic, $topicMessages);
+        }
+    }
+
+    /**
+     * Acknowledge messages for a specific topic
+     */
+    private function ackMessagesForTopic($topic, $messages)
+    {
+        $entries = [];
+        foreach ($messages as $message) {
+            $receiptHandle = $this->extractReceiptHandle($message);
+            $messageId = $this->extractMessageId($message);
+
+            if (!$receiptHandle) {
+                $this->logger->warning("Skip ack: no receipt handle for message");
+                continue;
+            }
+
+            $entry = new AckMessageEntry();
+            if ($messageId) {
+                $entry->setMessageId($messageId);
+            }
+            $entry->setReceiptHandle($receiptHandle);
+            $entries[] = $entry;
+        }
+
+        if (empty($entries)) {
+            return;
+        }
+
+        $groupResource = new Resource();
+        $groupResource->setName($this->consumerGroup);
+
+        $topicResource = new Resource();
+        $topicResource->setName($topic);
+
+        $request = new AckMessageRequest();
+        $request->setGroup($groupResource);
+        $request->setTopic($topicResource);
+        $request->setEntries($entries);
+
+        $metadata = $this->buildMetadata();
+
+        $maxRetries = 3;
+        $attempt = 0;
+
+        while ($attempt < $maxRetries) {
+            try {
+                list($response, $status) = $this->client->AckMessage($request, $metadata)->wait();
+                if ($status->code !== 0) {
+                    $this->logger->warning("AckMessage attempt {$attempt}: status error: " . $status->details);
+                } else {
+                    $responseEntries = $response->getEntries();
+                    if (!empty($responseEntries)) {
+                        foreach ($responseEntries as $resultEntry) {
+                            if ($resultEntry->hasStatus()) {
+                                $entryCode = $resultEntry->getStatus()->getCode();
+                                if ($entryCode !== 20000) {
+                                    if ($entryCode == 40003) {
+                                        $this->logger->warning("AckMessage invalid receipt handle, giving up");
+                                    } else {
+                                        $this->logger->warning("AckMessage entry failed with code: " . $entryCode);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return;
+            } catch (\Exception $e) {
+                $this->logger->warning("AckMessage attempt {$attempt} failed: " . $e->getMessage());
+                $attempt++;
+                if ($attempt < $maxRetries) {
+                    usleep(pow(2, $attempt) * 100000);
+                }
+            }
+        }
+
+        $this->logger->error("AckMessage failed after {$maxRetries} retries for topic={$topic}");
+    }
+
+    /**
+     * Notify server that this client is terminating.
+     */
+    private function notifyClientTermination()
+    {
+        $request = new NotifyClientTerminationRequest();
+        $groupResource = new Resource();
+        $groupResource->setName($this->consumerGroup);
+        $request->setGroup($groupResource);
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            if ($status->code === 0) {
+                $this->logger->debug("NotifyClientTermination sent successfully");
+            } else {
+                $this->logger->warning("NotifyClientTermination failed: " . $status->details);
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning("NotifyClientTermination exception: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Extract receipt handle from a message
+     */
+    private function extractReceiptHandle($message)
+    {
+        if (method_exists($message, 'getSystemProperties')) {
+            $sysProps = $message->getSystemProperties();
+            if (method_exists($sysProps, 'getReceiptHandle')) {
+                return $sysProps->getReceiptHandle();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract message ID from a message
+     */
+    private function extractMessageId($message)
+    {
+        if (method_exists($message, 'getSystemProperties')) {
+            $sysProps = $message->getSystemProperties();
+            if (method_exists($sysProps, 'getMessageId')) {
+                return $sysProps->getMessageId();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract topic from a message
+     */
+    private function extractTopic($message)
+    {
+        if (method_exists($message, 'getTopic')) {
+            $topic = $message->getTopic();
+            if (method_exists($topic, 'getName')) {
+                return $topic->getName();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Notify server that this client is terminating.
+     */
+    private function notifyClientTermination()
+    {
+        $request = new NotifyClientTerminationRequest();
+        $groupResource = new Resource();
+        $groupResource->setName($this->consumerGroup);
+        $request->setGroup($groupResource);
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            if ($status->code === 0) {
+                $this->logger->debug("NotifyClientTermination sent successfully");
+            } else {
+                $this->logger->warning("NotifyClientTermination failed: " . $status->details);
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning("NotifyClientTermination exception: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Build metadata for gRPC calls
+     */
+    private function buildMetadata()
+    {
+        return Signature::sign(
+            null,
+            $this->clientId,
+            'PHP',
+            '5.0.0',
+            '',
+            'v2'
+        );
     }
     
     /**
@@ -302,9 +540,10 @@ class SimpleConsumer
     public function shutdown()
     {
         if ($this->telemetrySession) {
+            $this->notifyClientTermination();
             $this->telemetrySession->close();
         }
-        
+
         $this->isStarted = false;
     }
     

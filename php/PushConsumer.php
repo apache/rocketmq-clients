@@ -45,6 +45,7 @@ use Apache\Rocketmq\V2\Endpoints;
 use Apache\Rocketmq\V2\Address;
 use Apache\Rocketmq\V2\AddressScheme;
 use Apache\Rocketmq\V2\HeartbeatRequest;
+use Apache\Rocketmq\V2\NotifyClientTerminationRequest;
 use Grpc\ChannelCredentials;
 
 /**
@@ -282,6 +283,9 @@ class PushConsumer
         $this->logger->info("PushConsumer shutting down, clientId={$this->clientId}");
 
         $this->isRunning = false;
+
+        // Notify server of client termination
+        $this->notifyClientTermination();
 
         // Drop all ProcessQueues
         foreach ($this->processQueueTable as $pq) {
@@ -715,6 +719,30 @@ class PushConsumer
             }
         } catch (\Exception $e) {
             $this->logger->warning("Heartbeat failed: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Notify server that this client is terminating.
+     */
+    private function notifyClientTermination()
+    {
+        $request = new NotifyClientTerminationRequest();
+        $groupResource = new Resource();
+        $groupResource->setName($this->consumerGroup);
+        $request->setGroup($groupResource);
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            if ($status->code === 0) {
+                $this->logger->debug("NotifyClientTermination sent successfully");
+            } else {
+                $this->logger->warning("NotifyClientTermination failed: " . $status->details);
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning("NotifyClientTermination exception: " . $e->getMessage());
         }
     }
 

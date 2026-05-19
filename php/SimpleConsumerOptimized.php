@@ -43,6 +43,7 @@ use Apache\Rocketmq\V2\Endpoints;
 use Apache\Rocketmq\V2\Address;
 use Apache\Rocketmq\V2\AddressScheme;
 use Apache\Rocketmq\V2\HeartbeatRequest;
+use Apache\Rocketmq\V2\NotifyClientTerminationRequest;
 use Apache\Rocketmq\V2\CustomizedBackoff;
 use Apache\Rocketmq\V2\RetryPolicy;
 use Grpc\ChannelCredentials;
@@ -331,7 +332,10 @@ class SimpleConsumerOptimized
         }
         
         $this->logger->info("Begin to shutdown the rocketmq simple consumer, clientId={$this->clientId}");
-        
+
+        // Notify server of client termination
+        $this->notifyClientTermination();
+
         if ($this->telemetrySession) {
             $this->telemetrySession->close();
         }
@@ -948,6 +952,30 @@ class SimpleConsumerOptimized
         if ($now - $this->lastHeartbeatTime >= 10) {
             $this->doHeartbeat();
             $this->lastHeartbeatTime = $now;
+        }
+    }
+
+    /**
+     * Notify server that this client is terminating.
+     */
+    private function notifyClientTermination()
+    {
+        $request = new NotifyClientTerminationRequest();
+        $groupResource = new Resource();
+        $groupResource->setName($this->consumerGroup);
+        $request->setGroup($groupResource);
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            if ($status->code === 0) {
+                $this->logger->debug("NotifyClientTermination sent successfully");
+            } else {
+                $this->logger->warning("NotifyClientTermination failed: " . $status->details);
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning("NotifyClientTermination exception: " . $e->getMessage());
         }
     }
 }

@@ -48,6 +48,7 @@ use Apache\Rocketmq\V2\TransactionSource;
 use Apache\Rocketmq\V2\Endpoints;
 use Apache\Rocketmq\V2\Address;
 use Apache\Rocketmq\V2\AddressScheme;
+use Apache\Rocketmq\V2\NotifyClientTerminationRequest;
 use Grpc\ChannelCredentials;
 use Google\Protobuf\Timestamp;
 use Google\Protobuf\Duration;
@@ -83,6 +84,7 @@ class Producer
     private $validateMessageType = true;
     private $maxBodySizeBytes = 4194304; // 4MB default
     private $heartbeatPid = null;
+    private $lastHeartbeatTime = 0;
 
     /**
      * Constructor
@@ -451,6 +453,9 @@ class Producer
 
         $this->logger->info("Begin to shutdown the rocketmq producer, clientId={$this->clientId}");
 
+        // Notify server of client termination
+        $this->notifyClientTermination();
+
         if ($this->telemetrySession) {
             $this->telemetrySession->close();
         }
@@ -486,10 +491,7 @@ class Producer
 
     /**
      * Start periodic heartbeat to all route endpoints.
-     * Mirrors Java's scheduleWithFixedDelay(1s initial, 10s period).
-     *
-     * Uses pcntl_fork() for background heartbeat process on systems that support it,
-     * otherwise uses pcntl_tick() for in-process polling.
+     * Uses tick-based polling instead of pcntl_fork for cross-platform compatibility.
      */
     private function startHeartbeat()
     {
@@ -497,9 +499,7 @@ class Producer
         $this->doHeartbeat();
         $this->lastHeartbeatTime = time();
 
-        // Use tick-based polling for cross-platform compatibility
-        // Tick every second, send heartbeat every 10 seconds
-        if (function_exists('pcntl_signal_dispatch')) {
+        if (function_exists('pcntl_signal')) {
             declare(ticks=1);
             $self = $this;
             pcntl_signal(SIGALRM, function() use ($self) {
@@ -517,6 +517,41 @@ class Producer
         if ($now - $this->lastHeartbeatTime >= 10) {
             $this->doHeartbeat();
             $this->lastHeartbeatTime = $now;
+        }
+    }
+
+    /**
+     * Register a message interceptor.
+     *
+     * @param MessageInterceptor $interceptor
+     * @return $this
+     */
+    public function addInterceptor(MessageInterceptor $interceptor)
+    {
+        if (!isset($this->interceptors)) {
+            $this->interceptors = [];
+        }
+        $this->interceptors[] = $interceptor;
+        return $this;
+    }
+
+    /**
+     * Execute interceptors at a given hook point.
+     *
+     * @param string $hookPoint One of MessageHookPoints constants
+     * @param array $context Context data for the hook point
+     */
+    public function executeInterceptors($hookPoint, $context = [])
+    {
+        if (empty($this->interceptors)) {
+            return;
+        }
+        foreach ($this->interceptors as $interceptor) {
+            try {
+                $interceptor->intercept($hookPoint, $context);
+            } catch (\Exception $e) {
+                $this->logger->warning("Interceptor failed at {$hookPoint}: " . $e->getMessage());
+            }
         }
     }
 
@@ -548,6 +583,32 @@ class Producer
             }
         } catch (\Exception $e) {
             $this->logger->warning("Heartbeat failed: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Notify server that this client is terminating.
+     * Mirrors Java's ClientImpl.notifyClientTermination().
+     */
+    private function notifyClientTermination()
+    {
+        if (empty($this->publishingRouteDataCache)) {
+            return;
+        }
+
+        $request = new NotifyClientTerminationRequest();
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            if ($status->code === 0) {
+                $this->logger->debug("NotifyClientTermination sent successfully");
+            } else {
+                $this->logger->warning("NotifyClientTermination failed: " . $status->details);
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning("NotifyClientTermination exception: " . $e->getMessage());
         }
     }
 
@@ -1159,61 +1220,97 @@ class PublishingLoadBalancer
         if (empty($this->messageQueues)) {
             return [];
         }
-        
+
         $candidates = [];
         $candidateBrokerNames = [];
-        
+
         $next = $this->index++;
-        
+
+        // Build set of excluded endpoint keys (host:port)
+        $excludedEndpointKeys = [];
+        foreach ($excluded as $endpoint) {
+            if ($endpoint instanceof Endpoints) {
+                foreach ($this->collectEndpointKeys($endpoint) as $key) {
+                    $excludedEndpointKeys[$key] = true;
+                }
+            } elseif (is_string($endpoint)) {
+                $excludedEndpointKeys[$endpoint] = true;
+            }
+        }
+
         // Round one: exclude isolated Endpoints
         for ($i = 0; $i < count($this->messageQueues); $i++) {
             $queueIndex = $next++ % count($this->messageQueues);
             $messageQueue = $this->messageQueues[$queueIndex];
-            
+
             $broker = $messageQueue->getBroker();
             $brokerName = $broker->getName();
-            
-            // Check if excluded
+
+            // Check if excluded by comparing full endpoint objects
             $isExcluded = false;
-            foreach ($excluded as $endpoint) {
-                // TODO: Compare Endpoints
-                if ($brokerName === $endpoint) {
-                    $isExcluded = true;
-                    break;
+            if (!empty($excludedEndpointKeys)) {
+                if ($broker->hasEndpoints()) {
+                    foreach ($this->collectEndpointKeys($broker->getEndpoints()) as $key) {
+                        if (isset($excludedEndpointKeys[$key])) {
+                            $isExcluded = true;
+                            break;
+                        }
+                    }
                 }
             }
-            
+
             if (!$isExcluded && !in_array($brokerName, $candidateBrokerNames)) {
                 $candidateBrokerNames[] = $brokerName;
                 $candidates[] = $messageQueue;
             }
-            
+
             if (count($candidates) >= $count) {
                 return $candidates;
             }
         }
-        
+
         // Round two: if all Endpoints are isolated, use all queues
         if (empty($candidates)) {
             for ($i = 0; $i < count($this->messageQueues); $i++) {
                 $queueIndex = $next++ % count($this->messageQueues);
                 $messageQueue = $this->messageQueues[$queueIndex];
-                
+
                 $broker = $messageQueue->getBroker();
                 $brokerName = $broker->getName();
-                
+
                 if (!in_array($brokerName, $candidateBrokerNames)) {
                     $candidateBrokerNames[] = $brokerName;
                     $candidates[] = $messageQueue;
                 }
-                
+
                 if (count($candidates) >= $count) {
                     break;
                 }
             }
         }
-        
+
         return $candidates;
+    }
+
+    /**
+     * Collect endpoint keys (host:port strings) from an Endpoints object.
+     *
+     * @param Endpoints $endpoints
+     * @return array
+     */
+    private function collectEndpointKeys($endpoints)
+    {
+        $keys = [];
+        if (!$endpoints) {
+            return $keys;
+        }
+        $addresses = $endpoints->getAddresses();
+        foreach ($addresses as $address) {
+            if ($address) {
+                $keys[] = $address->getHost() . ':' . $address->getPort();
+            }
+        }
+        return $keys;
     }
     
     /**

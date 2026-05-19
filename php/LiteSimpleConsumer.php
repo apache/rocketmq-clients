@@ -29,6 +29,7 @@ use Apache\Rocketmq\V2\AckMessageRequest;
 use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\ChangeInvisibleDurationRequest;
 use Apache\Rocketmq\V2\SyncLiteSubscriptionRequest;
+use Apache\Rocketmq\V2\NotifyClientTerminationRequest;
 use Apache\Rocketmq\V2\LiteSubscriptionAction;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\FilterExpression;
@@ -189,6 +190,9 @@ class LiteSimpleConsumer
         }
 
         $this->isRunning = false;
+
+        // Notify server of client termination
+        $this->notifyClientTermination();
 
         if ($this->telemetrySession) {
             $this->telemetrySession->close();
@@ -585,6 +589,30 @@ class LiteSimpleConsumer
     {
         if ($this->isRunning) {
             throw new \RuntimeException("LiteSimpleConsumer is already running");
+        }
+    }
+
+    /**
+     * Notify server that this client is terminating.
+     */
+    private function notifyClientTermination()
+    {
+        $request = new NotifyClientTerminationRequest();
+        $groupResource = new Resource();
+        $groupResource->setName($this->consumerGroup);
+        $request->setGroup($groupResource);
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            if ($status->code === 0) {
+                $this->logger->debug("NotifyClientTermination sent successfully");
+            } else {
+                $this->logger->warning("NotifyClientTermination failed: " . $status->details);
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning("NotifyClientTermination exception: " . $e->getMessage());
         }
     }
 }
