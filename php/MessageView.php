@@ -27,10 +27,9 @@ use Apache\Rocketmq\V2\Encoding;
 /**
  * MessageView - Rich wrapper for consumed messages.
  *
- * Mirrors Java's MessageViewImpl. Wraps the raw protobuf Message received from
- * the broker with additional delivery metadata (receipt handle, endpoints,
- * delivery attempt count, born timestamp, born host) that is needed for
- * ack/nack/retry operations.
+ * Wraps the raw protobuf Message received from the broker with additional 
+ * delivery metadata (receipt handle, endpoints, delivery attempt count, 
+ * born timestamp, born host) that is needed for ack/nack/retry operations.
  *
  * On construction, verifies body integrity (CRC32) and decompresses GZIP if needed.
  * Marks the message as corrupted if verification or decompression fails.

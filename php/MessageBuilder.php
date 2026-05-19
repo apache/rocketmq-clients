@@ -28,7 +28,7 @@ use Google\Protobuf\Timestamp;
 /**
  * MessageBuilder - Fluent builder for creating messages.
  *
- * Mirrors Java's MessageBuilderImpl pattern with validation.
+ * Provides a fluent API with validation for building messages.
  * Prevents conflicting message types (delay, fifo, lite, priority are mutually exclusive).
  */
 class MessageBuilder

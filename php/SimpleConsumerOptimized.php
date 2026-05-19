@@ -775,7 +775,6 @@ class SimpleConsumerOptimized
     
     /**
      * Build metadata using Signature class for gRPC calls.
-     * Mirrors Java's client.sign() pattern.
      */
     private function buildMetadata()
     {

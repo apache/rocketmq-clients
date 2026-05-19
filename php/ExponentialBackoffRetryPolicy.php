@@ -21,8 +21,8 @@ namespace Apache\Rocketmq;
 /**
  * ExponentialBackoffRetryPolicy - Retry policy with exponential backoff.
  *
- * Mirrors Java's ExponentialBackoffRetryPolicy. Computes the next retry
- * delay based on the current attempt number with the formula:
+ * Computes the next retry delay based on the current attempt number with 
+ * the formula:
  *   delay = min(base * multiplier^(attempt-1), maxDelay)
  *
  * With jitter to avoid thundering herd:

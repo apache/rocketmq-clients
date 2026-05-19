@@ -20,6 +20,7 @@ namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/Signature.php';
+require_once __DIR__ . '/MessageView.php';
 
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
@@ -158,8 +159,10 @@ class ProcessQueue
     private function cacheMessages($messages)
     {
         foreach ($messages as $msg) {
-            $this->cachedMessages[] = $msg;
-            $body = $msg->body ?? '';
+            // Wrap V2\Message in MessageView for proper consumption
+            $messageView = new MessageView($msg);
+            $this->cachedMessages[] = $messageView;
+            $body = $msg->getBody() ?? '';
             $this->cachedMessagesBytes += strlen($body);
         }
     }

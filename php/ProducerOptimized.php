@@ -823,7 +823,6 @@ class ProducerOptimized
     
     /**
      * Build metadata using Signature class for gRPC calls.
-     * Mirrors Java's client.sign() pattern.
      */
     private function buildMetadata()
     {
@@ -991,7 +990,6 @@ class Transaction
 
     /**
      * Add a message to this transaction.
-     * Mirrors Java: tryAddMessage with single-message limit.
      */
     public function tryAddMessage(Message $message)
     {
@@ -1013,7 +1011,6 @@ class Transaction
 
     /**
      * Record a send receipt for a message in this transaction.
-     * Mirrors Java: tryAddReceipt with containment check.
      */
     public function tryAddReceipt(Message $message, array $sendResult)
     {
@@ -1041,7 +1038,6 @@ class Transaction
 
     /**
      * Commit all messages in this transaction.
-     * Mirrors Java: commit with empty-receipts check.
      */
     public function commit()
     {
@@ -1065,7 +1061,6 @@ class Transaction
 
     /**
      * Rollback all messages in this transaction.
-     * Mirrors Java: rollback with empty-receipts check.
      */
     public function rollback()
     {

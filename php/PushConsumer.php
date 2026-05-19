@@ -607,7 +607,6 @@ class PushConsumer
 
     /**
      * Build metadata for gRPC calls using Signature class.
-     * Mirrors Java's client.sign() pattern.
      *
      * @return array
      */

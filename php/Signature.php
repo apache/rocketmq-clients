@@ -20,7 +20,6 @@ namespace Apache\Rocketmq;
 
 /**
  * Signature - Generates gRPC metadata with MQv2-HMAC-SHA1 authentication headers.
- * Mirrors Java Signature.sign(ClientConfiguration config, ClientId clientId).
  *
  * Algorithm:
  * 1. Build baseline metadata (language, protocol, version, datetime, request-id, etc.)
@@ -96,7 +95,6 @@ class Signature
 
     /**
      * Compute HMAC-SHA1 and return lowercase hex digest.
-     * Mirrors Java TLSHelper.sign(accessSecret, dateTime).
      */
     private static function hmacSha1(string $key, string $data): string
     {

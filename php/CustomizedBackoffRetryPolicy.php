@@ -21,9 +21,8 @@ namespace Apache\Rocketmq;
 /**
  * CustomizedBackoffRetryPolicy - Retry policy with a fixed sequence of delays.
  *
- * Mirrors Java's CustomizedBackoffRetryPolicy. Each retry uses the delay
- * from the configured sequence, cycling through the list until maxAttempts
- * is reached.
+ * Each retry uses the delay from the configured sequence, cycling through 
+ * the list until maxAttempts is reached.
  */
 class CustomizedBackoffRetryPolicy
 {
@@ -134,7 +133,6 @@ class CustomizedBackoffRetryPolicy
 
     /**
      * Inherit durations from server-side retry policy but keep own maxAttempts.
-     * Mirrors Java's inheritBackoff behavior.
      *
      * @param \Apache\Rocketmq\V2\RetryPolicy $serverPolicy
      * @return self New policy with inherited durations

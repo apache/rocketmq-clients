@@ -20,7 +20,6 @@ namespace Apache\Rocketmq;
 
 /**
  * SessionCredentials - Holds AK/SK authentication credentials.
- * Mirrors Java SessionCredentials class.
  */
 class SessionCredentials
 {

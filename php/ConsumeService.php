@@ -123,16 +123,26 @@ abstract class ConsumeService
                 } else {
                     // Check individual entry status
                     $entries = $response->getEntries();
-                    if (!empty($entries) && $entries[0]->hasStatus()) {
-                        $entryCode = $entries[0]->getStatus()->getCode();
-                        if ($entryCode === 20000) {
+                    if (!empty($entries)) {
+                        // Convert RepeatedField to array for safe access
+                        $entriesArray = is_object($entries) && method_exists($entries, 'getIterator') 
+                            ? iterator_to_array($entries) 
+                            : (array)$entries;
+                        
+                        if (!empty($entriesArray) && isset($entriesArray[0]) && $entriesArray[0]->hasStatus()) {
+                            $entryCode = $entriesArray[0]->getStatus()->getCode();
+                            if ($entryCode === 20000) {
+                                $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
+                                return true;
+                            }
+                            // INVALID_RECEIPT_HANDLE -> don't retry
+                            if ($entryCode == 40003) {
+                                $this->logger->warning("ConsumeService ackMessage invalid receipt handle, giving up");
+                                return false;
+                            }
+                        } else {
                             $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
                             return true;
-                        }
-                        // INVALID_RECEIPT_HANDLE -> don't retry
-                        if ($entryCode == 40003) {
-                            $this->logger->warning("ConsumeService ackMessage invalid receipt handle, giving up");
-                            return false;
                         }
                     } else {
                         $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
