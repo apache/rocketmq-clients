@@ -517,7 +517,9 @@ func (pc *defaultPushConsumer) GracefulStop() error {
 	pc.cli.log.Infof("Begin to Shutdown consumption executor, clientId=%s", pc.cli.clientID)
 
 	// step 4
-	pc.consumerService.Shutdown()
+	if pc.consumerService != nil {
+		pc.consumerService.Shutdown()
+	}
 
 	// step 5
 	time.Sleep(time.Second)

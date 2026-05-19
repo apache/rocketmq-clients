@@ -208,6 +208,12 @@ pub struct SystemProperties {
     /// Information to identify whether this message is from dead letter queue.
     #[prost(message, optional, tag = "20")]
     pub dead_letter_queue: ::core::option::Option<DeadLetterQueue>,
+    /// lite topic
+    #[prost(string, optional, tag = "21")]
+    pub lite_topic: ::core::option::Option<::prost::alloc::string::String>,
+    /// Priority of message, which is optional
+    #[prost(int32, optional, tag = "22")]
+    pub priority: ::core::option::Option<i32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -360,6 +366,14 @@ pub struct Subscription {
     /// push consumer.
     #[prost(message, optional, tag = "5")]
     pub long_polling_timeout: ::core::option::Option<::prost_types::Duration>,
+    /// Only lite push consumer
+    /// client-side lite subscription quota limit
+    #[prost(int32, optional, tag = "6")]
+    pub lite_subscription_quota: ::core::option::Option<i32>,
+    /// Only lite push consumer
+    /// Maximum length limit for lite topic
+    #[prost(int32, optional, tag = "7")]
+    pub max_lite_topic_size: ::core::option::Option<i32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -370,6 +384,66 @@ pub struct Metric {
     /// The endpoint that client metrics should be exported to, which is required if the switch is on.
     #[prost(message, optional, tag = "2")]
     pub endpoints: ::core::option::Option<Endpoints>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OffsetOption {
+    #[prost(oneof = "offset_option::OffsetType", tags = "1, 2, 3, 4")]
+    pub offset_type: ::core::option::Option<offset_option::OffsetType>,
+}
+/// Nested message and enum types in `OffsetOption`.
+pub mod offset_option {
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum Policy {
+        Last = 0,
+        Min = 1,
+        Max = 2,
+    }
+    impl Policy {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Policy::Last => "LAST",
+                Policy::Min => "MIN",
+                Policy::Max => "MAX",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "LAST" => Some(Self::Last),
+                "MIN" => Some(Self::Min),
+                "MAX" => Some(Self::Max),
+                _ => None,
+            }
+        }
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum OffsetType {
+        #[prost(enumeration = "Policy", tag = "1")]
+        Policy(i32),
+        #[prost(int64, tag = "2")]
+        Offset(i64),
+        #[prost(int64, tag = "3")]
+        TailN(i64),
+        #[prost(int64, tag = "4")]
+        Timestamp(i64),
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -537,6 +611,10 @@ pub enum MessageType {
     /// Messages that are transactional. Only committed messages are delivered to
     /// subscribers.
     Transaction = 4,
+    /// lite topic
+    Lite = 5,
+    /// Messages that lower prioritised ones may need to wait for higher priority messages to be processed first
+    Priority = 6,
 }
 impl MessageType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -550,6 +628,8 @@ impl MessageType {
             MessageType::Fifo => "FIFO",
             MessageType::Delay => "DELAY",
             MessageType::Transaction => "TRANSACTION",
+            MessageType::Lite => "LITE",
+            MessageType::Priority => "PRIORITY",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -560,6 +640,8 @@ impl MessageType {
             "FIFO" => Some(Self::Fifo),
             "DELAY" => Some(Self::Delay),
             "TRANSACTION" => Some(Self::Transaction),
+            "LITE" => Some(Self::Lite),
+            "PRIORITY" => Some(Self::Priority),
             _ => None,
         }
     }
@@ -610,6 +692,8 @@ pub enum ClientType {
     PushConsumer = 2,
     SimpleConsumer = 3,
     PullConsumer = 4,
+    LitePushConsumer = 5,
+    LiteSimpleConsumer = 6,
 }
 impl ClientType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -623,6 +707,8 @@ impl ClientType {
             ClientType::PushConsumer => "PUSH_CONSUMER",
             ClientType::SimpleConsumer => "SIMPLE_CONSUMER",
             ClientType::PullConsumer => "PULL_CONSUMER",
+            ClientType::LitePushConsumer => "LITE_PUSH_CONSUMER",
+            ClientType::LiteSimpleConsumer => "LITE_SIMPLE_CONSUMER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -633,6 +719,8 @@ impl ClientType {
             "PUSH_CONSUMER" => Some(Self::PushConsumer),
             "SIMPLE_CONSUMER" => Some(Self::SimpleConsumer),
             "PULL_CONSUMER" => Some(Self::PullConsumer),
+            "LITE_PUSH_CONSUMER" => Some(Self::LitePushConsumer),
+            "LITE_SIMPLE_CONSUMER" => Some(Self::LiteSimpleConsumer),
             _ => None,
         }
     }
@@ -712,6 +800,10 @@ pub enum Code {
     ClientIdRequired = 40017,
     /// Polling time is illegal.
     IllegalPollingTime = 40018,
+    /// Offset is illegal.
+    IllegalOffset = 40019,
+    /// Format of lite topic is illegal.
+    IllegalLiteTopic = 40020,
     /// Generic code indicates that the client request lacks valid authentication
     /// credentials for the requested resource.
     Unauthorized = 40100,
@@ -727,12 +819,16 @@ pub enum Code {
     TopicNotFound = 40402,
     /// Consumer group resource does not exist.
     ConsumerGroupNotFound = 40403,
+    /// Offset not found from server.
+    OffsetNotFound = 40404,
     /// Generic code representing client side timeout when connecting to, reading data from, or write data to server.
     RequestTimeout = 40800,
     /// Generic code represents that the request entity is larger than limits defined by server.
     PayloadTooLarge = 41300,
     /// Message body size exceeds the threshold.
     MessageBodyTooLarge = 41301,
+    /// Message body is empty.
+    MessageBodyEmpty = 41302,
     /// Generic code for use cases where pre-conditions are not met.
     /// For example, if a producer instance is used to publish messages without prior start() invocation,
     /// this error code will be raised.
@@ -740,6 +836,9 @@ pub enum Code {
     /// Generic code indicates that too many requests are made in short period of duration.
     /// Requests are throttled.
     TooManyRequests = 42900,
+    /// LiteTopic related quota exceeded
+    LiteTopicQuotaExceeded = 42901,
+    LiteSubscriptionQuotaExceeded = 42902,
     /// Generic code for the case that the server is unwilling to process the request because its header fields are too large.
     /// The request may be resubmitted after reducing the size of the request header fields.
     RequestHeaderFieldsTooLarge = 43100,
@@ -812,6 +911,8 @@ impl Code {
             Code::MessageCorrupted => "MESSAGE_CORRUPTED",
             Code::ClientIdRequired => "CLIENT_ID_REQUIRED",
             Code::IllegalPollingTime => "ILLEGAL_POLLING_TIME",
+            Code::IllegalOffset => "ILLEGAL_OFFSET",
+            Code::IllegalLiteTopic => "ILLEGAL_LITE_TOPIC",
             Code::Unauthorized => "UNAUTHORIZED",
             Code::PaymentRequired => "PAYMENT_REQUIRED",
             Code::Forbidden => "FORBIDDEN",
@@ -819,11 +920,15 @@ impl Code {
             Code::MessageNotFound => "MESSAGE_NOT_FOUND",
             Code::TopicNotFound => "TOPIC_NOT_FOUND",
             Code::ConsumerGroupNotFound => "CONSUMER_GROUP_NOT_FOUND",
+            Code::OffsetNotFound => "OFFSET_NOT_FOUND",
             Code::RequestTimeout => "REQUEST_TIMEOUT",
             Code::PayloadTooLarge => "PAYLOAD_TOO_LARGE",
             Code::MessageBodyTooLarge => "MESSAGE_BODY_TOO_LARGE",
+            Code::MessageBodyEmpty => "MESSAGE_BODY_EMPTY",
             Code::PreconditionFailed => "PRECONDITION_FAILED",
             Code::TooManyRequests => "TOO_MANY_REQUESTS",
+            Code::LiteTopicQuotaExceeded => "LITE_TOPIC_QUOTA_EXCEEDED",
+            Code::LiteSubscriptionQuotaExceeded => "LITE_SUBSCRIPTION_QUOTA_EXCEEDED",
             Code::RequestHeaderFieldsTooLarge => "REQUEST_HEADER_FIELDS_TOO_LARGE",
             Code::MessagePropertiesTooLarge => "MESSAGE_PROPERTIES_TOO_LARGE",
             Code::InternalError => "INTERNAL_ERROR",
@@ -866,6 +971,8 @@ impl Code {
             "MESSAGE_CORRUPTED" => Some(Self::MessageCorrupted),
             "CLIENT_ID_REQUIRED" => Some(Self::ClientIdRequired),
             "ILLEGAL_POLLING_TIME" => Some(Self::IllegalPollingTime),
+            "ILLEGAL_OFFSET" => Some(Self::IllegalOffset),
+            "ILLEGAL_LITE_TOPIC" => Some(Self::IllegalLiteTopic),
             "UNAUTHORIZED" => Some(Self::Unauthorized),
             "PAYMENT_REQUIRED" => Some(Self::PaymentRequired),
             "FORBIDDEN" => Some(Self::Forbidden),
@@ -873,11 +980,17 @@ impl Code {
             "MESSAGE_NOT_FOUND" => Some(Self::MessageNotFound),
             "TOPIC_NOT_FOUND" => Some(Self::TopicNotFound),
             "CONSUMER_GROUP_NOT_FOUND" => Some(Self::ConsumerGroupNotFound),
+            "OFFSET_NOT_FOUND" => Some(Self::OffsetNotFound),
             "REQUEST_TIMEOUT" => Some(Self::RequestTimeout),
             "PAYLOAD_TOO_LARGE" => Some(Self::PayloadTooLarge),
             "MESSAGE_BODY_TOO_LARGE" => Some(Self::MessageBodyTooLarge),
+            "MESSAGE_BODY_EMPTY" => Some(Self::MessageBodyEmpty),
             "PRECONDITION_FAILED" => Some(Self::PreconditionFailed),
             "TOO_MANY_REQUESTS" => Some(Self::TooManyRequests),
+            "LITE_TOPIC_QUOTA_EXCEEDED" => Some(Self::LiteTopicQuotaExceeded),
+            "LITE_SUBSCRIPTION_QUOTA_EXCEEDED" => {
+                Some(Self::LiteSubscriptionQuotaExceeded)
+            }
             "REQUEST_HEADER_FIELDS_TOO_LARGE" => Some(Self::RequestHeaderFieldsTooLarge),
             "MESSAGE_PROPERTIES_TOO_LARGE" => Some(Self::MessagePropertiesTooLarge),
             "INTERNAL_ERROR" => Some(Self::InternalError),
@@ -950,6 +1063,38 @@ impl Language {
             "OBJECTIVE_C" => Some(Self::ObjectiveC),
             "DART" => Some(Self::Dart),
             "KOTLIN" => Some(Self::Kotlin),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LiteSubscriptionAction {
+    PartialAdd = 0,
+    PartialRemove = 1,
+    CompleteAdd = 2,
+    CompleteRemove = 3,
+}
+impl LiteSubscriptionAction {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            LiteSubscriptionAction::PartialAdd => "PARTIAL_ADD",
+            LiteSubscriptionAction::PartialRemove => "PARTIAL_REMOVE",
+            LiteSubscriptionAction::CompleteAdd => "COMPLETE_ADD",
+            LiteSubscriptionAction::CompleteRemove => "COMPLETE_REMOVE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PARTIAL_ADD" => Some(Self::PartialAdd),
+            "PARTIAL_REMOVE" => Some(Self::PartialRemove),
+            "COMPLETE_ADD" => Some(Self::CompleteAdd),
+            "COMPLETE_REMOVE" => Some(Self::CompleteRemove),
             _ => None,
         }
     }
@@ -1036,6 +1181,9 @@ pub struct SendResultEntry {
     pub transaction_id: ::prost::alloc::string::String,
     #[prost(int64, tag = "4")]
     pub offset: i64,
+    /// Unique handle to identify message to recall, support delay message for now.
+    #[prost(string, tag = "5")]
+    pub recall_handle: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1084,6 +1232,8 @@ pub struct ReceiveMessageRequest {
     pub auto_renew: bool,
     #[prost(message, optional, tag = "7")]
     pub long_polling_timeout: ::core::option::Option<::prost_types::Duration>,
+    #[prost(string, optional, tag = "8")]
+    pub attempt_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1112,6 +1262,8 @@ pub struct AckMessageEntry {
     pub message_id: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub receipt_handle: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "3")]
+    pub lite_topic: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1161,6 +1313,8 @@ pub struct ForwardMessageToDeadLetterQueueRequest {
     pub delivery_attempt: i32,
     #[prost(int32, tag = "6")]
     pub max_delivery_attempts: i32,
+    #[prost(string, optional, tag = "7")]
+    pub lite_topic: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1212,6 +1366,12 @@ pub struct PrintThreadStackTraceCommand {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReconnectEndpointsCommand {
+    #[prost(string, tag = "1")]
+    pub nonce: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ThreadStackTrace {
     #[prost(string, tag = "1")]
     pub nonce: ::prost::alloc::string::String,
@@ -1242,10 +1402,16 @@ pub struct RecoverOrphanedTransactionCommand {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NotifyUnsubscribeLiteCommand {
+    #[prost(string, tag = "1")]
+    pub lite_topic: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TelemetryCommand {
     #[prost(message, optional, tag = "1")]
     pub status: ::core::option::Option<Status>,
-    #[prost(oneof = "telemetry_command::Command", tags = "2, 3, 4, 5, 6, 7")]
+    #[prost(oneof = "telemetry_command::Command", tags = "2, 3, 4, 5, 6, 7, 8, 9")]
     pub command: ::core::option::Option<telemetry_command::Command>,
 }
 /// Nested message and enum types in `TelemetryCommand`.
@@ -1275,6 +1441,12 @@ pub mod telemetry_command {
         /// Request client to verify the consumption of the appointed message.
         #[prost(message, tag = "7")]
         VerifyMessageCommand(super::VerifyMessageCommand),
+        /// Request client to reconnect server use the latest endpoints.
+        #[prost(message, tag = "8")]
+        ReconnectEndpointsCommand(super::ReconnectEndpointsCommand),
+        /// Request client to unsubscribe lite topic.
+        #[prost(message, tag = "9")]
+        NotifyUnsubscribeLiteCommand(super::NotifyUnsubscribeLiteCommand),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -1306,6 +1478,11 @@ pub struct ChangeInvisibleDurationRequest {
     /// For message tracing
     #[prost(string, tag = "5")]
     pub message_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "6")]
+    pub lite_topic: ::core::option::Option<::prost::alloc::string::String>,
+    /// If true, server will not increment the retry times for this message
+    #[prost(bool, optional, tag = "7")]
+    pub suspend: ::core::option::Option<bool>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1400,6 +1577,48 @@ pub struct QueryOffsetResponse {
     pub status: ::core::option::Option<Status>,
     #[prost(int64, tag = "2")]
     pub offset: i64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecallMessageRequest {
+    #[prost(message, optional, tag = "1")]
+    pub topic: ::core::option::Option<Resource>,
+    /// Refer to SendResultEntry.
+    #[prost(string, tag = "2")]
+    pub recall_handle: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecallMessageResponse {
+    #[prost(message, optional, tag = "1")]
+    pub status: ::core::option::Option<Status>,
+    #[prost(string, tag = "2")]
+    pub message_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SyncLiteSubscriptionRequest {
+    #[prost(enumeration = "LiteSubscriptionAction", tag = "1")]
+    pub action: i32,
+    /// bindTopic for lite push consumer
+    #[prost(message, optional, tag = "2")]
+    pub topic: ::core::option::Option<Resource>,
+    /// consumer group
+    #[prost(message, optional, tag = "3")]
+    pub group: ::core::option::Option<Resource>,
+    /// lite subscription set of lite topics
+    #[prost(string, repeated, tag = "4")]
+    pub lite_topic_set: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(int64, optional, tag = "5")]
+    pub version: ::core::option::Option<i64>,
+    #[prost(message, optional, tag = "6")]
+    pub offset_option: ::core::option::Option<OffsetOption>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SyncLiteSubscriptionResponse {
+    #[prost(message, optional, tag = "1")]
+    pub status: ::core::option::Option<Status>,
 }
 /// Generated client implementations.
 pub mod messaging_service_client {
@@ -1779,6 +1998,8 @@ pub mod messaging_service_client {
                 );
             self.inner.server_streaming(req, path, codec).await
         }
+        /// Update the consumption progress of the designated queue of the
+        /// consumer group to the remote.
         pub async fn update_offset(
             &mut self,
             request: impl tonic::IntoRequest<super::UpdateOffsetRequest>,
@@ -1809,6 +2030,8 @@ pub mod messaging_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// Query the consumption progress of the designated queue of the
+        /// consumer group to the remote.
         pub async fn get_offset(
             &mut self,
             request: impl tonic::IntoRequest<super::GetOffsetRequest>,
@@ -1836,6 +2059,7 @@ pub mod messaging_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// Query the offset of the designated queue by the query offset policy.
         pub async fn query_offset(
             &mut self,
             request: impl tonic::IntoRequest<super::QueryOffsetRequest>,
@@ -1990,6 +2214,70 @@ pub mod messaging_service_client {
                     GrpcMethod::new(
                         "apache.rocketmq.v2.MessagingService",
                         "ChangeInvisibleDuration",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Recall a message,
+        /// for delay message, should recall before delivery time, like the rollback operation of transaction message,
+        /// for normal message, not supported for now.
+        pub async fn recall_message(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecallMessageRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecallMessageResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/apache.rocketmq.v2.MessagingService/RecallMessage",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "apache.rocketmq.v2.MessagingService",
+                        "RecallMessage",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Sync lite subscription info, lite push consumer only
+        pub async fn sync_lite_subscription(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SyncLiteSubscriptionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SyncLiteSubscriptionResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/apache.rocketmq.v2.MessagingService/SyncLiteSubscription",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "apache.rocketmq.v2.MessagingService",
+                        "SyncLiteSubscription",
                     ),
                 );
             self.inner.unary(req, path, codec).await
