@@ -16,26 +16,27 @@
  * limitations under the License.
  */
 
-namespace Apache\Rocketmq;
+namespace Apache\Rocketmq\Test;
 
-/**
- * MessageId - Message ID interface
- * 
- * Abstract message id, the implement must override toString(), which indicates the message id using string form.
- */
-interface MessageId
+require_once __DIR__ . '/TestRunner.php';
+require_once __DIR__ . '/../ConsumeResult.php';
+
+use Apache\Rocketmq\ConsumeResult;
+
+class ConsumeResultTest
 {
-    /**
-     * Get the version of the message-id.
-     *
-     * @return string The version of message-id.
-     */
-    public function getVersion(): string;
-
-    /**
-     * The implementation must override this method, which indicates the message-id using string form.
-     *
-     * @return string String-formed message id.
-     */
-    public function toString(): string;
+    public function testConstants()
+    {
+        TestRunner::assertEqualsWithMessage(0, ConsumeResult::SUCCESS, "SUCCESS should be 0");
+        TestRunner::assertEqualsWithMessage(1, ConsumeResult::FAILURE, "FAILURE should be 1");
+        TestRunner::assertTrueWithMessage(
+            ConsumeResult::SUCCESS !== ConsumeResult::FAILURE,
+            "SUCCESS and FAILURE should be different"
+        );
+    }
 }
+
+echo "=== ConsumeResultTest ===\n";
+$test = new ConsumeResultTest();
+$test->testConstants();
+echo "  [OK] testConstants\n";

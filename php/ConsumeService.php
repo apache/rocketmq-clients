@@ -1,0 +1,512 @@
+<?php
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Apache\Rocketmq;
+
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/ConsumeResult.php';
+
+use Apache\Rocketmq\V2\AckMessageRequest;
+use Apache\Rocketmq\V2\AckMessageEntry;
+use Apache\Rocketmq\V2\ChangeInvisibleDurationRequest;
+use Apache\Rocketmq\V2\ForwardMessageToDeadLetterQueueRequest;
+use Apache\Rocketmq\V2\Resource;
+use Google\Protobuf\Duration;
+
+/**
+ * ConsumeService - Abstract base class for message consumption strategies.
+ *
+ * Subclasses define how messages are dispatched
+ * to the user listener (StandardConsumeService for parallel/sequential,
+ * FifoConsumeService for strict FIFO ordering).
+ */
+abstract class ConsumeService
+{
+    protected $logger;
+    protected $messageListener;
+    protected $consumer;
+    protected $maxAttempts = 5;
+
+    /**
+     * @param Logger $logger Logger instance
+     * @param callable $messageListener User callback: function($messageView): int
+     * @param object $consumer Reference to PushConsumer
+     */
+    public function __construct($logger, $messageListener, $consumer)
+    {
+        $this->logger = $logger;
+        $this->messageListener = $messageListener;
+        $this->consumer = $consumer;
+    }
+
+    /**
+     * Consume messages from the given ProcessQueue.
+     *
+     * @param ProcessQueue $pq
+     * @return void
+     */
+    abstract public function consume(ProcessQueue $pq);
+
+    /**
+     * Dispatch a single message to the user listener.
+     *
+     * @param object $messageView
+     * @return int ConsumeResult::SUCCESS or ConsumeResult::FAILURE
+     */
+    protected function consumeMessage($messageView)
+    {
+        try {
+            $result = call_user_func($this->messageListener, $messageView);
+            return $result === ConsumeResult::FAILURE ? ConsumeResult::FAILURE : ConsumeResult::SUCCESS;
+        } catch (\Throwable $e) {
+            $this->logger->warning("ConsumeService listener threw exception: " . $e->getMessage());
+            return ConsumeResult::FAILURE;
+        }
+    }
+
+    /**
+     * ACK a message via gRPC.
+     *
+     * @param object $messageView
+     * @return bool
+     */
+    protected function ackMessage($messageView)
+    {
+        $receiptHandle = $this->extractReceiptHandle($messageView);
+        $messageId = $this->extractMessageId($messageView);
+        $topic = $this->extractTopic($messageView);
+
+        if (!$receiptHandle) {
+            $this->logger->warning("ConsumeService ackMessage: no receipt handle, skipping");
+            return false;
+        }
+
+        $groupResource = $this->consumer->getGroupResource();
+        $topicResource = new Resource();
+        $topicResource->setName($topic);
+
+        $entry = new AckMessageEntry();
+        if ($messageId) {
+            $entry->setMessageId($messageId);
+        }
+        $entry->setReceiptHandle($receiptHandle);
+
+        $request = new AckMessageRequest();
+        $request->setGroup($groupResource);
+        $request->setTopic($topicResource);
+        $request->setEntries([$entry]);
+
+        $metadata = $this->buildMetadata();
+        $maxRetries = 3;
+        $attempt = 0;
+
+        while ($attempt < $maxRetries) {
+            try {
+                list($response, $status) = $this->consumer->getClient()->AckMessage($request, $metadata)->wait();
+                if ($status->code !== 0) {
+                    $this->logger->warning("ConsumeService ackMessage attempt {$attempt}: status error: " . $status->details);
+                } else {
+                    // Check individual entry status
+                    $entries = $response->getEntries();
+                    if (!empty($entries) && $entries[0]->hasStatus()) {
+                        $entryCode = $entries[0]->getStatus()->getCode();
+                        if ($entryCode === 20000) {
+                            $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
+                            return true;
+                        }
+                        // INVALID_RECEIPT_HANDLE -> don't retry
+                        if ($entryCode == 40003) {
+                            $this->logger->warning("ConsumeService ackMessage invalid receipt handle, giving up");
+                            return false;
+                        }
+                    } else {
+                        $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
+                        return true;
+                    }
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning("ConsumeService ackMessage attempt {$attempt} failed: " . $e->getMessage());
+            }
+
+            $attempt++;
+            usleep(pow(2, $attempt) * 100000);
+        }
+
+        $this->logger->error("ConsumeService ackMessage failed after {$maxRetries} retries for messageId={$messageId}");
+        return false;
+    }
+
+    /**
+     * NACK a message (change invisible duration for retry).
+     *
+     * @param object $messageView
+     * @param int $deliveryAttempt Current delivery attempt number
+     * @return bool
+     */
+    protected function nackMessage($messageView, $deliveryAttempt = 1)
+    {
+        $receiptHandle = $this->extractReceiptHandle($messageView);
+        $messageId = $this->extractMessageId($messageView);
+        $topic = $this->extractTopic($messageView);
+
+        if (!$receiptHandle) {
+            $this->logger->warning("ConsumeService nackMessage: no receipt handle, skipping");
+            return false;
+        }
+
+        // Calculate retry delay: exponential backoff with cap at 30s
+        $delaySeconds = min(pow(2, $deliveryAttempt - 1) * 10, 30);
+        if ($delaySeconds < 1) {
+            $delaySeconds = 1;
+        }
+
+        $groupResource = $this->consumer->getGroupResource();
+        $topicResource = new Resource();
+        $topicResource->setName($topic);
+
+        $duration = new Duration();
+        $duration->setSeconds($delaySeconds);
+        $duration->setNanos(0);
+
+        $request = new ChangeInvisibleDurationRequest();
+        $request->setGroup($groupResource);
+        $request->setTopic($topicResource);
+        $request->setReceiptHandle($receiptHandle);
+        $request->setInvisibleDuration($duration);
+        if ($messageId) {
+            $request->setMessageId($messageId);
+        }
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->consumer->getClient()->ChangeInvisibleDuration($request, $metadata)->wait();
+            if ($status->code !== 0) {
+                $this->logger->warning("ConsumeService nackMessage failed: " . $status->details);
+                return false;
+            }
+            $this->logger->debug("ConsumeService nackMessage success for messageId={$messageId}, nextDelay={$delaySeconds}s");
+            return true;
+        } catch (\Exception $e) {
+            $this->logger->error("ConsumeService nackMessage exception: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Forward a message to the dead letter queue.
+     *
+     * @param object $messageView
+     * @return bool
+     */
+    protected function forwardToDeadLetterQueue($messageView)
+    {
+        $receiptHandle = $this->extractReceiptHandle($messageView);
+        $messageId = $this->extractMessageId($messageView);
+        $topic = $this->extractTopic($messageView);
+
+        if (!$receiptHandle) {
+            $this->logger->warning("ConsumeService forwardToDeadLetterQueue: no receipt handle, skipping");
+            return false;
+        }
+
+        $groupResource = $this->consumer->getGroupResource();
+        $topicResource = new Resource();
+        $topicResource->setName($topic);
+
+        $request = new ForwardMessageToDeadLetterQueueRequest();
+        $request->setGroup($groupResource);
+        $request->setTopic($topicResource);
+        $request->setReceiptHandle($receiptHandle);
+        if ($messageId) {
+            $request->setMessageId($messageId);
+        }
+        $request->setDeliveryAttempt($this->maxAttempts);
+        $request->setMaxDeliveryAttempts($this->maxAttempts);
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->consumer->getClient()->ForwardMessageToDeadLetterQueue($request, $metadata)->wait();
+            if ($status->code !== 0) {
+                $this->logger->warning("ConsumeService forwardToDeadLetterQueue failed: " . $status->details);
+                return false;
+            }
+            $this->logger->warning("ConsumeService forwardToDeadLetterQueue success for messageId={$messageId}");
+            return true;
+        } catch (\Exception $e) {
+            $this->logger->error("ConsumeService forwardToDeadLetterQueue exception: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Extract receipt handle from a message view.
+     */
+    protected function extractReceiptHandle($messageView)
+    {
+        if (method_exists($messageView, 'getSystemProperties')) {
+            $sysProps = $messageView->getSystemProperties();
+            if (method_exists($sysProps, 'getReceiptHandle')) {
+                return $sysProps->getReceiptHandle();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract message ID from a message view.
+     */
+    protected function extractMessageId($messageView)
+    {
+        if (method_exists($messageView, 'getSystemProperties')) {
+            $sysProps = $messageView->getSystemProperties();
+            if (method_exists($sysProps, 'getMessageId')) {
+                return $sysProps->getMessageId();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract topic from a message view.
+     */
+    protected function extractTopic($messageView)
+    {
+        if (method_exists($messageView, 'getTopic')) {
+            $topic = $messageView->getTopic();
+            if (method_exists($topic, 'getName')) {
+                return $topic->getName();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Build metadata for gRPC calls.
+     */
+    protected function buildMetadata()
+    {
+        $clientId = $this->consumer->getClientId();
+        $dateTime = gmdate('Ymd\THis\Z');
+        $requestId = sprintf('%08x-%04x-%04x-%04x-%012x',
+            mt_rand(0, 0xffffffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff) & 0x0fff | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffffffffffff)
+        );
+
+        return [
+            'x-mq-client-id' => [$clientId],
+            'x-mq-language' => ['PHP'],
+            'x-mq-client-version' => ['5.0.0'],
+            'x-mq-protocol' => ['v2'],
+            'x-mq-date-time' => [$dateTime],
+            'x-mq-request-id' => [$requestId],
+        ];
+    }
+}
+
+/**
+ * StandardConsumeService - Sequential message consumption (Standard mode).
+ *
+ * Iterates through cached messages, invokes the listener for each sequentially,
+ * then acks or nacks based on the result.
+ */
+class StandardConsumeService extends ConsumeService
+{
+    public function consume(ProcessQueue $pq)
+    {
+        $messages = $pq->getCachedMessages();
+        if (empty($messages)) {
+            return;
+        }
+
+        // Copy messages list to avoid modification during iteration
+        $toConsume = array_values($messages);
+        $this->logger->debug("StandardConsumeService consuming " . count($toConsume) . " messages from queue");
+
+        foreach ($toConsume as $messageView) {
+            // Check if message was already evicted by a previous iteration
+            if ($pq->isDropped()) {
+                break;
+            }
+
+            $result = $this->consumeMessage($messageView);
+            $pq->eraseMessage($messageView, $result);
+        }
+    }
+}
+
+/**
+ * FifoConsumeService - Strict FIFO order consumption.
+ *
+ * When enableFifoConsumeAccelerator is false: all messages consumed sequentially.
+ * When enableFifoConsumeAccelerator is true: messages grouped by messageGroup key,
+ * each group processed sequentially, but different groups in parallel.
+ */
+class FifoConsumeService extends ConsumeService
+{
+    private $enableFifoConsumeAccelerator = false;
+
+    public function __construct($logger, $messageListener, $consumer, $enableFifoConsumeAccelerator = false)
+    {
+        parent::__construct($logger, $messageListener, $consumer);
+        $this->enableFifoConsumeAccelerator = $enableFifoConsumeAccelerator;
+    }
+
+    /**
+     * Get the group key for a message. Override in subclasses (e.g., liteTopic).
+     */
+    protected function getMessageGroupKey($messageView)
+    {
+        $sysProps = $messageView->getSystemProperties();
+        if ($sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup()) {
+            return $sysProps->getMessageGroup();
+        }
+        return 'default';
+    }
+
+    public function consume(ProcessQueue $pq)
+    {
+        $messages = $pq->getCachedMessages();
+        if (empty($messages)) {
+            return;
+        }
+
+        if ($pq->isDropped()) {
+            return;
+        }
+
+        if ($this->enableFifoConsumeAccelerator && count($messages) > 1) {
+            $this->consumeWithAccelerator($pq, $messages);
+        } else {
+            $this->consumeSequentially($pq, $messages);
+        }
+    }
+
+    /**
+     * Sequential consumption (original behavior, accelerator disabled).
+     */
+    private function consumeSequentially(ProcessQueue $pq, $messages)
+    {
+        // Only consume the first message (head of queue) to preserve FIFO order
+        $messageView = reset($messages);
+
+        if ($pq->isDropped()) {
+            return;
+        }
+
+        $this->consumeFifoIteratively($pq, $messageView, 1);
+    }
+
+    /**
+     * Accelerated FIFO consumption: group by messageGroup, process groups in parallel.
+     * Each group is still processed one-at-a-time internally, but groups run concurrently.
+     */
+    private function consumeWithAccelerator(ProcessQueue $pq, $messages)
+    {
+        // Group messages by their group key
+        $groupedMessages = [];
+        foreach ($messages as $msg) {
+            $groupKey = $this->getMessageGroupKey($msg);
+            $groupedMessages[$groupKey][] = $msg;
+        }
+
+        $this->logger->debug("FifoConsumeService accelerator: " . count($groupedMessages) . " groups, " . count($messages) . " total messages");
+
+        // Process each group's head message concurrently
+        // In PHP's single-threaded model, we iterate through groups and consume
+        // the head of each group one by one, rather than all from one group first.
+        // This gives interleaved FIFO consumption across groups.
+        $groupKeys = array_keys($groupedMessages);
+        $hasMore = true;
+
+        while ($hasMore && !$pq->isDropped()) {
+            $hasMore = false;
+            foreach ($groupKeys as $groupKey) {
+                if (empty($groupedMessages[$groupKey])) {
+                    continue;
+                }
+
+                $hasMore = true;
+                $messageView = reset($groupedMessages[$groupKey]);
+
+                if ($pq->isDropped()) {
+                    return;
+                }
+
+                // Consume this message and remove it from the group
+                array_shift($groupedMessages[$groupKey]);
+
+                $result = $this->consumeMessage($messageView);
+
+                if ($result === ConsumeResult::SUCCESS) {
+                    $this->ackMessage($messageView);
+                    $pq->evictMessage($messageView);
+                } else {
+                    // On failure, retry with delay, then continue with other groups
+                    $this->handleFailure($pq, $messageView, 1);
+                }
+            }
+        }
+    }
+
+    /**
+     * Handle consumption failure with retry.
+     */
+    private function handleFailure(ProcessQueue $pq, $messageView, $deliveryAttempt)
+    {
+        if ($pq->isDropped()) {
+            return;
+        }
+
+        if ($deliveryAttempt < $this->maxAttempts) {
+            $this->logger->warning("FifoConsumeService message consume failed, attempt {$deliveryAttempt}/{$this->maxAttempts}");
+            $this->nackMessage($messageView, $deliveryAttempt);
+            $pq->evictMessage($messageView);
+            // Wait for retry delay
+            $delaySeconds = min(pow(2, $deliveryAttempt - 1) * 10, 30);
+            usleep($delaySeconds * 1000000);
+        } else {
+            $this->logger->error("FifoConsumeService max attempts reached for message, forwarding to DLQ");
+            $this->forwardToDeadLetterQueue($messageView);
+            $pq->evictMessage($messageView);
+        }
+    }
+
+    /**
+     * Consume a message and handle retry/DLQ logic recursively.
+     */
+    private function consumeFifoIteratively(ProcessQueue $pq, $messageView, $deliveryAttempt)
+    {
+        if ($pq->isDropped()) {
+            return;
+        }
+
+        $result = $this->consumeMessage($messageView);
+
+        if ($result === ConsumeResult::SUCCESS) {
+            $this->ackMessage($messageView);
+            $pq->evictMessage($messageView);
+        } else {
+            $this->handleFailure($pq, $messageView, $deliveryAttempt);
+        }
+    }
+}

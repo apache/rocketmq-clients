@@ -37,12 +37,12 @@ use Grpc\ChannelCredentials;
 use Google\Protobuf\Duration;
 
 /**
- * SimpleConsumer - 简单消费者
- * 
- * 集成 TelemetrySession 实现：
- * 1. 单例 Stream 管理
- * 2. 串行写入
- * 3. 背压处理
+ * SimpleConsumer
+ *
+ * Integrates TelemetrySession to implement:
+ * 1. Singleton Stream management
+ * 2. Serial write
+ * 3. Backpressure handling
  */
 class SimpleConsumer
 {
@@ -55,11 +55,11 @@ class SimpleConsumer
     private $isStarted = false;
     
     /**
-     * 构造函数
-     * 
-     * @param string $endpoints gRPC 服务端点
-     * @param string $consumerGroup 消费组名称
-     * @param array $options 配置选项
+     * Constructor
+     *
+     * @param string $endpoints gRPC server endpoint
+     * @param string $consumerGroup Consumer group name
+     * @param array $options Configuration options
      */
     public function __construct($endpoints, $consumerGroup, $options = [])
     {
@@ -67,20 +67,20 @@ class SimpleConsumer
         $this->consumerGroup = $consumerGroup;
         $this->clientId = $options['clientId'] ?? ('php-consumer-' . getmypid() . '-' . time());
         
-        // 创建 gRPC 客户端
+        // Create gRPC client
         $this->client = new MessagingServiceClient($endpoints, [
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
         
-        // 初始化 Telemetry Session（单例）
+        // Initialize Telemetry Session (singleton)
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints);
     }
     
     /**
-     * 订阅 Topic
+     * Subscribe to a topic
      * 
-     * @param string $topic Topic 名称
-     * @param string $expression 过滤表达式（默认 "*"）
+     * @param string $topic Topic name
+     * @param string $expression Filter expression (default "*")
      */
     public function subscribe($topic, $expression = '*')
     {
@@ -88,7 +88,7 @@ class SimpleConsumer
     }
     
     /**
-     * 启动 Consumer
+     * Start the consumer
      */
     public function start()
     {
@@ -100,23 +100,23 @@ class SimpleConsumer
             throw new \RuntimeException("No subscriptions configured");
         }
         
-        // 建立 Telemetry Session
+        // Establish Telemetry Session
         $this->establishTelemetrySession();
         
         $this->isStarted = true;
     }
     
     /**
-     * 建立 Telemetry Session
+     * Establish Telemetry Session
      */
     private function establishTelemetrySession()
     {
-        // 创建 UserAgent
+        // Create UserAgent
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
         $ua->setVersion('5.0.0');
         
-        // 创建 SubscriptionEntry 列表
+        // Create SubscriptionEntry list
         $subscriptionEntries = [];
         foreach ($this->subscriptions as $topic => $expression) {
             $filterExpression = new FilterExpression();
@@ -132,40 +132,40 @@ class SimpleConsumer
             $subscriptionEntries[] = $subscriptionEntry;
         }
         
-        // 创建 Subscription 配置
+        // Create Subscription configuration
         $subscription = new Subscription();
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
         $subscription->setGroup($groupResource);
         $subscription->setSubscriptions($subscriptionEntries);
         
-        // 创建 Settings
+        // Create Settings
         $settings = new Settings();
         $settings->setClientType(ClientType::SIMPLE_CONSUMER);
         $settings->setUserAgent($ua);
         $settings->setSubscription($subscription);
         
-        // 创建 TelemetryCommand
+        // Create TelemetryCommand
         $command = new TelemetryCommand();
         $command->setSettings($settings);
         
-        // 同步发送 Settings
+        // Send Settings synchronously
         $success = $this->telemetrySession->syncSettings($command);
         
         if (!$success) {
             throw new \RuntimeException("Failed to establish Telemetry Session");
         }
         
-        // 等待服务端处理
+        // Wait for server processing
         usleep(500000); // 500ms
     }
     
     /**
-     * 接收消息
-     * 
-     * @param int $maxMessages 最大消息数量
-     * @param int $invisibleDuration 不可见时长（秒）
-     * @return array 消息列表
+     * Receive messages
+     *
+     * @param int $maxMessages Maximum number of messages
+     * @param int $invisibleDuration Invisible duration (seconds)
+     * @return array Message list
      */
     public function receive($maxMessages = 10, $invisibleDuration = 30)
     {
@@ -175,12 +175,12 @@ class SimpleConsumer
         
         $messages = [];
         
-        // 遍历所有订阅的 Topic
+        // Iterate over all subscribed topics
         foreach ($this->subscriptions as $topic => $expression) {
             $received = $this->receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration);
             $messages = array_merge($messages, $received);
             
-            // 如果已经达到最大数量，停止
+            // Stop if maximum count is reached
             if (count($messages) >= $maxMessages) {
                 break;
             }
@@ -190,11 +190,11 @@ class SimpleConsumer
     }
     
     /**
-     * 从指定 Topic 接收消息
+     * Receive messages from a specific topic
      */
     private function receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration)
     {
-        // 首先查询路由获取 MessageQueue
+        // Query route to get MessageQueue first
         $messageQueue = $this->getMessageQueue($topic);
         
         if (!$messageQueue) {
@@ -217,14 +217,14 @@ class SimpleConsumer
         $invisibleDurationObj->setSeconds($invisibleDuration);
         $request->setInvisibleDuration($invisibleDurationObj);
         
-        // 准备元数据
+        // Prepare metadata
         $metadata = [
             'x-mq-client-id' => [$this->clientId],
             'x-mq-language' => ['PHP'],
             'x-mq-client-version' => ['5.0.0'],
         ];
         
-        // 接收消息
+        // Receive messages
         $call = $this->client->ReceiveMessage($request, $metadata);
         
         $messages = [];
@@ -234,13 +234,13 @@ class SimpleConsumer
                     $messages[] = $response->getMessage();
                 }
                 
-                // 检查是否达到最大数量
+                // Check if maximum count is reached
                 if (count($messages) >= $maxMessages) {
                     break;
                 }
             }
         } catch (\Exception $e) {
-            // 忽略超时等错误
+            // Ignore errors such as timeouts
             if (strpos($e->getMessage(), 'DEADLINE_EXCEEDED') === false) {
                 throw $e;
             }
@@ -250,7 +250,7 @@ class SimpleConsumer
     }
     
     /**
-     * 获取 MessageQueue
+     * Get MessageQueue
      */
     private function getMessageQueue($topic)
     {
@@ -278,7 +278,7 @@ class SimpleConsumer
                 return null;
             }
             
-            // 返回第一个可用的队列
+            // Return the first available queue
             return $queues[0];
         } catch (\Exception $e) {
             return null;
@@ -286,18 +286,18 @@ class SimpleConsumer
     }
     
     /**
-     * 确认消息
-     * 
-     * @param array $receiptHandles 收据句柄列表
+     * Acknowledge messages
+     *
+     * @param array $receiptHandles Receipt handle list
      */
     public function ack($receiptHandles)
     {
-        // TODO: 实现 ACK 逻辑
-        // 需要使用 AckMessageRequest
+        // TODO: Implement ACK logic
+        // Need to use AckMessageRequest
     }
     
     /**
-     * 关闭 Consumer
+     * Shut down the consumer
      */
     public function shutdown()
     {
@@ -309,7 +309,7 @@ class SimpleConsumer
     }
     
     /**
-     * 获取 Client ID
+     * Get Client ID
      */
     public function getClientId()
     {
@@ -317,7 +317,7 @@ class SimpleConsumer
     }
     
     /**
-     * 获取消费组
+     * Get consumer group
      */
     public function getConsumerGroup()
     {
@@ -325,7 +325,7 @@ class SimpleConsumer
     }
     
     /**
-     * 析构函数
+     * Destructor
      */
     public function __destruct()
     {

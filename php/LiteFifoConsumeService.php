@@ -18,24 +18,29 @@
 
 namespace Apache\Rocketmq;
 
+require_once __DIR__ . '/ConsumeService.php';
+
 /**
- * MessageId - Message ID interface
- * 
- * Abstract message id, the implement must override toString(), which indicates the message id using string form.
+ * LiteFifoConsumeService - FIFO consume service for lite consumers.
+ *
+ * Extends FifoConsumeService to group messages by liteTopic instead of messageGroup.
+ * For lite consumers, FIFO ordering is enforced per liteTopic, and the accelerator
+ * parallelizes across different liteTopics.
  */
-interface MessageId
+class LiteFifoConsumeService extends FifoConsumeService
 {
     /**
-     * Get the version of the message-id.
+     * Get the group key for a lite message (uses liteTopic).
      *
-     * @return string The version of message-id.
+     * @param object $messageView
+     * @return string
      */
-    public function getVersion(): string;
-
-    /**
-     * The implementation must override this method, which indicates the message-id using string form.
-     *
-     * @return string String-formed message id.
-     */
-    public function toString(): string;
+    protected function getMessageGroupKey($messageView)
+    {
+        $sysProps = $messageView->getSystemProperties();
+        if ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
+            return $sysProps->getLiteTopic();
+        }
+        return 'default';
+    }
 }

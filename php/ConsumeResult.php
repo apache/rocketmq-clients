@@ -19,23 +19,10 @@
 namespace Apache\Rocketmq;
 
 /**
- * MessageId - Message ID interface
- * 
- * Abstract message id, the implement must override toString(), which indicates the message id using string form.
+ * ConsumeResult - Result returned by the user message listener callback.
  */
-interface MessageId
+class ConsumeResult
 {
-    /**
-     * Get the version of the message-id.
-     *
-     * @return string The version of message-id.
-     */
-    public function getVersion(): string;
-
-    /**
-     * The implementation must override this method, which indicates the message-id using string form.
-     *
-     * @return string String-formed message id.
-     */
-    public function toString(): string;
+    const SUCCESS = 0;
+    const FAILURE = 1;
 }

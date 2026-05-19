@@ -20,6 +20,7 @@ namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/TelemetrySession.php';
+require_once __DIR__ . '/Logger.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -40,14 +41,14 @@ use Grpc\ChannelCredentials;
 use Google\Protobuf\Duration;
 
 /**
- * SimpleConsumer - 简单消费者（参考 Java 实现优化）
- * 
- * 核心特性：
- * 1. 单例 TelemetrySession 管理
- * 2. Topic 级别的 SubscriptionLoadBalancer（轮询分配 MessageQueue）
- * 3. 异步 receive 支持
- * 4. ACK 和修改可见性时长
- * 5. 完整的状态管理
+ * SimpleConsumer - Simple Consumer (optimized)
+ *
+ * Core features:
+ * 1. Singleton TelemetrySession management
+ * 2. Topic-level SubscriptionLoadBalancer (round-robin MessageQueue assignment)
+ * 3. Async receive support
+ * 4. ACK and invisible duration modification
+ * 5. Complete state management
  */
 class SimpleConsumerOptimized
 {
@@ -59,15 +60,17 @@ class SimpleConsumerOptimized
     private $subscriptionExpressions = [];
     private $subscriptionRouteDataCache = [];
     private $topicIndex = 0;
-    private $awaitDuration = 30; // 秒
+    private $awaitDuration = 30; // seconds
     private $isRunning = false;
+    private $logger;
+    private $namespace = '';
     
     /**
-     * 构造函数
-     * 
-     * @param string $endpoints gRPC 服务端点
-     * @param string $consumerGroup 消费组名称
-     * @param array $options 配置选项
+     * Constructor
+     *
+     * @param string $endpoints gRPC server endpoint
+     * @param string $consumerGroup Consumer group name
+     * @param array $options Configuration options
      */
     public function __construct($endpoints, $consumerGroup, $options = [])
     {
@@ -75,40 +78,42 @@ class SimpleConsumerOptimized
         $this->consumerGroup = $consumerGroup;
         $this->clientId = $options['clientId'] ?? ('php-consumer-' . getmypid() . '-' . time());
         $this->awaitDuration = $options['awaitDuration'] ?? 30;
-        
-        // 创建 gRPC 客户端
+        $this->subscriptionExpressions = $options['subscriptionExpressions'] ?? [];
+
+        // Create gRPC client
         $this->client = new MessagingServiceClient($endpoints, [
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
         
-        // 初始化 Telemetry Session（单例，带 Settings 同步确认）
+        // Initialize Telemetry Session (singleton, with Settings sync confirmation)
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId);
+        $this->logger = Logger::getInstance('SimpleConsumer');
     }
     
     /**
-     * 订阅 Topic
-     * 
-     * @param string $topic Topic 名称
-     * @param string $expression 过滤表达式（默认 "*"）
+     * Subscribe to a Topic
+     *
+     * @param string $topic Topic name
+     * @param string $expression Filter expression (default "*")
      * @return $this
      */
     public function subscribe($topic, $expression = '*')
     {
         $this->checkRunning();
         
-        // 获取路由数据
+        // Get route data
         $this->getRouteData($topic);
         
-        // 保存订阅表达式（新订阅会覆盖旧的）
+        // Save subscription expression (new subscription overwrites the old one)
         $this->subscriptionExpressions[$topic] = $expression;
         
         return $this;
     }
     
     /**
-     * 取消订阅 Topic
-     * 
-     * @param string $topic Topic 名称
+     * Unsubscribe from a Topic
+     *
+     * @param string $topic Topic name
      * @return $this
      */
     public function unsubscribe($topic)
@@ -122,8 +127,8 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 获取所有订阅表达式
-     * 
+     * Get all subscription expressions
+     *
      * @return array
      */
     public function getSubscriptionExpressions()
@@ -132,35 +137,39 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 启动 Consumer
+     * Start the Consumer
      */
     public function start()
     {
         if ($this->isRunning) {
             return;
         }
-        
+
+        if (empty($this->subscriptionExpressions)) {
+            throw new \RuntimeException("SimpleConsumerOptimized has no subscriptions");
+        }
+
         try {
-            error_log("[SimpleConsumer] Begin to start the rocketmq simple consumer, clientId={$this->clientId}");
-            
-            // 建立 Telemetry Session
+            $this->logger->info("Begin to start the rocketmq simple consumer, clientId={$this->clientId}");
+
+            // Establish Telemetry Session
             $this->establishTelemetrySession();
-            
+
             $this->isRunning = true;
-            
-            error_log("[SimpleConsumer] The rocketmq simple consumer starts successfully, clientId={$this->clientId}");
+
+            $this->logger->info("The rocketmq simple consumer starts successfully, clientId={$this->clientId}");
         } catch (\Exception $e) {
-            error_log("[SimpleConsumer] Failed to start: " . $e->getMessage());
+            $this->logger->error("Failed to start: " . $e->getMessage());
             throw $e;
         }
     }
     
     /**
-     * 同步接收消息（参考 Java receive0 实现）
-     * 
-     * @param int $maxMessageNum 最大消息数量
-     * @param int $invisibleDuration 不可见时长（秒）
-     * @return array 消息列表
+     * Synchronously receive messages
+     *
+     * @param int $maxMessageNum Maximum number of messages
+     * @param int $invisibleDuration Invisible duration in seconds
+     * @return array List of messages
      */
     public function receive($maxMessageNum, $invisibleDuration = 30)
     {
@@ -172,32 +181,32 @@ class SimpleConsumerOptimized
             throw new \InvalidArgumentException("maxMessageNum must be greater than 0");
         }
         
-        // 复制订阅表达式
+        // Copy subscription expressions
         $topics = array_keys($this->subscriptionExpressions);
         
         if (empty($topics)) {
             throw new \RuntimeException("There is no topic to receive message");
         }
         
-        // 轮询选择 Topic（参考 Java IntMath.mod）
+        // Round-robin topic selection
         $topicIndex = $this->topicIndex++;
         $topic = $topics[$topicIndex % count($topics)];
         $expression = $this->subscriptionExpressions[$topic];
         
-        error_log("[SimpleConsumer] Receiving messages from topic: {$topic}");
+        $this->logger->info("Receiving messages from topic: {$topic}");
         
-        // 获取 SubscriptionLoadBalancer
+        // Get SubscriptionLoadBalancer
         $loadBalancer = $this->getSubscriptionLoadBalancer($topic);
         
-        // 从负载均衡器中获取一个 MessageQueue
+        // Get a MessageQueue from the load balancer
         $messageQueue = $loadBalancer->takeMessageQueue();
         
         if (!$messageQueue) {
-            error_log("[SimpleConsumer] No message queue available for topic: {$topic}");
+            $this->logger->warning("No message queue available for topic: {$topic}");
             return [];
         }
         
-        // 构建接收请求
+        // Build receive request
         $request = $this->wrapReceiveMessageRequest(
             $maxMessageNum,
             $messageQueue,
@@ -206,29 +215,29 @@ class SimpleConsumerOptimized
             $this->awaitDuration
         );
         
-        // 发送请求（使用 MessageQueue 中的 Broker Endpoints）
-        // 参考 Node.js: receiveMessage(request, mq, awaitDuration)
+        // Send request (using Broker Endpoints from MessageQueue)
+        // Reference Node.js: receiveMessage(request, mq, awaitDuration)
         return $this->receiveMessage($request, $messageQueue, $this->awaitDuration);
     }
     
     /**
-     * 异步接收消息（TODO: 需要 Swoole 协程支持）
-     * 
-     * @param int $maxMessageNum 最大消息数量
-     * @param int $invisibleDuration 不可见时长（秒）
-     * @return \Generator 协程生成器
+     * Asynchronously receive messages (TODO: requires Swoole coroutine support)
+     *
+     * @param int $maxMessageNum Maximum number of messages
+     * @param int $invisibleDuration Invisible duration in seconds
+     * @return \Generator Coroutine generator
      */
     public function receiveAsync($maxMessageNum, $invisibleDuration = 30)
     {
-        // TODO: 使用 Swoole Coroutine 实现真正的异步
-        // 这里返回一个生成器作为占位符
+        // TODO: Use Swoole Coroutine for true async
+        // This returns a generator as a placeholder
         yield $this->receive($maxMessageNum, $invisibleDuration);
     }
     
     /**
-     * 同步 ACK 消息
-     * 
-     * @param object $messageView 消息对象
+     * Synchronously ACK a message
+     *
+     * @param object $messageView Message object
      */
     public function ack($messageView)
     {
@@ -246,9 +255,9 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 异步 ACK 消息（TODO: 需要 Swoole 协程支持）
-     * 
-     * @param object $messageView 消息对象
+     * Asynchronously ACK a message (TODO: requires Swoole coroutine support)
+     *
+     * @param object $messageView Message object
      * @return \Generator
      */
     public function ackAsync($messageView)
@@ -257,10 +266,10 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 修改消息可见性时长
-     * 
-     * @param object $messageView 消息对象
-     * @param int $invisibleDuration 新的不可见时长（秒）
+     * Change message visibility duration
+     *
+     * @param object $messageView Message object
+     * @param int $invisibleDuration New invisible duration in seconds
      */
     public function changeInvisibleDuration($messageView, $invisibleDuration)
     {
@@ -278,10 +287,10 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 异步修改可见性时长（TODO: 需要 Swoole 协程支持）
-     * 
-     * @param object $messageView 消息对象
-     * @param int $invisibleDuration 新的不可见时长（秒）
+     * Asynchronously change visibility duration (TODO: requires Swoole coroutine support)
+     *
+     * @param object $messageView Message object
+     * @param int $invisibleDuration New invisible duration in seconds
      * @return \Generator
      */
     public function changeInvisibleDurationAsync($messageView, $invisibleDuration)
@@ -290,7 +299,7 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 关闭 Consumer
+     * Shutdown the Consumer
      */
     public function shutdown()
     {
@@ -298,7 +307,7 @@ class SimpleConsumerOptimized
             return;
         }
         
-        error_log("[SimpleConsumer] Begin to shutdown the rocketmq simple consumer, clientId={$this->clientId}");
+        $this->logger->info("Begin to shutdown the rocketmq simple consumer, clientId={$this->clientId}");
         
         if ($this->telemetrySession) {
             $this->telemetrySession->close();
@@ -306,11 +315,11 @@ class SimpleConsumerOptimized
         
         $this->isRunning = false;
         
-        error_log("[SimpleConsumer] Shutdown the rocketmq simple consumer successfully, clientId={$this->clientId}");
+        $this->logger->info("Shutdown the rocketmq simple consumer successfully, clientId={$this->clientId}");
     }
     
     /**
-     * 获取 Client ID
+     * Get Client ID
      */
     public function getClientId()
     {
@@ -318,7 +327,7 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 获取消费组
+     * Get consumer group
      */
     public function getConsumerGroup()
     {
@@ -326,7 +335,7 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 检查是否正在运行
+     * Check if the consumer is running
      */
     public function isRunning()
     {
@@ -334,7 +343,7 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 析构函数
+     * Destructor
      */
     public function __destruct()
     {
@@ -344,7 +353,7 @@ class SimpleConsumerOptimized
     // ==================== Private Methods ====================
     
     /**
-     * 检查运行状态
+     * Check running state
      */
     private function checkRunning()
     {
@@ -354,16 +363,16 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 建立 Telemetry Session
+     * Establish Telemetry Session
      */
     private function establishTelemetrySession()
     {
-        // 创建 UserAgent
+        // Create UserAgent
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
         $ua->setVersion('5.0.0');
         
-        // 创建 SubscriptionEntry 列表
+        // Create SubscriptionEntry list
         $subscriptionEntries = [];
         foreach ($this->subscriptionExpressions as $topic => $expression) {
             $filterExpression = new FilterExpression();
@@ -379,24 +388,24 @@ class SimpleConsumerOptimized
             $subscriptionEntries[] = $subscriptionEntry;
         }
         
-        // 创建 Subscription 配置
+        // Create Subscription configuration
         $subscription = new Subscription();
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
         $subscription->setGroup($groupResource);
         $subscription->setSubscriptions($subscriptionEntries);
         
-        // 创建 Settings
+        // Create Settings
         $settings = new Settings();
         $settings->setClientType(ClientType::SIMPLE_CONSUMER);
         $settings->setUserAgent($ua);
         $settings->setSubscription($subscription);
         
-        // 创建 TelemetryCommand
+        // Create TelemetryCommand
         $command = new TelemetryCommand();
         $command->setSettings($settings);
         
-        // 发送并等待 Settings 确认（阻塞，最多 5 秒）- 参考 Java ClientSessionImpl.syncSettings
+        // Send and wait for Settings confirmation (blocking, up to 5 seconds)
         $success = $this->telemetrySession->establishAndSyncSettings($command);
         
         if (!$success) {
@@ -405,7 +414,7 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 获取 Topic 路由数据
+     * Get Topic route data
      */
     private function getRouteData($topic)
     {
@@ -427,12 +436,12 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 获取 SubscriptionLoadBalancer
+     * Get SubscriptionLoadBalancer
      */
     private function getSubscriptionLoadBalancer($topic)
     {
         if (!isset($this->subscriptionRouteDataCache[$topic])) {
-            // 查询路由并创建负载均衡器
+            // Query route and create load balancer
             $routeData = $this->getRouteData($topic);
             $this->subscriptionRouteDataCache[$topic] = new SubscriptionLoadBalancer($routeData);
         }
@@ -441,55 +450,55 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 构建 ReceiveMessageRequest（完全参考 Java ConsumerImpl.wrapReceiveMessageRequest）
+     * Build ReceiveMessageRequest
      */
     private function wrapReceiveMessageRequest($maxMessageNum, $messageQueue, $expression, $invisibleDuration, $awaitDuration)
     {
-        // 创建 FilterExpression
+        // Create FilterExpression
         $filterExpression = new FilterExpression();
         $filterExpression->setExpression($expression);
         $filterExpression->setType(0); // TAG type
-        
-        // 创建 Group Resource
+
+        // Create Group Resource
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        
-        // 创建 Request
+
+        // Create Request
         $request = new ReceiveMessageRequest();
         $request->setGroup($groupResource);
         $request->setMessageQueue($messageQueue);
         $request->setFilterExpression($filterExpression);
         $request->setBatchSize($maxMessageNum);
-        $request->setAutoRenew(false); // SimpleConsumer 不使用自动续期
-        
-        // 设置 AttemptId（参考 Java: attemptId = UUID.randomUUID().toString()）
+        $request->setAutoRenew(false); // SimpleConsumer does not use auto-renewal
+
+        // Set AttemptId
         $attemptId = 'php-' . uniqid('', true);
         $request->setAttemptId($attemptId);
-        
-        // 设置 InvisibleDuration（参考 Java: Durations.fromNanos(invisibleDuration.toNanos())）
+
+        // Set InvisibleDuration
         $invisibleDurationObj = $this->createDurationFromSeconds($invisibleDuration);
         $request->setInvisibleDuration($invisibleDurationObj);
-        
-        // 设置 LongPollingTimeout（参考 Java: Durations.fromNanos(longPollingTimeout.toNanos())）
+
+        // Set LongPollingTimeout
         $awaitDurationObj = $this->createDurationFromSeconds($awaitDuration);
         $request->setLongPollingTimeout($awaitDurationObj);
         
-        error_log("[SimpleConsumer] ReceiveMessageRequest: batchSize={$maxMessageNum}, invisibleDuration={$invisibleDuration}s");
+        $this->logger->debug("ReceiveMessageRequest: batchSize={$maxMessageNum}, invisibleDuration={$invisibleDuration}s");
 
         return $request;
     }
     
     /**
-     * 从秒数创建 Duration 对象（参考 Java Durations.fromNanos）
-     * 
-     * @param int|float $seconds 秒数（可以是小数）
+     * Create a Duration object from seconds
+     *
+     * @param int|float $seconds Seconds (can be decimal)
      * @return Duration
      */
     private function createDurationFromSeconds($seconds)
     {
         $duration = new Duration();
         
-        // 分离秒数和纳秒数
+        // Separate seconds and nanoseconds
         $secs = intval($seconds);
         $nanos = intval(($seconds - $secs) * 1000000000);
         
@@ -500,37 +509,36 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 接收消息（参考 Node.js receiveMessage 实现）
+     * Receive messages (reference Node.js receiveMessage implementation)
      */
     private function receiveMessage($request, $messageQueue, $awaitDuration = 30)
     {
-        // 从 MessageQueue 获取 Broker Endpoints
+        // Get Broker Endpoints from MessageQueue
         $broker = $messageQueue->getBroker();
         if (!$broker) {
-            error_log("[SimpleConsumer] Broker not available in message queue");
+            $this->logger->warning("Broker not available in message queue");
             return [];
         }
         
         if (!$broker->hasEndpoints()) {
-            error_log("[SimpleConsumer] Broker has no endpoints");
-            // 尝试使用默认的 endpoints
+            $this->logger->warning("Broker has no endpoints");
             $brokerAddress = $this->endpoints;
-            error_log("[SimpleConsumer] Using default endpoints: {$brokerAddress}");
+            $this->logger->debug("Using default endpoints: {$brokerAddress}");
         } else {
             $endpoints = $broker->getEndpoints();
             $addresses = $endpoints->getAddresses();
 
             $addressCount = count($addresses);
-            error_log("[SimpleConsumer] Broker endpoints addresses count: {$addressCount}");
+            $this->logger->debug("Broker endpoints addresses count: {$addressCount}");
 
             if ($addressCount === 0) {
-                error_log("[SimpleConsumer] No addresses found in broker endpoints, using default");
+                $this->logger->debug("No addresses found in broker endpoints, using default");
                 $brokerAddress = $this->endpoints;
             } else {
-                // 构建 Broker 地址字符串
+                // Build broker address string
                 $address = $addresses[0];
                 if ($address === null) {
-                    error_log("[SimpleConsumer] First address is null, using default endpoints");
+                    $this->logger->debug("First address is null, using default endpoints");
                     $brokerAddress = $this->endpoints;
                 } else {
                     $brokerAddress = $address->getHost() . ':' . $address->getPort();
@@ -538,26 +546,25 @@ class SimpleConsumerOptimized
             }
         }
         
-        // 计算总超时时间（参考 Node.js: timeout = requestTimeout + awaitDuration）
-        // requestTimeout 默认 3000ms，awaitDuration 默认 30000ms
-        $requestTimeoutMs = 3000;  // 3秒
-        $awaitDurationMs = $awaitDuration * 1000;  // 转换为毫秒
+        // Calculate total timeout (reference Node.js: timeout = requestTimeout + awaitDuration)
+        // requestTimeout defaults to 3000ms, awaitDuration defaults to 30000ms
+        $requestTimeoutMs = 3000;  // 3 seconds
+        $awaitDurationMs = $awaitDuration * 1000;  // Convert to milliseconds
         $totalTimeoutMs = $requestTimeoutMs + $awaitDurationMs;
         $totalTimeoutSecs = $totalTimeoutMs / 1000.0;
         
-        error_log("[SimpleConsumer] Sending ReceiveMessage request to broker: {$brokerAddress}");
-        error_log("[SimpleConsumer]   Topic: " . $messageQueue->getTopic()->getName());
-        error_log("[SimpleConsumer]   Batch Size: " . $request->getBatchSize());
-        error_log("[SimpleConsumer]   Request Timeout: {$requestTimeoutMs}ms");
-        error_log("[SimpleConsumer]   Await Duration: {$awaitDurationMs}ms");
-        error_log("[SimpleConsumer]   Total Timeout: {$totalTimeoutMs}ms ({$totalTimeoutSecs}s)");
-        error_log("[SimpleConsumer]   Long Polling Timeout: " . $request->getLongPollingTimeout()->getSeconds() . "s");
+        $this->logger->info("Sending ReceiveMessage request to broker: {$brokerAddress}");
+        $this->logger->debug("  Topic: " . $messageQueue->getTopic()->getName());
+        $this->logger->debug("  Batch Size: " . $request->getBatchSize());
+        $this->logger->debug("  Request Timeout: {$requestTimeoutMs}ms");
+        $this->logger->debug("  Await Duration: {$awaitDurationMs}ms");
+        $this->logger->debug("  Total Timeout: {$totalTimeoutMs}ms ({$totalTimeoutSecs}s)");
+        $this->logger->debug("  Long Polling Timeout: " . $request->getLongPollingTimeout()->getSeconds() . "s");
         
-        // 【关键修复】使用已有的 $this->client，而不是创建新的客户端
-        // 这样可以确保 Telemetry Stream 和 Business RPC 共享同一个 gRPC Channel
-        // Broker 才能通过 Client ID 关联 Settings 和超时状态
-        // 参考 Java/Node.js：它们都复用同一个 MessagingServiceClient 实例
-        error_log("[SimpleConsumer] Using shared client (same as Telemetry Session)");
+        // [KEY FIX] Use existing $this->client instead of creating a new client
+        // This ensures Telemetry Stream and Business RPC share the same gRPC Channel
+        // So the Broker can associate Settings and timeout state via Client ID
+        $this->logger->debug("Using shared client (same as Telemetry Session)");
         
         $metadata = $this->buildMetadata();
         
@@ -566,59 +573,59 @@ class SimpleConsumerOptimized
         $responseCount = 0;
         
         try {
-            // 使用 $this->client 而不是创建新的 brokerClient
-            // 【关键修复】设置 gRPC 调用超时（deadline），这样服务端 ContextInitPipeline 才能获取到 remainingMs
-            // 服务端代码: ctx.getDeadline().timeRemaining(TimeUnit.MILLISECONDS)
-            // 如果没有 deadline，timeRemaining 为 null，导致 NPE
-            $callOptions = ['timeout' => $totalTimeoutMs * 1000]; // PHP gRPC timeout 单位为微秒
+            // Use $this->client instead of creating a new brokerClient
+            // [KEY FIX] Set gRPC call timeout (deadline) so the server-side ContextInitPipeline can get remainingMs
+            // Server code: ctx.getDeadline().timeRemaining(TimeUnit.MILLISECONDS)
+            // Without deadline, timeRemaining is null, causing NPE
+            $callOptions = ['timeout' => $totalTimeoutMs * 1000]; // PHP gRPC timeout is in microseconds
             $call = $this->client->ReceiveMessage($request, $metadata, $callOptions);
             
             foreach ($call->responses() as $response) {
                 $responseCount++;
                 
-                // 处理 STATUS 类型响应
+                // Handle STATUS type response
                 if ($response->hasStatus()) {
                     $status = $response->getStatus();
                     $statusCode = $status->getCode();
                     $statusMessage = $status->getMessage();
                     
-                    error_log("[SimpleConsumer] Response #{$responseCount}: STATUS - Code: {$statusCode}, Message: {$statusMessage}");
+                    $this->logger->info("Response #{$responseCount}: STATUS - Code: {$statusCode}, Message: {$statusMessage}");
                     $statuses[] = $status;
-                    
-                    // 如果状态不是 OK，记录但不立即失败（可能只是没有消息）
+
+                    // If status is not OK, log but don't fail immediately (may just mean no messages)
                     if ($statusCode !== 20000 && $statusCode !== 40404) { // 20000=OK, 40404=NOT_FOUND
-                        error_log("[SimpleConsumer] Non-OK status received: {$statusCode} - {$statusMessage}");
+                        $this->logger->warning("Non-OK status received: {$statusCode} - {$statusMessage}");
                     }
                 }
                 
-                // 处理 MESSAGE 类型响应
+                // Handle MESSAGE type response
                 if ($response->hasMessage()) {
                     $message = $response->getMessage();
-                    error_log("[SimpleConsumer] Response #{$responseCount}: MESSAGE received");
-                    
+                    $this->logger->info("Response #{$responseCount}: MESSAGE received");
+
                     if ($message->hasSystemProperties()) {
                         $sysProps = $message->getSystemProperties();
                         if ($sysProps->getMessageId() !== null && $sysProps->getMessageId() !== '') {
-                            error_log("[SimpleConsumer]   Message ID: " . $sysProps->getMessageId());
+                            $this->logger->debug("  Message ID: " . $sysProps->getMessageId());
                         }
                     }
-                    
+
                     $messages[] = $message;
                 }
-                
-                // 处理 DELIVERY_TIMESTAMP 类型响应
+
+                // Handle DELIVERY_TIMESTAMP type response
                 if ($response->hasDeliveryTimestamp()) {
                     $timestamp = $response->getDeliveryTimestamp();
-                    error_log("[SimpleConsumer] Response #{$responseCount}: DELIVERY_TIMESTAMP - " . $timestamp->getSeconds());
+                    $this->logger->debug("Response #{$responseCount}: DELIVERY_TIMESTAMP - " . $timestamp->getSeconds());
                 }
             }
-            
-            error_log("[SimpleConsumer] Total responses: {$responseCount}, Messages received: " . count($messages));
-            
+
+            $this->logger->debug("Total responses: {$responseCount}, Messages received: " . count($messages));
+
         } catch (\Exception $e) {
-            error_log("[SimpleConsumer] Error receiving messages: " . $e->getMessage());
+            $this->logger->error("Error receiving messages: " . $e->getMessage());
             
-            // 忽略超时错误（长轮询正常行为）
+            // Ignore timeout errors (normal behavior for long polling)
             if (strpos($e->getMessage(), 'DEADLINE_EXCEEDED') === false) {
                 throw $e;
             }
@@ -628,7 +635,7 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * ACK 消息
+     * ACK message
      */
     private function ackMessage($receiptHandle, $messageView)
     {
@@ -681,7 +688,7 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 修改可见性时长
+     * Change visibility duration
      */
     private function changeInvisibleDuration0($receiptHandle, $messageView, $invisibleDuration)
     {
@@ -716,11 +723,11 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 提取 Receipt Handle
+     * Extract Receipt Handle
      */
     private function extractReceiptHandle($messageView)
     {
-        // 从消息的系统属性中提取 receipt_handle
+        // Extract receipt_handle from message system properties
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
             if (method_exists($sysProps, 'getReceiptHandle')) {
@@ -731,7 +738,7 @@ class SimpleConsumerOptimized
     }
 
     /**
-     * 提取 Message ID
+     * Extract Message ID
      */
     private function extractMessageId($messageView)
     {
@@ -745,7 +752,7 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 提取 Topic
+     * Extract Topic
      */
     private function extractTopic($messageView)
     {
@@ -759,11 +766,10 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * 构建元数据
+     * Build metadata
      */
     private function buildMetadata()
     {
-        // 参考 Java Signature.sign() 方法生成完整的 metadata
         // Required fields according to Java implementation
         $dateTime = gmdate('Ymd\THis\Z'); // Format: yyyyMMdd'T'HHmmss'Z'
         $requestId = sprintf('%08x-%04x-%04x-%04x-%012x',
@@ -787,7 +793,7 @@ class SimpleConsumerOptimized
 }
 
 /**
- * SubscriptionLoadBalancer - 订阅负载均衡器（参考 Java 实现）
+ * SubscriptionLoadBalancer - Subscription load balancer
  */
 class SubscriptionLoadBalancer
 {
@@ -810,30 +816,30 @@ class SubscriptionLoadBalancer
                 }
             }
 
-            error_log("[SubscriptionLoadBalancer] Topic queues: {$readableCount} readable / " . count($allQueues) . " total");
+            Logger::getInstance('SubscriptionLoadBalancer')->info("Topic queues: {$readableCount} readable / " . count($allQueues) . " total");
         }
     }
     
     /**
-     * 获取下一个 MessageQueue（轮询）
+     * Get next MessageQueue (round-robin)
      */
     public function takeMessageQueue()
     {
         if (empty($this->messageQueues)) {
-            error_log("[SubscriptionLoadBalancer] No message queues available");
+            Logger::getInstance('SubscriptionLoadBalancer')->warning("No message queues available");
             return null;
         }
         
         $index = $this->queueIndex++ % count($this->messageQueues);
         $queue = $this->messageQueues[$index];
         
-        error_log("[SubscriptionLoadBalancer] Selected queue index: {$index}");
+        Logger::getInstance('SubscriptionLoadBalancer')->debug("Selected queue index: {$index}");
         
         return $queue;
     }
     
     /**
-     * 获取所有 MessageQueue
+     * Get all MessageQueues
      */
     public function getMessageQueues()
     {

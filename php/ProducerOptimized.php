@@ -23,6 +23,8 @@ require_once __DIR__ . '/MessageId.php';
 require_once __DIR__ . '/MessageIdImpl.php';
 require_once __DIR__ . '/MessageIdCodec.php';
 require_once __DIR__ . '/TelemetrySession.php';
+require_once __DIR__ . '/ConsumeResult.php';
+require_once __DIR__ . '/Logger.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -47,7 +49,7 @@ use Apache\Rocketmq\V2\Encoding;
 use Apache\Rocketmq\V2\MessageType as V2MessageType;
 
 /**
- * Producer - Message producer (reference implementation based on Java ProducerImpl)
+ * Producer - Message producer
  *
  * Core features:
  * 1. Singleton TelemetrySession management
@@ -70,12 +72,13 @@ class ProducerOptimized
     private $topics = [];
     private $isolatedEndpoints = [];
     private $namespace = '';
-    
+    private $logger;
+
     /**
      * Constructor
-     * 
-     * @param string $endpoints gRPC 服务端点
-     * @param array $options 配置选项
+     *
+     * @param string $endpoints gRPC server endpoint
+     * @param array $options Configuration options
      */
     public function __construct($endpoints, $options = [])
     {
@@ -85,13 +88,15 @@ class ProducerOptimized
         $this->requestTimeout = $options['requestTimeout'] ?? 3000;
         $this->topics = $options['topics'] ?? [];
         $this->namespace = $options['namespace'] ?? '';
+
+        $this->logger = Logger::getInstance('Producer');
         
-        // 创建 gRPC 客户端
+        // Create gRPC client
         $this->client = new MessagingServiceClient($endpoints, [
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
         
-        // 初始化 Telemetry Session（单例）
+        // Initialize Telemetry Session (singleton)
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints);
     }
     
@@ -105,28 +110,28 @@ class ProducerOptimized
         }
         
         try {
-            error_log("[Producer] Begin to start the rocketmq producer, clientId={$this->clientId}");
-            
-            // 建立 Telemetry Session
+            Logger::getInstance('Producer')->info("Begin to start the rocketmq producer, clientId={$this->clientId}");
+
+            // Establish Telemetry Session
             $this->establishTelemetrySession();
-            
-            // 预热路由缓存
+
+            // Warm up route cache
             foreach ($this->topics as $topic) {
                 $this->getPublishingLoadBalancer($topic);
             }
-            
+
             $this->isRunning = true;
-            
-            error_log("[Producer] The rocketmq producer starts successfully, clientId={$this->clientId}");
+
+            Logger::getInstance('Producer')->info("The rocketmq producer starts successfully, clientId={$this->clientId}");
         } catch (\Exception $e) {
-            error_log("[Producer] Failed to start: " . $e->getMessage());
+            Logger::getInstance('Producer')->error("Failed to start: " . $e->getMessage());
             $this->shutdown();
             throw $e;
         }
     }
     
     /**
-     * Synchronously send a message (reference Java send method)
+     * Synchronously send a message
      *
      * @param Message $message Message object
      * @return array Send result ['messageId' => ..., 'transactionId' => ..., 'status' => ...]
@@ -169,7 +174,7 @@ class ProducerOptimized
      */
     public function sendAsync(Message $message)
     {
-        // TODO: 使用 Swoole Coroutine 实现真正的异步
+        // TODO: Use Swoole Coroutine for true async implementation
         yield $this->send($message);
     }
     
@@ -185,15 +190,28 @@ class ProducerOptimized
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
         }
-        
-        // TODO: Implement transaction message logic
-        // 1. Send half message
-        // 2. Execute local transaction
-        // 3. Commit or rollback transaction
-        
-        throw new \RuntimeException("Transaction message not implemented yet");
+
+        $this->validateMessage($message);
+
+        $topic = $message->getTopic()->getName();
+        $loadBalancer = $this->getPublishingLoadBalancer($topic);
+        $messageQueue = $loadBalancer->takeMessageQueue($this->isolatedEndpoints, 1);
+
+        if (empty($messageQueue)) {
+            throw new \RuntimeException("No available message queue for topic: {$topic}");
+        }
+
+        $request = $this->wrapTransactionMessageRequest([$message], $messageQueue[0]);
+        $result = $this->sendMessageWithRetry($request, $message, $this->maxAttempts);
+
+        // Record the receipt for later commit/rollback
+        if (isset($result['transactionId'])) {
+            $transaction->tryAddReceipt($message, $result);
+        }
+
+        return $result;
     }
-    
+
     /**
      * Begin a transaction
      *
@@ -204,8 +222,7 @@ class ProducerOptimized
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
         }
-        
-        // TODO: Implement Transaction class
+
         return new Transaction($this);
     }
     
@@ -234,6 +251,106 @@ class ProducerOptimized
     }
     
     /**
+     * Send a priority message.
+     *
+     * @param string $topic Topic name
+     * @param string $body Message body
+     * @param int $priority Priority value (lower value = higher priority)
+     * @param string $tag Optional tag
+     * @return array Send result
+     */
+    public function sendPriorityMessage($topic, $body, $priority, $tag = '')
+    {
+        if (!$this->isRunning) {
+            throw new \RuntimeException("Producer is not running now");
+        }
+
+        $topicResource = new Resource();
+        $topicResource->setName($topic);
+
+        $sysProps = new SystemProperties();
+        $sysProps->setPriority($priority);
+        if (!empty($tag)) {
+            $sysProps->setTag($tag);
+        }
+
+        $message = new Message();
+        $message->setTopic($topicResource);
+        $message->setBody($body);
+        $message->setSystemProperties($sysProps);
+
+        return $this->send($message);
+    }
+
+    /**
+     * Send a delayed/scheduled message with recall support.
+     *
+     * @param string $topic Topic name
+     * @param string $body Message body
+     * @param int $deliveryTimestampUnixSec Delivery timestamp (unix seconds)
+     * @param string $tag Optional tag
+     * @return array Send result with recallHandle
+     */
+    public function sendDelayedMessage($topic, $body, $deliveryTimestampUnixSec, $tag = '')
+    {
+        if (!$this->isRunning) {
+            throw new \RuntimeException("Producer is not running now");
+        }
+
+        $topicResource = new Resource();
+        $topicResource->setName($topic);
+
+        $ts = new Timestamp();
+        $ts->setSeconds($deliveryTimestampUnixSec);
+        $ts->setNanos(0);
+
+        $sysProps = new SystemProperties();
+        $sysProps->setDeliveryTimestamp($ts);
+        if (!empty($tag)) {
+            $sysProps->setTag($tag);
+        }
+
+        $message = new Message();
+        $message->setTopic($topicResource);
+        $message->setBody($body);
+        $message->setSystemProperties($sysProps);
+
+        return $this->send($message);
+    }
+
+    /**
+     * Send a FIFO message.
+     *
+     * @param string $topic Topic name
+     * @param string $body Message body
+     * @param string $messageGroup Message group for FIFO ordering
+     * @param string $tag Optional tag
+     * @return array Send result
+     */
+    public function sendFifoMessage($topic, $body, $messageGroup, $tag = '')
+    {
+        if (!$this->isRunning) {
+            throw new \RuntimeException("Producer is not running now");
+        }
+
+        $topicResource = new Resource();
+        $topicResource->setName($topic);
+
+        $sysProps = new SystemProperties();
+        $sysProps->setMessageGroup($messageGroup);
+        if (!empty($tag)) {
+            $sysProps->setTag($tag);
+        }
+
+        $message = new Message();
+        $message->setTopic($topicResource);
+        $message->setBody($body);
+        $message->setSystemProperties($sysProps);
+
+        return $this->send($message);
+    }
+
+    /**
      * Recall a delayed message
      *
      * @param string $topic Topic name
@@ -260,8 +377,14 @@ class ProducerOptimized
         if ($status->code !== 0) {
             throw new \RuntimeException("Recall message failed: " . $status->details);
         }
-        
+
+        $messageId = '';
+        if (method_exists($response, 'getMessageId')) {
+            $messageId = $response->getMessageId();
+        }
+
         return [
+            'messageId' => $messageId,
             'status' => $response->getStatus(),
         ];
     }
@@ -287,7 +410,7 @@ class ProducerOptimized
             return;
         }
         
-        error_log("[Producer] Begin to shutdown the rocketmq producer, clientId={$this->clientId}");
+        $this->logger->info("Begin to shutdown the rocketmq producer, clientId={$this->clientId}");
         
         if ($this->telemetrySession) {
             $this->telemetrySession->close();
@@ -295,7 +418,7 @@ class ProducerOptimized
         
         $this->isRunning = false;
         
-        error_log("[Producer] Shutdown the rocketmq producer successfully, clientId={$this->clientId}");
+        $this->logger->info("Shutdown the rocketmq producer successfully, clientId={$this->clientId}");
     }
     
     /**
@@ -373,7 +496,7 @@ class ProducerOptimized
     private function validateMessage(Message $message)
     {
         // Check Topic
-        if (!$message->hasTopic() || empty($message->getTopic()->getName())) {
+        if (!$message->hasTopic() || empty(trim($message->getTopic()->getName()))) {
             throw new \InvalidArgumentException("Message topic is required");
         }
         
@@ -382,7 +505,7 @@ class ProducerOptimized
             throw new \InvalidArgumentException("Message body is required");
         }
         
-        // 检查消息大小（默认 4MB）
+        // Check message size (default 4MB)
         $maxSize = 4 * 1024 * 1024;
         if (strlen($message->getBody()) > $maxSize) {
             throw new \InvalidArgumentException("Message size exceeds limit (4MB)");
@@ -390,12 +513,12 @@ class ProducerOptimized
     }
     
     /**
-     * 获取 PublishingLoadBalancer
+     * Get PublishingLoadBalancer
      */
     private function getPublishingLoadBalancer($topic)
     {
         if (!isset($this->publishingRouteDataCache[$topic])) {
-            // 查询路由并创建负载均衡器
+            // Query route and create load balancer
             $routeData = $this->queryRoute($topic);
             $this->publishingRouteDataCache[$topic] = new PublishingLoadBalancer($routeData);
         }
@@ -404,7 +527,7 @@ class ProducerOptimized
     }
     
     /**
-     * 查询路由
+     * Query route
      */
     private function queryRoute($topic)
     {
@@ -427,9 +550,13 @@ class ProducerOptimized
     
     /**
      * Convert a Message to enriched protobuf Message
-     * Reference: Java PublishingMessageImpl.toProtobuf(namespace, mq)
+     * Convert message to protocol format
+     *
+     * @param Message $msg Input message
+     * @param mixed $messageQueue Target message queue
+     * @param bool $txEnabled Whether this is a transaction message
      */
-    private function toProtobufMessage(Message $msg, $messageQueue)
+    private function toProtobufMessage(Message $msg, $messageQueue, $txEnabled = false)
     {
         // Generate message ID
         $messageId = MessageIdCodec::getInstance()->nextMessageId()->toString();
@@ -441,7 +568,7 @@ class ProducerOptimized
         $systemProperties->setBornHost(gethostname() ?: 'localhost');
         $systemProperties->setBodyEncoding(Encoding::IDENTITY);
         $systemProperties->setQueueId($messageQueue->getId());
-        $systemProperties->setMessageType($this->detectMessageType($msg));
+        $systemProperties->setMessageType($this->detectMessageType($msg, $txEnabled));
 
         // Copy optional system properties from input message
         $inputSysProps = $msg->getSystemProperties();
@@ -498,9 +625,12 @@ class ProducerOptimized
 
     /**
      * Detect message type based on message properties
-     * Reference: Java PublishingMessageImpl constructor
+     * Create publishing message
+     *
+     * @param Message $msg Input message
+     * @param bool $txEnabled Whether this is a transaction message
      */
-    private function detectMessageType(Message $msg)
+    private function detectMessageType(Message $msg, $txEnabled = false)
     {
         $sysProps = $msg->getSystemProperties();
         $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
@@ -508,21 +638,29 @@ class ProducerOptimized
         $hasPriority = $sysProps && method_exists($sysProps, 'hasPriority') && $sysProps->hasPriority();
         $hasDeliveryTimestamp = $sysProps && method_exists($sysProps, 'hasDeliveryTimestamp') && $sysProps->hasDeliveryTimestamp();
 
+        // Normal message (no special properties, not transaction)
+        if (!$hasMessageGroup && !$hasLiteTopic && !$hasPriority && !$hasDeliveryTimestamp && !$txEnabled) {
+            return V2MessageType::NORMAL;
+        }
         // FIFO message
-        if ($hasMessageGroup) {
+        if ($hasMessageGroup && !$txEnabled) {
             return V2MessageType::FIFO;
         }
-        // Delay message
-        if ($hasDeliveryTimestamp) {
-            return V2MessageType::DELAY;
-        }
         // Lite message
-        if ($hasLiteTopic) {
+        if ($hasLiteTopic && !$txEnabled) {
             return V2MessageType::LITE;
         }
+        // Delay message
+        if ($hasDeliveryTimestamp && !$txEnabled) {
+            return V2MessageType::DELAY;
+        }
         // Priority message
-        if ($hasPriority) {
+        if ($hasPriority && !$txEnabled) {
             return V2MessageType::PRIORITY;
+        }
+        // Transaction message (txEnabled and no conflicting properties)
+        if (!$hasMessageGroup && !$hasLiteTopic && !$hasPriority && !$hasDeliveryTimestamp && $txEnabled) {
+            return V2MessageType::TRANSACTION;
         }
 
         return V2MessageType::NORMAL;
@@ -544,7 +682,7 @@ class ProducerOptimized
     }
 
     /**
-     * 构建 SendMessageRequest
+     * Build SendMessageRequest
      */
     private function wrapSendMessageRequest($messages, $messageQueue)
     {
@@ -558,9 +696,25 @@ class ProducerOptimized
 
         return $request;
     }
+
+    /**
+     * Build SendMessageRequest for transaction messages
+     */
+    private function wrapTransactionMessageRequest($messages, $messageQueue)
+    {
+        $enrichedMessages = [];
+        foreach ($messages as $msg) {
+            $enrichedMessages[] = $this->toProtobufMessage($msg, $messageQueue, true);
+        }
+
+        $request = new SendMessageRequest();
+        $request->setMessages($enrichedMessages);
+
+        return $request;
+    }
     
     /**
-     * 发送消息（带重试）
+     * Send message (with retry)
      */
     private function sendMessageWithRetry($request, $message, $maxAttempts)
     {
@@ -576,13 +730,25 @@ class ProducerOptimized
                     throw new \RuntimeException("Send message failed: " . $status->details);
                 }
                 
-                // 解析响应
+                // Parse response
                 $entries = $response->getEntries();
-                if (count($entries) > 0) {
+                $entryCount = count($entries);
+
+                // Check overall response status first (e.g., topic type validation)
+                if ($response->hasStatus()) {
+                    $respStatus = $response->getStatus();
+                    if ($respStatus->getCode() !== 20000) {
+                        throw new \RuntimeException("SendMessage failed with code: " . $respStatus->getCode() . ", message: " . $respStatus->getMessage());
+                    }
+                }
+
+                $this->logger->debug("SendMessage response: {$entryCount} entries");
+
+                if ($entryCount > 0) {
                     $entry = $entries[0];
                     $resultStatus = $entry->getStatus();
                     
-                    // 检查状态码
+                    // Check status code
                     if ($resultStatus->getCode() !== 20000) {
                         throw new \RuntimeException("Send message failed with code: " . $resultStatus->getCode());
                     }
@@ -590,6 +756,7 @@ class ProducerOptimized
                     return [
                         'messageId' => $entry->getMessageId(),
                         'transactionId' => $entry->getTransactionId(),
+                        'recallHandle' => $entry->getRecallHandle() ?? '',
                         'code' => $resultStatus->getCode(),
                         'message' => $resultStatus->getMessage(),
                     ];
@@ -599,11 +766,11 @@ class ProducerOptimized
                 
             } catch (\Exception $e) {
                 $lastException = $e;
-                error_log("[Producer] Send attempt {$attempt} failed: " . $e->getMessage());
+                $this->logger->error("Send attempt {$attempt} failed: " . $e->getMessage());
                 
-                // 如果不是最后一次尝试，等待后重试
+                // If not the last attempt, wait and retry
                 if ($attempt < $maxAttempts) {
-                    usleep(pow(2, $attempt) * 100000); // 指数退避
+                    usleep(pow(2, $attempt) * 100000); // Exponential backoff
                 }
             }
         }
@@ -612,7 +779,7 @@ class ProducerOptimized
     }
     
     /**
-     * 结束事务
+     * End transaction
      */
     private function endTransaction($messageId, $transactionId, $topic, $resolution)
     {
@@ -638,7 +805,7 @@ class ProducerOptimized
             throw new \RuntimeException("End transaction failed: " . $status->details);
         }
         
-        // 检查响应状态
+        // Check response status
         if ($response->hasStatus()) {
             $statusCode = $response->getStatus()->getCode();
             if ($statusCode !== 20000) {
@@ -648,11 +815,10 @@ class ProducerOptimized
     }
     
     /**
-     * 构建元数据
+     * Build metadata
      */
     private function buildMetadata()
     {
-        // 参考 Java Signature.sign() 方法生成完整的 metadata
         // Required fields according to Java implementation
         $dateTime = gmdate('Ymd\THis\Z'); // Format: yyyyMMdd'T'HHmmss'Z'
         $requestId = sprintf('%08x-%04x-%04x-%04x-%012x',
@@ -676,7 +842,7 @@ class ProducerOptimized
 }
 
 /**
- * PublishingLoadBalancer - 发布负载均衡器（参考 Java 实现）
+ * PublishingLoadBalancer - Publishing load balancer
  */
 class PublishingLoadBalancer
 {
@@ -685,10 +851,10 @@ class PublishingLoadBalancer
     
     public function __construct($routeData)
     {
-        // 初始化随机索引（参考 Java RandomUtils.nextInt）
+        // Initialize random index
         $this->index = rand(0, PHP_INT_MAX);
 
-        // 过滤可写的 MessageQueue
+        // Filter writable MessageQueues
         if ($routeData && method_exists($routeData, 'getMessageQueues')) {
             $allQueues = $routeData->getMessageQueues();
             $writableCount = 0;
@@ -703,7 +869,7 @@ class PublishingLoadBalancer
                 }
             }
 
-            error_log("[PublishingLoadBalancer] Topic queues: {$writableCount} writable / " . count($allQueues) . " total");
+            Logger::getInstance('PublishingLoadBalancer')->info("Topic queues: {$writableCount} writable / " . count($allQueues) . " total");
         }
 
         if (empty($this->messageQueues)) {
@@ -712,9 +878,9 @@ class PublishingLoadBalancer
     }
     
     /**
-     * 根据消息组选择 MessageQueue（FIFO 消息）
-     * 
-     * @param string $messageGroup 消息组
+     * Select MessageQueue by message group (FIFO messages)
+     *
+     * @param string $messageGroup Message group
      * @return object MessageQueue
      */
     public function takeMessageQueueByMessageGroup($messageGroup)
@@ -723,7 +889,7 @@ class PublishingLoadBalancer
             throw new \RuntimeException("No message queues available");
         }
         
-        // 使用 SipHash 计算哈希值（简化版，使用 crc32）
+        // Use SipHash to calculate hash (simplified version, using crc32)
         $hashCode = crc32($messageGroup);
         $index = abs($hashCode) % count($this->messageQueues);
         
@@ -731,11 +897,11 @@ class PublishingLoadBalancer
     }
     
     /**
-     * 选择 MessageQueue 列表（轮询 + 排除隔离的 Endpoints）
-     * 
-     * @param array $excluded 要排除的 Endpoints
-     * @param int $count 需要的数量
-     * @return array MessageQueue 列表
+     * Select MessageQueue list (round-robin + exclude isolated Endpoints)
+     *
+     * @param array $excluded Endpoints to exclude
+     * @param int $count Number needed
+     * @return array MessageQueue list
      */
     public function takeMessageQueue($excluded = [], $count = 1)
     {
@@ -748,7 +914,7 @@ class PublishingLoadBalancer
         
         $next = $this->index++;
         
-        // 第一轮：排除隔离的 Endpoints
+        // Round one: exclude isolated Endpoints
         for ($i = 0; $i < count($this->messageQueues); $i++) {
             $queueIndex = $next++ % count($this->messageQueues);
             $messageQueue = $this->messageQueues[$queueIndex];
@@ -756,10 +922,10 @@ class PublishingLoadBalancer
             $broker = $messageQueue->getBroker();
             $brokerName = $broker->getName();
             
-            // 检查是否被排除
+            // Check if excluded
             $isExcluded = false;
             foreach ($excluded as $endpoint) {
-                // TODO: 比较 Endpoints
+                // TODO: Compare Endpoints
                 if ($brokerName === $endpoint) {
                     $isExcluded = true;
                     break;
@@ -776,7 +942,7 @@ class PublishingLoadBalancer
             }
         }
         
-        // 第二轮：如果所有 Endpoints 都被隔离，使用全部队列
+        // Round two: if all Endpoints are isolated, use all queues
         if (empty($candidates)) {
             for ($i = 0; $i < count($this->messageQueues); $i++) {
                 $queueIndex = $next++ % count($this->messageQueues);
@@ -800,7 +966,7 @@ class PublishingLoadBalancer
     }
     
     /**
-     * 获取所有 MessageQueue
+     * Get all MessageQueues
      */
     public function getMessageQueues()
     {
@@ -809,26 +975,85 @@ class PublishingLoadBalancer
 }
 
 /**
- * Transaction - 事务对象（占位符）
+ * Transaction - Transaction state management for transactional messages.
+ *
+ * Tracks sent messages and their receipts, enabling commit or rollback.
  */
 class Transaction
 {
     private $producer;
     private $messages = [];
     private $receipts = [];
-    
+
     public function __construct($producer)
     {
         $this->producer = $producer;
     }
-    
+
+    /**
+     * Add a message to this transaction.
+     */
+    public function tryAddMessage(Message $message)
+    {
+        $this->messages[] = $message;
+    }
+
+    /**
+     * Record a send receipt for a message in this transaction (alias for compatibility).
+     */
+    public function addReceipt(Message $message, array $sendResult)
+    {
+        $this->tryAddReceipt($message, $sendResult);
+    }
+
+    /**
+     * Record a send receipt for a message in this transaction.
+     */
+    public function tryAddReceipt(Message $message, array $sendResult)
+    {
+        $this->receipts[] = [
+            'message' => $message,
+            'sendResult' => $sendResult,
+        ];
+    }
+
+    /**
+     * Commit all messages in this transaction.
+     */
     public function commit()
     {
-        // TODO: 实现事务提交
+        foreach ($this->receipts as $receipt) {
+            $sr = $receipt['sendResult'];
+            $msg = $receipt['message'];
+            $topic = $msg->getTopic()->getName();
+
+            $this->producer->commitTransaction(
+                $sr['messageId'],
+                $sr['transactionId'] ?? '',
+                $topic
+            );
+        }
+        $this->receipts = [];
+        $this->messages = [];
     }
-    
+
+    /**
+     * Rollback all messages in this transaction.
+     */
     public function rollback()
     {
-        // TODO: 实现事务回滚
+        foreach ($this->receipts as $receipt) {
+            $sr = $receipt['sendResult'];
+            $msg = $receipt['message'];
+            $topic = $msg->getTopic()->getName();
+
+            $this->producer->rollbackTransaction(
+                $sr['messageId'],
+                $sr['transactionId'] ?? '',
+                $topic
+            );
+        }
+        $this->receipts = [];
+        $this->messages = [];
     }
 }

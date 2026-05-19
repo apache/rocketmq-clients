@@ -140,7 +140,7 @@ class Logger
             return self::$handle;
         }
 
-        $logFile = self::$logFile ?? (__DIR__ . '/rocketmq_client_php.log');
+        $logFile = self::$logFile ?? (getenv('HOME') . '/logs/rocketmq/rocketmq_client_php.log');
         $handle = @fopen($logFile, 'a');
         if ($handle === false) {
             // Fallback to error_log if file cannot be opened

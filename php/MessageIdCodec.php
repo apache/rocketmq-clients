@@ -19,7 +19,7 @@
 namespace Apache\Rocketmq;
 
 /**
- * MessageIdCodec - 消息 ID 编解码器（参考 Java MessageIdCodec）
+ * MessageIdCodec - Message ID Codec
  * 
  * The codec for the message-id.
  * 
@@ -64,28 +64,28 @@ class MessageIdCodec
     private $sequence;
 
     /**
-     * 私有构造函数（单例模式）
+     * Private constructor (singleton pattern)
      */
     private function __construct()
     {
-        // 生成进程固定字符串（MAC 地址 + PID）
+        // Generate process fixed string (MAC address + PID)
         $this->processFixedStringV1 = $this->generateProcessFixedString();
         
-        // 计算自定义纪元以来的秒数（2021-01-01 00:00:00 UTC）
+        // Calculate seconds since custom epoch (2021-01-01 00:00:00 UTC)
         $this->secondsSinceCustomEpoch = time() - $this->customEpochMillis();
         
-        // 记录启动时间戳
+        // Record startup timestamp
         $this->secondsStartTimestamp = hrtime(true);
         
-        // 初始化当前秒数
+        // Initialize current seconds
         $this->seconds = $this->deltaSeconds();
         
-        // 初始化序列号
+        // Initialize sequence number
         $this->sequence = 0;
     }
 
     /**
-     * 获取单例实例
+     * Get singleton instance
      *
      * @return MessageIdCodec
      */
@@ -99,31 +99,31 @@ class MessageIdCodec
     }
 
     /**
-     * 生成下一个消息 ID
+     * Generate the next message ID
      *
      * @return MessageId
      */
     public function nextMessageId(): MessageId
     {
-        // 计算增量秒数
+        // Calculate delta seconds
         $deltaSeconds = $this->deltaSeconds();
         if ($this->seconds !== $deltaSeconds) {
             $this->seconds = $deltaSeconds;
         }
         
-        // 构建缓冲区（4字节秒数 + 4字节序列号）
+        // Build buffer (4-byte seconds + 4-byte sequence number)
         $buffer = pack('NN', $deltaSeconds & 0xFFFFFFFF, $this->sequence++);
         
-        // 转换为十六进制字符串
+        // Convert to hexadecimal string
         $suffix = $this->processFixedStringV1 . strtoupper(bin2hex($buffer));
         
         return new MessageIdImpl(self::MESSAGE_ID_VERSION_V1, $suffix);
     }
 
     /**
-     * 解码消息 ID 字符串
+     * Decode message ID string
      *
-     * @param string $messageId 消息 ID 字符串
+     * @param string $messageId Message ID string
      * @return MessageId
      */
     public function decode(string $messageId): MessageId
@@ -136,32 +136,32 @@ class MessageIdCodec
     }
 
     /**
-     * 生成进程固定字符串（MAC 地址 + PID）
+     * Generate process fixed string (MAC address + PID)
      *
-     * @return string 十六进制字符串
+     * @return string Hexadecimal string
      */
     private function generateProcessFixedString(): string
     {
-        // 获取 MAC 地址（取前 6 字节）
+        // Get MAC address (take first 6 bytes)
         $macAddress = $this->getMacAddress();
         
-        // 获取进程 ID（取低 2 字节）
+        // Get process ID (take lower 2 bytes)
         $pid = getmypid() & 0xFFFF;
         
-        // 组合：6 字节 MAC + 2 字节 PID = 8 字节
+        // Combine: 6-byte MAC + 2-byte PID = 8 bytes
         $buffer = $macAddress . pack('n', $pid);
         
         return strtoupper(bin2hex($buffer));
     }
 
     /**
-     * 获取 MAC 地址
+     * Get MAC address
      *
-     * @return string 6 字节的 MAC 地址
+     * @return string 6-byte MAC address
      */
     private function getMacAddress(): string
     {
-        // 尝试从系统获取 MAC 地址
+        // Try to get MAC address from system
         $macAddress = null;
         
         // macOS / Linux
@@ -178,19 +178,19 @@ class MessageIdCodec
             }
         }
         
-        // 如果无法获取，使用随机值
+        // Use random value if unable to obtain
         if ($macAddress === null || strlen($macAddress) < 6) {
             $macAddress = random_bytes(6);
         }
         
-        // 确保返回 6 字节
+        // Ensure 6 bytes are returned
         return substr($macAddress, 0, 6);
     }
 
     /**
-     * 计算自定义纪元毫秒数（2021-01-01 00:00:00 UTC）
+     * Calculate custom epoch milliseconds (2021-01-01 00:00:00 UTC)
      *
-     * @return int 纪元毫秒数
+     * @return int Epoch milliseconds
      */
     private function customEpochMillis(): int
     {
@@ -198,9 +198,9 @@ class MessageIdCodec
     }
 
     /**
-     * 计算自自定义纪元以来的秒数
+     * Calculate seconds since custom epoch
      *
-     * @return int 秒数
+     * @return int Number of seconds
      */
     private function deltaSeconds(): int
     {

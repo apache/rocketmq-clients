@@ -19,7 +19,7 @@
 namespace Apache\Rocketmq;
 
 /**
- * MessageIdImpl - 消息 ID 实现类（参考 Java MessageIdImpl）
+ * MessageIdImpl - Message ID implementation class
  */
 class MessageIdImpl implements MessageId
 {
@@ -27,10 +27,10 @@ class MessageIdImpl implements MessageId
     private $suffix;
 
     /**
-     * 构造函数
+     * Constructor
      *
-     * @param string $version 版本号
-     * @param string $suffix 后缀
+     * @param string $version Version number
+     * @param string $suffix Suffix
      */
     public function __construct($version, $suffix)
     {
