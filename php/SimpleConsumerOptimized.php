@@ -24,6 +24,7 @@ require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
+use Apache\Rocketmq\V2\Permission;
 use Apache\Rocketmq\V2\QueryRouteRequest;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
 use Apache\Rocketmq\V2\AckMessageRequest;
@@ -803,11 +804,10 @@ class SubscriptionLoadBalancer
             $allQueues = $routeData->getMessageQueues();
             $readableCount = 0;
 
-            // Permission: 1=READ_ONLY, 2=WRITE_ONLY, 4=NONE, 6=READ_WRITE
+            // Accept READ or READ_WRITE for consumer
             foreach ($allQueues as $queue) {
                 $permission = $queue->getPermission();
-                // Accept READ_ONLY(1), READ_WRITE(6), or NONE(4) for compatibility
-                if ($permission == 1 || $permission == 4 || $permission == 6) {
+                if ($permission === Permission::READ || $permission === Permission::READ_WRITE) {
                     $this->messageQueues[] = $queue;
                     $readableCount++;
                 }

@@ -28,6 +28,7 @@ require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
+use Apache\Rocketmq\V2\Permission;
 use Apache\Rocketmq\V2\QueryRouteRequest;
 use Apache\Rocketmq\V2\SendMessageRequest;
 use Apache\Rocketmq\V2\EndTransactionRequest;
@@ -856,10 +857,9 @@ class PublishingLoadBalancer
             $writableCount = 0;
 
             foreach ($allQueues as $queue) {
-                // Permission: 1=READ_ONLY, 2=WRITE_ONLY, 4=NONE, 6=READ_WRITE
+                // Accept WRITE or READ_WRITE for producer
                 $permission = $queue->getPermission();
-                // Accept WRITE_ONLY(2), READ_WRITE(6), or NONE(4) for compatibility
-                if ($permission == 2 || $permission == 4 || $permission == 6) {
+                if ($permission === Permission::WRITE || $permission === Permission::READ_WRITE) {
                     $this->messageQueues[] = $queue;
                     $writableCount++;
                 }
