@@ -18,8 +18,9 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/Logger.php';
+require_once __DIR__ . '/Signature.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\TelemetryCommand;
@@ -55,17 +56,21 @@ class TelemetrySession
     private $writeQueue = [];
     private $isWriting = false;
     private $maxQueueSize = 1000;
-    
+
+    // Credentials for AK/SK signing
+    private $credentials = null;
+
     /**
      * Private constructor
      */
-    private function __construct($client, $endpoints)
+    private function __construct($client, $endpoints, $credentials = null)
     {
         $this->client = $client;
         $this->endpoints = $endpoints;
+        $this->credentials = $credentials;
         $this->logger = Logger::getInstance('TelemetrySession');
     }
-    
+
     /**
      * Reset all singleton instances (for testing).
      */
@@ -77,22 +82,21 @@ class TelemetrySession
     /**
      * Get singleton instance
      */
-    public static function getInstance($client, $endpoints, $clientId = null)
+    public static function getInstance($client, $endpoints, $clientId = null, $credentials = null)
     {
         $key = $endpoints;
 
         if (!isset(self::$instances[$key])) {
             Logger::getInstance('TelemetrySession')->info("Creating new session for endpoints: {$endpoints}");
-            $instance = new self($client, $endpoints);
+            $instance = new self($client, $endpoints, $credentials);
             if ($clientId) {
                 $instance->clientId = $clientId;
             }
             self::$instances[$key] = $instance;
         } elseif ($clientId && !self::$instances[$key]->clientId) {
-            // If instance exists but no Client ID set, set it
             self::$instances[$key]->clientId = $clientId;
         }
-        
+
         return self::$instances[$key];
     }
     
@@ -117,12 +121,15 @@ class TelemetrySession
             $this->logger->info("Creating telemetry stream...");
             
             // 1. Create bidirectional stream
-            $metadata = [
-                'x-mq-client-id' => [$this->clientId ?: $this->getClientIdFromCommand($settingsCommand)],
-                'x-mq-language' => ['PHP'],
-                'x-mq-client-version' => ['5.0.0'],
-                'x-mq-protocol' => ['v2'],
-            ];
+            $clientId = $this->clientId ?: $this->getClientIdFromCommand($settingsCommand);
+            $metadata = Signature::sign(
+                $this->credentials,
+                $clientId,
+                'PHP',
+                '5.0.0',
+                '',
+                'v2'
+            );
             
             $this->stream = $this->client->Telemetry($metadata);
             $this->logger->info("Stream created successfully");

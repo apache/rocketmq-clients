@@ -21,7 +21,7 @@ namespace Apache\Rocketmq\Test;
 require_once __DIR__ . '/TestRunner.php';
 require_once __DIR__ . '/../MessageBuilder.php';
 require_once __DIR__ . '/../MessageView.php';
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../autoload.php';
 
 use Apache\Rocketmq\MessageBuilder;
 use Apache\Rocketmq\MessageView;

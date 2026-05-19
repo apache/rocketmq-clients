@@ -18,7 +18,8 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/autoload.php';
+require_once __DIR__ . '/Signature.php';
 
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
@@ -326,29 +327,19 @@ class ProcessQueue
     }
 
     /**
-     * Build metadata for gRPC calls.
+     * Build metadata for gRPC calls using Signature.
      *
      * @return array
      */
     private function buildMetadata()
     {
-        $clientId = $this->consumer->getClientId();
-        $dateTime = gmdate('Ymd\THis\Z');
-        $requestId = sprintf('%08x-%04x-%04x-%04x-%012x',
-            mt_rand(0, 0xffffffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff) & 0x0fff | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffffffffffff)
+        return Signature::sign(
+            null,
+            $this->consumer->getClientId(),
+            'PHP',
+            '5.0.0',
+            '',
+            'v2'
         );
-
-        return [
-            'x-mq-client-id' => [$clientId],
-            'x-mq-language' => ['PHP'],
-            'x-mq-client-version' => ['5.0.0'],
-            'x-mq-protocol' => ['v2'],
-            'x-mq-date-time' => [$dateTime],
-            'x-mq-request-id' => [$requestId],
-        ];
     }
 }

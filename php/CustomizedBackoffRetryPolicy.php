@@ -18,8 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/vendor/autoload.php';
-
 /**
  * CustomizedBackoffRetryPolicy - Retry policy with a fixed sequence of delays.
  *

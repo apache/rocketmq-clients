@@ -222,6 +222,172 @@ class ProducerValidationTest
             $producer->send($message);
         }, "send should throw when producer is not running");
     }
+
+    /**
+     * Mirrors Java: testRecall - recallMessage when not running should throw.
+     */
+    public function testRecallWhenNotRunning()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876');
+
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
+            $producer->recallMessage('test-topic', 'handle-123');
+        }, "recallMessage should throw when producer is not running");
+    }
+
+    /**
+     * Mirrors Java: testSendBeforeStartup
+     * Producer not running, send should throw.
+     */
+    public function testSendBeforeStartup()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876', [
+            'topics' => ['test-topic'],
+        ]);
+
+        $message = new Message();
+        $topic = new Resource();
+        $topic->setName('test-topic');
+        $message->setTopic($topic);
+        $message->setBody('body');
+
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer, $message) {
+            $producer->send($message);
+        }, "send before startup should throw");
+    }
+
+    /**
+     * Tests that beginTransaction requires running producer.
+     */
+    public function testBeginTransactionRequiresRunning()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876');
+
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
+            $producer->beginTransaction();
+        }, "beginTransaction should throw when not running");
+    }
+
+    /**
+     * Tests recallMessageAsync also requires running producer.
+     */
+    public function testRecallMessageAsyncWhenNotRunning()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876');
+
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
+            foreach ($producer->recallMessageAsync('test-topic', 'handle') as $result) {
+                // generator execution will trigger the throw
+            }
+        }, "recallMessageAsync should throw when not running");
+    }
+
+    /**
+     * Tests message size validation (exceeds 4MB limit).
+     * Mirrors Java: testSendWithOversizedMessage.
+     */
+    public function testSendWithOversizedMessage()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $ref = new \ReflectionProperty($producer, 'isRunning');
+        $ref->setAccessible(true);
+        $ref->setValue($producer, true);
+
+        $message = new Message();
+        $topic = new Resource();
+        $topic->setName('test-topic');
+        $message->setTopic($topic);
+        // 4MB + 1 byte
+        $message->setBody(str_repeat('x', 4 * 1024 * 1024 + 1));
+
+        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($producer, $message) {
+            $producer->send($message);
+        }, "Oversized message should throw");
+    }
+
+    /**
+     * Tests sendFifoMessage when not running.
+     */
+    public function testSendFifoMessageWhenNotRunning()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876');
+
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
+            $producer->sendFifoMessage('test-topic', 'body', 'group-1');
+        }, "sendFifoMessage should throw when not running");
+    }
+
+    /**
+     * Tests sendPriorityMessage when not running.
+     */
+    public function testSendPriorityMessageWhenNotRunning()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876');
+
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
+            $producer->sendPriorityMessage('test-topic', 'body', 1);
+        }, "sendPriorityMessage should throw when not running");
+    }
+
+    /**
+     * Tests sendDelayedMessage when not running.
+     */
+    public function testSendDelayedMessageWhenNotRunning()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876');
+
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
+            $producer->sendDelayedMessage('test-topic', 'body', time() + 3600);
+        }, "sendDelayedMessage should throw when not running");
+    }
+
+    /**
+     * Tests shutdown when not running (should be a no-op).
+     */
+    public function testShutdownWhenNotRunning()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876');
+
+        // Should not throw
+        $producer->shutdown();
+        TestRunner::assertFalse($producer->isRunning(), "Producer should not be running after shutdown");
+    }
+
+    /**
+     * Tests getClientId returns a non-empty value.
+     */
+    public function testGetClientId()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $producer = new ProducerOptimized('127.0.0.1:9876', [
+            'clientId' => 'my-test-producer',
+        ]);
+
+        TestRunner::assertEqualsWithMessage(
+            'my-test-producer',
+            $producer->getClientId(),
+            "ClientId should match configured value"
+        );
+    }
 }
 
 echo "=== ProducerValidationTest ===\n";
@@ -246,3 +412,23 @@ $test->testConstructorValidatesEndpoints();
 echo "  [OK] testConstructorValidatesEndpoints\n";
 $test->testSendWhenNotRunning();
 echo "  [OK] testSendWhenNotRunning\n";
+$test->testRecallWhenNotRunning();
+echo "  [OK] testRecallWhenNotRunning\n";
+$test->testSendBeforeStartup();
+echo "  [OK] testSendBeforeStartup\n";
+$test->testBeginTransactionRequiresRunning();
+echo "  [OK] testBeginTransactionRequiresRunning\n";
+$test->testRecallMessageAsyncWhenNotRunning();
+echo "  [OK] testRecallMessageAsyncWhenNotRunning\n";
+$test->testSendWithOversizedMessage();
+echo "  [OK] testSendWithOversizedMessage\n";
+$test->testSendFifoMessageWhenNotRunning();
+echo "  [OK] testSendFifoMessageWhenNotRunning\n";
+$test->testSendPriorityMessageWhenNotRunning();
+echo "  [OK] testSendPriorityMessageWhenNotRunning\n";
+$test->testSendDelayedMessageWhenNotRunning();
+echo "  [OK] testSendDelayedMessageWhenNotRunning\n";
+$test->testShutdownWhenNotRunning();
+echo "  [OK] testShutdownWhenNotRunning\n";
+$test->testGetClientId();
+echo "  [OK] testGetClientId\n";

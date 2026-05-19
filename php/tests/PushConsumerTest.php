@@ -183,6 +183,178 @@ class PushConsumerTest
         $consumer->start();
         TestRunner::assertTrue($consumer->isRunning(), "Consumer should still be running");
     }
+
+    /**
+     * Tests subscribe and unsubscribe method chaining (returns $this).
+     */
+    public function testSubscribeReturnsThis()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
+            'messageListener' => function($msg) { return 0; },
+        ]);
+
+        $result = $consumer->subscribe('topic-1', 'tagA');
+        TestRunner::assertTrue(
+            $result === $consumer,
+            "subscribe should return \$this for chaining"
+        );
+
+        $result = $consumer->unsubscribe('topic-1');
+        TestRunner::assertTrue(
+            $result === $consumer,
+            "unsubscribe should return \$this for chaining"
+        );
+    }
+
+    /**
+     * Mirrors Java: testSubscribeBeforeStartup
+     * Subscribe before start should succeed.
+     */
+    public function testMultipleSubscriptions()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
+            'messageListener' => function($msg) { return 0; },
+        ]);
+
+        $consumer->subscribe('topic-1', 'tagA');
+        $consumer->subscribe('topic-2', '*');
+        $consumer->subscribe('topic-3', 'SQL:age > 10');
+
+        $expressions = $consumer->getSubscriptionExpressions();
+        TestRunner::assertEqualsWithMessage(
+            3,
+            count($expressions),
+            "Should have 3 subscriptions"
+        );
+        TestRunner::assertEqualsWithMessage(
+            'tagA',
+            $expressions['topic-1'],
+            "topic-1 expression should be tagA"
+        );
+        TestRunner::assertEqualsWithMessage(
+            '*',
+            $expressions['topic-2'],
+            "topic-2 expression should be *"
+        );
+    }
+
+    /**
+     * Mirrors Java: testQueryAssignment - verifies queryAssignment internal method.
+     * We verify that expressions are properly stored for later QueryAssignment calls.
+     */
+    public function testSubscriptionExpressionsAreStored()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
+            'subscriptionExpressions' => ['topic-1' => 'tagA'],
+            'messageListener' => function($msg) { return 0; },
+        ]);
+
+        $expressions = $consumer->getSubscriptionExpressions();
+        TestRunner::assertEqualsWithMessage(
+            ['topic-1' => 'tagA'],
+            $expressions,
+            "Initial expressions should be stored correctly"
+        );
+    }
+
+    /**
+     * Tests setMessageListener returns $this for chaining.
+     */
+    public function testSetMessageListenerReturnsThis()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $consumer = new PushConsumer('127.0.0.1:9876', 'test-group');
+        $result = $consumer->setMessageListener(function($msg) { return 0; });
+
+        TestRunner::assertTrue(
+            $result === $consumer,
+            "setMessageListener should return \$this for chaining"
+        );
+    }
+
+    /**
+     * Tests that FIFO mode can be configured.
+     */
+    public function testFifoModeConfiguration()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
+            'fifo' => true,
+            'messageListener' => function($msg) { return 0; },
+        ]);
+
+        $ref = new \ReflectionProperty($consumer, 'fifo');
+        $ref->setAccessible(true);
+        $fifo = $ref->getValue($consumer);
+
+        TestRunner::assertTrue($fifo, "FIFO mode should be enabled");
+    }
+
+    /**
+     * Tests getAwaitDuration and getReceiveBatchSize getters.
+     */
+    public function testConsumerGetters()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
+            'awaitDuration' => 15,
+            'receiveBatchSize' => 16,
+            'messageListener' => function($msg) { return 0; },
+        ]);
+
+        TestRunner::assertEqualsWithMessage(
+            15,
+            $consumer->getAwaitDuration(),
+            "awaitDuration should be 15"
+        );
+        TestRunner::assertEqualsWithMessage(
+            16,
+            $consumer->getReceiveBatchSize(),
+            "receiveBatchSize should be 16"
+        );
+        TestRunner::assertEqualsWithMessage(
+            'test-group',
+            $consumer->getGroupResource()->getName(),
+            "consumerGroup should match"
+        );
+    }
+
+    /**
+     * Tests that getCacheMessageCountThresholdPerQueue distributes evenly.
+     */
+    public function testCacheThresholdDistribution()
+    {
+        \Apache\Rocketmq\Logger::close();
+
+        // With no process queues, threshold should be 0
+        $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
+            'maxCacheMessageCount' => 4096,
+            'maxCacheMessageSizeInBytes' => 67108864,
+        ]);
+
+        $countThreshold = $consumer->getCacheMessageCountThresholdPerQueue();
+        TestRunner::assertEqualsWithMessage(
+            0,
+            $countThreshold,
+            "Count threshold should be 0 with no process queues"
+        );
+
+        $bytesThreshold = $consumer->getCacheMessageBytesThresholdPerQueue();
+        TestRunner::assertEqualsWithMessage(
+            0,
+            $bytesThreshold,
+            "Bytes threshold should be 0 with no process queues"
+        );
+    }
 }
 
 echo "=== PushConsumerTest ===\n";
@@ -203,3 +375,17 @@ $test->testSubscribeBeforeStart();
 echo "  [OK] testSubscribeBeforeStart\n";
 $test->testStartWhenAlreadyRunning();
 echo "  [OK] testStartWhenAlreadyRunning\n";
+$test->testSubscribeReturnsThis();
+echo "  [OK] testSubscribeReturnsThis\n";
+$test->testMultipleSubscriptions();
+echo "  [OK] testMultipleSubscriptions\n";
+$test->testSubscriptionExpressionsAreStored();
+echo "  [OK] testSubscriptionExpressionsAreStored\n";
+$test->testSetMessageListenerReturnsThis();
+echo "  [OK] testSetMessageListenerReturnsThis\n";
+$test->testFifoModeConfiguration();
+echo "  [OK] testFifoModeConfiguration\n";
+$test->testConsumerGetters();
+echo "  [OK] testConsumerGetters\n";
+$test->testCacheThresholdDistribution();
+echo "  [OK] testCacheThresholdDistribution\n";

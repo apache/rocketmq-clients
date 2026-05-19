@@ -18,7 +18,7 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/autoload.php';
 
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Endpoints;

@@ -82,6 +82,8 @@ class TransactionTest
         $message->setTopic($topicResource);
         $message->setBody('test body');
 
+        $transaction->tryAddMessage($message);
+
         $sendResult = [
             'messageId' => 'test-msg-id-1',
             'transactionId' => 'test-tx-id-1',
@@ -107,6 +109,7 @@ class TransactionTest
             'transactionId' => 'test-tx-id-1',
         ];
 
+        $transaction->tryAddMessage($message);
         $transaction->tryAddReceipt($message, $sendResult);
         $transaction->commit();
 
@@ -143,6 +146,7 @@ class TransactionTest
             'transactionId' => 'test-tx-id-2',
         ];
 
+        $transaction->tryAddMessage($message);
         $transaction->tryAddReceipt($message, $sendResult);
         $transaction->rollback();
 
@@ -170,10 +174,15 @@ class TransactionTest
         $message->setBody('test body');
 
         $sendResult = ['messageId' => 'msg-1', 'transactionId' => 'tx-1'];
+        $transaction->tryAddMessage($message);
         $transaction->tryAddReceipt($message, $sendResult);
         $transaction->commit();
 
-        // After commit, receipts should be cleared (commit/rollback would call on empty array)
+        // After commit, second commit throws because receipts are cleared
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($transaction) {
+            $transaction->commit();
+        }, "Second commit should throw (receipts cleared after first)");
+
         TestRunner::assertEqualsWithMessage(
             1,
             count($fakeProducer->commitCalls),
@@ -186,26 +195,25 @@ class TransactionTest
         $fakeProducer = new FakeProducerForTransaction();
         $transaction = new Transaction($fakeProducer);
 
-        for ($i = 0; $i < 3; $i++) {
-            $topicResource = new Resource();
-            $topicResource->setName("test-topic-{$i}");
-            $message = new Message();
-            $message->setTopic($topicResource);
-            $message->setBody("body-{$i}");
+        $topicResource = new Resource();
+        $topicResource->setName('test-topic');
+        $message = new Message();
+        $message->setTopic($topicResource);
+        $message->setBody('body-0');
 
-            $sendResult = [
-                'messageId' => "msg-id-{$i}",
-                'transactionId' => "tx-id-{$i}",
-            ];
-            $transaction->tryAddReceipt($message, $sendResult);
-        }
+        $sendResult = [
+            'messageId' => "msg-id-0",
+            'transactionId' => "tx-id-0",
+        ];
+        $transaction->tryAddMessage($message);
+        $transaction->tryAddReceipt($message, $sendResult);
 
         $transaction->commit();
 
         TestRunner::assertEqualsWithMessage(
-            3,
+            1,
             count($fakeProducer->commitCalls),
-            "Should commit all 3 messages"
+            "Should commit 1 message"
         );
     }
 }

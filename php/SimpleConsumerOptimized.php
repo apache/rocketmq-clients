@@ -18,9 +18,10 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Logger.php';
+require_once __DIR__ . '/Signature.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -64,7 +65,8 @@ class SimpleConsumerOptimized
     private $isRunning = false;
     private $logger;
     private $namespace = '';
-    
+    private $credentials = null; // SessionCredentials for AK/SK auth
+
     /**
      * Constructor
      *
@@ -79,6 +81,12 @@ class SimpleConsumerOptimized
         $this->clientId = $options['clientId'] ?? ('php-consumer-' . getmypid() . '-' . time());
         $this->awaitDuration = $options['awaitDuration'] ?? 30;
         $this->subscriptionExpressions = $options['subscriptionExpressions'] ?? [];
+        $this->namespace = $options['namespace'] ?? '';
+
+        // Set AK/SK credentials if provided
+        if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
+            $this->credentials = $options['credentials'];
+        }
 
         // Create gRPC client
         $this->client = new MessagingServiceClient($endpoints, [
@@ -86,7 +94,7 @@ class SimpleConsumerOptimized
         ]);
         
         // Initialize Telemetry Session (singleton, with Settings sync confirmation)
-        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId);
+        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials);
         $this->logger = Logger::getInstance('SimpleConsumer');
     }
     
@@ -766,29 +774,19 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * Build metadata
+     * Build metadata using Signature class for gRPC calls.
+     * Mirrors Java's client.sign() pattern.
      */
     private function buildMetadata()
     {
-        // Required fields according to Java implementation
-        $dateTime = gmdate('Ymd\THis\Z'); // Format: yyyyMMdd'T'HHmmss'Z'
-        $requestId = sprintf('%08x-%04x-%04x-%04x-%012x',
-            mt_rand(0, 0xffffffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff) & 0x0fff | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffffffffffff)
+        return Signature::sign(
+            $this->credentials,
+            $this->clientId,
+            'PHP',
+            '5.0.0',
+            $this->namespace,
+            'v2'
         );
-        
-        return [
-            'x-mq-client-id' => [$this->clientId],
-            'x-mq-language' => ['PHP'],
-            'x-mq-client-version' => ['5.0.0'],
-            'x-mq-protocol' => ['v2'],
-            'x-mq-date-time' => [$dateTime],
-            'x-mq-request-id' => [$requestId],
-            'x-mq-namespace' => [$this->namespace ?? ''],
-        ];
     }
 }
 

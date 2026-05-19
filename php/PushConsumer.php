@@ -18,13 +18,14 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/ConsumeResult.php';
 require_once __DIR__ . '/ProcessQueue.php';
 require_once __DIR__ . '/ConsumeService.php';
 require_once __DIR__ . '/LiteFifoConsumeService.php';
+require_once __DIR__ . '/Signature.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryAssignmentRequest;
@@ -79,6 +80,8 @@ class PushConsumer
     private $receiveBatchSize = 32;
     private $enableFifoConsumeAccelerator = false;
     private $isLiteConsumer = false;
+    private $credentials = null; // SessionCredentials for AK/SK auth
+    private $namespace = '';
 
     /**
      * Constructor with builder-style options.
@@ -105,6 +108,12 @@ class PushConsumer
         $this->receiveBatchSize = $options['receiveBatchSize'] ?? 32;
         $this->enableFifoConsumeAccelerator = $options['enableFifoConsumeAccelerator'] ?? false;
         $this->isLiteConsumer = $options['isLiteConsumer'] ?? false;
+        $this->namespace = $options['namespace'] ?? '';
+
+        // Set AK/SK credentials if provided
+        if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
+            $this->credentials = $options['credentials'];
+        }
 
         $this->logger = Logger::getInstance('PushConsumer');
 
@@ -112,7 +121,7 @@ class PushConsumer
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
 
-        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId);
+        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials);
     }
 
     /**
@@ -448,11 +457,11 @@ class PushConsumer
     private function getMqKey($mq)
     {
         $topicName = $mq->hasTopic() ? $mq->getTopic()->getName() : 'unknown';
-        $queueId = $mq->hasId() ? $mq->getId() : 0;
+        $queueId = $mq->getId() ?? 0;
         $brokerName = 'default';
         if ($mq->hasBroker()) {
             $broker = $mq->getBroker();
-            $brokerName = $broker->hasName() ? $broker->getName() : 'default';
+            $brokerName = $broker->getName() ?: 'default';
         }
         return "{$topicName}:{$brokerName}:{$queueId}";
     }
@@ -556,6 +565,37 @@ class PushConsumer
     }
 
     /**
+     * Acknowledge a message via gRPC.
+     *
+     * @param MessageView $messageView
+     * @return bool
+     */
+    public function ackMessage(MessageView $messageView): bool
+    {
+        if ($this->consumeService === null) {
+            $this->logger->warning("PushConsumer ackMessage: consume service not initialized");
+            return false;
+        }
+        return $this->consumeService->ackMessage($messageView);
+    }
+
+    /**
+     * Reject a message (change invisible duration for retry).
+     *
+     * @param MessageView $messageView
+     * @param int $invisibleDuration Next invisible duration in seconds
+     * @return bool
+     */
+    public function nackMessage(MessageView $messageView, int $invisibleDuration = 30): bool
+    {
+        if ($this->consumeService === null) {
+            $this->logger->warning("PushConsumer nackMessage: consume service not initialized");
+            return false;
+        }
+        return $this->consumeService->nackMessage($messageView, 1);
+    }
+
+    /**
      * Check that the consumer is not yet running.
      */
     protected function checkNotRunning()
@@ -566,28 +606,20 @@ class PushConsumer
     }
 
     /**
-     * Build metadata for gRPC calls.
+     * Build metadata for gRPC calls using Signature class.
+     * Mirrors Java's client.sign() pattern.
      *
      * @return array
      */
     protected function buildMetadata()
     {
-        $dateTime = gmdate('Ymd\THis\Z');
-        $requestId = sprintf('%08x-%04x-%04x-%04x-%012x',
-            mt_rand(0, 0xffffffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff) & 0x0fff | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffffffffffff)
+        return Signature::sign(
+            $this->credentials,
+            $this->clientId,
+            'PHP',
+            '5.0.0',
+            $this->namespace,
+            'v2'
         );
-
-        return [
-            'x-mq-client-id' => [$this->clientId],
-            'x-mq-language' => ['PHP'],
-            'x-mq-client-version' => ['5.0.0'],
-            'x-mq-protocol' => ['v2'],
-            'x-mq-date-time' => [$dateTime],
-            'x-mq-request-id' => [$requestId],
-        ];
     }
 }

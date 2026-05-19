@@ -18,13 +18,14 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/MessageId.php';
 require_once __DIR__ . '/MessageIdImpl.php';
 require_once __DIR__ . '/MessageIdCodec.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/ConsumeResult.php';
 require_once __DIR__ . '/Logger.php';
+require_once __DIR__ . '/Signature.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -73,6 +74,7 @@ class ProducerOptimized
     private $isolatedEndpoints = [];
     private $namespace = '';
     private $logger;
+    private $credentials = null; // SessionCredentials for AK/SK auth
 
     /**
      * Constructor
@@ -89,15 +91,20 @@ class ProducerOptimized
         $this->topics = $options['topics'] ?? [];
         $this->namespace = $options['namespace'] ?? '';
 
+        // Set AK/SK credentials if provided
+        if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
+            $this->credentials = $options['credentials'];
+        }
+
         $this->logger = Logger::getInstance('Producer');
-        
+
         // Create gRPC client
         $this->client = new MessagingServiceClient($endpoints, [
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
-        
+
         // Initialize Telemetry Session (singleton)
-        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints);
+        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials);
     }
     
     /**
@@ -815,29 +822,19 @@ class ProducerOptimized
     }
     
     /**
-     * Build metadata
+     * Build metadata using Signature class for gRPC calls.
+     * Mirrors Java's client.sign() pattern.
      */
     private function buildMetadata()
     {
-        // Required fields according to Java implementation
-        $dateTime = gmdate('Ymd\THis\Z'); // Format: yyyyMMdd'T'HHmmss'Z'
-        $requestId = sprintf('%08x-%04x-%04x-%04x-%012x',
-            mt_rand(0, 0xffffffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff) & 0x0fff | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffffffffffff)
+        return Signature::sign(
+            $this->credentials,
+            $this->clientId,
+            'PHP',
+            '5.0.0',
+            $this->namespace,
+            'v2'
         );
-        
-        return [
-            'x-mq-client-id' => [$this->clientId],
-            'x-mq-language' => ['PHP'],
-            'x-mq-client-version' => ['5.0.0'],
-            'x-mq-protocol' => ['v2'],
-            'x-mq-date-time' => [$dateTime],
-            'x-mq-request-id' => [$requestId],
-            'x-mq-namespace' => [$this->namespace ?? ''],
-        ];
     }
 }
 
@@ -981,6 +978,8 @@ class PublishingLoadBalancer
  */
 class Transaction
 {
+    private static $MAX_MESSAGE_NUM = 1;
+
     private $producer;
     private $messages = [];
     private $receipts = [];
@@ -992,9 +991,15 @@ class Transaction
 
     /**
      * Add a message to this transaction.
+     * Mirrors Java: tryAddMessage with single-message limit.
      */
     public function tryAddMessage(Message $message)
     {
+        if (count($this->messages) >= self::$MAX_MESSAGE_NUM) {
+            throw new \InvalidArgumentException(
+                "Message in transaction has exceeded the threshold: " . self::$MAX_MESSAGE_NUM
+            );
+        }
         $this->messages[] = $message;
     }
 
@@ -1008,9 +1013,13 @@ class Transaction
 
     /**
      * Record a send receipt for a message in this transaction.
+     * Mirrors Java: tryAddReceipt with containment check.
      */
     public function tryAddReceipt(Message $message, array $sendResult)
     {
+        if (!$this->containsMessage($message)) {
+            throw new \InvalidArgumentException("Message not in transaction");
+        }
         $this->receipts[] = [
             'message' => $message,
             'sendResult' => $sendResult,
@@ -1018,10 +1027,27 @@ class Transaction
     }
 
     /**
+     * Check if a message has been added to this transaction.
+     */
+    private function containsMessage(Message $message)
+    {
+        foreach ($this->messages as $existing) {
+            if ($existing === $message) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Commit all messages in this transaction.
+     * Mirrors Java: commit with empty-receipts check.
      */
     public function commit()
     {
+        if (empty($this->receipts)) {
+            throw new \RuntimeException("Transactional message has not been sent yet");
+        }
         foreach ($this->receipts as $receipt) {
             $sr = $receipt['sendResult'];
             $msg = $receipt['message'];
@@ -1039,9 +1065,13 @@ class Transaction
 
     /**
      * Rollback all messages in this transaction.
+     * Mirrors Java: rollback with empty-receipts check.
      */
     public function rollback()
     {
+        if (empty($this->receipts)) {
+            throw new \RuntimeException("Transactional message has not been sent yet");
+        }
         foreach ($this->receipts as $receipt) {
             $sr = $receipt['sendResult'];
             $msg = $receipt['message'];

@@ -66,10 +66,9 @@ class TransactionExtendedTest
 {
     /**
      * Mirrors Java: testTryAddExceededMessages.
-     * Java limits a transaction to one message. PHP does not have this limit,
-     * so adding multiple messages should all succeed.
+     * Java limits a transaction to one message. PHP now enforces this too.
      */
-    public function testTryAddMultipleMessages()
+    public function testTryAddExceededMessages()
     {
         $fakeProducer = new FakeProducerForExtended();
         $transaction = new Transaction($fakeProducer);
@@ -77,40 +76,38 @@ class TransactionExtendedTest
         $msg1 = $this->buildMessage('topic-1', 'body-1');
         $msg2 = $this->buildMessage('topic-2', 'body-2');
 
-        // Both adds should succeed (PHP has no single-message limit)
         $transaction->tryAddMessage($msg1);
-        $transaction->tryAddMessage($msg2);
 
-        TestRunner::assertTrueWithMessage(true,
-            "PHP Transaction allows multiple messages (unlike Java's single-message limit)");
+        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($transaction, $msg2) {
+            $transaction->tryAddMessage($msg2);
+        }, "Adding second message should throw (Java limits to 1)");
     }
 
     /**
      * Mirrors Java: testTryAddReceiptNotContained.
      * Java checks that the message was added before adding a receipt.
-     * PHP does not validate this, so adding a receipt for any message succeeds.
+     * PHP now enforces this too.
      */
-    public function testTryAddReceiptForUnaddedMessage()
+    public function testTryAddReceiptNotContained()
     {
         $fakeProducer = new FakeProducerForExtended();
         $transaction = new Transaction($fakeProducer);
 
         $msg = $this->buildMessage('topic-1', 'body-1');
 
-        // In Java this throws; in PHP it succeeds
         $sendResult = [
             'messageId' => 'msg-id-1',
             'transactionId' => 'tx-id-1',
         ];
-        $transaction->tryAddReceipt($msg, $sendResult);
 
-        TestRunner::assertTrueWithMessage(true,
-            "PHP Transaction allows adding receipt without prior tryAddMessage");
+        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($transaction, $msg, $sendResult) {
+            $transaction->tryAddReceipt($msg, $sendResult);
+        }, "Adding receipt without prior tryAddMessage should throw");
     }
 
     /**
      * Mirrors Java: testCommitWithNoReceipts.
-     * Java throws IllegalStateException. PHP silently does nothing.
+     * Java throws IllegalStateException. PHP now does too.
      */
     public function testCommitWithNoReceipts()
     {
@@ -118,18 +115,14 @@ class TransactionExtendedTest
         $transaction = new Transaction($fakeProducer);
 
         // No messages or receipts added
-        $transaction->commit();
-
-        TestRunner::assertEqualsWithMessage(
-            0,
-            count($fakeProducer->commitCalls),
-            "PHP commit with no receipts should do nothing (no exception)"
-        );
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($transaction) {
+            $transaction->commit();
+        }, "Commit with no receipts should throw");
     }
 
     /**
      * Mirrors Java: testRollbackWithNoReceipts.
-     * Java throws IllegalStateException. PHP silently does nothing.
+     * Java throws IllegalStateException. PHP now does too.
      */
     public function testRollbackWithNoReceipts()
     {
@@ -137,90 +130,81 @@ class TransactionExtendedTest
         $transaction = new Transaction($fakeProducer);
 
         // No messages or receipts added
-        $transaction->rollback();
-
-        TestRunner::assertEqualsWithMessage(
-            0,
-            count($fakeProducer->rollbackCalls),
-            "PHP rollback with no receipts should do nothing (no exception)"
-        );
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($transaction) {
+            $transaction->rollback();
+        }, "Rollback with no receipts should throw");
     }
 
     /**
-     * Full transaction flow: add messages with different topics,
-     * add receipts, commit, verify all are committed.
+     * Full transaction flow: add message, add receipt, commit,
+     * verify all parameters are correct.
      */
     public function testCommitMultipleTopics()
     {
         $fakeProducer = new FakeProducerForExtended();
         $transaction = new Transaction($fakeProducer);
 
-        $topics = ['order-topic', 'payment-topic', 'notification-topic'];
-        foreach ($topics as $i => $topic) {
-            $msg = $this->buildMessage($topic, "body-{$i}");
-            $sendResult = [
-                'messageId' => "msg-id-{$i}",
-                'transactionId' => "tx-id-{$i}",
-            ];
-            $transaction->tryAddReceipt($msg, $sendResult);
-        }
+        $msg = $this->buildMessage('order-topic', 'body-0');
+        $transaction->tryAddMessage($msg);
+        $sendResult = [
+            'messageId' => 'msg-id-0',
+            'transactionId' => 'tx-id-0',
+        ];
+        $transaction->tryAddReceipt($msg, $sendResult);
 
         $transaction->commit();
 
         TestRunner::assertEqualsWithMessage(
-            3,
+            1,
             count($fakeProducer->commitCalls),
-            "All 3 messages should be committed"
+            "Message should be committed"
         );
 
-        for ($i = 0; $i < 3; $i++) {
-            TestRunner::assertEqualsWithMessage(
-                "msg-id-{$i}",
-                $fakeProducer->commitCalls[$i]['messageId'],
-                "Commit {$i} should have correct messageId"
-            );
-            TestRunner::assertEqualsWithMessage(
-                "tx-id-{$i}",
-                $fakeProducer->commitCalls[$i]['transactionId'],
-                "Commit {$i} should have correct transactionId"
-            );
-            TestRunner::assertEqualsWithMessage(
-                $topics[$i],
-                $fakeProducer->commitCalls[$i]['topic'],
-                "Commit {$i} should have correct topic"
-            );
-        }
+        TestRunner::assertEqualsWithMessage(
+            'msg-id-0',
+            $fakeProducer->commitCalls[0]['messageId'],
+            "Commit should have correct messageId"
+        );
+        TestRunner::assertEqualsWithMessage(
+            'tx-id-0',
+            $fakeProducer->commitCalls[0]['transactionId'],
+            "Commit should have correct transactionId"
+        );
+        TestRunner::assertEqualsWithMessage(
+            'order-topic',
+            $fakeProducer->commitCalls[0]['topic'],
+            "Commit should have correct topic"
+        );
     }
 
     /**
-     * Rollback multiple messages and verify all are rolled back.
+     * Rollback message and verify it is rolled back.
      */
     public function testRollbackMultipleMessages()
     {
         $fakeProducer = new FakeProducerForExtended();
         $transaction = new Transaction($fakeProducer);
 
-        for ($i = 0; $i < 2; $i++) {
-            $msg = $this->buildMessage("rollback-topic-{$i}", "body-{$i}");
-            $sendResult = [
-                'messageId' => "rb-msg-id-{$i}",
-                'transactionId' => "rb-tx-id-{$i}",
-            ];
-            $transaction->tryAddReceipt($msg, $sendResult);
-        }
+        $msg = $this->buildMessage('rollback-topic-0', 'body-0');
+        $transaction->tryAddMessage($msg);
+        $sendResult = [
+            'messageId' => 'rb-msg-id-0',
+            'transactionId' => 'rb-tx-id-0',
+        ];
+        $transaction->tryAddReceipt($msg, $sendResult);
 
         $transaction->rollback();
 
         TestRunner::assertEqualsWithMessage(
-            2,
+            1,
             count($fakeProducer->rollbackCalls),
-            "All 2 messages should be rolled back"
+            "Message should be rolled back"
         );
     }
 
     /**
-     * Tests that after commit, a second commit does nothing
-     * (receipts are cleared after commit).
+     * Tests that after commit, a second commit throws because
+     * receipts are cleared after the first commit.
      */
     public function testDoubleCommitDoesNothing()
     {
@@ -228,6 +212,7 @@ class TransactionExtendedTest
         $transaction = new Transaction($fakeProducer);
 
         $msg = $this->buildMessage('test-topic', 'test body');
+        $transaction->tryAddMessage($msg);
         $sendResult = [
             'messageId' => 'msg-id',
             'transactionId' => 'tx-id',
@@ -235,12 +220,16 @@ class TransactionExtendedTest
         $transaction->tryAddReceipt($msg, $sendResult);
 
         $transaction->commit();
-        $transaction->commit(); // Second commit
+
+        // Second commit throws because receipts were cleared
+        TestRunner::assertThrows(\RuntimeException::class, function() use ($transaction) {
+            $transaction->commit();
+        }, "Second commit should throw (receipts cleared after first)");
 
         TestRunner::assertEqualsWithMessage(
             1,
             count($fakeProducer->commitCalls),
-            "Second commit should do nothing (receipts cleared after first)"
+            "Only first commit should have been recorded"
         );
     }
 
@@ -253,6 +242,7 @@ class TransactionExtendedTest
         $transaction = new Transaction($fakeProducer);
 
         $msg = $this->buildMessage('test-topic', 'test body');
+        $transaction->tryAddMessage($msg);
         $sendResult = [
             'messageId' => 'alias-msg-id',
             'transactionId' => 'alias-tx-id',
@@ -290,10 +280,10 @@ class TransactionExtendedTest
 
 echo "=== TransactionExtendedTest ===\n";
 $test = new TransactionExtendedTest();
-$test->testTryAddMultipleMessages();
-echo "  [OK] testTryAddMultipleMessages\n";
-$test->testTryAddReceiptForUnaddedMessage();
-echo "  [OK] testTryAddReceiptForUnaddedMessage\n";
+$test->testTryAddExceededMessages();
+echo "  [OK] testTryAddExceededMessages\n";
+$test->testTryAddReceiptNotContained();
+echo "  [OK] testTryAddReceiptNotContained\n";
 $test->testCommitWithNoReceipts();
 echo "  [OK] testCommitWithNoReceipts\n";
 $test->testRollbackWithNoReceipts();

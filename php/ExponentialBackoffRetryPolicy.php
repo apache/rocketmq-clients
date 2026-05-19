@@ -18,8 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/vendor/autoload.php';
-
 /**
  * ExponentialBackoffRetryPolicy - Retry policy with exponential backoff.
  *
