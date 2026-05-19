@@ -60,9 +60,9 @@ public class AsyncSimpleConsumerExample {
             // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
             // client configuration to solve the problem please if SSL is not essential.
             // .enableSsl(false)
-            // Set client properties for server-side client runtime identification.
-            .addClientProperty("app", "yourAppName")
-            .addClientProperty("env", "yourEnvironment")
+            // Set optional opaque client properties for server-side observability.
+            // .addClientProperty("key1", "value1")
+            // .addClientProperty("key2", "value2")
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
         String consumerGroup = "yourConsumerGroup";
