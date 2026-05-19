@@ -21,6 +21,7 @@ namespace Apache\Rocketmq;
 require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
+require_once __DIR__ . '/ClientConstants.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\TelemetryCommand;
@@ -70,6 +71,13 @@ class TelemetrySession
     private $heartbeatEnabled = false;
     private $lastHeartbeatTime = 0;
 
+    // Server command callbacks
+    private $onRecoverOrphanedTransaction = null;
+    private $onVerifyMessage = null;
+    private $onPrintThreadStackTrace = null;
+    private $onReconnectEndpoints = null;
+    private $onNotifyUnsubscribeLite = null;
+
     /**
      * Private constructor
      */
@@ -90,6 +98,51 @@ class TelemetrySession
     public function setOnSettingsChange(callable $callback): void
     {
         $this->onSettingsChange = $callback;
+    }
+
+    /**
+     * Register callback for RecoverOrphanedTransactionCommand.
+     * Callback signature: function(RecoverOrphanedTransactionCommand $command): void
+     */
+    public function setOnRecoverOrphanedTransaction(callable $callback): void
+    {
+        $this->onRecoverOrphanedTransaction = $callback;
+    }
+
+    /**
+     * Register callback for VerifyMessageCommand.
+     * Callback signature: function(VerifyMessageCommand $command): TelemetryCommand|null
+     */
+    public function setOnVerifyMessage(callable $callback): void
+    {
+        $this->onVerifyMessage = $callback;
+    }
+
+    /**
+     * Register callback for PrintThreadStackTraceCommand.
+     * Callback signature: function(PrintThreadStackTraceCommand $command): TelemetryCommand|null
+     */
+    public function setOnPrintThreadStackTrace(callable $callback): void
+    {
+        $this->onPrintThreadStackTrace = $callback;
+    }
+
+    /**
+     * Register callback for ReconnectEndpointsCommand.
+     * Callback signature: function(ReconnectEndpointsCommand $command): void
+     */
+    public function setOnReconnectEndpoints(callable $callback): void
+    {
+        $this->onReconnectEndpoints = $callback;
+    }
+
+    /**
+     * Register callback for NotifyUnsubscribeLiteCommand.
+     * Callback signature: function(NotifyUnsubscribeLiteCommand $command): void
+     */
+    public function setOnNotifyUnsubscribeLite(callable $callback): void
+    {
+        $this->onNotifyUnsubscribeLite = $callback;
     }
 
     /**
@@ -156,8 +209,8 @@ class TelemetrySession
             $metadata = Signature::sign(
                 $this->credentials,
                 $clientId,
-                'PHP',
-                '5.0.0',
+                ClientConstants::LANGUAGE,
+                ClientConstants::CLIENT_VERSION,
                 '',
                 'v2'
             );
@@ -286,6 +339,67 @@ class TelemetrySession
         } elseif ($command->hasStatus()) {
             $status = $command->getStatus();
             $this->logger->info("Received STATUS command: Code=" . $status->getCode());
+        } elseif ($command->hasRecoverOrphanedTransactionCommand()) {
+            $recoverCmd = $command->getRecoverOrphanedTransactionCommand();
+            $this->logger->info("Received RecoverOrphanedTransactionCommand: transactionId=" . $recoverCmd->getTransactionId());
+
+            if ($this->onRecoverOrphanedTransaction !== null) {
+                try {
+                    ($this->onRecoverOrphanedTransaction)($recoverCmd);
+                } catch (\Exception $e) {
+                    $this->logger->error("RecoverOrphanedTransaction callback failed: " . $e->getMessage());
+                }
+            }
+        } elseif ($command->hasVerifyMessageCommand()) {
+            $verifyCmd = $command->getVerifyMessageCommand();
+            $this->logger->info("Received VerifyMessageCommand: nonce=" . $verifyCmd->getNonce());
+
+            if ($this->onVerifyMessage !== null) {
+                try {
+                    $response = ($this->onVerifyMessage)($verifyCmd);
+                    if ($response instanceof TelemetryCommand) {
+                        $this->writeSync($response);
+                    }
+                } catch (\Exception $e) {
+                    $this->logger->error("VerifyMessage callback failed: " . $e->getMessage());
+                }
+            }
+        } elseif ($command->hasPrintThreadStackTraceCommand()) {
+            $printCmd = $command->getPrintThreadStackTraceCommand();
+            $this->logger->info("Received PrintThreadStackTraceCommand: nonce=" . $printCmd->getNonce());
+
+            if ($this->onPrintThreadStackTrace !== null) {
+                try {
+                    $response = ($this->onPrintThreadStackTrace)($printCmd);
+                    if ($response instanceof TelemetryCommand) {
+                        $this->writeSync($response);
+                    }
+                } catch (\Exception $e) {
+                    $this->logger->error("PrintThreadStackTrace callback failed: " . $e->getMessage());
+                }
+            }
+        } elseif ($command->hasReconnectEndpointsCommand()) {
+            $reconnectCmd = $command->getReconnectEndpointsCommand();
+            $this->logger->info("Received ReconnectEndpointsCommand: nonce=" . $reconnectCmd->getNonce());
+
+            if ($this->onReconnectEndpoints !== null) {
+                try {
+                    ($this->onReconnectEndpoints)($reconnectCmd);
+                } catch (\Exception $e) {
+                    $this->logger->error("ReconnectEndpoints callback failed: " . $e->getMessage());
+                }
+            }
+        } elseif ($command->hasNotifyUnsubscribeLiteCommand()) {
+            $notifyCmd = $command->getNotifyUnsubscribeLiteCommand();
+            $this->logger->info("Received NotifyUnsubscribeLiteCommand: liteTopic=" . $notifyCmd->getLiteTopic());
+
+            if ($this->onNotifyUnsubscribeLite !== null) {
+                try {
+                    ($this->onNotifyUnsubscribeLite)($notifyCmd);
+                } catch (\Exception $e) {
+                    $this->logger->error("NotifyUnsubscribeLite callback failed: " . $e->getMessage());
+                }
+            }
         } else {
             $this->logger->debug("Received unrecognized command");
         }

@@ -21,6 +21,7 @@ namespace Apache\Rocketmq;
 require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/MessageView.php';
+require_once __DIR__ . '/ClientConstants.php';
 
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
@@ -91,7 +92,7 @@ class ProcessQueue
 
         $filterExpression = new FilterExpression();
         $filterExpression->setExpression($this->filterExpression);
-        $filterExpression->setType(0);
+        $filterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);
 
         $request = new ReceiveMessageRequest();
         $request->setGroup($this->consumer->getGroupResource());
@@ -336,12 +337,16 @@ class ProcessQueue
      */
     private function buildMetadata()
     {
+        $namespace = '';
+        if (method_exists($this->consumer, 'getNamespace')) {
+            $namespace = $this->consumer->getNamespace();
+        }
         return Signature::sign(
             null,
             $this->consumer->getClientId(),
-            'PHP',
-            '5.0.0',
-            '',
+            ClientConstants::LANGUAGE,
+            ClientConstants::CLIENT_VERSION,
+            $namespace,
             'v2'
         );
     }

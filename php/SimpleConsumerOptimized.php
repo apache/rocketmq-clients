@@ -22,6 +22,7 @@ require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
+require_once __DIR__ . '/ClientConstants.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\Permission;
@@ -98,14 +99,15 @@ class SimpleConsumerOptimized
             $this->credentials = $options['credentials'];
         }
 
-        // Create gRPC client
-        $this->client = new MessagingServiceClient($endpoints, [
+        // Create gRPC client via connection pool
+        $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
         
         // Initialize Telemetry Session (singleton, with Settings sync confirmation)
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials);
         $this->logger = Logger::getInstance('SimpleConsumer');
+        $this->interceptors = [];
     }
     
     /**
@@ -360,6 +362,16 @@ class SimpleConsumerOptimized
     {
         return $this->consumerGroup;
     }
+
+    /**
+     * Get the namespace.
+     *
+     * @return string
+     */
+    public function getNamespace()
+    {
+        return $this->namespace;
+    }
     
     /**
      * Check if the consumer is running
@@ -377,6 +389,38 @@ class SimpleConsumerOptimized
         $this->shutdown();
     }
     
+    /**
+     * Register a message interceptor.
+     *
+     * @param MessageInterceptor $interceptor
+     * @return $this
+     */
+    public function addInterceptor(MessageInterceptor $interceptor)
+    {
+        $this->interceptors[] = $interceptor;
+        return $this;
+    }
+
+    /**
+     * Execute interceptors at a given hook point.
+     *
+     * @param string $hookPoint One of MessageHookPoints constants
+     * @param array $context Context data for the hook point
+     */
+    public function executeInterceptors($hookPoint, $context = [])
+    {
+        if (empty($this->interceptors)) {
+            return;
+        }
+        foreach ($this->interceptors as $interceptor) {
+            try {
+                $interceptor->intercept($hookPoint, $context);
+            } catch (\Exception $e) {
+                $this->logger->warning("Interceptor failed at {$hookPoint}: " . $e->getMessage());
+            }
+        }
+    }
+
     // ==================== Private Methods ====================
     
     /**
@@ -397,7 +441,7 @@ class SimpleConsumerOptimized
         // Create UserAgent
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
-        $ua->setVersion('5.0.0');
+        $ua->setVersion(ClientConstants::CLIENT_VERSION);
         
         // Create SubscriptionEntry list
         $subscriptionEntries = [];
@@ -494,7 +538,7 @@ class SimpleConsumerOptimized
         // Create FilterExpression
         $filterExpression = new FilterExpression();
         $filterExpression->setExpression($expression);
-        $filterExpression->setType(0); // TAG type
+        $filterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);
 
         // Create Group Resource
         $groupResource = new Resource();
@@ -605,13 +649,14 @@ class SimpleConsumerOptimized
         // This ensures Telemetry Stream and Business RPC share the same gRPC Channel
         // So the Broker can associate Settings and timeout state via Client ID
         $this->logger->debug("Using shared client (same as Telemetry Session)");
-        
+
         $metadata = $this->buildMetadata();
-        
+
         $messages = [];
         $statuses = [];
         $responseCount = 0;
-        
+        $receiveStartTime = microtime(true);
+
         try {
             // Use $this->client instead of creating a new brokerClient
             // [KEY FIX] Set gRPC call timeout (deadline) so the server-side ContextInitPipeline can get remainingMs
@@ -619,7 +664,7 @@ class SimpleConsumerOptimized
             // Without deadline, timeRemaining is null, causing NPE
             $callOptions = ['timeout' => $totalTimeoutMs * 1000]; // PHP gRPC timeout is in microseconds
             $call = $this->client->ReceiveMessage($request, $metadata, $callOptions);
-            
+
             foreach ($call->responses() as $response) {
                 $responseCount++;
                 
@@ -662,9 +707,22 @@ class SimpleConsumerOptimized
 
             $this->logger->debug("Total responses: {$responseCount}, Messages received: " . count($messages));
 
+            $receiveLatencyMs = (microtime(true) - $receiveStartTime) * 1000;
+            $this->executeInterceptors(MessageHookPoints::RECEIVE, [
+                'success' => true,
+                'latencyMs' => $receiveLatencyMs,
+                'messageCount' => count($messages),
+            ]);
+
         } catch (\Exception $e) {
+            $receiveLatencyMs = (microtime(true) - $receiveStartTime) * 1000;
+            $this->executeInterceptors(MessageHookPoints::RECEIVE, [
+                'success' => false,
+                'latencyMs' => $receiveLatencyMs,
+            ]);
+
             $this->logger->error("Error receiving messages: " . $e->getMessage());
-            
+
             // Ignore timeout errors (normal behavior for long polling)
             if (strpos($e->getMessage(), 'DEADLINE_EXCEEDED') === false) {
                 throw $e;
@@ -866,8 +924,8 @@ class SimpleConsumerOptimized
         return Signature::sign(
             $this->credentials,
             $this->clientId,
-            'PHP',
-            '5.0.0',
+            ClientConstants::LANGUAGE,
+            ClientConstants::CLIENT_VERSION,
             $this->namespace,
             'v2'
         );
@@ -918,7 +976,7 @@ class SimpleConsumerOptimized
         }
 
         $request = new HeartbeatRequest();
-        $request->setClientType(ClientType::PUSH_CONSUMER);
+        $request->setClientType(ClientType::SIMPLE_CONSUMER);
 
         $metadata = $this->buildMetadata();
 

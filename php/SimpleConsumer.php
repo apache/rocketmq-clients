@@ -22,6 +22,7 @@ require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
+require_once __DIR__ . '/ClientConstants.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -75,14 +76,15 @@ class SimpleConsumer
         $this->consumerGroup = $consumerGroup;
         $this->clientId = $options['clientId'] ?? ('php-consumer-' . getmypid() . '-' . time());
         
-        // Create gRPC client
-        $this->client = new MessagingServiceClient($endpoints, [
+        // Create gRPC client via connection pool
+        $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
         
         // Initialize Telemetry Session (singleton)
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints);
         $this->logger = Logger::getInstance('SimpleConsumer');
+        $this->interceptors = [];
     }
     
     /**
@@ -147,14 +149,15 @@ class SimpleConsumer
         // Create UserAgent
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
-        $ua->setVersion('5.0.0');
+        $ua->setVersion(ClientConstants::CLIENT_VERSION);
         
         // Create SubscriptionEntry list
         $subscriptionEntries = [];
         foreach ($this->subscriptions as $topic => $expression) {
             $filterExpression = new FilterExpression();
             $filterExpression->setExpression($expression);
-            
+            $filterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);
+
             $topicResource = new Resource();
             $topicResource->setName($topic);
             
@@ -194,6 +197,38 @@ class SimpleConsumer
     }
     
     /**
+     * Register a message interceptor.
+     *
+     * @param MessageInterceptor $interceptor
+     * @return $this
+     */
+    public function addInterceptor(MessageInterceptor $interceptor)
+    {
+        $this->interceptors[] = $interceptor;
+        return $this;
+    }
+
+    /**
+     * Execute interceptors at a given hook point.
+     *
+     * @param string $hookPoint One of MessageHookPoints constants
+     * @param array $context Context data for the hook point
+     */
+    public function executeInterceptors($hookPoint, $context = [])
+    {
+        if (empty($this->interceptors)) {
+            return;
+        }
+        foreach ($this->interceptors as $interceptor) {
+            try {
+                $interceptor->intercept($hookPoint, $context);
+            } catch (\Exception $e) {
+                $this->logger->warning("Interceptor failed at {$hookPoint}: " . $e->getMessage());
+            }
+        }
+    }
+
+    /**
      * Receive messages
      *
      * @param int $maxMessages Maximum number of messages
@@ -205,20 +240,28 @@ class SimpleConsumer
         if (!$this->isStarted) {
             throw new \RuntimeException("Consumer not started");
         }
-        
+
+        $startTime = microtime(true);
         $messages = [];
-        
+
         // Iterate over all subscribed topics
         foreach ($this->subscriptions as $topic => $expression) {
             $received = $this->receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration);
             $messages = array_merge($messages, $received);
-            
+
             // Stop if maximum count is reached
             if (count($messages) >= $maxMessages) {
                 break;
             }
         }
-        
+
+        $latencyMs = (microtime(true) - $startTime) * 1000;
+        $this->executeInterceptors(MessageHookPoints::RECEIVE, [
+            'success' => true,
+            'latencyMs' => $latencyMs,
+            'messageCount' => count($messages),
+        ]);
+
         return $messages;
     }
     
@@ -236,7 +279,8 @@ class SimpleConsumer
         
         $filterExpression = new FilterExpression();
         $filterExpression->setExpression($expression);
-        
+        $filterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);
+
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
         
@@ -253,8 +297,8 @@ class SimpleConsumer
         // Prepare metadata
         $metadata = [
             'x-mq-client-id' => [$this->clientId],
-            'x-mq-language' => ['PHP'],
-            'x-mq-client-version' => ['5.0.0'],
+            'x-mq-language' => [ClientConstants::LANGUAGE],
+            'x-mq-client-version' => [ClientConstants::CLIENT_VERSION],
         ];
         
         // Receive messages
@@ -295,8 +339,8 @@ class SimpleConsumer
         
         $metadata = [
             'x-mq-client-id' => [$this->clientId],
-            'x-mq-language' => ['PHP'],
-            'x-mq-client-version' => ['5.0.0'],
+            'x-mq-language' => [ClientConstants::LANGUAGE],
+            'x-mq-client-version' => [ClientConstants::CLIENT_VERSION],
         ];
         
         try {
@@ -503,8 +547,8 @@ class SimpleConsumer
         return Signature::sign(
             null,
             $this->clientId,
-            'PHP',
-            '5.0.0',
+            ClientConstants::LANGUAGE,
+            ClientConstants::CLIENT_VERSION,
             '',
             'v2'
         );
@@ -537,6 +581,16 @@ class SimpleConsumer
     public function getConsumerGroup()
     {
         return $this->consumerGroup;
+    }
+
+    /**
+     * Get the namespace.
+     *
+     * @return string
+     */
+    public function getNamespace()
+    {
+        return $this->namespace;
     }
     
     /**

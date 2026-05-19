@@ -26,6 +26,7 @@ require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/ConsumeResult.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
+require_once __DIR__ . '/ClientConstants.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\Permission;
@@ -108,8 +109,8 @@ class Producer
 
         $this->logger = Logger::getInstance('Producer');
 
-        // Create gRPC client
-        $this->client = new MessagingServiceClient($endpoints, [
+        // Use RpcClientManager for connection pooling
+        $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
 
@@ -686,7 +687,7 @@ class Producer
         // Create UserAgent
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
-        $ua->setVersion('5.0.0');
+        $ua->setVersion(ClientConstants::CLIENT_VERSION);
         
         // Create Publishing configuration
         $publishing = new Publishing();
@@ -957,17 +958,18 @@ class Producer
     private function sendMessageWithRetry($request, $message, $maxAttempts)
     {
         $lastException = null;
-        
+        $startTime = microtime(true);
+
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
                 $metadata = $this->buildMetadata();
-                
+
                 list($response, $status) = $this->client->SendMessage($request, $metadata)->wait();
-                
+
                 if ($status->code !== 0) {
                     throw new \RuntimeException("Send message failed: " . $status->details);
                 }
-                
+
                 // Parse response
                 $entries = $response->getEntries();
                 $entryCount = count($entries);
@@ -976,6 +978,12 @@ class Producer
                 if ($response->hasStatus()) {
                     $respStatus = $response->getStatus();
                     if ($respStatus->getCode() !== 20000) {
+                        $latencyMs = (microtime(true) - $startTime) * 1000;
+                        $this->executeInterceptors(MessageHookPoints::SEND, [
+                            'success' => false,
+                            'latencyMs' => $latencyMs,
+                            'topic' => $message->getTopic()->getName(),
+                        ]);
                         throw new \RuntimeException("SendMessage failed with code: " . $respStatus->getCode() . ", message: " . $respStatus->getMessage());
                     }
                 }
@@ -985,12 +993,25 @@ class Producer
                 if ($entryCount > 0) {
                     $entry = $entries[0];
                     $resultStatus = $entry->getStatus();
-                    
+
                     // Check status code
                     if ($resultStatus->getCode() !== 20000) {
+                        $latencyMs = (microtime(true) - $startTime) * 1000;
+                        $this->executeInterceptors(MessageHookPoints::SEND, [
+                            'success' => false,
+                            'latencyMs' => $latencyMs,
+                            'topic' => $message->getTopic()->getName(),
+                        ]);
                         throw new \RuntimeException("Send message failed with code: " . $resultStatus->getCode());
                     }
-                    
+
+                    $latencyMs = (microtime(true) - $startTime) * 1000;
+                    $this->executeInterceptors(MessageHookPoints::SEND, [
+                        'success' => true,
+                        'latencyMs' => $latencyMs,
+                        'topic' => $message->getTopic()->getName(),
+                    ]);
+
                     return [
                         'messageId' => $entry->getMessageId(),
                         'transactionId' => $entry->getTransactionId(),
@@ -999,20 +1020,32 @@ class Producer
                         'message' => $resultStatus->getMessage(),
                     ];
                 }
-                
+
+                $latencyMs = (microtime(true) - $startTime) * 1000;
+                $this->executeInterceptors(MessageHookPoints::SEND, [
+                    'success' => false,
+                    'latencyMs' => $latencyMs,
+                    'topic' => $message->getTopic()->getName(),
+                ]);
                 throw new \RuntimeException("No response entries");
-                
+
             } catch (\Exception $e) {
                 $lastException = $e;
                 $this->logger->error("Send attempt {$attempt} failed: " . $e->getMessage());
-                
+
                 // If not the last attempt, wait and retry
                 if ($attempt < $maxAttempts) {
                     usleep(pow(2, $attempt) * 100000); // Exponential backoff
                 }
             }
         }
-        
+
+        $latencyMs = (microtime(true) - $startTime) * 1000;
+        $this->executeInterceptors(MessageHookPoints::SEND, [
+            'success' => false,
+            'latencyMs' => $latencyMs,
+            'topic' => $message->getTopic()->getName(),
+        ]);
         throw $lastException;
     }
     
@@ -1024,7 +1057,17 @@ class Producer
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
         }
-        
+
+        $hookPoint = $resolution === TransactionResolution::COMMIT
+            ? MessageHookPoints::COMMIT_TRANSACTION
+            : MessageHookPoints::ROLLBACK_TRANSACTION;
+
+        $this->executeInterceptors($hookPoint, [
+            'messageId' => $messageId,
+            'transactionId' => $transactionId,
+            'topic' => $topic,
+        ]);
+
         $topicResource = new Resource();
         $topicResource->setName($topic);
         if (!empty($this->namespace)) {
@@ -1104,8 +1147,8 @@ class Producer
         return Signature::sign(
             $this->credentials,
             $this->clientId,
-            'PHP',
-            '5.0.0',
+            ClientConstants::LANGUAGE,
+            ClientConstants::CLIENT_VERSION,
             $this->namespace,
             'v2'
         );

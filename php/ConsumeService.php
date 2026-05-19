@@ -20,6 +20,7 @@ namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/ConsumeResult.php';
 require_once __DIR__ . '/Signature.php';
+require_once __DIR__ . '/ClientConstants.php';
 
 use Apache\Rocketmq\V2\AckMessageRequest;
 use Apache\Rocketmq\V2\AckMessageEntry;
@@ -72,9 +73,28 @@ abstract class ConsumeService
     {
         try {
             $result = call_user_func($this->messageListener, $messageView);
+            $success = $result === ConsumeResult::FAILURE ? false : true;
+
+            if (method_exists($this->consumer, 'executeInterceptors')) {
+                $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
+                    'success' => $success,
+                    'messageId' => $this->extractMessageId($messageView),
+                    'topic' => $this->extractTopic($messageView),
+                ]);
+            }
+
             return $result === ConsumeResult::FAILURE ? ConsumeResult::FAILURE : ConsumeResult::SUCCESS;
         } catch (\Throwable $e) {
             $this->logger->warning("ConsumeService listener threw exception: " . $e->getMessage());
+
+            if (method_exists($this->consumer, 'executeInterceptors')) {
+                $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
+                    'success' => false,
+                    'messageId' => $this->extractMessageId($messageView),
+                    'topic' => $this->extractTopic($messageView),
+                ]);
+            }
+
             return ConsumeResult::FAILURE;
         }
     }
@@ -133,19 +153,23 @@ abstract class ConsumeService
                             $entryCode = $entriesArray[0]->getStatus()->getCode();
                             if ($entryCode === 20000) {
                                 $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
+                                $this->executeAckInterceptor(true, $messageId, $topic);
                                 return true;
                             }
                             // INVALID_RECEIPT_HANDLE -> don't retry
                             if ($entryCode == 40003) {
                                 $this->logger->warning("ConsumeService ackMessage invalid receipt handle, giving up");
+                                $this->executeAckInterceptor(false, $messageId, $topic);
                                 return false;
                             }
                         } else {
                             $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
+                            $this->executeAckInterceptor(true, $messageId, $topic);
                             return true;
                         }
                     } else {
                         $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
+                        $this->executeAckInterceptor(true, $messageId, $topic);
                         return true;
                     }
                 }
@@ -312,14 +336,36 @@ abstract class ConsumeService
      */
     protected function buildMetadata()
     {
+        $namespace = '';
+        if (method_exists($this->consumer, 'getNamespace')) {
+            $namespace = $this->consumer->getNamespace();
+        }
+        $clientId = '';
+        if (method_exists($this->consumer, 'getClientId')) {
+            $clientId = $this->consumer->getClientId();
+        }
         return Signature::sign(
             null,
-            $this->consumer->getClientId(),
-            'PHP',
-            '5.0.0',
-            '',
+            $clientId,
+            ClientConstants::LANGUAGE,
+            ClientConstants::CLIENT_VERSION,
+            $namespace,
             'v2'
         );
+    }
+
+    /**
+     * Execute ACK interceptor on consumer.
+     */
+    private function executeAckInterceptor($success, $messageId, $topic)
+    {
+        if (method_exists($this->consumer, 'executeInterceptors')) {
+            $this->consumer->executeInterceptors(MessageHookPoints::ACK, [
+                'success' => $success,
+                'messageId' => $messageId,
+                'topic' => $topic,
+            ]);
+        }
     }
 }
 

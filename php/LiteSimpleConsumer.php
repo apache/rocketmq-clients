@@ -22,6 +22,7 @@ require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Signature.php';
+require_once __DIR__ . '/ClientConstants.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
@@ -99,7 +100,8 @@ class LiteSimpleConsumer
 
         $this->logger = Logger::getInstance('LiteSimpleConsumer');
 
-        $this->client = new MessagingServiceClient($endpoints, [
+        // Use RpcClientManager for connection pooling
+        $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
 
@@ -450,7 +452,7 @@ class LiteSimpleConsumer
     {
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
-        $ua->setVersion('5.0.0');
+        $ua->setVersion(ClientConstants::CLIENT_VERSION);
 
         $subscriptionEntries = [];
         foreach ($this->liteTopics as $liteTopic => $expression) {
@@ -551,8 +553,8 @@ class LiteSimpleConsumer
         return Signature::sign(
             null,
             $this->clientId,
-            'PHP',
-            '5.0.0',
+            ClientConstants::LANGUAGE,
+            ClientConstants::CLIENT_VERSION,
             '',
             'v2'
         );

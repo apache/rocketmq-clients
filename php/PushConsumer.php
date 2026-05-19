@@ -26,6 +26,7 @@ require_once __DIR__ . '/ProcessQueue.php';
 require_once __DIR__ . '/ConsumeService.php';
 require_once __DIR__ . '/LiteFifoConsumeService.php';
 require_once __DIR__ . '/Signature.php';
+require_once __DIR__ . '/ClientConstants.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryAssignmentRequest;
@@ -123,7 +124,8 @@ class PushConsumer
 
         $this->logger = Logger::getInstance('PushConsumer');
 
-        $this->client = new MessagingServiceClient($endpoints, [
+        // Use RpcClientManager for connection pooling
+        $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
 
@@ -139,7 +141,12 @@ class PushConsumer
      */
     public function subscribe($topic, $expression = '*')
     {
-        $this->checkNotRunning();
+        if ($this->isRunning) {
+            // Dynamic runtime subscription: update subscription expressions
+            $this->subscriptionExpressions[$topic] = $expression;
+            $this->logger->info("Dynamically subscribed to topic: {$topic}");
+            return $this;
+        }
         $this->subscriptionExpressions[$topic] = $expression;
         return $this;
     }
@@ -149,7 +156,21 @@ class PushConsumer
      */
     public function unsubscribe($topic)
     {
-        $this->checkNotRunning();
+        if ($this->isRunning) {
+            // Dynamic runtime unsubscription
+            unset($this->subscriptionExpressions[$topic]);
+            unset($this->cacheAssignments[$topic]);
+            // Drop related ProcessQueues
+            foreach ($this->processQueueTable as $key => $pq) {
+                $mq = $pq->getMessageQueue();
+                if (method_exists($mq, 'getTopic') && $mq->getTopic()->getName() === $topic) {
+                    $pq->drop();
+                    unset($this->processQueueTable[$key]);
+                }
+            }
+            $this->logger->info("Dynamically unsubscribed from topic: {$topic}");
+            return $this;
+        }
         unset($this->subscriptionExpressions[$topic]);
         unset($this->cacheAssignments[$topic]);
         return $this;
@@ -310,6 +331,38 @@ class PushConsumer
     }
 
     /**
+     * Register a message interceptor.
+     *
+     * @param MessageInterceptor $interceptor
+     * @return $this
+     */
+    public function addInterceptor(MessageInterceptor $interceptor)
+    {
+        if (!isset($this->interceptors)) {
+            $this->interceptors = [];
+        }
+        $this->interceptors[] = $interceptor;
+        return $this;
+    }
+
+    /**
+     * Execute interceptors at a given hook point.
+     */
+    public function executeInterceptors($hookPoint, $context = [])
+    {
+        if (empty($this->interceptors)) {
+            return;
+        }
+        foreach ($this->interceptors as $interceptor) {
+            try {
+                $interceptor->intercept($hookPoint, $context);
+            } catch (\Exception $e) {
+                $this->logger->warning("Interceptor failed at {$hookPoint}: " . $e->getMessage());
+            }
+        }
+    }
+
+    /**
      * Register SIGTERM/SIGINT signal handlers.
      */
     private function registerSignalHandlers()
@@ -333,7 +386,7 @@ class PushConsumer
     {
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
-        $ua->setVersion('5.0.0');
+        $ua->setVersion(ClientConstants::CLIENT_VERSION);
 
         $subscriptionEntries = [];
         foreach ($this->subscriptionExpressions as $topic => $expression) {
@@ -363,7 +416,7 @@ class PushConsumer
         $subscription->setSubscriptions($subscriptionEntries);
 
         $settings = new Settings();
-        $settings->setClientType(ClientType::SIMPLE_CONSUMER);
+        $settings->setClientType(ClientType::PUSH_CONSUMER);
         $settings->setUserAgent($ua);
         $settings->setSubscription($subscription);
 
@@ -541,7 +594,20 @@ class PushConsumer
     {
         $resource = new Resource();
         $resource->setName($this->consumerGroup);
+        if (!empty($this->namespace)) {
+            $resource->setResourceNamespace($this->namespace);
+        }
         return $resource;
+    }
+
+    /**
+     * Get the namespace.
+     *
+     * @return string
+     */
+    public function getNamespace()
+    {
+        return $this->namespace;
     }
 
     /**
@@ -691,8 +757,20 @@ class PushConsumer
     private function onServerSettings($settings)
     {
         $this->logger->info("Processing server settings");
+
+        // Process backoff policy
         if (method_exists($settings, 'getBackoffPolicy') && $settings->hasBackoffPolicy()) {
             $this->logger->info("Received backoff policy from server");
+        }
+
+        // Process subscription settings
+        if ($settings->hasSubscription()) {
+            $sub = $settings->getSubscription();
+            if (method_exists($sub, 'getReceiveBatchSize') && $sub->getReceiveBatchSize() > 0) {
+                $oldBatchSize = $this->receiveBatchSize;
+                $this->receiveBatchSize = $sub->getReceiveBatchSize();
+                $this->logger->info("Server set receiveBatchSize: {$oldBatchSize} -> {$this->receiveBatchSize}");
+            }
         }
     }
 
@@ -768,8 +846,8 @@ class PushConsumer
         return Signature::sign(
             $this->credentials,
             $this->clientId,
-            'PHP',
-            '5.0.0',
+            ClientConstants::LANGUAGE,
+            ClientConstants::CLIENT_VERSION,
             $this->namespace,
             'v2'
         );
