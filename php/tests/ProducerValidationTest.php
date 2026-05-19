@@ -19,16 +19,16 @@
 namespace Apache\Rocketmq\Test;
 
 require_once __DIR__ . '/TestRunner.php';
-require_once __DIR__ . '/../ProducerOptimized.php';
+require_once __DIR__ . '/../Producer.php';
 require_once __DIR__ . '/../Logger.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Apache\Rocketmq\ProducerOptimized;
+use Apache\Rocketmq\Producer;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 
 /**
- * Tests for ProducerOptimized validation rules.
+ * Tests for Producer validation rules.
  * Mirrors Java's ProducerBuilderImplTest.
  */
 class ProducerValidationTest
@@ -42,9 +42,9 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        // ProducerOptimized doesn't validate endpoints at construction in PHP.
+        // Producer doesn't validate endpoints at construction in PHP.
         // The gRPC channel is created lazily. We just verify construction works.
-        $producer = new ProducerOptimized('', []);
+        $producer = new Producer('', []);
         TestRunner::assertNotNull($producer, "Producer object should be created");
         // Cleanup: shutdown is safe since isRunning is false
     }
@@ -58,7 +58,7 @@ class ProducerValidationTest
         \Apache\Rocketmq\Logger::close();
 
         // Use reflection to simulate running state since we can't start gRPC
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
         $ref->setAccessible(true);
         $ref->setValue($producer, true);
@@ -77,7 +77,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
         $ref->setAccessible(true);
         $ref->setValue($producer, true);
@@ -99,7 +99,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
         $ref->setAccessible(true);
         $ref->setValue($producer, true);
@@ -124,7 +124,7 @@ class ProducerValidationTest
         \Apache\Rocketmq\Logger::close();
 
         // Producer accepts negative maxAttempts at construction but should handle at runtime
-        $producer = new ProducerOptimized('127.0.0.1:9876', [
+        $producer = new Producer('127.0.0.1:9876', [
             'maxAttempts' => -1,
         ]);
 
@@ -145,7 +145,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876', [
+        $producer = new Producer('127.0.0.1:9876', [
             'maxAttempts' => 3,
         ]);
 
@@ -165,7 +165,7 @@ class ProducerValidationTest
         \Apache\Rocketmq\Logger::close();
 
         // Producer not running should throw
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
             $producer->beginTransaction();
@@ -180,7 +180,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
         $ref->setAccessible(true);
         $ref->setValue($producer, true);
@@ -200,7 +200,7 @@ class ProducerValidationTest
         \Apache\Rocketmq\Logger::close();
 
         // Empty endpoints: construction succeeds, connection fails lazily
-        $producer = new ProducerOptimized('');
+        $producer = new Producer('');
         TestRunner::assertNotNull($producer, "Producer object should be created even with empty endpoints");
     }
 
@@ -211,7 +211,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
 
         $message = new Message();
         $topic = new Resource();
@@ -230,7 +230,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
             $producer->recallMessage('test-topic', 'handle-123');
@@ -245,7 +245,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876', [
+        $producer = new Producer('127.0.0.1:9876', [
             'topics' => ['test-topic'],
         ]);
 
@@ -267,7 +267,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
             $producer->beginTransaction();
@@ -281,7 +281,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
             foreach ($producer->recallMessageAsync('test-topic', 'handle') as $result) {
@@ -298,7 +298,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
         $ref->setAccessible(true);
         $ref->setValue($producer, true);
@@ -322,7 +322,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
             $producer->sendFifoMessage('test-topic', 'body', 'group-1');
@@ -336,7 +336,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
             $producer->sendPriorityMessage('test-topic', 'body', 1);
@@ -350,7 +350,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
             $producer->sendDelayedMessage('test-topic', 'body', time() + 3600);
@@ -364,7 +364,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876');
+        $producer = new Producer('127.0.0.1:9876');
 
         // Should not throw
         $producer->shutdown();
@@ -378,7 +378,7 @@ class ProducerValidationTest
     {
         \Apache\Rocketmq\Logger::close();
 
-        $producer = new ProducerOptimized('127.0.0.1:9876', [
+        $producer = new Producer('127.0.0.1:9876', [
             'clientId' => 'my-test-producer',
         ]);
 

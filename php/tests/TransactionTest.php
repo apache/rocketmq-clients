@@ -19,7 +19,7 @@
 namespace Apache\Rocketmq\Test;
 
 require_once __DIR__ . '/TestRunner.php';
-require_once __DIR__ . '/../ProducerOptimized.php';
+require_once __DIR__ . '/../Producer.php';
 
 use Apache\Rocketmq\Transaction;
 use Apache\Rocketmq\V2\Message;

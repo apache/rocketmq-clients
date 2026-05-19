@@ -39,6 +39,12 @@ use Apache\Rocketmq\V2\Language;
 use Apache\Rocketmq\V2\TelemetryCommand;
 use Apache\Rocketmq\V2\Subscription;
 use Apache\Rocketmq\V2\SubscriptionEntry;
+use Apache\Rocketmq\V2\Endpoints;
+use Apache\Rocketmq\V2\Address;
+use Apache\Rocketmq\V2\AddressScheme;
+use Apache\Rocketmq\V2\HeartbeatRequest;
+use Apache\Rocketmq\V2\CustomizedBackoff;
+use Apache\Rocketmq\V2\RetryPolicy;
 use Grpc\ChannelCredentials;
 use Google\Protobuf\Duration;
 
@@ -67,6 +73,8 @@ class SimpleConsumerOptimized
     private $logger;
     private $namespace = '';
     private $credentials = null; // SessionCredentials for AK/SK auth
+    private $lastHeartbeatTime = 0;
+    private $retryPolicy = null;
 
     /**
      * Constructor
@@ -164,7 +172,13 @@ class SimpleConsumerOptimized
             // Establish Telemetry Session
             $this->establishTelemetrySession();
 
+            // Register settings change callback
+            $this->registerSettingsCallback();
+
             $this->isRunning = true;
+
+            // Start periodic heartbeat
+            $this->startHeartbeat();
 
             $this->logger->info("The rocketmq simple consumer starts successfully, clientId={$this->clientId}");
         } catch (\Exception $e) {
@@ -389,18 +403,24 @@ class SimpleConsumerOptimized
             
             $topicResource = new Resource();
             $topicResource->setName($topic);
-            
+            if (!empty($this->namespace)) {
+                $topicResource->setResourceNamespace($this->namespace);
+            }
+
             $subscriptionEntry = new SubscriptionEntry();
             $subscriptionEntry->setTopic($topicResource);
             $subscriptionEntry->setExpression($filterExpression);
-            
+
             $subscriptionEntries[] = $subscriptionEntry;
         }
-        
+
         // Create Subscription configuration
         $subscription = new Subscription();
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
         $subscription->setGroup($groupResource);
         $subscription->setSubscriptions($subscriptionEntries);
         
@@ -429,10 +449,14 @@ class SimpleConsumerOptimized
     {
         $topicResource = new Resource();
         $topicResource->setName($topic);
-        
+        if (!empty($this->namespace)) {
+            $topicResource->setResourceNamespace($this->namespace);
+        }
+
         $request = new QueryRouteRequest();
         $request->setTopic($topicResource);
-        
+        $request->setEndpoints($this->parseEndpoints($this->endpoints));
+
         $metadata = $this->buildMetadata();
         
         list($response, $status) = $this->client->QueryRoute($request, $metadata)->wait();
@@ -471,6 +495,9 @@ class SimpleConsumerOptimized
         // Create Group Resource
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
 
         // Create Request
         $request = new ReceiveMessageRequest();
@@ -650,10 +677,16 @@ class SimpleConsumerOptimized
     {
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
 
         $topic = $this->extractTopic($messageView);
         $topicResource = new Resource();
         $topicResource->setName($topic);
+        if (!empty($this->namespace)) {
+            $topicResource->setResourceNamespace($this->namespace);
+        }
 
         // Build AckMessageEntry
         $entry = new \Apache\Rocketmq\V2\AckMessageEntry();
@@ -703,10 +736,16 @@ class SimpleConsumerOptimized
     {
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
+
         $topic = $this->extractTopic($messageView);
         $topicResource = new Resource();
         $topicResource->setName($topic);
+        if (!empty($this->namespace)) {
+            $topicResource->setResourceNamespace($this->namespace);
+        }
         
         $duration = new Duration();
         $duration->setSeconds($invisibleDuration);
@@ -773,7 +812,48 @@ class SimpleConsumerOptimized
         }
         return null;
     }
-    
+
+    /**
+     * Parse endpoints string into protobuf Endpoints object.
+     *
+     * @param string $endpoints e.g. "127.0.0.1:8080" or "example.com:8080"
+     * @return Endpoints
+     */
+    private function parseEndpoints($endpoints)
+    {
+        $cleaned = $endpoints;
+        // Strip http/https prefix if present
+        if (strpos($cleaned, 'http://') === 0) {
+            $cleaned = substr($cleaned, 7);
+        } elseif (strpos($cleaned, 'https://') === 0) {
+            $cleaned = substr($cleaned, 8);
+        }
+
+        $lastColon = strrpos($cleaned, ':');
+        if ($lastColon !== false) {
+            $host = substr($cleaned, 0, $lastColon);
+            $port = (int)substr($cleaned, $lastColon + 1);
+        } else {
+            $host = $cleaned;
+            $port = 80;
+        }
+
+        // Determine address scheme
+        $scheme = filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false
+            ? AddressScheme::IPv4
+            : AddressScheme::DOMAIN_NAME;
+
+        $address = new Address();
+        $address->setHost($host);
+        $address->setPort($port);
+
+        $endpointsObj = new Endpoints();
+        $endpointsObj->setScheme($scheme);
+        $endpointsObj->setAddresses([$address]);
+
+        return $endpointsObj;
+    }
+
     /**
      * Build metadata using Signature class for gRPC calls.
      */
@@ -787,6 +867,88 @@ class SimpleConsumerOptimized
             $this->namespace,
             'v2'
         );
+    }
+
+    /**
+     * Register settings change callback on the Telemetry session.
+     */
+    private function registerSettingsCallback()
+    {
+        $self = $this;
+        $this->telemetrySession->setOnSettingsChange(function ($settings) use ($self) {
+            $self->onServerSettings($settings);
+        });
+    }
+
+    /**
+     * Handle server-pushed Settings (mirrors Java's SubscriptionSettings.sync()).
+     */
+    private function onServerSettings($settings)
+    {
+        $this->logger->info("Processing server settings");
+
+        // Process backoff policy
+        if (method_exists($settings, 'getBackoffPolicy') && $settings->hasBackoffPolicy()) {
+            $this->logger->info("Received backoff policy from server");
+            // Store retry policy for nack/retry operations
+            $this->retryPolicy = $settings->getBackoffPolicy();
+        }
+
+        // Process subscription settings
+        if ($settings->hasSubscription()) {
+            $sub = $settings->getSubscription();
+            if (method_exists($sub, 'getReceiveBatchSize') && $sub->getReceiveBatchSize() > 0) {
+                $this->logger->info("Server set receiveBatchSize: " . $sub->getReceiveBatchSize());
+            }
+        }
+    }
+
+    /**
+     * Send heartbeat to all route endpoints.
+     * Mirrors Java's ClientImpl.doHeartbeat().
+     */
+    private function doHeartbeat()
+    {
+        if (empty($this->subscriptionRouteDataCache)) {
+            return;
+        }
+
+        $request = new HeartbeatRequest();
+        $request->setClientType(ClientType::PUSH_CONSUMER);
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->client->Heartbeat($request, $metadata)->wait();
+            if ($status->code === 0) {
+                $this->logger->debug("Heartbeat sent successfully");
+            } else {
+                $this->logger->warning("Heartbeat failed: " . $status->details);
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning("Heartbeat failed: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Start periodic heartbeat (every 10 seconds).
+     */
+    private function startHeartbeat()
+    {
+        $this->doHeartbeat();
+        $this->lastHeartbeatTime = time();
+    }
+
+    /**
+     * Heartbeat tick handler - called from main loop.
+     */
+    private function onHeartbeatTick()
+    {
+        $now = time();
+        if ($now - $this->lastHeartbeatTime >= 10) {
+            $this->doHeartbeat();
+            $this->lastHeartbeatTime = $now;
+        }
     }
 }
 

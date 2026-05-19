@@ -60,6 +60,16 @@ class TelemetrySession
     // Credentials for AK/SK signing
     private $credentials = null;
 
+    // Settings received from server (backoff, validateMessageType, maxBodySize)
+    private $serverSettings = null;
+
+    // Settings change callback
+    private $onSettingsChange = null;
+
+    // Heartbeat state
+    private $heartbeatEnabled = false;
+    private $lastHeartbeatTime = 0;
+
     /**
      * Private constructor
      */
@@ -69,6 +79,27 @@ class TelemetrySession
         $this->endpoints = $endpoints;
         $this->credentials = $credentials;
         $this->logger = Logger::getInstance('TelemetrySession');
+    }
+
+    /**
+     * Register a callback for server-side Settings changes.
+     * Callback signature: function(Settings $settings): void
+     *
+     * @param callable $callback
+     */
+    public function setOnSettingsChange(callable $callback): void
+    {
+        $this->onSettingsChange = $callback;
+    }
+
+    /**
+     * Get server-side Settings (if any).
+     *
+     * @return object|null Settings proto object
+     */
+    public function getServerSettings()
+    {
+        return $this->serverSettings;
     }
 
     /**
@@ -232,6 +263,18 @@ class TelemetrySession
         if ($command->hasSettings()) {
             $settings = $command->getSettings();
             $this->logger->info("Received SETTINGS command from broker");
+
+            // Store server settings for reference
+            $this->serverSettings = $settings;
+
+            // Notify Producer/SimpleConsumer of settings change
+            if ($this->onSettingsChange !== null) {
+                try {
+                    ($this->onSettingsChange)($settings);
+                } catch (\Exception $e) {
+                    $this->logger->error("Settings change callback failed: " . $e->getMessage());
+                }
+            }
 
             // Mark Settings as synced (this is the key!)
             $this->settingsSynced = true;

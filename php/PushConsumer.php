@@ -41,6 +41,10 @@ use Apache\Rocketmq\V2\Language;
 use Apache\Rocketmq\V2\TelemetryCommand;
 use Apache\Rocketmq\V2\Subscription;
 use Apache\Rocketmq\V2\SubscriptionEntry;
+use Apache\Rocketmq\V2\Endpoints;
+use Apache\Rocketmq\V2\Address;
+use Apache\Rocketmq\V2\AddressScheme;
+use Apache\Rocketmq\V2\HeartbeatRequest;
 use Grpc\ChannelCredentials;
 
 /**
@@ -82,6 +86,7 @@ class PushConsumer
     private $isLiteConsumer = false;
     private $credentials = null; // SessionCredentials for AK/SK auth
     private $namespace = '';
+    private $lastHeartbeatTime = 0;
 
     /**
      * Constructor with builder-style options.
@@ -184,6 +189,9 @@ class PushConsumer
         try {
             $this->establishTelemetrySession();
 
+            // Register settings change callback
+            $this->registerSettingsCallback();
+
             // Create consume service (Standard, FIFO, or LiteFIFO)
             if ($this->isLiteConsumer) {
                 $this->consumeService = new LiteFifoConsumeService($this->logger, $this->messageListener, $this, $this->enableFifoConsumeAccelerator);
@@ -219,6 +227,9 @@ class PushConsumer
                     $this->scanAssignments();
                     $lastScanTime = $now;
                 }
+
+                // Periodic heartbeat
+                $this->onHeartbeatTick();
 
                 // Fetch messages from each active ProcessQueue
                 foreach ($this->processQueueTable as $key => $pq) {
@@ -327,6 +338,9 @@ class PushConsumer
 
             $topicResource = new Resource();
             $topicResource->setName($topic);
+            if (!empty($this->namespace)) {
+                $topicResource->setResourceNamespace($this->namespace);
+            }
 
             $subscriptionEntry = new SubscriptionEntry();
             $subscriptionEntry->setTopic($topicResource);
@@ -338,6 +352,9 @@ class PushConsumer
         $subscription = new Subscription();
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
         $subscription->setGroup($groupResource);
         $subscription->setSubscriptions($subscriptionEntries);
 
@@ -427,12 +444,19 @@ class PushConsumer
     {
         $topicResource = new Resource();
         $topicResource->setName($topic);
+        if (!empty($this->namespace)) {
+            $topicResource->setResourceNamespace($this->namespace);
+        }
 
         $request = new QueryAssignmentRequest();
         $request->setTopic($topicResource);
+        $request->setEndpoints($this->parseEndpoints($this->endpoints));
 
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
         $request->setGroup($groupResource);
 
         $metadata = $this->buildMetadata();
@@ -602,6 +626,107 @@ class PushConsumer
     {
         if ($this->isRunning) {
             throw new \RuntimeException("PushConsumer is already running");
+        }
+    }
+
+    /**
+     * Parse endpoints string into protobuf Endpoints object.
+     *
+     * @param string $endpoints e.g. "127.0.0.1:8080" or "example.com:8080"
+     * @return Endpoints
+     */
+    private function parseEndpoints($endpoints)
+    {
+        $cleaned = $endpoints;
+        // Strip http/https prefix if present
+        if (strpos($cleaned, 'http://') === 0) {
+            $cleaned = substr($cleaned, 7);
+        } elseif (strpos($cleaned, 'https://') === 0) {
+            $cleaned = substr($cleaned, 8);
+        }
+
+        $lastColon = strrpos($cleaned, ':');
+        if ($lastColon !== false) {
+            $host = substr($cleaned, 0, $lastColon);
+            $port = (int)substr($cleaned, $lastColon + 1);
+        } else {
+            $host = $cleaned;
+            $port = 80;
+        }
+
+        // Determine address scheme
+        $scheme = filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false
+            ? AddressScheme::IPv4
+            : AddressScheme::DOMAIN_NAME;
+
+        $address = new Address();
+        $address->setHost($host);
+        $address->setPort($port);
+
+        $endpointsObj = new Endpoints();
+        $endpointsObj->setScheme($scheme);
+        $endpointsObj->setAddresses([$address]);
+
+        return $endpointsObj;
+    }
+
+    /**
+     * Register settings change callback on the Telemetry session.
+     */
+    private function registerSettingsCallback()
+    {
+        $self = $this;
+        $this->telemetrySession->setOnSettingsChange(function ($settings) use ($self) {
+            $self->onServerSettings($settings);
+        });
+    }
+
+    /**
+     * Handle server-pushed Settings.
+     */
+    private function onServerSettings($settings)
+    {
+        $this->logger->info("Processing server settings");
+        if (method_exists($settings, 'getBackoffPolicy') && $settings->hasBackoffPolicy()) {
+            $this->logger->info("Received backoff policy from server");
+        }
+    }
+
+    /**
+     * Send heartbeat to all route endpoints.
+     */
+    private function doHeartbeat()
+    {
+        if (empty($this->processQueueTable)) {
+            return;
+        }
+
+        $request = new HeartbeatRequest();
+        $request->setClientType(ClientType::PUSH_CONSUMER);
+
+        $metadata = $this->buildMetadata();
+
+        try {
+            list($response, $status) = $this->client->Heartbeat($request, $metadata)->wait();
+            if ($status->code === 0) {
+                $this->logger->debug("Heartbeat sent successfully");
+            } else {
+                $this->logger->warning("Heartbeat failed: " . $status->details);
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning("Heartbeat failed: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Heartbeat tick handler - called from main loop.
+     */
+    private function onHeartbeatTick()
+    {
+        $now = time();
+        if ($now - $this->lastHeartbeatTime >= 10) {
+            $this->doHeartbeat();
+            $this->lastHeartbeatTime = $now;
         }
     }
 

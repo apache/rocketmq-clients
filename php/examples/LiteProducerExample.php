@@ -17,10 +17,10 @@
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../ProducerOptimized.php';
+require_once __DIR__ . '/../Producer.php';
 require_once __DIR__ . '/../Logger.php';
 
-use Apache\Rocketmq\ProducerOptimized;
+use Apache\Rocketmq\Producer;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SystemProperties;
@@ -28,7 +28,7 @@ use Apache\Rocketmq\V2\SystemProperties;
 $endpoints = '127.0.0.1:8081';
 $topic = 'yourParentTopic';
 
-$producer = new ProducerOptimized($endpoints, [
+$producer = new Producer($endpoints, [
     'topics' => [$topic],
     'maxAttempts' => 3,
     'requestTimeout' => 3000,
