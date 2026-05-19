@@ -89,16 +89,18 @@ import org.slf4j.LoggerFactory;
 class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private static final Logger log = LoggerFactory.getLogger(PushConsumerImpl.class);
 
+    protected final MessageListener messageListener;
+    protected final ThreadPoolExecutor consumptionExecutor;
+    protected final boolean enableFifoConsumeAccelerator;
+
     final AtomicLong consumptionOkQuantity;
     final AtomicLong consumptionErrorQuantity;
 
     private final PushSubscriptionSettings pushSubscriptionSettings;
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
     private final ConcurrentMap<String /* topic */, Assignments> cacheAssignments;
-    private final MessageListener messageListener;
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
-    private final boolean enableFifoConsumeAccelerator;
     private final boolean enableMessageInterceptorFiltering;
     private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
 
@@ -111,7 +113,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      */
     private final AtomicLong receivedMessagesQuantity;
 
-    private final ThreadPoolExecutor consumptionExecutor;
     private final ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable;
     private ConsumeService consumeService;
 
@@ -247,15 +248,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     protected ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
         if (getSettings().isFifo()) {
-            log.info("Create {}FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
-                isLiteConsumer() ? "Lite " : "", getConsumerGroup(), clientId, enableFifoConsumeAccelerator);
-            if (isLiteConsumer()) {
-                return new LiteFifoConsumeService(clientId, messageListener, consumptionExecutor, this,
-                    scheduler, enableFifoConsumeAccelerator);
-            } else {
-                return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this,
-                    scheduler, enableFifoConsumeAccelerator);
-            }
+            log.info("Create FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
+                getConsumerGroup(), clientId, enableFifoConsumeAccelerator);
+            return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this,
+                scheduler, enableFifoConsumeAccelerator);
         }
         log.info("Create standard consume service, consumerGroup={}, clientId={}", getConsumerGroup(), clientId);
         return new StandardConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
