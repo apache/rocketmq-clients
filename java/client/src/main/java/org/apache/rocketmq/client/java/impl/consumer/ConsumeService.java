@@ -55,7 +55,34 @@ public abstract class ConsumeService {
         this.scheduler = scheduler;
     }
 
+    protected ConsumeService(ClientId clientId, ThreadPoolExecutor consumptionExecutor,
+        MessageInterceptor messageInterceptor, ScheduledExecutorService scheduler) {
+        this(clientId, null, consumptionExecutor, messageInterceptor, scheduler);
+    }
+
+    protected ThreadPoolExecutor getConsumptionExecutor() {
+        return consumptionExecutor;
+    }
+
+    protected MessageInterceptor getMessageInterceptor() {
+        return messageInterceptor;
+    }
+
+    protected ScheduledExecutorService getScheduler() {
+        return scheduler;
+    }
+
     public abstract void consume(ProcessQueue pq, List<MessageViewImpl> messageViews);
+
+    /**
+     * Close the consume service and flush any buffered messages for consumption.
+     *
+     * <p>The default implementation is a no-op. Subclasses that maintain internal buffers
+     * (e.g. {@link BatchConsumeService}) should override this method to drain remaining
+     * messages before the consumer shuts down.
+     */
+    public void close() {
+    }
 
     public ListenableFuture<ConsumeResult> consume(MessageViewImpl messageView) {
         return consume(messageView, Duration.ZERO);
