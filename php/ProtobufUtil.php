@@ -30,7 +30,8 @@ class ProtobufUtil
 {
     /**
      * Convert a RepeatedField to a native PHP array.
-     * Handles both RepeatedField (getIterator) and fallback cast.
+     * Uses iterator-based access to avoid the offsetGet bug in protobuf
+     * where accessing an empty field triggers "Undefined array key" warnings.
      *
      * @param mixed $repeatedField Protobuf RepeatedField or null
      * @return array
@@ -43,8 +44,13 @@ class ProtobufUtil
         if (is_array($repeatedField)) {
             return $repeatedField;
         }
+        // Use iterator to avoid direct offsetGet on RepeatedField
         if (is_object($repeatedField) && method_exists($repeatedField, 'getIterator')) {
-            return iterator_to_array($repeatedField);
+            $result = [];
+            foreach ($repeatedField as $key => $value) {
+                $result[$key] = $value;
+            }
+            return $result;
         }
         return (array) $repeatedField;
     }

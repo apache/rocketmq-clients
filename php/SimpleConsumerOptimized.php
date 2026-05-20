@@ -712,19 +712,18 @@ class SimpleConsumerOptimized
             }
         }
         
-        // Calculate total timeout (reference Node.js: timeout = requestTimeout + awaitDuration)
-        // requestTimeout defaults to 3000ms, awaitDuration defaults to 30000ms
+        // Calculate total timeout: requestTimeout + awaitDuration
         $requestTimeoutMs = 3000;  // 3 seconds
         $awaitDurationMs = $awaitDuration * 1000;  // Convert to milliseconds
-        $totalTimeoutMs = $requestTimeoutMs + $awaitDurationMs;
-        $totalTimeoutSecs = $totalTimeoutMs / 1000.0;
+        $grpcTimeoutMicroseconds = ($requestTimeoutMs + $awaitDurationMs) * 1000; // Convert to microseconds
+        $totalTimeoutSecs = $grpcTimeoutMicroseconds / 1000000.0;
         
         $this->logger->info("Sending ReceiveMessage request to broker: {$brokerAddress}");
         $this->logger->debug("  Topic: " . $messageQueue->getTopic()->getName());
         $this->logger->debug("  Batch Size: " . $request->getBatchSize());
         $this->logger->debug("  Request Timeout: {$requestTimeoutMs}ms");
         $this->logger->debug("  Await Duration: {$awaitDurationMs}ms");
-        $this->logger->debug("  Total Timeout: {$totalTimeoutMs}ms ({$totalTimeoutSecs}s)");
+        $this->logger->debug("  Total Timeout: {$grpcTimeoutMicroseconds}us ({$totalTimeoutSecs}s)");
         $this->logger->debug("  Long Polling Timeout: " . $request->getLongPollingTimeout()->getSeconds() . "s");
         
         // [KEY FIX] Use existing $this->client instead of creating a new client
@@ -744,7 +743,7 @@ class SimpleConsumerOptimized
             // [KEY FIX] Set gRPC call timeout (deadline) so the server-side ContextInitPipeline can get remainingMs
             // Server code: ctx.getDeadline().timeRemaining(TimeUnit.MILLISECONDS)
             // Without deadline, timeRemaining is null, causing NPE
-            $callOptions = ['timeout' => $totalTimeoutMs * 1000]; // PHP gRPC timeout is in microseconds
+            $callOptions = ['timeout' => $grpcTimeoutMicroseconds]; // PHP gRPC timeout is in microseconds
             $call = $this->client->ReceiveMessage($request, $metadata, $callOptions);
 
             foreach ($call->responses() as $response) {

@@ -26,10 +26,10 @@ require_once __DIR__ . '/ClientConstants.php';
 require_once __DIR__ . '/ClientTrait.php';
 require_once __DIR__ . '/SwooleCompat.php';
 require_once __DIR__ . '/ProtobufUtil.php';
+require_once __DIR__ . '/SubscriptionLoadBalancer.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
-use Apache\Rocketmq\V2\QueryAssignmentRequest;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\FilterExpression;
@@ -75,6 +75,8 @@ class SimpleConsumer
     private $awaitDuration = 30; // seconds
     private $lastHeartbeatTime = 0;
     private $brokerClients = [];
+    private $subscriptionRouteDataCache = [];
+    private $topicIndex = 0;
 
     /**
      * Constructor
@@ -372,18 +374,16 @@ class SimpleConsumer
         // Route ReceiveMessage to broker endpoints from MessageQueue
         $receiveClient = $this->getBrokerClient($messageQueue);
 
-        // Calculate total timeout: requestTimeout + awaitDuration
-        $requestTimeoutMs = $this->requestTimeout;
-        $awaitDurationMs = $this->awaitDuration * 1000;
-        $totalTimeoutMs = $requestTimeoutMs + $awaitDurationMs;
-        $totalTimeoutSecs = $totalTimeoutMs / 1000.0;
+        // gRPC timeout in microseconds — server reads this via ctx.getRemainingMs()
+        $grpcTimeoutMicroseconds = ($this->requestTimeout + $this->awaitDuration * 1000) * 1000;
 
         // Use signed metadata via ClientTrait
         $metadata = $this->buildMetadata();
 
-        $callOptions = ['timeout' => $totalTimeoutMs * 1000];
+        // gRPC PHP call options: timeout is in seconds (float)
+        $callOptions = ['timeout' => $grpcTimeoutMicroseconds / 1000000.0];
 
-        $this->logger->debug("ReceiveMessage: topic={$topic}, batchSize={$maxMessages}, timeout={$totalTimeoutSecs}s, attemptId={$attemptId}");
+        $this->logger->debug("ReceiveMessage: topic={$topic}, batchSize={$maxMessages}, timeout={$grpcTimeoutMicroseconds}us, attemptId={$attemptId}");
 
         // Receive messages
         $call = $receiveClient->ReceiveMessage($request, $metadata, $callOptions);
@@ -418,11 +418,34 @@ class SimpleConsumer
     }
 
     /**
-     * Get MessageQueue via QueryAssignment (includes consumer group).
-     * Unlike QueryRoute, QueryAssignment tells the server about the consumer
-     * group and returns queues assigned to this specific consumer.
+     * Get MessageQueue via QueryRoute + SubscriptionLoadBalancer.
+     * SimpleConsumer uses QueryRoute (not QueryAssignment) like Java's SimpleConsumerImpl.
+     * Round-robin across subscribed topics.
      */
     private function getMessageQueue($topic)
+    {
+        $loadBalancer = $this->getSubscriptionLoadBalancer($topic);
+        return $loadBalancer->takeMessageQueue();
+    }
+
+    /**
+     * Get SubscriptionLoadBalancer for a topic.
+     * Caches route data per topic, creating load balancer on first access.
+     */
+    private function getSubscriptionLoadBalancer($topic)
+    {
+        if (!isset($this->subscriptionRouteDataCache[$topic])) {
+            $routeData = $this->getRouteData($topic);
+            $this->subscriptionRouteDataCache[$topic] = new SubscriptionLoadBalancer($routeData);
+        }
+
+        return $this->subscriptionRouteDataCache[$topic];
+    }
+
+    /**
+     * Query route data for a topic via QueryRoute RPC.
+     */
+    private function getRouteData($topic)
     {
         $topicResource = new Resource();
         $topicResource->setName($topic);
@@ -430,42 +453,23 @@ class SimpleConsumer
             $topicResource->setResourceNamespace($this->namespace);
         }
 
-        $groupResource = new Resource();
-        $groupResource->setName($this->consumerGroup);
-        if (!empty($this->namespace)) {
-            $groupResource->setResourceNamespace($this->namespace);
-        }
-
-        $request = new QueryAssignmentRequest();
+        $request = new QueryRouteRequest();
         $request->setTopic($topicResource);
-        $request->setGroup($groupResource);
         $request->setEndpoints($this->getParsedEndpoints());
 
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->client->QueryAssignment($request, $metadata)->wait();
+            list($response, $status) = $this->client->QueryRoute($request, $metadata)->wait();
 
             if ($status->code !== 0) {
-                $this->logger->warning("QueryAssignment failed for topic={$topic}: " . $status->details);
+                $this->logger->warning("QueryRoute failed for topic={$topic}: " . $status->details);
                 return null;
             }
 
-            $assignments = $response->getAssignments();
-            if (ProtobufUtil::isRepeatedFieldEmpty($assignments)) {
-                $this->logger->debug("No assignments for topic={$topic}");
-                return null;
-            }
-
-            // Return the MessageQueue from the first assignment
-            $firstAssignment = $assignments[0];
-            if (method_exists($firstAssignment, 'getMessageQueue')) {
-                return $firstAssignment->getMessageQueue();
-            }
-
-            return null;
+            return $response;
         } catch (\Exception $e) {
-            $this->logger->warning("QueryAssignment exception for topic={$topic}: " . $e->getMessage());
+            $this->logger->warning("QueryRoute exception for topic={$topic}: " . $e->getMessage());
             return null;
         }
     }

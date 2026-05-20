@@ -829,7 +829,10 @@ class Producer
         $systemProperties->setBornTimestamp($this->createTimestamp());
         $systemProperties->setBornHost(gethostname() ?: 'localhost');
         $systemProperties->setBodyEncoding(Encoding::IDENTITY);
-        $systemProperties->setQueueId($messageQueue->getId());
+        $queueId = $messageQueue->getId();
+        if ($queueId !== null) {
+            $systemProperties->setQueueId($queueId);
+        }
         $systemProperties->setMessageType($this->detectMessageType($msg, $txEnabled));
 
         $inputSysProps = $msg->getSystemProperties();
