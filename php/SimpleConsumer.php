@@ -376,10 +376,11 @@ class SimpleConsumer
 
         // gRPC timeout in microseconds — server reads this via ctx.getRemainingMs()
         $grpcTimeoutMicroseconds = ($this->requestTimeout + $this->awaitDuration * 1000) * 1000;
+        $grpcTimeoutMills = (int)($grpcTimeoutMicroseconds / 1000);
 
         // Use signed metadata via ClientTrait
         $metadata = $this->buildMetadata();
-
+        $metadata['grpc-timeout'] = ["{$grpcTimeoutMills}m"];
         // gRPC PHP call options: timeout is in seconds (float)
         $callOptions = ['timeout' => $grpcTimeoutMicroseconds / 1000000.0];
 
