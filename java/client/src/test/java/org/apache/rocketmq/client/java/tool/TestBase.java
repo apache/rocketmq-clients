@@ -52,6 +52,7 @@ import io.grpc.Metadata;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -393,7 +394,7 @@ public class TestBase {
 
     protected PublishingSettings fakeProducerSettings() {
         return new PublishingSettings(FAKE_NAMESPACE, FAKE_CLIENT_ID, fakeEndpoints(),
-            fakeExponentialBackoffRetryPolicy(), Duration.ofSeconds(1), new HashSet<>());
+            fakeExponentialBackoffRetryPolicy(), Duration.ofSeconds(1), new HashSet<>(), Collections.emptyMap());
     }
 
     protected SendReceiptImpl fakeSendReceiptImpl(
