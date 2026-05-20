@@ -384,7 +384,7 @@ class SimpleConsumer
         // gRPC PHP call options: timeout is in seconds (float)
         $callOptions = ['timeout' => $grpcTimeoutMicroseconds / 1000000.0];
 
-        $this->logger->debug("ReceiveMessage: topic={$topic}, batchSize={$maxMessages}, timeout={$grpcTimeoutMicroseconds}us, attemptId={$attemptId}");
+        $this->logger->debug("ReceiveMessage: topic={$topic}, batchSize={$maxMessages}, grpcTimeout={$grpcTimeoutMills}us, attemptId={$attemptId}");
 
         // Receive messages
         $call = $receiveClient->ReceiveMessage($request, $metadata, $callOptions);
