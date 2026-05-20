@@ -32,6 +32,7 @@ require_once __DIR__ . '/TransactionChecker.php';
 require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
 require_once __DIR__ . '/SwooleCompat.php';
 require_once __DIR__ . '/ProtobufUtil.php';
+require_once __DIR__ . '/PublishingLoadBalancer.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\Permission;

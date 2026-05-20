@@ -20,6 +20,7 @@ namespace Apache\Rocketmq\Test;
 
 require_once __DIR__ . '/TestRunner.php';
 require_once __DIR__ . '/../Producer.php';
+require_once __DIR__ . '/../PublishingLoadBalancer.php';
 
 use Apache\Rocketmq\PublishingLoadBalancer;
 use Apache\Rocketmq\Test\TestRunner;
