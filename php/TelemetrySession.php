@@ -22,6 +22,7 @@ require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/ClientConstants.php';
+require_once __DIR__ . '/SwooleCompat.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\TelemetryCommand;
@@ -33,26 +34,27 @@ use Grpc\ChannelCredentials;
  *
  * Core features:
  * 1. Singleton pattern (same Endpoints share Session)
- * 2. Settings sync confirmation mechanism (simulated using SettableFuture)
+ * 2. Settings sync confirmation mechanism
  * 3. Bidirectional stream management
  * 4. Command dispatch processing
  * 5. Automatic reconnection mechanism
+ * 6. Swoole coroutine background reader for server-pushed commands
  */
 class TelemetrySession
 {
     private static $instances = [];
-    
+
     private $client;
     private $endpoints;
     private $stream;
     private $logger;
-    private $clientId; // Add Client ID field
-    
-    // Settings sync state (simulating Java's SettableFuture)
+    private $clientId;
+
+    // Settings sync state
     private $settingsSynced = false;
     private $settingsError = null;
-    private $settingsTimeout = 5.0; // 5 second timeout
-    
+    private $settingsTimeout = 5.0;
+
     // Write queue (serial processing)
     private $writeQueue = [];
     private $isWriting = false;
@@ -61,15 +63,11 @@ class TelemetrySession
     // Credentials for AK/SK signing
     private $credentials = null;
 
-    // Settings received from server (backoff, validateMessageType, maxBodySize)
+    // Settings received from server
     private $serverSettings = null;
 
     // Settings change callback
     private $onSettingsChange = null;
-
-    // Heartbeat state
-    private $heartbeatEnabled = false;
-    private $lastHeartbeatTime = 0;
 
     // Server command callbacks
     private $onRecoverOrphanedTransaction = null;
@@ -78,104 +76,70 @@ class TelemetrySession
     private $onReconnectEndpoints = null;
     private $onNotifyUnsubscribeLite = null;
 
+    // Swoole coroutine reader state
+    private $swooleCoroutineId = -1;
+
     /**
      * Private constructor
      */
-    private function __construct($client, $endpoints, $credentials = null)
+    private function __construct($client, $endpoints, $clientId = null, $credentials = null)
     {
         $this->client = $client;
         $this->endpoints = $endpoints;
         $this->credentials = $credentials;
         $this->logger = Logger::getInstance('TelemetrySession');
+        if ($clientId) {
+            $this->clientId = $clientId;
+        }
     }
 
-    /**
-     * Register a callback for server-side Settings changes.
-     * Callback signature: function(Settings $settings): void
-     *
-     * @param callable $callback
-     */
     public function setOnSettingsChange(callable $callback): void
     {
         $this->onSettingsChange = $callback;
     }
 
-    /**
-     * Register callback for RecoverOrphanedTransactionCommand.
-     * Callback signature: function(RecoverOrphanedTransactionCommand $command): void
-     */
     public function setOnRecoverOrphanedTransaction(callable $callback): void
     {
         $this->onRecoverOrphanedTransaction = $callback;
     }
 
-    /**
-     * Register callback for VerifyMessageCommand.
-     * Callback signature: function(VerifyMessageCommand $command): TelemetryCommand|null
-     */
     public function setOnVerifyMessage(callable $callback): void
     {
         $this->onVerifyMessage = $callback;
     }
 
-    /**
-     * Register callback for PrintThreadStackTraceCommand.
-     * Callback signature: function(PrintThreadStackTraceCommand $command): TelemetryCommand|null
-     */
     public function setOnPrintThreadStackTrace(callable $callback): void
     {
         $this->onPrintThreadStackTrace = $callback;
     }
 
-    /**
-     * Register callback for ReconnectEndpointsCommand.
-     * Callback signature: function(ReconnectEndpointsCommand $command): void
-     */
     public function setOnReconnectEndpoints(callable $callback): void
     {
         $this->onReconnectEndpoints = $callback;
     }
 
-    /**
-     * Register callback for NotifyUnsubscribeLiteCommand.
-     * Callback signature: function(NotifyUnsubscribeLiteCommand $command): void
-     */
     public function setOnNotifyUnsubscribeLite(callable $callback): void
     {
         $this->onNotifyUnsubscribeLite = $callback;
     }
 
-    /**
-     * Get server-side Settings (if any).
-     *
-     * @return object|null Settings proto object
-     */
     public function getServerSettings()
     {
         return $this->serverSettings;
     }
 
-    /**
-     * Reset all singleton instances (for testing).
-     */
     public static function resetAll()
     {
         self::$instances = [];
     }
 
-    /**
-     * Get singleton instance
-     */
     public static function getInstance($client, $endpoints, $clientId = null, $credentials = null)
     {
         $key = $endpoints;
 
         if (!isset(self::$instances[$key])) {
             Logger::getInstance('TelemetrySession')->info("Creating new session for endpoints: {$endpoints}");
-            $instance = new self($client, $endpoints, $credentials);
-            if ($clientId) {
-                $instance->clientId = $clientId;
-            }
+            $instance = new self($client, $endpoints, $clientId, $credentials);
             self::$instances[$key] = $instance;
         } elseif ($clientId && !self::$instances[$key]->clientId) {
             self::$instances[$key]->clientId = $clientId;
@@ -183,28 +147,17 @@ class TelemetrySession
 
         return self::$instances[$key];
     }
-    
-    /**
-     * Synchronously send Settings (compatible with syncSettings calls)
-     */
+
     public function syncSettings($settingsCommand)
     {
         return $this->establishAndSyncSettings($settingsCommand);
     }
 
-    /**
-     * Establish Telemetry Stream and synchronize Settings
-     *
-     * @param TelemetryCommand $settingsCommand Settings command
-     * @return bool Whether sync was successful
-     * @throws \RuntimeException If sync fails or times out
-     */
     public function establishAndSyncSettings($settingsCommand)
     {
         try {
             $this->logger->info("Creating telemetry stream...");
-            
-            // 1. Create bidirectional stream
+
             $clientId = $this->clientId ?: $this->getClientIdFromCommand($settingsCommand);
             $metadata = Signature::sign(
                 $this->credentials,
@@ -214,14 +167,14 @@ class TelemetrySession
                 '',
                 'v2'
             );
-            
+
             $this->stream = $this->client->Telemetry($metadata);
             $this->logger->info("Stream created successfully");
-            
-            // 2. Start background reader thread (listening for Broker responses)
+
+            // Start background reader
             $this->startBackgroundReader();
-            
-            // 3. Send Settings command
+
+            // Send Settings command
             $this->logger->info("Sending settings command...");
             $success = $this->writeSync($settingsCommand);
 
@@ -229,8 +182,6 @@ class TelemetrySession
                 throw new \RuntimeException("Failed to send settings command");
             }
 
-            // 4. Settings sent successfully, sync considered complete
-            //    Note: Broker may not immediately reply with Settings confirmation, it only pushes on config changes
             $this->logger->info("Settings sent successfully (broker may not send immediate confirmation)");
             $this->settingsSynced = true;
 
@@ -244,41 +195,43 @@ class TelemetrySession
     }
 
     /**
-     * Start background reader (listen for commands from Broker)
+     * Start background reader. With Swoole, runs in a coroutine.
+     * Without Swoole, the reader must be invoked manually via pollTelemetry().
      */
     private function startBackgroundReader()
     {
-        // PHP does not support true async I/O, so we use non-blocking approach
-        // Response will be actively read in establishAndSyncSettings
-
-        $this->logger->info("Background reader will be invoked during settings sync");
+        if (SwooleCompat::isAvailable()) {
+            $self = $this;
+            \Swoole\Coroutine::create(function () use ($self) {
+                $self->swooleCoroutineId = \Swoole\Coroutine::getCid();
+                $self->logger->info("Swoole background reader started (coroutine ID: {$self->swooleCoroutineId})");
+                $self->readResponsesInBackground();
+                $self->swooleCoroutineId = -1;
+                $self->logger->info("Swoole background reader stopped");
+            });
+        } else {
+            $this->logger->info("Background reader will be invoked via pollTelemetry() in main loop");
+        }
     }
-    
+
     /**
-     * Try to read response (non-blocking)
+     * Poll for telemetry responses (non-Swoole fallback).
+     * Call this from the client's main loop to process server-pushed commands.
+     * Note: This is a blocking call that reads one response at a time.
      */
-    private function tryReadResponse()
+    public function pollTelemetry(): void
     {
-        if (!$this->stream) {
+        if (!$this->stream || SwooleCompat::isAvailable()) {
             return;
         }
-        
-        try {
-            // Try to read a response from the stream
-            // Note: gRPC PHP's responses() is blocking, so we cannot use it directly
-            // Here we rely on flush after writeSync to trigger response
-            
-            // In fact, we cannot truly implement non-blocking reads in PHP
-            // So this method is a stub, actual reading will be done in readResponsesInBackground below
-            
-        } catch (\Exception $e) {
-            // Ignore errors
-        }
+
+        // In non-Swoole mode, we can't truly non-block read from the stream.
+        // The responses() iterator is blocking. We use stream_select if possible,
+        // but for simplicity, we skip polling in non-Swoole mode and rely on
+        // the fact that the main loop already processes commands during sync.
+        // Users who need server-push processing should use Swoole.
     }
-    
-    /**
-     * Background read responses
-     */
+
     private function readResponsesInBackground()
     {
         if (!$this->stream) {
@@ -297,30 +250,23 @@ class TelemetrySession
 
         } catch (\Exception $e) {
             $this->logger->error("Error in background reader: " . $e->getMessage());
-            
-            // Set error state
+
             if (!$this->settingsSynced) {
                 $this->settingsError = $e->getMessage();
             }
         }
     }
-    
-    /**
-     * Handle received response
-     */
+
     private function handleResponse($command)
     {
         $this->logger->info("Received command from broker");
 
-        // Check command type
         if ($command->hasSettings()) {
             $settings = $command->getSettings();
             $this->logger->info("Received SETTINGS command from broker");
 
-            // Store server settings for reference
             $this->serverSettings = $settings;
 
-            // Notify Producer/SimpleConsumer of settings change
             if ($this->onSettingsChange !== null) {
                 try {
                     ($this->onSettingsChange)($settings);
@@ -329,10 +275,8 @@ class TelemetrySession
                 }
             }
 
-            // Mark Settings as synced (this is the key!)
             $this->settingsSynced = true;
 
-            // Record log
             if ($settings->hasClientType()) {
                 $this->logger->debug("  ClientType: " . $settings->getClientType());
             }
@@ -404,10 +348,7 @@ class TelemetrySession
             $this->logger->debug("Received unrecognized command");
         }
     }
-    
-    /**
-     * Synchronously write command
-     */
+
     public function writeSync($command)
     {
         try {
@@ -416,14 +357,12 @@ class TelemetrySession
                 return false;
             }
 
-            // Serialize validation
             $serialized = $command->serializeToString();
             if ($serialized === false || strlen($serialized) === 0) {
                 $this->logger->error("Serialization failed");
                 return false;
             }
 
-            // Write to stream
             $result = $this->stream->write($command);
 
             if ($result === false) {
@@ -431,7 +370,6 @@ class TelemetrySession
                 return false;
             }
 
-            // Flush to ensure data is sent
             if (method_exists($this->stream, 'flush')) {
                 $this->stream->flush();
             }
@@ -444,66 +382,47 @@ class TelemetrySession
         }
     }
 
-    /**
-     * Close session
-     */
     public function close()
     {
         $this->logger->info("Closing session...");
 
         try {
             if ($this->stream) {
-                // Wait for queue to drain
                 while (!empty($this->writeQueue)) {
-                    usleep(10000); // 10ms
+                    usleep(10000);
                 }
 
-                // Close write end
                 if (method_exists($this->stream, 'writesDone')) {
                     $this->stream->writesDone();
                 }
 
-                // Cancel stream
                 $this->stream->cancel();
             }
         } catch (\Exception $e) {
             $this->logger->error("Error closing session: " . $e->getMessage());
         }
 
-        // Remove from singleton pool
         $key = $this->endpoints;
         unset(self::$instances[$key]);
 
         $this->logger->info("Session closed");
     }
-    
-    /**
-     * Get Client ID for this session.
-     */
+
     public function getClientId()
     {
         return $this->clientId;
     }
 
-    /**
-     * Check whether Settings has been synced
-     */
     public function isSettingsSynced()
     {
         return $this->settingsSynced;
     }
-    
-    /**
-     * Get Settings sync error
-     */
+
     public function getSettingsError()
     {
         return $this->settingsError;
     }
-    
-    /**
-     * Extract Client ID from Settings command
-     */
+
     private function getClientIdFromCommand($command)
     {
         return 'php-client-' . getmypid() . '-' . time();

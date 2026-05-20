@@ -23,6 +23,7 @@ require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/ClientConstants.php';
+require_once __DIR__ . '/SwooleCompat.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\Permission;
@@ -247,16 +248,31 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * Asynchronously receive messages (TODO: requires Swoole coroutine support)
+     * Asynchronously receive messages via Swoole coroutine.
      *
      * @param int $maxMessageNum Maximum number of messages
      * @param int $invisibleDuration Invisible duration in seconds
-     * @return \Generator Coroutine generator
+     * @return \Generator|array Yields messages in Swoole mode, generator fallback otherwise
      */
     public function receiveAsync($maxMessageNum, $invisibleDuration = 30)
     {
-        // TODO: Use Swoole Coroutine for true async
-        // This returns a generator as a placeholder
+        if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
+            $self = $this;
+            $channel = new \Swoole\Coroutine\Channel(1);
+            \Swoole\Coroutine::create(function () use ($self, $maxMessageNum, $invisibleDuration, $channel) {
+                try {
+                    $messages = $self->receive($maxMessageNum, $invisibleDuration);
+                    $channel->push(['result' => $messages]);
+                } catch (\Throwable $e) {
+                    $channel->push(['exception' => $e]);
+                }
+            });
+            $data = $channel->pop();
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['result'];
+        }
         yield $this->receive($maxMessageNum, $invisibleDuration);
     }
     
@@ -281,13 +297,30 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * Asynchronously ACK a message (TODO: requires Swoole coroutine support)
+     * Asynchronously ACK a message via Swoole coroutine.
      *
      * @param object $messageView Message object
      * @return \Generator
      */
     public function ackAsync($messageView)
     {
+        if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
+            $self = $this;
+            $channel = new \Swoole\Coroutine\Channel(1);
+            \Swoole\Coroutine::create(function () use ($self, $messageView, $channel) {
+                try {
+                    $self->ack($messageView);
+                    $channel->push(['success' => true]);
+                } catch (\Throwable $e) {
+                    $channel->push(['exception' => $e]);
+                }
+            });
+            $data = $channel->pop();
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['success'];
+        }
         yield $this->ack($messageView);
     }
     
@@ -313,7 +346,7 @@ class SimpleConsumerOptimized
     }
     
     /**
-     * Asynchronously change visibility duration (TODO: requires Swoole coroutine support)
+     * Asynchronously change visibility duration via Swoole coroutine.
      *
      * @param object $messageView Message object
      * @param int $invisibleDuration New invisible duration in seconds
@@ -321,6 +354,23 @@ class SimpleConsumerOptimized
      */
     public function changeInvisibleDurationAsync($messageView, $invisibleDuration)
     {
+        if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
+            $self = $this;
+            $channel = new \Swoole\Coroutine\Channel(1);
+            \Swoole\Coroutine::create(function () use ($self, $messageView, $invisibleDuration, $channel) {
+                try {
+                    $self->changeInvisibleDuration($messageView, $invisibleDuration);
+                    $channel->push(['success' => true]);
+                } catch (\Throwable $e) {
+                    $channel->push(['exception' => $e]);
+                }
+            });
+            $data = $channel->pop();
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['success'];
+        }
         yield $this->changeInvisibleDuration($messageView, $invisibleDuration);
     }
     

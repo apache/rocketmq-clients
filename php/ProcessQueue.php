@@ -44,6 +44,10 @@ class ProcessQueue
     private $dropped = false;
     private $cachedMessages = [];
     private $cachedMessagesBytes = 0;
+
+    // O(1) eviction: index by receipt handle
+    private $cachedMessagesByReceiptHandle = [];
+
     private $receptionTimes = 0;
     private $receivedMessagesQuantity = 0;
     private $activityNanoTime;
@@ -63,9 +67,6 @@ class ProcessQueue
         $this->logger = Logger::getInstance('ProcessQueue');
     }
 
-    /**
-     * Trigger a fetch in the next loop iteration.
-     */
     public function fetchMessageImmediately()
     {
         $this->fetchImmediately = true;
@@ -102,15 +103,12 @@ class ProcessQueue
         $request->setAutoRenew(true); // PushConsumer uses server-side auto-renew
         $request->setAttemptId($this->attemptId);
 
-        // Long polling timeout from consumer settings
         $awaitDuration = $this->consumer->getAwaitDuration();
         $longPollingTimeout = $this->createDuration($awaitDuration);
         $request->setLongPollingTimeout($longPollingTimeout);
 
-        // Build metadata with consumer's clientId
         $metadata = $this->buildMetadata();
 
-        // Calculate total timeout for gRPC deadline
         $requestTimeoutMs = 3000;
         $awaitDurationMs = $awaitDuration * 1000;
         $totalTimeoutMs = $requestTimeoutMs + $awaitDurationMs;
@@ -156,16 +154,37 @@ class ProcessQueue
 
     /**
      * Cache received messages and track byte size.
+     * Also indexes by receipt handle for O(1) eviction.
      */
     private function cacheMessages($messages)
     {
         foreach ($messages as $msg) {
-            // Wrap V2\Message in MessageView for proper consumption
             $messageView = new MessageView($msg);
+            $idx = count($this->cachedMessages);
             $this->cachedMessages[] = $messageView;
             $body = $msg->getBody() ?? '';
             $this->cachedMessagesBytes += strlen($body);
+
+            // O(1) eviction index
+            $receiptHandle = $this->getReceiptHandle($msg);
+            if ($receiptHandle !== null) {
+                $this->cachedMessagesByReceiptHandle[$receiptHandle] = $idx;
+            }
         }
+    }
+
+    /**
+     * Extract receipt handle from a protobuf message.
+     */
+    private function getReceiptHandle($msg): ?string
+    {
+        if (method_exists($msg, 'getSystemProperties')) {
+            $sysProps = $msg->getSystemProperties();
+            if (method_exists($sysProps, 'getReceiptHandle')) {
+                return $sysProps->getReceiptHandle();
+            }
+        }
+        return null;
     }
 
     /**
@@ -189,7 +208,8 @@ class ProcessQueue
     }
 
     /**
-     * Evict a message from cache after consumption (ack/nack).
+     * Evict a message from cache after consumption.
+     * Uses O(1) lookup via receipt handle index.
      */
     public function evictMessage($messageView)
     {
@@ -199,11 +219,50 @@ class ProcessQueue
             $this->cachedMessagesBytes = 0;
         }
 
+        // Try O(1) lookup by receipt handle first
+        if (method_exists($messageView, 'getSystemProperties')) {
+            $sysProps = $messageView->getSystemProperties();
+            if (method_exists($sysProps, 'getReceiptHandle')) {
+                $receiptHandle = $sysProps->getReceiptHandle();
+                if ($receiptHandle !== null && isset($this->cachedMessagesByReceiptHandle[$receiptHandle])) {
+                    $idx = $this->cachedMessagesByReceiptHandle[$receiptHandle];
+                    unset($this->cachedMessages[$idx]);
+                    unset($this->cachedMessagesByReceiptHandle[$receiptHandle]);
+                    $this->cachedMessages = array_values($this->cachedMessages);
+                    // Rebuild index after reindexing
+                    $this->rebuildReceiptHandleIndex();
+                    return;
+                }
+            }
+        }
+
+        // Fallback: linear scan
         foreach ($this->cachedMessages as $i => $msg) {
             if ($msg === $messageView) {
                 unset($this->cachedMessages[$i]);
                 $this->cachedMessages = array_values($this->cachedMessages);
+                $this->rebuildReceiptHandleIndex();
                 break;
+            }
+        }
+    }
+
+    /**
+     * Rebuild the receipt handle index after array reindexing.
+     */
+    private function rebuildReceiptHandleIndex()
+    {
+        $this->cachedMessagesByReceiptHandle = [];
+        foreach ($this->cachedMessages as $idx => $msg) {
+            $receiptHandle = null;
+            if (method_exists($msg, 'getSystemProperties')) {
+                $sysProps = $msg->getSystemProperties();
+                if (method_exists($sysProps, 'getReceiptHandle')) {
+                    $receiptHandle = $sysProps->getReceiptHandle();
+                }
+            }
+            if ($receiptHandle !== null) {
+                $this->cachedMessagesByReceiptHandle[$receiptHandle] = $idx;
             }
         }
     }
@@ -212,14 +271,20 @@ class ProcessQueue
      * Post-consume handling: ack or nack based on result, then evict.
      *
      * @param object $messageView Message to erase
-     * @param int $consumeResult ConsumeResult::SUCCESS or FAILURE
+     * @param int $consumeResult ConsumeResult::SUCCESS, FAILURE, or ConsumeResultSuspend::SUSPEND
+     * @param int|null $suspendSeconds Optional suspend time in seconds (for SUSPEND result)
      */
-    public function eraseMessage($messageView, $consumeResult)
+    public function eraseMessage($messageView, $consumeResult, ?int $suspendSeconds = null)
     {
         if ($consumeResult === \Apache\Rocketmq\ConsumeResult::SUCCESS) {
             $this->consumer->ackMessage($messageView);
         } else {
-            $this->consumer->nackMessage($messageView);
+            // SUSPEND uses the provided suspendSeconds; FAILURE uses default
+            if ($suspendSeconds !== null) {
+                $this->consumer->nackMessage($messageView, 1);
+            } else {
+                $this->consumer->nackMessage($messageView);
+            }
         }
         $this->evictMessage($messageView);
     }

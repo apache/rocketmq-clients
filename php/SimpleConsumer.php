@@ -23,6 +23,8 @@ require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/ClientConstants.php';
+require_once __DIR__ . '/SwooleCompat.php';
+require_once __DIR__ . '/ProtobufUtil.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -62,7 +64,8 @@ class SimpleConsumer
     private $logger;
     private $credentials = null;
     private $namespace = '';
-    
+    private $requestTimeout = 3000; // ms
+
     /**
      * Constructor
      *
@@ -75,6 +78,13 @@ class SimpleConsumer
         $this->endpoints = $endpoints;
         $this->consumerGroup = $consumerGroup;
         $this->clientId = $options['clientId'] ?? ('php-consumer-' . getmypid() . '-' . time());
+        $this->namespace = $options['namespace'] ?? '';
+        $this->requestTimeout = $options['requestTimeout'] ?? 3000;
+
+        // Set AK/SK credentials if provided
+        if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
+            $this->credentials = $options['credentials'];
+        }
         
         // Create gRPC client via connection pool
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
@@ -160,6 +170,9 @@ class SimpleConsumer
 
             $topicResource = new Resource();
             $topicResource->setName($topic);
+            if (!empty($this->namespace)) {
+                $topicResource->setResourceNamespace($this->namespace);
+            }
             
             $subscriptionEntry = new SubscriptionEntry();
             $subscriptionEntry->setTopic($topicResource);
@@ -172,6 +185,9 @@ class SimpleConsumer
         $subscription = new Subscription();
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
         $subscription->setGroup($groupResource);
         $subscription->setSubscriptions($subscriptionEntries);
         
@@ -283,7 +299,10 @@ class SimpleConsumer
 
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
+
         $request = new ReceiveMessageRequest();
         $request->setGroup($groupResource);
         $request->setMessageQueue($messageQueue);
@@ -333,6 +352,9 @@ class SimpleConsumer
     {
         $topicResource = new Resource();
         $topicResource->setName($topic);
+        if (!empty($this->namespace)) {
+            $topicResource->setResourceNamespace($this->namespace);
+        }
         
         $request = new QueryRouteRequest();
         $request->setTopic($topicResource);
@@ -351,7 +373,7 @@ class SimpleConsumer
             }
             
             $queues = $response->getMessageQueues();
-            if (empty($queues)) {
+            if (ProtobufUtil::isRepeatedFieldEmpty($queues)) {
                 return null;
             }
             
@@ -424,9 +446,15 @@ class SimpleConsumer
 
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
 
         $topicResource = new Resource();
         $topicResource->setName($topic);
+        if (!empty($this->namespace)) {
+            $topicResource->setResourceNamespace($this->namespace);
+        }
 
         $request = new AckMessageRequest();
         $request->setGroup($groupResource);
@@ -445,7 +473,7 @@ class SimpleConsumer
                     $this->logger->warning("AckMessage attempt {$attempt}: status error: " . $status->details);
                 } else {
                     $responseEntries = $response->getEntries();
-                    if (!empty($responseEntries)) {
+                    if (!ProtobufUtil::isRepeatedFieldEmpty($responseEntries)) {
                         foreach ($responseEntries as $resultEntry) {
                             if ($resultEntry->hasStatus()) {
                                 $entryCode = $resultEntry->getStatus()->getCode();
@@ -481,6 +509,9 @@ class SimpleConsumer
         $request = new NotifyClientTerminationRequest();
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
+        if (!empty($this->namespace)) {
+            $groupResource->setResourceNamespace($this->namespace);
+        }
         $request->setGroup($groupResource);
 
         $metadata = $this->buildMetadata();
@@ -545,11 +576,11 @@ class SimpleConsumer
     private function buildMetadata()
     {
         return Signature::sign(
-            null,
+            $this->credentials,
             $this->clientId,
             ClientConstants::LANGUAGE,
             ClientConstants::CLIENT_VERSION,
-            '',
+            $this->namespace,
             'v2'
         );
     }
@@ -566,6 +597,92 @@ class SimpleConsumer
 
         $this->isStarted = false;
     }
+
+    /**
+     * Asynchronously receive messages via Swoole coroutine.
+     *
+     * @param int $maxMessages Maximum messages
+     * @param int $invisibleDuration Invisible duration in seconds
+     * @return \Generator|array
+     */
+    public function receiveAsync($maxMessages = 10, $invisibleDuration = 30)
+    {
+        if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
+            $self = $this;
+            $channel = new \Swoole\Coroutine\Channel(1);
+            \Swoole\Coroutine::create(function () use ($self, $maxMessages, $invisibleDuration, $channel) {
+                try {
+                    $messages = $self->receive($maxMessages, $invisibleDuration);
+                    $channel->push(['result' => $messages]);
+                } catch (\Throwable $e) {
+                    $channel->push(['exception' => $e]);
+                }
+            });
+            $data = $channel->pop();
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['result'];
+        }
+        yield $this->receive($maxMessages, $invisibleDuration);
+    }
+
+    /**
+     * Asynchronously acknowledge messages via Swoole coroutine.
+     *
+     * @param array $messages Messages to ack
+     * @return \Generator
+     */
+    public function ackAsync($messages)
+    {
+        if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
+            $self = $this;
+            $channel = new \Swoole\Coroutine\Channel(1);
+            \Swoole\Coroutine::create(function () use ($self, $messages, $channel) {
+                try {
+                    $self->ack($messages);
+                    $channel->push(['success' => true]);
+                } catch (\Throwable $e) {
+                    $channel->push(['exception' => $e]);
+                }
+            });
+            $data = $channel->pop();
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['success'];
+        }
+        yield $this->ack($messages);
+    }
+
+    /**
+     * Asynchronously change invisible duration via Swoole coroutine.
+     *
+     * @param object $message Message to modify
+     * @param int $invisibleDurationSeconds New invisible duration
+     * @return \Generator
+     */
+    public function changeInvisibleDurationAsync($message, $invisibleDurationSeconds)
+    {
+        if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
+            $self = $this;
+            $channel = new \Swoole\Coroutine\Channel(1);
+            \Swoole\Coroutine::create(function () use ($self, $message, $invisibleDurationSeconds, $channel) {
+                try {
+                    $self->changeInvisibleDuration($message, $invisibleDurationSeconds);
+                    $channel->push(['success' => true]);
+                } catch (\Throwable $e) {
+                    $channel->push(['exception' => $e]);
+                }
+            });
+            $data = $channel->pop();
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['success'];
+        }
+        yield $this->changeInvisibleDuration($message, $invisibleDurationSeconds);
+    }
     
     /**
      * Get Client ID
@@ -574,7 +691,7 @@ class SimpleConsumer
     {
         return $this->clientId;
     }
-    
+
     /**
      * Get consumer group
      */
@@ -591,6 +708,30 @@ class SimpleConsumer
     public function getNamespace()
     {
         return $this->namespace;
+    }
+
+    /**
+     * Set the namespace.
+     *
+     * @param string $namespace
+     * @return $this
+     */
+    public function setNamespace(string $namespace)
+    {
+        $this->namespace = $namespace;
+        return $this;
+    }
+
+    /**
+     * Set credentials.
+     *
+     * @param SessionCredentials $credentials
+     * @return $this
+     */
+    public function setCredentials(SessionCredentials $credentials)
+    {
+        $this->credentials = $credentials;
+        return $this;
     }
     
     /**

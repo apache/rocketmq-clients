@@ -23,6 +23,8 @@ require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/ClientConstants.php';
+require_once __DIR__ . '/SwooleCompat.php';
+require_once __DIR__ . '/OffsetOption.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
@@ -208,9 +210,10 @@ class LiteSimpleConsumer
      *
      * @param int $maxMessageCount Maximum messages to receive
      * @param int $invisibleDurationSeconds Invisible duration in seconds
+     * @param OffsetOption|null $offsetOption Optional offset policy
      * @return array Array of Message objects
      */
-    public function receive($maxMessageCount = 1, $invisibleDurationSeconds = 30)
+    public function receive($maxMessageCount = 1, $invisibleDurationSeconds = 30, $offsetOption = null)
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("LiteSimpleConsumer is not running");
@@ -223,7 +226,7 @@ class LiteSimpleConsumer
         $allMessages = [];
 
         foreach ($this->liteTopics as $liteTopic => $expression) {
-            $messages = $this->receiveMessagesFromLiteTopic($liteTopic, $expression, $maxMessageCount, $invisibleDurationSeconds);
+            $messages = $this->receiveMessagesFromLiteTopic($liteTopic, $expression, $maxMessageCount, $invisibleDurationSeconds, $offsetOption);
             $allMessages = array_merge($allMessages, $messages);
 
             if (count($allMessages) >= $maxMessageCount) {
@@ -232,6 +235,106 @@ class LiteSimpleConsumer
         }
 
         return $allMessages;
+    }
+
+    /**
+     * Receive messages with an explicit offset option.
+     *
+     * @param OffsetOption $offsetOption Offset policy
+     * @param int $maxMessageCount Maximum messages to receive
+     * @param int $invisibleDurationSeconds Invisible duration in seconds
+     * @return array Array of Message objects
+     */
+    public function receiveWithOffset(OffsetOption $offsetOption, $maxMessageCount = 1, $invisibleDurationSeconds = 30)
+    {
+        return $this->receive($maxMessageCount, $invisibleDurationSeconds, $offsetOption);
+    }
+
+    /**
+     * Asynchronously receive messages via Swoole coroutine.
+     *
+     * @param int $maxMessageCount Maximum messages to receive
+     * @param int $invisibleDurationSeconds Invisible duration in seconds
+     * @param OffsetOption|null $offsetOption Optional offset policy
+     * @return \Generator|array
+     */
+    public function receiveAsync($maxMessageCount = 1, $invisibleDurationSeconds = 30, $offsetOption = null)
+    {
+        if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
+            $self = $this;
+            $channel = new \Swoole\Coroutine\Channel(1);
+            \Swoole\Coroutine::create(function () use ($self, $maxMessageCount, $invisibleDurationSeconds, $offsetOption, $channel) {
+                try {
+                    $messages = $self->receive($maxMessageCount, $invisibleDurationSeconds, $offsetOption);
+                    $channel->push(['result' => $messages]);
+                } catch (\Throwable $e) {
+                    $channel->push(['exception' => $e]);
+                }
+            });
+            $data = $channel->pop();
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['result'];
+        }
+        yield $this->receive($maxMessageCount, $invisibleDurationSeconds, $offsetOption);
+    }
+
+    /**
+     * Asynchronously acknowledge a message via Swoole coroutine.
+     *
+     * @param object $message Message object
+     * @return \Generator
+     */
+    public function ackAsync($message)
+    {
+        if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
+            $self = $this;
+            $channel = new \Swoole\Coroutine\Channel(1);
+            \Swoole\Coroutine::create(function () use ($self, $message, $channel) {
+                try {
+                    $success = $self->ack($message);
+                    $channel->push(['success' => $success]);
+                } catch (\Throwable $e) {
+                    $channel->push(['exception' => $e]);
+                }
+            });
+            $data = $channel->pop();
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['success'];
+        }
+        yield $this->ack($message);
+    }
+
+    /**
+     * Asynchronously change invisible duration via Swoole coroutine.
+     *
+     * @param object $message Message object
+     * @param int $invisibleDurationSeconds New invisible duration
+     * @return \Generator
+     */
+    public function changeInvisibleDurationAsync($message, $invisibleDurationSeconds)
+    {
+        if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
+            $self = $this;
+            $channel = new \Swoole\Coroutine\Channel(1);
+            \Swoole\Coroutine::create(function () use ($self, $message, $invisibleDurationSeconds, $channel) {
+                try {
+                    $success = $self->changeInvisibleDuration($message, $invisibleDurationSeconds);
+                    $channel->push(['success' => $success]);
+                } catch (\Throwable $e) {
+                    $channel->push(['exception' => $e]);
+                }
+            });
+            $data = $channel->pop();
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['success'];
+        }
+        yield $this->changeInvisibleDuration($message, $invisibleDurationSeconds);
     }
 
     /**
@@ -394,7 +497,7 @@ class LiteSimpleConsumer
     /**
      * Receive messages from a specific lite topic.
      */
-    private function receiveMessagesFromLiteTopic($liteTopic, $expression, $maxCount, $invisibleDuration)
+    private function receiveMessagesFromLiteTopic($liteTopic, $expression, $maxCount, $invisibleDuration, $offsetOption = null)
     {
         $topicResource = new Resource();
         $topicResource->setName($this->parentTopic);
@@ -416,6 +519,25 @@ class LiteSimpleConsumer
         $request->setAutoRenew(false);
         $request->setBatchSize($this->receiveBatchSize);
         $request->setInvisibleDuration($invisibleDuration * 1000);
+
+        // Wire OffsetOption into the request
+        if ($offsetOption instanceof OffsetOption) {
+            if ($offsetOption->isPolicy()) {
+                $policy = $offsetOption->getValue();
+                if ($policy === OffsetOption::POLICY_MIN_VALUE) {
+                    $request->setReceiveSystemProperties(\Apache\Rocketmq\V2\ReceiveSystemProperties::MIN_OFFSET);
+                } elseif ($policy === OffsetOption::POLICY_MAX_VALUE) {
+                    $request->setReceiveSystemProperties(\Apache\Rocketmq\V2\ReceiveSystemProperties::MAX_OFFSET);
+                } elseif ($policy === OffsetOption::POLICY_LAST_VALUE) {
+                    $request->setReceiveSystemProperties(\Apache\Rocketmq\V2\ReceiveSystemProperties::LAST_OFFSET);
+                }
+            } elseif ($offsetOption->isTimestamp()) {
+                $timestamp = new \Google\Protobuf\Timestamp();
+                $timestamp->setSeconds($offsetOption->getValue());
+                $request->setReceiveTimestamp($timestamp);
+            }
+            // TYPE_OFFSET and TYPE_TAIL_N are handled server-side via system properties
+        }
 
         $metadata = $this->buildMetadata();
 

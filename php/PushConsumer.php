@@ -22,11 +22,13 @@ require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/ConsumeResult.php';
+require_once __DIR__ . '/ConsumeResultSuspend.php';
 require_once __DIR__ . '/ProcessQueue.php';
 require_once __DIR__ . '/ConsumeService.php';
 require_once __DIR__ . '/LiteFifoConsumeService.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/ClientConstants.php';
+require_once __DIR__ . '/SwooleCompat.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryAssignmentRequest;
@@ -89,6 +91,7 @@ class PushConsumer
     private $credentials = null; // SessionCredentials for AK/SK auth
     private $namespace = '';
     private $lastHeartbeatTime = 0;
+    private $shutdownDrainDeadline = null;
 
     /**
      * Constructor with builder-style options.
@@ -247,6 +250,7 @@ class PushConsumer
                 $now = time();
                 if ($now - $lastScanTime >= $this->scanIntervalSeconds) {
                     $this->scanAssignments();
+                    $this->onScanCycleComplete();
                     $lastScanTime = $now;
                 }
 
@@ -284,12 +288,57 @@ class PushConsumer
                 gc_collect_cycles();
             }
 
+            // Graceful shutdown drain phase
+            $this->drainInFlightMessages();
+
             $this->shutdown();
 
         } catch (\Exception $e) {
             $this->logger->error("PushConsumer start failed: " . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Drain in-flight messages before shutdown. Waits up to 30s for cached messages
+     * to be consumed, preventing message loss on abrupt termination.
+     */
+    private function drainInFlightMessages()
+    {
+        $drainStart = microtime(true);
+        $drainTimeout = 30; // seconds
+        $drainIterations = 0;
+
+        $this->logger->info("PushConsumer drain phase: waiting for in-flight messages to be consumed");
+
+        // Stop fetching new messages
+        foreach ($this->processQueueTable as $pq) {
+            $pq->drop();
+        }
+
+        // Drain cached messages
+        while (microtime(true) - $drainStart < $drainTimeout) {
+            $remainingCount = 0;
+
+            foreach ($this->processQueueTable as $pq) {
+                $messages = $pq->getCachedMessages();
+                $remainingCount += count($messages);
+
+                if (!empty($messages) && $this->consumeService !== null) {
+                    $this->consumeService->consume($pq);
+                }
+            }
+
+            if ($remainingCount === 0) {
+                $this->logger->info("PushConsumer drain phase completed after {$drainIterations} iterations");
+                return;
+            }
+
+            usleep(100000);
+            $drainIterations++;
+        }
+
+        $this->logger->warning("PushConsumer drain phase timed out after {$drainTimeout}s, {$remainingCount} messages remaining");
     }
 
     /**
@@ -598,6 +647,14 @@ class PushConsumer
             $resource->setResourceNamespace($this->namespace);
         }
         return $resource;
+    }
+
+    /**
+     * Hook called after each scan cycle. Override in subclasses for periodic tasks.
+     */
+    protected function onScanCycleComplete()
+    {
+        // No-op in base class
     }
 
     /**

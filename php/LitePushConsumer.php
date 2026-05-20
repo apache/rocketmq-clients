@@ -20,6 +20,7 @@ namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/PushConsumer.php';
+require_once __DIR__ . '/ConsumeResultSuspend.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\SyncLiteSubscriptionRequest;
@@ -49,6 +50,7 @@ class LitePushConsumer extends PushConsumer
     private $maxLiteTopicSize = 64;
     private $syncLiteSubscriptionInterval = 30;
     private $liteMessageListener = null;
+    private $lastSyncTime = 0;
 
     /**
      * Constructor.
@@ -141,7 +143,7 @@ class LitePushConsumer extends PushConsumer
     /**
      * Start the LitePushConsumer.
      *
-     * Overrides parent start() to sync lite subscriptions and use lite-aware consume service.
+     * Overrides parent start() to sync lite subscriptions, register handlers, and use lite-aware consume service.
      */
     public function start()
     {
@@ -159,11 +161,54 @@ class LitePushConsumer extends PushConsumer
 
         $this->logger->info("LitePushConsumer starting, clientId={$this->getClientId()}, parentTopic={$this->parentTopic}");
 
+        // Register onNotifyUnsubscribeLite handler for server-initiated unsubscribe commands
+        $this->registerUnsubscribeLiteHandler();
+
         // Sync lite subscriptions to server
         $this->syncLiteSubscriptions();
 
+        $this->lastSyncTime = time();
+
         // Start the parent push consumer loop
         parent::start();
+    }
+
+    /**
+     * Register the onNotifyUnsubscribeLite handler.
+     */
+    private function registerUnsubscribeLiteHandler()
+    {
+        $self = $this;
+        $this->telemetrySession->setOnNotifyUnsubscribeLite(function ($notifyCmd) use ($self) {
+            $liteTopic = $notifyCmd->getLiteTopic();
+            $self->logger->info("Received NotifyUnsubscribeLite for liteTopic={$liteTopic}");
+            $self->handleUnsubscribeLite($liteTopic);
+        });
+    }
+
+    /**
+     * Handle server-initiated lite topic unsubscription.
+     *
+     * @param string $liteTopic
+     */
+    public function handleUnsubscribeLite($liteTopic)
+    {
+        if (isset($this->liteTopics[$liteTopic])) {
+            unset($this->liteTopics[$liteTopic]);
+            $this->logger->info("Unsubscribed from lite topic: {$liteTopic}");
+        }
+    }
+
+    /**
+     * Hook called after each scan cycle to perform periodic lite sync.
+     */
+    protected function onScanCycleComplete()
+    {
+        $now = time();
+        if (!empty($this->liteTopics) && ($now - $this->lastSyncTime) >= $this->syncLiteSubscriptionInterval) {
+            $this->syncLiteSubscriptions();
+            $this->lastSyncTime = $now;
+        }
     }
 
     /**

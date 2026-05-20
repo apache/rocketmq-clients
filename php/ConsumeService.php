@@ -19,8 +19,11 @@
 namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/ConsumeResult.php';
+require_once __DIR__ . '/ConsumeResultSuspend.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/ClientConstants.php';
+require_once __DIR__ . '/ClientTrait.php';
+require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
 
 use Apache\Rocketmq\V2\AckMessageRequest;
 use Apache\Rocketmq\V2\AckMessageEntry;
@@ -38,6 +41,8 @@ use Google\Protobuf\Duration;
  */
 abstract class ConsumeService
 {
+    use ClientTrait;
+
     protected $logger;
     protected $messageListener;
     protected $consumer;
@@ -67,12 +72,26 @@ abstract class ConsumeService
      * Dispatch a single message to the user listener.
      *
      * @param object $messageView
-     * @return int ConsumeResult::SUCCESS or ConsumeResult::FAILURE
+     * @return mixed ConsumeResult::SUCCESS, ConsumeResult::FAILURE, ConsumeResultSuspend::SUSPEND, or the ConsumeResultSuspend instance
      */
     protected function consumeMessage($messageView)
     {
         try {
             $result = call_user_func($this->messageListener, $messageView);
+
+            // Handle ConsumeResultSuspend
+            if ($result instanceof ConsumeResultSuspend) {
+                if (method_exists($this->consumer, 'executeInterceptors')) {
+                    $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
+                        'success' => false,
+                        'messageId' => $this->extractMessageId($messageView),
+                        'topic' => $this->extractTopic($messageView),
+                    ]);
+                }
+                // Return the ConsumeResultSuspend instance with suspend time info
+                return $result;
+            }
+
             $success = $result === ConsumeResult::FAILURE ? false : true;
 
             if (method_exists($this->consumer, 'executeInterceptors')) {
@@ -134,6 +153,7 @@ abstract class ConsumeService
         $metadata = $this->buildMetadata();
         $maxRetries = 3;
         $attempt = 0;
+        $retryPolicy = new ExponentialBackoffRetryPolicy($maxRetries, 1000, 30000, 2.0);
 
         while ($attempt < $maxRetries) {
             try {
@@ -141,14 +161,12 @@ abstract class ConsumeService
                 if ($status->code !== 0) {
                     $this->logger->warning("ConsumeService ackMessage attempt {$attempt}: status error: " . $status->details);
                 } else {
-                    // Check individual entry status
                     $entries = $response->getEntries();
                     if (!empty($entries)) {
-                        // Convert RepeatedField to array for safe access
-                        $entriesArray = is_object($entries) && method_exists($entries, 'getIterator') 
-                            ? iterator_to_array($entries) 
+                        $entriesArray = is_object($entries) && method_exists($entries, 'getIterator')
+                            ? iterator_to_array($entries)
                             : (array)$entries;
-                        
+
                         if (!empty($entriesArray) && isset($entriesArray[0]) && $entriesArray[0]->hasStatus()) {
                             $entryCode = $entriesArray[0]->getStatus()->getCode();
                             if ($entryCode === 20000) {
@@ -156,7 +174,6 @@ abstract class ConsumeService
                                 $this->executeAckInterceptor(true, $messageId, $topic);
                                 return true;
                             }
-                            // INVALID_RECEIPT_HANDLE -> don't retry
                             if ($entryCode == 40003) {
                                 $this->logger->warning("ConsumeService ackMessage invalid receipt handle, giving up");
                                 $this->executeAckInterceptor(false, $messageId, $topic);
@@ -178,7 +195,10 @@ abstract class ConsumeService
             }
 
             $attempt++;
-            usleep(pow(2, $attempt) * 100000);
+            $delayMs = $retryPolicy->getNextDelayWithJitterMs($attempt);
+            if ($delayMs > 0) {
+                usleep($delayMs * 1000);
+            }
         }
 
         $this->logger->error("ConsumeService ackMessage failed after {$maxRetries} retries for messageId={$messageId}");
@@ -190,9 +210,10 @@ abstract class ConsumeService
      *
      * @param object $messageView
      * @param int $deliveryAttempt Current delivery attempt number
+     * @param int|null $invisibleDuration Override invisible duration in seconds (for ConsumeResultSuspend)
      * @return bool
      */
-    public function nackMessage($messageView, $deliveryAttempt = 1)
+    public function nackMessage($messageView, $deliveryAttempt = 1, ?int $invisibleDuration = null)
     {
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
@@ -203,8 +224,12 @@ abstract class ConsumeService
             return false;
         }
 
-        // Calculate retry delay: exponential backoff with cap at 30s
-        $delaySeconds = min(pow(2, $deliveryAttempt - 1) * 10, 30);
+        // Calculate retry delay: exponential backoff with cap at 30s, or use provided suspend time
+        if ($invisibleDuration !== null) {
+            $delaySeconds = $invisibleDuration;
+        } else {
+            $delaySeconds = min(pow(2, $deliveryAttempt - 1) * 10, 30);
+        }
         if ($delaySeconds < 1) {
             $delaySeconds = 1;
         }
@@ -253,6 +278,7 @@ abstract class ConsumeService
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
         $topic = $this->extractTopic($messageView);
+        $liteTopic = $this->extractLiteTopic($messageView);
 
         if (!$receiptHandle) {
             $this->logger->warning("ConsumeService forwardToDeadLetterQueue: no receipt handle, skipping");
@@ -269,6 +295,9 @@ abstract class ConsumeService
         $request->setReceiptHandle($receiptHandle);
         if ($messageId) {
             $request->setMessageId($messageId);
+        }
+        if ($liteTopic !== null) {
+            $request->setLiteTopic($liteTopic);
         }
         $request->setDeliveryAttempt($this->maxAttempts);
         $request->setMaxDeliveryAttempts($this->maxAttempts);
@@ -290,71 +319,6 @@ abstract class ConsumeService
     }
 
     /**
-     * Extract receipt handle from a message view.
-     */
-    protected function extractReceiptHandle($messageView)
-    {
-        if (method_exists($messageView, 'getSystemProperties')) {
-            $sysProps = $messageView->getSystemProperties();
-            if (method_exists($sysProps, 'getReceiptHandle')) {
-                return $sysProps->getReceiptHandle();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Extract message ID from a message view.
-     */
-    protected function extractMessageId($messageView)
-    {
-        if (method_exists($messageView, 'getSystemProperties')) {
-            $sysProps = $messageView->getSystemProperties();
-            if (method_exists($sysProps, 'getMessageId')) {
-                return $sysProps->getMessageId();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Extract topic from a message view.
-     */
-    protected function extractTopic($messageView)
-    {
-        if (method_exists($messageView, 'getTopic')) {
-            $topic = $messageView->getTopic();
-            if (method_exists($topic, 'getName')) {
-                return $topic->getName();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Build metadata for gRPC calls using Signature class.
-     */
-    protected function buildMetadata()
-    {
-        $namespace = '';
-        if (method_exists($this->consumer, 'getNamespace')) {
-            $namespace = $this->consumer->getNamespace();
-        }
-        $clientId = '';
-        if (method_exists($this->consumer, 'getClientId')) {
-            $clientId = $this->consumer->getClientId();
-        }
-        return Signature::sign(
-            null,
-            $clientId,
-            ClientConstants::LANGUAGE,
-            ClientConstants::CLIENT_VERSION,
-            $namespace,
-            'v2'
-        );
-    }
-
-    /**
      * Execute ACK interceptor on consumer.
      */
     private function executeAckInterceptor($success, $messageId, $topic)
@@ -367,6 +331,11 @@ abstract class ConsumeService
             ]);
         }
     }
+
+    // ClientTrait required methods
+    protected function getCredentials(): ?SessionCredentials { return null; }
+    protected function getClientIdValue(): string { return method_exists($this->consumer, 'getClientId') ? $this->consumer->getClientId() : ''; }
+    protected function getNamespaceValue(): string { return method_exists($this->consumer, 'getNamespace') ? $this->consumer->getNamespace() : ''; }
 }
 
 /**
@@ -395,7 +364,13 @@ class StandardConsumeService extends ConsumeService
             }
 
             $result = $this->consumeMessage($messageView);
-            $pq->eraseMessage($messageView, $result);
+
+            if ($result instanceof ConsumeResultSuspend) {
+                $suspendSec = (int)ceil($result->getSuspendTimeMs() / 1000);
+                $pq->eraseMessage($messageView, $result, $suspendSec);
+            } else {
+                $pq->eraseMessage($messageView, $result);
+            }
         }
     }
 }
@@ -506,6 +481,8 @@ class FifoConsumeService extends ConsumeService
                 if ($result === ConsumeResult::SUCCESS) {
                     $this->ackMessage($messageView);
                     $pq->evictMessage($messageView);
+                } elseif ($result instanceof ConsumeResultSuspend) {
+                    $this->handleSuspend($pq, $messageView, $result);
                 } else {
                     // On failure, retry with delay, then continue with other groups
                     $this->handleFailure($pq, $messageView, 1);
@@ -538,7 +515,21 @@ class FifoConsumeService extends ConsumeService
     }
 
     /**
-     * Consume a message and handle retry/DLQ logic recursively.
+     * Handle suspension result in FIFO consumption.
+     */
+    private function handleSuspend(ProcessQueue $pq, $messageView, ConsumeResultSuspend $suspendResult)
+    {
+        if ($pq->isDropped()) {
+            return;
+        }
+        $suspendSec = (int)ceil($suspendResult->getSuspendTimeMs() / 1000);
+        $this->nackMessage($messageView, 1, $suspendSec);
+        $pq->evictMessage($messageView);
+        usleep($suspendResult->getSuspendTimeMs() * 1000);
+    }
+
+    /**
+     * Consume a message and handle retry/DLQ/SUSPEND logic recursively.
      */
     private function consumeFifoIteratively(ProcessQueue $pq, $messageView, $deliveryAttempt)
     {
@@ -551,6 +542,8 @@ class FifoConsumeService extends ConsumeService
         if ($result === ConsumeResult::SUCCESS) {
             $this->ackMessage($messageView);
             $pq->evictMessage($messageView);
+        } elseif ($result instanceof ConsumeResultSuspend) {
+            $this->handleSuspend($pq, $messageView, $result);
         } else {
             $this->handleFailure($pq, $messageView, $deliveryAttempt);
         }
