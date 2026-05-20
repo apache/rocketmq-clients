@@ -24,6 +24,7 @@ require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/ClientConstants.php';
 require_once __DIR__ . '/ClientTrait.php';
 require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
+require_once __DIR__ . '/ProtobufUtil.php';
 
 use Apache\Rocketmq\V2\AckMessageRequest;
 use Apache\Rocketmq\V2\AckMessageEntry;
@@ -162,7 +163,7 @@ abstract class ConsumeService
                     $this->logger->warning("ConsumeService ackMessage attempt {$attempt}: status error: " . $status->details);
                 } else {
                     $entries = $response->getEntries();
-                    if (!empty($entries)) {
+                    if (!ProtobufUtil::isRepeatedFieldEmpty($entries)) {
                         $entriesArray = is_object($entries) && method_exists($entries, 'getIterator')
                             ? iterator_to_array($entries)
                             : (array)$entries;

@@ -29,6 +29,8 @@ require_once __DIR__ . '/LiteFifoConsumeService.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/ClientConstants.php';
 require_once __DIR__ . '/SwooleCompat.php';
+require_once __DIR__ . '/ClientTrait.php';
+require_once __DIR__ . '/ProtobufUtil.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryAssignmentRequest;
@@ -65,6 +67,8 @@ use Grpc\ChannelCredentials;
  */
 class PushConsumer
 {
+    use ClientTrait;
+
     private $client;
     private $endpoints;
     private $clientId;
@@ -132,7 +136,7 @@ class PushConsumer
             'credentials' => ChannelCredentials::createInsecure(),
         ]);
 
-        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials);
+        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
     }
 
     /**
@@ -757,44 +761,21 @@ class PushConsumer
     }
 
     /**
-     * Parse endpoints string into protobuf Endpoints object.
-     *
-     * @param string $endpoints e.g. "127.0.0.1:8080" or "example.com:8080"
-     * @return Endpoints
+     * ClientTrait required methods
      */
-    private function parseEndpoints($endpoints)
+    protected function getCredentials(): ?SessionCredentials
     {
-        $cleaned = $endpoints;
-        // Strip http/https prefix if present
-        if (strpos($cleaned, 'http://') === 0) {
-            $cleaned = substr($cleaned, 7);
-        } elseif (strpos($cleaned, 'https://') === 0) {
-            $cleaned = substr($cleaned, 8);
-        }
+        return $this->credentials;
+    }
 
-        $lastColon = strrpos($cleaned, ':');
-        if ($lastColon !== false) {
-            $host = substr($cleaned, 0, $lastColon);
-            $port = (int)substr($cleaned, $lastColon + 1);
-        } else {
-            $host = $cleaned;
-            $port = 80;
-        }
+    protected function getClientIdValue(): string
+    {
+        return $this->clientId;
+    }
 
-        // Determine address scheme
-        $scheme = filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false
-            ? AddressScheme::IPv4
-            : AddressScheme::DOMAIN_NAME;
-
-        $address = new Address();
-        $address->setHost($host);
-        $address->setPort($port);
-
-        $endpointsObj = new Endpoints();
-        $endpointsObj->setScheme($scheme);
-        $endpointsObj->setAddresses([$address]);
-
-        return $endpointsObj;
+    protected function getNamespaceValue(): string
+    {
+        return $this->namespace;
     }
 
     /**
@@ -891,22 +872,5 @@ class PushConsumer
             $this->doHeartbeat();
             $this->lastHeartbeatTime = $now;
         }
-    }
-
-    /**
-     * Build metadata for gRPC calls using Signature class.
-     *
-     * @return array
-     */
-    protected function buildMetadata()
-    {
-        return Signature::sign(
-            $this->credentials,
-            $this->clientId,
-            ClientConstants::LANGUAGE,
-            ClientConstants::CLIENT_VERSION,
-            $this->namespace,
-            'v2'
-        );
     }
 }

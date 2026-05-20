@@ -136,7 +136,7 @@ class Producer
         ]);
 
         // Initialize Telemetry Session (singleton)
-        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials);
+        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
     }
 
     /**

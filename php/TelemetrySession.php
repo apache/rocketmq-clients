@@ -63,6 +63,9 @@ class TelemetrySession
     // Credentials for AK/SK signing
     private $credentials = null;
 
+    // Namespace for resource scoping
+    private $namespace = '';
+
     // Settings received from server
     private $serverSettings = null;
 
@@ -82,11 +85,12 @@ class TelemetrySession
     /**
      * Private constructor
      */
-    private function __construct($client, $endpoints, $clientId = null, $credentials = null)
+    private function __construct($client, $endpoints, $clientId = null, $credentials = null, $namespace = '')
     {
         $this->client = $client;
         $this->endpoints = $endpoints;
         $this->credentials = $credentials;
+        $this->namespace = $namespace;
         $this->logger = Logger::getInstance('TelemetrySession');
         if ($clientId) {
             $this->clientId = $clientId;
@@ -133,16 +137,24 @@ class TelemetrySession
         self::$instances = [];
     }
 
-    public static function getInstance($client, $endpoints, $clientId = null, $credentials = null)
+    public static function getInstance($client, $endpoints, $clientId = null, $credentials = null, $namespace = '')
     {
         $key = $endpoints;
 
         if (!isset(self::$instances[$key])) {
             Logger::getInstance('TelemetrySession')->info("Creating new session for endpoints: {$endpoints}");
-            $instance = new self($client, $endpoints, $clientId, $credentials);
+            $instance = new self($client, $endpoints, $clientId, $credentials, $namespace);
             self::$instances[$key] = $instance;
-        } elseif ($clientId && !self::$instances[$key]->clientId) {
-            self::$instances[$key]->clientId = $clientId;
+        } else {
+            if ($clientId && !self::$instances[$key]->clientId) {
+                self::$instances[$key]->clientId = $clientId;
+            }
+            if ($credentials && !self::$instances[$key]->credentials) {
+                self::$instances[$key]->credentials = $credentials;
+            }
+            if ($namespace && empty(self::$instances[$key]->namespace)) {
+                self::$instances[$key]->namespace = $namespace;
+            }
         }
 
         return self::$instances[$key];
@@ -158,13 +170,28 @@ class TelemetrySession
         try {
             $this->logger->info("Creating telemetry stream...");
 
+            // Extract namespace from settings command subscription group if not already set
+            if (empty($this->namespace) && $settingsCommand->hasSubscription()) {
+                $subscription = $settingsCommand->getSubscription();
+                if ($subscription->hasGroup()) {
+                    $group = $subscription->getGroup();
+                    if (method_exists($group, 'getResourceNamespace')) {
+                        $ns = $group->getResourceNamespace();
+                        if (!empty($ns)) {
+                            $this->namespace = $ns;
+                            $this->logger->info("Extracted namespace from settings command: {$ns}");
+                        }
+                    }
+                }
+            }
+
             $clientId = $this->clientId ?: $this->getClientIdFromCommand($settingsCommand);
             $metadata = Signature::sign(
                 $this->credentials,
                 $clientId,
                 ClientConstants::LANGUAGE,
                 ClientConstants::CLIENT_VERSION,
-                '',
+                $this->namespace,
                 'v2'
             );
 
@@ -242,7 +269,18 @@ class TelemetrySession
         try {
             $this->logger->debug("Background reader started, listening for responses...");
 
-            foreach ($this->stream->responses() as $response) {
+            while (true) {
+                if (!$this->stream) {
+                    $this->logger->warning("Stream closed during background reading");
+                    break;
+                }
+
+                $response = $this->stream->read();
+                if ($response === null) {
+                    $this->logger->debug("Background reader received null response");
+                    break;
+                }
+
                 $this->handleResponse($response);
             }
 

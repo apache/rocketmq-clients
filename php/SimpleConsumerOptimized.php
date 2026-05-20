@@ -24,6 +24,8 @@ require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/ClientConstants.php';
 require_once __DIR__ . '/SwooleCompat.php';
+require_once __DIR__ . '/ClientTrait.php';
+require_once __DIR__ . '/ProtobufUtil.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\Permission;
@@ -63,6 +65,8 @@ use Google\Protobuf\Duration;
  */
 class SimpleConsumerOptimized
 {
+    use ClientTrait;
+
     private $client;
     private $endpoints;
     private $clientId;
@@ -78,6 +82,7 @@ class SimpleConsumerOptimized
     private $credentials = null; // SessionCredentials for AK/SK auth
     private $lastHeartbeatTime = 0;
     private $retryPolicy = null;
+    private $interceptors = [];
 
     /**
      * Constructor
@@ -106,7 +111,7 @@ class SimpleConsumerOptimized
         ]);
         
         // Initialize Telemetry Session (singleton, with Settings sync confirmation)
-        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials);
+        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
         $this->logger = Logger::getInstance('SimpleConsumer');
         $this->interceptors = [];
     }
@@ -418,7 +423,34 @@ class SimpleConsumerOptimized
      *
      * @return string
      */
-    public function getNamespace()
+    public function getNamespace(): string
+    {
+        return $this->namespace;
+    }
+
+    /**
+     * ClientTrait required method.
+     * @return SessionCredentials|null
+     */
+    protected function getCredentials(): ?SessionCredentials
+    {
+        return $this->credentials;
+    }
+
+    /**
+     * ClientTrait required method.
+     * @return string
+     */
+    protected function getClientIdValue(): string
+    {
+        return $this->clientId;
+    }
+
+    /**
+     * ClientTrait required method.
+     * @return string
+     */
+    protected function getNamespaceValue(): string
     {
         return $this->namespace;
     }
@@ -830,7 +862,7 @@ class SimpleConsumerOptimized
         }
         // Also check individual entry results
         $entries = $response->getEntries();
-        if (!empty($entries)) {
+        if (!ProtobufUtil::isRepeatedFieldEmpty($entries)) {
             $resultEntry = $entries[0];
             if ($resultEntry->hasStatus()) {
                 $entryCode = $resultEntry->getStatus()->getCode();
@@ -882,105 +914,6 @@ class SimpleConsumerOptimized
         }
     }
     
-    /**
-     * Extract Receipt Handle
-     */
-    private function extractReceiptHandle($messageView)
-    {
-        // Extract receipt_handle from message system properties
-        if (method_exists($messageView, 'getSystemProperties')) {
-            $sysProps = $messageView->getSystemProperties();
-            if (method_exists($sysProps, 'getReceiptHandle')) {
-                return $sysProps->getReceiptHandle();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Extract Message ID
-     */
-    private function extractMessageId($messageView)
-    {
-        if (method_exists($messageView, 'getSystemProperties')) {
-            $sysProps = $messageView->getSystemProperties();
-            if (method_exists($sysProps, 'getMessageId')) {
-                return $sysProps->getMessageId();
-            }
-        }
-        return null;
-    }
-    
-    /**
-     * Extract Topic
-     */
-    private function extractTopic($messageView)
-    {
-        if (method_exists($messageView, 'getTopic')) {
-            $topic = $messageView->getTopic();
-            if (method_exists($topic, 'getName')) {
-                return $topic->getName();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Parse endpoints string into protobuf Endpoints object.
-     *
-     * @param string $endpoints e.g. "127.0.0.1:8080" or "example.com:8080"
-     * @return Endpoints
-     */
-    private function parseEndpoints($endpoints)
-    {
-        $cleaned = $endpoints;
-        // Strip http/https prefix if present
-        if (strpos($cleaned, 'http://') === 0) {
-            $cleaned = substr($cleaned, 7);
-        } elseif (strpos($cleaned, 'https://') === 0) {
-            $cleaned = substr($cleaned, 8);
-        }
-
-        $lastColon = strrpos($cleaned, ':');
-        if ($lastColon !== false) {
-            $host = substr($cleaned, 0, $lastColon);
-            $port = (int)substr($cleaned, $lastColon + 1);
-        } else {
-            $host = $cleaned;
-            $port = 80;
-        }
-
-        // Determine address scheme
-        $scheme = filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false
-            ? AddressScheme::IPv4
-            : AddressScheme::DOMAIN_NAME;
-
-        $address = new Address();
-        $address->setHost($host);
-        $address->setPort($port);
-
-        $endpointsObj = new Endpoints();
-        $endpointsObj->setScheme($scheme);
-        $endpointsObj->setAddresses([$address]);
-
-        return $endpointsObj;
-    }
-
-    /**
-     * Build metadata using Signature class for gRPC calls.
-     */
-    private function buildMetadata()
-    {
-        return Signature::sign(
-            $this->credentials,
-            $this->clientId,
-            ClientConstants::LANGUAGE,
-            ClientConstants::CLIENT_VERSION,
-            $this->namespace,
-            'v2'
-        );
-    }
-
     /**
      * Register settings change callback on the Telemetry session.
      */
