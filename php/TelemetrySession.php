@@ -170,16 +170,19 @@ class TelemetrySession
         try {
             $this->logger->info("Creating telemetry stream...");
 
-            // Extract namespace from settings command subscription group if not already set
-            if (empty($this->namespace) && $settingsCommand->hasSubscription()) {
-                $subscription = $settingsCommand->getSubscription();
-                if ($subscription->hasGroup()) {
-                    $group = $subscription->getGroup();
-                    if (method_exists($group, 'getResourceNamespace')) {
-                        $ns = $group->getResourceNamespace();
-                        if (!empty($ns)) {
-                            $this->namespace = $ns;
-                            $this->logger->info("Extracted namespace from settings command: {$ns}");
+            if (empty($this->namespace) && $settingsCommand->hasSettings()) {
+                // Extract namespace from settings subscription group if not already set
+                $settings = $settingsCommand->getSettings();
+                if ($settings->hasSubscription()) {
+                    $subscription = $settings->getSubscription();
+                    if ($subscription->hasGroup()) {
+                        $group = $subscription->getGroup();
+                        if (method_exists($group, 'getResourceNamespace')) {
+                            $ns = $group->getResourceNamespace();
+                            if (!empty($ns)) {
+                                $this->namespace = $ns;
+                                $this->logger->info("Extracted namespace from settings command: {$ns}");
+                            }
                         }
                     }
                 }
