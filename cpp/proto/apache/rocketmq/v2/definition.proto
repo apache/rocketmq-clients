@@ -146,6 +146,12 @@ enum MessageType {
   // Messages that are transactional. Only committed messages are delivered to
   // subscribers.
   TRANSACTION = 4;
+
+  // lite topic
+  LITE = 5;
+
+  // Messages that lower prioritised ones may need to wait for higher priority messages to be processed first
+  PRIORITY = 6;
 }
 
 enum DigestType {
@@ -270,6 +276,12 @@ message SystemProperties {
 
   // Information to identify whether this message is from dead letter queue.
   optional DeadLetterQueue dead_letter_queue = 20;
+
+  // lite topic
+  optional string lite_topic = 21;
+
+  // Priority of message, which is optional
+  optional int32 priority = 22;
 }
 
 message DeadLetterQueue {

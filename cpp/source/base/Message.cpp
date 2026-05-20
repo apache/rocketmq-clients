@@ -64,6 +64,11 @@ MessageBuilder& MessageBuilder::withGroup(std::string group) {
   return *this;
 }
 
+MessageBuilder& MessageBuilder::withPriority(std::int32_t priority) {
+  message_->priority_ = priority;
+  return *this;
+}
+
 MessageBuilder& MessageBuilder::withProperties(std::unordered_map<std::string, std::string> properties) {
   message_->properties_ = std::move(properties);
   return *this;

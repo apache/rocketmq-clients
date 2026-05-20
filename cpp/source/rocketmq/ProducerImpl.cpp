@@ -155,10 +155,14 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
 
   system_properties->set_born_host(UtilAll::hostname());
 
+  // Determine message type based on properties
   if (message.deliveryTimestamp().time_since_epoch().count()) {
     system_properties->set_message_type(rmq::MessageType::DELAY);
   } else if (!message.group().empty()) {
     system_properties->set_message_type(rmq::MessageType::FIFO);
+  } else if (message.priority() >= 0) {
+    system_properties->set_message_type(rmq::MessageType::PRIORITY);
+    system_properties->set_priority(message.priority());
   } else if (message.extension().transactional) {
     system_properties->set_message_type(rmq::MessageType::TRANSACTION);
   } else {
