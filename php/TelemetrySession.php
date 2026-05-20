@@ -230,7 +230,7 @@ class TelemetrySession
      */
     private function startBackgroundReader()
     {
-        if (SwooleCompat::isAvailable()) {
+        if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
             $self = $this;
             \Swoole\Coroutine::create(function () use ($self) {
                 $self->swooleCoroutineId = \Swoole\Coroutine::getCid();
