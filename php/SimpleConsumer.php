@@ -186,6 +186,9 @@ class SimpleConsumer
     {
         $request = new HeartbeatRequest();
         $request->setClientType(ClientType::SIMPLE_CONSUMER);
+        $groupResource = new Resource();
+        $groupResource->setName($this->consumerGroup);
+        $request->setGroup($groupResource);
 
         $metadata = $this->buildMetadata();
 
