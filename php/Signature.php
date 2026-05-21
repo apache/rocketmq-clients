@@ -98,7 +98,7 @@ class Signature
      */
     private static function hmacSha1(string $key, string $data): string
     {
-        return strtoupper(hash_hmac('sha1', $data, $key, true));
+        return strtoupper(hash_hmac('sha1', $data, $key));
     }
 
     /**
