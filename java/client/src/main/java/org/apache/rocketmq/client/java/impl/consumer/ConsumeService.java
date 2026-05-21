@@ -55,7 +55,58 @@ public abstract class ConsumeService {
         this.scheduler = scheduler;
     }
 
+    /**
+     * Protected constructor for subclasses that do not use a single-message listener (e.g., batch consume services).
+     *
+     * @param clientId            the client identifier.
+     * @param consumptionExecutor the thread pool for executing consume tasks.
+     * @param messageInterceptor  the message interceptor for hook points.
+     * @param scheduler           the scheduler for delayed tasks.
+     */
+    protected ConsumeService(ClientId clientId, ThreadPoolExecutor consumptionExecutor,
+        MessageInterceptor messageInterceptor, ScheduledExecutorService scheduler) {
+        this.clientId = clientId;
+        this.messageListener = null;
+        this.consumptionExecutor = consumptionExecutor;
+        this.messageInterceptor = messageInterceptor;
+        this.scheduler = scheduler;
+    }
+
     public abstract void consume(ProcessQueue pq, List<MessageViewImpl> messageViews);
+
+    /**
+     * Closes this consume service, releasing any buffered resources. The default implementation is a no-op.
+     * Subclasses that maintain internal state (e.g., batch buffers) should override this method.
+     */
+    public void close() {
+    }
+
+    /**
+     * Returns the consumption thread pool executor.
+     *
+     * @return the thread pool executor.
+     */
+    protected ThreadPoolExecutor getConsumptionExecutor() {
+        return consumptionExecutor;
+    }
+
+    /**
+     * Returns the message interceptor.
+     *
+     * @return the message interceptor.
+     */
+    protected MessageInterceptor getMessageInterceptor() {
+        return messageInterceptor;
+    }
+
+    /**
+     * Returns the scheduler.
+     *
+     * @return the scheduled executor service.
+     */
+    protected ScheduledExecutorService getScheduler() {
+        return scheduler;
+    }
 
     public ListenableFuture<ConsumeResult> consume(MessageViewImpl messageView) {
         return consume(messageView, Duration.ZERO);

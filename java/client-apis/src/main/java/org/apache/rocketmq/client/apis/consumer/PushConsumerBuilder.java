@@ -82,6 +82,22 @@ public interface PushConsumerBuilder {
     PushConsumerBuilder setConsumptionThreadCount(int count);
 
     /**
+     * Register a batch message listener with the specified batch policy.
+     *
+     * <p>When a batch message listener is set, messages will be accumulated in a buffer and delivered
+     * in batches according to the {@link BatchPolicy}. This is mutually exclusive with
+     * {@link #setMessageListener(MessageListener)} — exactly one of the two must be set before
+     * calling {@link #build()}.
+     *
+     * @param listener the batch message listener.
+     * @param policy   the batch policy defining flush conditions.
+     * @return the consumer builder instance.
+     * @see BatchMessageListener
+     * @see BatchPolicy
+     */
+    PushConsumerBuilder setBatchMessageListener(BatchMessageListener listener, BatchPolicy policy);
+
+    /**
      * Finalize the build of {@link PushConsumer} and start.
      *
      * <p>This method will block until the push consumer starts successfully.

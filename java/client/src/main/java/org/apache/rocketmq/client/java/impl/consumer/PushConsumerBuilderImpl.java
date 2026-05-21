@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.consumer.BatchMessageListener;
+import org.apache.rocketmq.client.apis.consumer.BatchPolicy;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
@@ -38,6 +40,8 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     private String consumerGroup = null;
     private Map<String, FilterExpression> subscriptionExpressions = new ConcurrentHashMap<>();
     private MessageListener messageListener = null;
+    private BatchMessageListener batchMessageListener = null;
+    private BatchPolicy batchPolicy = null;
     private int maxCacheMessageCount = 1024;
     private int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
     private int consumptionThreadCount = 20;
@@ -114,17 +118,38 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     }
 
     /**
+     * @see PushConsumerBuilder#setBatchMessageListener(BatchMessageListener, BatchPolicy)
+     */
+    @Override
+    public PushConsumerBuilder setBatchMessageListener(BatchMessageListener listener, BatchPolicy policy) {
+        this.batchMessageListener = checkNotNull(listener, "batchMessageListener should not be null");
+        this.batchPolicy = checkNotNull(policy, "batchPolicy should not be null");
+        return this;
+    }
+
+    /**
      * @see PushConsumerBuilder#build()
      */
     @Override
     public PushConsumer build() throws ClientException {
         checkNotNull(clientConfiguration, "clientConfiguration has not been set yet");
         checkNotNull(consumerGroup, "consumerGroup has not been set yet");
-        checkNotNull(messageListener, "messageListener has not been set yet");
+        checkArgument(messageListener != null || batchMessageListener != null,
+            "either messageListener or batchMessageListener must be set");
+        checkArgument(messageListener == null || batchMessageListener == null,
+            "messageListener and batchMessageListener are mutually exclusive");
         checkArgument(!subscriptionExpressions.isEmpty(), "subscriptionExpressions have not been set yet");
+        if (batchPolicy != null) {
+            checkArgument(maxCacheMessageCount >= batchPolicy.getMaxBatchSize(),
+                "maxCacheMessageCount(%s) must be >= batchPolicy.maxBatchSize(%s)",
+                maxCacheMessageCount, batchPolicy.getMaxBatchSize());
+            checkArgument(maxCacheMessageSizeInBytes >= batchPolicy.getMaxBatchBytes(),
+                "maxCacheMessageSizeInBytes(%s) must be >= batchPolicy.maxBatchBytes(%s)",
+                maxCacheMessageSizeInBytes, batchPolicy.getMaxBatchBytes());
+        }
         final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, consumerGroup,
-            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
-            consumptionThreadCount);
+            subscriptionExpressions, messageListener, batchMessageListener, batchPolicy,
+            maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount);
         pushConsumer.startAsync().awaitRunning();
         return pushConsumer;
     }

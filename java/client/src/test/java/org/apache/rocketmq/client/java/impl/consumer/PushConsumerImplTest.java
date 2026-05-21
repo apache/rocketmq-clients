@@ -56,7 +56,7 @@ public class PushConsumerImplTest extends TestBase {
 
     @Spy
     private final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
-        subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
+        subscriptionExpressions, messageListener, null, null, maxCacheMessageCount, maxCacheMessageSizeInBytes,
         consumptionThreadCount);
 
 
