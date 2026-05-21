@@ -51,6 +51,7 @@ use Apache\Rocketmq\V2\Address;
 use Apache\Rocketmq\V2\AddressScheme;
 use Apache\Rocketmq\V2\HeartbeatRequest;
 use Apache\Rocketmq\V2\NotifyClientTerminationRequest;
+use Google\Protobuf\Duration;
 use Grpc\ChannelCredentials;
 
 /**
@@ -247,6 +248,9 @@ class PushConsumer
                     pcntl_signal_dispatch();
                 }
 
+                if ($this->telemetrySession) {
+                    $this->telemetrySession->pollTelemetry();
+                }
                 if ($this->shutdownRequested) {
                     break;
                 }
@@ -448,9 +452,6 @@ class PushConsumer
 
             $topicResource = new Resource();
             $topicResource->setName($topic);
-            if (!empty($this->namespace)) {
-                $topicResource->setResourceNamespace($this->namespace);
-            }
 
             $subscriptionEntry = new SubscriptionEntry();
             $subscriptionEntry->setTopic($topicResource);
@@ -462,9 +463,6 @@ class PushConsumer
         $subscription = new Subscription();
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        if (!empty($this->namespace)) {
-            $groupResource->setResourceNamespace($this->namespace);
-        }
         $subscription->setGroup($groupResource);
         $subscription->setSubscriptions($subscriptionEntries);
 
@@ -472,6 +470,12 @@ class PushConsumer
         $settings->setClientType(ClientType::PUSH_CONSUMER);
         $settings->setUserAgent($ua);
         $settings->setSubscription($subscription);
+
+        $settings->setAccessPoint($this->parseEndpoints($this->endpoints));
+        $timeoutDuration = new Duration();
+        $timeoutDuration->setSeconds(3);
+        $timeoutDuration->setNanos(0);
+        $settings->setRequestTimeout($timeoutDuration);
 
         $command = new TelemetryCommand();
         $command->setSettings($settings);
@@ -554,9 +558,6 @@ class PushConsumer
     {
         $topicResource = new Resource();
         $topicResource->setName($topic);
-        if (!empty($this->namespace)) {
-            $topicResource->setResourceNamespace($this->namespace);
-        }
 
         $request = new QueryAssignmentRequest();
         $request->setTopic($topicResource);
@@ -564,9 +565,6 @@ class PushConsumer
 
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        if (!empty($this->namespace)) {
-            $groupResource->setResourceNamespace($this->namespace);
-        }
         $request->setGroup($groupResource);
 
         $metadata = $this->buildMetadata();
@@ -647,10 +645,12 @@ class PushConsumer
     {
         $resource = new Resource();
         $resource->setName($this->consumerGroup);
-        if (!empty($this->namespace)) {
-            $resource->setResourceNamespace($this->namespace);
-        }
         return $resource;
+    }
+
+    public function getSessionCredentials(): ?SessionCredentials
+    {
+        return $this->credentials;
     }
 
     /**
@@ -823,7 +823,7 @@ class PushConsumer
 
         $request = new HeartbeatRequest();
         $request->setClientType(ClientType::PUSH_CONSUMER);
-
+        $request->setGroup($this->getGroupResource());
         $metadata = $this->buildMetadata();
 
         try {

@@ -220,9 +220,6 @@ class SimpleConsumer
 
             $topicResource = new Resource();
             $topicResource->setName($topic);
-            if (!empty($this->namespace)) {
-                $topicResource->setResourceNamespace($this->namespace);
-            }
 
             $subscriptionEntry = new SubscriptionEntry();
             $subscriptionEntry->setTopic($topicResource);
@@ -235,9 +232,6 @@ class SimpleConsumer
         $subscription = new Subscription();
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        if (!empty($this->namespace)) {
-            $groupResource->setResourceNamespace($this->namespace);
-        }
         $subscription->setGroup($groupResource);
         $subscription->setSubscriptions($subscriptionEntries);
 
@@ -349,9 +343,6 @@ class SimpleConsumer
 
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        if (!empty($this->namespace)) {
-            $groupResource->setResourceNamespace($this->namespace);
-        }
 
         $request = new ReceiveMessageRequest();
         $request->setGroup($groupResource);
@@ -448,9 +439,6 @@ class SimpleConsumer
     {
         $topicResource = new Resource();
         $topicResource->setName($topic);
-        if (!empty($this->namespace)) {
-            $topicResource->setResourceNamespace($this->namespace);
-        }
 
         $request = new QueryRouteRequest();
         $request->setTopic($topicResource);
@@ -535,15 +523,9 @@ class SimpleConsumer
 
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        if (!empty($this->namespace)) {
-            $groupResource->setResourceNamespace($this->namespace);
-        }
 
         $topicResource = new Resource();
         $topicResource->setName($topic);
-        if (!empty($this->namespace)) {
-            $topicResource->setResourceNamespace($this->namespace);
-        }
 
         $request = new AckMessageRequest();
         $request->setGroup($groupResource);
@@ -614,15 +596,9 @@ class SimpleConsumer
 
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        if (!empty($this->namespace)) {
-            $groupResource->setResourceNamespace($this->namespace);
-        }
 
         $topicResource = new Resource();
         $topicResource->setName($topic);
-        if (!empty($this->namespace)) {
-            $topicResource->setResourceNamespace($this->namespace);
-        }
 
         $duration = new Duration();
         $duration->setSeconds($invisibleDurationSeconds);
@@ -660,9 +636,6 @@ class SimpleConsumer
         $request = new NotifyClientTerminationRequest();
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
-        if (!empty($this->namespace)) {
-            $groupResource->setResourceNamespace($this->namespace);
-        }
         $request->setGroup($groupResource);
 
         $metadata = $this->buildMetadata();

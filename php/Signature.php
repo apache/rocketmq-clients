@@ -24,7 +24,7 @@ namespace Apache\Rocketmq;
  * Algorithm:
  * 1. Build baseline metadata (language, protocol, version, datetime, request-id, etc.)
  * 2. Optionally add STS security token
- * 3. Compute HMAC-SHA1(accessSecret, dateTime) -> lowercase hex digest
+ * 3. Compute HMAC-SHA1(accessSecret, dateTime) -> uppercase hex digest
  * 4. Build authorization header:
  *    "MQv2-HMAC-SHA1 Credential=<AK>, SignedHeaders=x-mq-date-time, Signature=<hex>"
  */
@@ -94,12 +94,11 @@ class Signature
     }
 
     /**
-     * Compute HMAC-SHA1 and return lowercase hex digest.
+     * Compute HMAC-SHA1 and return uppercase hex digest.
      */
     private static function hmacSha1(string $key, string $data): string
     {
-        $raw = hash_hmac('sha1', $data, $key, true);
-        return self::encodeHex($raw);
+        return strtoupper(hash_hmac('sha1', $data, $key, true));
     }
 
     /**

@@ -434,9 +434,6 @@ class Producer
 
         $topicResource = new Resource();
         $topicResource->setName($topic);
-        if (!empty($this->namespace)) {
-            $topicResource->setResourceNamespace($this->namespace);
-        }
 
         $request = new RecallMessageRequest();
         $request->setTopic($topicResource);
@@ -747,9 +744,6 @@ class Producer
         foreach ($this->topics as $topicName) {
             $topicResource = new Resource();
             $topicResource->setName($topicName);
-            if (!empty($this->namespace)) {
-                $topicResource->setResourceNamespace($this->namespace);
-            }
             $topicResources[] = $topicResource;
         }
         $publishing->setTopics($topicResources);
@@ -801,9 +795,6 @@ class Producer
     {
         $topicResource = new Resource();
         $topicResource->setName($topic);
-        if (!empty($this->namespace)) {
-            $topicResource->setResourceNamespace($this->namespace);
-        }
 
         $request = new QueryRouteRequest();
         $request->setTopic($topicResource);
@@ -865,9 +856,6 @@ class Producer
 
         $topicResource = new Resource();
         $topicResource->setName($msg->getTopic()->getName());
-        if (!empty($this->namespace)) {
-            $topicResource->setResourceNamespace($this->namespace);
-        }
 
         $protoMsg = new Message();
         $protoMsg->setTopic($topicResource);
@@ -1145,9 +1133,6 @@ class Producer
 
         $topicResource = new Resource();
         $topicResource->setName($topic);
-        if (!empty($this->namespace)) {
-            $topicResource->setResourceNamespace($this->namespace);
-        }
 
         $request = new EndTransactionRequest();
         $request->setMessageId($messageId);

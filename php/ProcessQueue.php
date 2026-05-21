@@ -22,12 +22,15 @@ require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/Signature.php';
 require_once __DIR__ . '/MessageView.php';
 require_once __DIR__ . '/ClientConstants.php';
+require_once __DIR__ . '/RpcClientManager.php';
 
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
 use Apache\Rocketmq\V2\FilterExpression;
 use Apache\Rocketmq\V2\Resource;
 use Google\Protobuf\Duration;
+use Apache\Rocketmq\V2\MessagingServiceClient;
+use Grpc\ChannelCredentials;
 
 /**
  * ProcessQueue - Per-MessageQueue message cache and fetcher.
@@ -112,14 +115,14 @@ class ProcessQueue
         $requestTimeoutMs = 3000;
         $awaitDurationMs = $awaitDuration * 1000;
         $totalTimeoutMs = $requestTimeoutMs + $awaitDurationMs;
-        $callOptions = ['timeout' => $totalTimeoutMs * 1000];
+        $metadata['grpc-timeout'] = ["{$totalTimeoutMs}m"];
 
         $this->logger->debug("ProcessQueue fetching messages from queue, batchSize={$batchSize}, attemptId={$this->attemptId}");
 
         $count = 0;
         try {
-            $client = $this->consumer->getClient();
-            $call = $client->ReceiveMessage($request, $metadata, $callOptions);
+            $client = $this->getReceiveClient();
+            $call = $client->ReceiveMessage($request, $metadata);
 
             foreach ($call->responses() as $response) {
                 if ($response->hasStatus()) {
@@ -402,17 +405,39 @@ class ProcessQueue
      */
     private function buildMetadata()
     {
+        $credentials = null;
         $namespace = '';
+        if (method_exists($this->consumer, 'getSessionCredentials')) {
+            $credentials = $this->consumer->getSessionCredentials();
+        }
         if (method_exists($this->consumer, 'getNamespace')) {
             $namespace = $this->consumer->getNamespace();
         }
         return Signature::sign(
-            null,
+            $credentials,
             $this->consumer->getClientId(),
             ClientConstants::LANGUAGE,
             ClientConstants::CLIENT_VERSION,
             $namespace,
             'v2'
         );
+    }
+
+    private function getReceiveClient(): MessagingServiceClient
+    {
+        $broker = $this->messageQueue->getBroker();
+        if ($broker && $broker->hasEndpoints()) {
+            $endpointsProto = $broker->getEndpoints();
+            $addresses = $endpointsProto->getAddresses();
+            $addressesArray = ProtobufUtil::repeatedFieldToArray($addresses);
+            if (!empty($addressesArray) && $addressesArray[0] !== null) {
+                $address = $addressesArray[0];
+                $brokerKey = $address->getHost() . ':' . $address->getPort();
+                return RpcClientManager::getInstance()->getClient($brokerKey, [
+                   'credentials' => ChannelCredentials::createInsecure(),
+                ]);
+            }
+        }
+        return $this->consumer->getClient();
     }
 }
