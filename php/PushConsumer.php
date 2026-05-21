@@ -71,15 +71,15 @@ class PushConsumer
     use ClientTrait;
 
     private $client;
-    private $endpoints;
+    protected $endpoints;
     protected $clientId;
     protected $consumerGroup;
     protected $telemetrySession;
     private $subscriptionExpressions = [];
     private $cacheAssignments = [];
     private $processQueueTable = [];
-    private $consumeService = null;
-    private $isRunning = false;
+    protected $consumeService = null;
+    protected $isRunning = false;
     protected $shutdownRequested = false;
     protected $logger;
 
