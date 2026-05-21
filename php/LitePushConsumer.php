@@ -22,19 +22,10 @@ require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/PushConsumer.php';
 require_once __DIR__ . '/ConsumeResultSuspend.php';
 
-use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\SyncLiteSubscriptionRequest;
 use Apache\Rocketmq\V2\LiteSubscriptionAction;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\ClientType;
-use Grpc\ChannelCredentials;
-use Apache\Rocketmq\V2\MessageQueue;
-use Apache\Rocketmq\V2\Broker;
-use Apache\Rocketmq\V2\Permission;
-use Apache\Rocketmq\V2\MessageType;
-use Apache\Rocketmq\V2\Endpoints;
-use Apache\Rocketmq\V2\Address;
-use Apache\Rocketmq\V2\AddressScheme;
 
 /**
  * LitePushConsumer - Push consumer for lite topics.
@@ -161,7 +152,7 @@ class LitePushConsumer extends PushConsumer
      */
     public function start()
     {
-        if ($this->isLitePushRunning()) {
+        if ($this->isRunning()) {
             return;
         }
 
@@ -175,15 +166,15 @@ class LitePushConsumer extends PushConsumer
 
         $this->logger->info("LitePushConsumer starting, clientId={$this->getClientId()}, parentTopic={$this->parentTopic}");
 
-        // Register onNotifyUnsubscribeLite handler for server-initiated unsubscribe commands
-        $this->registerUnsubscribeLiteHandler();
-
-        // Sync lite subscriptions to server
+        $self = $this;
+        $this->telemetrySession->setOnNotifyUnsubscribeLite(function ($notifyCmd) use ($self) {
+            $liteTopic = $notifyCmd->getLiteTopic();
+            $self->logger->info("Received NotifyUnsubscribeLite for liteTopic={$liteTopic}");
+            $self->handleUnsubscribeLite($liteTopic);
+        });
         $this->syncLiteSubscriptions();
-
         $this->lastSyncTime = time();
-
-        $this->startLiteConsumer();
+        parent::start();
     }
 
     /**
@@ -284,156 +275,5 @@ class LitePushConsumer extends PushConsumer
     public function isLiteConsumer()
     {
         return true;
-    }
-
-    /**
-     * @return string
-     */
-    public function getParentTopic()
-    {
-        return $this->parentTopic;
-    }
-
-    /**
-     * @return int
-     */
-    public function getMaxLiteTopicSize()
-    {
-        return $this->maxLiteTopicSize;
-    }
-
-    /**
-     * @return bool
-     */
-    private function isLitePushRunning()
-    {
-        return $this->isRunning();
-    }
-
-    private function startLiteConsumer()
-    {
-        try {
-            $this->establishTelemetrySession();
-            $this->registerSettingsCallback();
-            $this->consumeService = new LiteFifoConsumeService($this->logger, $this->messageListener, $this, $this->enableFifoConsumeAccelerator);
-            $this->registerUnsubscribeLiteHandler();
-            $this->registerSignalHandlers();
-            $this->isRunning = true;
-            $this->logger->info("LitePushConsumer started successfully, clientId={$this->clientId}");
-            $this->createVirtualProcessQueueForLite();
-            $lastScanTime = time();
-            while ($this->isRunning() && !$this->shutdownRequested) {
-                if (function_exists('pcntl_signal_dispatch')) {
-                    pcntl_signal_dispatch();
-                }
-                if ($this->telemetrySession) {
-                    $this->telemetrySession->pollTelemetry();
-                }
-                if ($this->shutdownRequested) {
-                    break;
-                }
-                $now = time();
-                if (!empty($this->liteTopics) && ($now - $this->lastSyncTime) >= $this->syncLiteSubscriptionInterval) {
-                    $this->syncLiteSubscriptions();
-                    $this->lastSyncTime = $now;
-                }
-                $this->onHeartbeatTick();
-                if ($this->virtualProcessQueue !== null && !$this->virtualProcessQueue->isDropped()) {
-                    if (!$this->virtualProcessQueue->isCacheFull()) {
-                        $this->virtualProcessQueue->fetchMessages();
-                    }
-                    if ($this->consumeService !== null && !empty($this->virtualProcessQueue->getCachedMessages())) {
-                        $this->consumeService->consume($this->virtualProcessQueue);
-                    }
-                }
-                usleep(100000);
-                gc_collect_cycles();
-            }
-            $this->drainInFlightMessagesLite();
-            $this->shutdown();
-        } catch (\Exception $e) {
-            $this->logger->error("LitePushConsumer start failed: " . $e->getMessage());
-            throw $e;
-        }
-    }
-
-    /**
-     * Create a virtual ProcessQueue for lite consumer.
-     * Unlike regular PushConsumer which creates one ProcessQueue per MessageQueue,
-     * LitePushConsumer uses a single virtual ProcessQueue bound to the parent topic
-     * to receive messages for all lite topics.
-     */
-    private function createVirtualProcessQueueForLite()
-    {
-        $this->logger->info("Creating virtual ProcessQueue for LitePushConsumer, parentTopic={$this->parentTopic}");
-
-        $broker = new Broker();
-        $broker->setName('virtual-broker');
-
-        $address = new Address();
-        $address->setHost('127.0.0.1');
-        $address->setPort(8080);
-
-        $endpoints = new Endpoints();
-        $endpoints->setScheme(AddressScheme::IPv4);
-        $endpoints->setAddresses([$address]);
-        $broker->setEndpoints($endpoints);
-
-        $topic = new Resource();
-        $topic->setName($this->parentTopic);
-
-        $mq = new MessageQueue();
-        $mq->setTopic($topic);
-        $mq->setBroker($broker);
-        $mq->setPermission(Permission::READ_WRITE);
-        $mq->setAcceptMessageTypes([MessageType::FIFO, MessageType::NORMAL]);
-
-        $this->virtualProcessQueue = new ProcessQueue($this, $mq, '*');
-        $this->virtualProcessQueue->fetchMessageImmediately();
-    }
-
-    /**
-     * Drain in-flight messages before shutdown.
-     * Marks the virtual ProcessQueue as dropped, then waits up to 30 seconds
-     * for cached messages to be consumed, preventing message loss on abrupt termination.
-     */
-    private function drainInFlightMessagesLite()
-    {
-        $drainStart = microtime(true);
-        $drainTimeout = 30; // seconds
-        $drainIterations = 0;
-
-        $this->logger->info("LitePushConsumer drain phase: waiting for in-flight messages to be consumed");
-
-        // Stop fetching new messages
-        if ($this->virtualProcessQueue !== null) {
-            $this->virtualProcessQueue->drop();
-        }
-
-        // Drain cached messages
-        while (microtime(true) - $drainStart < $drainTimeout) {
-            if ($this->virtualProcessQueue === null) {
-                break;
-            }
-
-            $messages = $this->virtualProcessQueue->getCachedMessages();
-            $remainingCount = count($messages);
-
-            if ($remainingCount === 0) {
-                $this->logger->info("LitePushConsumer drain phase completed after {$drainIterations} iterations");
-                return;
-            }
-
-            // Consume remaining messages
-            if ($this->consumeService !== null) {
-                $this->consumeService->consume($this->virtualProcessQueue);
-            }
-
-            usleep(100000);
-            $drainIterations++;
-        }
-
-        $remainingCount = $this->virtualProcessQueue !== null ? count($this->virtualProcessQueue->getCachedMessages()) : 0;
-        $this->logger->warning("LitePushConsumer drain phase timed out after {$drainTimeout}s, {$remainingCount} messages remaining");
     }
 }
