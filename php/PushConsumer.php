@@ -72,26 +72,26 @@ class PushConsumer
 
     private $client;
     private $endpoints;
-    private $clientId;
+    protected $clientId;
     protected $consumerGroup;
-    private $telemetrySession;
+    protected $telemetrySession;
     private $subscriptionExpressions = [];
     private $cacheAssignments = [];
     private $processQueueTable = [];
     private $consumeService = null;
     private $isRunning = false;
-    private $shutdownRequested = false;
+    protected $shutdownRequested = false;
     protected $logger;
 
     // Builder options
-    private $messageListener = null;
+    protected $messageListener = null;
     private $maxCacheMessageCount = 4096;
     private $maxCacheMessageSizeInBytes = 67108864; // 64MB
     private $awaitDuration = 30; // seconds
     private $scanIntervalSeconds = 5;
     private $fifo = false;
     private $receiveBatchSize = 32;
-    private $enableFifoConsumeAccelerator = false;
+    protected $enableFifoConsumeAccelerator = false;
     private $isLiteConsumer = false;
     private $credentials = null; // SessionCredentials for AK/SK auth
     private $namespace = '';
@@ -419,6 +419,11 @@ class PushConsumer
         }
     }
 
+    protected function getClientType(): int
+    {
+        return ClientType::PUSH_CONSUMER;
+    }
+
     /**
      * Register SIGTERM/SIGINT signal handlers.
      */
@@ -439,7 +444,7 @@ class PushConsumer
     /**
      * Establish Telemetry Session (same pattern as SimpleConsumerOptimized).
      */
-    private function establishTelemetrySession()
+    protected function establishTelemetrySession()
     {
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
@@ -781,7 +786,7 @@ class PushConsumer
     /**
      * Register settings change callback on the Telemetry session.
      */
-    private function registerSettingsCallback()
+    protected function registerSettingsCallback()
     {
         $self = $this;
         $this->telemetrySession->setOnSettingsChange(function ($settings) use ($self) {
@@ -865,7 +870,7 @@ class PushConsumer
     /**
      * Heartbeat tick handler - called from main loop.
      */
-    private function onHeartbeatTick()
+    protected function onHeartbeatTick()
     {
         $now = time();
         if ($now - $this->lastHeartbeatTime >= 10) {

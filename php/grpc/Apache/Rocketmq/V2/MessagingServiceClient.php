@@ -172,4 +172,17 @@ class MessagingServiceClient extends BaseStub
             $options
         );
     }
+
+    /**
+     * Sync lite subscription info, lite push consumer only.
+     */
+    public function SyncLiteSubscription(\Apache\Rocketmq\V2\SyncLiteSubscriptionRequest $argument, $metadata = [], $options = []) {
+        return $this->_simpleRequest(
+            '/apache.rocketmq.v2.MessagingService/SyncLiteSubscription',
+            $argument,
+            ['\Apache\Rocketmq\V2\SyncLiteSubscriptionResponse', 'decode'],
+            $metadata,
+            $options
+        );
+    }
 }

@@ -31,6 +31,7 @@ class ProducerBuilder
     private $requestTimeout = 3000;
     private $namespace = '';
     private $transactionChecker = null;
+    private $localTransactionExecuter = null;
     private $validateMessageType = true;
     private $maxBodySizeBytes = 4194304;
 
@@ -110,6 +111,18 @@ class ProducerBuilder
     }
 
     /**
+     * Set local transaction executer for auto commit/rollback.
+     *
+     * @param LocalTransactionExecuter $executer
+     * @return $this
+     */
+    public function setLocalTransactionExecuter(LocalTransactionExecuter $executer): self
+    {
+        $this->localTransactionExecuter = $executer;
+        return $this;
+    }
+
+    /**
      * Set whether to validate message type against route accept types.
      *
      * @return $this
@@ -183,6 +196,10 @@ class ProducerBuilder
 
         if ($this->transactionChecker !== null) {
             $producer->setTransactionChecker($this->transactionChecker);
+        }
+
+        if ($this->localTransactionExecuter !== null) {
+            $producer->setLocalTransactionExecuter($this->localTransactionExecuter);
         }
 
         $producer->start();

@@ -33,6 +33,8 @@ require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
 require_once __DIR__ . '/SwooleCompat.php';
 require_once __DIR__ . '/ProtobufUtil.php';
 require_once __DIR__ . '/PublishingLoadBalancer.php';
+require_once __DIR__ . '/Transaction.php';
+require_once __DIR__ . '/MessageHookPoints.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\Permission;
@@ -101,6 +103,7 @@ class Producer
     private $lastHeartbeatTime = 0;
     private $interceptors = [];
     private $transactionChecker = null;
+    private $localTransactionExecuter = null;
     private $retryPolicy = null;
 
     /**
@@ -146,6 +149,18 @@ class Producer
     public function setTransactionChecker(TransactionChecker $checker): self
     {
         $this->transactionChecker = $checker;
+        return $this;
+    }
+
+    /**
+     * Set local transaction executer for auto commit/rollback of half-messages.
+     *
+     * @param LocalTransactionExecuter $executer
+     * @return $this
+     */
+    public function setLocalTransactionExecuter(LocalTransactionExecuter $executer): self
+    {
+        $this->localTransactionExecuter = $executer;
         return $this;
     }
 
@@ -301,9 +316,19 @@ class Producer
     }
 
     /**
-     * Send a transaction message
+     * Send a transaction message (half-message + local transaction + commit/rollback).
+     *
+     * Java reference flow:
+     * 1. Send half-message (invisible to consumers)
+     * 2. Execute local transaction via LocalTransactionExecuter
+     * 3. Auto-commit or rollback based on executor result
+     *
+     * @param Message $message Message to send as half-message
+     * @param Transaction $transaction Transaction object to track receipts
+     * @param LocalTransactionExecuter|null $executor Local transaction callback (optional)
+     * @return array Send result
      */
-    public function sendWithTransaction(Message $message, $transaction)
+    public function sendWithTransaction(Message $message, $transaction, ?LocalTransactionExecuter $executor = null)
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -328,7 +353,20 @@ class Producer
         $result = $this->sendMessageWithRetry($request, $message, $this->maxAttempts);
 
         if (isset($result['transactionId'])) {
+            $transaction->tryAddMessage($message);
             $transaction->tryAddReceipt($message, $result);
+        }
+
+        // Execute local transaction and auto-commit/rollback
+        if ($executor !== null) {
+            $messageView = new MessageView($message, $result['recallHandle'] ?? null, null, 1);
+            $resolution = $executor->execute($messageView);
+
+            if ($resolution === TransactionResolution::COMMIT) {
+                $transaction->commit();
+            } elseif ($resolution === TransactionResolution::ROLLBACK) {
+                $transaction->rollback();
+            }
         }
 
         return $result;
@@ -670,18 +708,30 @@ class Producer
             }
 
             // Wrap in MessageView for the checker
-            $messageView = new MessageView($message, $this->endpoints, true);
+            $messageView = new MessageView($message, null, null, 1);
 
             // Call the transaction checker
             $resolution = $this->transactionChecker->check($messageView);
 
             // Send the resolution back
-            if (method_exists($command, 'getMessageId') && method_exists($command, 'getTransactionId') && method_exists($command, 'getTopic')) {
-                $messageId = $command->getMessageId();
+            $transactionId = '';
+            if (method_exists($command, 'getTransactionId')) {
                 $transactionId = $command->getTransactionId();
-                $topic = $command->getTopic()->getName();
+            }
 
-                $this->endTransaction($messageId, $transactionId, $topic, $resolution);
+            // Extract messageId from SystemProperties and topic from the message
+            $messageId = '';
+            $topicName = '';
+            $sysProps = $message->getSystemProperties();
+            if ($sysProps && method_exists($sysProps, 'getMessageId')) {
+                $messageId = $sysProps->getMessageId();
+            }
+            if (method_exists($message, 'getTopic') && method_exists($message->getTopic(), 'getName')) {
+                $topicName = $message->getTopic()->getName();
+            }
+
+            if (!empty($messageId) && !empty($topicName)) {
+                $this->endTransaction($messageId, $transactionId, $topicName, $resolution);
             }
         } catch (\Exception $e) {
             $this->logger->error("TransactionChecker threw exception: " . $e->getMessage());
