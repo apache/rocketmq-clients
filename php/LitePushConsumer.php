@@ -116,7 +116,7 @@ class LitePushConsumer extends PushConsumer
 
     protected function getClientType(): int
     {
-        return \Apache\Rocketmq\V2\ClientType::LITE_PUSH_CONSUMER;
+        return ClientType::LITE_PUSH_CONSUMER;
     }
 
     /**
@@ -184,9 +184,6 @@ class LitePushConsumer extends PushConsumer
         $this->lastSyncTime = time();
 
         $this->startLiteConsumer();
-
-        // Start the parent push consumer loop
-        parent::start();
     }
 
     /**
@@ -320,10 +317,12 @@ class LitePushConsumer extends PushConsumer
             $this->registerSettingsCallback();
             $this->consumeService = new LiteFifoConsumeService($this->logger, $this->messageListener, $this, $this->enableFifoConsumeAccelerator);
             $this->registerUnsubscribeLiteHandler();
+            $this->registerSignalHandlers();
+            $this->isRunning = true;
             $this->logger->info("LitePushConsumer started successfully, clientId={$this->clientId}");
             $this->createVirtualProcessQueueForLite();
             $lastScanTime = time();
-            while ($this->isRunning() && $this->shutdownRequested) {
+            while ($this->isRunning() && !$this->shutdownRequested) {
                 if (function_exists('pcntl_signal_dispatch')) {
                     pcntl_signal_dispatch();
                 }
@@ -339,8 +338,8 @@ class LitePushConsumer extends PushConsumer
                     $this->lastSyncTime = $now;
                 }
                 $this->onHeartbeatTick();
-                if ($this->virtualProcessQueue !== null && $this->virtualProcessQueue->isDropped()) {
-                    if ($this->virtualProcessQueue->isCacheFull()) {
+                if ($this->virtualProcessQueue !== null && !$this->virtualProcessQueue->isDropped()) {
+                    if (!$this->virtualProcessQueue->isCacheFull()) {
                         $this->virtualProcessQueue->fetchMessages();
                     }
                     if ($this->consumeService !== null && !empty($this->virtualProcessQueue->getCachedMessages())) {

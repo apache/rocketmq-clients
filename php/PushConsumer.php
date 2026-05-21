@@ -427,7 +427,7 @@ class PushConsumer
     /**
      * Register SIGTERM/SIGINT signal handlers.
      */
-    private function registerSignalHandlers()
+    protected function registerSignalHandlers()
     {
         if (function_exists('pcntl_signal')) {
             $self = $this;
@@ -472,7 +472,7 @@ class PushConsumer
         $subscription->setSubscriptions($subscriptionEntries);
 
         $settings = new Settings();
-        $settings->setClientType(ClientType::PUSH_CONSUMER);
+        $settings->setClientType($this->getClientType());
         $settings->setUserAgent($ua);
         $settings->setSubscription($subscription);
 
@@ -827,7 +827,7 @@ class PushConsumer
         }
 
         $request = new HeartbeatRequest();
-        $request->setClientType(ClientType::PUSH_CONSUMER);
+        $request->setClientType($this->getClientType());
         $request->setGroup($this->getGroupResource());
         $metadata = $this->buildMetadata();
 
