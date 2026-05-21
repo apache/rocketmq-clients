@@ -96,6 +96,48 @@ namespace tests
                 It.IsAny<Proto.SendMessageRequest>(), It.IsAny<TimeSpan>()), Times.Exactly(maxAttempts));
         }
 
+        [TestMethod]
+        public async Task TestRecall()
+        {
+            var producer = CreateTestClient();
+            producer.State = State.Running;
+            var metadata = producer.Sign();
+            var recallReceipt = new RecallReceipt(MessageIdGenerator.GetInstance().Next());
+            var recallMessageResponse = new Proto.RecallMessageResponse
+            {
+                Status = new Proto.Status
+                {
+                    Code = Proto.Code.Ok
+                },
+                MessageId = recallReceipt.MessageId
+            };
+            var recallMessageInvocation = new RpcInvocation<Proto.RecallMessageRequest, Proto.RecallMessageResponse>(null,
+                recallMessageResponse, metadata);
+            var mockClientManager = new Mock<IClientManager>();
+            producer.SetClientManager(mockClientManager.Object);
+            mockClientManager.Setup(cm => cm.RecallMessage(It.IsAny<Endpoints>(),
+                It.IsAny<Proto.RecallMessageRequest>(), It.IsAny<TimeSpan>())).Returns(Task.FromResult(recallMessageInvocation));
+            await producer.RecallMessage("testTopic", "handle");
+            mockClientManager.Verify(cm => cm.RecallMessage(It.IsAny<Endpoints>(),
+                It.IsAny<Proto.RecallMessageRequest>(), It.IsAny<TimeSpan>()), Times.Once);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public async Task TestRecallFailure()
+        {
+            var producer = CreateTestClient();
+            producer.State = State.Running;
+            var mockClientManager = new Mock<IClientManager>();
+            producer.SetClientManager(mockClientManager.Object);
+            var exception = new ArgumentException();
+            mockClientManager.Setup(cm => cm.RecallMessage(It.IsAny<Endpoints>(),
+                It.IsAny<Proto.RecallMessageRequest>(), It.IsAny<TimeSpan>())).Throws(exception);
+            await producer.RecallMessage("testTopic", "handle");
+            mockClientManager.Verify(cm => cm.RecallMessage(It.IsAny<Endpoints>(),
+                It.IsAny<Proto.RecallMessageRequest>(), It.IsAny<TimeSpan>()), Times.Once);
+        }
+
         private Producer CreateTestClient()
         {
             const string host0 = "127.0.0.1";

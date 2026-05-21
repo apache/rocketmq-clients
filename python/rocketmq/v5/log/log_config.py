@@ -19,39 +19,36 @@ import os
 __DIR = f'{os.path.expanduser("~/logs/rocketmq_python/")}'
 
 __LOG_CONFIG = {
-    'version': 1.0,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'standard': {
-            'format': '%(asctime)s [%(levelname)s] %(message)s'
-        },
+    "version": 1.0,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {"format": "%(asctime)s [%(levelname)s] %(message)s"},
     },
-    'handlers': {
+    "handlers": {
         # 'console': {
         #     'level': 'DEBUG',
         #     'class': 'logging.StreamHandler',
         #     'formatter': 'standard'
         # },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'INFO',
-            'formatter': 'standard',
-            'filename': f'{__DIR}/rocketmq_client.log',
-            'maxBytes': 1024 * 1024 * 100,  # 100MB
-            'backupCount': 10,
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": "DEBUG",
+            "formatter": "standard",
+            "filename": f"{__DIR}/rocketmq_client.log",
+            "maxBytes": 1024 * 1024 * 100,  # 100MB
+            "backupCount": 10,
         },
     },
-    'loggers': {
-        'rocketmq-python-client': {
-            'handlers': ['file'],
-            'level': 'INFO',
-            'propagate': False
+    "loggers": {
+        "rocketmq-python-client": {
+            "handlers": ["file"],
+            "level": "INFO",
+            "propagate": False,
         },
-    }
+    },
 }
 
-if not os.path.exists(__DIR):
-    os.makedirs(__DIR)
+os.makedirs(__DIR, exist_ok=True)
 
 logging.config.dictConfig(__LOG_CONFIG)
 logger = logging.getLogger("rocketmq-python-client")

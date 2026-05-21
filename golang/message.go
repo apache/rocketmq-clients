@@ -21,8 +21,10 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"hash/crc32"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
@@ -75,8 +77,10 @@ type Message struct {
 	messageGroup *string
 	keys         []string
 	properties   map[string]string
+	LiteTopic    *string
 
 	deliveryTimestamp  *time.Time
+	priority           *int32
 	parentTraceContext *string
 }
 
@@ -85,6 +89,7 @@ type SendReceipt struct {
 	TransactionId string
 	Offset        int64
 	Endpoints     *v2.Endpoints
+	RecallHandle  string
 }
 
 func (msg *Message) SetTag(tag string) {
@@ -101,6 +106,14 @@ func (msg *Message) GetKeys() []string {
 
 func (msg *Message) SetKeys(keys ...string) {
 	msg.keys = keys
+}
+
+func (msg *Message) GetLiteTopic() *string {
+	return msg.LiteTopic
+}
+
+func (msg *Message) SetLiteTopic(liteTopic string) {
+	msg.LiteTopic = &liteTopic
 }
 
 func (msg *Message) getOrNewProperties() map[string]string {
@@ -126,6 +139,27 @@ func (msg *Message) GetDeliveryTimestamp() *time.Time {
 	return msg.deliveryTimestamp
 }
 
+func (msg *Message) SetPriority(priority int32) error {
+	if priority < 0 {
+		return fmt.Errorf("priority must be greater than or equal to 0")
+	}
+	if msg.messageGroup != nil {
+		return fmt.Errorf("priority and messageGroup should not be set at same time")
+	}
+	if msg.deliveryTimestamp != nil {
+		return fmt.Errorf("priority and deliveryTimestamp should not be set at same time")
+	}
+	if msg.LiteTopic != nil {
+		return fmt.Errorf("priority and liteTopic should not be set at same time")
+	}
+	msg.priority = &priority
+	return nil
+}
+
+func (msg *Message) GetPriority() *int32 {
+	return msg.priority
+}
+
 func (msg *Message) SetMessageGroup(messageGroup string) {
 	msg.messageGroup = &messageGroup
 }
@@ -141,6 +175,7 @@ func (msg *Message) GetMessageCommon() *MessageCommon {
 		tag:                msg.Tag,
 		messageGroup:       msg.messageGroup,
 		deliveryTimestamp:  msg.deliveryTimestamp,
+		priority:           msg.priority,
 		parentTraceContext: msg.parentTraceContext,
 		keys:               msg.keys,
 		properties:         msg.properties,
@@ -156,6 +191,7 @@ type MessageCommon struct {
 	keys                        []string
 	messageGroup                *string
 	deliveryTimestamp           *time.Time
+	priority                    *int32
 	bornHost                    *string
 	parentTraceContext          *string
 	traceContext                *string
@@ -182,6 +218,7 @@ type MessageView struct {
 	deliveryAttempt             int32
 	decodeStopwatch             *time.Time
 	deliveryTimestampFromRemote *timestamppb.Timestamp
+	liteTopic                   string
 
 	offset        int64
 	ReceiptHandle string
@@ -207,21 +244,21 @@ func fromProtobuf_MessageView2(message *v2.Message, messageQueue *v2.MessageQueu
 	var expectedChecksum string
 	switch bodyDigest.GetType() {
 	case v2.DigestType_CRC32:
-		expectedChecksum = strconv.FormatInt(int64(crc32.ChecksumIEEE(message.GetBody())), 16)
+		expectedChecksum = strings.ToUpper(strconv.FormatInt(int64(crc32.ChecksumIEEE(message.GetBody())), 16))
 		if expectedChecksum != checksum {
 			corrupted = true
 		}
 	case v2.DigestType_MD5:
 		c := md5.New()
 		c.Write(message.GetBody())
-		expectedChecksum = hex.EncodeToString(c.Sum(nil))
+		expectedChecksum = strings.ToUpper(hex.EncodeToString(c.Sum(nil)))
 		if expectedChecksum != checksum {
 			corrupted = true
 		}
 	case v2.DigestType_SHA1:
 		c := sha1.New()
 		c.Write(message.GetBody())
-		expectedChecksum = hex.EncodeToString(c.Sum(nil))
+		expectedChecksum = strings.ToUpper(hex.EncodeToString(c.Sum(nil)))
 		if expectedChecksum != checksum {
 			corrupted = true
 		}
@@ -231,7 +268,7 @@ func fromProtobuf_MessageView2(message *v2.Message, messageQueue *v2.MessageQueu
 	bodyEncoding := systemProperties.GetBodyEncoding()
 	switch bodyEncoding {
 	case v2.Encoding_GZIP:
-		unCompressBody, err := utils.GZIPDecode(message.GetBody())
+		unCompressBody, err := utils.AutoDecode(message.GetBody())
 		if err != nil {
 			sugarBaseLogger.Errorf("failed to uncompress message body, topic=%s, messageId=%s, err=%w", mv.topic, mv.messageId, err)
 			corrupted = true
@@ -266,7 +303,12 @@ func fromProtobuf_MessageView2(message *v2.Message, messageQueue *v2.MessageQueu
 		bornTimestamp := systemProperties.GetBornTimestamp().AsTime()
 		mv.bornTimestamp = &bornTimestamp
 	}
+	if systemProperties.GetLiteTopic() != "" {
+		mv.liteTopic = systemProperties.GetLiteTopic()
+	}
 	mv.deliveryTimestampFromRemote = deliveryTimestampFromRemote
+	decodeStopwatch := time.Now()
+	mv.decodeStopwatch = &decodeStopwatch
 	return mv
 }
 
@@ -299,6 +341,10 @@ func (msg *MessageView) GetMessageId() string {
 
 func (msg *MessageView) GetTopic() string {
 	return msg.topic
+}
+
+func (msg *MessageView) GetLiteTopic() string {
+	return msg.liteTopic
 }
 
 func (msg *MessageView) GetBody() []byte {

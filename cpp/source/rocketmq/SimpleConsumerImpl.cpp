@@ -85,6 +85,7 @@ void SimpleConsumerImpl::start() {
   ClientImpl::start();
   State expected = State::STARTING;
   if (state_.compare_exchange_strong(expected, State::STARTED, std::memory_order_relaxed)) {
+    client_config_.subscriber.group.set_resource_namespace(resourceNamespace());
     refreshAssignments();
 
     std::weak_ptr<SimpleConsumerImpl> consumer(shared_from_this());
@@ -94,8 +95,14 @@ void SimpleConsumerImpl::start() {
         simple_consumer->refreshAssignments0();
       }
     };
-    refresh_assignment_task_ = manager()->getScheduler()->schedule(refresh_assignment_task, "RefreshAssignmentTask",
-                                                                   std::chrono::seconds(3), std::chrono::seconds(3));
+
+    // refer java sdk: set refresh interval to 5 seconds
+    // org.apache.rocketmq.client.java.impl.ClientImpl#startUp
+    refresh_assignment_task_ = manager()->getScheduler()->schedule(
+        refresh_assignment_task, "RefreshAssignmentTask",
+        std::chrono::seconds(5), std::chrono::seconds(5));
+
+    client_manager_->addClientObserver(shared_from_this());
   }
 }
 
@@ -283,6 +290,17 @@ void SimpleConsumerImpl::refreshAssignments() {
   }
 }
 
+absl::optional<FilterExpression> SimpleConsumerImpl::getFilterExpression(const std::string &topic) const {
+  {
+    absl::MutexLock lk(&subscriptions_mtx_);
+    auto it = subscriptions_.find(topic);
+    if (it != subscriptions_.end()) {
+      return absl::make_optional(it->second);
+    }
+    return absl::nullopt;
+  }
+}
+
 void SimpleConsumerImpl::receive(std::size_t limit,
                                  std::chrono::milliseconds invisible_duration,
                                  ReceiveCallback callback) {
@@ -295,8 +313,23 @@ void SimpleConsumerImpl::receive(std::size_t limit,
       callback(ec, messages);
       return;
     }
-    std::size_t idx = ++assignment_index_ % assignments_.size();
-    assignment.CopyFrom(assignments_[idx]);
+
+    // choose assign allow readable
+    std::size_t start_index = ++assignment_index_ % assignments_.size();
+    for (std::size_t i = 0; i < assignments_.size(); ++i) {
+      const auto& assign = assignments_[(start_index + i) % assignments_.size()];
+      if (readable(assign.message_queue().permission())) {
+        assignment.CopyFrom(assign);
+        break;
+      }
+    }
+
+    if (!assignment.IsInitialized()) {
+      std::error_code ec = ErrorCode::NotFound;
+      std::vector<MessageConstSharedPtr> messages;
+      callback(ec, messages);
+      return;
+    }
   }
 
   const auto& target = urlOf(assignment.message_queue());
@@ -307,12 +340,37 @@ void SimpleConsumerImpl::receive(std::size_t limit,
   request.set_auto_renew(false);
   request.mutable_group()->CopyFrom(config().subscriber.group);
   request.mutable_message_queue()->CopyFrom(assignment.message_queue());
-  request.set_batch_size(limit);
+  request.set_batch_size((int32_t) limit);
 
-  auto duration = google::protobuf::util::TimeUtil::MillisecondsToDuration(invisible_duration.count());
+  auto filter_expression = request.mutable_filter_expression();
+  auto&& optional = getFilterExpression(assignment.message_queue().topic().name());
+  if (optional.has_value()) {
+    auto expression = optional.value();
+    switch (expression.type_) {
+      case TAG:
+        filter_expression->set_type(rmq::FilterType::TAG);
+        filter_expression->set_expression(expression.content_);
+        break;
+      case SQL92:
+        filter_expression->set_type(rmq::FilterType::SQL);
+        filter_expression->set_expression(expression.content_);
+        break;
+    }
+  } else {
+    filter_expression->set_type(rmq::FilterType::TAG);
+    filter_expression->set_expression("*");
+  }
 
-  request.mutable_invisible_duration()->set_nanos(duration.nanos());
-  request.mutable_invisible_duration()->set_seconds(duration.seconds());
+  auto invisible_duration_request =
+      google::protobuf::util::TimeUtil::MillisecondsToDuration(invisible_duration.count());
+  request.mutable_invisible_duration()->set_nanos(invisible_duration_request.nanos());
+  request.mutable_invisible_duration()->set_seconds(invisible_duration_request.seconds());
+
+  auto await_duration_request =
+      google::protobuf::util::TimeUtil::MillisecondsToDuration(
+          MixAll::millisecondsOf(long_polling_duration_));
+  request.mutable_long_polling_timeout()->set_nanos(await_duration_request.nanos());
+  request.mutable_long_polling_timeout()->set_seconds(await_duration_request.seconds());
 
   auto cb = [callback](const std::error_code& ec, const ReceiveMessageResult& result) {
     std::vector<MessageConstSharedPtr> messages;
@@ -324,7 +382,6 @@ void SimpleConsumerImpl::receive(std::size_t limit,
     callback(ec, result.messages);
   };
 
-  SPDLOG_DEBUG("ReceiveMessage.polling_timeout: {}ms", MixAll::millisecondsOf(long_polling_duration_));
   manager()->receiveMessage(target, metadata, request,
                             long_polling_duration_ + absl::ToChronoMilliseconds(requestTimeout()), cb);
 }
@@ -379,9 +436,9 @@ void SimpleConsumerImpl::ackAsync(const Message& message, AckCallback callback) 
                  absl::ToChronoMilliseconds(client_config_.request_timeout), callback);
 }
 
-void SimpleConsumerImpl::changeInvisibleDuration(const Message& message,
+void SimpleConsumerImpl::changeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                                  std::chrono::milliseconds duration,
-                                                 ChangeInvisibleDurationCallback callback) {
+                                                 const ChangeInvisibleDurationCallback callback) {
   Metadata metadata;
   Signature::sign(client_config_, metadata);
 
@@ -390,11 +447,18 @@ void SimpleConsumerImpl::changeInvisibleDuration(const Message& message,
   request.mutable_topic()->set_resource_namespace(resourceNamespace());
   request.mutable_topic()->set_name(message.topic());
   request.set_message_id(message.id());
-  request.set_receipt_handle(message.extension().receipt_handle);
+  request.set_receipt_handle(receipt_handle);
   auto d = google::protobuf::util::TimeUtil::MillisecondsToDuration(duration.count());
   request.mutable_invisible_duration()->CopyFrom(d);
 
-  manager()->changeInvisibleDuration(message.extension().target_endpoint, metadata, request, duration, callback);
+  auto cb =
+      [callback](const std::error_code& ec, const ChangeInvisibleDurationResponse& response) {
+    std::string server_receipt_handle = response.receipt_handle();
+    callback(ec, server_receipt_handle);
+  };
+
+  manager()->changeInvisibleDuration(
+      message.extension().target_endpoint, metadata, request, duration, cb);
 }
 
 ROCKETMQ_NAMESPACE_END

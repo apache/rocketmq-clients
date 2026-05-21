@@ -15,6 +15,7 @@
 
 from rocketmq.grpc_protocol import Permission, definition_pb2
 from rocketmq.v5.client.connection import RpcEndpoints
+from rocketmq.v5.model import Message
 
 
 class MessageQueue:
@@ -31,10 +32,16 @@ class MessageQueue:
         self.__accept_message_types = set(queue.accept_message_types)
 
     def is_readable(self):
-        return self.__permission == Permission.READ or self.__permission == Permission.READ_WRITE
+        return (
+            self.__permission == Permission.READ
+            or self.__permission == Permission.READ_WRITE
+        )
 
     def is_writable(self):
-        return self.__permission == Permission.WRITE or self.__permission == Permission.READ_WRITE
+        return (
+            self.__permission == Permission.WRITE
+            or self.__permission == Permission.READ_WRITE
+        )
 
     def is_master_broker(self):
         return self.__broker_id == MessageQueue.MASTER_BROKER_ID
@@ -42,11 +49,35 @@ class MessageQueue:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, MessageQueue):
             return False
-        ret = (self.__topic == other.__topic and self.__namespace == other.__namespace and self.__queue_id == other.__queue_id and self.__permission == other.__permission and self.__broker_name == other.__broker_name and self.__broker_id == other.__broker_id and self.__broker_endpoints == other.__broker_endpoints and sorted(self.__accept_message_types) == sorted(other.__accept_message_types))
+        ret = (
+            self.__topic == other.__topic
+            and self.__namespace == other.__namespace
+            and self.__queue_id == other.__queue_id
+            and self.__permission == other.__permission
+            and self.__broker_name == other.__broker_name
+            and self.__broker_id == other.__broker_id
+            and self.__broker_endpoints == other.__broker_endpoints
+            and sorted(self.__accept_message_types)
+            == sorted(other.__accept_message_types)
+        )
         return ret
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, MessageQueue):
+            return NotImplemented
+        if self.__broker_name < other.__broker_name:
+            return True
+        elif self.__broker_id < other.__broker_id:
+            return True
+        elif self.__queue_id < other.__queue_id:
+            return True
+        return False
 
     def __str__(self):
         return f"{self.__broker_name}.{self.__topic}.{self.__queue_id}"
+
+    def __hash__(self):
+        return hash((self.__broker_name, self.__topic, self.__queue_id))
 
     def message_queue0(self):
         # to grpc MessageQueue
@@ -61,6 +92,15 @@ class MessageQueue:
         queue.accept_message_types.extend(self.__accept_message_types)
         return queue
 
+    def accept_message_types_desc(self):
+        ret = ""
+        for access_type in self.__accept_message_types:
+            ret = ret + Message.message_type_desc(access_type) + ","
+        if len(ret) == 0:
+            return ret
+        else:
+            return ret[:len(ret) - 1]
+
     """ property """
 
     @property
@@ -71,11 +111,17 @@ class MessageQueue:
     def accept_message_types(self):
         return self.__accept_message_types
 
+    @property
+    def topic(self):
+        return self.__topic
+
 
 class TopicRouteData:
 
     def __init__(self, message_queues):
-        self.__message_queues = list(map(lambda queue: MessageQueue(queue), message_queues))
+        self.__message_queues = list(
+            map(lambda queue: MessageQueue(queue), message_queues)
+        )
 
     def __eq__(self, other):
         if self is other:
@@ -88,7 +134,11 @@ class TopicRouteData:
         return hash(tuple(self.__message_queues))
 
     def __str__(self):
-        return "message_queues:(" + ', '.join(str(queue) for queue in self.__message_queues) + ")"
+        return (
+            "message_queues:("
+            + ", ".join(str(queue) for queue in self.__message_queues)
+            + ")"
+        )
 
     def all_endpoints(self):
         endpoints_map = {}

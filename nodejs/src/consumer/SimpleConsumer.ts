@@ -24,6 +24,11 @@ import { FilterExpression } from './FilterExpression';
 import { SimpleSubscriptionSettings } from './SimpleSubscriptionSettings';
 import { SubscriptionLoadBalancer } from './SubscriptionLoadBalancer';
 import { Consumer, ConsumerOptions } from './Consumer';
+import { InternalErrorException } from '../exception';
+
+const RANDOM_INDEX = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+const DEFAULT_MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 1000;
 
 export interface SimpleConsumerOptions extends ConsumerOptions {
   /**
@@ -39,6 +44,10 @@ export interface SimpleConsumerOptions extends ConsumerOptions {
    * set await duration for long-polling, default is 30000ms
    */
   awaitDuration?: number;
+  /**
+   * max retry attempts for temporary errors (e.g., internal server error), default is 3
+   */
+  maxRetryAttempts?: number;
 }
 
 export class SimpleConsumer extends Consumer {
@@ -46,7 +55,8 @@ export class SimpleConsumer extends Consumer {
   readonly #subscriptionExpressions = new Map<string, FilterExpression>();
   readonly #subscriptionRouteDataCache = new Map<string, SubscriptionLoadBalancer>();
   readonly #awaitDuration: number;
-  #topicIndex = 0;
+  readonly #maxRetryAttempts: number;
+  #topicIndex = RANDOM_INDEX;
 
   constructor(options: SimpleConsumerOptions) {
     options.topics = Array.from(options.subscriptions.keys());
@@ -60,17 +70,28 @@ export class SimpleConsumer extends Consumer {
       }
     }
     this.#awaitDuration = options.awaitDuration ?? 30000;
-    this.#simpleSubscriptionSettings = new SimpleSubscriptionSettings(options.namespace, this.clientId, this.endpoints,
-      this.consumerGroup, this.requestTimeout, this.#awaitDuration, this.#subscriptionExpressions);
+    this.#maxRetryAttempts = options.maxRetryAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS;
+    this.#simpleSubscriptionSettings = new SimpleSubscriptionSettings(options.namespace, this.clientId,
+      this.getClientType(), this.endpoints, this.consumerGroup, this.requestTimeout,
+      this.#awaitDuration, this.#subscriptionExpressions);
   }
 
   protected getSettings() {
     return this.#simpleSubscriptionSettings;
   }
 
+  /**
+   * Get the client type.
+   *
+   * @return The client type identifier for simple consumer
+   */
+  protected getClientType(): ClientType {
+    return ClientType.SIMPLE_CONSUMER;
+  }
+
   protected wrapHeartbeatRequest() {
     return new HeartbeatRequest()
-      .setClientType(ClientType.SIMPLE_CONSUMER)
+      .setClientType(this.getClientType())
       .setGroup(createResource(this.consumerGroup));
   }
 
@@ -113,28 +134,64 @@ export class SimpleConsumer extends Consumer {
   }
 
   async receive(maxMessageNum = 10, invisibleDuration = 15000) {
+    if (maxMessageNum <= 0) {
+      throw new Error(`maxMessageNum must be greater than 0, but got ${maxMessageNum}`);
+    }
+
     const topic = this.#nextTopic();
-    const filterExpression = this.#subscriptionExpressions.get(topic)!;
+    const filterExpression = this.#subscriptionExpressions.get(topic);
+    if (!filterExpression) {
+      throw new Error(`No subscription found for topic=${topic}, please subscribe first`);
+    }
+
     const loadBalancer = await this.#getSubscriptionLoadBalancer(topic);
     const mq = loadBalancer.takeMessageQueue();
     const request = this.wrapReceiveMessageRequest(maxMessageNum, mq, filterExpression,
       invisibleDuration, this.#awaitDuration);
-    return await this.receiveMessage(request, mq, this.#awaitDuration);
+
+    // Retry logic for temporary errors
+    let lastError: Error | undefined;
+    for (let attempt = 1; attempt <= this.#maxRetryAttempts; attempt++) {
+      try {
+        return await this.receiveMessage(request, mq, this.#awaitDuration);
+      } catch (err) {
+        lastError = err as Error;
+
+        // Only retry on internal server errors (temporary errors)
+        if (err instanceof InternalErrorException) {
+          if (attempt < this.#maxRetryAttempts) {
+            this.logger.warn('Received temporary error from server, will retry after %dms, attempt=%d/%d, topic=%s, clientId=%s, error=%s',
+              RETRY_DELAY_MS, attempt, this.#maxRetryAttempts, topic, this.clientId, err.message);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            continue;
+          }
+        }
+
+        // For non-retryable errors or max attempts reached, throw immediately
+        throw err;
+      }
+    }
+
+    // This should never be reached, but just in case
+    throw lastError;
   }
 
   async ack(message: MessageView) {
     await this.ackMessage(message);
   }
 
-  async changeInvisibleDuration0(message: MessageView, invisibleDuration: number) {
-    await this.changeInvisibleDuration0(message, invisibleDuration);
+  async changeInvisibleDuration(message: MessageView, invisibleDuration: number) {
+    const response = await this.invisibleDuration(message, invisibleDuration);
+    // Refresh receipt handle manually
+    (message as any).receiptHandle = response;
   }
 
   #nextTopic() {
     const topics = Array.from(this.#subscriptionExpressions.keys());
-    if (this.#topicIndex >= topics.length) {
-      this.#topicIndex = 0;
+    if (topics.length === 0) {
+      throw new Error('No subscriptions available to receive messages');
     }
-    return topics[this.#topicIndex++];
+    const index = Math.abs(this.#topicIndex++ % topics.length);
+    return topics[index];
   }
 }

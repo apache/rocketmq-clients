@@ -58,7 +58,6 @@ use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
  *                         (lower 4bytes)
  * </pre>
  */
-
 // inspired by https://github.com/messense/rocketmq-rs
 pub(crate) static UNIQ_ID_GENERATOR: Lazy<Mutex<UniqueIdGenerator>> = Lazy::new(|| {
     let mut wtr = Vec::new();

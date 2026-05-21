@@ -49,6 +49,8 @@ public class PublishingMessageImpl extends MessageImpl {
         this.messageId = MessageIdCodec.getInstance().nextMessageId();
         // Normal message.
         if (!message.getMessageGroup().isPresent() &&
+            !message.getLiteTopic().isPresent() &&
+            !message.getPriority().isPresent() &&
             !message.getDeliveryTimestamp().isPresent() && !txEnabled) {
             messageType = MessageType.NORMAL;
             return;
@@ -58,19 +60,32 @@ public class PublishingMessageImpl extends MessageImpl {
             messageType = MessageType.FIFO;
             return;
         }
+        // Lite message.
+        if (message.getLiteTopic().isPresent() && !txEnabled) {
+            messageType = MessageType.LITE;
+            return;
+        }
         // Delay message.
         if (message.getDeliveryTimestamp().isPresent() && !txEnabled) {
             messageType = MessageType.DELAY;
             return;
         }
+        // Priority message.
+        if (message.getPriority().isPresent() && !txEnabled) {
+            messageType = MessageType.PRIORITY;
+            return;
+        }
         // Transaction message.
         if (!message.getMessageGroup().isPresent() &&
+            !message.getLiteTopic().isPresent() &&
+            !message.getPriority().isPresent() &&
             !message.getDeliveryTimestamp().isPresent() && txEnabled) {
             messageType = MessageType.TRANSACTION;
             return;
         }
-        // Transaction semantics is conflicted with fifo/delay.
-        throw new IllegalArgumentException("Transactional message should not set messageGroup or deliveryTimestamp");
+        // Transaction semantics is conflicted with fifo/delay/lite/priority.
+        throw new IllegalArgumentException(
+            "Transactional message should not set messageGroup, deliveryTimestamp, lite and priority");
     }
 
     public MessageId getMessageId() {
@@ -111,6 +126,10 @@ public class PublishingMessageImpl extends MessageImpl {
             .ifPresent(millis -> systemPropertiesBuilder.setDeliveryTimestamp(Timestamps.fromMillis(millis)));
         // Message group
         this.getMessageGroup().ifPresent(systemPropertiesBuilder::setMessageGroup);
+        // Lite
+        this.getLiteTopic().ifPresent(systemPropertiesBuilder::setLiteTopic);
+        // Priority
+        this.getPriority().ifPresent(systemPropertiesBuilder::setPriority);
         final SystemProperties systemProperties = systemPropertiesBuilder.build();
         Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(getTopic()).build();
         return apache.rocketmq.v2.Message.newBuilder()

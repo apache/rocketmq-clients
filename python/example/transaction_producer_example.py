@@ -20,26 +20,51 @@ from rocketmq import (ClientConfiguration, Credentials, Message, Producer,
 class TestChecker(TransactionChecker):
 
     def check(self, message: Message) -> TransactionResolution:
-        print(f"do TestChecker check. message_id: {message.message_id}, commit message.")
+        print(f"do TestChecker check, {message}, commit message.")
         return TransactionResolution.COMMIT
 
 
 if __name__ == '__main__':
-    endpoints = "endpoints"
-    credentials = Credentials("ak", "sk")
+    endpoints = "foobar.com:8080"
+    credentials = Credentials()
+    # if auth enable
+    # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
+    # with namespace
+    # config = ClientConfiguration(endpoints, credentials, "namespace")
     topic = "topic"
+    check_from_server = True  # commit message from server check
+    producer = Producer(config, (topic,), checker=TestChecker())
+
     try:
-        producer = Producer(config, (topic,), TestChecker())
         producer.startup()
+    except Exception as e:
+        print(f"{producer} startup raise exception: {e}")
+
+    try:
         transaction = producer.begin_transaction()
         msg = Message()
+        # topic for the current message
         msg.topic = topic
         msg.body = "hello, rocketmq.".encode('utf-8')
+        # secondary classifier of message besides topic
         msg.tag = "rocketmq-send-transaction-message"
-        msg.keys = "send_transaction"
-        msg.add_property("send", "transaction")
         res = producer.send(msg, transaction)
-        print(f"{producer.__str__()} send half message. {res}")
+        print(f"{producer} send message success. {res}")
+        if check_from_server:
+            # wait for server check in TransactionChecker's check
+            input("Please Enter to Stop the Application.\r\n")
+            producer.shutdown()
+            print(f"{producer} shutdown.")
+        else:
+            # direct commit or rollback
+            transaction.commit()
+            print(f"{producer} commit message:{transaction.message_id}")
+            # transaction.rollback()
+            # print(f"{producer} rollback message:{transaction.message_id}")
+            producer.shutdown()
+            print(f"{producer} shutdown.")
     except Exception as e:
-        print(f"transaction producer example raise exception: {e}")
+        print(f"transaction producer{producer} example raise exception: {e}")
+        producer.shutdown()
+        print(f"{producer} shutdown.")

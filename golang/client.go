@@ -31,11 +31,11 @@ import (
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 )
 
 type Client interface {
@@ -46,9 +46,11 @@ type Client interface {
 
 type isClient interface {
 	isClient()
+	SetRequestTimeout(timeout time.Duration)
 	wrapHeartbeatRequest() *v2.HeartbeatRequest
 	onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) error
 	onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error
+	IsEndpointUpdated() bool
 }
 type defaultClientSession struct {
 	endpoints        *v2.Endpoints
@@ -115,9 +117,16 @@ func (cs *defaultClientSession) startUp() {
 
 			response, err := observer.Recv()
 			if err != nil {
+				// If the client has not yet initialized, propagate the error to startUp() so it can
+				// return immediately instead of blocking forever waiting for settings.
+				if !cs.cli.inited.Load() {
+					cs.cli.startUpError = fmt.Errorf("failed to sync settings during startUp: %w", err)
+					cs.cli.log.Error(cs.cli.startUpError)
+					return
+				}
 				// we are recovering
 				if !cs.recovering {
-					cs.cli.log.Info("Encountered error while receiving TelemetryCommand, trying to recover")
+					cs.cli.log.Infof("Encountered error while receiving TelemetryCommand, trying to recover, err=%v", err)
 					// we wait five seconds to give time for the transmission error to be resolved externally before we attempt to read the message again.
 					time.Sleep(cs.recoveryWaitTime)
 					cs.recovering = true
@@ -161,6 +170,10 @@ func (cs *defaultClientSession) handleTelemetryCommand(response *v2.TelemetryCom
 		cs.cli.onVerifyMessageCommand(cs.endpoints, c.VerifyMessageCommand)
 	case *v2.TelemetryCommand_PrintThreadStackTraceCommand:
 		cs.cli.onPrintThreadStackTraceCommand(cs.endpoints, c.PrintThreadStackTraceCommand)
+	case *v2.TelemetryCommand_ReconnectEndpointsCommand:
+		cs.cli.onReconnectEndpointsCommand(cs.endpoints, c.ReconnectEndpointsCommand)
+	case *v2.TelemetryCommand_NotifyUnsubscribeLiteCommand:
+		cs.cli.onNotifyUnsubscribeLiteCommand(cs.endpoints, c.NotifyUnsubscribeLiteCommand)
 	default:
 		return fmt.Errorf("receive unrecognized command from remote, endpoints=%v, command=%v, clientId=%s", cs.endpoints, command, cs.cli.clientID)
 	}
@@ -176,13 +189,19 @@ func (cs *defaultClientSession) release() {
 }
 func (cs *defaultClientSession) publish(ctx context.Context, common *v2.TelemetryCommand) error {
 	var err error
-	cs.observerLock.RLock()
-	if cs.observer != nil {
-		err = cs.observer.Send(common)
-		cs.observerLock.RUnlock()
+
+	f0 := func() (bool, error) {
+		cs.observerLock.RLock()
+		defer cs.observerLock.RUnlock()
+		if cs.observer != nil {
+			return true, cs.observer.Send(common)
+		}
+		return false, nil
+	}
+	over, err := f0()
+	if over {
 		return err
 	}
-	cs.observerLock.RUnlock()
 
 	cs.observerLock.Lock()
 	defer cs.observerLock.Unlock()
@@ -218,8 +237,11 @@ type defaultClient struct {
 	endpointsTelemetryClientTable map[string]*defaultClientSession
 	endpointsTelemetryClientsLock sync.RWMutex
 	on                            atomic.Bool
-
-	clientImpl isClient
+	inited                        atomic.Bool
+	startUpError                  error
+	clientImpl                    isClient
+	ReceiveReconnect              bool
+	notifyUnsubscribeLiteFunc     func(*v2.NotifyUnsubscribeLiteCommand)
 }
 
 var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
@@ -235,6 +257,7 @@ var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
 		messageInterceptors:           make([]MessageInterceptor, 0),
 		endpointsTelemetryClientTable: make(map[string]*defaultClientSession),
 		on:                            *atomic.NewBool(true),
+		inited:                        *atomic.NewBool(false),
 	}
 	cli.log = sugarBaseLogger.With("client_id", cli.clientID)
 	for _, opt := range opts {
@@ -299,7 +322,7 @@ func (cli *defaultClient) registerMessageInterceptor(messageInterceptor MessageI
 	cli.messageInterceptors = append(cli.messageInterceptors, messageInterceptor)
 }
 
-func (cli *defaultClient) doBefore(hookPoint MessageHookPoints, messageCommons []*MessageCommon) {
+func (cli *defaultClient) doBefore(hookPoint MessageHookPoints, messageCommons []*MessageCommon) error {
 	cli.messageInterceptorsLock.RLocker().Lock()
 	defer cli.messageInterceptorsLock.RLocker().Unlock()
 
@@ -309,9 +332,10 @@ func (cli *defaultClient) doBefore(hookPoint MessageHookPoints, messageCommons [
 			cli.log.Errorf("exception raised while intercepting message, hookPoint=%v, err=%v", hookPoint, err)
 		}
 	}
+	return nil
 }
 
-func (cli *defaultClient) doAfter(hookPoint MessageHookPoints, messageCommons []*MessageCommon, duration time.Duration, status MessageHookPointsStatus) {
+func (cli *defaultClient) doAfter(hookPoint MessageHookPoints, messageCommons []*MessageCommon, duration time.Duration, status MessageHookPointsStatus) error {
 	cli.messageInterceptorsLock.RLocker().Lock()
 	defer cli.messageInterceptorsLock.RLocker().Unlock()
 
@@ -321,6 +345,7 @@ func (cli *defaultClient) doAfter(hookPoint MessageHookPoints, messageCommons []
 			cli.log.Errorf("exception raised while intercepting message, hookPoint=%v, err=%v", hookPoint, err)
 		}
 	}
+	return nil
 }
 
 func (cli *defaultClient) getMessageQueues(ctx context.Context, topic string) ([]*v2.MessageQueue, error) {
@@ -338,15 +363,13 @@ func (cli *defaultClient) getMessageQueues(ctx context.Context, topic string) ([
 	// telemeter to all messageQueues
 	endpointsSet := make(map[string]bool)
 	for _, messageQueue := range route {
-		for _, address := range messageQueue.GetBroker().GetEndpoints().GetAddresses() {
-			target := utils.ParseAddress(address)
-			if _, ok := endpointsSet[target]; ok {
-				continue
-			}
-			endpointsSet[target] = true
-			if err = cli.mustSyncSettingsToTargert(target); err != nil {
-				return nil, err
-			}
+		target := utils.EndpointsToString(messageQueue.GetBroker().GetEndpoints())
+		if _, ok := endpointsSet[target]; ok {
+			continue
+		}
+		endpointsSet[target] = true
+		if err = cli.mustSyncSettingsToTargert(target); err != nil {
+			return nil, err
 		}
 	}
 
@@ -391,14 +414,12 @@ func (cli *defaultClient) getTotalTargets() []string {
 	cli.router.Range(func(_, v interface{}) bool {
 		messageQueues := v.([]*v2.MessageQueue)
 		for _, messageQueue := range messageQueues {
-			for _, address := range messageQueue.GetBroker().GetEndpoints().GetAddresses() {
-				target := utils.ParseAddress(address)
-				if _, ok := endpointsSet[target]; ok {
-					continue
-				}
-				endpointsSet[target] = true
-				endpoints = append(endpoints, target)
+			target := utils.EndpointsToString(messageQueue.GetBroker().GetEndpoints())
+			if _, ok := endpointsSet[target]; ok {
+				continue
 			}
+			endpointsSet[target] = true
+			endpoints = append(endpoints, target)
 		}
 		return true
 	})
@@ -417,6 +438,36 @@ func (cli *defaultClient) getSettingsCommand() *v2.TelemetryCommand {
 	}
 }
 
+func (cli *defaultClient) queryAssignments(ctx context.Context, topic string, group string, duration time.Duration) (*[]*v2.Assignment, error) {
+	ctx = cli.Sign(ctx)
+	response, err := cli.clientManager.QueryAssignments(ctx, cli.accessPoint, cli.getQueryAssignmentRequest(topic, group), duration)
+	if err != nil {
+		return nil, err
+	}
+	if response.GetStatus().GetCode() != v2.Code_OK {
+		return nil, &ErrRpcStatus{
+			Code:    int32(response.Status.GetCode()),
+			Message: response.GetStatus().GetMessage(),
+		}
+	}
+	ret := response.GetAssignments()
+	return &ret, nil
+}
+
+func (cli *defaultClient) getQueryAssignmentRequest(topic string, group string) *v2.QueryAssignmentRequest {
+	return &v2.QueryAssignmentRequest{
+		Topic: &v2.Resource{
+			Name:              topic,
+			ResourceNamespace: cli.config.NameSpace,
+		},
+		Group: &v2.Resource{
+			Name:              group,
+			ResourceNamespace: cli.config.NameSpace,
+		},
+		Endpoints: cli.accessPoint,
+	}
+}
+
 func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatRequest) error {
 	ctx := cli.Sign(context.Background())
 	endpoints, err := utils.ParseTarget(target)
@@ -428,9 +479,6 @@ func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatReques
 		return fmt.Errorf("failed to send heartbeat, endpoints=%v, err=%v, requestId=%s", endpoints, err, utils.GetRequestID(ctx))
 	}
 	if resp.Status.GetCode() != v2.Code_OK {
-		if resp.Status.GetCode() == v2.Code_UNRECOGNIZED_CLIENT_TYPE {
-			go cli.trySyncSettings()
-		}
 		cli.log.Errorf("failed to send heartbeat, code=%v, status message=[%s], endpoints=%v, requestId=%s", resp.Status.GetCode(), resp.Status.GetMessage(), endpoints, utils.GetRequestID(ctx))
 		return &ErrRpcStatus{
 			Code:    int32(resp.Status.GetCode()),
@@ -496,6 +544,7 @@ func (cli *defaultClient) startUp() error {
 	cm.startUp()
 	cm.RegisterClient(cli)
 	cli.clientManager = cm
+
 	for _, topic := range cli.initTopics {
 		_, err := cli.getMessageQueues(context.Background(), topic)
 		if err != nil {
@@ -546,6 +595,16 @@ func (cli *defaultClient) startUp() error {
 		})
 	}
 	ticker.Tick(f, time.Second*30, cli.done)
+
+	// wait syncSettings finish
+	for !cli.inited.Load() {
+		if cli.startUpError != nil {
+			return cli.startUpError
+		}
+		sugarBaseLogger.Infoln("wait for sync settings finish")
+		time.Sleep(time.Second)
+	}
+	sugarBaseLogger.Infoln("sync settings finished")
 	return nil
 }
 
@@ -562,23 +621,35 @@ func routeEqual(old, new []*v2.MessageQueue) bool {
 }
 
 func (cli *defaultClient) notifyClientTermination() {
-	cli.log.Info("start notifyClientTermination")
 	ctx := cli.Sign(context.Background())
-	request := &v2.NotifyClientTerminationRequest{}
+	request := &v2.NotifyClientTerminationRequest{
+		Group: &v2.Resource{
+			ResourceNamespace: cli.config.NameSpace,
+			Name:              cli.config.ConsumerGroup,
+		},
+	}
 	targets := cli.getTotalTargets()
 	for _, target := range targets {
-		endpoints, err := utils.ParseTarget(target)
+		endpoints, _ := utils.ParseTarget(target)
+		if endpoints == nil {
+			continue
+		}
+		cli.log.Infof("start notifyClientTermination, endpoints=%s", utils.EndpointsToString(endpoints))
+		_, err := cli.clientManager.NotifyClientTermination(ctx, endpoints, request, cli.opts.timeout)
 		if err != nil {
-			cli.clientManager.NotifyClientTermination(ctx, endpoints, request, cli.opts.timeout)
+			cli.log.Errorf("failed to notify client termination, endpoints=%s, error=%v", utils.EndpointsToString(endpoints), err)
 		}
 	}
 }
+
 func (cli *defaultClient) GracefulStop() error {
 	if !cli.on.CAS(true, false) {
 		return fmt.Errorf("client has been closed")
 	}
 	cli.notifyClientTermination()
-	cli.clientManager.UnRegisterClient(cli)
+	if cli.clientManager != nil {
+		cli.clientManager.UnRegisterClient(cli)
+	}
 	cli.done <- struct{}{}
 	close(cli.done)
 	cli.clientMeterProvider.Reset(&v2.Metric{
@@ -587,8 +658,31 @@ func (cli *defaultClient) GracefulStop() error {
 	return nil
 }
 
+func (cli *defaultClient) isRunning() bool {
+	return cli.on.Load()
+}
+
 func (cli *defaultClient) Sign(ctx context.Context) context.Context {
 	now := time.Now().Format("20060102T150405Z")
+	if cli.config.Credentials == nil {
+		// if no credentials, do not sign
+		return metadata.AppendToOutgoingContext(ctx,
+			innerMD.LanguageKey,
+			innerMD.LanguageValue,
+			innerMD.ProtocolKey,
+			innerMD.ProtocolValue,
+			innerMD.RequestID,
+			uuid.New().String(),
+			innerMD.VersionKey,
+			innerMD.VersionValue,
+			innerMD.ClintID,
+			cli.clientID,
+			innerMD.NameSpace,
+			cli.config.NameSpace,
+			innerMD.DateTime,
+			now,
+		)
+	}
 	return metadata.AppendToOutgoingContext(ctx,
 		innerMD.LanguageKey,
 		innerMD.LanguageValue,
@@ -629,7 +723,9 @@ func (cli *defaultClient) onSettingsCommand(endpoints *v2.Endpoints, settings *v
 	if metric != nil {
 		cli.clientMeterProvider.Reset(metric)
 	}
-	return cli.settings.applySettingsCommand(settings)
+	err := cli.settings.applySettingsCommand(settings)
+	cli.inited.Store(true)
+	return err
 }
 
 func (cli *defaultClient) onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) {
@@ -662,6 +758,10 @@ func (cli *defaultClient) onVerifyMessageCommand(endpoints *v2.Endpoints, comman
 	}
 }
 
+func (cli *defaultClient) onNotifyUnsubscribeLiteCommand(endpoints *v2.Endpoints, command *v2.NotifyUnsubscribeLiteCommand) {
+	cli.notifyUnsubscribeLiteFunc(command)
+}
+
 func (cli *defaultClient) onPrintThreadStackTraceCommand(endpoints *v2.Endpoints, command *v2.PrintThreadStackTraceCommand) {
 	nonce := command.GetNonce()
 	go func(nonce string) {
@@ -685,4 +785,7 @@ func (cli *defaultClient) onPrintThreadStackTraceCommand(endpoints *v2.Endpoints
 			cli.telemeter(target, req)
 		}
 	}(nonce)
+}
+func (cli *defaultClient) onReconnectEndpointsCommand(endpoints *v2.Endpoints, command *v2.ReconnectEndpointsCommand) {
+	cli.ReceiveReconnect = true
 }

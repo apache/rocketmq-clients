@@ -17,14 +17,12 @@
 #include "ProducerImpl.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <memory>
 #include <system_error>
 #include <utility>
 
-#include "apache/rocketmq/v2/definition.pb.h"
 #include "MixAll.h"
 #include "Protocol.h"
 #include "PublishInfoCallback.h"
@@ -40,6 +38,7 @@
 #include "rocketmq/SendReceipt.h"
 #include "rocketmq/Transaction.h"
 #include "rocketmq/TransactionChecker.h"
+#include "rocketmq/RecallReceipt.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -57,7 +56,7 @@ void ProducerImpl::start() {
 
   State expecting = State::STARTING;
   if (!state_.compare_exchange_strong(expecting, State::STARTED)) {
-    SPDLOG_ERROR("Start with unexpected state. Expecting: {}, Actual: {}", State::STARTING,
+    SPDLOG_ERROR("Producer started with an unexpected state. Expecting: {}, Actual: {}", State::STARTING,
                  state_.load(std::memory_order_relaxed));
     return;
   }
@@ -97,8 +96,12 @@ void ProducerImpl::validate(const Message& message, std::error_code& ec) {
   MixAll::validate(message, ec);
 
   if (!ec) {
+    if (message.body().empty()) {
+      SPDLOG_WARN("Body of the message is null, topic={}", message.topic());
+      ec = ErrorCode::MessageBodyEmpty;
+    }
     if (message.body().length() > client_config_.publisher.max_body_size) {
-      SPDLOG_WARN("Body of the message to send is too large");
+      SPDLOG_WARN("Body of the message to send is too large, topic={}", message.topic());
       ec = ErrorCode::PayloadTooLarge;
     }
   }
@@ -152,10 +155,14 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
 
   system_properties->set_born_host(UtilAll::hostname());
 
+  // Determine message type based on properties
   if (message.deliveryTimestamp().time_since_epoch().count()) {
     system_properties->set_message_type(rmq::MessageType::DELAY);
   } else if (!message.group().empty()) {
     system_properties->set_message_type(rmq::MessageType::FIFO);
+  } else if (message.priority() >= 0) {
+    system_properties->set_message_type(rmq::MessageType::PRIORITY);
+    system_properties->set_priority(message.priority());
   } else if (message.extension().transactional) {
     system_properties->set_message_type(rmq::MessageType::TRANSACTION);
   } else {
@@ -224,10 +231,15 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
   SendReceipt   send_receipt;
 
   // Define callback
-  auto callback = [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) mutable {
+  auto callback =
+      [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) mutable {
     ec = code;
-    SendReceipt& receipt_mut = const_cast<SendReceipt&>(receipt);
+    auto& receipt_mut = const_cast<SendReceipt&>(receipt);
+    send_receipt.target = std::move(receipt_mut.target);
+    send_receipt.message_id = std::move(receipt_mut.message_id);
     send_receipt.message = std::move(receipt_mut.message);
+    send_receipt.transaction_id = std::move(receipt_mut.transaction_id);
+    send_receipt.recall_handle = std::move(receipt_mut.recall_handle);
     {
       absl::MutexLock lk(mtx.get());
       completed = true;
@@ -354,7 +366,7 @@ void ProducerImpl::sendImpl(std::shared_ptr<SendContext> context) {
   client_manager_->send(target, metadata, request, callback);
 }
 
-void ProducerImpl::send0(MessageConstPtr message, SendCallback callback, std::vector<rmq::MessageQueue> list) {
+void ProducerImpl::send0(MessageConstPtr message, const SendCallback& callback, std::vector<rmq::MessageQueue> list) {
   SendReceipt send_receipt;
   std::error_code ec;
   validate(*message, ec);
@@ -371,7 +383,8 @@ void ProducerImpl::send0(MessageConstPtr message, SendCallback callback, std::ve
     return;
   }
 
-  auto context = std::make_shared<SendContext>(shared_from_this(), std::move(message), callback, std::move(list));
+  auto context = std::make_shared<SendContext>(
+      shared_from_this(), std::move(message), callback, std::move(list));
   sendImpl(context);
 }
 
@@ -446,8 +459,9 @@ bool ProducerImpl::endTransaction0(const MiniTransaction& transaction, Transacti
     }
   };
 
-  client_manager_->endTransaction(transaction.target, metadata, request, absl::ToChronoMilliseconds(requestTimeout()),
-                                  cb);
+  client_manager_->endTransaction(
+      transaction.target, metadata, request, absl::ToChronoMilliseconds(requestTimeout()), cb);
+
   {
     absl::MutexLock lk(mtx.get());
     cv->Wait(mtx.get());
@@ -470,7 +484,7 @@ void ProducerImpl::isolateEndpoint(const std::string& target) {
   isolated_endpoints_.insert(target);
 }
 
-void ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
+SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
   MiniTransaction mini = {};
   mini.topic = message->topic();
   mini.trace_context = message->traceContext();
@@ -478,13 +492,17 @@ void ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transactio
   if (!message->group().empty()) {
     ec = ErrorCode::MessagePropertyConflictWithType;
     SPDLOG_WARN("FIFO message may not be transactional");
-    return;
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   if (message->deliveryTimestamp().time_since_epoch().count()) {
     ec = ErrorCode::MessagePropertyConflictWithType;
     SPDLOG_WARN("Timed message may not be transactional");
-    return;
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   Message* msg = const_cast<Message*>(message.get());
@@ -497,6 +515,75 @@ void ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transactio
   mini.target = send_receipt.target;
   auto& impl = dynamic_cast<TransactionImpl&>(transaction);
   impl.appendMiniTransaction(mini);
+
+  return send_receipt;
+}
+
+RecallReceipt ProducerImpl::recall(const std::string& topic, std::string& recall_handle, std::error_code& ec) noexcept {
+  ensureRunning(ec);
+  if (ec) {
+    SPDLOG_WARN("Producer is not running");
+    return RecallReceipt{};
+  }
+
+  auto topic_publish_info = getPublishInfo(topic);
+  if (!topic_publish_info) {
+    SPDLOG_WARN("Route of topic[{}] is not found", topic);
+    ec = ErrorCode::NotFound;
+    return RecallReceipt{};
+  }
+
+  std::vector<rmq::MessageQueue> message_queue_list;
+  absl::optional<std::string> message_group{};
+
+  if (!topic_publish_info->selectMessageQueues(message_group, message_queue_list)) {
+    SPDLOG_WARN("Failed to select an addressable message queue for timer topic[{}]", topic);
+    ec = ErrorCode::NotFound;
+    return RecallReceipt{};
+  }
+
+  const std::string& target = urlOf(message_queue_list.front());
+  if (target.empty()) {
+    SPDLOG_WARN("Failed to resolve broker address from MessageQueue");
+    ec = ErrorCode::BadGateway;
+    return RecallReceipt{};
+  }
+
+  RecallMessageRequest request;
+  request.mutable_topic()->set_resource_namespace(resourceNamespace());
+  request.mutable_topic()->set_name(topic);
+  request.set_recall_handle(recall_handle);
+
+  Metadata metadata;
+  Signature::sign(client_config_, metadata);
+
+  auto mtx = std::make_shared<absl::Mutex>();
+  auto cv = std::make_shared<absl::CondVar>();
+
+  RecallReceipt recall_receipt;
+  auto callback =
+      [&, mtx, cv, topic](const std::error_code& code, const RecallMessageResponse& response) {
+
+    ec = code;
+    if (!ec) {
+      recall_receipt.message_id = response.message_id();
+    }
+
+    {
+      absl::MutexLock lk(mtx.get());
+      cv->SignalAll();
+    }
+  };
+
+  client_manager_->recallMessage(
+      target, metadata, request, absl::ToChronoMilliseconds(requestTimeout()), callback);
+
+  {
+    absl::MutexLock lk(mtx.get());
+    cv->Wait(mtx.get());
+  }
+
+  return recall_receipt;
 }
 
 void ProducerImpl::getPublishInfoAsync(const std::string& topic, const PublishInfoCallback& cb) {

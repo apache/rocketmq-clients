@@ -66,6 +66,9 @@ public:
   void asyncEndTransaction(const EndTransactionRequest& request,
                            InvocationContext<EndTransactionResponse>* invocation_context) override;
 
+  void asyncRecallMessage(const RecallMessageRequest& request,
+                          InvocationContext<RecallMessageResponse>* invocation_context) override;
+
   std::shared_ptr<TelemetryBidiReactor> asyncTelemetry(std::weak_ptr<Client> client) override;
 
   void asyncForwardMessageToDeadLetterQueue(

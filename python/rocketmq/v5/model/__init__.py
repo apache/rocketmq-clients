@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from rocketmq.v5.model.process_queue import ProcessQueue
+
 from .callback_result import CallbackResult, CallbackResultType
 from .filter_expression import FilterExpression
 from .message import Message
@@ -31,4 +33,5 @@ __all__ = [
     "FilterExpression",
     "CallbackResult",
     "CallbackResultType",
+    "ProcessQueue",
 ]

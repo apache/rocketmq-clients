@@ -24,6 +24,8 @@ use tokio::time;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     let mut client_option = ClientOption::default();
     client_option.set_access_url("localhost:8081");
     client_option.set_enable_tls(false);
@@ -31,6 +33,11 @@ async fn main() {
     let mut option = PushConsumerOption::default();
     option.set_consumer_group("test");
     option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+
+    // Enable FIFO consume accelerator for parallel consumption by messageGroup
+    // This allows messages with different messageGroups to be consumed in parallel
+    // while maintaining FIFO order within the same messageGroup
+    option.set_enable_fifo_consume_accelerator(true);
 
     let callback: MessageListener = Box::new(|message| {
         println!("Receive message: {:?}", message);

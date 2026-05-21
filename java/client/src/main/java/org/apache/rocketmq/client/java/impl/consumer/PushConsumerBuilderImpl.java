@@ -42,9 +42,17 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     private MessageListener messageListener = null;
     private BatchMessageListener batchMessageListener = null;
     private BatchPolicy batchPolicy = null;
-    private int maxCacheMessageCount = 1024;
+
+    /**
+     * The number of cached messages should not be set too high, as the consumption
+     * timeout is calculated from the moment the message is pulled from the server.
+     * However, in scenarios with a large number of brokers, the maximum throughput may not be achievable.
+     */
+    private int maxCacheMessageCount = 4096;
     private int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
     private int consumptionThreadCount = 20;
+    private boolean enableFifoConsumeAccelerator = false;
+    private boolean enableMessageInterceptorFiltering = false;
 
     /**
      * @see PushConsumerBuilder#setClientConfiguration(ClientConfiguration)
@@ -128,6 +136,23 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     }
 
     /**
+     * @see PushConsumerBuilder#setEnableFifoConsumeAccelerator(boolean)
+     */
+    @Override
+    public PushConsumerBuilder setEnableFifoConsumeAccelerator(boolean enableFifoConsumeAccelerator) {
+        this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
+        return this;
+    }
+
+    /**
+     * @see PushConsumerBuilder#setEnableMessageInterceptorFiltering(boolean)
+     */
+    public PushConsumerBuilder setEnableMessageInterceptorFiltering(boolean enableMessageInterceptorFiltering) {
+        this.enableMessageInterceptorFiltering = enableMessageInterceptorFiltering;
+        return this;
+    }
+
+    /**
      * @see PushConsumerBuilder#build()
      */
     @Override
@@ -149,7 +174,8 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
         }
         final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, consumerGroup,
             subscriptionExpressions, messageListener, batchMessageListener, batchPolicy,
-            maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount);
+            maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount,
+            enableFifoConsumeAccelerator, enableMessageInterceptorFiltering);
         pushConsumer.startAsync().awaitRunning();
         return pushConsumer;
     }

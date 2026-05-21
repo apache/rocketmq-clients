@@ -15,20 +15,30 @@
  * limitations under the License.
  */
 
-import { Producer } from '..';
+import { Producer } from '../src';
 
-const producer = new Producer({
-  endpoints: '127.0.0.1:8081',
-  namespace: ''
-});
-await producer.startup();
+(async () => {
+  const producer = new Producer({
+    endpoints: '127.0.0.1:8080',
+    namespace: '',
+    requestTimeout: 5000,
+  });
+  try {
+    await producer.startup();
+    console.log('Producer started successfully');
 
-const receipt = await producer.send({
-  topic: 'TopicTest',
-  tag: 'nodejs-demo',
-  body: Buffer.from(JSON.stringify({
-    hello: 'rocketmq-client-nodejs world 😄',
-    now: Date(),
-  })),
-});
-console.log(receipt);
+    const receipt = await producer.send({
+      topic: 'TopicTest',
+      tag: 'nodejs-demo',
+      body: Buffer.from(JSON.stringify({
+        hello: 'rocketmq-client-nodejs world 😄',
+        now: Date(),
+      })),
+    });
+    console.log('Message sent:', receipt);
+  } catch (error) {
+    console.error('Failed to send message:', error);
+  } finally {
+    await producer.shutdown();
+  }
+})();

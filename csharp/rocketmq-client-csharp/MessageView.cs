@@ -38,7 +38,7 @@ namespace Org.Apache.Rocketmq
         private MessageView(string messageId, string topic, byte[] body, string tag, string messageGroup,
             DateTime? deliveryTimestamp, List<string> keys, Dictionary<string, string> properties, string bornHost,
             DateTime bornTime, int deliveryAttempt, MessageQueue messageQueue, string receiptHandle, long offset,
-            bool corrupted)
+            bool corrupted, int? priority = null)
         {
             MessageId = messageId;
             Topic = topic;
@@ -55,6 +55,7 @@ namespace Org.Apache.Rocketmq
             ReceiptHandle = receiptHandle;
             _offset = offset;
             _corrupted = corrupted;
+            Priority = priority;
         }
 
         public string MessageId { get; }
@@ -78,6 +79,11 @@ namespace Org.Apache.Rocketmq
         public DateTime BornTime { get; }
 
         public int DeliveryAttempt { get; set; }
+
+        /// <summary>
+        /// Gets the priority of the message, which makes sense only when the topic type is PRIORITY.
+        /// </summary>
+        public int? Priority { get; }
 
         public int IncrementAndGetDeliveryAttempt()
         {
@@ -147,7 +153,16 @@ namespace Org.Apache.Rocketmq
             {
                 case Proto.Encoding.Gzip:
                     {
-                        body = Utilities.DecompressBytesGzip(raw);
+                        // Gzip
+                        if (body[0] == 0x1f && body[1] == 0x8b)
+                        {
+                            body = Utilities.DecompressBytesGzip(raw);
+                        }
+                        // Zlib
+                        else if (body[0] == 0x78 || body[0] == 0x79)
+                        {
+                            body = Utilities.DecompressBytesZlib(raw);
+                        }
                         break;
                     }
                 case Proto.Encoding.Identity:
@@ -158,7 +173,7 @@ namespace Org.Apache.Rocketmq
                 default:
                     {
                         Logger.LogError($"Unsupported message encoding algorithm," +
-                                     $" topic={topic}, messageId={messageId}, bodyEncoding={bodyEncoding}");
+                                        $" topic={topic}, messageId={messageId}, bodyEncoding={bodyEncoding}");
                         break;
                     }
             }
@@ -175,6 +190,7 @@ namespace Org.Apache.Rocketmq
                 TimeZoneInfo.ConvertTimeFromUtc(systemProperties.BornTimestamp.ToDateTime(), TimeZoneInfo.Local);
             var deliveryAttempt = systemProperties.DeliveryAttempt;
             var queueOffset = systemProperties.QueueOffset;
+            var priority = systemProperties.HasPriority ? (int?)systemProperties.Priority : null;
             var properties = new Dictionary<string, string>();
             foreach (var (key, value) in message.UserProperties)
             {
@@ -184,7 +200,7 @@ namespace Org.Apache.Rocketmq
 
             var receiptHandle = systemProperties.ReceiptHandle;
             return new MessageView(messageId, topic, body, tag, messageGroup, deliveryTime, keys, properties, bornHost,
-                bornTime, deliveryAttempt, messageQueue, receiptHandle, queueOffset, corrupted);
+                bornTime, deliveryAttempt, messageQueue, receiptHandle, queueOffset, corrupted, priority);
         }
 
         public override string ToString()
@@ -192,7 +208,8 @@ namespace Org.Apache.Rocketmq
             return $"{nameof(MessageId)}: {MessageId}, {nameof(Topic)}: {Topic}, {nameof(Tag)}: {Tag}," +
                    $" {nameof(MessageGroup)}: {MessageGroup}, {nameof(DeliveryTimestamp)}: {DeliveryTimestamp}," +
                    $" {nameof(Keys)}: {string.Join(", ", Keys)}, {nameof(Properties)}: {string.Join(", ", Properties.Select(kvp => kvp.ToString()))}, {nameof(BornHost)}: {BornHost}, " +
-                   $"{nameof(BornTime)}: {BornTime}, {nameof(DeliveryAttempt)}: {DeliveryAttempt}";
+                   $"{nameof(BornTime)}: {BornTime}, {nameof(DeliveryAttempt)}: {DeliveryAttempt}, " +
+                   $"{nameof(Priority)}: {Priority}";
         }
     }
 }

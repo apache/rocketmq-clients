@@ -43,8 +43,8 @@ public:
    * Make it noncopyable.
    */
   ConsumeMessageServiceImpl(const ConsumeMessageServiceImpl &other) = delete;
-  ConsumeMessageServiceImpl &
-  operator=(const ConsumeMessageServiceImpl &other) = delete;
+
+  ConsumeMessageServiceImpl &operator=(const ConsumeMessageServiceImpl &other) = delete;
 
   void start() override;
 

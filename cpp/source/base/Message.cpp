@@ -20,7 +20,6 @@
 #include <memory>
 
 #include "UniqueIdGenerator.h"
-#include "absl/memory/memory.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -62,6 +61,11 @@ MessageBuilder& MessageBuilder::withBody(std::string body) {
 
 MessageBuilder& MessageBuilder::withGroup(std::string group) {
   message_->group_.swap(group);
+  return *this;
+}
+
+MessageBuilder& MessageBuilder::withPriority(std::int32_t priority) {
+  message_->priority_ = priority;
   return *this;
 }
 

@@ -22,8 +22,9 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
@@ -51,13 +52,19 @@ type defaultSimpleConsumer struct {
 	cli *defaultClient
 
 	groupName                    string
-	topicIndex                   int32
+	topicIndex                   atomic.Int32
 	scOpts                       simpleConsumerOptions
 	scSettings                   *simpleConsumerSettings
 	awaitDuration                time.Duration
 	subscriptionExpressionsLock  sync.RWMutex
-	subscriptionExpressions      map[string]*FilterExpression
+	subscriptionExpressions      *map[string]*FilterExpression
 	subTopicRouteDataResultCache sync.Map
+	receiveRateLimiter           *receiveRateLimiter
+}
+
+func (sc *defaultSimpleConsumer) SetRequestTimeout(timeout time.Duration) {
+	sc.cli.opts.timeout = timeout
+	sc.scSettings.requestTimeout = sc.cli.opts.timeout
 }
 
 func (sc *defaultSimpleConsumer) isOn() bool {
@@ -143,7 +150,7 @@ func (sc *defaultSimpleConsumer) Subscribe(topic string, filterExpression *Filte
 	sc.subscriptionExpressionsLock.Lock()
 	defer sc.subscriptionExpressionsLock.Unlock()
 
-	sc.subscriptionExpressions[topic] = filterExpression
+	(*sc.subscriptionExpressions)[topic] = filterExpression
 	return nil
 }
 
@@ -151,7 +158,7 @@ func (sc *defaultSimpleConsumer) Unsubscribe(topic string) error {
 	sc.subscriptionExpressionsLock.Lock()
 	defer sc.subscriptionExpressionsLock.Unlock()
 
-	delete(sc.subscriptionExpressions, topic)
+	delete(*sc.subscriptionExpressions, topic)
 	return nil
 }
 
@@ -226,6 +233,8 @@ func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2
 			}
 			if err != nil {
 				sc.cli.log.Errorf("simpleConsumer recv msg err=%v, requestId=%s", err, utils.GetRequestID(ctx))
+				done <- true
+				defer close(done)
 				break
 			}
 			sugarBaseLogger.Debugf("receiveMessage response: %v", resp)
@@ -283,8 +292,8 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 		return nil, fmt.Errorf("maxMessageNum must be greater than 0")
 	}
 	sc.subscriptionExpressionsLock.RLock()
-	topics := make([]string, 0, len(sc.subscriptionExpressions))
-	for k := range sc.subscriptionExpressions {
+	topics := make([]string, 0, len(*sc.subscriptionExpressions))
+	for k := range *sc.subscriptionExpressions {
 		topics = append(topics, k)
 	}
 	sc.subscriptionExpressionsLock.RUnlock()
@@ -292,12 +301,12 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	if len(topics) == 0 {
 		return nil, fmt.Errorf("there is no topic to receive message")
 	}
-	next := atomic.AddInt32(&sc.topicIndex, 1)
+	next := sc.topicIndex.Inc()
 	idx := utils.Mod(next+1, len(topics))
 	topic := topics[idx]
 
 	sc.subscriptionExpressionsLock.RLock()
-	filterExpression, ok := sc.subscriptionExpressions[topic]
+	filterExpression, ok := (*sc.subscriptionExpressions)[topic]
 	sc.subscriptionExpressionsLock.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("no found filterExpression about topic: %s", topic)
@@ -310,6 +319,13 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	if err != nil {
 		return nil, err
 	}
+
+	// Apply rate limiting
+	if err = sc.receiveRateLimiter.acquire(ctx); err != nil {
+		return nil, fmt.Errorf("failed to acquire rate limit permit: %w", err)
+	}
+	defer sc.receiveRateLimiter.release()
+
 	request := sc.wrapReceiveMessageRequest(int(maxMessageNum), selectMessageQueue, filterExpression, invisibleDuration)
 	timeout := sc.scOpts.awaitDuration + sc.cli.opts.timeout
 	return sc.receiveMessage(ctx, request, selectMessageQueue, timeout)
@@ -347,17 +363,19 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 	if err != nil {
 		return nil, err
 	}
+	if scOpts.subscriptionExpressions == nil {
+		scOpts.subscriptionExpressions = make(map[string]*FilterExpression)
+	}
 	sc := &defaultSimpleConsumer{
 		scOpts:    *scOpts,
 		cli:       cli.(*defaultClient),
 		groupName: config.ConsumerGroup,
 
 		awaitDuration:           scOpts.awaitDuration,
-		subscriptionExpressions: scOpts.subscriptionExpressions,
+		subscriptionExpressions: &scOpts.subscriptionExpressions,
+		receiveRateLimiter:      newReceiveRateLimiter(scOpts.maxReceiveConcurrency),
 	}
-	if sc.subscriptionExpressions == nil {
-		sc.subscriptionExpressions = make(map[string]*FilterExpression)
-	}
+
 	sc.cli.initTopics = make([]string, 0)
 	for topic := range scOpts.subscriptionExpressions {
 		sc.cli.initTopics = append(sc.cli.initTopics, topic)
@@ -442,4 +460,12 @@ func (sc *defaultSimpleConsumer) Ack(ctx context.Context, messageView *MessageVi
 	}
 	sc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
 	return nil
+}
+
+func (sc *defaultSimpleConsumer) IsEndpointUpdated() bool {
+	return sc.cli.ReceiveReconnect
+}
+
+func (sc *defaultSimpleConsumer) SetReceiveReconnect(receiveReconnect bool) {
+	sc.cli.ReceiveReconnect = receiveReconnect
 }

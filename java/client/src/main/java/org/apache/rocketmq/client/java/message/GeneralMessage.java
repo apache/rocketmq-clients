@@ -82,12 +82,26 @@ public interface GeneralMessage {
     Optional<String> getMessageGroup();
 
     /**
+     * Get the lite topic, which makes sense only when the topic type is LITE.
+     *
+     * @return lite topic, which is optional, {@link Optional#empty()} means lite topic is not specified.
+     */
+    Optional<String> getLiteTopic();
+
+    /**
      * Get the expected delivery timestamp, which makes sense only when topic type is delay.
      *
      * @return message expected delivery timestamp, which is optional, {@link Optional#empty()} means delivery
      * timestamp is not specified.
      */
     Optional<Long> getDeliveryTimestamp();
+
+    /**
+     * Get the priority of the message, which makes sense only when topic type is priority.
+     *
+     * @return message priority, which is optional, {@link Optional#empty()} means priority is not specified.
+     */
+    Optional<Integer> getPriority();
 
     /**
      * Get the born host of the message.

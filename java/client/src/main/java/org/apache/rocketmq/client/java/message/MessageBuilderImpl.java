@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageBuilder;
@@ -34,13 +35,15 @@ import org.apache.rocketmq.client.apis.message.MessageBuilder;
 public class MessageBuilderImpl implements MessageBuilder {
     public static final Pattern TOPIC_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
 
-    private String topic = null;
-    private byte[] body = null;
-    private String tag = null;
-    private String messageGroup = null;
-    private Long deliveryTimestamp = null;
-    private Collection<String> keys = new HashSet<>();
-    private final Map<String, String> properties = new HashMap<>();
+    protected String topic = null;
+    protected byte[] body = null;
+    protected String tag = null;
+    protected String messageGroup = null;
+    protected String liteTopic = null;
+    protected Long deliveryTimestamp = null;
+    protected Integer priority = null;
+    protected Collection<String> keys = new HashSet<>();
+    protected final Map<String, String> properties = new HashMap<>();
 
     public MessageBuilderImpl() {
     }
@@ -62,7 +65,7 @@ public class MessageBuilderImpl implements MessageBuilder {
      */
     @Override
     public MessageBuilder setBody(byte[] body) {
-        checkNotNull(body, "body should not be null");
+        checkArgument(ArrayUtils.isNotEmpty(body), "body should not be empty");
         this.body = body.clone();
         return this;
     }
@@ -97,8 +100,20 @@ public class MessageBuilderImpl implements MessageBuilder {
     @Override
     public MessageBuilder setMessageGroup(String messageGroup) {
         checkArgument(null == deliveryTimestamp, "messageGroup and deliveryTimestamp should not be set at same time");
+        checkArgument(null == liteTopic, "messageGroup and liteTopic should not be set at same time");
+        checkArgument(null == priority, "messageGroup and priority should not be set at same time");
         checkArgument(StringUtils.isNotBlank(messageGroup), "messageGroup should not be blank");
         this.messageGroup = messageGroup;
+        return this;
+    }
+
+    @Override
+    public MessageBuilder setLiteTopic(String liteTopic) {
+        checkArgument(null == deliveryTimestamp, "liteTopic and deliveryTimestamp should not be set at same time");
+        checkArgument(null == messageGroup, "liteTopic and messageGroup should not be set at same time");
+        checkArgument(null == priority, "liteTopic and priority should not be set at same time");
+        checkArgument(StringUtils.isNotBlank(liteTopic), "liteTopic should not be blank");
+        this.liteTopic = liteTopic;
         return this;
     }
 
@@ -108,7 +123,22 @@ public class MessageBuilderImpl implements MessageBuilder {
     @Override
     public MessageBuilder setDeliveryTimestamp(long deliveryTimestamp) {
         checkArgument(null == messageGroup, "deliveryTimestamp and messageGroup should not be set at same time");
+        checkArgument(null == liteTopic, "deliveryTimestamp and liteTopic should not be set at same time");
+        checkArgument(null == priority, "deliveryTimestamp and priority should not be set at same time");
         this.deliveryTimestamp = deliveryTimestamp;
+        return this;
+    }
+
+    /**
+     * See {@link MessageBuilder#setPriority(int)}
+     */
+    @Override
+    public MessageBuilder setPriority(int priority) {
+        checkArgument(null == deliveryTimestamp, "priority and deliveryTimestamp should not be set at same time");
+        checkArgument(null == messageGroup, "priority and messageGroup should not be set at same time");
+        checkArgument(null == liteTopic, "priority and liteTopic should not be set at same time");
+        checkArgument(priority >= 0, "priority must be greater than or equal to 0");
+        this.priority = priority;
         return this;
     }
 
@@ -130,6 +160,6 @@ public class MessageBuilderImpl implements MessageBuilder {
     public Message build() {
         checkNotNull(topic, "topic has not been set yet");
         checkNotNull(body, "body has not been set yet");
-        return new MessageImpl(topic, body, tag, keys, messageGroup, deliveryTimestamp, properties);
+        return new MessageImpl(this);
     }
 }

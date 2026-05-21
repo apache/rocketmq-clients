@@ -39,6 +39,7 @@ struct SubscriberConfig {
   rmq::Resource group;
   absl::flat_hash_map<std::string, rmq::SubscriptionEntry> subscriptions;
   bool fifo{false};
+  bool fifo_consume_accelerator{false};
   std::uint32_t receive_batch_size{32};
   absl::Duration polling_timeout{absl::Seconds(30)};
 };
@@ -61,6 +62,7 @@ struct ClientConfig {
   SubscriberConfig subscriber;
   Metric metric;
   bool withSsl;
+  std::uint32_t callback_threads{2};
   std::unique_ptr<opencensus::trace::Sampler> sampler_;
 };
 

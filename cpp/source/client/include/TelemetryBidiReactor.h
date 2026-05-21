@@ -40,19 +40,25 @@ enum class StreamState : std::uint8_t
   Closed = 2,
 };
 
-/// stream-state: ready --> closing --> closed
+/// TelemetryBidiReactor: Manages a bidirectional gRPC stream for telemetry data
 ///
-/// requirement:
-///    1, close --> blocking wait till bidireactor is closed;
-///    2, when session is closed and client is still active, recreate a new session to accept incoming commands from
-///    server
+/// Stream State Transitions:
+///    Ready --> Closing --> Closed
 ///
+/// Key Features:
+///    1. Close Operation: Performs a blocking wait until the bidirectional reactor is fully closed.
+///    2. Session Management: If the session closes while the client is still active,
+///       it automatically initiates the creation of a new session to maintain
+///       communication with the server.
+///
+/// The reactor handles reading from and writing to the stream, manages stream state,
+/// and applies settings received from the server.
 class TelemetryBidiReactor : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
                              public std::enable_shared_from_this<TelemetryBidiReactor> {
 public:
   TelemetryBidiReactor(std::weak_ptr<Client> client, rmq::MessagingService::Stub* stub, std::string peer_address);
 
-  ~TelemetryBidiReactor();
+  ~TelemetryBidiReactor() override;
 
   /// Notifies the application that all operations associated with this RPC
   /// have completed and all Holds have been removed. OnDone provides the RPC
@@ -125,7 +131,6 @@ private:
   absl::CondVar state_cv_;
 
   std::promise<bool> sync_settings_promise_;
-  std::future<bool> sync_settings_future_;
 
   void applySettings(const rmq::Settings& settings);
 
@@ -137,6 +142,7 @@ private:
 
   /// Attempt to write pending telemetry command to server.
   void tryWriteNext() LOCKS_EXCLUDED(state_mtx_, writes_mtx_);
+
   void signalClose();
 };
 

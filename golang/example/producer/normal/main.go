@@ -49,6 +49,9 @@ func main() {
 	},
 		rmq_client.WithTopics(Topic),
 	)
+	// Disable SSL. You can also use os.Setenv("rocketmq.client.enableSsl", "false"),
+	// but this should be configured before the program starts.
+	rmq_client.EnableSsl = false
 	if err != nil {
 		log.Fatal(err)
 	}

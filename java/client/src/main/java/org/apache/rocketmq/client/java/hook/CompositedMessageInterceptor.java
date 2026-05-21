@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.hook;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,20 +30,24 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
     private static final Logger log = LoggerFactory.getLogger(MessageInterceptor.class);
     private static final AttributeKey<Map<Integer, Map<AttributeKey, Attribute>>> INTERCEPTOR_ATTRIBUTES_KEY =
         AttributeKey.create("composited_interceptor_attributes");
-    private final List<MessageInterceptor> interceptors;
+    private final List<MessageInterceptor> interceptors = new ArrayList<>();
 
     public CompositedMessageInterceptor(List<MessageInterceptor> interceptors) {
-        this.interceptors = interceptors;
+        this.interceptors.addAll(interceptors);
     }
 
     @Override
     public void doBefore(MessageInterceptorContext context0, List<GeneralMessage> messages) {
         final HashMap<Integer, Map<AttributeKey, Attribute>> attributeMap = new HashMap<>();
+        final MessageHookPoints messageHookPoints = context0.getMessageHookPoints();
+        final MessageHookPointsStatus status = context0.getStatus();
+        MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status);
+
         for (int index = 0; index < interceptors.size(); index++) {
             MessageInterceptor interceptor = interceptors.get(index);
-            final MessageHookPoints messageHookPoints = context0.getMessageHookPoints();
-            final MessageHookPointsStatus status = context0.getStatus();
-            final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status);
+            if (context0 instanceof MessageInterceptorContextImpl) {
+                ((MessageInterceptorContextImpl) context0).getAttributes().forEach(context::putAttribute);
+            }
             try {
                 interceptor.doBefore(context, messages);
             } catch (Throwable t) {
@@ -62,8 +67,11 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
             final Map<AttributeKey, Attribute> attributes = attributeMap.get(index);
             final MessageHookPoints messageHookPoints = context0.getMessageHookPoints();
             final MessageHookPointsStatus status = context0.getStatus();
-            final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status,
+            MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status,
                 attributes);
+            if (context0 instanceof MessageInterceptorContextImpl) {
+                ((MessageInterceptorContextImpl) context0).getAttributes().forEach(context::putAttribute);
+            }
             MessageInterceptor interceptor = interceptors.get(index);
             try {
                 interceptor.doAfter(context, messages);
@@ -71,5 +79,9 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
                 log.error("Exception raised while handing messages", t);
             }
         }
+    }
+    
+    public void addInterceptor(MessageInterceptor interceptor) {
+        interceptors.add(interceptor);
     }
 }

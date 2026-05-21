@@ -24,5 +24,32 @@ Otherwise, to install the `golang` package, run the following command:
 go get -u github.com/apache/rocketmq-clients/golang/v5
 ```
 
+## Development
+
+### Protocol Buffers Generation
+
+If you need to regenerate the Protocol Buffers code after modifying the `.proto` files, run the following commands:
+
+```bash
+protoc --go-grpc_out=. apache/rocketmq/v2/*.proto
+protoc --go_out=. apache/rocketmq/v2/*.proto
+```
+
+### Building
+
+To build the entire project:
+
+```bash
+go build ./...
+```
+
+### Running Tests
+
+To run all tests:
+
+```bash
+go test ./...
+```
+
 [codecov-golang-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=golang&label=Golang%20Coverage&logo=codecov
 [codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients

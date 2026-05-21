@@ -21,6 +21,8 @@ import {
   ClientType,
   MessageType,
   TransactionResolution,
+  TransactionSource,
+  Code,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
   EndTransactionRequest,
@@ -46,6 +48,8 @@ import { PublishingLoadBalancer } from './PublishingLoadBalancer';
 import { SendReceipt } from './SendReceipt';
 import { Transaction } from './Transaction';
 import { createResource } from '../util';
+import { RecallReceipt } from './RecallReceipt';
+import { RecallMessageRequest } from '../../proto/apache/rocketmq/v2/service_pb';
 
 export interface ProducerOptions extends BaseClientOptions {
   topic?: string | string[];
@@ -71,24 +75,50 @@ export class Producer extends BaseClient {
     this.#checker = options.checker;
   }
 
+  async startup() {
+    this.logger.info('Begin to start the rocketmq producer, clientId=%s', this.clientId);
+    await super.startup();
+    this.logger.info('The rocketmq producer starts successfully, clientId=%s', this.clientId);
+  }
+
+  async shutdown() {
+    this.logger.info('Begin to shutdown the rocketmq producer, clientId=%s', this.clientId);
+    await super.shutdown();
+    this.logger.info('Shutdown the rocketmq producer successfully, clientId=%s', this.clientId);
+  }
+
   get publishingSettings() {
     return this.#publishingSettings;
   }
 
   beginTransaction() {
     assert(this.#checker, 'Transaction checker should not be null');
+    // Check producer status before beginning transaction
+    if (!this.isRunning()) {
+      this.logger.error('Unable to begin a transaction because producer is not running, clientId=%s', this.clientId);
+      throw new Error('Producer is not running now');
+    }
     return new Transaction(this);
   }
 
   async endTransaction(endpoints: Endpoints, message: Message, messageId: string,
-    transactionId: string, resolution: TransactionResolution) {
+    transactionId: string, resolution: TransactionResolution, source: TransactionSource = TransactionSource.SOURCE_CLIENT) {
+    const resolutionStr = resolution === TransactionResolution.COMMIT ? 'COMMIT' : 'ROLLBACK';
+    const sourceStr = TransactionSource[source];
+    this.logger.debug?.('Begin to end transaction, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
+      messageId, transactionId, resolutionStr, sourceStr, this.clientId);
+
     const request = new EndTransactionRequest()
       .setMessageId(messageId)
       .setTransactionId(transactionId)
       .setTopic(createResource(message.topic).setResourceNamespace(this.namespace))
-      .setResolution(resolution);
+      .setResolution(resolution)
+      .setSource(source);
     const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
     StatusChecker.check(response.getStatus()?.toObject());
+
+    this.logger.debug?.('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
+      messageId, transactionId, resolutionStr, sourceStr, this.clientId);
   }
 
   async onRecoverOrphanedTransactionCommand(endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {
@@ -114,7 +144,9 @@ export class Producer extends BaseClient {
       if (resolution === null || resolution === TransactionResolution.TRANSACTION_RESOLUTION_UNSPECIFIED) {
         return;
       }
-      await this.endTransaction(endpoints, messageView, messageId, transactionId, resolution);
+      // Use SOURCE_SERVER_CHECK for transaction recovery
+      await this.endTransaction(endpoints, messageView, messageId, transactionId, resolution,
+        TransactionSource.SOURCE_SERVER_CHECK);
       this.logger.info('Recover orphaned transaction message success, transactionId=%s, resolution=%s, messageId=%s, clientId=%s',
         transactionId, resolution, messageId, this.clientId);
     } catch (err) {
@@ -128,9 +160,18 @@ export class Producer extends BaseClient {
     return this.#publishingSettings;
   }
 
+  /**
+   * Get the client type.
+   *
+   * @return The client type identifier for producer
+   */
+  protected getClientType(): ClientType {
+    return ClientType.PRODUCER;
+  }
+
   protected wrapHeartbeatRequest(): HeartbeatRequest {
     return new HeartbeatRequest()
-      .setClientType(ClientType.PRODUCER);
+      .setClientType(this.getClientType());
   }
 
   protected wrapNotifyClientTerminationRequest(): NotifyClientTerminationRequest {
@@ -143,14 +184,26 @@ export class Producer extends BaseClient {
       return sendReceipts[0];
     }
 
-    const publishingMessage = transaction.tryAddMessage(message);
-    const sendReceipts = await this.#send([ message ], true);
-    const sendReceipt = sendReceipts[0];
-    transaction.tryAddReceipt(publishingMessage, sendReceipt);
-    return sendReceipt;
+    // Send transactional message
+    try {
+      const publishingMessage = transaction.tryAddMessage(message);
+      const sendReceipts = await this.#send([ message ], true);
+      const sendReceipt = sendReceipts[0];
+      transaction.tryAddReceipt(publishingMessage, sendReceipt);
+      return sendReceipt;
+    } catch (err) {
+      this.logger.error('Failed to send transactional message, clientId=%s, error=%s', this.clientId, err);
+      throw err;
+    }
   }
 
   async #send(messages: MessageOptions[], txEnabled: boolean) {
+    // Check producer status before message publishing
+    if (!this.isRunning()) {
+      this.logger.error('Unable to send message because producer is not running, clientId=%s', this.clientId);
+      throw new Error('Producer is not running now');
+    }
+
     const pubMessages: PublishingMessage[] = [];
     const topics = new Set<string>();
     for (const message of messages) {
@@ -158,21 +211,28 @@ export class Producer extends BaseClient {
       topics.add(message.topic);
     }
     if (topics.size > 1) {
-      throw new TypeError(`Messages to send have different topics=${JSON.stringify(topics)}`);
+      throw new TypeError(`Messages to send have different topics=${JSON.stringify(Array.from(topics))}`);
     }
     const topic = pubMessages[0].topic;
     const messageType = pubMessages[0].messageType;
     const messageGroup = pubMessages[0].messageGroup;
+    const liteTopic = pubMessages[0].liteTopic;
     const messageTypes = new Set(pubMessages.map(m => m.messageType));
     if (messageTypes.size > 1) {
-      throw new TypeError(`Messages to send have different types=${JSON.stringify(messageTypes)}`);
+      throw new TypeError(`Messages to send have different types=${JSON.stringify(Array.from(messageTypes))}`);
+    }
+
+    // Log Lite Topic message sending
+    if (liteTopic) {
+      this.logger.debug?.('Sending Lite Topic message, topic=%s, liteTopic=%s, messageType=%s, clientId=%s',
+        topic, liteTopic, MessageType[messageType], this.clientId);
     }
 
     // Message group must be same if message type is FIFO, or no need to proceed.
     if (messageType === MessageType.FIFO) {
       const messageGroups = new Set(pubMessages.map(m => m.messageGroup!));
       if (messageGroups.size > 1) {
-        throw new TypeError(`FIFO messages to send have message groups, messageGroups=${JSON.stringify(messageGroups)}`);
+        throw new TypeError(`FIFO messages to send have message groups, messageGroups=${JSON.stringify(Array.from(messageGroups))}`);
       }
     }
 
@@ -223,42 +283,47 @@ export class Producer extends BaseClient {
       sendReceipts = SendReceipt.processResponseInvocation(mq, response);
     } catch (err) {
       const messageIds = messages.map(m => m.messageId);
-      // Isolate endpoints because of sending failure.
+      // Isolate endpoints because of sending failure
       this.#isolate(endpoints);
       if (attempt >= maxAttempts) {
-        // No need more attempts.
-        this.logger.error('Failed to send message(s) finally, run out of attempt times, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+        // No more attempts
+        this.logger.error('Failed to send message(s) finally, run out of attempt times, maxAttempts=%d, attempt=%d, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
           maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         throw err;
       }
-      // No need more attempts for transactional message.
+      // No more attempts for transactional message
       if (messageType === MessageType.TRANSACTION) {
-        this.logger.error('Failed to send transactional message finally, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+        this.logger.error('Failed to send transactional message finally, maxAttempts=%d, attempt=%d, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
           maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         throw err;
       }
-      // Try to do more attempts.
+      // Try next attempt
       const nextAttempt = 1 + attempt;
-      // Retry immediately if the request is not throttled.
+      // Retry immediately if the request is not throttled
       if (!(err instanceof TooManyRequestsException)) {
-        this.logger.warn('Failed to send message, would attempt to resend right now, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+        this.logger.warn('Failed to send message, would attempt to resend right now, maxAttempts=%d, attempt=%d, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
           maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         return this.#send0(topic, messageType, candidates, messages, nextAttempt);
       }
       const delay = this.#getRetryPolicy().getNextAttemptDelay(nextAttempt);
-      this.logger.warn('Failed to send message due to too many requests, would attempt to resend after %sms, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+      this.logger.warn('Failed to send message due to too many requests, would attempt to resend after %dms, maxAttempts=%d, attempt=%d, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
         delay, maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
       await setTimeout(delay);
       return this.#send0(topic, messageType, candidates, messages, nextAttempt);
     }
 
-    // Resend message(s) successfully.
+    // Resend message(s) successfully
     if (attempt > 1) {
       const messageIds = sendReceipts.map(r => r.messageId);
-      this.logger.info('Resend message successfully, topic=%s, messageId(s)=%j, maxAttempts=%s, attempt=%s, endpoints=%s, clientId=%s',
+      this.logger.info('Resend message successfully, topic=%s, messageId(s)=%s, maxAttempts=%d, attempt=%d, endpoints=%s, clientId=%s',
         topic, messageIds, maxAttempts, attempt, endpoints, this.clientId);
     }
-    // Send message(s) successfully on first attempt, return directly.
+    // Log Lite Topic message sent successfully
+    if (sendReceipts.length > 0 && messages[0].liteTopic) {
+      this.logger.debug?.('Lite Topic message sent successfully, topic=%s, liteTopic=%s, messageId=%s, clientId=%s',
+        topic, messages[0].liteTopic, sendReceipts[0].messageId, this.clientId);
+    }
+    // Send message(s) successfully on first attempt, return directly
     return sendReceipts;
   }
 
@@ -291,5 +356,60 @@ export class Producer extends BaseClient {
 
   #getRetryPolicy() {
     return this.#publishingSettings.getRetryPolicy()!;
+  }
+
+  /**
+   * Recalls a scheduled/delayed message based on the topic and recall handle.
+   * This operation requires server support and can only be performed before the message is delivered.
+   *
+   * @param topic - The topic associated with the scheduled message to be canceled.
+   * @param recallHandle - A unique handle to identify the message to recall (obtained from SendReceipt).
+   * @return Promise resolving to RecallReceipt containing the recalled message ID.
+   * @throws Error if producer is not running or recall handle is invalid.
+   */
+  async recallMessage(topic: string, recallHandle: string): Promise<RecallReceipt> {
+    if (!this.isRunning()) {
+      this.logger.error('Unable to recall message because producer is not running, clientId=%s', this.clientId);
+      throw new Error('Producer is not running now');
+    }
+
+    // Validate topic
+    if (!topic || typeof topic !== 'string' || topic.trim().length === 0) {
+      this.logger.error('Topic is invalid for recall message, clientId=%s', this.clientId);
+      throw new Error('Topic is invalid');
+    }
+
+    if (!recallHandle) {
+      this.logger.error('Recall handle is invalid, clientId=%s', this.clientId);
+      throw new Error('Recall handle is invalid');
+    }
+
+    this.logger.info('Begin to recall message, topic=%s, recallHandle=%s, clientId=%s',
+      topic, recallHandle, this.clientId);
+
+    const request = new RecallMessageRequest()
+      .setTopic(createResource(topic).setResourceNamespace(this.namespace))
+      .setRecallHandle(recallHandle);
+
+    const response = await this.rpcClientManager.recallMessage(this.endpoints, request, this.requestTimeout);
+    const status = response.getStatus();
+    if (!status) {
+      throw new Error('Recall message response status is null');
+    }
+
+    // Check status code
+    const statusCode = status.getCode();
+    if (statusCode !== Code.OK) {
+      const errorMessage = status.getMessage() || 'Unknown error';
+      throw new Error(`Failed to recall message: ${errorMessage} (code: ${statusCode})`);
+    }
+
+    const messageId = response.getMessageId();
+    const receipt = new RecallReceipt(messageId);
+
+    this.logger.info('Recall message successfully, topic=%s, recallHandle=%s, messageId=%s, clientId=%s',
+      topic, recallHandle, messageId, this.clientId);
+
+    return receipt;
   }
 }

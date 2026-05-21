@@ -35,6 +35,10 @@ public:
     return endpoints_;
   }
 
+  const std::string& resourceNamespace() const {
+    return resource_namespace_;
+  }
+
   CredentialsProviderPtr credentialsProvider() const {
     return credentials_provider_;
   }
@@ -47,6 +51,10 @@ public:
     return tls_;
   }
 
+  std::uint32_t callbackThreads() const {
+    return callback_threads_;
+  }
+
 protected:
   friend class ConfigurationBuilder;
 
@@ -54,20 +62,26 @@ protected:
 
 private:
   std::string               endpoints_;
+  std::string               resource_namespace_;
   CredentialsProviderPtr    credentials_provider_;
   std::chrono::milliseconds request_timeout_{ConfigurationDefaults::RequestTimeout};
   bool tls_ = true;
+  std::uint32_t callback_threads_{2};
 };
 
 class ConfigurationBuilder {
 public:
   ConfigurationBuilder& withEndpoints(std::string endpoints);
 
+  ConfigurationBuilder& withNamespace(std::string resource_namespace);
+
   ConfigurationBuilder& withCredentialsProvider(std::shared_ptr<CredentialsProvider> provider);
 
   ConfigurationBuilder& withRequestTimeout(std::chrono::milliseconds request_timeout);
 
   ConfigurationBuilder& withSsl(bool with_ssl);
+
+  ConfigurationBuilder& withCallbackThreads(std::uint32_t callback_threads);
 
   Configuration build();
 

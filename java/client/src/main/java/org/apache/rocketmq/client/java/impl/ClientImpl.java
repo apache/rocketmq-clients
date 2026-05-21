@@ -24,9 +24,11 @@ import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.HeartbeatResponse;
 import apache.rocketmq.v2.MessageQueue;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
+import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
+import apache.rocketmq.v2.ReconnectEndpointsCommand;
 import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.Status;
@@ -92,7 +94,7 @@ import org.apache.rocketmq.client.java.rpc.Signature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
+@SuppressWarnings({"NullableProblems"})
 public abstract class ClientImpl extends AbstractIdleService implements Client, ClientSessionHandler,
     MessageInterceptor {
     private static final Logger log = LoggerFactory.getLogger(ClientImpl.class);
@@ -128,6 +130,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private final ReadWriteLock sessionsLock;
 
     private final CompositedMessageInterceptor compositedMessageInterceptor;
+    private boolean receiveReconnect = false;
 
     public ClientImpl(ClientConfiguration clientConfiguration, Set<String> topics) {
         this.clientConfiguration = checkNotNull(clientConfiguration, "clientConfiguration should not be null");
@@ -172,7 +175,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             new ThreadFactoryImpl("CommandExecutor", clientIdIndex));
     }
 
-
     /**
      * Start the rocketmq client and do some preparatory work.
      */
@@ -183,15 +185,26 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         // Fetch topic route from remote.
         log.info("Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={}",
             clientId, topics);
-        for (String topic : topics) {
-            final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
-            future.get();
+        for (int attempt = 1; attempt <= clientConfiguration.getMaxStartupAttempts(); attempt++) {
+            try {
+                for (String topic : topics) {
+                    final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
+                    future.get();
+                }
+                log.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
+                    clientId, topics);
+                break;
+            } catch (Exception e) {
+                log.error("Fetch topics failed when client start, clientId={}, topics={}, attemptTime={}", clientId,
+                    topics, attempt, e);
+                if (attempt == clientConfiguration.getMaxStartupAttempts()) {
+                    throw new RuntimeException(
+                        String.format("Failed to fetch topics after %d attempts", attempt), e);
+                }
+            }
         }
-        log.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
-            clientId, topics);
         // Update route cache periodically.
-        final ScheduledExecutorService scheduler = clientManager.getScheduler();
-        this.updateRouteCacheFuture = scheduler.scheduleWithFixedDelay(() -> {
+        updateRouteCacheFuture = getScheduler().scheduleWithFixedDelay(() -> {
             try {
                 updateRouteCache();
             } catch (Throwable t) {
@@ -227,6 +240,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }
         clientMeterManager.shutdown();
         log.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
+    }
+
+    protected void addMessageInterceptor(MessageInterceptor messageInterceptor) {
+        if (!this.isRunning()) {
+            compositedMessageInterceptor.addInterceptor(messageInterceptor);
+        }
     }
 
     @Override
@@ -273,6 +292,11 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         return !totalRouteEndpoints.contains(endpoints);
     }
 
+    @Override
+    public void onReconnectEndpointsCommand(Endpoints endpoints, ReconnectEndpointsCommand command) {
+        receiveReconnect = true;
+    }
+
     /**
      * This method is invoked while request of printing thread stack trace is received from remote.
      *
@@ -315,7 +339,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * @param settings  settings received from remote.
      */
     @Override
-    public final void onSettingsCommand(Endpoints endpoints, apache.rocketmq.v2.Settings settings) {
+    public void onSettingsCommand(Endpoints endpoints, apache.rocketmq.v2.Settings settings) {
         final Metric metric = new Metric(settings.getMetric());
         clientMeterManager.reset(metric);
         this.getSettings().sync(settings);
@@ -394,7 +418,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * Triggered when {@link TopicRouteData} is fetched from remote.
      */
     public ListenableFuture<TopicRouteData> onTopicRouteDataFetched(String topic,
-    TopicRouteData topicRouteData) throws ClientException {
+        TopicRouteData topicRouteData) throws ClientException {
         final Set<Endpoints> routeEndpoints = topicRouteData
             .getMessageQueues().stream()
             .map(mq -> mq.getBroker().getEndpoints())
@@ -450,6 +474,18 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     public void onRecoverOrphanedTransactionCommand(Endpoints endpoints, RecoverOrphanedTransactionCommand command) {
         log.warn("Ignore orphaned transaction recovery command from remote, which is not expected, clientId={}, "
+            + "command={}", clientId, command);
+    }
+
+    /**
+     * This method is invoked while request of unsubscribe lite topic is received from remote.
+     *
+     * @param endpoints remote endpoints.
+     * @param command   request of unsubscribe lite topic from remote.
+     */
+    @Override
+    public void onNotifyUnsubscribeLiteCommand(Endpoints endpoints, NotifyUnsubscribeLiteCommand command) {
+        log.warn("Ignore unsubscribe lite topic command from remote, which is not expected, clientId={}, "
             + "command={}", clientId, command);
     }
 
@@ -509,6 +545,14 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     public ClientId getClientId() {
         return clientId;
+    }
+
+    public boolean isReceiveReconnect() {
+        return receiveReconnect;
+    }
+
+    public void setReceiveReconnect(boolean receiveReconnect) {
+        this.receiveReconnect = receiveReconnect;
     }
 
     /**
@@ -625,7 +669,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }, MoreExecutors.directExecutor());
     }
 
-    protected Set<Endpoints> getTotalRouteEndpoints() {
+    public Set<Endpoints> getTotalRouteEndpoints() {
         Set<Endpoints> totalRouteEndpoints = new HashSet<>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             totalRouteEndpoints.addAll(topicRouteData.getTotalEndpoints());
@@ -717,7 +761,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         return clientManager.getScheduler();
     }
 
-    protected <T> T handleClientFuture(ListenableFuture<T> future) throws ClientException {
+    public <T> T handleClientFuture(ListenableFuture<T> future) throws ClientException {
         try {
             return future.get();
         } catch (InterruptedException e) {
@@ -741,5 +785,14 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     protected String serviceName() {
         return super.serviceName() + "-" + clientId.getIndex();
+    }
+
+    public void checkRunning() {
+        if (!isRunning()) {
+            String msg = String.format("Client not running, state=%s, clientId=%s",
+                state(), clientId);
+            log.error(msg);
+            throw new IllegalStateException(msg);
+        }
     }
 }

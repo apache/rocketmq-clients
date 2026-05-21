@@ -16,15 +16,12 @@
  */
 #include "TelemetryBidiReactor.h"
 
-#include <atomic>
-#include <cstdint>
 #include <memory>
 #include <utility>
 
 #include "ClientManager.h"
 #include "MessageExt.h"
 #include "Metadata.h"
-#include "RpcClient.h"
 #include "Signature.h"
 #include "google/protobuf/util/time_util.h"
 #include "rocketmq/Logger.h"
@@ -41,7 +38,6 @@ TelemetryBidiReactor::TelemetryBidiReactor(std::weak_ptr<Client> client,
   auto ptr = client_.lock();
   auto deadline = std::chrono::system_clock::now() + std::chrono::hours(1);
   context_.set_deadline(deadline);
-  sync_settings_future_ = sync_settings_promise_.get_future();
   Metadata metadata;
   Signature::sign(ptr->config(), metadata);
   for (const auto& entry : metadata) {
@@ -59,8 +55,19 @@ TelemetryBidiReactor::~TelemetryBidiReactor() {
 }
 
 bool TelemetryBidiReactor::awaitApplyingSettings() {
-  sync_settings_future_.get();
-  return true;
+  auto settings_future = sync_settings_promise_.get_future();
+  std::future_status status = settings_future.wait_for(std::chrono::seconds(3));
+  if (status == std::future_status::ready) {
+    if (settings_future.get()) {
+      return true;
+    }
+  }
+  {
+    absl::MutexLock lk(&state_mtx_);
+    state_ = StreamState::Closed;
+    state_cv_.SignalAll();
+  }
+  return false;
 }
 
 void TelemetryBidiReactor::OnWriteDone(bool ok) {
@@ -70,7 +77,7 @@ void TelemetryBidiReactor::OnWriteDone(bool ok) {
   RemoveHold();
 
   if (!ok) {
-    SPDLOG_WARN("Failed to write telemetry command {} to {}", writes_.front().DebugString(), peer_address_);
+    SPDLOG_WARN("Failed to write telemetry command {} to {}", writes_.front().ShortDebugString(), peer_address_);
     signalClose();
     return;
   }
@@ -91,7 +98,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
   if (!ok) {
     // for read stream
     RemoveHold();
-    SPDLOG_WARN("Failed to read from telemetry stream from {}", peer_address_);
+    // SPDLOG_WARN("Failed to read from telemetry stream from {}", peer_address_);
     signalClose();
     return;
   }
@@ -103,7 +110,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
     }
   }
 
-  SPDLOG_DEBUG("Read a telemetry command from {}: {}", peer_address_, read_.DebugString());
+  SPDLOG_DEBUG("Read a telemetry command from {}: {}", peer_address_, read_.ShortDebugString());
   auto client = client_.lock();
   if (!client) {
     SPDLOG_INFO("Client for {} has destructed", peer_address_);
@@ -114,19 +121,20 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
   switch (read_.command_case()) {
     case rmq::TelemetryCommand::kSettings: {
       auto settings = read_.settings();
-      SPDLOG_INFO("Received settings from {}: {}", peer_address_, settings.DebugString());
+      SPDLOG_INFO("Receive settings from {}: {}", peer_address_, settings.ShortDebugString());
       applySettings(settings);
       sync_settings_promise_.set_value(true);
       break;
     }
+
     case rmq::TelemetryCommand::kRecoverOrphanedTransactionCommand: {
-      SPDLOG_DEBUG("Receive orphan transaction command: {}", read_.DebugString());
-      auto message = client->manager()->wrapMessage(read_.release_verify_message_command()->message());
+      SPDLOG_INFO("Receive orphan transaction command: {}", read_.ShortDebugString());
+      auto message = client->manager()->wrapMessage(
+          read_.recover_orphaned_transaction_command().message());
       auto raw = const_cast<Message*>(message.get());
       raw->mutableExtension().target_endpoint = peer_address_;
       raw->mutableExtension().transaction_id = read_.recover_orphaned_transaction_command().transaction_id();
       client->recoverOrphanedTransaction(message);
-
       break;
     }
 
@@ -156,7 +164,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
     }
 
     default: {
-      SPDLOG_WARN("Unsupported command");
+      SPDLOG_WARN("Telemetry command receive unsupported command");
       break;
     }
   }
@@ -285,25 +293,33 @@ void TelemetryBidiReactor::tryWriteNext() {
                 static_cast<std::uint8_t>(state_));
     return;
   }
+
   if (writes_.empty()) {
-    SPDLOG_DEBUG("No TelemetryCommand to write. Peer={}", peer_address_);
+    SPDLOG_DEBUG("No pending TelemetryCommand to write. Peer={}", peer_address_);
     return;
   }
 
   if (!writes_.empty()) {
-    SPDLOG_DEBUG("Writing telemetry command to {}: {}", peer_address_, writes_.front().DebugString());
-    AddHold();
-    StartWrite(&(writes_.front()));
+    SPDLOG_DEBUG("Writing TelemetryCommand to {}: {}", peer_address_, writes_.front().ShortDebugString());
+    if (StreamState::Ready == state_) {
+      AddHold();
+      StartWrite(&(writes_.front()));
+    } else {
+      SPDLOG_WARN("Writing TelemetryCommand error due to unexpected state. State={}, Peer={}",
+                  static_cast<uint8_t>(state_), peer_address_);
+    }
   }
 }
 
 void TelemetryBidiReactor::signalClose() {
   absl::MutexLock lk(&state_mtx_);
-  state_ = StreamState::Closing;
+  if (state_ == StreamState::Ready) {
+    state_ = StreamState::Closing;
+  }
 }
 
 void TelemetryBidiReactor::close() {
-  SPDLOG_INFO("{}#fireClose", peer_address_);
+  SPDLOG_DEBUG("{}#fireClose", peer_address_);
 
   {
     absl::MutexLock lk(&state_mtx_);
@@ -318,14 +334,12 @@ void TelemetryBidiReactor::close() {
   }
   context_.TryCancel();
 
-  {
-    // Acquire state lock
+  // Acquire state lock
+  while (StreamState::Closed != state_) {
     absl::MutexLock lk(&state_mtx_);
-    while (StreamState::Closed != state_) {
-      if (state_cv_.WaitWithTimeout(&state_mtx_, absl::Seconds(1))) {
-        SPDLOG_WARN("StreamState CondVar timed out before getting signalled: state={}",
-                    static_cast<uint8_t>(state_));
-      }
+    if (state_cv_.WaitWithTimeout(&state_mtx_, absl::Seconds(1))) {
+      SPDLOG_WARN("StreamState CondVar timed out before getting signalled: state={}",
+                  static_cast<uint8_t>(state_));
     }
   }
 }
@@ -340,7 +354,7 @@ void TelemetryBidiReactor::close() {
 void TelemetryBidiReactor::OnDone(const grpc::Status& status) {
   SPDLOG_DEBUG("{}#OnDone, status.ok={}", peer_address_, status.ok());
   if (!status.ok()) {
-    SPDLOG_WARN("{}#OnDone, status.error_code={}, status.error_message={}, status.error_details={}", peer_address_,
+    SPDLOG_DEBUG("{}#OnDone, status.error_code={}, status.error_message={}, status.error_details={}", peer_address_,
                 status.error_code(), status.error_message(), status.error_details());
   }
   {
@@ -365,7 +379,7 @@ void TelemetryBidiReactor::OnReadInitialMetadataDone(bool ok) {
   if (!ok) {
     // for read stream
     // Remove the hold corresponding to AddHold in TelemetryBidiReactor::TelemetryBidiReactor.
-    RemoveHold();
+    // RemoveHold();
 
     SPDLOG_DEBUG("Change state {} --> {}", static_cast<std::uint8_t>(state_),
                  static_cast<std::uint8_t>(StreamState::Closing));

@@ -35,6 +35,7 @@ header:
     - '.gitmodules'
     - 'golang/go.mod'
     - 'golang/go.sum'
+    - 'golang/*_mock.go'
     - 'java/client/src/main/resources/META-INF/services/org.apache.rocketmq.client.apis.ClientServiceProvider'
     - 'java/client/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker'
     - '**/*.csproj'

@@ -32,4 +32,8 @@ public class MockServer extends MessagingServiceGrpc.MessagingServiceImplBase {
     public void setPort(Integer port) {
         this.port = port;
     }
+
+    public String getLocalEndpoints() {
+        return "127.0.0.1:" + port;
+    }
 }

@@ -22,8 +22,6 @@
 #include "rocketmq/RocketMQ.h"
 #include "rocketmq/State.h"
 #include "spdlog/spdlog.h"
-#include <atomic>
-#include <cstdint>
 #include <exception>
 #include <system_error>
 
@@ -33,6 +31,7 @@ ThreadPoolImpl::ThreadPoolImpl(std::uint16_t workers)
     : work_guard_(
           absl::make_unique<asio::executor_work_guard<asio::io_context::executor_type>>(context_.get_executor())),
       workers_(workers) {
+    SPDLOG_INFO("ThreadPoolImpl created worker threads {}", workers);
 }
 
 void ThreadPoolImpl::start() {

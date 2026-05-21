@@ -51,7 +51,9 @@ public class MessageViewImpl implements MessageView {
     private final String topic;
     private final String tag;
     private final String messageGroup;
+    private final String liteTopic;
     private final Long deliveryTimestamp;
+    private final Integer priority;
     private final Collection<String> keys;
     private final Map<String, String> properties;
     private final String bornHost;
@@ -65,8 +67,9 @@ public class MessageViewImpl implements MessageView {
     private final long decodeTimestamp;
     private final Long transportDeliveryTimestamp;
 
-    public MessageViewImpl(MessageId messageId, String topic, byte[] body, String tag, String messageGroup,
-        Long deliveryTimestamp, Collection<String> keys, Map<String, String> properties,
+    public MessageViewImpl(MessageId messageId, String topic, byte[] body, String tag,
+        String messageGroup, String liteTopic,
+        Long deliveryTimestamp, Integer priority, Collection<String> keys, Map<String, String> properties,
         String bornHost, long bornTimestamp, int deliveryAttempt, MessageQueueImpl messageQueue,
         String receiptHandle, long offset, boolean corrupted,
         Long transportDeliveryTimestamp) {
@@ -75,7 +78,9 @@ public class MessageViewImpl implements MessageView {
         this.body = checkNotNull(body, "body should not be null");
         this.tag = tag;
         this.messageGroup = messageGroup;
+        this.liteTopic = liteTopic;
         this.deliveryTimestamp = deliveryTimestamp;
+        this.priority = priority;
         this.keys = checkNotNull(keys, "keys should not be null");
         this.properties = checkNotNull(properties, "properties should not be null");
         this.bornHost = checkNotNull(bornHost, "bornHost should not be null");
@@ -147,11 +152,27 @@ public class MessageViewImpl implements MessageView {
     }
 
     /**
+     * @see MessageView#getLiteTopic()
+     */
+    @Override
+    public Optional<String> getLiteTopic() {
+        return Optional.ofNullable(liteTopic);
+    }
+
+    /**
      * @see MessageView#getDeliveryTimestamp()
      */
     @Override
     public Optional<Long> getDeliveryTimestamp() {
         return Optional.ofNullable(deliveryTimestamp);
+    }
+
+    /**
+     * @see MessageView#getPriority()
+     */
+    @Override
+    public Optional<Integer> getPriority() {
+        return Optional.ofNullable(priority);
     }
 
     /**
@@ -274,7 +295,7 @@ public class MessageViewImpl implements MessageView {
         switch (bodyEncoding) {
             case GZIP:
                 try {
-                    body = Utilities.uncompressBytesGzip(body);
+                    body = Utilities.decompressBytes(body);
                 } catch (IOException e) {
                     log.error("Failed to uncompress message body, topic={}, messageId={}", topic, messageId);
                     corrupted = true;
@@ -289,8 +310,10 @@ public class MessageViewImpl implements MessageView {
 
         String tag = systemProperties.hasTag() ? systemProperties.getTag() : null;
         String messageGroup = systemProperties.hasMessageGroup() ? systemProperties.getMessageGroup() : null;
+        String liteTopic = systemProperties.hasLiteTopic() ? systemProperties.getLiteTopic() : null;
         Long deliveryTimestamp = systemProperties.hasDeliveryTimestamp() ?
             Timestamps.toMillis(systemProperties.getDeliveryTimestamp()) : null;
+        Integer priority = systemProperties.hasPriority() ? systemProperties.getPriority() : null;
         final ProtocolStringList keys = systemProperties.getKeysList();
         final String bornHost = systemProperties.getBornHost();
         final long bornTimestamp = Timestamps.toMillis(systemProperties.getBornTimestamp());
@@ -298,8 +321,9 @@ public class MessageViewImpl implements MessageView {
         final long offset = systemProperties.getQueueOffset();
         final Map<String, String> properties = message.getUserPropertiesMap();
         final String receiptHandle = systemProperties.getReceiptHandle();
-        return new MessageViewImpl(messageId, topic, body, tag, messageGroup, deliveryTimestamp, keys, properties,
-            bornHost, bornTimestamp, deliveryAttempt, mq, receiptHandle, offset, corrupted, transportDeliveryTimestamp);
+        return new MessageViewImpl(messageId, topic, body, tag, messageGroup, liteTopic, deliveryTimestamp, priority,
+            keys, properties, bornHost, bornTimestamp, deliveryAttempt,
+            mq, receiptHandle, offset, corrupted, transportDeliveryTimestamp);
     }
 
     @Override
@@ -314,7 +338,9 @@ public class MessageViewImpl implements MessageView {
             .add("tag", tag)
             .add("keys", keys)
             .add("messageGroup", messageGroup)
+            .add("liteTopic", liteTopic)
             .add("deliveryTimestamp", deliveryTimestamp)
+            .add("priority", priority)
             .add("properties", properties)
             .toString();
     }

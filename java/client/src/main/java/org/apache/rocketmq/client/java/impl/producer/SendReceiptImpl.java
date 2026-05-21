@@ -39,19 +39,27 @@ import org.apache.rocketmq.client.java.rpc.RpcFuture;
 public class SendReceiptImpl implements SendReceipt {
     private final MessageId messageId;
     private final String transactionId;
+    private final String recallHandle;
     private final MessageQueueImpl messageQueue;
     private final long offset;
 
-    private SendReceiptImpl(MessageId messageId, String transactionId, MessageQueueImpl messageQueue, long offset) {
+    private SendReceiptImpl(MessageId messageId, String transactionId,
+        MessageQueueImpl messageQueue, long offset, String recallHandle) {
         this.messageId = messageId;
         this.transactionId = transactionId;
         this.messageQueue = messageQueue;
         this.offset = offset;
+        this.recallHandle = recallHandle;
     }
 
     @Override
     public MessageId getMessageId() {
         return messageId;
+    }
+
+    @Override
+    public String getRecallHandle() {
+        return recallHandle;
     }
 
     public MessageQueueImpl getMessageQueue() {
@@ -87,7 +95,8 @@ public class SendReceiptImpl implements SendReceipt {
             final MessageId messageId = MessageIdCodec.getInstance().decode(entry.getMessageId());
             final String transactionId = entry.getTransactionId();
             final long offset = entry.getOffset();
-            final SendReceiptImpl impl = new SendReceiptImpl(messageId, transactionId, mq, offset);
+            final String recallHandle = entry.getRecallHandle();
+            final SendReceiptImpl impl = new SendReceiptImpl(messageId, transactionId, mq, offset, recallHandle);
             sendReceipts.add(impl);
         }
         return sendReceipts;
@@ -97,6 +106,7 @@ public class SendReceiptImpl implements SendReceipt {
     public String toString() {
         return MoreObjects.toStringHelper(this)
             .add("messageId", messageId)
+            .add("recallHandle", recallHandle)
             .toString();
     }
 }

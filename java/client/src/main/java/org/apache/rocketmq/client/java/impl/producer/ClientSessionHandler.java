@@ -17,7 +17,9 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
+import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
+import apache.rocketmq.v2.ReconnectEndpointsCommand;
 import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.TelemetryCommand;
@@ -97,4 +99,14 @@ public interface ClientSessionHandler {
      * Event processor for {@link TelemetryCommand}.
      */
     void onPrintThreadStackTraceCommand(Endpoints endpoints, PrintThreadStackTraceCommand command);
+
+    /**
+     * Event processor for {@link ReconnectEndpointsCommand}.
+     */
+    void onReconnectEndpointsCommand(Endpoints endpoints, ReconnectEndpointsCommand command);
+
+    /**
+     * Event processor for {@link NotifyUnsubscribeLiteCommand}.
+     */
+    void onNotifyUnsubscribeLiteCommand(Endpoints endpoints, NotifyUnsubscribeLiteCommand command);
 }

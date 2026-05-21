@@ -13,26 +13,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rocketmq import ClientConfiguration, Credentials, SimpleConsumer
+from rocketmq import (ClientConfiguration, Credentials, FilterExpression,
+                      SimpleConsumer)
 
 if __name__ == '__main__':
-    endpoints = "endpoints"
-    credentials = Credentials("ak", "sk")
+    endpoints = "foobar.com:8080"
+    credentials = Credentials()
+    # if auth enable
+    # credentials = Credentials("ak", "sk")
     config = ClientConfiguration(endpoints, credentials)
+    # with namespace
+    # config = ClientConfiguration(endpoints, credentials, "namespace")
     topic = "topic"
+    consumer_group = "consumer-group"
+    # in most case, you don't need to create too many consumers, singleton pattern is recommended
+    # close the simple consumer when you don't need it anymore
+    simple_consumer = SimpleConsumer(config, consumer_group, {topic: FilterExpression()})
     try:
-        simple_consumer = SimpleConsumer(config, "consumer-group")
         simple_consumer.startup()
-        simple_consumer.subscribe(topic)
-        while True:
-            try:
-                messages = simple_consumer.receive(32, 15)
-                if messages is not None:
-                    print(f"{simple_consumer.__str__()} receive {len(messages)} messages.")
-                    for msg in messages:
-                        simple_consumer.ack(msg)
-                        print(f"{simple_consumer.__str__()} ack message:[{msg.message_id}].")
-            except Exception as e:
-                print(f"receive or ack message raise exception: {e}")
+        try:
+            # subscribe topic
+            # simple_consumer.subscribe(topic)
+            # use tag filter
+            # simple_consumer.subscribe(topic, FilterExpression("tag"))
+            while True:
+                try:
+                    # max message num for each long polling and message invisible duration after it is received
+                    messages = simple_consumer.receive(32, 15)
+                    if messages is not None:
+                        for msg in messages:
+                            simple_consumer.ack(msg)
+                            print(f"{simple_consumer} ack message:[{msg.message_id}].")
+                except Exception as e:
+                    print(f"{simple_consumer} receive or ack message raise exception: {e}")
+        except Exception as e:
+            print(f"{simple_consumer} raise exception: {e}")
+            simple_consumer.shutdown()
+            print(f"{simple_consumer} shutdown.")
     except Exception as e:
-        print(f"simple consumer example raise exception: {e}")
+        print(f"{simple_consumer} startup raise exception: {e}")
+        simple_consumer.shutdown()
+        print(f"{simple_consumer} shutdown.")

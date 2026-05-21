@@ -35,7 +35,9 @@ public class GeneralMessageImpl implements GeneralMessage {
     private final String tag;
     private final Collection<String> keys;
     private final String messageGroup;
+    private final String liteTopic;
     private final Long deliveryTimestamp;
+    private final Integer priority;
     private final String bornHost;
     private final Long bornTimestamp;
     private final Integer deliveryAttempt;
@@ -58,7 +60,9 @@ public class GeneralMessageImpl implements GeneralMessage {
         this.tag = message.getTag().orElse(null);
         this.keys = message.getKeys();
         this.messageGroup = message.getMessageGroup().orElse(null);
+        this.liteTopic = message.getLiteTopic().orElse(null);
         this.deliveryTimestamp = message.getDeliveryTimestamp().orElse(null);
+        this.priority = message.getPriority().orElse(null);
         this.bornHost = null;
         this.bornTimestamp = null;
         this.deliveryAttempt = null;
@@ -92,7 +96,9 @@ public class GeneralMessageImpl implements GeneralMessage {
         this.tag = message.getTag().orElse(null);
         this.keys = message.getKeys();
         this.messageGroup = message.getMessageGroup().orElse(null);
+        this.liteTopic = message.getLiteTopic().orElse(null);
         this.deliveryTimestamp = message.getDeliveryTimestamp().orElse(null);
+        this.priority = message.getPriority().orElse(null);
         this.bornHost = message.getBornHost();
         this.bornTimestamp = message.getBornTimestamp();
         this.deliveryAttempt = message.getDeliveryAttempt();
@@ -137,8 +143,18 @@ public class GeneralMessageImpl implements GeneralMessage {
     }
 
     @Override
+    public Optional<String> getLiteTopic() {
+        return Optional.ofNullable(liteTopic);
+    }
+
+    @Override
     public Optional<Long> getDeliveryTimestamp() {
         return Optional.ofNullable(deliveryTimestamp);
+    }
+
+    @Override
+    public Optional<Integer> getPriority() {
+        return Optional.ofNullable(priority);
     }
 
     @Override

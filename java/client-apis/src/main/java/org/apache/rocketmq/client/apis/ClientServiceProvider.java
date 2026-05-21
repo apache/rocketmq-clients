@@ -19,6 +19,8 @@ package org.apache.rocketmq.client.apis;
 
 import java.util.Iterator;
 import java.util.ServiceLoader;
+import org.apache.rocketmq.client.apis.consumer.LitePushConsumerBuilder;
+import org.apache.rocketmq.client.apis.consumer.LiteSimpleConsumerBuilder;
 import org.apache.rocketmq.client.apis.consumer.PushConsumerBuilder;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumerBuilder;
 import org.apache.rocketmq.client.apis.message.MessageBuilder;
@@ -29,7 +31,47 @@ import org.apache.rocketmq.client.apis.producer.ProducerBuilder;
  * <a href="https://en.wikipedia.org/wiki/Service_provider_interface">Java SPI mechanism</a>.
  */
 public interface ClientServiceProvider {
+
+    /**
+     * To avoid potential concurrency issues, the {@link #loadService()} logic
+     * has been changed to use lazy initialization with caching:
+     * <p>
+     * 1. Lazy loading + caching:
+     * - On the first call, the implementation is loaded via {@link ServiceLoader}
+     * and cached in {@link Holder#INSTANCE};
+     * - Subsequent calls simply return the cached instance.
+     * <p>
+     * 2. If you need the old behavior (i.e., always load through ServiceLoader
+     * each time), you can call {@link #doLoad()} directly:
+     * - {@link #doLoad()} does not cache anything; it creates a new ServiceLoader
+     * and loads an implementation on every call;
+     * - You are responsible for handling any concurrency control when using
+     * {@link #doLoad()} directly.
+     */
+
+    class Holder {
+        static volatile ClientServiceProvider INSTANCE;
+
+        private Holder() {
+            // prevents instantiation
+        }
+    }
+
     static ClientServiceProvider loadService() {
+        ClientServiceProvider inst = Holder.INSTANCE;
+        if (inst != null) {
+            return inst;
+        }
+        synchronized (ClientServiceProvider.class) {
+            if (Holder.INSTANCE != null) {
+                return Holder.INSTANCE;
+            }
+            Holder.INSTANCE = doLoad();
+            return Holder.INSTANCE;
+        }
+    }
+
+    static ClientServiceProvider doLoad() {
         final ServiceLoader<ClientServiceProvider> loaders = ServiceLoader.load(ClientServiceProvider.class);
         final Iterator<ClientServiceProvider> iterators = loaders.iterator();
         if (iterators.hasNext()) {
@@ -58,6 +100,20 @@ public interface ClientServiceProvider {
      * @return the push consumer builder instance.
      */
     PushConsumerBuilder newPushConsumerBuilder();
+
+    /**
+     * Get the lite push consumer builder by the current provider.
+     *
+     * @return the lite push consumer builder instance.
+     */
+    LitePushConsumerBuilder newLitePushConsumerBuilder();
+
+    /**
+     * Get the lite simple consumer builder by the current provider.
+     *
+     * @return the lite simple consumer builder instance.
+     */
+    LiteSimpleConsumerBuilder newLiteSimpleConsumerBuilder();
 
     /**
      * Get the simple consumer builder by the current provider.

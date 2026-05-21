@@ -121,6 +121,15 @@ namespace tests
             // Expect no exception thrown.
         }
 
+        [TestMethod]
+        public void TestRecallMessage()
+        {
+            var request = new RecallMessageRequest();
+            _clientManager.RecallMessage(FakeEndpoints, request, TimeSpan.FromSeconds(1));
+            _clientManager.RecallMessage(null, request, TimeSpan.FromSeconds(1));
+            // Expect no exception thrown.
+        }
+
         private Client CreateTestClient()
         {
             return new Producer(_clientConfig, new ConcurrentDictionary<string, bool>(), 1, null);

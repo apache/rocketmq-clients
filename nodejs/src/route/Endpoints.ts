@@ -16,6 +16,7 @@
  */
 
 import { isIPv4, isIPv6 } from 'node:net';
+import { hashCodeOfString } from '../util';
 import { Address, AddressScheme, Endpoints as EndpointsPB } from '../../proto/apache/rocketmq/v2/definition_pb';
 
 const DEFAULT_PORT = 80;
@@ -66,5 +67,36 @@ export class Endpoints {
       endpoints.addAddresses().setHost(address.host).setPort(address.port);
     }
     return endpoints;
+  }
+
+  equals(other: Endpoints): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    if (this.scheme !== other.scheme) return false;
+    if (this.facade !== other.facade) return false;
+    if (this.addressesList.length !== other.addressesList.length) return false;
+    for (let i = 0; i < this.addressesList.length; i++) {
+      const addr1 = this.addressesList[i];
+      const addr2 = other.addressesList[i];
+      if (addr1.host !== addr2.host || addr1.port !== addr2.port) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.scheme) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + hashCodeOfString(this.facade)) | 0;
+    for (const addr of this.addressesList) {
+      // eslint-disable-next-line no-bitwise
+      hash = (hash * 31 + hashCodeOfString(addr.host)) | 0;
+      // eslint-disable-next-line no-bitwise
+      hash = (hash * 31 + addr.port) | 0;
+    }
+    return hash;
   }
 }

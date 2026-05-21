@@ -22,6 +22,7 @@
 
 #include "Configuration.h"
 #include "Message.h"
+#include "RecallReceipt.h"
 #include "SendCallback.h"
 #include "SendReceipt.h"
 #include "Transaction.h"
@@ -65,7 +66,18 @@ public:
 
   std::unique_ptr<Transaction> beginTransaction();
 
-  void send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
+  SendReceipt send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
+
+  /**
+   * @brief Attempts to cancel a scheduled message based on the provided topic and recall handle.
+   * This operation requires server support to be executed successfully.
+   *
+   * @param topic The topic associated with the scheduled message to be canceled.
+   * @param recall_handle A unique identifier or handle for the message cancellation operation.
+   * @param ec An error code that will be set if the operation encounters an error.
+   * @return RecallReceipt A receipt object indicating the result of the cancellation operation.
+   */
+  RecallReceipt recall(std::string& topic, std::string& recall_handle, std::error_code& ec) noexcept;
 
 private:
   explicit Producer(std::shared_ptr<ProducerImpl> impl) : impl_(std::move(impl)) {
@@ -82,7 +94,7 @@ class ProducerBuilder {
 public:
   ProducerBuilder();
 
-  ProducerBuilder& withConfiguration(Configuration configuration);
+  ProducerBuilder& withConfiguration(const Configuration& configuration);
 
   ProducerBuilder& withTopics(const std::vector<std::string>& topics);
 

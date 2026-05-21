@@ -30,7 +30,15 @@ class ClientId:
         host_name = gethostname()
         process_id = getpid()
         base36_time = Misc.to_base36(time_ns())
-        self.__client_id = (host_name + ClientId.CLIENT_ID_SEPARATOR + str(process_id) + ClientId.CLIENT_ID_SEPARATOR + str(self.__client_index) + ClientId.CLIENT_ID_SEPARATOR + base36_time)
+        self.__client_id = (
+            host_name
+            + ClientId.CLIENT_ID_SEPARATOR
+            + str(process_id)
+            + ClientId.CLIENT_ID_SEPARATOR
+            + str(self.__client_index)
+            + ClientId.CLIENT_ID_SEPARATOR
+            + base36_time
+        )
 
     @property
     def client_id(self):

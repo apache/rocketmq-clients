@@ -26,10 +26,16 @@ from rocketmq.v5.test import TestBase
 
 class TestNormalProducer(unittest.TestCase):
 
-    @patch.object(Producer, '_Producer__select_send_queue', return_value=TestBase.fake_queue(TestBase.FAKE_TOPIC_0))
-    @patch.object(RpcClient, 'send_message_async')
-    @patch.object(Client, '_Client__start_scheduler', return_value=None)
-    def test_send(self, mock_start_scheduler, mock_send_message_async, mock_select_send_queue):
+    @patch.object(
+        Producer,
+        "_Producer__select_send_queue",
+        return_value=TestBase.fake_queue(TestBase.FAKE_TOPIC_0),
+    )
+    @patch.object(RpcClient, "send_message_async")
+    @patch.object(Client, "_Client__start_scheduler", return_value=None)
+    def test_send(
+        self, mock_start_scheduler, mock_send_message_async, mock_select_send_queue
+    ):
         # mock send_message_async return future
         future = Future()
         future.set_result(TestBase.fake_send_success_response())

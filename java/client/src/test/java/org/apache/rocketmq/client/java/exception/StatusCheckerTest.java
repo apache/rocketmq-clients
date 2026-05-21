@@ -111,6 +111,17 @@ public class StatusCheckerTest extends TestBase {
         }
 
         {
+            Status status = Status.newBuilder().setCode(Code.ILLEGAL_LITE_TOPIC).build();
+            RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, Futures.immediateFuture(response));
+            try {
+                StatusChecker.check(status, invocation);
+                fail();
+            } catch (BadRequestException ignore) {
+                // ignore on purpose
+            }
+        }
+
+        {
             Status status = Status.newBuilder().setCode(Code.ILLEGAL_MESSAGE_TAG).build();
             RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, Futures.immediateFuture(response));
             try {
@@ -429,6 +440,22 @@ public class StatusCheckerTest extends TestBase {
         } catch (TooManyRequestsException ignore) {
             // ignore on purpose
         }
+    }
+
+    @Test(expected = LiteTopicQuotaExceededException.class)
+    public void testLiteTopicQuotaExceeded() throws ClientException {
+        Status status = Status.newBuilder().setCode(Code.LITE_TOPIC_QUOTA_EXCEEDED).build();
+        final Context context = generateContext();
+        RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, null);
+        StatusChecker.check(status, invocation);
+    }
+
+    @Test(expected = LiteSubscriptionQuotaExceededException.class)
+    public void testLiteSubscriptionQuotaExceeded() throws ClientException {
+        Status status = Status.newBuilder().setCode(Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED).build();
+        final Context context = generateContext();
+        RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, null);
+        StatusChecker.check(status, invocation);
     }
 
     @Test

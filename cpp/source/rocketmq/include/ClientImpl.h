@@ -90,12 +90,24 @@ public:
     client_config_.credentials_provider = std::move(credentials_provider);
   }
 
+  void withResourceNamespace(std::string resource_namespace) {
+    client_config_.resource_namespace = std::move(resource_namespace);
+  }
+
   void withRequestTimeout(std::chrono::milliseconds request_timeout) {
     client_config_.request_timeout = absl::FromChrono(request_timeout);
   }
 
   void withSsl(bool with_ssl) {
     client_config_.withSsl = with_ssl;
+  }
+
+  void withCallbackThreads(std::uint32_t callback_threads) {
+    client_config_.callback_threads = callback_threads;
+  }
+
+  void withFifoConsumeAccelerator(bool fifo_consume_accelerator) {
+    client_config_.subscriber.fifo_consume_accelerator = fifo_consume_accelerator;
   }
 
   /**
@@ -147,6 +159,7 @@ protected:
   absl::flat_hash_map<std::string, std::vector<std::function<void(const std::error_code&, const TopicRouteDataPtr&)>>>
       inflight_route_requests_ GUARDED_BY(inflight_route_requests_mtx_);
   absl::Mutex inflight_route_requests_mtx_ ACQUIRED_BEFORE(topic_route_table_mtx_); // Protects inflight_route_requests_
+
   static const char* UPDATE_ROUTE_TASK_NAME;
   std::uint32_t route_update_handle_{0};
 

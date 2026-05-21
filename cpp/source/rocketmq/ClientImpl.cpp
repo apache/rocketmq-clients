@@ -19,11 +19,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <functional>
-#include <iterator>
 #include <memory>
 #include <string>
 #include <system_error>
@@ -43,9 +41,6 @@
 #include "absl/strings/str_split.h"
 #include "fmt/format.h"
 #include "opencensus/stats/stats.h"
-#include "rocketmq/Logger.h"
-#include "rocketmq/Message.h"
-#include "rocketmq/MessageListener.h"
 #include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
@@ -111,26 +106,37 @@ void ClientImpl::start() {
   name_server_resolver_->start();
 
   client_config_.client_id = clientId();
-
   if (!client_manager_) {
-    client_manager_ = std::make_shared<ClientManagerImpl>(client_config_.resource_namespace, client_config_.withSsl);
+    client_manager_ = std::make_shared<ClientManagerImpl>(
+        client_config_.resource_namespace,
+        client_config_.withSsl,
+        client_config_.callback_threads);
+    client_manager_->start();
   }
-  client_manager_->start();
 
   const auto& endpoint = name_server_resolver_->resolve();
   if (endpoint.empty()) {
     SPDLOG_ERROR("Failed to resolve name server address");
-    abort();
+    return;
   }
 
-  createSession(endpoint, false);
-  {
-    absl::MutexLock lk(&session_map_mtx_);
-    session_map_[endpoint]->await();
+  // A gRPC I/O thread pool is created upon establishing a connection.
+  //   - https://github.com/grpc/grpc/issues/28642
+  //   - https://github.com/grpc/grpc/pull/31662
+  // The source code initializes the number of I/O threads as follows:
+  //   int num_io_threads = grpc_core::Clamp(gpr_cpu_num_cores() / 2, 2u, 16u);
+  while (true) {
+    createSession(endpoint, false);
+    {
+      absl::MutexLock lk(&session_map_mtx_);
+      if (session_map_.contains(endpoint) && session_map_[endpoint]->await()) {
+        break;
+      }
+      session_map_.erase(endpoint);
+    }
   }
 
   std::weak_ptr<ClientImpl> ptr(self());
-
   {
     // Query routes for topics of interest in synchronous
     std::vector<std::string> topics;
@@ -169,18 +175,23 @@ void ClientImpl::start() {
     }
   };
 
-  route_update_handle_ = client_manager_->getScheduler()->schedule(route_update_functor, UPDATE_ROUTE_TASK_NAME,
-                                                                   std::chrono::seconds(10), std::chrono::seconds(30));
+  route_update_handle_ = client_manager_->getScheduler()->schedule(
+      route_update_functor, UPDATE_ROUTE_TASK_NAME,
+      std::chrono::seconds(10), std::chrono::seconds(30));
 
   auto telemetry_functor = [ptr]() {
     std::shared_ptr<ClientImpl> base = ptr.lock();
     if (base) {
-      SPDLOG_INFO("Sync client settings to servers");
+      SPDLOG_DEBUG("Sync client settings to servers");
       base->syncClientSettings();
     }
   };
-  telemetry_handle_ = client_manager_->getScheduler()->schedule(telemetry_functor, TELEMETRY_TASK_NAME,
-                                                                std::chrono::minutes(5), std::chrono::minutes(5));
+
+  // refer java sdk: set refresh interval to 5 minutes
+  // org.apache.rocketmq.client.java.impl.ClientSessionImpl#syncSettings0
+  telemetry_handle_ = client_manager_->getScheduler()->schedule(
+      telemetry_functor, TELEMETRY_TASK_NAME,
+      std::chrono::minutes(5), std::chrono::minutes(5));
 
   auto&& metric_service_endpoint = metricServiceEndpoint();
   if (!metric_service_endpoint.empty()) {
@@ -404,8 +415,8 @@ void ClientImpl::heartbeat() {
       }
       SPDLOG_DEBUG("Heartbeat to {} OK", target);
     };
-    client_manager_->heartbeat(target, metadata, request, absl::ToChronoMilliseconds(client_config_.request_timeout),
-                               callback);
+    client_manager_->heartbeat(target, metadata, request,
+      absl::ToChronoMilliseconds(client_config_.request_timeout), callback);
   }
 }
 
@@ -598,8 +609,11 @@ void ClientImpl::notifyClientTermination(const NotifyClientTerminationRequest& r
   Signature::sign(client_config_, metadata);
 
   for (const auto& endpoint : endpoints) {
-    client_manager_->notifyClientTermination(endpoint, metadata, request,
-                                             absl::ToChronoMilliseconds(client_config_.request_timeout));
+    std::error_code ec = client_manager_->notifyClientTermination(
+        endpoint, metadata, request,absl::ToChronoMilliseconds(client_config_.request_timeout));
+    if (ec) {
+      SPDLOG_WARN("Notify client termination error, ErrorCode={}, Endpoint={}", ec.message(), endpoint);
+    }
   }
 }
 

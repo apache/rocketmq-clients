@@ -19,3 +19,4 @@ export * from './Broker';
 export * from './Endpoints';
 export * from './MessageQueue';
 export * from './TopicRouteData';
+export * from './Resource';

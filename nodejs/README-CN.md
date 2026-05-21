@@ -65,6 +65,45 @@ const receipt = await producer.send({
 console.log(receipt);
 ```
 
+### 延时消息与回查
+
+发送并召回延时消息：
+
+```ts
+import { Producer } from 'rocketmq-client-nodejs';
+
+const producer = new Producer({
+  endpoints: '127.0.0.1:8081',
+});
+await producer.startup();
+
+// 发送一条延时消息（10 秒后投递）
+const receipt = await producer.send({
+  topic: 'DelayTopic',
+  tag: 'delay-recall',
+  delay: 10000, // 10 秒延时
+  body: Buffer.from('这是一条延时消息'),
+});
+
+console.log('消息已发送:', {
+  messageId: receipt.messageId,
+  recallHandle: receipt.recallHandle, // 用于召回消息的句柄
+});
+
+// 在消息投递前召回（10 秒内）
+try {
+  const recallReceipt = await producer.recallMessage(
+    'DelayTopic',
+    receipt.recallHandle
+  );
+  console.log('消息召回成功:', recallReceipt.messageId);
+} catch (error) {
+  console.error('召回失败:', error);
+}
+
+await producer.shutdown();
+```
+
 消费消息
 
 ```ts
@@ -86,6 +125,50 @@ for (const message of messages) {
 }
 ```
 
+### Push Consumer
+
+PushConsumer 主动从服务器拉取消息并推送给监听器处理：
+
+```ts
+import { PushConsumer, ConsumeResult, type MessageView } from 'rocketmq-client-nodejs';
+
+// 创建 PushConsumer 实例
+const pushConsumer = new PushConsumer({
+  namespace: '', // 命名空间，可以为空字符串
+  endpoints: '127.0.0.1:8081',
+  consumerGroup: 'yourConsumerGroup',
+  
+  // 订阅主题和 TAG
+  subscriptions: new Map([
+    ['yourTopic', '*'],  // 订阅 yourTopic，接收所有 TAG
+  ]),
+  
+  // 消息监听器 - 核心处理逻辑
+  messageListener: {
+    async consume(messageView: MessageView): Promise<ConsumeResult> {
+      console.log('收到消息:', messageView.body.toString('utf-8'));
+      
+      // TODO: 在这里处理你的业务逻辑
+      
+      return ConsumeResult.SUCCESS; // 处理成功返回 SUCCESS
+    },
+  },
+});
+
+try {
+  // 启动消费者
+  await pushConsumer.startup();
+  console.log('PushConsumer 已启动，等待消息...');
+  
+  // 保持运行，等待消息
+  await new Promise(() => {});
+} catch (error) {
+  console.error('错误:', error);
+  await pushConsumer.shutdown();
+  throw error;
+}
+```
+
 ## Current Progress
 
 ### Message Type
@@ -99,5 +182,5 @@ for (const message of messages) {
 
 - [x] PRODUCER
 - [x] SIMPLE_CONSUMER
+- [x] PUSH_CONSUMER
 - [ ] PULL_CONSUMER
-- [ ] PUSH_CONSUMER

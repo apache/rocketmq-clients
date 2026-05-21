@@ -19,6 +19,11 @@ namespace Org.Apache.Rocketmq
 {
     public class FilterExpression
     {
+        /// <summary>
+        /// Subscribe to all messages (wildcard expression).
+        /// </summary>
+        public static readonly FilterExpression SubAll = new FilterExpression("*");
+
         public FilterExpression(string expression, ExpressionType type = ExpressionType.Tag)
         {
             Expression = expression;

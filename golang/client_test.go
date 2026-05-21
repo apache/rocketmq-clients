@@ -74,6 +74,7 @@ func BuildCLient(t *testing.T) *defaultClient {
 	if err != nil {
 		t.Error(err)
 	}
+	cli.inited.Store(true)
 	err = cli.startUp()
 	if err != nil {
 		t.Error(err)
@@ -140,6 +141,7 @@ func TestCLINewClient(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	cli.(*defaultClient).inited.Store(true)
 	sugarBaseLogger.Info(cli)
 	err = cli.(*defaultClient).startUp()
 	if err != nil {
@@ -223,7 +225,6 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	observedLogs := PrepareTestLogger(cli)
 	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
 		recv_error_count: 0,
@@ -231,6 +232,8 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	}
 	default_cli_session.recoveryWaitTime = time.Second
 	cli.settings = &simpleConsumerSettings{}
+
+	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 
 	// when
 	time.Sleep(3 * time.Second)
@@ -249,7 +252,6 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	observedLogs := PrepareTestLogger(cli)
 	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
 		recv_error_count: 1,
@@ -258,13 +260,14 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	default_cli_session.recoveryWaitTime = time.Second
 	cli.settings = &simpleConsumerSettings{}
 
+	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	// when
-	time.Sleep(3 * time.Second)
+	time.Sleep(4 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:3]
-	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
+	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover, err=EOF", commandExecutionLog[0].Message)
 	assert.Equal(t, "Managed to recover, executing message", commandExecutionLog[1].Message)
 	assert.Equal(t, "Executed command successfully", commandExecutionLog[2].Message)
 }
@@ -276,7 +279,6 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	observedLogs := PrepareTestLogger(cli)
 	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
 		recv_error_count: 2,
@@ -285,13 +287,14 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	default_cli_session.recoveryWaitTime = time.Second
 	cli.settings = &simpleConsumerSettings{}
 
+	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 	// when
-	time.Sleep(3 * time.Second)
+	time.Sleep(4 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:2]
-	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
+	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover, err=EOF", commandExecutionLog[0].Message)
 	assert.Equal(t, "Failed to recover, err=EOF", commandExecutionLog[1].Message)
 }
 

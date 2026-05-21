@@ -63,6 +63,16 @@ namespace Org.Apache.Rocketmq
             Endpoints endpoints, NotifyClientTerminationRequest request, TimeSpan timeout);
 
         /// <summary>
+        /// Recall messages.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request of recalling messages.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns>Task of response.</returns>
+        Task<RpcInvocation<RecallMessageRequest, RecallMessageResponse>> RecallMessage(
+            Endpoints endpoints, RecallMessageRequest request, TimeSpan timeout);
+
+        /// <summary>
         /// Send message to remote endpoints.
         /// </summary>
         /// <param name="endpoints">The target endpoints.</param>
@@ -131,6 +141,16 @@ namespace Org.Apache.Rocketmq
         /// <returns></returns>
         Task<RpcInvocation<EndTransactionRequest, EndTransactionResponse>> EndTransaction(Endpoints endpoints,
             EndTransactionRequest request, TimeSpan timeout);
+
+        /// <summary>
+        /// Sync lite subscription info for lite push consumer.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request for syncing lite subscription.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns>Task of response.</returns>
+        Task<RpcInvocation<SyncLiteSubscriptionRequest, SyncLiteSubscriptionResponse>> SyncLiteSubscription(
+            Endpoints endpoints, SyncLiteSubscriptionRequest request, TimeSpan timeout);
 
         Task Shutdown();
     }

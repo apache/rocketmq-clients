@@ -19,6 +19,7 @@ package utils
 
 import (
 	"compress/gzip"
+	"compress/zlib"
 	"testing"
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
@@ -93,6 +94,90 @@ func TestParseTarget(t *testing.T) {
 	} else if !CompareEndpoints(endpointsExpect, endpoints) {
 		t.Errorf("Expected endpoints: %v, but got: %v", endpointsExpect, endpoints)
 	}
+
+	endpointIpv6Expect := &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv6,
+		Addresses: []*v2.Address{
+			{
+				Host: "fe80::1ff:fe23:4567:890a",
+				Port: 80,
+			},
+			{
+				Host: "2001:db8:abcd:12:1234:5678:9abc:def0",
+				Port: 80,
+			},
+		},
+	}
+	endpointIpv6s, err := ParseTarget("[fe80::1ff:fe23:4567:890a]:80;[2001:db8:abcd:12:1234:5678:9abc:def0]:80")
+	if err != nil {
+		t.Error(err)
+	} else if !CompareEndpoints(endpointIpv6Expect, endpointIpv6s) {
+		t.Errorf("Expected endpoints: %v, but got: %v", endpointIpv6Expect, endpointIpv6s)
+	}
+
+	endpointIpv6sWithHttpExpect := &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv6,
+		Addresses: []*v2.Address{
+			{
+				Host: "fe80::1ff:fe23:4567:890a",
+				Port: 80,
+			},
+		},
+	}
+	endpointIpv6sWithHttp, err := ParseTarget("http://[fe80::1ff:fe23:4567:890a]:80")
+	if err != nil {
+		t.Error(err)
+	} else if !CompareEndpoints(endpointIpv6sWithHttpExpect, endpointIpv6sWithHttp) {
+		t.Errorf("Expected endpoints: %v, but got: %v", endpointIpv6sWithHttpExpect, endpointIpv6sWithHttp)
+	}
+
+	endpointWithDomainExpect := &v2.Endpoints{
+		Scheme: v2.AddressScheme_DOMAIN_NAME,
+		Addresses: []*v2.Address{
+			{
+				Host: "rocketmq-xxxxx.rocketmq.com",
+				Port: 80,
+			},
+		},
+	}
+	endpointWithDomain, err := ParseTarget("rocketmq-xxxxx.rocketmq.com:80")
+	if err != nil {
+		t.Error(err)
+	} else if !CompareEndpoints(endpointWithDomainExpect, endpointWithDomain) {
+		t.Errorf("Expected endpoints: %v, but got: %v", endpointWithDomain, endpointWithDomain)
+	}
+}
+
+func TestEndpointsToString(t *testing.T) {
+	endpoints := &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv4,
+		Addresses: []*v2.Address{
+			{
+				Host: "127.0.0.1",
+				Port: 80,
+			},
+		},
+	}
+	expected := "127.0.0.1:80"
+	actual := EndpointsToString(endpoints)
+	if actual != expected {
+		t.Errorf("Expected %s, but got %s", expected, actual)
+	}
+
+	endpointsIpv6 := &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv6,
+		Addresses: []*v2.Address{
+			{
+				Host: "fe80::1ff:fe23:4567:890a",
+				Port: 80,
+			},
+		},
+	}
+	ipv6Actual := EndpointsToString(endpointsIpv6)
+	endpointsIpv6Expected := "[fe80::1ff:fe23:4567:890a]:80"
+	if ipv6Actual != endpointsIpv6Expected {
+		t.Errorf("Expected %s, but got %s", endpointsIpv6Expected, ipv6Actual)
+	}
 }
 
 func TestMatchMessageType(t *testing.T) {
@@ -111,12 +196,97 @@ func TestMatchMessageType(t *testing.T) {
 	}
 }
 
+func TestAutoDecode(t *testing.T) {
+	_, err := AutoDecode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+	if err == nil {
+		t.Error()
+	}
+	_, err = AutoDecode([]byte{78, 0})
+	if err == nil {
+		t.Error()
+	}
+	// gzip
+	bytes, err := AutoDecode([]byte{31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 0, 0, 0, 255, 255, 1, 0, 0, 255, 255, 97, 36, 132, 114, 18, 0, 0, 0})
+	if err != nil {
+		t.Error()
+	}
+	if string(bytes) != "rocketmq-client-go" {
+		t.Error()
+	}
+	// zlib
+	bytes, err = AutoDecode([]byte{120, 156, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 4, 0, 0, 255, 255, 68, 223, 7, 22})
+	if err != nil {
+		t.Error()
+	}
+	if string(bytes) != "rocketmq-client-go" {
+		t.Error()
+	}
+	// // lz4
+	// bytes, err = AutoDecode([]byte{4, 34, 77, 24, 100, 112, 185, 18, 0, 0, 128, 114, 111, 99, 107, 101, 116, 109, 113, 45, 99, 108, 105, 101, 110, 116, 45, 103, 111, 0, 0, 0, 0, 248, 183, 23, 47})
+	// if err != nil {
+	// 	t.Error()
+	// }
+	// if string(bytes) != "rocketmq-client-go" {
+	// 	t.Error()
+	// }
+	// // zstd
+	// bytes, err = AutoDecode([]byte{40, 181, 47, 253, 32, 18, 145, 0, 0, 114, 111, 99, 107, 101, 116, 109, 113, 45, 99, 108, 105, 101, 110, 116, 45, 103, 111})
+	// if err != nil {
+	// 	t.Error()
+	// }
+	// if string(bytes) != "rocketmq-client-go" {
+	// 	t.Error()
+	// }
+}
+
 func TestGZIPDecode(t *testing.T) {
 	_, err := GZIPDecode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 	if err != gzip.ErrHeader {
 		t.Error()
 	}
 	bytes, err := GZIPDecode([]byte{31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 0, 0, 0, 255, 255, 1, 0, 0, 255, 255, 97, 36, 132, 114, 18, 0, 0, 0})
+	if err != nil {
+		t.Error()
+	}
+	if string(bytes) != "rocketmq-client-go" {
+		t.Error()
+	}
+}
+
+func TestZlibDecode(t *testing.T) {
+	_, err := ZlibDecode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+	if err != zlib.ErrHeader {
+		t.Error()
+	}
+	bytes, err := ZlibDecode([]byte{120, 156, 42, 202, 79, 206, 78, 45, 201, 45, 212, 77, 206, 201, 76, 205, 43, 209, 77, 207, 7, 4, 0, 0, 255, 255, 68, 223, 7, 22})
+	if err != nil {
+		t.Error()
+	}
+	if string(bytes) != "rocketmq-client-go" {
+		t.Error()
+	}
+}
+
+func TestLz4Decode(t *testing.T) {
+	_, err := Lz4Decode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+	if err == nil {
+		t.Error()
+	}
+	bytes, err := Lz4Decode([]byte{4, 34, 77, 24, 100, 112, 185, 18, 0, 0, 128, 114, 111, 99, 107, 101, 116, 109, 113, 45, 99, 108, 105, 101, 110, 116, 45, 103, 111, 0, 0, 0, 0, 248, 183, 23, 47})
+	if err != nil {
+		t.Error()
+	}
+	if string(bytes) != "rocketmq-client-go" {
+		t.Error()
+	}
+}
+
+func TestZstdDecode(t *testing.T) {
+	_, err := ZstdDecode([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+	if err == nil {
+		t.Error()
+	}
+	bytes, err := ZstdDecode([]byte{40, 181, 47, 253, 32, 18, 145, 0, 0, 114, 111, 99, 107, 101, 116, 109, 113, 45, 99, 108, 105, 101, 110, 116, 45, 103, 111})
 	if err != nil {
 		t.Error()
 	}

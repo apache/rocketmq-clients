@@ -19,6 +19,7 @@ import { Status, Code } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { BadRequestException } from './BadRequestException';
 import { ForbiddenException } from './ForbiddenException';
 import { InternalErrorException } from './InternalErrorException';
+import { LiteTopicQuotaExceededException } from './LiteTopicQuotaExceededException';
 import { NotFoundException } from './NotFoundException';
 import { PayloadTooLargeException } from './PayloadTooLargeException';
 import { PaymentRequiredException } from './PaymentRequiredException';
@@ -87,6 +88,8 @@ export class StatusChecker {
       case Code.VERSION_UNSUPPORTED:
       case Code.VERIFY_FIFO_MESSAGE_UNSUPPORTED:
         throw new UnsupportedException(status.code, status.message, requestId);
+      case Code.LITE_TOPIC_QUOTA_EXCEEDED:
+        throw new LiteTopicQuotaExceededException(status.code, status.message || '', requestId);
       default:
         throw new UnsupportedException(status.code, status.message, requestId);
     }

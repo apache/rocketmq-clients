@@ -70,8 +70,13 @@ bool TopicPublishInfo::selectMessageQueues(absl::optional<std::string>     messa
     absl::MutexLock lock(&queue_list_mtx_);
     for (std::vector<rmq::MessageQueue>::size_type i = 0; i < queue_list_.size(); ++i) {
       const rmq::MessageQueue& message_queue = queue_list_[index++ % (queue_list_.size())];
+      if (!writable(message_queue.permission())) {
+        continue;
+      }
+
       if (!producer->isEndpointIsolated(urlOf(message_queue))) {
-        auto search = std::find_if(result.begin(), result.end(), [&](const rmq::MessageQueue& item) {
+        auto search = std::find_if(
+            result.begin(), result.end(), [&](const rmq::MessageQueue& item) {
           return item.broker().name() == message_queue.broker().name();
         });
         if (std::end(result) == search) {

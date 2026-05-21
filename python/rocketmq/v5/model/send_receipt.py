@@ -13,13 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 class SendReceipt:
 
-    def __init__(self, message_id, transaction_id, message_queue, offset):
+    def __init__(self, message_id, transaction_id, message_queue, offset, recall_handle=None):
         self.__message_id = message_id
         self.__transaction_id = transaction_id
         self.__message_queue = message_queue
         self.__offset = offset
+        self.__recall_handle = recall_handle
 
     def __str__(self):
         return f"message_id:{self.__message_id}"
@@ -41,3 +43,7 @@ class SendReceipt:
     @property
     def offset(self):
         return self.__offset
+
+    @property
+    def recall_handle(self):
+        return self.__recall_handle

@@ -77,6 +77,8 @@ namespace Org.Apache.Rocketmq
                 case Proto.Code.PayloadTooLarge:
                 case Proto.Code.MessageBodyTooLarge:
                     throw new PayloadTooLargeException((int)statusCode, requestId, statusMessage);
+                case Proto.Code.MessageBodyEmpty:
+                    throw new PayloadEmptyException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.TooManyRequests:
                     throw new TooManyRequestsException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.RequestHeaderFieldsTooLarge:

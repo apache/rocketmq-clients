@@ -23,12 +23,14 @@ import { StatusChecker } from '../exception';
 export class SendReceipt {
   readonly messageId: string;
   readonly transactionId: string;
+  readonly recallHandle: string;
   readonly offset: number;
   readonly #messageQueue: MessageQueue;
 
-  constructor(messageId: string, transactionId: string, messageQueue: MessageQueue, offset: number) {
+  constructor(messageId: string, transactionId: string, recallHandle: string, messageQueue: MessageQueue, offset: number) {
     this.messageId = messageId;
     this.transactionId = transactionId;
+    this.recallHandle = recallHandle;
     this.offset = offset;
     this.#messageQueue = messageQueue;
   }
@@ -51,8 +53,9 @@ export class SendReceipt {
     for (const entry of responseObj.entriesList) {
       const messageId = entry.messageId;
       const transactionId = entry.transactionId;
+      const recallHandle = entry.recallHandle;
       const offset = entry.offset;
-      const sendReceipt = new SendReceipt(messageId, transactionId, mq, offset);
+      const sendReceipt = new SendReceipt(messageId, transactionId, recallHandle, mq, offset);
       sendReceipts.push(sendReceipt);
     }
     return sendReceipts;

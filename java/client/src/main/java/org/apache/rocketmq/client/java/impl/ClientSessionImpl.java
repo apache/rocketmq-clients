@@ -17,7 +17,9 @@
 
 package org.apache.rocketmq.client.java.impl;
 
+import apache.rocketmq.v2.NotifyUnsubscribeLiteCommand;
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
+import apache.rocketmq.v2.ReconnectEndpointsCommand;
 import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.TelemetryCommand;
@@ -45,7 +47,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
 
     private final ClientSessionHandler sessionHandler;
     private final Endpoints endpoints;
-    private final SettableFuture<Settings> future;
+    private final SettableFuture<Settings> settingsInitFuture;
     private volatile StreamObserver<TelemetryCommand> requestObserver;
 
     @SuppressWarnings("UnstableApiUsage")
@@ -53,8 +55,8 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
         throws ClientException {
         this.sessionHandler = sessionHandler;
         this.endpoints = endpoints;
-        this.future = SettableFuture.create();
-        Futures.withTimeout(future, SETTINGS_INITIALIZATION_TIMEOUT.plus(tolerance).toMillis(),
+        this.settingsInitFuture = SettableFuture.create();
+        Futures.withTimeout(settingsInitFuture, SETTINGS_INITIALIZATION_TIMEOUT.plus(tolerance).toMillis(),
             TimeUnit.MILLISECONDS, sessionHandler.getScheduler());
         this.requestObserver = sessionHandler.telemetry(endpoints, this);
     }
@@ -84,7 +86,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
 
     protected ListenableFuture<Settings> syncSettings() {
         this.syncSettings0();
-        return future;
+        return settingsInitFuture;
     }
 
     private void syncSettings0() {
@@ -128,7 +130,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                     final Settings settings = command.getSettings();
                     log.info("Receive settings from remote, endpoints={}, clientId={}", endpoints, clientId);
                     sessionHandler.onSettingsCommand(endpoints, settings);
-                    if (future.set(settings)) {
+                    if (settingsInitFuture.set(settings)) {
                         log.info("Init settings successfully, endpoints={}, clientId={}", endpoints, clientId);
                     }
                     break;
@@ -156,6 +158,22 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                     sessionHandler.onPrintThreadStackTraceCommand(endpoints, printThreadStackTraceCommand);
                     break;
                 }
+                case RECONNECT_ENDPOINTS_COMMAND: {
+                    final ReconnectEndpointsCommand reconnectEndpointsCommand =
+                            command.getReconnectEndpointsCommand();
+                    log.info("Receive reconnect endpoints command from remote, endpoints={}, clientId={}",
+                            endpoints, clientId);
+                    sessionHandler.onReconnectEndpointsCommand(endpoints, reconnectEndpointsCommand);
+                    break;
+                }
+                case NOTIFY_UNSUBSCRIBE_LITE_COMMAND: {
+                    final NotifyUnsubscribeLiteCommand notifyUnsubscribeLiteCommand =
+                        command.getNotifyUnsubscribeLiteCommand();
+                    log.info("Receive notify unsubscribe lite command from remote, endpoints={}, "
+                        + "clientId={}", endpoints, clientId);
+                    sessionHandler.onNotifyUnsubscribeLiteCommand(endpoints, notifyUnsubscribeLiteCommand);
+                    break;
+                }
                 default:
                     log.warn("Receive unrecognized command from remote, endpoints={}, command={}, clientId={}",
                         endpoints, command, clientId);
@@ -173,6 +191,8 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
             throwable);
         release();
         if (!sessionHandler.isRunning()) {
+            // first time to sync settings, forward the exception to upper layer
+            settingsInitFuture.setException(throwable);
             log.info("Session handler is not running, forgive to renew request observer, clientId={}, "
                 + "endpoints={}", clientId, endpoints);
             return;

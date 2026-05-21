@@ -23,7 +23,7 @@ import { hostname } from 'node:os';
  */
 export class ClientId {
   static #hostname = hostname();
-  static #index = 0n;
+  static #index = BigInt(0);
 
   static create() {
     return `${this.#hostname}@${process.pid}@${this.#index++}@${Date.now().toString(36)}`;

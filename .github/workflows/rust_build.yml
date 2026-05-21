@@ -3,7 +3,7 @@ on:
   workflow_call:
 jobs:
   fmt:
-    name: code style check    
+    name: Code style check    
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -12,45 +12,43 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: rustfmt
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component rustfmt
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Code format check
         run: cargo fmt --check
   clippy:
-    name: clippy
+    name: Clippy
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./rust    
+        working-directory: ./rust
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component clippy
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       # Run clippy
-      - name: clippy check
+      - name: Clippy check
         run: cargo clippy --all-features -- -D warnings
   doc:
-    name: doc check    
+    name: Doc check    
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./rust    
+        working-directory: ./rust
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Build doc
         run: cargo doc --no-deps --all-features
         env:
@@ -62,7 +60,7 @@ jobs:
         working-directory: ./rust
     strategy:
       matrix:
-        msrv: [1.70.0]
+        msrv: [1.74.0]
     name: MSRV ${{ matrix.msrv }} check
     steps:
       - uses: actions/checkout@v3
@@ -71,7 +69,7 @@ jobs:
       - name: Install cargo-msrv
         run: |
           cargo install cargo-msrv
-          cargo msrv --min ${{ matrix.msrv }}
+          cargo msrv verify --min ${{ matrix.msrv }}
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
@@ -82,20 +80,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macos-12, windows-2022]
-        msrv: [1.70]
+        os: [Ubuntu-22.04, MacOS-15, Windows-2022]
+        msrv: [1.74]
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.msrv }}
-          components: clippy
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ matrix.msrv }}
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup component add clippy
       - name: Install protoc
-        uses: arduino/setup-protoc@v1
+        uses: arduino/setup-protoc@v3
         with:
-          version: "3.x"
+          version: "29.x"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
         env:

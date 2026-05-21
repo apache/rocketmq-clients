@@ -54,12 +54,17 @@ public class ProducerSingleton {
             // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
             // client configuration to solve the problem please if SSL is not essential.
             // .enableSsl(false)
+            // Due to the lazy loading of gRPC, when the network conditions are poor or the load of the application
+            // at startup is high, the first startup may fail, and you can try multiple startups.
+            // .setMaxStartupAttempts(3)
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
         final ProducerBuilder builder = provider.newProducerBuilder()
             .setClientConfiguration(clientConfiguration)
             // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
             // the topic route before message publishing.
+            // For transaction producers, it is essential to set topics to ensure the reliability of the transaction
+            // checker.
             .setTopics(topics);
         if (checker != null) {
             // Set the transaction checker.

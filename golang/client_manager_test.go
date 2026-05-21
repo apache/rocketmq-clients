@@ -166,11 +166,13 @@ func TestCMUnRegisterClient(t *testing.T) {
 var (
 	fakeHost          = "127.0.0.1"
 	fakePort    int32 = 80
-	fakeAddress       = fmt.Sprintf("%s:%d", fakeHost, fakePort)
+	fakeScheme        = "ip"
+	fakeAddress       = fmt.Sprintf("%s:///%s:%d", fakeScheme, fakeHost, fakePort)
 )
 
 func fakeEndpoints() *v2.Endpoints {
 	return &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv4,
 		Addresses: []*v2.Address{
 			{
 				Host: fakeHost,
@@ -338,7 +340,7 @@ func TestCMClearIdleRpcClients(t *testing.T) {
 	})
 	defer stubs.Reset()
 
-	MOCK_RPC_CLIENT.EXPECT().idleDuration().Return(time.Hour * 24 * 365)
+	MOCK_RPC_CLIENT.EXPECT().idleDuration().Return(time.Hour * 24 * 365).AnyTimes()
 	cm := NewDefaultClientManager()
 	cm.startUp()
 	cm.RegisterClient(MOCK_CLIENT)
@@ -353,5 +355,32 @@ func TestCMClearIdleRpcClients(t *testing.T) {
 			t.Errorf("test ClearIdleRpcClients failed")
 		}
 		time.Sleep(time.Duration(100))
+	}
+}
+
+func TestCMSyncLiteSubscription(t *testing.T) {
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
+
+	MOCK_RPC_CLIENT.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(&v2.SyncLiteSubscriptionResponse{
+		Status: &v2.Status{
+			Code: v2.Code_OK,
+		},
+	}, nil)
+	resp, err := cm.SyncLiteSubscription(context.TODO(), fakeEndpoints(), &v2.SyncLiteSubscriptionRequest{}, time.Minute)
+	if err != nil {
+		t.Error(err)
+	}
+	if resp.GetStatus().GetCode() != v2.Code_OK {
+		t.Errorf("expected Code_OK, got %v", resp.GetStatus().GetCode())
+	}
+
+	// 错误分支
+	MOCK_RPC_CLIENT.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("mock error"))
+	_, err = cm.SyncLiteSubscription(context.TODO(), fakeEndpoints(), &v2.SyncLiteSubscriptionRequest{}, time.Minute)
+	if err == nil {
+		t.Error("expected error, got nil")
 	}
 }

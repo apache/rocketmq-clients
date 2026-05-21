@@ -57,6 +57,7 @@ void SendContext::onSuccess(const SendResult& send_result) noexcept {
   send_receipt.target = send_result.target;
   send_receipt.message_id = send_result.message_id;
   send_receipt.transaction_id = send_result.transaction_id;
+  send_receipt.recall_handle = send_result.recall_handle;
   send_receipt.message = std::move(message_);
   callback_(send_result.ec, send_receipt);
 }

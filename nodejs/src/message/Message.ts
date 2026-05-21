@@ -24,6 +24,8 @@ export interface MessageOptions {
   properties?: Map<string, string>;
   delay?: number;
   deliveryTimestamp?: Date;
+  priority?: number;
+  liteTopic?: string;
 }
 
 export class Message {
@@ -34,18 +36,57 @@ export class Message {
   keys: string[];
   properties?: Map<string, string>;
   deliveryTimestamp?: Date;
+  priority?: number;
+  liteTopic?: string;
 
   constructor(options: MessageOptions) {
+    let finalDeliveryTimestamp = options.deliveryTimestamp;
+    if (options.delay && !finalDeliveryTimestamp) {
+      finalDeliveryTimestamp = new Date(Date.now() + options.delay);
+    }
+
+    const hasPriority = options.priority !== undefined;
+    const hasLiteTopic = options.liteTopic !== undefined;
+    const hasTimedDelivery = finalDeliveryTimestamp !== undefined;
+    const hasGroup = options.messageGroup !== undefined;
+
+    if (hasPriority) {
+      if (options.priority === undefined || options.priority < 0) {
+        throw new Error('priority must be greater than or equal to 0');
+      }
+      if (hasTimedDelivery || hasGroup || hasLiteTopic) {
+        throw new Error('priority is mutually exclusive with delay, deliveryTimestamp, messageGroup, and liteTopic');
+      }
+    }
+
+    if (hasLiteTopic) {
+      if (hasTimedDelivery || hasGroup) {
+        throw new Error('liteTopic is mutually exclusive with delay, deliveryTimestamp, and messageGroup');
+      }
+    }
+
+    if (hasTimedDelivery && hasGroup) {
+      throw new Error('delay/deliveryTimestamp is mutually exclusive with messageGroup');
+    }
+
+    // 4. Assign properties
     this.topic = options.topic;
     this.body = options.body;
     this.tag = options.tag;
     this.messageGroup = options.messageGroup;
     this.keys = options.keys ?? [];
     this.properties = options.properties;
-    let deliveryTimestamp = options.deliveryTimestamp;
-    if (options.delay && !deliveryTimestamp) {
-      deliveryTimestamp = new Date(Date.now() + options.delay);
-    }
-    this.deliveryTimestamp = deliveryTimestamp;
+    this.deliveryTimestamp = finalDeliveryTimestamp;
+    this.priority = options.priority;
+    this.liteTopic = options.liteTopic;
+  }
+
+  /**
+   * Returns a string representation of the message.
+   */
+  toString(): string {
+    return `Message{topic='${this.topic}', tag=${this.tag}, messageGroup=${this.messageGroup}, ` +
+      `liteTopic=${this.liteTopic}, priority=${this.priority}, deliveryTimestamp=${this.deliveryTimestamp}, ` +
+      `keys=[${this.keys.join(', ')}], properties=${JSON.stringify(this.properties)}}`;
   }
 }

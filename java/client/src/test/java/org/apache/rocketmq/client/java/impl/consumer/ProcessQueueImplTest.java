@@ -92,7 +92,7 @@ public class ProcessQueueImplTest extends TestBase {
         field1.setAccessible(true);
         field1.set(pushConsumer, consumptionErrorQuantity);
 
-        when(pushConsumer.getPushConsumerSettings()).thenReturn(pushSubscriptionSettings);
+        when(pushConsumer.getSettings()).thenReturn(pushSubscriptionSettings);
         when(pushConsumer.getScheduler()).thenReturn(SCHEDULER);
 
         AtomicLong receivedMessagesQuantity = new AtomicLong(0);

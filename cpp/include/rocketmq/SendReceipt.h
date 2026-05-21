@@ -30,6 +30,8 @@ struct SendReceipt {
 
   std::string transaction_id;
 
+  std::string recall_handle;
+
   MessageConstPtr message;
 };
 

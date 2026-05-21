@@ -24,9 +24,9 @@
 
 using namespace ROCKETMQ_NAMESPACE;
 
-DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are published");
-DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
-DEFINE_string(group, "CID_standard_topic_sample", "GroupId, created through your instance management console");
+DEFINE_string(topic, "NormalTopic", "Topic to which messages are published");
+DEFINE_string(access_point, "127.0.0.1:8081", "Service access URL, provided by your service provider");
+DEFINE_string(group, "PushConsumer", "GroupId, created through your instance management console");
 DEFINE_string(access_key, "", "Your access key ID");
 DEFINE_string(access_secret, "", "Your access secret");
 DEFINE_bool(tls, false, "Use HTTP2 with TLS/SSL");

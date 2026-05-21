@@ -16,6 +16,7 @@
  */
 
 import { FilterType, FilterExpression as FilterExpressionPB } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { hashCodeOfString } from '../util';
 
 const TAG_EXPRESSION_SUB_ALL = '*';
 
@@ -34,6 +35,22 @@ export class FilterExpression {
     return new FilterExpressionPB()
       .setType(this.filterType)
       .setExpression(this.expression);
+  }
+
+  equals(other: FilterExpression): boolean {
+    if (this === other) return true;
+    if (!other) return false;
+    return this.expression === other.expression &&
+      this.filterType === other.filterType;
+  }
+
+  hashCode(): number {
+    let hash = 17;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + hashCodeOfString(this.expression)) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.filterType) | 0;
+    return hash;
   }
 
   toString() {

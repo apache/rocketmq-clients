@@ -35,6 +35,7 @@ type Producer interface {
 	Send(context.Context, *Message) ([]*SendReceipt, error)
 	SendWithTransaction(context.Context, *Message, Transaction) ([]*SendReceipt, error)
 	SendAsync(context.Context, *Message, func(context.Context, []*SendReceipt, error))
+	Recall(ctx context.Context, topic string, recallHandle string) (string, error)
 	BeginTransaction() Transaction
 	Start() error
 	GracefulStop() error
@@ -79,7 +80,7 @@ func (p *defaultProducer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 }
 
 func (p *defaultProducer) takeMessageQueues(plb PublishingLoadBalancer) ([]*v2.MessageQueue, error) {
-	return plb.TakeMessageQueues(p.isolated, p.getRetryMaxAttempts())
+	return plb.TakeMessageQueues(&p.isolated, p.getRetryMaxAttempts())
 }
 
 func (p *defaultProducer) getPublishingTopicRouteResult(ctx context.Context, topic string) (PublishingLoadBalancer, error) {
@@ -235,12 +236,6 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
 			return nil, err
 		}
-		// No need more attempts for transactional message.
-		if messageType == v2.MessageType_TRANSACTION {
-			p.cli.log.Errorf("failed to send transactional message finally, topic=%s, messageId(s)=%v,  maxAttempts=%d, attempt=%d, endpoints=%s, requestId=%s",
-				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
-			return nil, err
-		}
 		// Try to do more attempts.
 		nextAttempt := attempt + 1
 		// Retry immediately if the request is not throttled.
@@ -263,6 +258,7 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 			TransactionId: resp.GetEntries()[i].GetTransactionId(),
 			Offset:        resp.GetEntries()[i].GetOffset(),
 			Endpoints:     endpoints,
+			RecallHandle:  resp.GetEntries()[i].GetRecallHandle(),
 		})
 	}
 	if attempt > 1 {
@@ -357,6 +353,51 @@ func (p *defaultProducer) SendAsync(ctx context.Context, msg *Message, f func(co
 		resp, err := p.send0(ctx, msgs, false)
 		f(ctx, resp, err)
 	}()
+}
+
+func (p *defaultProducer) Recall(ctx context.Context, topic string, recallHandle string) (string, error) {
+	if !p.isOn() {
+		return "", fmt.Errorf("producer is not running")
+	}
+	if recallHandle == "" {
+		return "", fmt.Errorf("recall handle is invalid")
+	}
+
+	ctx = p.cli.Sign(ctx)
+	request := &v2.RecallMessageRequest{
+		Topic: &v2.Resource{
+			Name:              topic,
+			ResourceNamespace: p.cli.config.NameSpace,
+		},
+		RecallHandle: recallHandle,
+	}
+
+	// Get endpoints for the topic
+	endpoints := &v2.Endpoints{}
+	p.pSetting.topics.Range(func(key, value interface{}) bool {
+		if key == topic {
+			route, err := p.cli.getMessageQueues(ctx, topic)
+			if err == nil && len(route) > 0 {
+				endpoints = route[0].GetBroker().GetEndpoints()
+			}
+			return false
+		}
+		return true
+	})
+
+	resp, err := p.cli.clientManager.RecallMessage(ctx, endpoints, request, p.pSetting.GetRequestTimeout())
+	if err != nil {
+		return "", err
+	}
+
+	if resp.GetStatus().GetCode() != v2.Code_OK {
+		return "", &ErrRpcStatus{
+			Code:    int32(resp.Status.GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
+	}
+
+	return resp.GetMessageId(), nil
 }
 
 func (p *defaultProducer) SendWithTransaction(ctx context.Context, msg *Message, transaction Transaction) ([]*SendReceipt, error) {
@@ -454,4 +495,17 @@ func (p *defaultProducer) onRecoverOrphanedTransactionCommand(endpoints *v2.Endp
 
 func (p *defaultProducer) onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error {
 	return nil
+}
+
+func (p *defaultProducer) SetRequestTimeout(timeout time.Duration) {
+	p.cli.opts.timeout = timeout
+	p.pSetting.requestTimeout = p.cli.opts.timeout
+}
+
+func (p *defaultProducer) IsEndpointUpdated() bool {
+	return p.cli.ReceiveReconnect
+}
+
+func (sc *defaultProducer) SetReceiveReconnect(receiveReconnect bool) {
+	sc.cli.ReceiveReconnect = receiveReconnect
 }

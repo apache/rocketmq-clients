@@ -63,7 +63,7 @@ public:
 
   std::shared_ptr<ClientManager> getClientManager() override;
 
-  void receiveMessage() override;
+  void receiveMessage(std::string& attempt_id) override;
 
   const std::string& simpleName() const override {
     return simple_name_;
@@ -127,9 +127,10 @@ private:
    */
   std::atomic<uint64_t> cached_message_memory_;
 
-  void popMessage();
+  void popMessage(std::string& attempt_id);
+
   void wrapPopMessageRequest(absl::flat_hash_map<std::string, std::string>& metadata,
-                             rmq::ReceiveMessageRequest& request);
+                             rmq::ReceiveMessageRequest& request, std::string& attempt_id);
 
   void wrapFilterExpression(rmq::FilterExpression* filter_expression);
 };

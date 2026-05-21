@@ -17,16 +17,47 @@
 
 package org.apache.rocketmq.client.apis.consumer;
 
+import java.util.Objects;
+
 /**
  * Designed for push consumer specifically.
  */
-public enum ConsumeResult {
+public class ConsumeResult {
     /**
      * Consume message successfully.
      */
-    SUCCESS,
+    public static final ConsumeResult SUCCESS = new ConsumeResult("SUCCESS");
     /**
      * Failed to consume message.
      */
-    FAILURE
+    public static final ConsumeResult FAILURE = new ConsumeResult("FAILURE");
+
+    private final String name;
+
+    protected ConsumeResult(String name) {
+        this.name = name;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    @Override
+    public String toString() {
+        return name;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ConsumeResult result = (ConsumeResult) o;
+        return Objects.equals(name, result.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(name);
+    }
 }

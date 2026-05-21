@@ -25,6 +25,8 @@ import {
   HeartbeatRequest, NotifyClientTerminationRequest, PullMessageRequest,
   QueryAssignmentRequest, QueryOffsetRequest, QueryRouteRequest,
   ReceiveMessageRequest, SendMessageRequest, UpdateOffsetRequest,
+  RecallMessageRequest,
+  SyncLiteSubscriptionRequest,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../route';
 import { ILogger } from './Logger';
@@ -74,11 +76,21 @@ export class RpcClientManager {
   }
 
   close() {
-    for (const [ endpoints, rpcClient ] of this.#rpcClients.entries()) {
-      rpcClient.close();
-      this.#rpcClients.delete(endpoints);
+    // Clear idle check timer first
+    if (this.#clearIdleRpcClientsTimer) {
+      clearInterval(this.#clearIdleRpcClientsTimer);
     }
-    clearInterval(this.#clearIdleRpcClientsTimer);
+
+    // Close all RPC clients and clear the map
+    for (const [ endpoints, rpcClient ] of this.#rpcClients.entries()) {
+      try {
+        rpcClient.close();
+      } catch (e) {
+        this.#logger.warn('Failed to close RPC client for endpoints=%s, clientId=%s, error=%s',
+          endpoints.facade, this.#baseClient.clientId, e instanceof Error ? e.message : String(e));
+      }
+    }
+    this.#rpcClients.clear();
   }
 
   async queryRoute(endpoints: Endpoints, request: QueryRouteRequest, duration: number) {
@@ -169,5 +181,17 @@ export class RpcClientManager {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
     return await rpcClient.notifyClientTermination(request, metadata, duration);
+  }
+
+  async recallMessage(endpoints: Endpoints, request: RecallMessageRequest, duration: number) {
+    const rpcClient = this.#getRpcClient(endpoints);
+    const metadata = this.#baseClient.getRequestMetadata();
+    return await rpcClient.recallMessage(request, metadata, duration);
+  }
+
+  async syncLiteSubscription(endpoints: Endpoints, request: SyncLiteSubscriptionRequest, duration: number) {
+    const rpcClient = this.#getRpcClient(endpoints);
+    const metadata = this.#baseClient.getRequestMetadata();
+    return await rpcClient.syncLiteSubscription(request, metadata, duration);
   }
 }

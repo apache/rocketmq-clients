@@ -34,10 +34,14 @@ import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryAssignmentResponse;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
+import apache.rocketmq.v2.RecallMessageRequest;
+import apache.rocketmq.v2.RecallMessageResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
+import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
+import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
 import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -64,6 +68,9 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 
 public class RpcClientImpl implements RpcClient {
     private static final int CONNECT_TIMEOUT_MILLIS = 3 * 1000;
+    // the grpc server default permitted min keep alive is 5min, so by default we should not less than 5min.
+    private static final int KEEP_ALIVE_TIME_MILLIS = 300 * 1000;
+    private static final int KEEP_ALIVE_TIMEOUT_MILLIS = 30 * 1000;
     private static final int GRPC_MAX_MESSAGE_SIZE = Integer.MAX_VALUE;
 
     private final ManagedChannel channel;
@@ -77,6 +84,9 @@ public class RpcClientImpl implements RpcClient {
         final NettyChannelBuilder channelBuilder =
             NettyChannelBuilder.forTarget(endpoints.getGrpcTarget())
                 .withOption(ChannelOption.CONNECT_TIMEOUT_MILLIS, CONNECT_TIMEOUT_MILLIS)
+                .keepAliveTime(KEEP_ALIVE_TIME_MILLIS, TimeUnit.MILLISECONDS)
+                .keepAliveTimeout(KEEP_ALIVE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .keepAliveWithoutCalls(true)
                 .maxInboundMessageSize(GRPC_MAX_MESSAGE_SIZE)
                 .intercept(LoggingInterceptor.getInstance());
 
@@ -210,6 +220,24 @@ public class RpcClientImpl implements RpcClient {
         this.activityNanoTime = System.nanoTime();
         return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
             .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).notifyClientTermination(request);
+    }
+
+    @Override
+    public ListenableFuture<RecallMessageResponse> recallMessage(Metadata metadata,
+        RecallMessageRequest request, Executor executor, Duration duration) {
+        this.activityNanoTime = System.nanoTime();
+        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).recallMessage(request);
+    }
+
+    @Override
+    public ListenableFuture<SyncLiteSubscriptionResponse> syncLiteSubscription(Metadata metadata,
+        SyncLiteSubscriptionRequest request, Executor executor, Duration duration) {
+        this.activityNanoTime = System.nanoTime();
+        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata))
+            .withExecutor(executor)
+            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS)
+            .syncLiteSubscription(request);
     }
 
     @Override

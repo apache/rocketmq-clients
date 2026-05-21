@@ -144,6 +144,11 @@ enum class ErrorCode : int {
   MessageBodyTooLarge = 41301,
 
   /**
+   * @brief Message body is empty.
+   */
+  MessageBodyEmpty = 41302,
+
+  /**
    * @brief When trying to perform an action whose dependent procedure state is
    * not right, this code will be used.
    * 1. Acknowledge a message that is not previously received;

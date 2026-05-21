@@ -20,7 +20,7 @@ ARCH=$(uname -m)
 # Proto buf generation
 PWD=$(pwd)
 PATH_ROOT=$(dirname "$PWD")
-PATH_PROTO_ROOT="${PATH_ROOT}/protos"
+PATH_PROTO_ROOT="${PWD}/proto"
 PATH_PROTO_OUTPUT="${PWD}/proto"
 PATH_PROTO_OUTPUT_ROCKETMQ_V2="${PWD}/proto/apache/rocketmq/v2"
 
@@ -51,13 +51,27 @@ generateGrpc() {
     --ts_out="grpc_js:$PATH_PROTO_OUTPUT" \
     --grpc_out="grpc_js:$PATH_PROTO_OUTPUT" \
     "$PATH_PROTO/$PATH_FILE"
-  cp "$PATH_PROTO/$PATH_FILE" "${PATH_PROTO_OUTPUT_ROCKETMQ_V2}/"
 }
 
 echo ""
 echo "Removing old Proto Files: ${PATH_PROTO_OUTPUT}"
-rm -rf $PATH_PROTO_OUTPUT
-mkdir -p $PATH_PROTO_OUTPUT
+
+TARGET_DIR=$PATH_PROTO_OUTPUT
+
+if [ -z "$TARGET_DIR" ]; then
+  echo "Usage: $0 <directory>"
+  exit 1
+fi
+
+if [ ! -d "$TARGET_DIR" ]; then
+  echo "Error: Directory $TARGET_DIR does not exist."
+  exit 1
+fi
+
+echo "Removing .ts and .js files in $TARGET_DIR"
+find "$TARGET_DIR" -type f \( -name "*.ts" -o -name "*.js" \) -exec rm -f {} \;
+
+echo "DONE"
 
 echo ""
 echo "Compiling gRPC files"

@@ -23,14 +23,20 @@ namespace Org.Apache.Rocketmq
 {
     public sealed class SendReceipt : ISendReceipt
     {
-        private SendReceipt(string messageId, string transactionId, MessageQueue messageQueue)
+        private SendReceipt(string messageId, string transactionId, MessageQueue messageQueue, long offset, string recallHandle)
         {
             MessageId = messageId;
             TransactionId = transactionId;
             MessageQueue = messageQueue;
+            Offset = offset;
+            RecallHandle = recallHandle;
         }
 
         public string MessageId { get; }
+
+        public string RecallHandle { get; }
+
+        public long Offset { get; }
 
         public string TransactionId { get; }
 
@@ -40,7 +46,7 @@ namespace Org.Apache.Rocketmq
 
         public override string ToString()
         {
-            return $"{nameof(MessageId)}: {MessageId}";
+            return $"{nameof(MessageId)}: {MessageId}, {nameof(RecallHandle)}: {RecallHandle}";
         }
 
         public static IEnumerable<SendReceipt> ProcessSendMessageResponse(MessageQueue mq,
@@ -58,7 +64,7 @@ namespace Org.Apache.Rocketmq
 
             // May throw exception.
             StatusChecker.Check(status, invocation.Request, invocation.RequestId);
-            return invocation.Response.Entries.Select(entry => new SendReceipt(entry.MessageId, entry.TransactionId, mq)).ToList();
+            return invocation.Response.Entries.Select(entry => new SendReceipt(entry.MessageId, entry.TransactionId, mq, entry.Offset, entry.RecallHandle)).ToList();
         }
     }
 }

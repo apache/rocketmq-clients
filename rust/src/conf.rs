@@ -123,19 +123,9 @@ impl ClientOption {
     }
 }
 
-/// Log format for output.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum LoggingFormat {
-    /// Print log in terminal
-    Terminal,
-    /// Print log in json file
-    Json,
-}
-
 /// The configuration of [`Producer`].
 #[derive(Debug, Clone)]
 pub struct ProducerOption {
-    logging_format: LoggingFormat,
     prefetch_route: bool,
     topics: Option<Vec<String>>,
     namespace: String,
@@ -146,7 +136,6 @@ pub struct ProducerOption {
 impl Default for ProducerOption {
     fn default() -> Self {
         ProducerOption {
-            logging_format: LoggingFormat::Terminal,
             prefetch_route: true,
             topics: None,
             namespace: "".to_string(),
@@ -157,15 +146,6 @@ impl Default for ProducerOption {
 }
 
 impl ProducerOption {
-    /// Get the logging format of producer
-    pub fn logging_format(&self) -> &LoggingFormat {
-        &self.logging_format
-    }
-    /// Set the logging format for producer
-    pub fn set_logging_format(&mut self, logging_format: LoggingFormat) {
-        self.logging_format = logging_format;
-    }
-
     /// Whether to prefetch route info
     pub fn prefetch_route(&self) -> &bool {
         &self.prefetch_route
@@ -209,7 +189,6 @@ impl ProducerOption {
 /// The configuration of [`SimpleConsumer`].
 #[derive(Debug, Clone)]
 pub struct SimpleConsumerOption {
-    logging_format: LoggingFormat,
     consumer_group: String,
     prefetch_route: bool,
     topics: Option<Vec<String>>,
@@ -221,7 +200,6 @@ pub struct SimpleConsumerOption {
 impl Default for SimpleConsumerOption {
     fn default() -> Self {
         SimpleConsumerOption {
-            logging_format: LoggingFormat::Terminal,
             consumer_group: "".to_string(),
             prefetch_route: true,
             topics: None,
@@ -233,15 +211,6 @@ impl Default for SimpleConsumerOption {
 }
 
 impl SimpleConsumerOption {
-    /// Set the logging format of simple consumer
-    pub fn logging_format(&self) -> &LoggingFormat {
-        &self.logging_format
-    }
-    /// set the logging format for simple consumer
-    pub fn set_logging_format(&mut self, logging_format: LoggingFormat) {
-        self.logging_format = logging_format;
-    }
-
     /// Get the consumer group of simple consumer
     pub fn consumer_group(&self) -> &str {
         &self.consumer_group
@@ -288,13 +257,13 @@ impl SimpleConsumerOption {
 
 #[derive(Debug, Clone)]
 pub struct PushConsumerOption {
-    logging_format: LoggingFormat,
     consumer_group: String,
     namespace: String,
     timeout: Duration,
     long_polling_timeout: Duration,
     subscription_expressions: HashMap<String, FilterExpression>,
     fifo: bool,
+    enable_fifo_consume_accelerator: bool,
     batch_size: i32,
     consumer_worker_count_each_queue: usize,
 }
@@ -302,13 +271,13 @@ pub struct PushConsumerOption {
 impl Default for PushConsumerOption {
     fn default() -> Self {
         Self {
-            logging_format: LoggingFormat::Terminal,
             consumer_group: "".to_string(),
             namespace: "".to_string(),
             timeout: Duration::from_secs(3),
             long_polling_timeout: Duration::from_secs(40),
             subscription_expressions: HashMap::new(),
             fifo: false,
+            enable_fifo_consume_accelerator: false,
             batch_size: 32,
             consumer_worker_count_each_queue: 4,
         }
@@ -352,6 +321,11 @@ impl PushConsumerOption {
             .insert(topic.into(), filter_expression);
     }
 
+    /// Set subscription expressions (replaces all existing subscriptions)
+    pub fn set_subscription_expressions(&mut self, expressions: HashMap<String, FilterExpression>) {
+        self.subscription_expressions = expressions;
+    }
+
     pub fn get_filter_expression(&self, topic: &str) -> Option<&FilterExpression> {
         self.subscription_expressions.get(topic)
     }
@@ -360,16 +334,21 @@ impl PushConsumerOption {
         self.fifo
     }
 
-    pub(crate) fn set_fifo(&mut self, fifo: bool) {
+    /// Set whether to use FIFO consumer
+    pub fn set_fifo(&mut self, fifo: bool) {
         self.fifo = fifo;
     }
 
-    pub fn logging_format(&self) -> &LoggingFormat {
-        &self.logging_format
+    /// Check if FIFO consume accelerator is enabled
+    pub fn enable_fifo_consume_accelerator(&self) -> bool {
+        self.enable_fifo_consume_accelerator
     }
 
-    pub fn set_logging_format(&mut self, logging_format: LoggingFormat) {
-        self.logging_format = logging_format;
+    /// Enable or disable FIFO consume accelerator.
+    /// If enabled, the consumer will consume messages in parallel by messageGroup,
+    /// it may increase the probability of repeatedly consuming the same message.
+    pub fn set_enable_fifo_consume_accelerator(&mut self, enable: bool) {
+        self.enable_fifo_consume_accelerator = enable;
     }
 
     pub fn batch_size(&self) -> i32 {
@@ -537,7 +516,6 @@ mod tests {
     #[test]
     fn conf_producer_option() {
         let option = ProducerOption::default();
-        assert_eq!(option.logging_format(), &LoggingFormat::Terminal);
         assert!(option.prefetch_route());
         assert!(option.validate_message_type());
     }
@@ -545,7 +523,6 @@ mod tests {
     #[test]
     fn conf_simple_consumer_option() {
         let option = SimpleConsumerOption::default();
-        assert_eq!(option.logging_format(), &LoggingFormat::Terminal);
         assert!(option.prefetch_route());
     }
 

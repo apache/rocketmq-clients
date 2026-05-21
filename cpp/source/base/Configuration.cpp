@@ -28,6 +28,11 @@ ConfigurationBuilder& ConfigurationBuilder::withEndpoints(std::string endpoints)
   return *this;
 }
 
+ConfigurationBuilder& ConfigurationBuilder::withNamespace(std::string resource_namespace) {
+  configuration_.resource_namespace_ = std::move(resource_namespace);
+  return *this;
+}
+
 ConfigurationBuilder& ConfigurationBuilder::withCredentialsProvider(std::shared_ptr<CredentialsProvider> provider) {
   configuration_.credentials_provider_ = std::move(provider);
   return *this;
@@ -40,6 +45,11 @@ ConfigurationBuilder& ConfigurationBuilder::withRequestTimeout(std::chrono::mill
 
 ConfigurationBuilder& ConfigurationBuilder::withSsl(bool with_ssl) {
   configuration_.tls_ = with_ssl;
+  return *this;
+}
+
+ConfigurationBuilder& ConfigurationBuilder::withCallbackThreads(std::uint32_t callback_threads){
+  configuration_.callback_threads_ = callback_threads;
   return *this;
 }
 

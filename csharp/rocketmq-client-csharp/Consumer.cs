@@ -39,6 +39,30 @@ namespace Org.Apache.Rocketmq
             ConsumerGroup = consumerGroup;
         }
 
+        /// <summary>
+        /// Check if this is a lite consumer (LitePushConsumer or LiteSimpleConsumer).
+        /// Note: This method checks the settings ClientType to determine if it's a lite consumer.
+        /// </summary>
+        /// <returns>True if this is a lite consumer, false otherwise.</returns>
+        public bool IsLiteConsumer()
+        {
+            // For now, we check if GetSettings returns LitePushSubscriptionSettings
+            // This can be extended when LiteSimpleConsumer is implemented
+            var settings = GetSettings();
+            return settings is LitePushSubscriptionSettings;
+        }
+
+        /// <summary>
+        /// Get client type for this consumer instance.
+        /// Subclasses should override this to return their specific client type.
+        /// </summary>
+        /// <returns>The client type.</returns>
+        protected virtual ClientType GetClientType()
+        {
+            // Default implementation, subclasses should override
+            return ClientType.PushConsumer;
+        }
+
         internal async Task<ReceiveMessageResult> ReceiveMessage(Proto.ReceiveMessageRequest request, MessageQueue mq,
             TimeSpan awaitDuration)
         {

@@ -33,6 +33,8 @@ public:
 
   std::string next() LOCKS_EXCLUDED(mtx_);
 
+  static std::string nextUuidV4Std();
+
   UniqueIdGenerator(const UniqueIdGenerator&) = delete;
 
   UniqueIdGenerator(UniqueIdGenerator&&) = delete;

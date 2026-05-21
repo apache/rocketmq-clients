@@ -16,10 +16,7 @@
  */
 #include "SchedulerImpl.h"
 
-#include <atomic>
 #include <cassert>
-#include <cstdint>
-#include <cstdlib>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -27,7 +24,6 @@
 #include <thread>
 
 #include "absl/memory/memory.h"
-#include "asio/error_code.hpp"
 #include "asio/executor_work_guard.hpp"
 #include "asio/io_context.hpp"
 #include "asio/steady_timer.hpp"
@@ -39,6 +35,7 @@ SchedulerImpl::SchedulerImpl(std::uint32_t worker_num)
     : work_guard_(
           absl::make_unique<asio::executor_work_guard<asio::io_context::executor_type>>(context_.get_executor())),
       worker_num_(worker_num) {
+    SPDLOG_INFO("SchedulerImpl created worker thread {}", worker_num);
 }
 
 SchedulerImpl::SchedulerImpl() : SchedulerImpl(std::thread::hardware_concurrency()) {

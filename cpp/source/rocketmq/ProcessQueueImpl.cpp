@@ -16,14 +16,12 @@
  */
 #include "ProcessQueueImpl.h"
 
-#include <atomic>
 #include <chrono>
 #include <memory>
 #include <system_error>
 #include <utility>
 
 #include "AsyncReceiveMessageCallback.h"
-#include "ClientManagerImpl.h"
 #include "MetadataConstants.h"
 #include "Protocol.h"
 #include "PushConsumerImpl.h"
@@ -42,11 +40,11 @@ ProcessQueueImpl::ProcessQueueImpl(rmq::MessageQueue message_queue, FilterExpres
       invisible_time_(MixAll::millisecondsOf(MixAll::DEFAULT_INVISIBLE_TIME_)),
       simple_name_(simpleNameOf(message_queue_)), consumer_(std::move(consumer)),
       client_manager_(std::move(client_instance)), cached_message_quantity_(0), cached_message_memory_(0) {
-  SPDLOG_DEBUG("Created ProcessQueue={}", simpleName());
+  SPDLOG_DEBUG("Created ProcessQueue={}", simple_name_);
 }
 
 ProcessQueueImpl::~ProcessQueueImpl() {
-  SPDLOG_INFO("ProcessQueue={} should have been re-balanced away, thus, is destructed", simpleName());
+  SPDLOG_INFO("ProcessQueue={} should have been re-balanced away, thus, is destructed", simple_name_);
 }
 
 void ProcessQueueImpl::callback(std::shared_ptr<AsyncReceiveMessageCallback> callback) {
@@ -98,39 +96,39 @@ bool ProcessQueueImpl::shouldThrottle() const {
   return false;
 }
 
-void ProcessQueueImpl::receiveMessage() {
+void ProcessQueueImpl::receiveMessage(std::string& attempt_id) {
   auto consumer = consumer_.lock();
   if (!consumer) {
     return;
   }
-
-  popMessage();
+  popMessage(attempt_id);
 }
 
-void ProcessQueueImpl::popMessage() {
+void ProcessQueueImpl::popMessage(std::string& attempt_id) {
   rmq::ReceiveMessageRequest request;
   absl::flat_hash_map<std::string, std::string> metadata;
   auto consumer_client = consumer_.lock();
   if (!consumer_client) {
     return;
   }
+
   Signature::sign(consumer_client->config(), metadata);
-  wrapPopMessageRequest(metadata, request);
+  wrapPopMessageRequest(metadata, request, attempt_id);
   syncIdleState();
-  SPDLOG_DEBUG("Try to pop message from {}", simpleNameOf(message_queue_));
+  SPDLOG_DEBUG("Receive message from={}, attemptId={}", simpleNameOf(message_queue_), attempt_id);
 
   std::weak_ptr<AsyncReceiveMessageCallback> cb{receive_callback_};
-  auto callback = [cb](const std::error_code& ec, const ReceiveMessageResult& result) {
-    std::shared_ptr<AsyncReceiveMessageCallback> recv_cb = cb.lock();
-    if (recv_cb) {
-      recv_cb->onCompletion(ec, result);
+  auto callback =
+      [cb, attempt_id](const std::error_code& ec, const ReceiveMessageResult& result) {
+    std::shared_ptr<AsyncReceiveMessageCallback> receive_cb = cb.lock();
+    if (receive_cb) {
+      receive_cb->onCompletion(ec, attempt_id, result);
     }
   };
 
-  client_manager_->receiveMessage(urlOf(message_queue_), metadata, request,
-                                  absl::ToChronoMilliseconds(consumer_client->config().subscriber.polling_timeout +
-                                                             consumer_client->config().request_timeout),
-                                  callback);
+  auto timeout = absl::ToChronoMilliseconds(
+      consumer_client->config().subscriber.polling_timeout + consumer_client->config().request_timeout);
+  client_manager_->receiveMessage(urlOf(message_queue_), metadata, request, timeout, callback);
 }
 
 void ProcessQueueImpl::accountCache(const std::vector<MessageConstSharedPtr>& messages) {
@@ -185,7 +183,7 @@ void ProcessQueueImpl::wrapFilterExpression(rmq::FilterExpression* filter_expres
 }
 
 void ProcessQueueImpl::wrapPopMessageRequest(absl::flat_hash_map<std::string, std::string>& metadata,
-                                             rmq::ReceiveMessageRequest& request) {
+                                             rmq::ReceiveMessageRequest& request, std::string& attempt_id) {
   std::shared_ptr<PushConsumerImpl> consumer = consumer_.lock();
   assert(consumer);
   request.mutable_group()->CopyFrom(consumer->config().subscriber.group);
@@ -205,6 +203,11 @@ void ProcessQueueImpl::wrapPopMessageRequest(absl::flat_hash_map<std::string, st
   auto fraction = invisible_time_ - std::chrono::duration_cast<std::chrono::seconds>(invisible_time_);
   int32_t nano_seconds = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(fraction).count());
   request.mutable_invisible_duration()->set_nanos(nano_seconds);
+
+  if (attempt_id.empty()) {
+    attempt_id = UniqueIdGenerator::nextUuidV4Std();
+  }
+  request.set_attempt_id(attempt_id);
 }
 
 std::weak_ptr<PushConsumerImpl> ProcessQueueImpl::getConsumer() {

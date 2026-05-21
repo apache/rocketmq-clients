@@ -29,18 +29,20 @@ public class ClientConfiguration {
     private final Duration requestTimeout;
     private final boolean sslEnabled;
     private final String namespace;
+    private final int maxStartupAttempts;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exceptions or
      * logging warnings already, so we avoid repeating args check here.
      */
     ClientConfiguration(String endpoints, SessionCredentialsProvider sessionCredentialsProvider,
-        Duration requestTimeout, boolean sslEnabled, String namespace) {
+        Duration requestTimeout, boolean sslEnabled, String namespace, int maxStartupAttempts) {
         this.endpoints = endpoints;
         this.sessionCredentialsProvider = sessionCredentialsProvider;
         this.requestTimeout = requestTimeout;
         this.sslEnabled = sslEnabled;
         this.namespace = namespace;
+        this.maxStartupAttempts = maxStartupAttempts;
     }
 
     public static ClientConfigurationBuilder newBuilder() {
@@ -65,5 +67,9 @@ public class ClientConfiguration {
 
     public String getNamespace() {
         return namespace;
+    }
+
+    public int getMaxStartupAttempts() {
+        return maxStartupAttempts;
     }
 }

@@ -66,7 +66,7 @@ Message identifier provides identity information for each message stored in brok
 
 >**Note**: Internal retries during message publishing may cause message duplication, the duplicate messages here have the same message identifier.
 
-The message identifier layout is redesigned, see more details [here](./message_id.md).
+The message identifier layout is redesigned, see more details in [message_id.md](./message_id.md).
 
 ## New and Unified APIs
 

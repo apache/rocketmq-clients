@@ -22,9 +22,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use mockall_double::double;
 use parking_lot::RwLock;
 use prost_types::Timestamp;
-use slog::{error, info, warn, Logger};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
+use tracing::{error, info, warn};
 
 #[double]
 use crate::client::Client;
@@ -35,15 +35,18 @@ use crate::model::message::{self, MessageTypeAware, MessageView};
 use crate::model::transaction::{
     Transaction, TransactionChecker, TransactionImpl, TransactionResolution,
 };
+use crate::pb;
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, Settings};
-use crate::pb::{Encoding, EndTransactionRequest, Resource, SystemProperties, TransactionSource};
+use crate::pb::{
+    Encoding, EndTransactionRequest, RecallMessageRequest, Resource, SystemProperties,
+    TransactionSource,
+};
 use crate::session::RPCClient;
 use crate::util::{
     build_endpoints_by_message_queue, build_producer_settings, handle_response_status,
     select_message_queue, select_message_queue_by_message_group, HOST_NAME,
 };
-use crate::{log, pb};
 
 /// [`Producer`] is the core struct, to which application developers should turn, when publishing messages to RocketMQ proxy.
 ///
@@ -53,7 +56,6 @@ use crate::{log, pb};
 /// [`Producer`] is `Send` and `Sync` by design, so that developers may get started easily.
 pub struct Producer {
     option: Arc<RwLock<ProducerOption>>,
-    logger: Logger,
     client: Client,
     transaction_checker: Option<Box<TransactionChecker>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
@@ -72,6 +74,7 @@ impl Producer {
     const OPERATION_SEND_MESSAGE: &'static str = "producer.send_message";
     const OPERATION_SEND_TRANSACTION_MESSAGE: &'static str = "producer.send_transaction_message";
     const OPERATION_END_TRANSACTION: &'static str = "producer.end_transaction";
+    const OPERATION_RECALL_MESSAGE: &'static str = "producer.recall_message";
     /// Create a new producer instance
     ///
     /// # Arguments
@@ -84,11 +87,9 @@ impl Producer {
             namespace: option.namespace().to_string(),
             ..client_option
         };
-        let logger = log::logger(option.logging_format());
-        let client = Client::new(&logger, client_option, build_producer_settings(&option))?;
+        let client = Client::new(client_option, build_producer_settings(&option))?;
         Ok(Producer {
             option: Arc::new(RwLock::new(option)),
-            logger,
             client,
             transaction_checker: None,
             shutdown_tx: None,
@@ -112,11 +113,9 @@ impl Producer {
             namespace: option.namespace().to_string(),
             ..client_option
         };
-        let logger = log::logger(option.logging_format());
-        let client = Client::new(&logger, client_option, build_producer_settings(&option))?;
+        let client = Client::new(client_option, build_producer_settings(&option))?;
         Ok(Producer {
             option: Arc::new(RwLock::new(option)),
-            logger,
             client,
             transaction_checker: Some(transaction_checker),
             shutdown_tx: None,
@@ -156,7 +155,6 @@ impl Producer {
         self.shutdown_tx = Some(shutdown_tx);
         let rpc_client = self.client.get_session().await?;
         let endpoints = self.client.get_endpoints();
-        let logger = self.logger.clone();
         let producer_option = Arc::clone(&self.option);
         tokio::spawn(async move {
             loop {
@@ -171,16 +169,16 @@ impl Producer {
                                             &transaction_checker,
                                             endpoints.clone()).await;
                                     if let Err(error) = result {
-                                        error!(logger, "handle trannsaction command failed: {:?}", error);
+                                        error!("handle trannsaction command failed: {:?}", error);
                                     };
                                 }
                                 Settings(command) => {
                                     let option = &mut producer_option.write();
                                     Self::handle_settings_command(command, option);
-                                    info!(logger, "handle setting command success.");
+                                    info!("handle setting command success.");
                                 }
                                 _ => {
-                                    warn!(logger, "unimplemented command {:?}", command);
+                                    warn!("unimplemented command {:?}", command);
                                 }
                             }
                         }
@@ -192,7 +190,6 @@ impl Producer {
             }
         });
         info!(
-            self.logger,
             "start producer success, client_id: {}",
             self.client.client_id()
         );
@@ -320,6 +317,36 @@ impl Producer {
                 .take_delivery_timestamp()
                 .map(|seconds| Timestamp { seconds, nanos: 0 });
 
+            let priority = message.take_priority();
+
+            let lite_topic = message.take_lite_topic();
+
+            // Validate lite topic constraints
+            if lite_topic.is_some() {
+                // Lite topic cannot be used with message_group, delivery_timestamp, or priority
+                if message_group.is_some() {
+                    return Err(ClientError::new(
+                        ErrorKind::InvalidMessage,
+                        "lite_topic and message_group cannot be set at the same time",
+                        Self::OPERATION_SEND_MESSAGE,
+                    ));
+                }
+                if delivery_timestamp.is_some() {
+                    return Err(ClientError::new(
+                        ErrorKind::InvalidMessage,
+                        "lite_topic and delivery_timestamp cannot be set at the same time",
+                        Self::OPERATION_SEND_MESSAGE,
+                    ));
+                }
+                if priority.is_some() {
+                    return Err(ClientError::new(
+                        ErrorKind::InvalidMessage,
+                        "lite_topic and priority cannot be set at the same time",
+                        Self::OPERATION_SEND_MESSAGE,
+                    ));
+                }
+            }
+
             if message.transaction_enabled() {
                 message_group = None;
                 delivery_timestamp = None;
@@ -342,6 +369,8 @@ impl Producer {
                     message_id: message.take_message_id(),
                     message_group,
                     delivery_timestamp,
+                    priority,
+                    lite_topic,
                     message_type: message.get_message_type() as i32,
                     born_host: HOST_NAME.clone(),
                     born_timestamp: born_timestamp.clone(),
@@ -466,6 +495,98 @@ impl Producer {
         }
         self.client.shutdown().await
     }
+
+    /// Recall a scheduled/delayed message before it is delivered.
+    ///
+    /// This operation requires server support and only works for delay/timed messages.
+    /// The recall_handle can be obtained from SendReceipt after sending a delay message.
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - the topic of the message to recall
+    /// * `recall_handle` - the handle returned when sending the delay message
+    ///
+    /// # Returns
+    ///
+    /// Returns the message_id of the recalled message if successful.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use rocketmq::model::message::MessageBuilder;
+    /// use std::time::{SystemTime, Duration};
+    ///
+    /// // Create and send a delay message
+    /// let delay_message = MessageBuilder::delay_message_builder(
+    ///     "topic",
+    ///     b"message body".to_vec(),
+    ///     (SystemTime::now() + Duration::from_secs(60))
+    ///         .duration_since(SystemTime::UNIX_EPOCH)
+    ///         .unwrap()
+    ///         .as_secs() as i64,
+    /// )
+    /// .build()
+    /// .unwrap();
+    ///
+    /// let send_receipt = producer.send(delay_message).await?;
+    /// if let Some(recall_handle) = send_receipt.recall_handle() {
+    ///     let recalled_message_id = producer.recall_message("topic", recall_handle).await?;
+    ///     println!("Recalled message: {}", recalled_message_id);
+    /// }
+    /// ```
+    pub async fn recall_message(
+        &self,
+        topic: impl Into<String>,
+        recall_handle: impl Into<String>,
+    ) -> Result<String, ClientError> {
+        let topic_name = topic.into();
+        let recall_handle_str = recall_handle.into();
+
+        let route = self.client.topic_route(&topic_name, true).await?;
+        let endpoints = route
+            .queue
+            .first()
+            .ok_or_else(|| {
+                ClientError::new(
+                    ErrorKind::NoBrokerAvailable,
+                    "no message queue available",
+                    Self::OPERATION_RECALL_MESSAGE,
+                )
+            })?
+            .broker
+            .as_ref()
+            .ok_or_else(|| {
+                ClientError::new(
+                    ErrorKind::NoBrokerAvailable,
+                    "no broker available",
+                    Self::OPERATION_RECALL_MESSAGE,
+                )
+            })?
+            .endpoints
+            .as_ref()
+            .ok_or_else(|| {
+                ClientError::new(
+                    ErrorKind::NoBrokerAvailable,
+                    "no endpoints available",
+                    Self::OPERATION_RECALL_MESSAGE,
+                )
+            });
+
+        let endpoints = crate::model::common::Endpoints::from_pb_endpoints(endpoints?.clone());
+
+        let request = RecallMessageRequest {
+            topic: Some(Resource {
+                name: topic_name,
+                resource_namespace: self.get_resource_namespace(),
+            }),
+            recall_handle: recall_handle_str,
+        };
+
+        let response = self.client.recall_message(&endpoints, request).await?;
+        handle_response_status(response.status, Self::OPERATION_RECALL_MESSAGE)?;
+
+        Ok(response.message_id)
+    }
 }
 
 #[cfg(test)]
@@ -473,7 +594,6 @@ mod tests {
     use std::sync::Arc;
 
     use crate::error::ErrorKind;
-    use crate::log::terminal_logger;
     use crate::model::common::Route;
     use crate::model::message::{MessageBuilder, MessageImpl, MessageType};
     use crate::model::transaction::TransactionResolution;
@@ -487,7 +607,6 @@ mod tests {
     fn new_producer_for_test() -> Producer {
         Producer {
             option: Default::default(),
-            logger: terminal_logger(),
             client: Client::default(),
             shutdown_tx: None,
             transaction_checker: None,
@@ -497,7 +616,6 @@ mod tests {
     fn new_transaction_producer_for_test() -> Producer {
         Producer {
             option: Default::default(),
-            logger: terminal_logger(),
             client: Client::default(),
             shutdown_tx: None,
             transaction_checker: Some(Box::new(|_, _| TransactionResolution::COMMIT)),
@@ -509,7 +627,7 @@ mod tests {
         let _m = crate::client::tests::MTX.lock();
 
         let ctx = Client::new_context();
-        ctx.expect().return_once(|_, _, _| {
+        ctx.expect().return_once(|_, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
                 Ok(Arc::new(Route {
@@ -542,7 +660,7 @@ mod tests {
         let _m = crate::client::tests::MTX.lock();
 
         let ctx = Client::new_context();
-        ctx.expect().return_once(|_, _, _| {
+        ctx.expect().return_once(|_, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
                 Ok(Arc::new(Route {
@@ -627,6 +745,8 @@ mod tests {
             delivery_timestamp: None,
             transaction_enabled: false,
             message_type: MessageType::TRANSACTION,
+            priority: None,
+            lite_topic: None,
         }];
         let result = producer.transform_messages_to_protobuf(messages).await;
         assert!(result.is_err());

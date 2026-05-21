@@ -72,6 +72,9 @@ public:
   virtual void asyncEndTransaction(const EndTransactionRequest& request,
                                    InvocationContext<EndTransactionResponse>* invocation_context) = 0;
 
+  virtual void asyncRecallMessage(const RecallMessageRequest& request,
+                                   InvocationContext<RecallMessageResponse>* invocation_context) = 0;
+
   virtual std::shared_ptr<TelemetryBidiReactor> asyncTelemetry(std::weak_ptr<Client> client) = 0;
 
   virtual void asyncForwardMessageToDeadLetterQueue(

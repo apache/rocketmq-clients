@@ -254,14 +254,6 @@ namespace Org.Apache.Rocketmq
                         throw;
                     }
 
-                    if (MessageType.Transaction == message.MessageType)
-                    {
-                        Logger.LogError(e, "Failed to send transaction message, run out of attempt times, " +
-                                                  $"topic={message.Topic}, maxAttempt=1, attempt={attempt}, " +
-                                                  $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
-                        throw;
-                    }
-
                     if (!(exception is TooManyRequestsException))
                     {
                         // Retry immediately if the request is not throttled.
@@ -348,6 +340,52 @@ namespace Org.Apache.Rocketmq
             };
             var invocation = await ClientManager.EndTransaction(endpoints, request, ClientConfig.RequestTimeout);
             StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
+        }
+
+        public async Task<IRecallReceipt> RecallMessage(string topic, string recallhandle)
+        {
+            var recallReceipt = await RecallMessage0(topic, recallhandle);
+            return recallReceipt;
+        }
+
+        /// <summary>
+        /// Recalls a timed/delay message asynchronously using the recall handle.
+        /// This is useful for recalling messages that were scheduled for future delivery.
+        /// </summary>
+        /// <param name="topic">The topic of the message to recall.</param>
+        /// <param name="recallhandle">The recall handle obtained when sending the delay message.</param>
+        /// <returns>A task representing the asynchronous operation, containing the recall receipt.</returns>
+        public Task<IRecallReceipt> RecallMessageAsync(string topic, string recallhandle)
+        {
+            return RecallMessage0(topic, recallhandle).ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    throw t.Exception;
+                }
+                return (IRecallReceipt)t.Result;
+            }, TaskContinuationOptions.ExecuteSynchronously);
+        }
+
+        private async Task<RecallReceipt> RecallMessage0(string topic, string recallhandle)
+        {
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Producer is not running");
+            }
+            if (recallhandle == null)
+            {
+                throw new InvalidOperationException("Recall handle is invalid");
+            }
+            var request = new Proto.RecallMessageRequest
+            {
+                Topic = new Proto.Resource { ResourceNamespace = ClientConfig.Namespace, Name = topic },
+                RecallHandle = recallhandle
+            };
+            var invocation =
+                await ClientManager.RecallMessage(new Endpoints(ClientConfig.Endpoints), request, ClientConfig.RequestTimeout);
+            StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
+            return new RecallReceipt(invocation.Response.MessageId);
         }
 
         public class Builder
