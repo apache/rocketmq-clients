@@ -43,7 +43,8 @@ export class Assignments {
   hashCode(): number {
     let hash = 17;
     for (const assignment of this.#assignmentList) {
-      hash = hash * 31 + assignment.hashCode();
+      // eslint-disable-next-line no-bitwise
+      hash = (hash * 31 + assignment.hashCode()) | 0;
     }
     return hash;
   }

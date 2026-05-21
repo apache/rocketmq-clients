@@ -58,10 +58,14 @@ export class MessageQueue {
 
   hashCode(): number {
     let hash = 17;
-    hash = hash * 31 + this.queueId;
-    hash = hash * 31 + hashCodeOfString(this.topic.name);
-    hash = hash * 31 + this.broker.hashCode();
-    hash = hash * 31 + this.permission;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.queueId) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + hashCodeOfString(this.topic.name)) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.broker.hashCode()) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.permission) | 0;
     return hash;
   }
 }

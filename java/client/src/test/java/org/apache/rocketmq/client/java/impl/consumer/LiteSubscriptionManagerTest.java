@@ -37,6 +37,7 @@ import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
 import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
@@ -84,7 +85,8 @@ public class LiteSubscriptionManagerTest {
         when(consumerImpl.getClientConfiguration()).thenReturn(clientConfiguration);
         when(clientConfiguration.getRequestTimeout()).thenReturn(Duration.ofSeconds(30));
         when(consumerImpl.getClientManager()).thenReturn(clientManager);
-        when(consumerImpl.getEndpoints()).thenReturn(endpoints);
+        lenient().when(consumerImpl.getEndpoints()).thenReturn(endpoints);
+        when(consumerImpl.getTotalRouteEndpoints()).thenReturn(Collections.singleton(endpoints));
 
         // Mock successful response
         SyncLiteSubscriptionResponse successResponse = SyncLiteSubscriptionResponse.newBuilder()

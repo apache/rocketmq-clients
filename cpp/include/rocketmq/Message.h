@@ -100,6 +100,14 @@ public:
     return group_;
   }
 
+  std::int32_t priority() const {
+    return priority_;
+  }
+
+  void priority(std::int32_t priority) {
+    priority_ = priority;
+  }
+
   const Extension& extension() const {
     return extension_;
   }
@@ -127,6 +135,7 @@ private:
   std::string body_;
   std::unordered_map<std::string, std::string> properties_;
   std::string group_;
+  std::int32_t priority_{-1};
   Extension extension_;
 };
 
@@ -150,6 +159,8 @@ public:
   MessageBuilder& withBody(std::string body);
 
   MessageBuilder& withGroup(std::string group);
+
+  MessageBuilder& withPriority(std::int32_t priority);
 
   MessageBuilder& withProperties(std::unordered_map<std::string, std::string> properties);
 

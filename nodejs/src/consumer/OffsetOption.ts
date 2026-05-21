@@ -193,10 +193,11 @@ export class OffsetOption {
 
   hashCode(): number {
     let hash = 17;
-    hash = hash * 31 + this.type;
-    // Convert bigint to number for hash calculation
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + this.type) | 0;
     const valueNum = Number(this.value);
-    hash = hash * 31 + valueNum;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + valueNum) | 0;
     return hash;
   }
 }

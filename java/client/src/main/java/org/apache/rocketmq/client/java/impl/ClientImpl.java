@@ -669,7 +669,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }, MoreExecutors.directExecutor());
     }
 
-    protected Set<Endpoints> getTotalRouteEndpoints() {
+    public Set<Endpoints> getTotalRouteEndpoints() {
         Set<Endpoints> totalRouteEndpoints = new HashSet<>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             totalRouteEndpoints.addAll(topicRouteData.getTotalEndpoints());

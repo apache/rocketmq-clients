@@ -61,7 +61,7 @@ export class Transaction {
         sendReceipt.messageId, sendReceipt.transactionId, TransactionResolution.COMMIT);
     }
 
-    logger.info('Commit transaction successfully, messageCount=%d, clientId=%s',
+    logger.debug('Commit transaction successfully, messageCount=%d, clientId=%s',
       this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
   }
 
@@ -71,7 +71,7 @@ export class Transaction {
     }
 
     const logger = (this.#producer as any).logger;
-    logger.info('Begin to rollback transaction, messageCount=%d, clientId=%s',
+    logger.debug('Begin to rollback transaction, messageCount=%d, clientId=%s',
       this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
 
     for (const [ messageId, sendReceipt ] of this.#messageSendReceiptMap.entries()) {
@@ -80,7 +80,7 @@ export class Transaction {
         sendReceipt.messageId, sendReceipt.transactionId, TransactionResolution.ROLLBACK);
     }
 
-    logger.info('Rollback transaction successfully, messageCount=%d, clientId=%s',
+    logger.debug('Rollback transaction successfully, messageCount=%d, clientId=%s',
       this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
   }
 }

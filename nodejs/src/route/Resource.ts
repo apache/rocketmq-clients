@@ -95,8 +95,10 @@ export class Resource {
    */
   hashCode(): number {
     let hash = 17;
-    hash = hash * 31 + hashCodeOfString(this.namespace);
-    hash = hash * 31 + hashCodeOfString(this.name);
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + hashCodeOfString(this.namespace)) | 0;
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + hashCodeOfString(this.name)) | 0;
     return hash;
   }
 }
