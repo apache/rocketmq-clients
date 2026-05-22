@@ -3,13 +3,13 @@
   "description": "PHP SDK for Apache RocketMQ",
   "license": "Apache-2.0",
   "require": {
-    "php": ">=8.1",
+    "php": ">=7.4",
     "google/protobuf": "^3.21",
     "grpc/grpc": "^1.57",
-    "hanson/foundation-sdk": "^5.0",
-    "ext-grpc": "*"
+    "hanson/foundation-sdk": "^5.0"
   },
   "suggest": {
+    "ext-grpc": "Required for gRPC transport (usually provided by grpc/grpc package)",
     "ext-swoole": "Enable Swoole coroutines for async operations (receiveAsync, sendAsync, etc.)",
     "ext-openswoole": "Alternative to Swoole for async coroutine support"
   },
