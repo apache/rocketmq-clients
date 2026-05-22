@@ -22,12 +22,15 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.rocketmq.client.apis.consumer.BatchMessageListener;
 import org.apache.rocketmq.client.apis.consumer.BatchPolicy;
@@ -56,14 +59,14 @@ import org.slf4j.LoggerFactory;
 public class BatchConsumeService extends ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(BatchConsumeService.class);
 
-    private final BatchMessageListener batchMessageListener;
-    private final BatchPolicy batchPolicy;
-    private final PushConsumerImpl consumer;
-    private final ReentrantLock bufferLock = new ReentrantLock();
-    private final List<BufferedMessage> buffer = new ArrayList<>();
-    private long bufferBytes = 0;
-    private long firstArrivalNanos = 0;
-    private ScheduledFuture<?> timerFuture;
+    protected final BatchMessageListener batchMessageListener;
+    protected final BatchPolicy batchPolicy;
+    protected final PushConsumerImpl consumer;
+    protected final ReentrantLock bufferLock = new ReentrantLock();
+    protected final ArrayDeque<BufferedMessage> buffer = new ArrayDeque<>();
+    protected long bufferBytes = 0;
+    protected long firstArrivalNanos = 0;
+    protected ScheduledFuture<?> timerFuture;
 
     /**
      * Creates a new batch consume service for Standard (non-FIFO) mode.
@@ -101,10 +104,11 @@ public class BatchConsumeService extends ConsumeService {
                     discardCorruptedMessage(pq, messageView);
                     continue;
                 }
-                buffer.add(new BufferedMessage(pq, messageView));
-                bufferBytes += messageView.getBody().remaining();
+                BufferedMessage bm = new BufferedMessage(pq, messageView);
+                buffer.addLast(bm);
+                bufferBytes += bm.bodySize;
                 if (buffer.size() == 1) {
-                    firstArrivalNanos = System.nanoTime();
+                    firstArrivalNanos = bm.arrivalNanos;
                     scheduleTimer();
                 }
             }
@@ -161,21 +165,21 @@ public class BatchConsumeService extends ConsumeService {
         int maxBytes = batchPolicy.getMaxBatchBytes();
 
         while (!buffer.isEmpty() && batch.size() < maxSize) {
-            BufferedMessage candidate = buffer.get(0);
-            long candidateBytes = candidate.messageView.getBody().remaining();
-            if (!batch.isEmpty() && batchBytes + candidateBytes > maxBytes) {
+            BufferedMessage candidate = buffer.peekFirst();
+            if (!batch.isEmpty() && batchBytes + candidate.bodySize > maxBytes) {
                 break;
             }
-            batch.add(buffer.remove(0));
-            batchBytes += candidateBytes;
-            bufferBytes -= candidateBytes;
+            buffer.pollFirst();
+            batch.add(candidate);
+            batchBytes += candidate.bodySize;
+            bufferBytes -= candidate.bodySize;
         }
 
         if (buffer.isEmpty()) {
             firstArrivalNanos = 0;
             cancelTimer();
         } else {
-            firstArrivalNanos = System.nanoTime();
+            firstArrivalNanos = buffer.peekFirst().arrivalNanos;
             scheduleTimer();
         }
         return batch;
@@ -198,8 +202,9 @@ public class BatchConsumeService extends ConsumeService {
      *
      * @param batch   the batch of buffered messages.
      * @param attempt the current attempt number (starting from 1).
+     * @return a future that completes after the batch consumption and result handling are done.
      */
-    protected void submitBatch(List<BufferedMessage> batch, int attempt) {
+    protected ListenableFuture<ConsumeResult> submitBatch(List<BufferedMessage> batch, int attempt) {
         final List<MessageViewImpl> messageViews = new ArrayList<>(batch.size());
         for (BufferedMessage bm : batch) {
             messageViews.add(bm.messageView);
@@ -209,19 +214,31 @@ public class BatchConsumeService extends ConsumeService {
         final ListeningExecutorService executorService =
             MoreExecutors.listeningDecorator(getConsumptionExecutor());
         final ListenableFuture<ConsumeResult> future = executorService.submit(task);
+        final SettableFuture<ConsumeResult> resultFuture = SettableFuture.create();
         Futures.addCallback(future, new FutureCallback<ConsumeResult>() {
             @Override
             public void onSuccess(ConsumeResult result) {
-                handleResult(batch, result, attempt);
+                try {
+                    handleResult(batch, result, attempt);
+                    resultFuture.set(result);
+                } catch (Throwable t) {
+                    resultFuture.setException(t);
+                }
             }
 
             @Override
             public void onFailure(Throwable t) {
                 log.error("[Bug] Exception raised while submitting batch consumption task, clientId={}",
                     clientId, t);
-                handleResult(batch, ConsumeResult.FAILURE, attempt);
+                try {
+                    handleResult(batch, ConsumeResult.FAILURE, attempt);
+                } catch (Throwable ignored) {
+                    // Swallow to ensure resultFuture is always completed.
+                }
+                resultFuture.set(ConsumeResult.FAILURE);
             }
         }, MoreExecutors.directExecutor());
+        return resultFuture;
     }
 
     /**
@@ -262,6 +279,11 @@ public class BatchConsumeService extends ConsumeService {
      */
     private void scheduleTimer() {
         cancelTimer();
+        long elapsed = System.nanoTime() - firstArrivalNanos;
+        long remainingNanos = batchPolicy.getMaxWaitTime().toNanos() - elapsed;
+        if (remainingNanos < 0) {
+            remainingNanos = 0;
+        }
         try {
             timerFuture = getScheduler().schedule(() -> {
                 bufferLock.lock();
@@ -270,7 +292,7 @@ public class BatchConsumeService extends ConsumeService {
                 } finally {
                     bufferLock.unlock();
                 }
-            }, batchPolicy.getMaxWaitTime().toNanos(), TimeUnit.NANOSECONDS);
+            }, remainingNanos, TimeUnit.NANOSECONDS);
         } catch (Throwable t) {
             if (!getScheduler().isShutdown()) {
                 log.error("[Bug] Failed to schedule batch timer, clientId={}", clientId, t);
@@ -281,7 +303,7 @@ public class BatchConsumeService extends ConsumeService {
     /**
      * Cancels the pending timer if one exists. Must be called while holding the buffer lock.
      */
-    private void cancelTimer() {
+    protected void cancelTimer() {
         if (timerFuture != null) {
             timerFuture.cancel(false);
             timerFuture = null;
@@ -291,9 +313,11 @@ public class BatchConsumeService extends ConsumeService {
     /**
      * Closes this batch consume service by flushing any remaining buffered messages immediately.
      * This should be called before the consumption executor is shut down to ensure no messages are lost.
+     * The method waits for all submitted batches to complete before returning.
      */
     @Override
     public void close() {
+        List<ListenableFuture<ConsumeResult>> pendingFutures = new ArrayList<>();
         bufferLock.lock();
         try {
             cancelTimer();
@@ -302,11 +326,22 @@ public class BatchConsumeService extends ConsumeService {
                     buffer.size(), clientId);
                 final List<BufferedMessage> batch = extractBatch();
                 if (!batch.isEmpty()) {
-                    submitBatch(batch, 1);
+                    pendingFutures.add(submitBatch(batch, 1));
                 }
             }
         } finally {
             bufferLock.unlock();
+        }
+        // Wait for all flushed batches to complete before returning
+        for (ListenableFuture<ConsumeResult> future : pendingFutures) {
+            try {
+                future.get(30, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                log.warn("Timeout waiting for batch consumption to complete during shutdown, clientId={}", clientId);
+            } catch (Exception e) {
+                log.error("Exception waiting for batch consumption to complete during shutdown, clientId={}",
+                    clientId, e);
+            }
         }
     }
 
@@ -347,11 +382,15 @@ public class BatchConsumeService extends ConsumeService {
     }
 
     /**
-     * A buffered message entry that tracks the source process queue alongside the message.
+     * A buffered message entry that tracks the source process queue, message, body size, and arrival time.
+     * The body size is cached at construction to avoid repeated calls to {@code ByteBuffer.remaining()}
+     * which could return inconsistent values if the buffer position changes.
      */
     static class BufferedMessage {
         final ProcessQueue pq;
         final MessageViewImpl messageView;
+        final int bodySize;
+        final long arrivalNanos;
 
         /**
          * Creates a new buffered message entry.
@@ -362,6 +401,8 @@ public class BatchConsumeService extends ConsumeService {
         BufferedMessage(ProcessQueue pq, MessageViewImpl messageView) {
             this.pq = pq;
             this.messageView = messageView;
+            this.bodySize = messageView.getBody().remaining();
+            this.arrivalNanos = System.nanoTime();
         }
     }
 }

@@ -36,6 +36,11 @@ import org.apache.rocketmq.client.apis.message.MessageView;
  *     <li>The time since the first message entered the buffer reaches {@link BatchPolicy#getMaxWaitTime()}</li>
  * </ul>
  *
+ * <p><strong>Warning:</strong> The batch buffer is global across all message groups. In FIFO mode, a single batch
+ * may contain messages from different message groups. If the batch fails and exhausts retries, all messages in the
+ * batch (including messages from multiple message groups) will be forwarded to DLQ together, which may block
+ * consumption progress for other message groups. This design prioritizes throughput over strict isolation.
+ *
  * @see PushConsumer
  * @see BatchPolicy
  */

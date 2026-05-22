@@ -41,6 +41,10 @@ import org.slf4j.LoggerFactory;
  *     <li>On failure, the <strong>entire batch</strong> is retried as a whole until max attempts are exhausted.</li>
  *     <li>When max attempts are exhausted, all messages in the batch are forwarded to the dead letter queue.</li>
  * </ul>
+ *
+ * <p><strong>Warning:</strong> The global buffer mixes messages from different message groups. If a batch fails
+ * and exhausts retries, all messages in that batch (including messages from multiple message groups) will be
+ * forwarded to DLQ together. This design prioritizes throughput over strict isolation between message groups.
  */
 @SuppressWarnings({"NullableProblems", "UnstableApiUsage"})
 public class FifoBatchConsumeService extends BatchConsumeService {
@@ -149,5 +153,42 @@ public class FifoBatchConsumeService extends BatchConsumeService {
     private void releaseFifoLock() {
         batchInFlight = false;
         lockAndTryFlush();
+    }
+
+    /**
+     * Closes the FIFO batch consume service by draining remaining buffered messages one batch at a time.
+     * Unlike the parent's close() which submits all batches concurrently, this override extracts and
+     * submits batches sequentially to preserve FIFO ordering during shutdown. Any pending retries
+     * scheduled via the scheduler will be awaited by the caller's executor shutdown.
+     */
+    @Override
+    public void close() {
+        java.util.List<com.google.common.util.concurrent.ListenableFuture<ConsumeResult>> pendingFutures
+            = new java.util.ArrayList<>();
+        bufferLock.lock();
+        try {
+            cancelTimer();
+            batchInFlight = true;
+            while (!buffer.isEmpty()) {
+                log.info("FIFO draining remaining messages during shutdown, clientId={}, remaining={}",
+                    clientId, buffer.size());
+                List<BufferedMessage> batch = extractBatch();
+                if (!batch.isEmpty()) {
+                    pendingFutures.add(submitBatch(batch, 1));
+                }
+            }
+        } finally {
+            bufferLock.unlock();
+        }
+        // Wait for all submitted batches to complete
+        for (com.google.common.util.concurrent.ListenableFuture<ConsumeResult> future : pendingFutures) {
+            try {
+                future.get(30, TimeUnit.SECONDS);
+            } catch (java.util.concurrent.TimeoutException e) {
+                log.warn("Timeout waiting for FIFO batch during shutdown, clientId={}", clientId);
+            } catch (Exception e) {
+                log.error("Exception waiting for FIFO batch during shutdown, clientId={}", clientId, e);
+            }
+        }
     }
 }
