@@ -34,8 +34,9 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
     public LitePushConsumerImpl(LitePushConsumerBuilderImpl builder) {
         super(builder.clientConfiguration, builder.consumerGroup,
             builder.subscriptionExpressions, builder.messageListener,
+            null, null,
             builder.maxCacheMessageCount, builder.maxCacheMessageSizeInBytes,
-            builder.consumptionThreadCount, builder.enableFifoConsumeAccelerator);
+            builder.consumptionThreadCount, builder.enableFifoConsumeAccelerator, false);
         this.liteSubscriptionManager = new LiteSubscriptionManager(this,
             new Resource(builder.clientConfiguration.getNamespace(), builder.bindTopic),
             groupResource);
