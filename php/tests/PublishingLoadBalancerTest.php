@@ -93,7 +93,7 @@ class PublishingLoadBalancerTest
         $loadBalancer = new PublishingLoadBalancer($routeData);
 
         $result = $loadBalancer->takeMessageQueue([], 2);
-        TestRunner::assertEqualsWithMessage(1, count($result), "Should return only 1 queue when only 1 exists");
+        TestRunner::assertEquals(1, count($result), "Should return only 1 queue when only 1 exists");
     }
 
     public function testTakeMessageQueuesWithAllEndpointsIsolated()
@@ -107,7 +107,7 @@ class PublishingLoadBalancerTest
         // When all endpoints are isolated, should still return queues (round two fallback)
         $result = $loadBalancer->takeMessageQueue([$brokerName], 1);
         TestRunner::assertNotNull($result, "Should return queues even when all endpoints are isolated");
-        TestRunner::assertEqualsWithMessage(1, count($result), "Should return 1 queue");
+        TestRunner::assertEquals(1, count($result), "Should return 1 queue");
     }
 
     public function testTakeMessageQueueRoundRobin()
@@ -154,13 +154,4 @@ class PublishingLoadBalancerTest
     }
 }
 
-echo "=== PublishingLoadBalancerTest ===\n";
-$test = new PublishingLoadBalancerTest();
-$test->testTakeMessageQueueByMessageGroup();
-echo "  [OK] testTakeMessageQueueByMessageGroup\n";
-$test->testTakeTwoMessageQueuesWithSingleQueue();
-echo "  [OK] testTakeTwoMessageQueuesWithSingleQueue\n";
-$test->testTakeMessageQueuesWithAllEndpointsIsolated();
-echo "  [OK] testTakeMessageQueuesWithAllEndpointsIsolated\n";
-$test->testTakeMessageQueueRoundRobin();
-echo "  [OK] testTakeMessageQueueRoundRobin\n";
+TestRunner::run(new PublishingLoadBalancerTest());

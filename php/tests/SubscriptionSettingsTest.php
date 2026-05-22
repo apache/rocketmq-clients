@@ -66,7 +66,7 @@ class SubscriptionSettingsTest
             $subscription->hasGroup(),
             "Subscription should have group"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'test-consumer-group',
             $subscription->getGroup()->getName(),
             "Group name should match"
@@ -85,12 +85,12 @@ class SubscriptionSettingsTest
         $subscription->setSubscriptions([$entry]);
 
         $firstEntry = iterator_to_array($subscription->getSubscriptions())[0];
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             FilterType::TAG,
             $firstEntry->getExpression()->getType(),
             "Expression type should be TAG"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'test-topic',
             $firstEntry->getTopic()->getName(),
             "Topic name should match"
@@ -122,12 +122,12 @@ class SubscriptionSettingsTest
         $subscription->setSubscriptions([$entry]);
 
         $firstEntry = iterator_to_array($subscription->getSubscriptions())[0];
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             FilterType::SQL,
             $firstEntry->getExpression()->getType(),
             "Expression type should be SQL"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             '(a > 10 AND a < 100) OR (b IS NOT NULL AND b=TRUE)',
             $firstEntry->getExpression()->getExpression(),
             "SQL expression should match"
@@ -143,7 +143,7 @@ class SubscriptionSettingsTest
         $settings = new Settings();
         $settings->setClientType(ClientType::PUSH_CONSUMER);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ClientType::PUSH_CONSUMER,
             $settings->getClientType(),
             "ClientType should be PUSH_CONSUMER"
@@ -175,12 +175,12 @@ class SubscriptionSettingsTest
         $entry->setExpression($filterExpression);
         $subscription->setSubscriptions([$entry]);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'simple-consumer-group',
             $subscription->getGroup()->getName(),
             "Group name should match"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             32,
             $subscription->getReceiveBatchSize(),
             "Receive batch size should be 32"
@@ -208,7 +208,7 @@ class SubscriptionSettingsTest
             $subscription->getFifo(),
             "FIFO subscription should have fifo=true"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             $subscription->getReceiveBatchSize(),
             "FIFO receive batch size should be 1"
@@ -241,14 +241,14 @@ class SubscriptionSettingsTest
         $subscription->setSubscriptions($entries);
 
         $entryList = iterator_to_array($subscription->getSubscriptions());
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             3,
             count($entryList),
             "Should have 3 subscription entries"
         );
 
         for ($i = 0; $i < 3; $i++) {
-            TestRunner::assertEqualsWithMessage(
+            TestRunner::assertEquals(
                 "topic-{$i}",
                 $entryList[$i]->getTopic()->getName(),
                 "Topic name at index {$i} should match"
@@ -264,7 +264,7 @@ class SubscriptionSettingsTest
         $resource = new Resource();
         $resource->setName('test-topic');
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'test-topic',
             $resource->getName(),
             "Resource name should match"
@@ -281,7 +281,7 @@ class SubscriptionSettingsTest
 
         // Default type is 0 (unspecified) - Java defaults to TAG
         $type = $filterExpression->getType();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             0,
             $type,
             "Default filter expression type should be 0 (unspecified)"
@@ -291,7 +291,7 @@ class SubscriptionSettingsTest
         $tagFilter = new FilterExpression();
         $tagFilter->setExpression('*');
         $tagFilter->setType(FilterType::TAG);
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             FilterType::TAG,
             $tagFilter->getType(),
             "Explicit filter type should be TAG"
@@ -310,7 +310,7 @@ class SubscriptionSettingsTest
         $subscription->setSubscriptions([]);
 
         $entries = iterator_to_array($subscription->getSubscriptions());
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             0,
             count($entries),
             "Empty subscriptions should have 0 entries"
@@ -335,7 +335,7 @@ class SubscriptionSettingsTest
             $settings->hasSubscription(),
             "Settings should have subscription"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ClientType::SIMPLE_CONSUMER,
             $settings->getClientType(),
             "ClientType should be SIMPLE_CONSUMER"
@@ -343,25 +343,4 @@ class SubscriptionSettingsTest
     }
 }
 
-echo "=== SubscriptionSettingsTest ===\n";
-$test = new SubscriptionSettingsTest();
-$test->testPushSettingsToProtobuf();
-echo "  [OK] testPushSettingsToProtobuf\n";
-$test->testSettingsWithSqlExpression();
-echo "  [OK] testSettingsWithSqlExpression\n";
-$test->testSettingsClientType();
-echo "  [OK] testSettingsClientType\n";
-$test->testSimpleSettingsWithLongPollingTimeout();
-echo "  [OK] testSimpleSettingsWithLongPollingTimeout\n";
-$test->testFifoSubscriptionSettings();
-echo "  [OK] testFifoSubscriptionSettings\n";
-$test->testMultipleSubscriptionEntries();
-echo "  [OK] testMultipleSubscriptionEntries\n";
-$test->testResourceName();
-echo "  [OK] testResourceName\n";
-$test->testFilterExpressionDefaultType();
-echo "  [OK] testFilterExpressionDefaultType\n";
-$test->testEmptySubscriptions();
-echo "  [OK] testEmptySubscriptions\n";
-$test->testSettingsWithSubscription();
-echo "  [OK] testSettingsWithSubscription\n";
+TestRunner::run(new SubscriptionSettingsTest());

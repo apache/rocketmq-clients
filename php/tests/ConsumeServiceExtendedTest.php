@@ -40,13 +40,16 @@ use Apache\Rocketmq\V2\SystemProperties;
  */
 class ConsumeServiceExtendedTest
 {
+    public function setUp(): void
+    {
+        Logger::close();
+    }
+
     /**
      * Mirrors Java: testConsumeSuccess - listener returns SUCCESS.
      */
     public function testConsumeMessageReturnsSuccess()
     {
-        Logger::close();
-
         $service = new TestConsumeService(function($msg) {
             return ConsumeResult::SUCCESS;
         });
@@ -54,7 +57,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "Consume result should be SUCCESS"
@@ -66,8 +69,6 @@ class ConsumeServiceExtendedTest
      */
     public function testConsumeMessageReturnsFailure()
     {
-        Logger::close();
-
         $service = new TestConsumeService(function($msg) {
             return ConsumeResult::FAILURE;
         });
@@ -75,7 +76,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Consume result should be FAILURE"
@@ -88,8 +89,6 @@ class ConsumeServiceExtendedTest
      */
     public function testConsumeMessageCatchesException()
     {
-        Logger::close();
-
         $service = new TestConsumeService(function($msg) {
             throw new \RuntimeException("Simulated listener error");
         });
@@ -97,7 +96,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Consume result should be FAILURE when listener throws"
@@ -110,8 +109,6 @@ class ConsumeServiceExtendedTest
      */
     public function testConsumeWithThrowable()
     {
-        Logger::close();
-
         $service = new TestConsumeService(function($msg) {
             throw new \InvalidArgumentException("Invalid argument");
         });
@@ -119,7 +116,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Consume result should be FAILURE for any Throwable"
@@ -131,8 +128,6 @@ class ConsumeServiceExtendedTest
      */
     public function testConsumeMessageTruthyReturnsSuccess()
     {
-        Logger::close();
-
         $service = new TestConsumeService(function($msg) {
             return 0; // 0 is truthy in PHP but not FAILURE
         });
@@ -140,7 +135,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "Non-FAILURE return should be treated as SUCCESS"
@@ -197,15 +192,4 @@ class TestConsumeService extends ConsumeService
     }
 }
 
-echo "=== ConsumeServiceExtendedTest ===\n";
-$test = new ConsumeServiceExtendedTest();
-$test->testConsumeMessageReturnsSuccess();
-echo "  [OK] testConsumeMessageReturnsSuccess\n";
-$test->testConsumeMessageReturnsFailure();
-echo "  [OK] testConsumeMessageReturnsFailure\n";
-$test->testConsumeMessageCatchesException();
-echo "  [OK] testConsumeMessageCatchesException\n";
-$test->testConsumeWithThrowable();
-echo "  [OK] testConsumeWithThrowable\n";
-$test->testConsumeMessageTruthyReturnsSuccess();
-echo "  [OK] testConsumeMessageTruthyReturnsSuccess\n";
+TestRunner::run(new ConsumeServiceExtendedTest());

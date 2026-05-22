@@ -26,12 +26,89 @@ require_once __DIR__ . '/../Logger.php';
 use Apache\Rocketmq\ConsumeResult;
 use Apache\Rocketmq\FifoConsumeService;
 
+/**
+ * Fake message view for FifoConsumeService testing.
+ */
+class FifoFakeMessageView
+{
+    private $systemProperties;
+
+    public function __construct(
+        private string $body,
+        private string $topic,
+        private ?string $receiptHandle = null
+    ) {
+        $this->systemProperties = new FifoFakeSystemProps($receiptHandle);
+    }
+
+    public function getBody(): string
+    {
+        return $this->body;
+    }
+
+    public function getTopic(): string
+    {
+        return $this->topic;
+    }
+
+    public function getReceiptHandle(): ?string
+    {
+        return $this->receiptHandle;
+    }
+
+    public function getMessageGroup(): ?string
+    {
+        return null;
+    }
+
+    public function getSystemProperties(): FifoFakeSystemProps
+    {
+        return $this->systemProperties;
+    }
+}
+
+class FifoFakeSystemProps
+{
+    private ?string $receiptHandle;
+
+    public function __construct(?string $receiptHandle = null)
+    {
+        $this->receiptHandle = $receiptHandle;
+    }
+
+    public function getReceiptHandle(): ?string
+    {
+        return $this->receiptHandle;
+    }
+
+    public function hasReceiptHandle(): bool
+    {
+        return $this->receiptHandle !== null;
+    }
+
+    public function hasMessageGroup(): bool
+    {
+        return false;
+    }
+}
+
+class FifoFakeConsumerForConsume
+{
+    public function ack($messageView, int $timeout): void
+    {
+    }
+}
+
 class FifoConsumeServiceTest
 {
-    public function testConsumeMessageSingleMessage()
+    public function setUp(): void
     {
         \Apache\Rocketmq\Logger::close();
-        $fakeConsumer = new FakeConsumerForConsume();
+    }
+
+    public function testConsumeMessageSingleMessage()
+    {
+        $fakeConsumer = new FifoFakeConsumerForConsume();
         $logger = \Apache\Rocketmq\Logger::getInstance('FifoConsumeSingle');
 
         $listener = function($msg) { return ConsumeResult::SUCCESS; };
@@ -39,51 +116,43 @@ class FifoConsumeServiceTest
 
         $method = new \ReflectionMethod($service, 'consumeMessage');
         $method->setAccessible(true);
-        $result = $method->invoke($service, new FakeMessageView('msg', 'topic'));
+        $result = $method->invoke($service, new FifoFakeMessageView('msg', 'topic'));
 
-        TestRunner::assertEqualsWithMessage(ConsumeResult::SUCCESS, $result, "consumeMessage should return SUCCESS");
+        TestRunner::assertEquals(ConsumeResult::SUCCESS, $result, "consumeMessage should return SUCCESS");
     }
 
     public function testDefaultGroupKeyForNonGroupedMessages()
     {
-        \Apache\Rocketmq\Logger::close();
-        $fakeConsumer = new FakeConsumerForConsume();
+        $fakeConsumer = new FifoFakeConsumerForConsume();
         $logger = \Apache\Rocketmq\Logger::getInstance('FifoConsumeDefaultKey');
 
         $service = new FifoConsumeService($logger, function($msg) { return ConsumeResult::SUCCESS; }, $fakeConsumer, false);
-        $msg = new FakeMessageView('msg', 'topic');
+        $msg = new FifoFakeMessageView('msg', 'topic');
 
         $method = new \ReflectionMethod($service, 'getMessageGroupKey');
         $method->setAccessible(true);
         $groupKey = $method->invoke($service, $msg);
 
-        TestRunner::assertEqualsWithMessage('default', $groupKey, "Non-grouped message should have 'default' group key");
+        TestRunner::assertEquals('default', $groupKey, "Non-grouped message should have 'default' group key");
     }
 
     public function testExtractReceiptHandle()
     {
-        \Apache\Rocketmq\Logger::close();
-        $fakeConsumer = new FakeConsumerForConsume();
+        $fakeConsumer = new FifoFakeConsumerForConsume();
         $logger = \Apache\Rocketmq\Logger::getInstance('FifoConsumeExtract');
 
         $listener = function($msg) { return ConsumeResult::SUCCESS; };
         $service = new FifoConsumeService($logger, $listener, $fakeConsumer, false);
 
-        $msgWithHandle = new FakeMessageView('body', 'topic', 'receipt-handle-789');
+        $msgWithHandle = new FifoFakeMessageView('body', 'topic', 'receipt-handle-789');
 
         $method = new \ReflectionMethod($service, 'extractReceiptHandle');
         $method->setAccessible(true);
         $handle = $method->invoke($service, $msgWithHandle);
 
-        TestRunner::assertEqualsWithMessage('receipt-handle-789', $handle, "Should extract receipt handle");
+        TestRunner::assertEquals('receipt-handle-789', $handle, "Should extract receipt handle");
     }
 }
 
 echo "=== FifoConsumeServiceTest ===\n";
-$test = new FifoConsumeServiceTest();
-$test->testConsumeMessageSingleMessage();
-echo "  [OK] testConsumeMessageSingleMessage\n";
-$test->testDefaultGroupKeyForNonGroupedMessages();
-echo "  [OK] testDefaultGroupKeyForNonGroupedMessages\n";
-$test->testExtractReceiptHandle();
-echo "  [OK] testExtractReceiptHandle\n";
+TestRunner::run(new FifoConsumeServiceTest());

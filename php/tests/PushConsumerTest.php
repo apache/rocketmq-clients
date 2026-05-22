@@ -30,15 +30,16 @@ use Apache\Rocketmq\PushConsumer;
  */
 class PushConsumerTest
 {
+    public function setUp(): void
+    {
+        \Apache\Rocketmq\Logger::close();
+    }
+
     /**
      * Mirrors Java: testSetConsumerGroupWithNull - PHP validates in start()
      */
     public function testStartWithoutSubscriptions()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        // PHP PushConsumer has no separate builder; validation happens at start()
-        // Creating a consumer with no subscriptions should fail at start
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'messageListener' => function($msg) { return 0; },
         ]);
@@ -46,8 +47,6 @@ class PushConsumerTest
         TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
             $consumer->start();
         }, "Start without subscriptions should throw");
-
-        // Clean up: shutdown is safe since isRunning is false
     }
 
     /**
@@ -55,8 +54,6 @@ class PushConsumerTest
      */
     public function testConstructorWithNullConsumerGroup()
     {
-        \Apache\Rocketmq\Logger::close();
-
         TestRunner::assertThrows(\InvalidArgumentException::class, function() {
             new PushConsumer('127.0.0.1:9876', '');
         }, "Empty consumer group should throw");
@@ -68,8 +65,6 @@ class PushConsumerTest
      */
     public function testStartWithoutMessageListener()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
@@ -81,18 +76,13 @@ class PushConsumerTest
 
     /**
      * Tests negative maxCacheMessageCount validation.
-     * Java expects IllegalArgumentException; PHP should reject or clamp.
      */
     public function testNegativeMaxCacheMessageCount()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        // PHP doesn't validate at construction but at runtime thresholds
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'maxCacheMessageCount' => -1,
         ]);
 
-        // The value should be clamped or handled gracefully
         $threshold = $consumer->getCacheMessageCountThresholdPerQueue();
         TestRunner::assertTrue(
             $threshold >= 0,
@@ -105,8 +95,6 @@ class PushConsumerTest
      */
     public function testNegativeMaxCacheMessageSize()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'maxCacheMessageSizeInBytes' => -1,
         ]);
@@ -123,14 +111,11 @@ class PushConsumerTest
      */
     public function testUnsubscribeBeforeStart()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
             'messageListener' => function($msg) { return 0; },
         ]);
 
-        // Should not throw - unsubscribe is allowed before start
         $consumer->unsubscribe('test-topic');
 
         $expressions = $consumer->getSubscriptionExpressions();
@@ -142,8 +127,6 @@ class PushConsumerTest
      */
     public function testSubscribeBeforeStart()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'messageListener' => function($msg) { return 0; },
         ]);
@@ -155,7 +138,7 @@ class PushConsumerTest
             isset($expressions['new-topic']),
             "Topic should be added to subscriptions"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'tagA',
             $expressions['new-topic'],
             "Expression should match"
@@ -167,9 +150,6 @@ class PushConsumerTest
      */
     public function testStartWhenAlreadyRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        // Use reflection to simulate running state
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
             'messageListener' => function($msg) { return 0; },
@@ -179,7 +159,6 @@ class PushConsumerTest
         $ref->setAccessible(true);
         $ref->setValue($consumer, true);
 
-        // start() should return silently when already running (no exception)
         $consumer->start();
         TestRunner::assertTrue($consumer->isRunning(), "Consumer should still be running");
     }
@@ -189,8 +168,6 @@ class PushConsumerTest
      */
     public function testSubscribeReturnsThis()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'messageListener' => function($msg) { return 0; },
         ]);
@@ -210,12 +187,9 @@ class PushConsumerTest
 
     /**
      * Mirrors Java: testSubscribeBeforeStartup
-     * Subscribe before start should succeed.
      */
     public function testMultipleSubscriptions()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'messageListener' => function($msg) { return 0; },
         ]);
@@ -225,17 +199,17 @@ class PushConsumerTest
         $consumer->subscribe('topic-3', 'SQL:age > 10');
 
         $expressions = $consumer->getSubscriptionExpressions();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             3,
             count($expressions),
             "Should have 3 subscriptions"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'tagA',
             $expressions['topic-1'],
             "topic-1 expression should be tagA"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             '*',
             $expressions['topic-2'],
             "topic-2 expression should be *"
@@ -244,19 +218,16 @@ class PushConsumerTest
 
     /**
      * Mirrors Java: testQueryAssignment - verifies queryAssignment internal method.
-     * We verify that expressions are properly stored for later QueryAssignment calls.
      */
     public function testSubscriptionExpressionsAreStored()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['topic-1' => 'tagA'],
             'messageListener' => function($msg) { return 0; },
         ]);
 
         $expressions = $consumer->getSubscriptionExpressions();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ['topic-1' => 'tagA'],
             $expressions,
             "Initial expressions should be stored correctly"
@@ -268,8 +239,6 @@ class PushConsumerTest
      */
     public function testSetMessageListenerReturnsThis()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group');
         $result = $consumer->setMessageListener(function($msg) { return 0; });
 
@@ -284,8 +253,6 @@ class PushConsumerTest
      */
     public function testFifoModeConfiguration()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'fifo' => true,
             'messageListener' => function($msg) { return 0; },
@@ -303,25 +270,23 @@ class PushConsumerTest
      */
     public function testConsumerGetters()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'awaitDuration' => 15,
             'receiveBatchSize' => 16,
             'messageListener' => function($msg) { return 0; },
         ]);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             15,
             $consumer->getAwaitDuration(),
             "awaitDuration should be 15"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             16,
             $consumer->getReceiveBatchSize(),
             "receiveBatchSize should be 16"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'test-group',
             $consumer->getGroupResource()->getName(),
             "consumerGroup should match"
@@ -333,23 +298,20 @@ class PushConsumerTest
      */
     public function testCacheThresholdDistribution()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        // With no process queues, threshold should be 0
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group', [
             'maxCacheMessageCount' => 4096,
             'maxCacheMessageSizeInBytes' => 67108864,
         ]);
 
         $countThreshold = $consumer->getCacheMessageCountThresholdPerQueue();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             0,
             $countThreshold,
             "Count threshold should be 0 with no process queues"
         );
 
         $bytesThreshold = $consumer->getCacheMessageBytesThresholdPerQueue();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             0,
             $bytesThreshold,
             "Bytes threshold should be 0 with no process queues"
@@ -358,34 +320,4 @@ class PushConsumerTest
 }
 
 echo "=== PushConsumerTest ===\n";
-$test = new PushConsumerTest();
-$test->testStartWithoutSubscriptions();
-echo "  [OK] testStartWithoutSubscriptions\n";
-$test->testConstructorWithNullConsumerGroup();
-echo "  [OK] testConstructorWithNullConsumerGroup\n";
-$test->testStartWithoutMessageListener();
-echo "  [OK] testStartWithoutMessageListener\n";
-$test->testNegativeMaxCacheMessageCount();
-echo "  [OK] testNegativeMaxCacheMessageCount\n";
-$test->testNegativeMaxCacheMessageSize();
-echo "  [OK] testNegativeMaxCacheMessageSize\n";
-$test->testUnsubscribeBeforeStart();
-echo "  [OK] testUnsubscribeBeforeStart\n";
-$test->testSubscribeBeforeStart();
-echo "  [OK] testSubscribeBeforeStart\n";
-$test->testStartWhenAlreadyRunning();
-echo "  [OK] testStartWhenAlreadyRunning\n";
-$test->testSubscribeReturnsThis();
-echo "  [OK] testSubscribeReturnsThis\n";
-$test->testMultipleSubscriptions();
-echo "  [OK] testMultipleSubscriptions\n";
-$test->testSubscriptionExpressionsAreStored();
-echo "  [OK] testSubscriptionExpressionsAreStored\n";
-$test->testSetMessageListenerReturnsThis();
-echo "  [OK] testSetMessageListenerReturnsThis\n";
-$test->testFifoModeConfiguration();
-echo "  [OK] testFifoModeConfiguration\n";
-$test->testConsumerGetters();
-echo "  [OK] testConsumerGetters\n";
-$test->testCacheThresholdDistribution();
-echo "  [OK] testCacheThresholdDistribution\n";
+TestRunner::run(new PushConsumerTest());

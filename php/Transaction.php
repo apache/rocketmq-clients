@@ -51,6 +51,10 @@ class Transaction
             throw new \RuntimeException("Transaction is already terminated");
         }
 
+        if (!empty($this->messages)) {
+            throw new \InvalidArgumentException("Transaction only supports one message at a time");
+        }
+
         $this->messages[] = $message;
     }
 
@@ -73,11 +77,23 @@ class Transaction
             throw new \RuntimeException("Invalid send result: messageId and transactionId are required");
         }
 
+        if (!in_array($message, $this->messages, true)) {
+            throw new \InvalidArgumentException("Message is not part of this transaction");
+        }
+
         $this->receipts[] = [
             'messageId' => $messageId,
             'transactionId' => $transactionId,
             'topic' => $message->getTopic()->getName(),
         ];
+    }
+
+    /**
+     * Alias for tryAddReceipt.
+     */
+    public function addReceipt($message, array $sendResult): void
+    {
+        $this->tryAddReceipt($message, $sendResult);
     }
 
     /**
@@ -87,6 +103,10 @@ class Transaction
     {
         if ($this->committed || $this->rolledBack) {
             throw new \RuntimeException("Transaction is already terminated");
+        }
+
+        if (empty($this->receipts)) {
+            throw new \RuntimeException("No receipts to commit");
         }
 
         foreach ($this->receipts as $receipt) {
@@ -109,6 +129,10 @@ class Transaction
     {
         if ($this->committed || $this->rolledBack) {
             throw new \RuntimeException("Transaction is already terminated");
+        }
+
+        if (empty($this->receipts)) {
+            throw new \RuntimeException("No receipts to rollback");
         }
 
         foreach ($this->receipts as $receipt) {

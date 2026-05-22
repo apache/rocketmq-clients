@@ -27,9 +27,9 @@ class ConsumeResultTest
 {
     public function testConstants()
     {
-        TestRunner::assertEqualsWithMessage(0, ConsumeResult::SUCCESS, "SUCCESS should be 0");
-        TestRunner::assertEqualsWithMessage(1, ConsumeResult::FAILURE, "FAILURE should be 1");
-        TestRunner::assertTrueWithMessage(
+        TestRunner::assertEquals(0, ConsumeResult::SUCCESS, "SUCCESS should be 0");
+        TestRunner::assertEquals(1, ConsumeResult::FAILURE, "FAILURE should be 1");
+        TestRunner::assertTrue(
             ConsumeResult::SUCCESS !== ConsumeResult::FAILURE,
             "SUCCESS and FAILURE should be different"
         );
@@ -37,6 +37,4 @@ class ConsumeResultTest
 }
 
 echo "=== ConsumeResultTest ===\n";
-$test = new ConsumeResultTest();
-$test->testConstants();
-echo "  [OK] testConstants\n";
+TestRunner::run(new ConsumeResultTest());

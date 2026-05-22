@@ -29,8 +29,8 @@ class ResourceTest
     {
         $resource = new Resource();
         $resource->setName('foobar');
-        TestRunner::assertEqualsWithMessage('foobar', $resource->getName(), "Name should be 'foobar'");
-        TestRunner::assertEqualsWithMessage('', $resource->getResourceNamespace(), "Namespace should be empty by default");
+        TestRunner::assertEquals('foobar', $resource->getName(), "Name should be 'foobar'");
+        TestRunner::assertEquals('', $resource->getResourceNamespace(), "Namespace should be empty by default");
     }
 
     public function testConstructorWithNameAndNamespace()
@@ -38,8 +38,8 @@ class ResourceTest
         $resource = new Resource();
         $resource->setResourceNamespace('foo');
         $resource->setName('bar');
-        TestRunner::assertEqualsWithMessage('bar', $resource->getName(), "Name should be 'bar'");
-        TestRunner::assertEqualsWithMessage('foo', $resource->getResourceNamespace(), "Namespace should be 'foo'");
+        TestRunner::assertEquals('bar', $resource->getName(), "Name should be 'bar'");
+        TestRunner::assertEquals('foo', $resource->getResourceNamespace(), "Namespace should be 'foo'");
     }
 
     public function testToProtobuf()
@@ -48,9 +48,8 @@ class ResourceTest
         $resource->setResourceNamespace('foo');
         $resource->setName('bar');
 
-        // Protobuf Resource is the object itself in PHP
-        TestRunner::assertEqualsWithMessage('foo', $resource->getResourceNamespace(), "Protobuf namespace should be 'foo'");
-        TestRunner::assertEqualsWithMessage('bar', $resource->getName(), "Protobuf name should be 'bar'");
+        TestRunner::assertEquals('foo', $resource->getResourceNamespace(), "Protobuf namespace should be 'foo'");
+        TestRunner::assertEquals('bar', $resource->getName(), "Protobuf name should be 'bar'");
     }
 
     public function testEquals()
@@ -63,7 +62,7 @@ class ResourceTest
         $resource1->setResourceNamespace('foo');
         $resource1->setName('bar');
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             $resource0->serializeToString(),
             $resource1->serializeToString(),
             "Same name and namespace should serialize to same value"
@@ -84,22 +83,12 @@ class ResourceTest
     {
         $resource = new Resource();
         $result = $resource->setName('test');
-        TestRunner::assertTrueWithMessage($result === $resource, "setName should return \$this for chaining");
+        TestRunner::assertTrue($result === $resource, "setName should return \$this for chaining");
 
         $result = $resource->setResourceNamespace('ns');
-        TestRunner::assertTrueWithMessage($result === $resource, "setResourceNamespace should return \$this for chaining");
+        TestRunner::assertTrue($result === $resource, "setResourceNamespace should return \$this for chaining");
     }
 }
 
 echo "=== ResourceTest ===\n";
-$test = new ResourceTest();
-$test->testConstructorWithNameOnly();
-echo "  [OK] testConstructorWithNameOnly\n";
-$test->testConstructorWithNameAndNamespace();
-echo "  [OK] testConstructorWithNameAndNamespace\n";
-$test->testToProtobuf();
-echo "  [OK] testToProtobuf\n";
-$test->testEquals();
-echo "  [OK] testEquals\n";
-$test->testSetterReturnsThis();
-echo "  [OK] testSetterReturnsThis\n";
+TestRunner::run(new ResourceTest());

@@ -24,6 +24,7 @@ require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../Logger.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\Broker;
 use Apache\Rocketmq\V2\Resource;
@@ -31,6 +32,7 @@ use Apache\Rocketmq\V2\Endpoints;
 use Apache\Rocketmq\V2\Address;
 use Apache\Rocketmq\V2\AddressScheme;
 use Apache\Rocketmq\V2\Permission;
+use Apache\Rocketmq\V2\SystemProperties;
 
 /**
  * Fake consumer for ProcessQueue testing.
@@ -120,22 +122,25 @@ class ProcessQueueTest
         return $queue;
     }
 
-    public function testConstructorAndInitialState()
+    public function setUp(): void
     {
         \Apache\Rocketmq\Logger::close();
+    }
+
+    public function testConstructorAndInitialState()
+    {
         $fakeConsumer = new FakeConsumerForPQ();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
 
         TestRunner::assertFalse($pq->isDropped(), "ProcessQueue should not be dropped initially");
-        TestRunner::assertEqualsWithMessage(0, $pq->cachedMessagesCount(), "Cached messages count should be 0");
-        TestRunner::assertEqualsWithMessage(0, $pq->cachedMessageBytes(), "Cached message bytes should be 0");
+        TestRunner::assertEquals(0, $pq->cachedMessagesCount(), "Cached messages count should be 0");
+        TestRunner::assertEquals(0, $pq->cachedMessageBytes(), "Cached message bytes should be 0");
     }
 
     public function testDropAndIsDropped()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForPQ();
         $mq = $this->createFakeMessageQueue();
 
@@ -148,14 +153,13 @@ class ProcessQueueTest
 
     public function testGetMessageQueue()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForPQ();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
 
         $resultMq = $pq->getMessageQueue();
-        TestRunner::assertTrueWithMessage(
+        TestRunner::assertTrue(
             $resultMq->getTopic()->getName() === 'test-topic',
             "getMessageQueue should return the original MessageQueue"
         );
@@ -163,19 +167,17 @@ class ProcessQueueTest
 
     public function testFetchMessageImmediately()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForPQ();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
         $pq->fetchMessageImmediately();
 
-        TestRunner::assertTrueWithMessage(true, "fetchMessageImmediately should not throw");
+        TestRunner::assertTrue(true, "fetchMessageImmediately should not throw");
     }
 
     public function testExpiredNotInitially()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForPQ();
         $mq = $this->createFakeMessageQueue();
 
@@ -186,7 +188,6 @@ class ProcessQueueTest
 
     public function testCacheNotFullInitially()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForPQ();
         $mq = $this->createFakeMessageQueue();
 
@@ -196,24 +197,37 @@ class ProcessQueueTest
     }
 
     /**
+     * Helper to build a V2\Message protobuf object for testing.
+     */
+    private function createFakeMessage(string $body, string $receiptHandle = null): Message
+    {
+        $sysProps = new SystemProperties();
+        if ($receiptHandle !== null) {
+            $sysProps->setReceiptHandle($receiptHandle);
+        }
+
+        $msg = new Message();
+        $msg->setBody($body);
+        $msg->setSystemProperties($sysProps);
+        return $msg;
+    }
+
+    /**
      * Mirrors Java: testCachedMessagesCount and testCachedMessageBytes.
      * Tests that cacheMessages and eviction track count/bytes correctly.
      */
     public function testCachedMessagesCountAndBytes()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForPQ();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
 
-        // Create a fake cached message
-        $msg = new \stdClass();
-        $msg->body = "hello world";
+        $msg = $this->createFakeMessage("hello world", "rh-001");
         $pq->testCacheMessages([$msg]);
 
-        TestRunner::assertEqualsWithMessage(1, $pq->cachedMessagesCount(), "Cached count should be 1");
-        TestRunner::assertEqualsWithMessage(11, $pq->cachedMessageBytes(), "Cached bytes should be 11");
+        TestRunner::assertEquals(1, $pq->cachedMessagesCount(), "Cached count should be 1");
+        TestRunner::assertEquals(11, $pq->cachedMessageBytes(), "Cached bytes should be 11");
     }
 
     /**
@@ -222,21 +236,20 @@ class ProcessQueueTest
      */
     public function testEraseMessageWithConsumeSuccess()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForAckPQ();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
 
-        $msg = new \stdClass();
-        $msg->body = "test-message";
+        $msg = $this->createFakeMessage("test-message", "rh-002");
         $pq->testCacheMessages([$msg]);
 
-        TestRunner::assertEqualsWithMessage(1, $pq->cachedMessagesCount(), "Should have 1 cached message");
+        TestRunner::assertEquals(1, $pq->cachedMessagesCount(), "Should have 1 cached message");
 
-        $pq->eraseMessage($msg, \Apache\Rocketmq\ConsumeResult::SUCCESS);
+        $messageViews = $pq->getCachedMessages();
+        $pq->eraseMessage($messageViews[0], \Apache\Rocketmq\ConsumeResult::SUCCESS);
 
-        TestRunner::assertEqualsWithMessage(0, $pq->cachedMessagesCount(), "Message should be evicted after erase");
+        TestRunner::assertEquals(0, $pq->cachedMessagesCount(), "Message should be evicted after erase");
         TestRunner::assertTrue($fakeConsumer->ackCalled, "ackMessage should be called for SUCCESS");
         TestRunner::assertFalse($fakeConsumer->nackCalled, "nackMessage should NOT be called for SUCCESS");
     }
@@ -247,19 +260,18 @@ class ProcessQueueTest
      */
     public function testEraseMessageWithConsumeFailure()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForAckPQ();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
 
-        $msg = new \stdClass();
-        $msg->body = "test-message";
+        $msg = $this->createFakeMessage("test-message", "rh-003");
         $pq->testCacheMessages([$msg]);
 
-        $pq->eraseMessage($msg, \Apache\Rocketmq\ConsumeResult::FAILURE);
+        $messageViews = $pq->getCachedMessages();
+        $pq->eraseMessage($messageViews[0], \Apache\Rocketmq\ConsumeResult::FAILURE);
 
-        TestRunner::assertEqualsWithMessage(0, $pq->cachedMessagesCount(), "Message should be evicted after erase");
+        TestRunner::assertEquals(0, $pq->cachedMessagesCount(), "Message should be evicted after erase");
         TestRunner::assertFalse($fakeConsumer->ackCalled, "ackMessage should NOT be called for FAILURE");
         TestRunner::assertTrue($fakeConsumer->nackCalled, "nackMessage should be called for FAILURE");
     }
@@ -269,7 +281,6 @@ class ProcessQueueTest
      */
     public function testCacheFullThreshold()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForPQ();
         $fakeConsumer->countThreshold = 3;
         $mq = $this->createFakeMessageQueue();
@@ -278,15 +289,14 @@ class ProcessQueueTest
 
         // Fill up to threshold
         for ($i = 0; $i < 3; $i++) {
-            $msg = new \stdClass();
-            $msg->body = "msg-{$i}";
+            $msg = $this->createFakeMessage("msg-{$i}", "rh-threshold-{$i}");
             $pq->testCacheMessages([$msg]);
         }
 
         TestRunner::assertTrue($pq->isCacheFull(), "Cache should be full at threshold");
 
         // Verify messages still count
-        TestRunner::assertEqualsWithMessage(3, $pq->cachedMessagesCount(), "Should have 3 cached messages");
+        TestRunner::assertEquals(3, $pq->cachedMessagesCount(), "Should have 3 cached messages");
     }
 
     /**
@@ -294,7 +304,6 @@ class ProcessQueueTest
      */
     public function testDroppedQueueDoesNotFetch()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForPQ();
         $mq = $this->createFakeMessageQueue();
 
@@ -303,7 +312,7 @@ class ProcessQueueTest
 
         // After drop, fetchMessages should return 0 immediately without calling broker
         $count = $pq->fetchMessages();
-        TestRunner::assertEqualsWithMessage(0, $count, "Dropped queue should fetch 0 messages");
+        TestRunner::assertEquals(0, $count, "Dropped queue should fetch 0 messages");
     }
 
     /**
@@ -311,52 +320,25 @@ class ProcessQueueTest
      */
     public function testEvictMessageReducesBytes()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForPQ();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
 
-        $msg1 = new \stdClass();
-        $msg1->body = "hello";
-        $msg2 = new \stdClass();
-        $msg2->body = "world!";
+        $msg1 = $this->createFakeMessage("hello", "rh-010");
+        $msg2 = $this->createFakeMessage("world!", "rh-011");
         $pq->testCacheMessages([$msg1, $msg2]);
 
         $initialBytes = $pq->cachedMessageBytes();
-        TestRunner::assertEqualsWithMessage(11, $initialBytes, "Initial bytes should be 11 (5+6)");
+        TestRunner::assertEquals(11, $initialBytes, "Initial bytes should be 11 (5+6)");
 
-        $pq->evictMessage($msg1);
+        $messageViews = $pq->getCachedMessages();
+        $pq->evictMessage($messageViews[0]);
 
         $afterBytes = $pq->cachedMessageBytes();
-        TestRunner::assertEqualsWithMessage(6, $afterBytes, "Bytes should be 6 after evicting 5-byte message");
-        TestRunner::assertEqualsWithMessage(1, $pq->cachedMessagesCount(), "Count should be 1 after eviction");
+        TestRunner::assertEquals(6, $afterBytes, "Bytes should be 6 after evicting 5-byte message");
+        TestRunner::assertEquals(1, $pq->cachedMessagesCount(), "Count should be 1 after eviction");
     }
 }
 
-echo "=== ProcessQueueTest ===\n";
-$test = new ProcessQueueTest();
-$test->testConstructorAndInitialState();
-echo "  [OK] testConstructorAndInitialState\n";
-$test->testDropAndIsDropped();
-echo "  [OK] testDropAndIsDropped\n";
-$test->testGetMessageQueue();
-echo "  [OK] testGetMessageQueue\n";
-$test->testFetchMessageImmediately();
-echo "  [OK] testFetchMessageImmediately\n";
-$test->testExpiredNotInitially();
-echo "  [OK] testExpiredNotInitially\n";
-$test->testCacheNotFullInitially();
-echo "  [OK] testCacheNotFullInitially\n";
-$test->testCachedMessagesCountAndBytes();
-echo "  [OK] testCachedMessagesCountAndBytes\n";
-$test->testEraseMessageWithConsumeSuccess();
-echo "  [OK] testEraseMessageWithConsumeSuccess\n";
-$test->testEraseMessageWithConsumeFailure();
-echo "  [OK] testEraseMessageWithConsumeFailure\n";
-$test->testCacheFullThreshold();
-echo "  [OK] testCacheFullThreshold\n";
-$test->testDroppedQueueDoesNotFetch();
-echo "  [OK] testDroppedQueueDoesNotFetch\n";
-$test->testEvictMessageReducesBytes();
-echo "  [OK] testEvictMessageReducesBytes\n";
+TestRunner::run(new ProcessQueueTest());

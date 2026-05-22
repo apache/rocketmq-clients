@@ -36,7 +36,7 @@ class MessageIdImplTest
             '0156F7E71C361B21BC024CCDBE00000000'
         );
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             '0156F7E71C361B21BC024CCDBE00000000',
             $messageId->toString(),
             "V0 toString should return suffix directly"
@@ -51,7 +51,7 @@ class MessageIdImplTest
             '56F7E71C361B21BC024CCDBE00000000'
         );
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             '0156F7E71C361B21BC024CCDBE00000000',
             $messageId->toString(),
             "V1 toString should prefix with version"
@@ -75,7 +75,7 @@ class MessageIdImplTest
         $id1 = new \Apache\Rocketmq\MessageIdImpl('01', 'ABC123');
         $id2 = new \Apache\Rocketmq\MessageIdImpl('01', 'ABC123');
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             $id1->hashCode(),
             $id2->hashCode(),
             "Equal IDs should have same hash code"
@@ -85,7 +85,7 @@ class MessageIdImplTest
     public function testDupeString()
     {
         $id = new \Apache\Rocketmq\MessageIdImpl('01', 'ABC123');
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             '01ABC123',
             (string)$id,
             "__toString should return toString"
@@ -93,15 +93,4 @@ class MessageIdImplTest
     }
 }
 
-echo "=== MessageIdImplTest ===\n";
-$test = new MessageIdImplTest();
-$test->testToStringV0();
-echo "  [OK] testToStringV0\n";
-$test->testToStringV1();
-echo "  [OK] testToStringV1\n";
-$test->testEquals();
-echo "  [OK] testEquals\n";
-$test->testHashCode();
-echo "  [OK] testHashCode\n";
-$test->testDupeString();
-echo "  [OK] testDupeString\n";
+TestRunner::run(new MessageIdImplTest());

@@ -43,14 +43,17 @@ use Apache\Rocketmq\V2\SystemProperties;
  */
 class ConsumeTaskTest
 {
+    public function setUp(): void
+    {
+        Logger::close();
+    }
+
     /**
      * Mirrors Java: testCallWithConsumeSuccess
      * Tests that a successful listener call returns SUCCESS.
      */
     public function testCallWithConsumeSuccess()
     {
-        Logger::close();
-
         $consumeCount = 0;
         $service = new TestableStandardConsumeService(function($msg) use (&$consumeCount) {
             $consumeCount++;
@@ -60,12 +63,12 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('test-topic', 'success-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "Successful consume should return SUCCESS"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             $consumeCount,
             "Listener should be called exactly once"
@@ -78,8 +81,6 @@ class ConsumeTaskTest
      */
     public function testCallWithConsumeException()
     {
-        Logger::close();
-
         $service = new TestableStandardConsumeService(function($msg) {
             throw new \RuntimeException("Simulated consume failure");
         });
@@ -87,7 +88,7 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('test-topic', 'error-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Listener exception should return FAILURE"
@@ -99,8 +100,6 @@ class ConsumeTaskTest
      */
     public function testFifoConsumeSuccess()
     {
-        Logger::close();
-
         $consumeCount = 0;
         $service = new TestableFifoConsumeService(function($msg) use (&$consumeCount) {
             $consumeCount++;
@@ -110,12 +109,12 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('fifo-topic', 'fifo-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "FIFO consume success should return SUCCESS"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             $consumeCount,
             "FIFO listener should be called once"
@@ -127,8 +126,6 @@ class ConsumeTaskTest
      */
     public function testFifoConsumeException()
     {
-        Logger::close();
-
         $service = new TestableFifoConsumeService(function($msg) {
             throw new \RuntimeException("FIFO consume failure");
         });
@@ -136,7 +133,7 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('fifo-topic', 'fifo-error-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "FIFO listener exception should return FAILURE"
@@ -148,8 +145,6 @@ class ConsumeTaskTest
      */
     public function testListenerReceivesCorrectMessage()
     {
-        Logger::close();
-
         $receivedBody = null;
         $receivedTopic = null;
         $service = new TestableStandardConsumeService(function($msg) use (&$receivedBody, &$receivedTopic) {
@@ -161,12 +156,12 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('verify-topic', 'verify-body-content');
         $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'verify-body-content',
             $receivedBody,
             "Listener should receive correct message body"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'verify-topic',
             $receivedTopic,
             "Listener should receive correct topic"
@@ -178,8 +173,6 @@ class ConsumeTaskTest
      */
     public function testListenerErrorReturnsFailure()
     {
-        Logger::close();
-
         $service = new TestableStandardConsumeService(function($msg) {
             throw new \Error("Fatal listener error");
         });
@@ -187,7 +180,7 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('test-topic', 'error-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Listener Error should also return FAILURE"
@@ -285,17 +278,4 @@ class TestableFifoConsumeService extends FifoConsumeService
     }
 }
 
-echo "=== ConsumeTaskTest ===\n";
-$test = new ConsumeTaskTest();
-$test->testCallWithConsumeSuccess();
-echo "  [OK] testCallWithConsumeSuccess\n";
-$test->testCallWithConsumeException();
-echo "  [OK] testCallWithConsumeException\n";
-$test->testFifoConsumeSuccess();
-echo "  [OK] testFifoConsumeSuccess\n";
-$test->testFifoConsumeException();
-echo "  [OK] testFifoConsumeException\n";
-$test->testListenerReceivesCorrectMessage();
-echo "  [OK] testListenerReceivesCorrectMessage\n";
-$test->testListenerErrorReturnsFailure();
-echo "  [OK] testListenerErrorReturnsFailure\n";
+TestRunner::run(new ConsumeTaskTest());

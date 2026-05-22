@@ -29,52 +29,33 @@ use Apache\Rocketmq\V2\SystemProperties;
 
 /**
  * Tests for MessageView accessors and behavior.
- * Mirrors Java's GeneralMessageImplTest and MessageViewImpl basics.
- * Covers topic, body, messageId, tag, keys, messageGroup, properties, etc.
  */
 class MessageViewExtendedTest
 {
-    /**
-     * Tests born timestamp extraction from system properties.
-     */
     public function testBornTimestamp()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
 
-        // bornTimestamp should be non-negative (0 if not set by broker)
         TestRunner::assertTrue(
             $view->getBornTimestamp() >= 0,
             "Born timestamp should be non-negative"
         );
     }
 
-    /**
-     * Tests born host extraction from system properties.
-     */
     public function testBornHost()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
 
-        // bornHost is a string (empty if not set)
         TestRunner::assertTrue(
             is_string($view->getBornHost()),
             "Born host should be a string"
         );
     }
 
-    /**
-     * Tests decode timestamp is set on construction.
-     */
     public function testDecodeTimestamp()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
         $beforeDecode = $view->getDecodeTimestamp();
@@ -85,44 +66,34 @@ class MessageViewExtendedTest
         );
     }
 
-    /**
-     * Tests delivery attempt increment.
-     */
     public function testIncrementDeliveryAttempt()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             $view->getDeliveryAttempt(),
             "Initial delivery attempt should be 1"
         );
 
         $view->incrementDeliveryAttempt();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             2,
             $view->getDeliveryAttempt(),
             "After increment, delivery attempt should be 2"
         );
 
         $view->incrementDeliveryAttempt();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             3,
             $view->getDeliveryAttempt(),
             "After second increment, delivery attempt should be 3"
         );
     }
 
-    /**
-     * Tests message delivery attempt starts at 1 minimum.
-     */
     public function testDeliveryAttemptMinimum()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 0);
 
@@ -132,13 +103,8 @@ class MessageViewExtendedTest
         );
     }
 
-    /**
-     * Tests getProperty for user properties.
-     */
     public function testGetProperty()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $message = new Message();
         $message->setBody('hello');
         $topic = new Resource();
@@ -148,7 +114,7 @@ class MessageViewExtendedTest
 
         $view = new MessageView($message);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'production',
             $view->getProperty('env'),
             "getProperty should return the correct value"
@@ -159,13 +125,8 @@ class MessageViewExtendedTest
         );
     }
 
-    /**
-     * Tests getProperties returns native PHP array.
-     */
     public function testGetPropertiesReturnsNativeArray()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $message = new Message();
         $message->setBody('hello');
         $topic = new Resource();
@@ -182,20 +143,15 @@ class MessageViewExtendedTest
             is_array($props),
             "getProperties should return a native PHP array"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'val1',
             $props['key1'],
             "Property key1 should be accessible"
         );
     }
 
-    /**
-     * Tests getKeys returns native PHP array.
-     */
     public function testGetKeysReturnsNativeArray()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $message = $this->buildMessage();
         $sysProps = new SystemProperties();
         $sysProps->setKeys(['order-123', 'user-456']);
@@ -208,20 +164,15 @@ class MessageViewExtendedTest
             is_array($keys),
             "getKeys should return a native PHP array"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             2,
             count($keys),
             "Should have 2 keys"
         );
     }
 
-    /**
-     * Tests __toString includes key info.
-     */
     public function testToStringIncludesTopic()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
         $str = (string)$view;
@@ -232,13 +183,8 @@ class MessageViewExtendedTest
         );
     }
 
-    /**
-     * Tests __toString includes messageId.
-     */
     public function testToStringIncludesMessageId()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
         $str = (string)$view;
@@ -249,13 +195,8 @@ class MessageViewExtendedTest
         );
     }
 
-    /**
-     * Tests __toString includes CORRUPTED when message is corrupted.
-     */
     public function testToStringIncludesCorrupted()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
 
@@ -293,26 +234,4 @@ class MessageViewExtendedTest
 }
 
 echo "=== MessageViewExtendedTest ===\n";
-$test = new MessageViewExtendedTest();
-$test->testBornTimestamp();
-echo "  [OK] testBornTimestamp\n";
-$test->testBornHost();
-echo "  [OK] testBornHost\n";
-$test->testDecodeTimestamp();
-echo "  [OK] testDecodeTimestamp\n";
-$test->testIncrementDeliveryAttempt();
-echo "  [OK] testIncrementDeliveryAttempt\n";
-$test->testDeliveryAttemptMinimum();
-echo "  [OK] testDeliveryAttemptMinimum\n";
-$test->testGetProperty();
-echo "  [OK] testGetProperty\n";
-$test->testGetPropertiesReturnsNativeArray();
-echo "  [OK] testGetPropertiesReturnsNativeArray\n";
-$test->testGetKeysReturnsNativeArray();
-echo "  [OK] testGetKeysReturnsNativeArray\n";
-$test->testToStringIncludesTopic();
-echo "  [OK] testToStringIncludesTopic\n";
-$test->testToStringIncludesMessageId();
-echo "  [OK] testToStringIncludesMessageId\n";
-$test->testToStringIncludesCorrupted();
-echo "  [OK] testToStringIncludesCorrupted\n";
+TestRunner::run(new MessageViewExtendedTest());

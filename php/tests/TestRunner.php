@@ -26,132 +26,141 @@ class TestRunner
     public static $passed = 0;
     public static $failed = 0;
     public static $errors = 0;
+    public static $currentTest = '';
 
-    public static function assertTrue($value, $message = '')
+    public static function assertTrue($value, string $message = ''): void
     {
         if ($value === true) {
             self::$passed++;
             return;
         }
-        self::$failed++;
-        echo "  FAILED: Expected true, got " . var_export($value, true);
-        if ($message) {
-            echo " - {$message}";
-        }
-        echo "\n";
+        self::fail("Expected true, got " . var_export($value, true), $message);
     }
 
-    public static function assertFalse($value, $message = '')
+    public static function assertFalse($value, string $message = ''): void
     {
         if ($value === false) {
             self::$passed++;
             return;
         }
-        self::$failed++;
-        echo "  FAILED: Expected false, got " . var_export($value, true);
-        if ($message) {
-            echo " - {$message}";
-        }
-        echo "\n";
+        self::fail("Expected false, got " . var_export($value, true), $message);
     }
 
-    public static function assertEquals($expected, $actual, $message = '')
+    public static function assertEquals($expected, $actual, string $message = ''): void
     {
         if ($expected === $actual) {
             self::$passed++;
             return;
         }
-        self::$failed++;
-        echo "  FAILED: Expected " . var_export($expected, true) . ", got " . var_export($actual, true);
-        if ($message) {
-            echo " - {$message}";
-        }
-        echo "\n";
+        self::fail("{$message} (expected: " . var_export($expected, true) . ", actual: " . var_export($actual, true) . ")");
     }
 
-    public static function assertNotEquals($expected, $actual, $message = '')
+    public static function assertNotEquals($expected, $actual, string $message = ''): void
     {
         if ($expected !== $actual) {
             self::$passed++;
             return;
         }
-        self::$failed++;
-        echo "  FAILED: Expected not equal to " . var_export($expected, true);
-        if ($message) {
-            echo " - {$message}";
-        }
-        echo "\n";
+        self::fail("Expected not equal to " . var_export($expected, true), $message);
     }
 
-    public static function assertNull($value, $message = '')
+    public static function assertNull($value, string $message = ''): void
     {
         if ($value === null) {
             self::$passed++;
             return;
         }
-        self::$failed++;
-        echo "  FAILED: Expected null, got " . var_export($value, true);
-        if ($message) {
-            echo " - {$message}";
-        }
-        echo "\n";
+        self::fail("Expected null, got " . var_export($value, true), $message);
     }
 
-    public static function assertNotNull($value, $message = '')
+    public static function assertNotNull($value, string $message = ''): void
     {
         if ($value !== null) {
             self::$passed++;
             return;
         }
-        self::$failed++;
-        echo "  FAILED: Expected non-null value";
-        if ($message) {
-            echo " - {$message}";
-        }
-        echo "\n";
+        self::fail("Expected non-null value", $message);
     }
 
-    public static function assertThrows($exceptionClass, $callable, $message = '')
+    public static function assertThrows(string $exceptionClass, callable $callable, string $message = ''): void
     {
         try {
             $callable();
-            self::$failed++;
-            echo "  FAILED: Expected {$exceptionClass} to be thrown";
-            if ($message) {
-                echo " - {$message}";
-            }
-            echo "\n";
+            self::fail("Expected {$exceptionClass} to be thrown", $message);
         } catch (\Throwable $e) {
-            if ($e instanceof $exceptionClass || is_a($e, $exceptionClass)) {
+            if ($e instanceof $exceptionClass) {
                 self::$passed++;
             } else {
-                self::$failed++;
-                echo "  FAILED: Expected {$exceptionClass}, got " . get_class($e);
-                if ($message) {
-                    echo " - {$message}";
-                }
-                echo "\n";
+                self::fail("Expected {$exceptionClass}, got " . get_class($e), $message);
             }
         }
     }
 
-    public static function assertTrueWithMessage($value, $message = '')
+    public static function fail(string $detail, string $message = ''): void
     {
-        if ($value === true) {
-            self::$passed++;
-            return;
-        }
         self::$failed++;
-        echo "  FAILED: {$message}\n";
+        $output = "  FAILED";
+        if (self::$currentTest !== '') {
+            $output .= " [" . self::$currentTest . "]";
+        }
+        $output .= ": {$detail}";
+        if ($message) {
+            $output .= " - {$message}";
+        }
+        echo "{$output}\n";
     }
 
-    public static function assertEqualsWithMessage($expected, $actual, $message = '')
+    /**
+     * Run all test* methods on a test class instance.
+     */
+    public static function run(object $testClass): void
     {
-        if ($expected === $actual) {
-            self::$passed++;
-            return;
+        $ref = new \ReflectionClass($testClass);
+        $methods = $ref->getMethods(\ReflectionMethod::IS_PUBLIC);
+
+        foreach ($methods as $method) {
+            if (str_starts_with($method->getName(), 'test') && $method->isStatic() === false) {
+                self::$currentTest = $method->getName();
+                if (method_exists($testClass, 'setUp')) {
+                    $testClass->setUp();
+                }
+                try {
+                    $method->invoke($testClass);
+                    echo "  [OK] {$method->getName()}\n";
+                } catch (\Throwable $e) {
+                    self::$errors++;
+                    echo "  ERROR [{$method->getName()}]: " . $e->getMessage() . "\n";
+                }
+                if (method_exists($testClass, 'tearDown')) {
+                    $testClass->tearDown();
+                }
+            }
         }
-        self::$failed++;
-        echo "  FAILED: {$message} (expected: {$expected}, actual: {$actual})\n";
+        self::$currentTest = '';
+    }
+
+    /**
+     * Run all test files matching the pattern and report summary.
+     */
+    public static function runAll(array $files): void
+    {
+        foreach ($files as $file) {
+            require_once $file;
+        }
+    }
+
+    public static function report(): void
+    {
+        echo "\n";
+        echo "Passed: " . self::$passed . "\n";
+        echo "Failed: " . self::$failed . "\n";
+        if (self::$errors > 0) {
+            echo "Errors: " . self::$errors . "\n";
+        }
+        $total = self::$passed + self::$failed + self::$errors;
+        echo "Total:  {$total}\n";
+        if (self::$failed > 0 || self::$errors > 0) {
+            exit(1);
+        }
     }
 }

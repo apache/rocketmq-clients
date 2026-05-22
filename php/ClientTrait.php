@@ -104,7 +104,7 @@ trait ClientTrait
     {
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if (method_exists($sysProps, 'getReceiptHandle')) {
+            if ($sysProps !== null && method_exists($sysProps, 'getReceiptHandle')) {
                 return $sysProps->getReceiptHandle();
             }
         }
@@ -121,7 +121,7 @@ trait ClientTrait
     {
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if (method_exists($sysProps, 'getMessageId')) {
+            if ($sysProps !== null && method_exists($sysProps, 'getMessageId')) {
                 return $sysProps->getMessageId();
             }
         }
@@ -138,7 +138,7 @@ trait ClientTrait
     {
         if (method_exists($messageView, 'getTopic')) {
             $topic = $messageView->getTopic();
-            if (method_exists($topic, 'getName')) {
+            if ($topic !== null && method_exists($topic, 'getName')) {
                 return $topic->getName();
             }
         }

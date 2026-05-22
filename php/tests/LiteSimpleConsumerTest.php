@@ -30,13 +30,16 @@ use Apache\Rocketmq\LiteSimpleConsumer;
  */
 class LiteSimpleConsumerTest
 {
+    public function setUp(): void
+    {
+        \Apache\Rocketmq\Logger::close();
+    }
+
     /**
      * Mirrors Java: testSetConsumerGroupWithNull
      */
     public function testConstructorWithNullConsumerGroup()
     {
-        \Apache\Rocketmq\Logger::close();
-
         TestRunner::assertThrows(\InvalidArgumentException::class, function() {
             new LiteSimpleConsumer('127.0.0.1:9876', '', 'parent-topic');
         }, "Empty consumer group should throw");
@@ -47,8 +50,6 @@ class LiteSimpleConsumerTest
      */
     public function testConstructorWithEmptyParentTopic()
     {
-        \Apache\Rocketmq\Logger::close();
-
         TestRunner::assertThrows(\InvalidArgumentException::class, function() {
             new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', '');
         }, "Empty parent topic should throw");
@@ -59,8 +60,6 @@ class LiteSimpleConsumerTest
      */
     public function testConstructorWithWhitespaceParentTopic()
     {
-        \Apache\Rocketmq\Logger::close();
-
         TestRunner::assertThrows(\InvalidArgumentException::class, function() {
             new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', '  ');
         }, "Whitespace-only parent topic should throw");
@@ -71,8 +70,6 @@ class LiteSimpleConsumerTest
      */
     public function testSubscribeLiteWithEmptyTopic()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
 
         TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($consumer) {
@@ -85,8 +82,6 @@ class LiteSimpleConsumerTest
      */
     public function testSubscribeLiteWithWhitespaceTopic()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
 
         TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($consumer) {
@@ -96,32 +91,24 @@ class LiteSimpleConsumerTest
 
     /**
      * Mirrors Java: testSetNegativeMaxCacheMessageCount
-     * PHP LiteSimpleConsumer doesn't have maxCacheMessageCount but validates
-     * awaitDuration similarly.
      */
     public function testConstructorWithZeroAwaitDuration()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', [
             'awaitDuration' => 0,
         ]);
 
-        // awaitDuration of 0 should be accepted
         $ref = new \ReflectionProperty($consumer, 'awaitDuration');
         $ref->setAccessible(true);
         $actual = $ref->getValue($consumer);
-        TestRunner::assertEqualsWithMessage(0, $actual, "awaitDuration should be 0");
+        TestRunner::assertEquals(0, $actual, "awaitDuration should be 0");
     }
 
     /**
      * Mirrors Java: testBuildWithoutConsumerGroup
-     * PHP: LiteSimpleConsumer without lite topics should throw at start.
      */
     public function testStartWithoutLiteTopics()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
@@ -134,15 +121,13 @@ class LiteSimpleConsumerTest
      */
     public function testSubscribeLiteBeforeStart()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
 
         $consumer->subscribeLite('lite-topic-1');
         $consumer->subscribeLite('lite-topic-2', 'tagA');
 
         $topics = $consumer->getLiteTopics();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             2,
             count($topics),
             "Should have 2 lite topics"
@@ -162,8 +147,6 @@ class LiteSimpleConsumerTest
      */
     public function testUnsubscribeLiteBeforeStart()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
 
         $consumer->subscribeLite('lite-topic');
@@ -181,8 +164,6 @@ class LiteSimpleConsumerTest
      */
     public function testReceiveWithoutStart()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
@@ -195,8 +176,6 @@ class LiteSimpleConsumerTest
      */
     public function testAckWithoutStart()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
@@ -209,8 +188,6 @@ class LiteSimpleConsumerTest
      */
     public function testStartWhenAlreadyRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
         $consumer->subscribeLite('lite-topic');
 
@@ -218,7 +195,6 @@ class LiteSimpleConsumerTest
         $ref->setAccessible(true);
         $ref->setValue($consumer, true);
 
-        // start() should return silently when already running
         $consumer->start();
         TestRunner::assertTrue($consumer->isRunning(), "Consumer should still be running");
     }
@@ -228,8 +204,6 @@ class LiteSimpleConsumerTest
      */
     public function testLiteTopicNameTooLong()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', [
             'maxLiteTopicSize' => 10,
         ]);
@@ -244,8 +218,6 @@ class LiteSimpleConsumerTest
      */
     public function testMethodChaining()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
 
         $result = $consumer->subscribeLite('topic1');
@@ -266,8 +238,6 @@ class LiteSimpleConsumerTest
      */
     public function testGetClientId()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LiteSimpleConsumer('127.0.0.1:9876', 'test-group', 'parent-topic');
         $clientId = $consumer->getClientId();
 
@@ -283,34 +253,4 @@ class LiteSimpleConsumerTest
 }
 
 echo "=== LiteSimpleConsumerTest ===\n";
-$test = new LiteSimpleConsumerTest();
-$test->testConstructorWithNullConsumerGroup();
-echo "  [OK] testConstructorWithNullConsumerGroup\n";
-$test->testConstructorWithEmptyParentTopic();
-echo "  [OK] testConstructorWithEmptyParentTopic\n";
-$test->testConstructorWithWhitespaceParentTopic();
-echo "  [OK] testConstructorWithWhitespaceParentTopic\n";
-$test->testSubscribeLiteWithEmptyTopic();
-echo "  [OK] testSubscribeLiteWithEmptyTopic\n";
-$test->testSubscribeLiteWithWhitespaceTopic();
-echo "  [OK] testSubscribeLiteWithWhitespaceTopic\n";
-$test->testConstructorWithZeroAwaitDuration();
-echo "  [OK] testConstructorWithZeroAwaitDuration\n";
-$test->testStartWithoutLiteTopics();
-echo "  [OK] testStartWithoutLiteTopics\n";
-$test->testSubscribeLiteBeforeStart();
-echo "  [OK] testSubscribeLiteBeforeStart\n";
-$test->testUnsubscribeLiteBeforeStart();
-echo "  [OK] testUnsubscribeLiteBeforeStart\n";
-$test->testReceiveWithoutStart();
-echo "  [OK] testReceiveWithoutStart\n";
-$test->testAckWithoutStart();
-echo "  [OK] testAckWithoutStart\n";
-$test->testStartWhenAlreadyRunning();
-echo "  [OK] testStartWhenAlreadyRunning\n";
-$test->testLiteTopicNameTooLong();
-echo "  [OK] testLiteTopicNameTooLong\n";
-$test->testMethodChaining();
-echo "  [OK] testMethodChaining\n";
-$test->testGetClientId();
-echo "  [OK] testGetClientId\n";
+TestRunner::run(new LiteSimpleConsumerTest());

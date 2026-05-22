@@ -38,8 +38,8 @@ class StatusCheckerTest
      */
     public function testSuccessCodes()
     {
-        TestRunner::assertEqualsWithMessage(20000, Code::OK, "OK should be 20000");
-        TestRunner::assertEqualsWithMessage(30000, Code::MULTIPLE_RESULTS, "MULTIPLE_RESULTS should be 30000");
+        TestRunner::assertEquals(20000, Code::OK, "OK should be 20000");
+        TestRunner::assertEquals(30000, Code::MULTIPLE_RESULTS, "MULTIPLE_RESULTS should be 30000");
     }
 
     /**
@@ -85,7 +85,7 @@ class StatusCheckerTest
      */
     public function testUnauthorizedCode()
     {
-        TestRunner::assertEqualsWithMessage(40100, Code::UNAUTHORIZED, "UNAUTHORIZED should be 40100");
+        TestRunner::assertEquals(40100, Code::UNAUTHORIZED, "UNAUTHORIZED should be 40100");
     }
 
     /**
@@ -93,7 +93,7 @@ class StatusCheckerTest
      */
     public function testPaymentRequiredCode()
     {
-        TestRunner::assertEqualsWithMessage(40200, Code::PAYMENT_REQUIRED, "PAYMENT_REQUIRED should be 40200");
+        TestRunner::assertEquals(40200, Code::PAYMENT_REQUIRED, "PAYMENT_REQUIRED should be 40200");
     }
 
     /**
@@ -101,7 +101,7 @@ class StatusCheckerTest
      */
     public function testForbiddenCode()
     {
-        TestRunner::assertEqualsWithMessage(40300, Code::FORBIDDEN, "FORBIDDEN should be 40300");
+        TestRunner::assertEquals(40300, Code::FORBIDDEN, "FORBIDDEN should be 40300");
     }
 
     /**
@@ -109,11 +109,11 @@ class StatusCheckerTest
      */
     public function testNotFoundCodes()
     {
-        TestRunner::assertEqualsWithMessage(40400, Code::NOT_FOUND, "NOT_FOUND should be 40400");
-        TestRunner::assertEqualsWithMessage(40401, Code::MESSAGE_NOT_FOUND, "MESSAGE_NOT_FOUND should be 40401");
-        TestRunner::assertEqualsWithMessage(40402, Code::TOPIC_NOT_FOUND, "TOPIC_NOT_FOUND should be 40402");
-        TestRunner::assertEqualsWithMessage(40403, Code::CONSUMER_GROUP_NOT_FOUND, "CONSUMER_GROUP_NOT_FOUND should be 40403");
-        TestRunner::assertEqualsWithMessage(40404, Code::OFFSET_NOT_FOUND, "OFFSET_NOT_FOUND should be 40404");
+        TestRunner::assertEquals(40400, Code::NOT_FOUND, "NOT_FOUND should be 40400");
+        TestRunner::assertEquals(40401, Code::MESSAGE_NOT_FOUND, "MESSAGE_NOT_FOUND should be 40401");
+        TestRunner::assertEquals(40402, Code::TOPIC_NOT_FOUND, "TOPIC_NOT_FOUND should be 40402");
+        TestRunner::assertEquals(40403, Code::CONSUMER_GROUP_NOT_FOUND, "CONSUMER_GROUP_NOT_FOUND should be 40403");
+        TestRunner::assertEquals(40404, Code::OFFSET_NOT_FOUND, "OFFSET_NOT_FOUND should be 40404");
     }
 
     /**
@@ -121,9 +121,9 @@ class StatusCheckerTest
      */
     public function testPayloadTooLargeCodes()
     {
-        TestRunner::assertEqualsWithMessage(41300, Code::PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE should be 41300");
-        TestRunner::assertEqualsWithMessage(41301, Code::MESSAGE_BODY_TOO_LARGE, "MESSAGE_BODY_TOO_LARGE should be 41301");
-        TestRunner::assertEqualsWithMessage(41302, Code::MESSAGE_BODY_EMPTY, "MESSAGE_BODY_EMPTY should be 41302");
+        TestRunner::assertEquals(41300, Code::PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE should be 41300");
+        TestRunner::assertEquals(41301, Code::MESSAGE_BODY_TOO_LARGE, "MESSAGE_BODY_TOO_LARGE should be 41301");
+        TestRunner::assertEquals(41302, Code::MESSAGE_BODY_EMPTY, "MESSAGE_BODY_EMPTY should be 41302");
     }
 
     /**
@@ -131,9 +131,9 @@ class StatusCheckerTest
      */
     public function testTooManyRequestsCodes()
     {
-        TestRunner::assertEqualsWithMessage(42900, Code::TOO_MANY_REQUESTS, "TOO_MANY_REQUESTS should be 42900");
-        TestRunner::assertEqualsWithMessage(42901, Code::LITE_TOPIC_QUOTA_EXCEEDED, "LITE_TOPIC_QUOTA_EXCEEDED should be 42901");
-        TestRunner::assertEqualsWithMessage(42902, Code::LITE_SUBSCRIPTION_QUOTA_EXCEEDED, "LITE_SUBSCRIPTION_QUOTA_EXCEEDED should be 42902");
+        TestRunner::assertEquals(42900, Code::TOO_MANY_REQUESTS, "TOO_MANY_REQUESTS should be 42900");
+        TestRunner::assertEquals(42901, Code::LITE_TOPIC_QUOTA_EXCEEDED, "LITE_TOPIC_QUOTA_EXCEEDED should be 42901");
+        TestRunner::assertEquals(42902, Code::LITE_SUBSCRIPTION_QUOTA_EXCEEDED, "LITE_SUBSCRIPTION_QUOTA_EXCEEDED should be 42902");
     }
 
     /**
@@ -141,8 +141,8 @@ class StatusCheckerTest
      */
     public function testRequestHeaderTooLargeCodes()
     {
-        TestRunner::assertEqualsWithMessage(43100, Code::REQUEST_HEADER_FIELDS_TOO_LARGE, "REQUEST_HEADER_FIELDS_TOO_LARGE should be 43100");
-        TestRunner::assertEqualsWithMessage(43101, Code::MESSAGE_PROPERTIES_TOO_LARGE, "MESSAGE_PROPERTIES_TOO_LARGE should be 43101");
+        TestRunner::assertEquals(43100, Code::REQUEST_HEADER_FIELDS_TOO_LARGE, "REQUEST_HEADER_FIELDS_TOO_LARGE should be 43100");
+        TestRunner::assertEquals(43101, Code::MESSAGE_PROPERTIES_TOO_LARGE, "MESSAGE_PROPERTIES_TOO_LARGE should be 43101");
     }
 
     /**
@@ -150,9 +150,9 @@ class StatusCheckerTest
      */
     public function testInternalErrorCodes()
     {
-        TestRunner::assertEqualsWithMessage(50000, Code::INTERNAL_ERROR, "INTERNAL_ERROR should be 50000");
-        TestRunner::assertEqualsWithMessage(50001, Code::INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR should be 50001");
-        TestRunner::assertEqualsWithMessage(50002, Code::HA_NOT_AVAILABLE, "HA_NOT_AVAILABLE should be 50002");
+        TestRunner::assertEquals(50000, Code::INTERNAL_ERROR, "INTERNAL_ERROR should be 50000");
+        TestRunner::assertEquals(50001, Code::INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR should be 50001");
+        TestRunner::assertEquals(50002, Code::HA_NOT_AVAILABLE, "HA_NOT_AVAILABLE should be 50002");
     }
 
     /**
@@ -160,9 +160,9 @@ class StatusCheckerTest
      */
     public function testProxyTimeoutCodes()
     {
-        TestRunner::assertEqualsWithMessage(50400, Code::PROXY_TIMEOUT, "PROXY_TIMEOUT should be 50400");
-        TestRunner::assertEqualsWithMessage(50401, Code::MASTER_PERSISTENCE_TIMEOUT, "MASTER_PERSISTENCE_TIMEOUT should be 50401");
-        TestRunner::assertEqualsWithMessage(50402, Code::SLAVE_PERSISTENCE_TIMEOUT, "SLAVE_PERSISTENCE_TIMEOUT should be 50402");
+        TestRunner::assertEquals(50400, Code::PROXY_TIMEOUT, "PROXY_TIMEOUT should be 50400");
+        TestRunner::assertEquals(50401, Code::MASTER_PERSISTENCE_TIMEOUT, "MASTER_PERSISTENCE_TIMEOUT should be 50401");
+        TestRunner::assertEquals(50402, Code::SLAVE_PERSISTENCE_TIMEOUT, "SLAVE_PERSISTENCE_TIMEOUT should be 50402");
     }
 
     /**
@@ -170,9 +170,9 @@ class StatusCheckerTest
      */
     public function testUnsupportedCodes()
     {
-        TestRunner::assertEqualsWithMessage(50500, Code::UNSUPPORTED, "UNSUPPORTED should be 50500");
-        TestRunner::assertEqualsWithMessage(50501, Code::VERSION_UNSUPPORTED, "VERSION_UNSUPPORTED should be 50501");
-        TestRunner::assertEqualsWithMessage(50502, Code::VERIFY_FIFO_MESSAGE_UNSUPPORTED, "VERIFY_FIFO_MESSAGE_UNSUPPORTED should be 50502");
+        TestRunner::assertEquals(50500, Code::UNSUPPORTED, "UNSUPPORTED should be 50500");
+        TestRunner::assertEquals(50501, Code::VERSION_UNSUPPORTED, "VERSION_UNSUPPORTED should be 50501");
+        TestRunner::assertEquals(50502, Code::VERIFY_FIFO_MESSAGE_UNSUPPORTED, "VERIFY_FIFO_MESSAGE_UNSUPPORTED should be 50502");
     }
 
     /**
@@ -252,7 +252,7 @@ class StatusCheckerTest
 
         foreach ($tests as [$code, $expectedCategory]) {
             $actualCategory = self::getStatusCodeCategory($code);
-            TestRunner::assertEqualsWithMessage(
+            TestRunner::assertEquals(
                 $expectedCategory,
                 $actualCategory,
                 "Code " . Code::name($code) . " ({$code}) should be categorized as {$expectedCategory}"
@@ -314,35 +314,4 @@ class StatusCheckerTest
     }
 }
 
-echo "=== StatusCheckerTest ===\n";
-$test = new StatusCheckerTest();
-$test->testSuccessCodes();
-echo "  [OK] testSuccessCodes\n";
-$test->testBadRequestCodes();
-echo "  [OK] testBadRequestCodes\n";
-$test->testUnauthorizedCode();
-echo "  [OK] testUnauthorizedCode\n";
-$test->testPaymentRequiredCode();
-echo "  [OK] testPaymentRequiredCode\n";
-$test->testForbiddenCode();
-echo "  [OK] testForbiddenCode\n";
-$test->testNotFoundCodes();
-echo "  [OK] testNotFoundCodes\n";
-$test->testPayloadTooLargeCodes();
-echo "  [OK] testPayloadTooLargeCodes\n";
-$test->testTooManyRequestsCodes();
-echo "  [OK] testTooManyRequestsCodes\n";
-$test->testRequestHeaderTooLargeCodes();
-echo "  [OK] testRequestHeaderTooLargeCodes\n";
-$test->testInternalErrorCodes();
-echo "  [OK] testInternalErrorCodes\n";
-$test->testProxyTimeoutCodes();
-echo "  [OK] testProxyTimeoutCodes\n";
-$test->testUnsupportedCodes();
-echo "  [OK] testUnsupportedCodes\n";
-$test->testAllCodeNamesAreValid();
-echo "  [OK] testAllCodeNamesAreValid\n";
-$test->testInvalidCodeNameThrows();
-echo "  [OK] testInvalidCodeNameThrows\n";
-$test->testStatusCodeCategoryHelper();
-echo "  [OK] testStatusCodeCategoryHelper\n";
+TestRunner::run(new StatusCheckerTest());

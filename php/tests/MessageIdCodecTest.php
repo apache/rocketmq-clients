@@ -24,13 +24,12 @@ require_once __DIR__ . '/../MessageIdImpl.php';
 require_once __DIR__ . '/../MessageIdCodec.php';
 
 use Apache\Rocketmq\MessageIdCodec;
-use Apache\Rocketmq\Test\TestRunner;
 
 class MessageIdCodecTest
 {
     private $codec;
 
-    public function __construct()
+    public function setUp(): void
     {
         $this->codec = MessageIdCodec::getInstance();
     }
@@ -38,7 +37,7 @@ class MessageIdCodecTest
     public function testNextMessageId()
     {
         $messageId = $this->codec->nextMessageId();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             MessageIdCodec::MESSAGE_ID_LENGTH_FOR_V1_OR_LATER,
             strlen($messageId->toString()),
             "Message ID length should be " . MessageIdCodec::MESSAGE_ID_LENGTH_FOR_V1_OR_LATER
@@ -53,7 +52,7 @@ class MessageIdCodecTest
             $id = $this->codec->nextMessageId()->toString();
             $messageIds[$id] = true;
         }
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             $messageIdCount,
             count($messageIds),
             "All {$messageIdCount} message IDs should be unique"
@@ -64,12 +63,12 @@ class MessageIdCodecTest
     {
         $messageIdString = "0156F7E71C361B21BC024CCDBE00000000";
         $messageId = $this->codec->decode($messageIdString);
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             MessageIdCodec::MESSAGE_ID_VERSION_V1,
             $messageId->getVersion(),
             "Version should be V1"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             $messageIdString,
             $messageId->toString(),
             "Decoded message ID should match original"
@@ -78,10 +77,4 @@ class MessageIdCodecTest
 }
 
 echo "=== MessageIdCodecTest ===\n";
-$test = new MessageIdCodecTest();
-$test->testNextMessageId();
-echo "  [OK] testNextMessageId\n";
-$test->testNextMessageIdWithNoRepetition();
-echo "  [OK] testNextMessageIdWithNoRepetition\n";
-$test->testDecode();
-echo "  [OK] testDecode\n";
+TestRunner::run(new MessageIdCodecTest());

@@ -31,24 +31,24 @@ class ExponentialBackoffRetryPolicyTest
     public function testDefaultPolicy()
     {
         $policy = new ExponentialBackoffRetryPolicy();
-        TestRunner::assertEqualsWithMessage(3, $policy->getMaxAttempts(), "Default max attempts should be 3");
+        TestRunner::assertEquals(3, $policy->getMaxAttempts(), "Default max attempts should be 3");
 
         $delay1 = $policy->getNextDelayMs(1);
-        TestRunner::assertEqualsWithMessage(1000, $delay1, "Attempt 1 delay should be base (1000ms)");
+        TestRunner::assertEquals(1000, $delay1, "Attempt 1 delay should be base (1000ms)");
 
         $delay2 = $policy->getNextDelayMs(2);
-        TestRunner::assertEqualsWithMessage(2000, $delay2, "Attempt 2 delay should be 2000ms (1000 * 2)");
+        TestRunner::assertEquals(2000, $delay2, "Attempt 2 delay should be 2000ms (1000 * 2)");
     }
 
     public function testExponentialGrowth()
     {
         $policy = new ExponentialBackoffRetryPolicy(5, 100, 10000, 2.0);
 
-        TestRunner::assertEqualsWithMessage(100, $policy->getNextDelayMs(1), "Attempt 1 should be 100ms");
-        TestRunner::assertEqualsWithMessage(200, $policy->getNextDelayMs(2), "Attempt 2 should be 200ms");
-        TestRunner::assertEqualsWithMessage(400, $policy->getNextDelayMs(3), "Attempt 3 should be 400ms");
-        TestRunner::assertEqualsWithMessage(800, $policy->getNextDelayMs(4), "Attempt 4 should be 800ms");
-        TestRunner::assertEqualsWithMessage(0, $policy->getNextDelayMs(5), "Attempt 5 should be 0 (at max)");
+        TestRunner::assertEquals(100, $policy->getNextDelayMs(1), "Attempt 1 should be 100ms");
+        TestRunner::assertEquals(200, $policy->getNextDelayMs(2), "Attempt 2 should be 200ms");
+        TestRunner::assertEquals(400, $policy->getNextDelayMs(3), "Attempt 3 should be 400ms");
+        TestRunner::assertEquals(800, $policy->getNextDelayMs(4), "Attempt 4 should be 800ms");
+        TestRunner::assertEquals(0, $policy->getNextDelayMs(5), "Attempt 5 should be 0 (at max)");
     }
 
     public function testMaxDelayCap()
@@ -56,13 +56,13 @@ class ExponentialBackoffRetryPolicyTest
         $policy = new ExponentialBackoffRetryPolicy(10, 1000, 5000, 3.0);
 
         $delay1 = $policy->getNextDelayMs(1);
-        TestRunner::assertEqualsWithMessage(1000, $delay1, "Attempt 1 should be 1000ms");
+        TestRunner::assertEquals(1000, $delay1, "Attempt 1 should be 1000ms");
 
         $delay2 = $policy->getNextDelayMs(2);
-        TestRunner::assertEqualsWithMessage(3000, $delay2, "Attempt 2 should be 3000ms");
+        TestRunner::assertEquals(3000, $delay2, "Attempt 2 should be 3000ms");
 
         $delay3 = $policy->getNextDelayMs(3);
-        TestRunner::assertEqualsWithMessage(5000, $delay3, "Attempt 3 should be capped at 5000ms");
+        TestRunner::assertEquals(5000, $delay3, "Attempt 3 should be capped at 5000ms");
     }
 
     public function testWithJitter()
@@ -93,28 +93,28 @@ class CustomizedBackoffRetryPolicyTest
     {
         $policy = new CustomizedBackoffRetryPolicy(4, [1000, 5000, 10000]);
 
-        TestRunner::assertEqualsWithMessage(4, $policy->getMaxAttempts(), "Max attempts should be 4");
-        TestRunner::assertEqualsWithMessage(1000, $policy->getNextDelayMs(1), "Attempt 1 should be 1000ms");
-        TestRunner::assertEqualsWithMessage(5000, $policy->getNextDelayMs(2), "Attempt 2 should be 5000ms");
-        TestRunner::assertEqualsWithMessage(10000, $policy->getNextDelayMs(3), "Attempt 3 should be 10000ms");
-        TestRunner::assertEqualsWithMessage(0, $policy->getNextDelayMs(4), "Attempt 4 should be 0 (at max)");
+        TestRunner::assertEquals(4, $policy->getMaxAttempts(), "Max attempts should be 4");
+        TestRunner::assertEquals(1000, $policy->getNextDelayMs(1), "Attempt 1 should be 1000ms");
+        TestRunner::assertEquals(5000, $policy->getNextDelayMs(2), "Attempt 2 should be 5000ms");
+        TestRunner::assertEquals(10000, $policy->getNextDelayMs(3), "Attempt 3 should be 10000ms");
+        TestRunner::assertEquals(0, $policy->getNextDelayMs(4), "Attempt 4 should be 0 (at max)");
     }
 
     public function testCyclesThroughDelays()
     {
         $policy = new CustomizedBackoffRetryPolicy(10, [100, 200]);
 
-        TestRunner::assertEqualsWithMessage(100, $policy->getNextDelayMs(1), "Attempt 1 should be 100ms");
-        TestRunner::assertEqualsWithMessage(200, $policy->getNextDelayMs(2), "Attempt 2 should be 200ms");
-        TestRunner::assertEqualsWithMessage(100, $policy->getNextDelayMs(3), "Attempt 3 should cycle back to 100ms");
-        TestRunner::assertEqualsWithMessage(200, $policy->getNextDelayMs(4), "Attempt 4 should be 200ms");
+        TestRunner::assertEquals(100, $policy->getNextDelayMs(1), "Attempt 1 should be 100ms");
+        TestRunner::assertEquals(200, $policy->getNextDelayMs(2), "Attempt 2 should be 200ms");
+        TestRunner::assertEquals(100, $policy->getNextDelayMs(3), "Attempt 3 should cycle back to 100ms");
+        TestRunner::assertEquals(200, $policy->getNextDelayMs(4), "Attempt 4 should be 200ms");
     }
 
     public function testEmptyDelays()
     {
         $policy = new CustomizedBackoffRetryPolicy(3, []);
 
-        TestRunner::assertEqualsWithMessage(0, $policy->getNextDelayMs(1), "Empty delays should return 0");
+        TestRunner::assertEquals(0, $policy->getNextDelayMs(1), "Empty delays should return 0");
     }
 
     public function testRejectsNegativeMaxAttempts()
@@ -145,12 +145,12 @@ class CustomizedBackoffRetryPolicyTest
 
         $policy = CustomizedBackoffRetryPolicy::fromProtobuf($retryPolicyPb);
 
-        TestRunner::assertEqualsWithMessage(3, $policy->getMaxAttempts(), "Max attempts should be 3");
+        TestRunner::assertEquals(3, $policy->getMaxAttempts(), "Max attempts should be 3");
         $durations = $policy->getDurations();
-        TestRunner::assertEqualsWithMessage(3, count($durations), "Should have 3 durations");
-        TestRunner::assertEqualsWithMessage(1000, $durations[0], "First duration should be 1000ms");
-        TestRunner::assertEqualsWithMessage(2000, $durations[1], "Second duration should be 2000ms");
-        TestRunner::assertEqualsWithMessage(3000, $durations[2], "Third duration should be 3000ms");
+        TestRunner::assertEquals(3, count($durations), "Should have 3 durations");
+        TestRunner::assertEquals(1000, $durations[0], "First duration should be 1000ms");
+        TestRunner::assertEquals(2000, $durations[1], "Second duration should be 2000ms");
+        TestRunner::assertEquals(3000, $durations[2], "Third duration should be 3000ms");
     }
 
     /**
@@ -176,7 +176,7 @@ class CustomizedBackoffRetryPolicyTest
         $policy = new CustomizedBackoffRetryPolicy(3, [1000, 2000]);
         $protobuf = $policy->toProtobuf();
 
-        TestRunner::assertEqualsWithMessage(3, $protobuf->getMaxAttempts(), "Max attempts should be 3");
+        TestRunner::assertEquals(3, $protobuf->getMaxAttempts(), "Max attempts should be 3");
         TestRunner::assertTrue(
             $protobuf->hasCustomizedBackoff(),
             "Should have customized backoff"
@@ -184,12 +184,12 @@ class CustomizedBackoffRetryPolicyTest
 
         $backoff = $protobuf->getCustomizedBackoff();
         $nextList = iterator_to_array($backoff->getNext());
-        TestRunner::assertEqualsWithMessage(2, count($nextList), "Should have 2 durations");
+        TestRunner::assertEquals(2, count($nextList), "Should have 2 durations");
 
         $d0Secs = $nextList[0]->getSeconds();
         $d1Secs = $nextList[1]->getSeconds();
-        TestRunner::assertEqualsWithMessage(1, $d0Secs, "First duration should be 1s");
-        TestRunner::assertEqualsWithMessage(2, $d1Secs, "Second duration should be 2s");
+        TestRunner::assertEquals(1, $d0Secs, "First duration should be 1s");
+        TestRunner::assertEquals(2, $d1Secs, "Second duration should be 2s");
     }
 
     /**
@@ -216,16 +216,16 @@ class CustomizedBackoffRetryPolicyTest
         $clientPolicy = new CustomizedBackoffRetryPolicy(3, [3000, 2000, 1000]);
         $inherited = $clientPolicy->inheritBackoff($serverPolicyPb);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             3,
             $inherited->getMaxAttempts(),
             "Should keep own maxAttempts (3)"
         );
         $inheritedDurations = $inherited->getDurations();
-        TestRunner::assertEqualsWithMessage(3, count($inheritedDurations), "Should have 3 inherited durations");
-        TestRunner::assertEqualsWithMessage(1000, $inheritedDurations[0], "First should be server's 1000ms");
-        TestRunner::assertEqualsWithMessage(2000, $inheritedDurations[1], "Second should be server's 2000ms");
-        TestRunner::assertEqualsWithMessage(3000, $inheritedDurations[2], "Third should be server's 3000ms");
+        TestRunner::assertEquals(3, count($inheritedDurations), "Should have 3 inherited durations");
+        TestRunner::assertEquals(1000, $inheritedDurations[0], "First should be server's 1000ms");
+        TestRunner::assertEquals(2000, $inheritedDurations[1], "Second should be server's 2000ms");
+        TestRunner::assertEquals(3000, $inheritedDurations[2], "Third should be server's 3000ms");
     }
 
     /**
@@ -245,36 +245,5 @@ class CustomizedBackoffRetryPolicyTest
     }
 }
 
-echo "=== ExponentialBackoffRetryPolicyTest ===\n";
-$test = new ExponentialBackoffRetryPolicyTest();
-$test->testDefaultPolicy();
-echo "  [OK] testDefaultPolicy\n";
-$test->testExponentialGrowth();
-echo "  [OK] testExponentialGrowth\n";
-$test->testMaxDelayCap();
-echo "  [OK] testMaxDelayCap\n";
-$test->testWithJitter();
-echo "  [OK] testWithJitter\n";
-$test->testRejectsNegativeMaxAttempts();
-echo "  [OK] testRejectsNegativeMaxAttempts\n";
-
-echo "\n=== CustomizedBackoffRetryPolicyTest ===\n";
-$test = new CustomizedBackoffRetryPolicyTest();
-$test->testCustomDelays();
-echo "  [OK] testCustomDelays\n";
-$test->testCyclesThroughDelays();
-echo "  [OK] testCyclesThroughDelays\n";
-$test->testEmptyDelays();
-echo "  [OK] testEmptyDelays\n";
-$test->testRejectsNegativeMaxAttempts();
-echo "  [OK] testRejectsNegativeMaxAttempts\n";
-$test->testFromProtobuf();
-echo "  [OK] testFromProtobuf\n";
-$test->testFromProtobufWithoutCustomizedBackoff();
-echo "  [OK] testFromProtobufWithoutCustomizedBackoff\n";
-$test->testToProtobuf();
-echo "  [OK] testToProtobuf\n";
-$test->testInheritBackoff();
-echo "  [OK] testInheritBackoff\n";
-$test->testInheritBackoffWithoutCustomizedBackoff();
-echo "  [OK] testInheritBackoffWithoutCustomizedBackoff\n";
+TestRunner::run(new ExponentialBackoffRetryPolicyTest());
+TestRunner::run(new CustomizedBackoffRetryPolicyTest());

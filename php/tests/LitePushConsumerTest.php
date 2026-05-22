@@ -30,13 +30,16 @@ use Apache\Rocketmq\LitePushConsumer;
  */
 class LitePushConsumerTest
 {
+    public function setUp(): void
+    {
+        \Apache\Rocketmq\Logger::close();
+    }
+
     /**
      * Mirrors Java: testSetConsumerGroupWithNull
      */
     public function testConstructorWithNullConsumerGroup()
     {
-        \Apache\Rocketmq\Logger::close();
-
         TestRunner::assertThrows(\InvalidArgumentException::class, function() {
             new LitePushConsumer('127.0.0.1:9876', '', 'parent-topic');
         }, "Empty consumer group should throw");
@@ -47,8 +50,6 @@ class LitePushConsumerTest
      */
     public function testConstructorWithNullParentTopic()
     {
-        \Apache\Rocketmq\Logger::close();
-
         TestRunner::assertThrows(\InvalidArgumentException::class, function() {
             new LitePushConsumer('127.0.0.1:9876', 'test-group', '');
         }, "Empty parent topic should throw");
@@ -56,12 +57,9 @@ class LitePushConsumerTest
 
     /**
      * Mirrors Java: testSetMessageListenerWithNull
-     * PHP: start() without messageListener should throw.
      */
     public function testStartWithoutMessageListener()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LitePushConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', []);
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
@@ -74,8 +72,6 @@ class LitePushConsumerTest
      */
     public function testNegativeMaxCacheMessageCount()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LitePushConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', [
             'maxCacheMessageCount' => -1,
             'messageListener' => function($msg) { return 0; },
@@ -93,8 +89,6 @@ class LitePushConsumerTest
      */
     public function testNegativeMaxCacheMessageSizeInBytes()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LitePushConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', [
             'maxCacheMessageSizeInBytes' => -1,
             'messageListener' => function($msg) { return 0; },
@@ -109,17 +103,13 @@ class LitePushConsumerTest
 
     /**
      * Mirrors Java: testBuildWithoutClientConfiguration
-     * PHP: LitePushConsumer without lite topics should throw at start.
      */
     public function testStartWithoutLiteTopics()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LitePushConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', [
             'messageListener' => function($msg) { return 0; },
         ]);
 
-        // No lite topics subscribed - should throw
         TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
             $consumer->start();
         }, "Start without lite topics should throw");
@@ -130,8 +120,6 @@ class LitePushConsumerTest
      */
     public function testSubscribeLiteBeforeStart()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LitePushConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', [
             'messageListener' => function($msg) { return 0; },
         ]);
@@ -140,7 +128,7 @@ class LitePushConsumerTest
         $consumer->subscribeLite('lite-topic-2');
 
         $topics = $consumer->getLiteTopics();
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             2,
             count($topics),
             "Should have 2 lite topics"
@@ -160,8 +148,6 @@ class LitePushConsumerTest
      */
     public function testUnsubscribeLiteBeforeStart()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LitePushConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', [
             'messageListener' => function($msg) { return 0; },
         ]);
@@ -181,8 +167,6 @@ class LitePushConsumerTest
      */
     public function testLiteTopicNameTooLong()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LitePushConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', [
             'maxLiteTopicSize' => 10,
             'messageListener' => function($msg) { return 0; },
@@ -198,8 +182,6 @@ class LitePushConsumerTest
      */
     public function testIsLiteConsumer()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $consumer = new LitePushConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', [
             'messageListener' => function($msg) { return 0; },
         ]);
@@ -212,24 +194,4 @@ class LitePushConsumerTest
 }
 
 echo "=== LitePushConsumerTest ===\n";
-$test = new LitePushConsumerTest();
-$test->testConstructorWithNullConsumerGroup();
-echo "  [OK] testConstructorWithNullConsumerGroup\n";
-$test->testConstructorWithNullParentTopic();
-echo "  [OK] testConstructorWithNullParentTopic\n";
-$test->testStartWithoutMessageListener();
-echo "  [OK] testStartWithoutMessageListener\n";
-$test->testNegativeMaxCacheMessageCount();
-echo "  [OK] testNegativeMaxCacheMessageCount\n";
-$test->testNegativeMaxCacheMessageSizeInBytes();
-echo "  [OK] testNegativeMaxCacheMessageSizeInBytes\n";
-$test->testStartWithoutLiteTopics();
-echo "  [OK] testStartWithoutLiteTopics\n";
-$test->testSubscribeLiteBeforeStart();
-echo "  [OK] testSubscribeLiteBeforeStart\n";
-$test->testUnsubscribeLiteBeforeStart();
-echo "  [OK] testUnsubscribeLiteBeforeStart\n";
-$test->testLiteTopicNameTooLong();
-echo "  [OK] testLiteTopicNameTooLong\n";
-$test->testIsLiteConsumer();
-echo "  [OK] testIsLiteConsumer\n";
+TestRunner::run(new LitePushConsumerTest());

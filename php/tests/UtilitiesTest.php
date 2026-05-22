@@ -19,68 +19,53 @@
 namespace Apache\Rocketmq\Test;
 
 require_once __DIR__ . '/TestRunner.php';
-require_once __DIR__ . '/../Logger.php';
 
 /**
  * Tests for utility functions (compression, checksums).
- * Mirrors Java's UtilitiesTest.
  */
 class UtilitiesTest
 {
     private $body = 'foobar';
 
-    /**
-     * Mirrors Java: testCompressAndUncompressByteArray
-     * Tests ZLIB compress/decompress round-trip.
-     */
     public function testCompressDecompressZlib()
     {
         $bytes = $this->body;
         $compressed = gzcompress($bytes, 5);
         $original = gzuncompress($compressed);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             $this->body,
             $original,
             "ZLIB compress/decompress round-trip should restore original"
         );
     }
 
-    /**
-     * Tests GZIP compress/decompress round-trip.
-     */
     public function testCompressDecompressGzip()
     {
         $bytes = $this->body;
         $compressed = gzencode($bytes);
         $original = gzdecode($compressed);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             $this->body,
             $original,
             "GZIP compress/decompress round-trip should restore original"
         );
     }
 
-    /**
-     * Tests DEFLATE compress/decompress round-trip.
-     */
     public function testCompressDecompressDeflate()
     {
         $bytes = $this->body;
         $compressed = gzdeflate($bytes, 5);
         $original = gzinflate($compressed);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             $this->body,
             $original,
             "DEFLATE compress/decompress round-trip should restore original"
         );
     }
 
-    /**
-     * Tests that corrupt data fails decompression.
-     */
     public function testDecompressCorruptData()
     {
         TestRunner::assertFalse(
@@ -89,55 +74,40 @@ class UtilitiesTest
         );
     }
 
-    /**
-     * Mirrors Java: testCrc32CheckSum
-     * CRC32 of "foobar" should be 9EF61F95 (unsigned, uppercase hex).
-     */
     public function testCrc32CheckSum()
     {
         $crc32 = sprintf('%u', crc32($this->body));
         $hex = strtoupper(dechex($crc32));
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             '9EF61F95',
             $hex,
             "CRC32 of 'foobar' should be 9EF61F95"
         );
     }
 
-    /**
-     * Mirrors Java: testMd5CheckSum
-     * MD5 of "foobar" should be 3858F62230AC3C915F300C664312C63F.
-     */
     public function testMd5CheckSum()
     {
         $md5 = strtoupper(md5($this->body));
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             '3858F62230AC3C915F300C664312C63F',
             $md5,
             "MD5 of 'foobar' should be 3858F62230AC3C915F300C664312C63F"
         );
     }
 
-    /**
-     * Mirrors Java: testSha1CheckSum
-     * SHA1 of "foobar" should be 8843D7F92416211DE9EBB963FF4CE28125932878.
-     */
     public function testSha1CheckSum()
     {
         $sha1 = strtoupper(sha1($this->body));
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             '8843D7F92416211DE9EBB963FF4CE28125932878',
             $sha1,
             "SHA1 of 'foobar' should be 8843D7F92416211DE9EBB963FF4CE28125932878"
         );
     }
 
-    /**
-     * Tests that checksums are case-insensitive when comparing.
-     */
     public function testChecksumCaseInsensitiveComparison()
     {
         $md5Upper = strtoupper(md5($this->body));
@@ -149,9 +119,6 @@ class UtilitiesTest
         );
     }
 
-    /**
-     * Tests that different inputs produce different checksums.
-     */
     public function testDifferentInputsDifferentChecksums()
     {
         $crc1 = sprintf('%u', crc32('hello'));
@@ -163,9 +130,6 @@ class UtilitiesTest
         );
     }
 
-    /**
-     * Mirrors Java: testStackTrace - PHP equivalent using debug_backtrace.
-     */
     public function testStackTrace()
     {
         $stackTrace = debug_backtrace();
@@ -175,9 +139,6 @@ class UtilitiesTest
         );
     }
 
-    /**
-     * Mirrors Java: testGetJavaDescription - PHP equivalent using PHP_VERSION.
-     */
     public function testPhpDescription()
     {
         $description = PHP_VERSION;
@@ -187,9 +148,6 @@ class UtilitiesTest
         );
     }
 
-    /**
-     * Tests PHP_INT_MAX for understanding platform limits.
-     */
     public function testMaxIntValue()
     {
         // PHP_INT_MAX should be large enough for message size calculations
@@ -199,9 +157,6 @@ class UtilitiesTest
         );
     }
 
-    /**
-     * Tests empty string checksums.
-     */
     public function testEmptyStringChecksums()
     {
         $crc32 = sprintf('%u', crc32(''));
@@ -216,30 +171,4 @@ class UtilitiesTest
 }
 
 echo "=== UtilitiesTest ===\n";
-$test = new UtilitiesTest();
-$test->testCompressDecompressZlib();
-echo "  [OK] testCompressDecompressZlib\n";
-$test->testCompressDecompressGzip();
-echo "  [OK] testCompressDecompressGzip\n";
-$test->testCompressDecompressDeflate();
-echo "  [OK] testCompressDecompressDeflate\n";
-$test->testDecompressCorruptData();
-echo "  [OK] testDecompressCorruptData\n";
-$test->testCrc32CheckSum();
-echo "  [OK] testCrc32CheckSum\n";
-$test->testMd5CheckSum();
-echo "  [OK] testMd5CheckSum\n";
-$test->testSha1CheckSum();
-echo "  [OK] testSha1CheckSum\n";
-$test->testChecksumCaseInsensitiveComparison();
-echo "  [OK] testChecksumCaseInsensitiveComparison\n";
-$test->testDifferentInputsDifferentChecksums();
-echo "  [OK] testDifferentInputsDifferentChecksums\n";
-$test->testStackTrace();
-echo "  [OK] testStackTrace\n";
-$test->testPhpDescription();
-echo "  [OK] testPhpDescription\n";
-$test->testMaxIntValue();
-echo "  [OK] testMaxIntValue\n";
-$test->testEmptyStringChecksums();
-echo "  [OK] testEmptyStringChecksums\n";
+TestRunner::run(new UtilitiesTest());

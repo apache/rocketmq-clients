@@ -47,22 +47,22 @@ class SignatureTest
         );
 
         TestRunner::assertNotNull($metadata, "Metadata should not be empty");
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'test-client-id',
             $metadata['x-mq-client-id'][0],
             "Client ID should match"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'PHP',
             $metadata['x-mq-language'][0],
             "Language should be PHP"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'v2',
             $metadata['x-mq-protocol'][0],
             "Protocol should be v2"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'my-namespace',
             $metadata['x-mq-namespace'][0],
             "Namespace should match"
@@ -142,7 +142,7 @@ class SignatureTest
             isset($metadata['x-mq-session-token']),
             "x-mq-session-token should be present with STS credentials"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'sts-token-xyz',
             $metadata['x-mq-session-token'][0],
             "Session token value should match"
@@ -199,7 +199,7 @@ class SignatureTest
         // We can't guarantee same datetime, but we can verify structure
         $auth1 = $metadata1['authorization'][0];
         TestRunner::assertTrue(
-            preg_match('/MQv2-HMAC-SHA1.*Signature=[0-9a-f]{40}$/', $auth1) === 1,
+            preg_match('/MQv2-HMAC-SHA1.*Signature=[0-9A-F]{40}$/', $auth1) === 1,
             "Signature should be 40 hex chars (SHA1)"
         );
     }
@@ -231,17 +231,17 @@ class SignatureTest
     {
         $credentials = new SessionCredentials('ak-val', 'sk-val', 'sts-val');
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'ak-val',
             $credentials->getAccessKey(),
             "Access key should match"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'sk-val',
             $credentials->getAccessSecret(),
             "Secret key should match"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'sts-val',
             $credentials->getSecurityToken(),
             "Security token should match"
@@ -262,25 +262,4 @@ class SignatureTest
     }
 }
 
-echo "=== SignatureTest ===\n";
-$test = new SignatureTest();
-$test->testSignWithoutCredentials();
-echo "  [OK] testSignWithoutCredentials\n";
-$test->testSignWithCredentials();
-echo "  [OK] testSignWithCredentials\n";
-$test->testSignWithSecurityToken();
-echo "  [OK] testSignWithSecurityToken\n";
-$test->testDateTimeFormat();
-echo "  [OK] testDateTimeFormat\n";
-$test->testRequestIdFormat();
-echo "  [OK] testRequestIdFormat\n";
-$test->testSignatureIsDeterministic();
-echo "  [OK] testSignatureIsDeterministic\n";
-$test->testSessionCredentialsRejectsEmptyAccessKey();
-echo "  [OK] testSessionCredentialsRejectsEmptyAccessKey\n";
-$test->testSessionCredentialsRejectsEmptySecretKey();
-echo "  [OK] testSessionCredentialsRejectsEmptySecretKey\n";
-$test->testSessionCredentialsStoresAll();
-echo "  [OK] testSessionCredentialsStoresAll\n";
-$test->testSessionCredentialsWithoutSts();
-echo "  [OK] testSessionCredentialsWithoutSts\n";
+TestRunner::run(new SignatureTest());

@@ -22,22 +22,26 @@ require_once __DIR__ . '/TestRunner.php';
 require_once __DIR__ . '/../Logger.php';
 
 use Apache\Rocketmq\Logger;
-use Apache\Rocketmq\Test\TestRunner;
 
 class LoggerTest
 {
     private $testLogFile;
 
-    public function __construct()
+    public function setUp(): void
     {
         $this->testLogFile = sys_get_temp_dir() . '/rocketmq_test_logger_' . uniqid() . '.log';
     }
 
+    public function tearDown(): void
+    {
+        Logger::close();
+        if (file_exists($this->testLogFile)) {
+            @unlink($this->testLogFile);
+        }
+    }
+
     public function testSingleton()
     {
-        // Reset logger for test
-        Logger::close();
-
         Logger::setLogFile($this->testLogFile);
         $logger1 = Logger::getInstance('TestComponent');
         $logger2 = Logger::getInstance('TestComponent');
@@ -47,7 +51,6 @@ class LoggerTest
 
     public function testDifferentComponents()
     {
-        Logger::close();
         Logger::setLogFile($this->testLogFile);
 
         $logger1 = Logger::getInstance('ComponentA');
@@ -58,7 +61,6 @@ class LoggerTest
 
     public function testLogLevelFiltering()
     {
-        Logger::close();
         Logger::setLogFile($this->testLogFile);
         Logger::setLogLevel(Logger::LEVEL_ERROR);
 
@@ -67,7 +69,6 @@ class LoggerTest
         $logger->info('This should not be logged');
         $logger->warning('This should not be logged');
 
-        // Read log file - should be empty or only contain prior test entries
         $content = '';
         if (file_exists($this->testLogFile)) {
             $content = file_get_contents($this->testLogFile) ?: '';
@@ -80,7 +81,6 @@ class LoggerTest
 
     public function testLogLevelWrite()
     {
-        Logger::close();
         Logger::setLogFile($this->testLogFile);
         Logger::setLogLevel(Logger::LEVEL_DEBUG);
 
@@ -97,7 +97,6 @@ class LoggerTest
 
     public function testLogFormat()
     {
-        Logger::close();
         Logger::setLogFile($this->testLogFile);
         Logger::setLogLevel(Logger::LEVEL_DEBUG);
 
@@ -106,32 +105,13 @@ class LoggerTest
         $logger->info($marker);
 
         $content = file_get_contents($this->testLogFile) ?: '';
-        // Check log format: [YYYY-MM-DD HH:MM:SS.mmm] [LEVEL] [Component] message
         $expectedPattern = "/\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] \[INFO\] \[FormatTest\] {$marker}/";
         TestRunner::assertTrue(
             preg_match($expectedPattern, $content) === 1,
             "Log line should match expected format"
         );
     }
-
-    public function cleanup()
-    {
-        if (file_exists($this->testLogFile)) {
-            @unlink($this->testLogFile);
-        }
-    }
 }
 
 echo "=== LoggerTest ===\n";
-$test = new LoggerTest();
-$test->testSingleton();
-echo "  [OK] testSingleton\n";
-$test->testDifferentComponents();
-echo "  [OK] testDifferentComponents\n";
-$test->testLogLevelFiltering();
-echo "  [OK] testLogLevelFiltering\n";
-$test->testLogLevelWrite();
-echo "  [OK] testLogLevelWrite\n";
-$test->testLogFormat();
-echo "  [OK] testLogFormat\n";
-Logger::close();
+TestRunner::run(new LoggerTest());

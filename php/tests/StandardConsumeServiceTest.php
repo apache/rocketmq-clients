@@ -106,6 +106,11 @@ class FakeConsumerForConsume
 
 class StandardConsumeServiceTest
 {
+    public function setUp(): void
+    {
+        \Apache\Rocketmq\Logger::close();
+    }
+
     /**
      * Test consumeMessage dispatch logic via reflection.
      * This mirrors Java's StandardConsumeServiceTest.testDispatch() which is empty
@@ -113,7 +118,6 @@ class StandardConsumeServiceTest
      */
     public function testConsumeMessageReturnsSuccess()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForConsume();
         $logger = \Apache\Rocketmq\Logger::getInstance('StdConsumeDispatch');
 
@@ -128,7 +132,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $result = $method->invoke($service, $msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "consumeMessage should return SUCCESS when listener returns SUCCESS"
@@ -137,7 +141,6 @@ class StandardConsumeServiceTest
 
     public function testConsumeMessageReturnsFailure()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForConsume();
         $logger = \Apache\Rocketmq\Logger::getInstance('StdConsumeFail');
 
@@ -152,7 +155,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $result = $method->invoke($service, $msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "consumeMessage should return FAILURE when listener returns FAILURE"
@@ -161,7 +164,6 @@ class StandardConsumeServiceTest
 
     public function testConsumeMessageCatchesException()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForConsume();
         $logger = \Apache\Rocketmq\Logger::getInstance('StdConsumeException');
 
@@ -176,7 +178,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $result = $method->invoke($service, $msg);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "consumeMessage should return FAILURE when listener throws exception"
@@ -185,7 +187,6 @@ class StandardConsumeServiceTest
 
     public function testExtractReceiptHandle()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForConsume();
         $logger = \Apache\Rocketmq\Logger::getInstance('StdConsumeExtract');
 
@@ -198,7 +199,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $handle = $method->invoke($service, $msgWithHandle);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'receipt-handle-123',
             $handle,
             "Should extract receipt handle from message"
@@ -207,7 +208,6 @@ class StandardConsumeServiceTest
 
     public function testExtractMessageId()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForConsume();
         $logger = \Apache\Rocketmq\Logger::getInstance('StdConsumeExtractId');
 
@@ -220,12 +220,11 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $id = $method->invoke($service, $msgWithId);
 
-        TestRunner::assertEqualsWithMessage('msg-id-456', $id, "Should extract message ID");
+        TestRunner::assertEquals('msg-id-456', $id, "Should extract message ID");
     }
 
     public function testExtractTopic()
     {
-        \Apache\Rocketmq\Logger::close();
         $fakeConsumer = new FakeConsumerForConsume();
         $logger = \Apache\Rocketmq\Logger::getInstance('StdConsumeExtractTopic');
 
@@ -238,21 +237,8 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $topic = $method->invoke($service, $msg);
 
-        TestRunner::assertEqualsWithMessage('my-test-topic', $topic, "Should extract topic name");
+        TestRunner::assertEquals('my-test-topic', $topic, "Should extract topic name");
     }
 }
 
-echo "=== StandardConsumeServiceTest ===\n";
-$test = new StandardConsumeServiceTest();
-$test->testConsumeMessageReturnsSuccess();
-echo "  [OK] testConsumeMessageReturnsSuccess\n";
-$test->testConsumeMessageReturnsFailure();
-echo "  [OK] testConsumeMessageReturnsFailure\n";
-$test->testConsumeMessageCatchesException();
-echo "  [OK] testConsumeMessageCatchesException\n";
-$test->testExtractReceiptHandle();
-echo "  [OK] testExtractReceiptHandle\n";
-$test->testExtractMessageId();
-echo "  [OK] testExtractMessageId\n";
-$test->testExtractTopic();
-echo "  [OK] testExtractTopic\n";
+TestRunner::run(new StandardConsumeServiceTest());

@@ -31,119 +31,91 @@ use Apache\Rocketmq\V2\Resource;
 
 /**
  * Tests for MessageView body integrity verification and GZIP decompression.
- * Mirrors Java's MessageViewImplTest.
  */
 class MessageViewIntegrityTest
 {
     /**
      * Mirrors Java: testFromProtobufWithCrc32
-     * MessageView with correct CRC32 digest should NOT be corrupted.
      */
     public function testCorrectCrc32Digest()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $body = 'foobar';
         $crc32 = sprintf('%u', crc32($body));
 
         $message = $this->buildMessage($body, Encoding::IDENTITY, DigestType::CRC32, $crc32);
         $view = new MessageView($message);
 
-        TestRunner::assertEqualsWithMessage($body, $view->getBody(),
-            "Body should match original");
-        TestRunner::assertFalse($view->isCorrupted(),
-            "Message should NOT be corrupted with correct CRC32");
+        TestRunner::assertEquals($body, $view->getBody(), "Body should match original");
+        TestRunner::assertFalse($view->isCorrupted(), "Message should NOT be corrupted with correct CRC32");
     }
 
     /**
      * Mirrors Java: testFromProtobufWithWrongCrc32
-     * MessageView with incorrect CRC32 should be marked as corrupted.
      */
     public function testWrongCrc32Digest()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $body = 'foobar';
 
         $message = $this->buildMessage($body, Encoding::IDENTITY, DigestType::CRC32, '9EF61F96');
         $view = new MessageView($message);
 
-        TestRunner::assertTrue($view->isCorrupted(),
-            "Message should be corrupted with wrong CRC32");
+        TestRunner::assertTrue($view->isCorrupted(), "Message should be corrupted with wrong CRC32");
     }
 
     /**
      * Mirrors Java: testFromProtobufWithMd5
-     * MessageView with correct MD5 digest should NOT be corrupted.
      */
     public function testCorrectMd5Digest()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $body = 'foobar';
         $md5 = strtoupper(md5($body));
 
         $message = $this->buildMessage($body, Encoding::IDENTITY, DigestType::MD5, $md5);
         $view = new MessageView($message);
 
-        TestRunner::assertEqualsWithMessage($body, $view->getBody(),
-            "Body should match original");
-        TestRunner::assertFalse($view->isCorrupted(),
-            "Message should NOT be corrupted with correct MD5");
+        TestRunner::assertEquals($body, $view->getBody(), "Body should match original");
+        TestRunner::assertFalse($view->isCorrupted(), "Message should NOT be corrupted with correct MD5");
     }
 
     /**
      * Mirrors Java: testFromProtobufWithWrongMd5
-     * MessageView with incorrect MD5 should be corrupted.
      */
     public function testWrongMd5Digest()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $body = 'foobar';
 
         $message = $this->buildMessage($body, Encoding::IDENTITY, DigestType::MD5, '3858F62230AC3C915F300C664312C63G');
         $view = new MessageView($message);
 
-        TestRunner::assertTrue($view->isCorrupted(),
-            "Message should be corrupted with wrong MD5");
+        TestRunner::assertTrue($view->isCorrupted(), "Message should be corrupted with wrong MD5");
     }
 
     /**
      * Mirrors Java: testFromProtobufWithSha1
-     * MessageView with correct SHA1 digest should NOT be corrupted.
      */
     public function testCorrectSha1Digest()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $body = 'foobar';
         $sha1 = strtoupper(sha1($body));
 
         $message = $this->buildMessage($body, Encoding::IDENTITY, DigestType::SHA1, $sha1);
         $view = new MessageView($message);
 
-        TestRunner::assertEqualsWithMessage($body, $view->getBody(),
-            "Body should match original");
-        TestRunner::assertFalse($view->isCorrupted(),
-            "Message should NOT be corrupted with correct SHA1");
+        TestRunner::assertEquals($body, $view->getBody(), "Body should match original");
+        TestRunner::assertFalse($view->isCorrupted(), "Message should NOT be corrupted with correct SHA1");
     }
 
     /**
      * Mirrors Java: testFromProtobufWithWrongSha1
-     * MessageView with incorrect SHA1 should be corrupted.
      */
     public function testWrongSha1Digest()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $body = 'foobar';
 
         $message = $this->buildMessage($body, Encoding::IDENTITY, DigestType::SHA1, '8843D7F92416211DE9EBB963FF4CE28125932879');
         $view = new MessageView($message);
 
-        TestRunner::assertTrue($view->isCorrupted(),
-            "Message should be corrupted with wrong SHA1");
+        TestRunner::assertTrue($view->isCorrupted(), "Message should be corrupted with wrong SHA1");
     }
 
     /**
@@ -151,19 +123,15 @@ class MessageViewIntegrityTest
      */
     public function testGzipBodyWithCorrectCrc32()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $body = 'hello world';
         $compressed = gzencode($body);
-        $crc32 = sprintf('%u', crc32($body)); // CRC is computed on decompressed body
+        $crc32 = sprintf('%u', crc32($body));
 
         $message = $this->buildMessage($compressed, Encoding::GZIP, DigestType::CRC32, $crc32);
         $view = new MessageView($message);
 
-        TestRunner::assertEqualsWithMessage($body, $view->getBody(),
-            "Body should be decompressed correctly");
-        TestRunner::assertFalse($view->isCorrupted(),
-            "GZIP message should NOT be corrupted with correct CRC32");
+        TestRunner::assertEquals($body, $view->getBody(), "Body should be decompressed correctly");
+        TestRunner::assertFalse($view->isCorrupted(), "GZIP message should NOT be corrupted with correct CRC32");
     }
 
     /**
@@ -171,16 +139,13 @@ class MessageViewIntegrityTest
      */
     public function testGzipBodyWithWrongCrc32()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $body = 'hello world';
         $compressed = gzencode($body);
 
         $message = $this->buildMessage($compressed, Encoding::GZIP, DigestType::CRC32, 'WRONG_CRC32');
         $view = new MessageView($message);
 
-        TestRunner::assertTrue($view->isCorrupted(),
-            "GZIP message should be corrupted with wrong CRC32");
+        TestRunner::assertTrue($view->isCorrupted(), "GZIP message should be corrupted with wrong CRC32");
     }
 
     /**
@@ -188,15 +153,11 @@ class MessageViewIntegrityTest
      */
     public function testEmptyBody()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $message = $this->buildMessage('', Encoding::IDENTITY, null, '');
         $view = new MessageView($message);
 
-        TestRunner::assertEqualsWithMessage('', $view->getBody(),
-            "Body should be empty");
-        TestRunner::assertFalse($view->isCorrupted(),
-            "Empty body message should NOT be corrupted");
+        TestRunner::assertEquals('', $view->getBody(), "Body should be empty");
+        TestRunner::assertFalse($view->isCorrupted(), "Empty body message should NOT be corrupted");
     }
 
     /**
@@ -204,16 +165,12 @@ class MessageViewIntegrityTest
      */
     public function testNoDigest()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $body = 'test data';
         $message = $this->buildMessage($body, Encoding::IDENTITY, null, null);
         $view = new MessageView($message);
 
-        TestRunner::assertEqualsWithMessage($body, $view->getBody(),
-            "Body should match original");
-        TestRunner::assertFalse($view->isCorrupted(),
-            "Message without digest should NOT be corrupted");
+        TestRunner::assertEquals($body, $view->getBody(), "Body should match original");
+        TestRunner::assertFalse($view->isCorrupted(), "Message without digest should NOT be corrupted");
     }
 
     /**
@@ -245,24 +202,4 @@ class MessageViewIntegrityTest
 }
 
 echo "=== MessageViewIntegrityTest ===\n";
-$test = new MessageViewIntegrityTest();
-$test->testCorrectCrc32Digest();
-echo "  [OK] testCorrectCrc32Digest\n";
-$test->testWrongCrc32Digest();
-echo "  [OK] testWrongCrc32Digest\n";
-$test->testCorrectMd5Digest();
-echo "  [OK] testCorrectMd5Digest\n";
-$test->testWrongMd5Digest();
-echo "  [OK] testWrongMd5Digest\n";
-$test->testCorrectSha1Digest();
-echo "  [OK] testCorrectSha1Digest\n";
-$test->testWrongSha1Digest();
-echo "  [OK] testWrongSha1Digest\n";
-$test->testGzipBodyWithCorrectCrc32();
-echo "  [OK] testGzipBodyWithCorrectCrc32\n";
-$test->testGzipBodyWithWrongCrc32();
-echo "  [OK] testGzipBodyWithWrongCrc32\n";
-$test->testEmptyBody();
-echo "  [OK] testEmptyBody\n";
-$test->testNoDigest();
-echo "  [OK] testNoDigest\n";
+TestRunner::run(new MessageViewIntegrityTest());

@@ -33,6 +33,11 @@ use Apache\Rocketmq\V2\Resource;
  */
 class ProducerValidationTest
 {
+    public function setUp(): void
+    {
+        \Apache\Rocketmq\Logger::close();
+    }
+
     /**
      * Mirrors Java: testSetClientConfigurationWithNull
      * PHP: empty endpoints - start() will fail to connect but may not throw immediately.
@@ -40,8 +45,6 @@ class ProducerValidationTest
      */
     public function testConstructorWithNullEndpoints()
     {
-        \Apache\Rocketmq\Logger::close();
-
         // Producer doesn't validate endpoints at construction in PHP.
         // The gRPC channel is created lazily. We just verify construction works.
         $producer = new Producer('', []);
@@ -55,8 +58,6 @@ class ProducerValidationTest
      */
     public function testSendMessageWithNullTopic()
     {
-        \Apache\Rocketmq\Logger::close();
-
         // Use reflection to simulate running state since we can't start gRPC
         $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
@@ -75,8 +76,6 @@ class ProducerValidationTest
      */
     public function testSendMessageWithIllegalTopic()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
         $ref->setAccessible(true);
@@ -97,8 +96,6 @@ class ProducerValidationTest
      */
     public function testValidTopic()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
         $ref->setAccessible(true);
@@ -117,24 +114,15 @@ class ProducerValidationTest
 
     /**
      * Mirrors Java: testSetNegativeMaxAttempts
-     * PHP: maxAttempts should be validated or clamped.
+     * PHP: maxAttempts is validated via ExponentialBackoffRetryPolicy.
      */
     public function testNegativeMaxAttempts()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        // Producer accepts negative maxAttempts at construction but should handle at runtime
-        $producer = new Producer('127.0.0.1:9876', [
-            'maxAttempts' => -1,
-        ]);
-
-        $ref = new \ReflectionProperty($producer, 'maxAttempts');
-        $ref->setAccessible(true);
-        $actual = $ref->getValue($producer);
-        TestRunner::assertTrue(
-            $actual !== -1 || true,
-            "Producer should accept or clamp maxAttempts (got {$actual})"
-        );
+        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
+            new Producer('127.0.0.1:9876', [
+                'maxAttempts' => -1,
+            ]);
+        }, "Negative maxAttempts should be rejected");
     }
 
     /**
@@ -143,8 +131,6 @@ class ProducerValidationTest
      */
     public function testSetMaxAttempts()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876', [
             'maxAttempts' => 3,
         ]);
@@ -152,7 +138,7 @@ class ProducerValidationTest
         $ref = new \ReflectionProperty($producer, 'maxAttempts');
         $ref->setAccessible(true);
         $actual = $ref->getValue($producer);
-        TestRunner::assertEqualsWithMessage(3, $actual, "maxAttempts should be 3");
+        TestRunner::assertEquals(3, $actual, "maxAttempts should be 3");
     }
 
     /**
@@ -162,8 +148,6 @@ class ProducerValidationTest
      */
     public function testBeginTransactionWhenNotRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         // Producer not running should throw
         $producer = new Producer('127.0.0.1:9876');
 
@@ -178,8 +162,6 @@ class ProducerValidationTest
      */
     public function testBeginTransactionWhenRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
         $ref->setAccessible(true);
@@ -197,8 +179,6 @@ class ProducerValidationTest
      */
     public function testConstructorValidatesEndpoints()
     {
-        \Apache\Rocketmq\Logger::close();
-
         // Empty endpoints: construction succeeds, connection fails lazily
         $producer = new Producer('');
         TestRunner::assertNotNull($producer, "Producer object should be created even with empty endpoints");
@@ -209,8 +189,6 @@ class ProducerValidationTest
      */
     public function testSendWhenNotRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
 
         $message = new Message();
@@ -228,8 +206,6 @@ class ProducerValidationTest
      */
     public function testRecallWhenNotRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
@@ -243,8 +219,6 @@ class ProducerValidationTest
      */
     public function testSendBeforeStartup()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876', [
             'topics' => ['test-topic'],
         ]);
@@ -265,8 +239,6 @@ class ProducerValidationTest
      */
     public function testBeginTransactionRequiresRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
@@ -279,8 +251,6 @@ class ProducerValidationTest
      */
     public function testRecallMessageAsyncWhenNotRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
@@ -296,8 +266,6 @@ class ProducerValidationTest
      */
     public function testSendWithOversizedMessage()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
         $ref = new \ReflectionProperty($producer, 'isRunning');
         $ref->setAccessible(true);
@@ -320,8 +288,6 @@ class ProducerValidationTest
      */
     public function testSendFifoMessageWhenNotRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
@@ -334,8 +300,6 @@ class ProducerValidationTest
      */
     public function testSendPriorityMessageWhenNotRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
@@ -348,8 +312,6 @@ class ProducerValidationTest
      */
     public function testSendDelayedMessageWhenNotRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
 
         TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
@@ -362,8 +324,6 @@ class ProducerValidationTest
      */
     public function testShutdownWhenNotRunning()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876');
 
         // Should not throw
@@ -376,13 +336,11 @@ class ProducerValidationTest
      */
     public function testGetClientId()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $producer = new Producer('127.0.0.1:9876', [
             'clientId' => 'my-test-producer',
         ]);
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'my-test-producer',
             $producer->getClientId(),
             "ClientId should match configured value"
@@ -390,45 +348,4 @@ class ProducerValidationTest
     }
 }
 
-echo "=== ProducerValidationTest ===\n";
-$test = new ProducerValidationTest();
-$test->testConstructorWithNullEndpoints();
-echo "  [OK] testConstructorWithNullEndpoints\n";
-$test->testSendMessageWithNullTopic();
-echo "  [OK] testSendMessageWithNullTopic\n";
-$test->testSendMessageWithIllegalTopic();
-echo "  [OK] testSendMessageWithIllegalTopic\n";
-$test->testValidTopic();
-echo "  [OK] testValidTopic\n";
-$test->testNegativeMaxAttempts();
-echo "  [OK] testNegativeMaxAttempts\n";
-$test->testSetMaxAttempts();
-echo "  [OK] testSetMaxAttempts\n";
-$test->testBeginTransactionWhenNotRunning();
-echo "  [OK] testBeginTransactionWhenNotRunning\n";
-$test->testBeginTransactionWhenRunning();
-echo "  [OK] testBeginTransactionWhenRunning\n";
-$test->testConstructorValidatesEndpoints();
-echo "  [OK] testConstructorValidatesEndpoints\n";
-$test->testSendWhenNotRunning();
-echo "  [OK] testSendWhenNotRunning\n";
-$test->testRecallWhenNotRunning();
-echo "  [OK] testRecallWhenNotRunning\n";
-$test->testSendBeforeStartup();
-echo "  [OK] testSendBeforeStartup\n";
-$test->testBeginTransactionRequiresRunning();
-echo "  [OK] testBeginTransactionRequiresRunning\n";
-$test->testRecallMessageAsyncWhenNotRunning();
-echo "  [OK] testRecallMessageAsyncWhenNotRunning\n";
-$test->testSendWithOversizedMessage();
-echo "  [OK] testSendWithOversizedMessage\n";
-$test->testSendFifoMessageWhenNotRunning();
-echo "  [OK] testSendFifoMessageWhenNotRunning\n";
-$test->testSendPriorityMessageWhenNotRunning();
-echo "  [OK] testSendPriorityMessageWhenNotRunning\n";
-$test->testSendDelayedMessageWhenNotRunning();
-echo "  [OK] testSendDelayedMessageWhenNotRunning\n";
-$test->testShutdownWhenNotRunning();
-echo "  [OK] testShutdownWhenNotRunning\n";
-$test->testGetClientId();
-echo "  [OK] testGetClientId\n";
+TestRunner::run(new ProducerValidationTest());

@@ -68,7 +68,7 @@ class TransactionTest
         $message->setBody('test body');
 
         $transaction->tryAddMessage($message);
-        TestRunner::assertTrueWithMessage(true, "Message should be added to transaction");
+        TestRunner::assertTrue(true, "Message should be added to transaction");
     }
 
     public function testTryAddReceipt()
@@ -90,7 +90,7 @@ class TransactionTest
         ];
 
         $transaction->tryAddReceipt($message, $sendResult);
-        TestRunner::assertTrueWithMessage(true, "Receipt should be recorded");
+        TestRunner::assertTrue(true, "Receipt should be recorded");
     }
 
     public function testCommit()
@@ -113,17 +113,17 @@ class TransactionTest
         $transaction->tryAddReceipt($message, $sendResult);
         $transaction->commit();
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Commit should be called once"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'test-msg-id-1',
             $fakeProducer->commitCalls[0]['messageId'],
             "Commit should use the correct message ID"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'test-tx-id-1',
             $fakeProducer->commitCalls[0]['transactionId'],
             "Commit should use the correct transaction ID"
@@ -150,12 +150,12 @@ class TransactionTest
         $transaction->tryAddReceipt($message, $sendResult);
         $transaction->rollback();
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             count($fakeProducer->rollbackCalls),
             "Rollback should be called once"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'test-msg-id-2',
             $fakeProducer->rollbackCalls[0]['messageId'],
             "Rollback should use the correct message ID"
@@ -183,7 +183,7 @@ class TransactionTest
             $transaction->commit();
         }, "Second commit should throw (receipts cleared after first)");
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Only one commit should have been recorded"
@@ -210,7 +210,7 @@ class TransactionTest
 
         $transaction->commit();
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Should commit 1 message"
@@ -218,17 +218,4 @@ class TransactionTest
     }
 }
 
-echo "=== TransactionTest ===\n";
-$test = new TransactionTest();
-$test->testTryAddMessage();
-echo "  [OK] testTryAddMessage\n";
-$test->testTryAddReceipt();
-echo "  [OK] testTryAddReceipt\n";
-$test->testCommit();
-echo "  [OK] testCommit\n";
-$test->testRollback();
-echo "  [OK] testRollback\n";
-$test->testCommitClearsReceipts();
-echo "  [OK] testCommitClearsReceipts\n";
-$test->testMultipleMessagesInTransaction();
-echo "  [OK] testMultipleMessagesInTransaction\n";
+TestRunner::run(new TransactionTest());

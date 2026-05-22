@@ -154,23 +154,23 @@ class TransactionExtendedTest
 
         $transaction->commit();
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Message should be committed"
         );
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'msg-id-0',
             $fakeProducer->commitCalls[0]['messageId'],
             "Commit should have correct messageId"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'tx-id-0',
             $fakeProducer->commitCalls[0]['transactionId'],
             "Commit should have correct transactionId"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'order-topic',
             $fakeProducer->commitCalls[0]['topic'],
             "Commit should have correct topic"
@@ -195,7 +195,7 @@ class TransactionExtendedTest
 
         $transaction->rollback();
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             count($fakeProducer->rollbackCalls),
             "Message should be rolled back"
@@ -226,7 +226,7 @@ class TransactionExtendedTest
             $transaction->commit();
         }, "Second commit should throw (receipts cleared after first)");
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Only first commit should have been recorded"
@@ -252,12 +252,12 @@ class TransactionExtendedTest
         $transaction->addReceipt($msg, $sendResult);
         $transaction->commit();
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "addReceipt alias should work same as tryAddReceipt"
         );
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'alias-msg-id',
             $fakeProducer->commitCalls[0]['messageId'],
             "Alias should record correct messageId"
@@ -278,21 +278,4 @@ class TransactionExtendedTest
     }
 }
 
-echo "=== TransactionExtendedTest ===\n";
-$test = new TransactionExtendedTest();
-$test->testTryAddExceededMessages();
-echo "  [OK] testTryAddExceededMessages\n";
-$test->testTryAddReceiptNotContained();
-echo "  [OK] testTryAddReceiptNotContained\n";
-$test->testCommitWithNoReceipts();
-echo "  [OK] testCommitWithNoReceipts\n";
-$test->testRollbackWithNoReceipts();
-echo "  [OK] testRollbackWithNoReceipts\n";
-$test->testCommitMultipleTopics();
-echo "  [OK] testCommitMultipleTopics\n";
-$test->testRollbackMultipleMessages();
-echo "  [OK] testRollbackMultipleMessages\n";
-$test->testDoubleCommitDoesNothing();
-echo "  [OK] testDoubleCommitDoesNothing\n";
-$test->testAddReceiptAlias();
-echo "  [OK] testAddReceiptAlias\n";
+TestRunner::run(new TransactionExtendedTest());

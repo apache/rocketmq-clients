@@ -33,17 +33,22 @@ use Apache\Rocketmq\V2\ClientType;
  */
 class ClientSessionTelemetryTest
 {
+    public function setUp(): void
+    {
+        \Apache\Rocketmq\Logger::close();
+    }
+
+    public function tearDown(): void
+    {
+        TelemetrySession::resetAll();
+    }
+
     /**
      * Mirrors Java: syncSettings
      * Tests that a new session is created for a unique endpoints string.
      */
     public function testGetInstanceCreatesNewSession()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        // Reset singleton pool
-        TelemetrySession::resetAll();
-
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session = TelemetrySession::getInstance($fakeClient, 'test-endpoints-1', 'test-client-1');
 
@@ -56,15 +61,11 @@ class ClientSessionTelemetryTest
      */
     public function testGetInstanceReturnsSameInstanceForSameEndpoints()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        TelemetrySession::resetAll();
-
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session1 = TelemetrySession::getInstance($fakeClient, 'test-endpoints-2', 'client-2');
         $session2 = TelemetrySession::getInstance($fakeClient, 'test-endpoints-2', 'client-2');
 
-        TestRunner::assertTrueWithMessage(
+        TestRunner::assertTrue(
             $session1 === $session2,
             "Same endpoints should return same session instance"
         );
@@ -75,15 +76,11 @@ class ClientSessionTelemetryTest
      */
     public function testGetInstanceReturnsDifferentInstanceForDifferentEndpoints()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        TelemetrySession::resetAll();
-
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session1 = TelemetrySession::getInstance($fakeClient, 'test-endpoints-3', 'client-3');
         $session2 = TelemetrySession::getInstance($fakeClient, 'test-endpoints-4', 'client-4');
 
-        TestRunner::assertTrueWithMessage(
+        TestRunner::assertTrue(
             $session1 !== $session2,
             "Different endpoints should return different session instances"
         );
@@ -95,8 +92,6 @@ class ClientSessionTelemetryTest
      */
     public function testTelemetryCommandWithSettings()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $settings = new Settings();
         $settings->setClientType(ClientType::PUSH_CONSUMER);
 
@@ -104,7 +99,7 @@ class ClientSessionTelemetryTest
         $command->setSettings($settings);
 
         TestRunner::assertTrue($command->hasSettings(), "Command should have settings");
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             ClientType::PUSH_CONSUMER,
             $command->getSettings()->getClientType(),
             "Settings client type should match"
@@ -117,8 +112,6 @@ class ClientSessionTelemetryTest
      */
     public function testEmptyTelemetryCommand()
     {
-        \Apache\Rocketmq\Logger::close();
-
         $command = new TelemetryCommand();
 
         TestRunner::assertFalse($command->hasSettings(), "Empty command should not have settings");
@@ -129,10 +122,6 @@ class ClientSessionTelemetryTest
      */
     public function testCloseRemovesFromPool()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        TelemetrySession::resetAll();
-
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session = TelemetrySession::getInstance($fakeClient, 'test-endpoints-5', 'client-5');
         $session->close();
@@ -140,7 +129,7 @@ class ClientSessionTelemetryTest
         // After close, getInstance should create a new instance
         $newSession = TelemetrySession::getInstance($fakeClient, 'test-endpoints-5', 'client-5-new');
 
-        TestRunner::assertTrueWithMessage(
+        TestRunner::assertTrue(
             $session !== $newSession,
             "After close, new getInstance should create a new session"
         );
@@ -151,10 +140,6 @@ class ClientSessionTelemetryTest
      */
     public function testWriteSyncWithoutStream()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        TelemetrySession::resetAll();
-
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session = TelemetrySession::getInstance($fakeClient, 'test-endpoints-6', 'client-6');
 
@@ -173,14 +158,10 @@ class ClientSessionTelemetryTest
      */
     public function testClientIdIsSet()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        TelemetrySession::resetAll();
-
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session = TelemetrySession::getInstance($fakeClient, 'test-endpoints-7', 'my-custom-client-id');
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'my-custom-client-id',
             $session->getClientId(),
             "ClientId should match what was passed to getInstance"
@@ -193,10 +174,6 @@ class ClientSessionTelemetryTest
      */
     public function testSessionInitialState()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        TelemetrySession::resetAll();
-
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session = TelemetrySession::getInstance($fakeClient, 'test-endpoints-8', 'client-8');
 
@@ -210,10 +187,6 @@ class ClientSessionTelemetryTest
      */
     public function testSessionCanBeCreatedMultipleTimes()
     {
-        \Apache\Rocketmq\Logger::close();
-
-        TelemetrySession::resetAll();
-
         $fakeClient = new FakeMessagingClientForTelemetry();
 
         for ($i = 0; $i < 5; $i++) {
@@ -247,25 +220,4 @@ class FakeTelemetryStream
     public function writesDone() {}
 }
 
-echo "=== ClientSessionTelemetryTest ===\n";
-$test = new ClientSessionTelemetryTest();
-$test->testGetInstanceCreatesNewSession();
-echo "  [OK] testGetInstanceCreatesNewSession\n";
-$test->testGetInstanceReturnsSameInstanceForSameEndpoints();
-echo "  [OK] testGetInstanceReturnsSameInstanceForSameEndpoints\n";
-$test->testGetInstanceReturnsDifferentInstanceForDifferentEndpoints();
-echo "  [OK] testGetInstanceReturnsDifferentInstanceForDifferentEndpoints\n";
-$test->testTelemetryCommandWithSettings();
-echo "  [OK] testTelemetryCommandWithSettings\n";
-$test->testEmptyTelemetryCommand();
-echo "  [OK] testEmptyTelemetryCommand\n";
-$test->testCloseRemovesFromPool();
-echo "  [OK] testCloseRemovesFromPool\n";
-$test->testWriteSyncWithoutStream();
-echo "  [OK] testWriteSyncWithoutStream\n";
-$test->testClientIdIsSet();
-echo "  [OK] testClientIdIsSet\n";
-$test->testSessionInitialState();
-echo "  [OK] testSessionInitialState\n";
-$test->testSessionCanBeCreatedMultipleTimes();
-echo "  [OK] testSessionCanBeCreatedMultipleTimes\n";
+TestRunner::run(new ClientSessionTelemetryTest());

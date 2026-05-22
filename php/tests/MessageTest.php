@@ -19,7 +19,6 @@
 namespace Apache\Rocketmq\Test;
 
 require_once __DIR__ . '/TestRunner.php';
-require_once __DIR__ . '/../Logger.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Apache\Rocketmq\V2\Message;
@@ -37,8 +36,8 @@ class MessageTest
         $message->setTopic($topic);
         $message->setBody('test body content');
 
-        TestRunner::assertEqualsWithMessage('test-topic', $message->getTopic()->getName(), "Topic name should match");
-        TestRunner::assertEqualsWithMessage('test body content', $message->getBody(), "Body should match");
+        TestRunner::assertEquals('test-topic', $message->getTopic()->getName(), "Topic name should match");
+        TestRunner::assertEquals('test body content', $message->getBody(), "Body should match");
     }
 
     public function testMessageWithTag()
@@ -55,8 +54,8 @@ class MessageTest
         $message->setSystemProperties($sysProps);
 
         $props = $message->getSystemProperties();
-        TestRunner::assertTrueWithMessage($props->hasTag(), "Should have tag set");
-        TestRunner::assertEqualsWithMessage('test-tag', $props->getTag(), "Tag should match");
+        TestRunner::assertTrue($props->hasTag(), "Should have tag set");
+        TestRunner::assertEquals('test-tag', $props->getTag(), "Tag should match");
     }
 
     public function testMessageWithKeys()
@@ -74,8 +73,8 @@ class MessageTest
 
         $props = $message->getSystemProperties();
         $keys = $props->getKeys();
-        TestRunner::assertEqualsWithMessage(2, count($keys), "Should have 2 keys");
-        TestRunner::assertEqualsWithMessage('key1', $keys[0], "First key should match");
+        TestRunner::assertEquals(2, count($keys), "Should have 2 keys");
+        TestRunner::assertEquals('key1', $keys[0], "First key should match");
     }
 
     public function testMessageWithMessageGroup()
@@ -92,8 +91,8 @@ class MessageTest
         $message->setSystemProperties($sysProps);
 
         $props = $message->getSystemProperties();
-        TestRunner::assertTrueWithMessage($props->hasMessageGroup(), "Should have message group");
-        TestRunner::assertEqualsWithMessage('group-A', $props->getMessageGroup(), "Message group should match");
+        TestRunner::assertTrue($props->hasMessageGroup(), "Should have message group");
+        TestRunner::assertEquals('group-A', $props->getMessageGroup(), "Message group should match");
     }
 
     public function testMessageWithUserProperties()
@@ -106,7 +105,7 @@ class MessageTest
         $message->setBody('body');
         $message->getUserProperties()['custom-key'] = 'custom-value';
 
-        TestRunner::assertEqualsWithMessage(
+        TestRunner::assertEquals(
             'custom-value',
             $message->getUserProperties()['custom-key'],
             "User property should match"
@@ -127,7 +126,7 @@ class MessageTest
         $originalBody = 'modified';
 
         // Message body should remain unchanged
-        TestRunner::assertEqualsWithMessage('original body', $message->getBody(), "Message body should be immutable after set");
+        TestRunner::assertEquals('original body', $message->getBody(), "Message body should be immutable after set");
     }
 
     public function testMessageWithPriority()
@@ -144,8 +143,8 @@ class MessageTest
         $message->setSystemProperties($sysProps);
 
         $props = $message->getSystemProperties();
-        TestRunner::assertTrueWithMessage($props->hasPriority(), "Should have priority set");
-        TestRunner::assertEqualsWithMessage(1, $props->getPriority(), "Priority should be 1");
+        TestRunner::assertTrue($props->hasPriority(), "Should have priority set");
+        TestRunner::assertEquals(1, $props->getPriority(), "Priority should be 1");
     }
 
     public function testMessageWithLiteTopic()
@@ -162,26 +161,10 @@ class MessageTest
         $message->setSystemProperties($sysProps);
 
         $props = $message->getSystemProperties();
-        TestRunner::assertTrueWithMessage($props->hasLiteTopic(), "Should have lite topic");
-        TestRunner::assertEqualsWithMessage('lite-topic-A', $props->getLiteTopic(), "Lite topic should match");
+        TestRunner::assertTrue($props->hasLiteTopic(), "Should have lite topic");
+        TestRunner::assertEquals('lite-topic-A', $props->getLiteTopic(), "Lite topic should match");
     }
 }
 
 echo "=== MessageTest ===\n";
-$test = new MessageTest();
-$test->testBuildMessageWithTopicAndBody();
-echo "  [OK] testBuildMessageWithTopicAndBody\n";
-$test->testMessageWithTag();
-echo "  [OK] testMessageWithTag\n";
-$test->testMessageWithKeys();
-echo "  [OK] testMessageWithKeys\n";
-$test->testMessageWithMessageGroup();
-echo "  [OK] testMessageWithMessageGroup\n";
-$test->testMessageWithUserProperties();
-echo "  [OK] testMessageWithUserProperties\n";
-$test->testMessageBodyImmutability();
-echo "  [OK] testMessageBodyImmutability\n";
-$test->testMessageWithPriority();
-echo "  [OK] testMessageWithPriority\n";
-$test->testMessageWithLiteTopic();
-echo "  [OK] testMessageWithLiteTopic\n";
+TestRunner::run(new MessageTest());
