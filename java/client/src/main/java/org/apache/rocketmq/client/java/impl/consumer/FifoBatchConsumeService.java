@@ -17,11 +17,14 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.apis.consumer.BatchMessageListener;
 import org.apache.rocketmq.client.apis.consumer.BatchPolicy;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
@@ -163,8 +166,7 @@ public class FifoBatchConsumeService extends BatchConsumeService {
      */
     @Override
     public void close() {
-        java.util.List<com.google.common.util.concurrent.ListenableFuture<ConsumeResult>> pendingFutures
-            = new java.util.ArrayList<>();
+        List<ListenableFuture<ConsumeResult>> pendingFutures = new ArrayList<>();
         bufferLock.lock();
         try {
             cancelTimer();
@@ -181,10 +183,10 @@ public class FifoBatchConsumeService extends BatchConsumeService {
             bufferLock.unlock();
         }
         // Wait for all submitted batches to complete
-        for (com.google.common.util.concurrent.ListenableFuture<ConsumeResult> future : pendingFutures) {
+        for (ListenableFuture<ConsumeResult> future : pendingFutures) {
             try {
                 future.get(30, TimeUnit.SECONDS);
-            } catch (java.util.concurrent.TimeoutException e) {
+            } catch (TimeoutException e) {
                 log.warn("Timeout waiting for FIFO batch during shutdown, clientId={}", clientId);
             } catch (Exception e) {
                 log.error("Exception waiting for FIFO batch during shutdown, clientId={}", clientId, e);
