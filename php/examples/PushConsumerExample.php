@@ -20,16 +20,24 @@ require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../PushConsumer.php';
 require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../Logger.php';
+require_once __DIR__ . '/ExampleConfig.php';
 
 use Apache\Rocketmq\PushConsumer;
 use Apache\Rocketmq\ConsumeResult;
 
-$endpoints = '127.0.0.1:8081';
-$consumerGroup = 'yourConsumerGroup';
-$topic = 'yourTopic';
+// Load configuration
+$config = ExampleConfig::getInstance();
+$endpoints = $config->getEndpoints();
+$consumerGroup = $config->getConsumerGroup();
+$topic = $config->getTopic('normal');
+$credentials = $config->getCredentials();
+
+// Display configuration
+$config->display();
 
 $consumer = new PushConsumer($endpoints, $consumerGroup, [
     'subscriptionExpressions' => [$topic => '*'],
+    'credentials' => $credentials,
     'messageListener' => function($messageView) {
         $body = $messageView->getBody() ?? '';
         echo "Consume message: " . $body . "\n";

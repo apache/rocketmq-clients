@@ -966,4 +966,32 @@ class PushConsumer
             $this->lastHeartbeatTime = $now;
         }
     }
+
+    public function startAsync(?callable $onDone = null): bool
+    {
+        if (!SwooleCompat::isAvailable()) {
+            $this->logger->warning("startAsync: Swoole/OneSwoole not available, fallback to start()");
+            $this->start();
+            return false;
+        }
+        $this->logger->info("PushConsumer starting in async coroutine, clientId={$this->clientId}");
+        $self = $this;
+        $channel = new \Swoole\Coroutine\Channel(1);
+        \Swoole\Coroutine::create(function () use ($self, $channel, $onDone) {
+            try {
+                $self->start();
+            } catch (\Throwable $e) {
+                $self->logger->error("PushConsumer startAsync failed, clientId={$self->clientId}, error={$e->getMessage()}");
+            }
+            if ($onDone ==  null) {
+                try {
+                    $onDone();
+                } catch (\Throwable $e) {
+                    $self->logger->error("PushConsumer startAsync onDone failed, clientId={$self->clientId}, error={$e->getMessage()}");
+                }
+            }
+            $channel->push(true);
+        });
+        return true;
+    }
 }

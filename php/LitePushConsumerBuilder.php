@@ -207,4 +207,11 @@ class LitePushConsumerBuilder
         $consumer->startWithTimeout($seconds);
         $consumer->shutdown();
     }
+
+    public function buildAsync(?callable $onDone = null): LitePushConsumer
+    {
+        $consumer = $this->buildWithoutStart();
+        $consumer->startAsync($onDone);
+        return $consumer;
+    }
 }

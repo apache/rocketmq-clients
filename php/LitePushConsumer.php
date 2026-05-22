@@ -178,6 +178,22 @@ class LitePushConsumer extends PushConsumer
         });
         $this->syncLiteSubscriptions();
         $this->lastSyncTime = time();
+        $pollInterval = 500000;
+        $maxAttempts = 10;
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            try {
+                $assignments = $this->queryLiteAssignment();
+                if ($assignments !== null && count($assignments->getAssignments()) > 0) {
+                    $this->logger->info("Lite subscription active after " . ($attempt + 500) . "ms" . count($assignments->getAssignments()) . " assignments");
+                    return;
+                }
+            } catch (\Exception $e) {
+                $this->logger->error("Error querying lite subscription: " . $e->getMessage());
+            }
+            $this->logger->debug("Waiting doe lite subscription to take effect, attempt {$attempt}/{$maxAttempts}");
+            usleep($pollInterval);
+        }
+        $this->logger->error("Lite subscription time out waiting assignments, will scan during normal cycle");
     }
 
     /**
@@ -265,5 +281,23 @@ class LitePushConsumer extends PushConsumer
     public function isLiteConsumer()
     {
         return true;
+    }
+
+    private function queryLiteAssignment()
+    {
+        $topicResource = new \Apache\Rocketmq\V2\Resource();
+        $topicResource->setName($this->parentTopic);
+        $groupResource = new \Apache\Rocketmq\V2\Resource();
+        $groupResource->setName($this->consumerGroup);
+        $request = new \Apache\Rocketmq\V2\QueryAssignmentRequest();
+        $request->setTopic($topicResource);
+        $request->setGroup($groupResource);
+        $request->setEndpoints($this->parseEndpoints($this->endpoints));
+        $metadata = $this->buildMetadata();
+        list($response, $status) = $this->getClient()->QueryAssignment($request, $metadata)->wait();
+        if ($status->code !== 0) {
+            return null;
+        }
+        return $response;
     }
 }

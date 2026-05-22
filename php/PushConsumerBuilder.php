@@ -223,4 +223,11 @@ class PushConsumerBuilder
         $consumer->startWithTimeout($seconds);
         $consumer->shutdown();
     }
+
+    public function buildAsync(?callable $onDone = null): PushConsumer
+    {
+        $consumer = $this->buildWithoutStart();
+        $consumer->startAsync($onDone);
+        return $consumer;
+    }
 }

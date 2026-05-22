@@ -21,15 +21,20 @@ require_once __DIR__ . '/../Producer.php';
 require_once __DIR__ . '/../Logger.php';
 
 use Apache\Rocketmq\Producer;
+use Apache\Rocketmq\SessionCredentials;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SystemProperties;
 
 $endpoints = '127.0.0.1:8081';
 $topic = 'yourParentTopic';
+$accessKey = 'yourAccessKey';
+$secretKey = 'yourSecretKey';
+$credentials = new SessionCredentials($accessKey, $secretKey);
 
 $producer = new Producer($endpoints, [
     'topics' => [$topic],
+    'credentials' => $credentials,
     'maxAttempts' => 3,
     'requestTimeout' => 3000,
 ]);

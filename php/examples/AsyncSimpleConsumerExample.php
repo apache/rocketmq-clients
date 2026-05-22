@@ -20,13 +20,21 @@ require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../SimpleConsumerOptimized.php';
 require_once __DIR__ . '/../Logger.php';
 
+use Apache\Rocketmq\SessionCredentials;
 use Apache\Rocketmq\SimpleConsumerOptimized;
 
-$endpoints = '127.0.0.1:8081';
-$consumerGroup = 'yourConsumerGroup';
-$topic = 'yourTopic';
+// Load configuration
+$config = ExampleConfig::getInstance();
+$endpoints = $config->getEndpoints();
+$topic = $config->getTopic('normal');
+$consumerGroup = $config->getConsumerGroup();
+$credentials = $config->getCredentials();
+
+// Display configuration
+$config->display();
 
 $consumer = new SimpleConsumerOptimized($endpoints, $consumerGroup, [
+    'credentials' => $credentials,
     'awaitDuration' => 30,
 ]);
 

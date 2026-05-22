@@ -23,12 +23,17 @@ require_once __DIR__ . '/../Logger.php';
 
 use Apache\Rocketmq\LitePushConsumer;
 use Apache\Rocketmq\ConsumeResult;
+use Apache\Rocketmq\SessionCredentials;
 
 $endpoints = '127.0.0.1:8081';
 $consumerGroup = 'yourConsumerGroup';
 $parentTopic = 'yourParentTopic';
+$accessKey = 'yourAccessKey';
+$secretKey = 'yourSecretKey';
+$credentials = new SessionCredentials($accessKey, $secretKey);
 
 $consumer = new LitePushConsumer($endpoints, $consumerGroup, $parentTopic, [
+    'credentials' => $credentials,
     'enableFifoConsumeAccelerator' => true,
 ]);
 

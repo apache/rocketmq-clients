@@ -19,17 +19,25 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../Producer.php';
 require_once __DIR__ . '/../Logger.php';
+require_once __DIR__ . '/ExampleConfig.php';
 
 use Apache\Rocketmq\Producer;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SystemProperties;
 
-$endpoints = '127.0.0.1:8081';
-$topic = 'yourNormalTopic';
+// Load configuration
+$config = ExampleConfig::getInstance();
+$endpoints = $config->getEndpoints();
+$topic = $config->getTopic('normal');
+$credentials = $config->getCredentials();
+
+// Display configuration
+$config->display();
 
 $producer = new Producer($endpoints, [
     'topics' => [$topic],
+    'credentials' => $credentials,
     'maxAttempts' => 3,
     'requestTimeout' => 3000,
 ]);
