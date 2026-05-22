@@ -237,7 +237,7 @@ public class BatchConsumeService extends ConsumeService {
                 }
                 resultFuture.set(ConsumeResult.FAILURE);
             }
-        }, MoreExecutors.directExecutor());
+        }, MoreExecutors.listeningDecorator(getConsumptionExecutor()));
         return resultFuture;
     }
 
