@@ -128,7 +128,7 @@ class ProcessQueue
                 if ($response->hasStatus()) {
                     $status = $response->getStatus();
                     $code = $status->getCode();
-                    if ($code !== 20000 && $code !== 40404) {
+                    if ($code !== 20000 && $code !== 40404 && $code !== 40401) {
                         $this->logger->warning("ProcessQueue non-OK status: code={$code}, msg=" . $status->getMessage());
                     }
                 }

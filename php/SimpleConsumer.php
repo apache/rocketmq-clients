@@ -325,6 +325,11 @@ class SimpleConsumer
             'messageCount' => count($messages),
         ]);
 
+        $now = time();
+        if ($now - $this->lastHeartbeatTime >= 10) {
+            $this->doHeartbeat();
+            $this->lastHeartbeatTime = $now;
+        }
         return $messages;
     }
 
@@ -681,6 +686,8 @@ class SimpleConsumer
      */
     public function startHeartbeat()
     {
+        $this->doHeartbeat();
+        $this->lastHeartbeatTime = time();
         if (function_exists('pcntl_signal')) {
             $self = $this;
             pcntl_signal(SIGALRM, function () use ($self) {
@@ -688,10 +695,6 @@ class SimpleConsumer
                 $self->scheduleNextHeartbeat();
             });
         }
-
-        // Send initial heartbeat
-        $this->doHeartbeat();
-        $this->lastHeartbeatTime = time();
 
         // Schedule recurring heartbeat
         $this->scheduleNextHeartbeat();
@@ -712,6 +715,11 @@ class SimpleConsumer
      */
     public function stopHeartbeat()
     {
+        if ($this->heartbeatCoroutineId !== null) {
+            \Swoole\Coroutine::cancel($this->heartbeatCoroutineId);
+            $this->logger->info("Swoole coroutine heartbeat stopped, coroutine_id=" . $this->heartbeatCoroutineId);
+            $this->heartbeatCoroutineId = null;
+        }
         if (function_exists('pcntl_alarm')) {
             pcntl_alarm(0);
         }
