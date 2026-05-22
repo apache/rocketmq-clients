@@ -36,6 +36,7 @@ class PushConsumerBuilder
     private $enableFifoConsumeAccelerator = false;
     private $enableMessageInterceptorFiltering = false;
     private $namespace = '';
+    private $fifo = false;
 
     /**
      * Set client configuration.
@@ -50,6 +51,11 @@ class PushConsumerBuilder
         return $this;
     }
 
+    public function setFifo(bool $fifo): self
+    {
+        $this->fifo = $fifo;
+        return $this;
+    }
     /**
      * Set the consumer group.
      *
@@ -176,7 +182,7 @@ class PushConsumerBuilder
      * @return PushConsumer
      * @throws \RuntimeException if required fields not set
      */
-    public function build(): PushConsumer
+    public function buildWithoutStart(): PushConsumer
     {
         if ($this->endpoints === '') {
             throw new \RuntimeException("PushConsumer endpoints must be set");
@@ -191,19 +197,30 @@ class PushConsumerBuilder
             throw new \RuntimeException("PushConsumer must have at least one subscription");
         }
 
-        $consumer = new PushConsumer($this->endpoints, $this->consumerGroup, [
+        return new PushConsumer($this->endpoints, $this->consumerGroup, [
             'subscriptionExpressions' => $this->subscriptionExpressions,
             'messageListener' => $this->messageListener,
             'maxCacheMessageCount' => $this->maxCacheMessageCount,
             'maxCacheMessageSizeInBytes' => $this->maxCacheMessageSizeInBytes,
             'awaitDuration' => $this->awaitDuration,
-            'fifo' => false,
+            'fifo' => $this->fifo,
             'enableFifoConsumeAccelerator' => $this->enableFifoConsumeAccelerator,
             'namespace' => $this->namespace,
             'credentials' => $this->credentials,
         ]);
+    }
 
+    public function build(): PushConsumer
+    {
+        $consumer = $this->buildWithoutStart();
         $consumer->start();
         return $consumer;
+    }
+
+    public function startFor(int $seconds):  void
+    {
+        $consumer = $this->buildWithoutStart();
+        $consumer->startWithTimeout($seconds);
+        $consumer->shutdown();
     }
 }

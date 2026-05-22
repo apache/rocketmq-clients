@@ -34,6 +34,7 @@ class LitePushConsumerBuilder
     private $consumptionThreadCount = 1;
     private $enableFifoConsumeAccelerator = true;
     private $namespace = '';
+    private $liteTopics = [];
 
     /**
      * Set client configuration.
@@ -45,6 +46,12 @@ class LitePushConsumerBuilder
         $this->endpoints = $config->getEndpoints();
         $this->credentials = $config->getSessionCredentialsProvider();
         $this->namespace = $config->getNamespace();
+        return $this;
+    }
+
+    public function subscriptionLite(string $liteTopic): self
+    {
+        $this->liteTopics[$liteTopic] = null;
         return $this;
     }
 
@@ -150,7 +157,7 @@ class LitePushConsumerBuilder
      * @return LitePushConsumer
      * @throws \RuntimeException if required fields not set
      */
-    public function build(): LitePushConsumer
+    public function buildWithoutStart(): LitePushConsumer
     {
         if ($this->endpoints === '') {
             throw new \RuntimeException("LitePushConsumer endpoints must be set");
@@ -164,6 +171,9 @@ class LitePushConsumerBuilder
         if ($this->parentTopic === '') {
             throw new \RuntimeException("LitePushConsumer parent topic must be set");
         }
+        if (empty($this->liteTopics)) {
+            throw new \RuntimeException("LitePushConsumer must have at least one lite topic");
+        }
 
         $consumer = new LitePushConsumer($this->endpoints, $this->consumerGroup, $this->parentTopic, [
             'messageListener' => $this->messageListener,
@@ -174,7 +184,27 @@ class LitePushConsumerBuilder
             'credentials' => $this->credentials,
         ]);
 
+        foreach ($this->liteTopics as $liteTopic =>$listener) {
+            if ($listener !== null) {
+                $consumer->subscribeLite($liteTopic, $listener);
+            } else {
+                $consumer->subscribeLite($liteTopic);
+            }
+        }
+        return $consumer;
+    }
+
+    public function build(): LitePushConsumer
+    {
+        $consumer = $this->buildWithoutStart();
         $consumer->start();
         return $consumer;
+    }
+
+    public function startFor(int $seconds):  void
+    {
+        $consumer = $this->buildWithoutStart();
+        $consumer->startWithTimeout($seconds);
+        $consumer->shutdown();
     }
 }

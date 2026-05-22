@@ -146,6 +146,13 @@ abstract class ConsumeService
         }
         $entry->setReceiptHandle($receiptHandle);
 
+        if (method_exists($messageView, 'getSystemProperties')) {
+            $sysProps = $messageView->getSystemProperties();
+            if ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
+                $entry->setLiteTopic($sysProps->getLiteTopic());
+            }
+        }
+
         $request = new AckMessageRequest();
         $request->setGroup($groupResource);
         $request->setTopic($topicResource);
@@ -250,6 +257,14 @@ abstract class ConsumeService
         $request->setInvisibleDuration($duration);
         if ($messageId) {
             $request->setMessageId($messageId);
+        }
+
+        if (method_exists($messageView, 'getSystemProperties')) {
+            $sysProps = $messageView->getSystemProperties();
+            if ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
+                $request->setLiteTopic($sysProps->getLiteTopic());
+                $request->setSuspend(true);
+            }
         }
 
         $metadata = $this->buildMetadata();

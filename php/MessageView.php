@@ -55,6 +55,12 @@ class MessageView
     public function __construct(Message $message, $receiptHandle = null, $endpoints = null, $deliveryAttempt = 1)
     {
         $this->message = $message;
+        if ($receiptHandle == null) {
+            $sysProps = $message->getSystemProperties();
+            if ($sysProps && method_exists($sysProps, 'getReceiptHandle')) {
+                $receiptHandle = $sysProps->getReceiptHandle();
+            }
+        }
         $this->receiptHandle = $receiptHandle;
         $this->endpoints = $endpoints;
         $this->deliveryAttempt = max(1, $deliveryAttempt);

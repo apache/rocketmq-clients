@@ -30,6 +30,7 @@ class LiteSimpleConsumerBuilder
     private $credentials = null;
     private $awaitDuration = 30;
     private $namespace = '';
+    private $liteTopics = [];
 
     /**
      * Set client configuration.
@@ -41,6 +42,12 @@ class LiteSimpleConsumerBuilder
         $this->endpoints = $config->getEndpoints();
         $this->credentials = $config->getSessionCredentialsProvider();
         $this->namespace = $config->getNamespace();
+        return $this;
+    }
+
+    public function subscribeLite(string $liteTopic): self
+    {
+        $this->liteTopics[$liteTopic] = true;
         return $this;
     }
 
@@ -116,6 +123,9 @@ class LiteSimpleConsumerBuilder
             'credentials' => $this->credentials,
         ]);
 
+        foreach (array_keys($this->liteTopics) as $liteTopic) {
+            $consumer->subscribeLite($liteTopic);
+        }
         $consumer->start();
         return $consumer;
     }

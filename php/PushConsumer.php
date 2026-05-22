@@ -222,6 +222,8 @@ class PushConsumer
             // Register settings change callback
             $this->registerSettingsCallback();
 
+            $this->onStartBeforeLoop();
+
             // Create consume service (Standard, FIFO, or LiteFIFO)
             if ($this->isLiteConsumer) {
                 $this->consumeService = new LiteFifoConsumeService($this->logger, $this->messageListener, $this, $this->enableFifoConsumeAccelerator);
@@ -305,6 +307,92 @@ class PushConsumer
             $this->logger->error("PushConsumer start failed: " . $e->getMessage());
             throw $e;
         }
+    }
+
+    public function startWithTimeout(int $seconds)
+    {
+        if ($this->isRunning()) {
+            return;
+        }
+
+        if ($this->messageListener === null) {
+            throw new \RuntimeException("PushConsumer messageListener is not set");
+        }
+        if (empty($this->subscriptionExpressions)) {
+            throw new \RuntimeException("PushConsumer has no subscriptions");
+        }
+        $this->logger->info("PushConsumer starting with timeout {$seconds} seconds, clientId={$this->clientId}");
+        try {
+            $this->establishTelemetrySession();
+            $this->registerSettingsCallback();
+            $this->onStartBeforeLoop();
+            if ($this->isLiteConsumer) {
+                $this->consumeService = new LiteFifoConsumeService($this->logger, $this->messageListener, $this, $this->enableFifoConsumeAccelerator);
+            } elseif ($this->fifo) {
+                $this->consumeService = new FifoConsumeService($this->logger, $this->messageListener, $this, $this->enableFifoConsumeAccelerator);
+            } else {
+                $this->consumeService = new StandardConsumeService($this->logger, $this->messageListener, $this);
+            }
+            $this->registerSignalHandlers();
+            $this->isRunning = true;
+            $this->logger->info("PushConsumer running with  timeout {$seconds} seconds, clientId={$this->clientId}");
+            $this->scanAssignments();
+            $deadline = time() + $seconds;
+            $lastScanTime = time();
+            while ($this->isRunning && !$this->shutdownRequested && time() < $deadline) {
+                if (function_exists('pcntl_signal_dispatch')) {
+                    pcntl_signal_dispatch();
+                }
+                if ($this->telemetrySession) {
+                    $this->telemetrySession->pollTelemetry();
+                }
+                if ($this->shutdownRequested) {
+                    break;
+                }
+                $now = time();
+                if ($now - $lastScanTime >= $this->scanIntervalSeconds) {
+                    $this->scanAssignments();
+                    $this->onScanCycleComplete();
+                    $lastScanTime = $now;
+                }
+
+                $this->onHeartbeatTick();
+
+                foreach ($this->processQueueTable as $key => $pq) {
+                    if ($pq->isDropped()) {
+                        continue;
+                    }
+                    if ($pq->expired()) {
+                        $pq->drop();
+                        unset($this->processQueueTable[$key]);
+                        continue;
+                    }
+                    if (!$pq->isCacheFull()) {
+                        $pq->fetchMessages();
+                    }
+                }
+                if ($this->consumeService !== null) {
+                    foreach ($this->processQueueTable as $pq) {
+                        if (!$pq->isDropped() && !empty($pq->getCachedMessages())) {
+                            $this->consumeService->consume($pq);
+                        }
+                    }
+                }
+                usleep(100000);
+                gc_collect_cycles();
+            }
+
+            $this->logger->info("PushConsumer startWithTimeout completed after {$seconds}s, clientId={$this->clientId}");
+
+        } catch (\Exception $e) {
+            $this->logger->error("PushConsumer startWithTimeout failed: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    protected function onStartBeforeLoop()
+    {
+
     }
 
     /**

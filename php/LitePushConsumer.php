@@ -165,7 +165,11 @@ class LitePushConsumer extends PushConsumer
         }
 
         $this->logger->info("LitePushConsumer starting, clientId={$this->getClientId()}, parentTopic={$this->parentTopic}");
+        parent::start();
+    }
 
+    protected function onStartBeforeLoop()
+    {
         $self = $this;
         $this->telemetrySession->setOnNotifyUnsubscribeLite(function ($notifyCmd) use ($self) {
             $liteTopic = $notifyCmd->getLiteTopic();
@@ -174,20 +178,6 @@ class LitePushConsumer extends PushConsumer
         });
         $this->syncLiteSubscriptions();
         $this->lastSyncTime = time();
-        parent::start();
-    }
-
-    /**
-     * Register the onNotifyUnsubscribeLite handler.
-     */
-    private function registerUnsubscribeLiteHandler()
-    {
-        $self = $this;
-        $this->telemetrySession->setOnNotifyUnsubscribeLite(function ($notifyCmd) use ($self) {
-            $liteTopic = $notifyCmd->getLiteTopic();
-            $self->logger->info("Received NotifyUnsubscribeLite for liteTopic={$liteTopic}");
-            $self->handleUnsubscribeLite($liteTopic);
-        });
     }
 
     /**
