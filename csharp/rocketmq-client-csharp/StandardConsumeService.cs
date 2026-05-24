@@ -27,8 +27,8 @@ namespace Org.Apache.Rocketmq
         private static readonly ILogger Logger = MqLogManager.CreateLogger<StandardConsumeService>();
 
         public StandardConsumeService(string clientId, IMessageListener messageListener,
-            TaskScheduler consumptionTaskScheduler, CancellationToken consumptionCtsToken) :
-            base(clientId, messageListener, consumptionTaskScheduler, consumptionCtsToken)
+            SemaphoreSlim concurrencySemaphore, CancellationToken consumptionCtsToken) :
+            base(clientId, messageListener, concurrencySemaphore, consumptionCtsToken)
         {
         }
 

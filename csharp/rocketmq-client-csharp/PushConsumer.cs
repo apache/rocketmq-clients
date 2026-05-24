@@ -22,7 +22,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Schedulers;
+
 using Apache.Rocketmq.V2;
 using Google.Protobuf.WellKnownTypes;
 using Proto = Apache.Rocketmq.V2;
@@ -51,7 +51,7 @@ namespace Org.Apache.Rocketmq
 
         private readonly ConcurrentDictionary<MessageQueue, ProcessQueue> _processQueueTable;
         private ConsumeService _consumeService;
-        private readonly TaskScheduler _consumptionTaskScheduler;
+        private readonly SemaphoreSlim _concurrencySemaphore;
         private readonly CancellationTokenSource _consumptionCts;
 
         private readonly CancellationTokenSource _scanAssignmentCts;
@@ -92,7 +92,7 @@ namespace Org.Apache.Rocketmq
             _scanAssignmentCts = new CancellationTokenSource();
 
             _processQueueTable = new ConcurrentDictionary<MessageQueue, ProcessQueue>();
-            _consumptionTaskScheduler = new LimitedConcurrencyLevelTaskScheduler(consumptionThreadCount);
+            _concurrencySemaphore = new SemaphoreSlim(consumptionThreadCount, consumptionThreadCount);
             _consumptionCts = new CancellationTokenSource();
 
             _receiveMsgCts = new CancellationTokenSource();
@@ -243,12 +243,12 @@ namespace Org.Apache.Rocketmq
                 Logger.LogInformation(
                     "Create FIFO consume service, consumerGroup={ConsumerGroup}, clientId={ClientId}, enableFifoConsumeAccelerator={Accelerator}",
                     _consumerGroup, ClientId, _enableFifoConsumeAccelerator);
-                return new FifoConsumeService(ClientId, _messageListener, _consumptionTaskScheduler, _consumptionCts.Token,
+                return new FifoConsumeService(ClientId, _messageListener, _concurrencySemaphore, _consumptionCts.Token,
                     _enableFifoConsumeAccelerator);
             }
             Logger.LogInformation(
                 $"Create standard consume service, consumerGroup={_consumerGroup}, clientId={ClientId}");
-            return new StandardConsumeService(ClientId, _messageListener, _consumptionTaskScheduler, _consumptionCts.Token);
+            return new StandardConsumeService(ClientId, _messageListener, _concurrencySemaphore, _consumptionCts.Token);
         }
 
         /// <summary>
