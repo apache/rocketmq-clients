@@ -140,7 +140,7 @@ abstract class ConsumeService
         }
 
         $namespace = $this->consumer->getNamespace();
-        $groupResource = $this->consumer->getGrpupResourceWithNamespace();
+        $groupResource = $this->consumer->getGroupResourceWithNamespace();
         $topicResource = $this->consumer->getTopicResource($topic);
 
         $entry = new AckMessageEntry();
@@ -166,7 +166,7 @@ abstract class ConsumeService
         $attempt = 0;
         $retryPolicy = new ExponentialBackoffRetryPolicy($maxRetries, 1000, 30000, 2.0);
 
-        $brokerClient = $this->getBrokerCLient($messageView);
+        $brokerClient = $this->getBrokerClient($messageView);
         while ($attempt < $maxRetries) {
             try {
                 list($response, $status) = $brokerClient->AckMessage($request, $metadata)->wait();
