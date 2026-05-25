@@ -139,7 +139,10 @@ trait ClientTrait
         if (method_exists($messageView, 'getTopic')) {
             $topic = $messageView->getTopic();
             if ($topic !== null && $topic !== '') {
-                return $topic;
+                if (is_object($topic) && method_exists($topic, 'getName')) {
+                    return $topic->getName();
+                }
+                return (string)$topic;
             }
         }
         return null;

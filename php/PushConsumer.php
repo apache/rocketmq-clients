@@ -620,7 +620,7 @@ class PushConsumer
         // Drop ProcessQueues no longer in the latest assignments
         foreach ($this->processQueueTable as $key => $pq) {
             $pqMq = $pq->getMessageQueue();
-            $pqTopic = method_exists($pqMq, 'getTopic') ? $pqTopic->getTopic()->getName() : null;
+            $pqTopic = method_exists($pqMq, 'getTopic') ? $pqMq->getTopic()->getName() : null;
             if ($pqTopic !== $topic) {
                 continue;
             }
@@ -965,7 +965,7 @@ class PushConsumer
         foreach ($this->processQueueTable as $pq) {
             $mq = $pq->getMessageQueue();
             $broker = $mq->getBroker();
-            if ($broker && $broker->hasEndpoint()) {
+            if ($broker && $broker->hasEndpoints()) {
                 $endpoints = $broker->getEndpoints();
                 $addresses = $endpoints->getAddresses();
                 if (!empty($addresses) && $addresses[0] !== null) {
