@@ -99,7 +99,7 @@ class ProcessQueue
         $filterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);
 
         $request = new ReceiveMessageRequest();
-        $request->setGroup($this->consumer->getGroupResource());
+        $request->setGroup($this->consumer->getGroupResourceWithNamespace());
         $request->setMessageQueue($this->messageQueue);
         $request->setFilterExpression($filterExpression);
         $request->setBatchSize($batchSize);
@@ -138,6 +138,7 @@ class ProcessQueue
                     $this->cacheMessages([$message]);
                     $this->receivedMessagesQuantity++;
                     $count++;
+                    $this->consmeStreamdMessage($message);
                 }
             }
 
@@ -155,14 +156,61 @@ class ProcessQueue
         return $count;
     }
 
+    private function consumeStreamedMessage($message)
+    {
+        if ($this->consumer->getConsumeService === null) {
+            return;
+        }
+        if ($this->dropped) {
+            return;
+        }
+        $endpoints = $this->getBrokerEndpoints();
+        $messageView = new MessageView($message, null, $endpoints);
+        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+        if ($messageView->isCorrupted()) {
+            $this->logger->error("ProcessQueue consumerStreamedMessage: message corrupted, discarding messageId={$messageId}");
+            $this->consumer->nackMessage($messageView);
+            $this->evictMessage($messageView);
+            return;
+        }
+        $result = $this->consumer->getConsumeService()->consumeMessage($messageView);
+        $ackSuccess = true;
+        if ($result instanceof \Apache\Rocketmq\ConsumeResultSuspend) {
+            $suspendSec = (int)ceil($result->getSuspendTimeMs() / 1000);
+            $this->logger->debug("ProcessQueue consumeStreamedMessage SUSPEND messageId={$messageId}, suspendSec={$suspendSec}");
+            $ackSuccess = $this->consumer->nackMessage($messageView, 1, $suspendSec);
+        } elseif ($result === \Apache\Rocketmq\ConsumeResult::FAILURE) {
+            $this->logger->debug("ProcessQueue consumeStreamedMessage FAILURE messageId={$messageId}");
+            $ackSuccess = $this->consumer->nackMessage($messageView);
+        } else {
+            $this->logger->debug("ProcessQueue consumeStreamedMessage SUCCESS messageId={$messageId}, ACKing immediately");
+            $ackSuccess = $this->consumer->ackMessage($messageView);
+        }
+        if ($ackSuccess) {
+            $this->evictMessage($messageView);
+        } else {
+            $this->logger->debug("ProcessQueue consumeStreamedMessage ACK/NACK FAILURE for messageId={$messageId}, NOT ACKing");
+        }
+    }
+
+    private function getBrokerEndpoint()
+    {
+        $broker = $this->messageQueue->getBroker();
+        if ($broker && $broker->hasEndpoints()) {
+            return$broker->getEndpoints();
+        }
+        return null;
+    }
+
     /**
      * Cache received messages and track byte size.
      * Also indexes by receipt handle for O(1) eviction.
      */
     private function cacheMessages($messages)
     {
+        $endpoint = $this->getBrokerEndpoint();
         foreach ($messages as $msg) {
-            $messageView = new MessageView($msg);
+            $messageView = new MessageView($msg, null, $endpoint);
             $idx = count($this->cachedMessages);
             $this->cachedMessages[] = $messageView;
             $body = $msg->getBody() ?? '';
@@ -284,12 +332,28 @@ class ProcessQueue
         } else {
             // SUSPEND uses the provided suspendSeconds; FAILURE uses default
             if ($suspendSeconds !== null) {
-                $this->consumer->nackMessage($messageView, 1);
+                $this->consumer->nackMessage($messageView, 1, $suspendSeconds);
             } else {
                 $this->consumer->nackMessage($messageView);
             }
         }
         $this->evictMessage($messageView);
+    }
+
+    public function discardMessage($messageView) {
+        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+        $this->logger->debug("ProcessQueue Discarding message $messageId");
+        $this->consumer->nackMessage($messageView);
+        $this->evictMessage($messageView);
+    }
+
+    public function discardFifoMessage($messageView)
+    {
+        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+        $this->logger->debug("ProcessQueue discardFifoMessage message $messageId");
+        if ($this->consumer->getConssumeService() !== null) {
+            $this->consumer->getConssumeService()->forwardToDeadLetterQueue($messageView);
+        }
     }
 
     /**

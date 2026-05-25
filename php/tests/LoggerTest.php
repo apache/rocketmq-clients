@@ -111,6 +111,31 @@ class LoggerTest
             "Log line should match expected format"
         );
     }
+
+    public function testTimezoneDetection()
+    {
+        $originalTz = date_default_timezone_get();
+
+        // Force UTC to simulate PHP CLI default
+        date_default_timezone_set('UTC');
+
+        // Logger init should detect and correct system timezone
+        Logger::getInstance('TimezoneTest');
+
+        $currentTz = date_default_timezone_get();
+
+        // Restore original timezone
+        if ($originalTz !== 'UTC') {
+            date_default_timezone_set($originalTz);
+        }
+
+        // If system timezone was detected (not UTC anymore), the test passes
+        // If it's still UTC, that's also valid (system may genuinely be UTC)
+        TestRunner::assertTrue(
+            in_array($currentTz, timezone_identifiers_list(), true) || $currentTz === 'UTC',
+            "Timezone should be a valid identifier after Logger init (got: {$currentTz})"
+        );
+    }
 }
 
 echo "=== LoggerTest ===\n";

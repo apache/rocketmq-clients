@@ -80,9 +80,65 @@ class Logger
         self::$logFile = $path;
     }
 
+    /**
+     * Detect and correct timezone on first use.
+     * PHP CLI defaults to UTC when date.timezone is not set in php.ini.
+     */
+    private static function initTimezone(): void
+    {
+        $tz = date_default_timezone_get();
+        // 'UTC' means system timezone could not be determined
+        if ($tz === 'UTC') {
+            // Try common methods to detect system timezone
+            $systemTz = null;
+
+            // Method 1: /etc/localtime symlink (Linux/macOS)
+            if ($systemTz === null && is_link('/etc/localtime')) {
+                $link = readlink('/etc/localtime');
+                if ($link !== false) {
+                    // /usr/share/zoneinfo/Asia/Shanghai -> Asia/Shanghai
+                    $parts = explode('/', $link);
+                    if (count($parts) >= 4) {
+                        $candidate = $parts[count($parts) - 2] . '/' . $parts[count($parts) - 1];
+                        if (in_array($candidate, timezone_identifiers_list(), true)) {
+                            $systemTz = $candidate;
+                        }
+                    }
+                }
+            }
+
+            // Method 2: /etc/timezone file (Debian-based Linux)
+            if ($systemTz === null) {
+                $tzFile = @file_get_contents('/etc/timezone');
+                if ($tzFile !== false) {
+                    $candidate = trim($tzFile);
+                    if (in_array($candidate, timezone_identifiers_list(), true)) {
+                        $systemTz = $candidate;
+                    }
+                }
+            }
+
+            // Method 3: timedatectl (systemd-based Linux)
+            if ($systemTz === null) {
+                $output = @shell_exec('timedatectl show --property=Timezone --value 2>/dev/null');
+                if ($output !== null) {
+                    $candidate = trim($output);
+                    if ($candidate !== '' && in_array($candidate, timezone_identifiers_list(), true)) {
+                        $systemTz = $candidate;
+                    }
+                }
+            }
+
+            if ($systemTz !== null) {
+                date_default_timezone_set($systemTz);
+            }
+        }
+    }
+
     private function __construct($component)
     {
         $this->component = $component;
+        self::initTimezone();
     }
 
     public function debug($message)

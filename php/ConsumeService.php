@@ -25,13 +25,16 @@ require_once __DIR__ . '/ClientConstants.php';
 require_once __DIR__ . '/ClientTrait.php';
 require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
 require_once __DIR__ . '/ProtobufUtil.php';
+require_once __DIR__ . '/RpcClientManager.php';
 
 use Apache\Rocketmq\V2\AckMessageRequest;
 use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\ChangeInvisibleDurationRequest;
 use Apache\Rocketmq\V2\ForwardMessageToDeadLetterQueueRequest;
 use Apache\Rocketmq\V2\Resource;
+use Apache\Rocketmq\V2\MessagingServiceClient;
 use Google\Protobuf\Duration;
+use Grpc\ChannelCredentials;
 
 /**
  * ConsumeService - Abstract base class for message consumption strategies.
@@ -75,7 +78,7 @@ abstract class ConsumeService
      * @param object $messageView
      * @return mixed ConsumeResult::SUCCESS, ConsumeResult::FAILURE, ConsumeResultSuspend::SUSPEND, or the ConsumeResultSuspend instance
      */
-    protected function consumeMessage($messageView)
+    public function consumeMessage($messageView)
     {
         try {
             $result = call_user_func($this->messageListener, $messageView);
@@ -132,13 +135,13 @@ abstract class ConsumeService
         $topic = $this->extractTopic($messageView);
 
         if (!$receiptHandle) {
-            $this->logger->warning("ConsumeService ackMessage: no receipt handle, skipping");
+            $this->logger->warning("ConsumeService ackMessage: no receipt handle, skipping messageId={$messageId}");
             return false;
         }
 
-        $groupResource = $this->consumer->getGroupResource();
-        $topicResource = new Resource();
-        $topicResource->setName($topic);
+        $namespace = $this->consumer->getNamespace();
+        $groupResource = $this->consumer->getGrpupResourceWithNamespace();
+        $topicResource = $this->consumer->getTopicResource($topic);
 
         $entry = new AckMessageEntry();
         if ($messageId) {
@@ -163,9 +166,10 @@ abstract class ConsumeService
         $attempt = 0;
         $retryPolicy = new ExponentialBackoffRetryPolicy($maxRetries, 1000, 30000, 2.0);
 
+        $brokerClient = $this->getBrokerCLient($messageView);
         while ($attempt < $maxRetries) {
             try {
-                list($response, $status) = $this->consumer->getClient()->AckMessage($request, $metadata)->wait();
+                list($response, $status) = $brokerClient->AckMessage($request, $metadata)->wait();
                 if ($status->code !== 0) {
                     $this->logger->warning("ConsumeService ackMessage attempt {$attempt}: status error: " . $status->details);
                 } else {
@@ -242,9 +246,8 @@ abstract class ConsumeService
             $delaySeconds = 1;
         }
 
-        $groupResource = $this->consumer->getGroupResource();
-        $topicResource = new Resource();
-        $topicResource->setName($topic);
+        $groupResource = $this->consumer->getGroupResourceWithNamespace();
+        $topicResource = $this->consumer->getTopicResource($topic);
 
         $duration = new Duration();
         $duration->setSeconds($delaySeconds);
@@ -269,8 +272,10 @@ abstract class ConsumeService
 
         $metadata = $this->buildMetadata();
 
+        $brokerClient = $this->getBrokderClient($messageView);
+
         try {
-            list($response, $status) = $this->consumer->getClient()->ChangeInvisibleDuration($request, $metadata)->wait();
+            list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata)->wait();
             if ($status->code !== 0) {
                 $this->logger->warning("ConsumeService nackMessage failed: " . $status->details);
                 return false;
@@ -289,7 +294,7 @@ abstract class ConsumeService
      * @param object $messageView
      * @return bool
      */
-    protected function forwardToDeadLetterQueue($messageView)
+    public function forwardToDeadLetterQueue($messageView)
     {
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
@@ -301,9 +306,8 @@ abstract class ConsumeService
             return false;
         }
 
-        $groupResource = $this->consumer->getGroupResource();
-        $topicResource = new Resource();
-        $topicResource->setName($topic);
+        $groupResource = $this->consumer->getGroupResourceWithNamespace();
+        $topicResource = $this->consumer->getTopicResource($topic);
 
         $request = new ForwardMessageToDeadLetterQueueRequest();
         $request->setGroup($groupResource);
@@ -319,9 +323,10 @@ abstract class ConsumeService
         $request->setMaxDeliveryAttempts($this->maxAttempts);
 
         $metadata = $this->buildMetadata();
+        $brokerClient = $this->getBrokerClient($messageView);
 
         try {
-            list($response, $status) = $this->consumer->getClient()->ForwardMessageToDeadLetterQueue($request, $metadata)->wait();
+            list($response, $status) = $brokerClient->ForwardMessageToDeadLetterQueue($request, $metadata)->wait();
             if ($status->code !== 0) {
                 $this->logger->warning("ConsumeService forwardToDeadLetterQueue failed: " . $status->details);
                 return false;
@@ -332,6 +337,25 @@ abstract class ConsumeService
             $this->logger->error("ConsumeService forwardToDeadLetterQueue exception: " . $e->getMessage());
             return false;
         }
+    }
+
+    private function getBrokerClient($messageView)
+    {
+        $endpoints = $messageView->getEndpoints();
+        if ($endpoints && method_exists($endpoints, 'getAddresses')) {
+            $addresses = $endpoints->getAddresses();
+            $addressesArray = ProtobufUtil::repeatedFieldToArray($addresses);
+            if (!empty($addressesArray) && isset($addressesArray[0]) !== null) {
+                $address = $addressesArray[0];
+
+                $brokerKey = $address->getHost() . ':' . $address->getPort();
+                $this->logger->debug("ConsumerService getBrokerClient : routing to broker {$brokerKey}");
+                return RpcClientManager::getInstance()->getClient($brokerKey, [
+                    'credentials' => ChannelCredentials::createInsecure(),
+                ]);
+            }
+        }
+        return $this->consumer->getClient();
     }
 
     /**
@@ -349,7 +373,9 @@ abstract class ConsumeService
     }
 
     // ClientTrait required methods
-    protected function getCredentials(): ?SessionCredentials { return null; }
+    protected function getCredentials(): ?SessionCredentials {
+        return method_exists($this->consumer, 'getSessionCredentials') ? $this->consumer->getSessionCredentials() : null;
+    }
     protected function getClientIdValue(): string { return method_exists($this->consumer, 'getClientId') ? $this->consumer->getClientId() : ''; }
     protected function getNamespaceValue(): string { return method_exists($this->consumer, 'getNamespace') ? $this->consumer->getNamespace() : ''; }
 }
@@ -379,13 +405,27 @@ class StandardConsumeService extends ConsumeService
                 break;
             }
 
+            if ($messageView->isCorrupted()) {
+                $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+                $this->logger->error("StandardConsumeService: Message $messageId is corrupted");
+                $pq->discardMessage($messageView);
+                continue;
+            }
+            $pq->evictMessage($messageView);
+            $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+
             $result = $this->consumeMessage($messageView);
 
             if ($result instanceof ConsumeResultSuspend) {
                 $suspendSec = (int)ceil($result->getSuspendTimeMs() / 1000);
-                $pq->eraseMessage($messageView, $result, $suspendSec);
+                $this->logger->debug('StandardConsumerService suspend for %d seconds, messageId: %s', $suspendSec, $messageId);
+                $pq->nackMessage($messageView, 1, $suspendSec);
+            } elseif ($result === \Apache\Rocketmq\ConsumeResult::SUCCESS) {
+                $this->logger->debug('StandardConsumerService consume success, messageId: %s', $messageId);
+                $this->ackMessage($messageView);
             } else {
-                $pq->eraseMessage($messageView, $result);
+                $this->logger->debug('StandardConsumerService consume failed, messageId: %s', $messageId);
+                $pq->nackMessage($messageView);
             }
         }
     }
@@ -450,6 +490,16 @@ class FifoConsumeService extends ConsumeService
             return;
         }
 
+        if ($messageView->isCorrupted()) {
+            $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+            $this->logger->error("FifoConsumeService: Message $messageId is corrupted");
+            $pq->discardFifoMessage($messageView);
+            $next = next($messages);
+            if ($next !== false) {
+                $this->consumeSequentially($pq, $messages);
+            }
+            return;
+        }
         $this->consumeFifoIteratively($pq, $messageView, 1);
     }
 
@@ -491,6 +541,13 @@ class FifoConsumeService extends ConsumeService
 
                 // Consume this message and remove it from the group
                 array_shift($groupedMessages[$groupKey]);
+
+                if ($messageView->isCorrupted()) {
+                    $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+                    $this->logger->error("FifoConsumeService accelerator: Message $messageId is corrupted");
+                    $pq->discardFifoMessage($messageView);
+                    continue;
+                }
 
                 $result = $this->consumeMessage($messageView);
 
@@ -550,6 +607,13 @@ class FifoConsumeService extends ConsumeService
     private function consumeFifoIteratively(ProcessQueue $pq, $messageView, $deliveryAttempt)
     {
         if ($pq->isDropped()) {
+            return;
+        }
+
+        if ($messageView->isCorrupted()) {
+            $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+            $this->logger->error("FifoConsumeService: discarding Message $messageId is corrupted");
+            $pq->discardFifoMessage($messageView);
             return;
         }
 

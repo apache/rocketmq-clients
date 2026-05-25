@@ -281,16 +281,6 @@ class PushConsumer
                         $pq->fetchMessages();
                     }
                 }
-
-                // Consume cached messages
-                if ($this->consumeService !== null) {
-                    foreach ($this->processQueueTable as $pq) {
-                        if (!$pq->isDropped() && !empty($pq->getCachedMessages())) {
-                            $this->consumeService->consume($pq);
-                        }
-                    }
-                }
-
                 // Short sleep between iterations
                 usleep(100000);
 
@@ -371,13 +361,6 @@ class PushConsumer
                         $pq->fetchMessages();
                     }
                 }
-                if ($this->consumeService !== null) {
-                    foreach ($this->processQueueTable as $pq) {
-                        if (!$pq->isDropped() && !empty($pq->getCachedMessages())) {
-                            $this->consumeService->consume($pq);
-                        }
-                    }
-                }
                 usleep(100000);
                 gc_collect_cycles();
             }
@@ -388,6 +371,11 @@ class PushConsumer
             $this->logger->error("PushConsumer startWithTimeout failed: " . $e->getMessage());
             throw $e;
         }
+    }
+
+    public function getConsumeService()
+    {
+        return $this->consumeService;
     }
 
     protected function onStartBeforeLoop()
@@ -741,6 +729,26 @@ class PushConsumer
         return $resource;
     }
 
+    public function getTopicResource($topic)
+    {
+        $resource = new Resource();
+        if ($this->namespace !== '') {
+            $resource->setResourceNamespace($this->namespace);
+        }
+        $resource->setName($topic);
+        return $resource;
+    }
+
+    public function getGroupResourceWithNamespace()
+    {
+        $resource = new Resource();
+        if ($this->namespace !== '') {
+            $resource->setResourceNamespace($this->namespace);
+        }
+        $resource->setName($this->consumerGroup);
+        return $resource;
+    }
+
     public function getSessionCredentials(): ?SessionCredentials
     {
         return $this->credentials;
@@ -824,6 +832,8 @@ class PushConsumer
             $this->logger->warning("PushConsumer ackMessage: consume service not initialized");
             return false;
         }
+        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+        $this->logger->debug("PushConsumer ackMessage: delegating to consumeService for messageId: {$messageId}");
         return $this->consumeService->ackMessage($messageView);
     }
 
@@ -834,13 +844,13 @@ class PushConsumer
      * @param int $invisibleDuration Next invisible duration in seconds
      * @return bool
      */
-    public function nackMessage(MessageView $messageView, int $invisibleDuration = 30): bool
+    public function nackMessage(MessageView $messageView, int $deliveryAttempt = 1, ?int $invisibleDuration = null): bool
     {
         if ($this->consumeService === null) {
             $this->logger->warning("PushConsumer nackMessage: consume service not initialized");
             return false;
         }
-        return $this->consumeService->nackMessage($messageView, 1);
+        return $this->consumeService->nackMessage($messageView, $deliveryAttempt, $invisibleDuration);
     }
 
     /**
