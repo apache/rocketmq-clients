@@ -64,7 +64,7 @@ class Transaction
      * @param object $message Message protobuf object
      * @param array $sendResult ['messageId' => ..., 'transactionId' => ...]
      */
-    public function tryAddReceipt($message, array $sendResult): void
+    public function tryAddReceipt($message, array $sendResult, $endpoints = null): void
     {
         if ($this->committed || $this->rolledBack) {
             throw new \RuntimeException("Transaction is already terminated");
@@ -85,6 +85,7 @@ class Transaction
             'messageId' => $messageId,
             'transactionId' => $transactionId,
             'topic' => $message->getTopic()->getName(),
+            'endpoint' => $endpoints,
         ];
     }
 
@@ -113,7 +114,8 @@ class Transaction
             $this->producer->commitTransaction(
                 $receipt['messageId'],
                 $receipt['transactionId'],
-                $receipt['topic']
+                $receipt['topic'],
+                $receipt['endpoints'] ?? null
             );
         }
 
@@ -139,7 +141,8 @@ class Transaction
             $this->producer->rollbackTransaction(
                 $receipt['messageId'],
                 $receipt['transactionId'],
-                $receipt['topic']
+                $receipt['topic'],
+                $receipt['endpoints'] ?? null
             );
         }
 

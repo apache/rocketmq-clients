@@ -240,7 +240,16 @@ abstract class ConsumeService
         if ($invisibleDuration !== null) {
             $delaySeconds = $invisibleDuration;
         } else {
-            $delaySeconds = min(pow(2, $deliveryAttempt - 1) * 10, 30);
+            $retryPolicy = null;
+            if (method_exists($this->consumer, 'getRetryPolicy')) {
+                $retryPolicy = $this->consumer->getRetryPolicy();
+            }
+            if ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
+                $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
+                $delaySeconds = max(1, (int)ceil($delayMs / 1000));
+            } else {
+                $delaySeconds = min(pow(2, $deliveryAttempt - 1) * 10, 30);
+            }
         }
         if ($delaySeconds < 1) {
             $delaySeconds = 1;
@@ -272,7 +281,7 @@ abstract class ConsumeService
 
         $metadata = $this->buildMetadata();
 
-        $brokerClient = $this->getBrokderClient($messageView);
+        $brokerClient = $this->getBrokerClient($messageView);
 
         try {
             list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata)->wait();
@@ -309,34 +318,46 @@ abstract class ConsumeService
         $groupResource = $this->consumer->getGroupResourceWithNamespace();
         $topicResource = $this->consumer->getTopicResource($topic);
 
-        $request = new ForwardMessageToDeadLetterQueueRequest();
-        $request->setGroup($groupResource);
-        $request->setTopic($topicResource);
-        $request->setReceiptHandle($receiptHandle);
-        if ($messageId) {
-            $request->setMessageId($messageId);
-        }
-        if ($liteTopic !== null) {
-            $request->setLiteTopic($liteTopic);
-        }
-        $request->setDeliveryAttempt($this->maxAttempts);
-        $request->setMaxDeliveryAttempts($this->maxAttempts);
-
-        $metadata = $this->buildMetadata();
-        $brokerClient = $this->getBrokerClient($messageView);
-
-        try {
-            list($response, $status) = $brokerClient->ForwardMessageToDeadLetterQueue($request, $metadata)->wait();
-            if ($status->code !== 0) {
-                $this->logger->warning("ConsumeService forwardToDeadLetterQueue failed: " . $status->details);
-                return false;
+        $maxRetries = 3;
+        $retryPolicy = new ExponentialBackoffRetryPolicy($maxRetries, 1000, 30000, 2.0);
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            $request = new ForwardMessageToDeadLetterQueueRequest();
+            $request->setGroup($groupResource);
+            $request->setTopic($topicResource);
+            $request->setReceiptHandle($receiptHandle);
+            if ($messageId) {
+                $request->setMessageId($messageId);
             }
-            $this->logger->warning("ConsumeService forwardToDeadLetterQueue success for messageId={$messageId}");
-            return true;
-        } catch (\Exception $e) {
-            $this->logger->error("ConsumeService forwardToDeadLetterQueue exception: " . $e->getMessage());
-            return false;
+            if ($liteTopic !== null) {
+                $request->setLiteTopic($liteTopic);
+            }
+            $request->setDeliveryAttempt($this->maxAttempts);
+            $request->setMaxDeliveryAttempts($this->maxAttempts);
+
+            $metadata = $this->buildMetadata();
+            $brokerClient = $this->getBrokerClient($messageView);
+
+            try {
+                list($response, $status) = $brokerClient->ForwardMessageToDeadLetterQueue($request, $metadata)->wait();
+                if ($status->code !== 0) {
+                    $this->logger->warning("ConsumeService forwardToDeadLetterQueue failed: " . $status->details);
+                    return false;
+                } else {
+                    $this->logger->warning("ConsumeService forwardToDeadLetterQueue success for messageId={$messageId}");
+                    return true;
+                }
+            } catch (\Exception $e) {
+                $this->logger->error("ConsumeService forwardToDeadLetterQueue exception: " . $e->getMessage());
+            }
+            if ($attempt < $maxRetries) {
+                $delayMs = $retryPolicy->getNextDelayWithJitterMs($attempt);
+                if ($delayMs > 0) {
+                    usleep($delayMs * 1000);
+                }
+            }
         }
+        $this->logger->error("ConsumeService forwardToDeadLetterQueue failed after $maxRetries attempts");
+        return false;
     }
 
     private function getBrokerClient($messageView)
@@ -577,9 +598,16 @@ class FifoConsumeService extends ConsumeService
             $this->logger->warning("FifoConsumeService message consume failed, attempt {$deliveryAttempt}/{$this->maxAttempts}");
             $this->nackMessage($messageView, $deliveryAttempt);
             $pq->evictMessage($messageView);
-            // Wait for retry delay
-            $delaySeconds = min(pow(2, $deliveryAttempt - 1) * 10, 30);
-            usleep($delaySeconds * 1000000);
+            $retryPolicy = null;
+            if (method_exists($this->consumer, 'getRetryPolicy')) {
+                $retryPolicy = $this->consumer->getRetryPolicy();
+            }
+            if ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
+                $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
+            } else {
+                $delayMs = min(pow(2, $deliveryAttempt - 1) * 10000, 30000);
+            }
+            usleep($delayMs * 1000);
         } else {
             $this->logger->error("FifoConsumeService max attempts reached for message, forwarding to DLQ");
             $this->forwardToDeadLetterQueue($messageView);

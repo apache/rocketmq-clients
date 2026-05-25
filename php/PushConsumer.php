@@ -31,6 +31,8 @@ require_once __DIR__ . '/ClientConstants.php';
 require_once __DIR__ . '/SwooleCompat.php';
 require_once __DIR__ . '/ClientTrait.php';
 require_once __DIR__ . '/ProtobufUtil.php';
+require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
+require_once __DIR__ . '/CustomizedBackoffRetryPolicy.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryAssignmentRequest;
@@ -97,6 +99,7 @@ class PushConsumer
     private $namespace = '';
     private $lastHeartbeatTime = 0;
     private $shutdownDrainDeadline = null;
+    private $retryPolicy = null;
 
     /**
      * Constructor with builder-style options.
@@ -138,6 +141,7 @@ class PushConsumer
         ]);
 
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
+        $this->retryPolicy = new ExponentialBackoffRetryPolicy(5, 1000, 30000, 2.0);
     }
 
     /**
@@ -157,6 +161,11 @@ class PushConsumer
         }
         $this->subscriptionExpressions[$topic] = $expression;
         return $this;
+    }
+
+    public function getRetryPolicy()
+    {
+        return $this->retryPolicy;
     }
 
     /**
@@ -901,7 +910,20 @@ class PushConsumer
 
         // Process backoff policy
         if (method_exists($settings, 'getBackoffPolicy') && $settings->hasBackoffPolicy()) {
+            $serverPolicy = $settings->getBackoffPolicy();
             $this->logger->info("Received backoff policy from server");
+            if (method_exists($serverPolicy, 'getDurations') && !ProtobufUtil::isRepeatedFieldEmpty($serverPolicy->getDurations())) {
+                $delays = [];
+                foreach ($serverPolicy->getDurations() as $dur) {
+                    if (method_exists($dur, 'getSecounds')) {
+                        $delays[] = $dur->getSecounds() * 1000;
+                    }
+                }
+                if (!empty($delays)) {
+                    $this->retryPolicy = CustomizedBackoffRetryPolicy::fromProtobuf($serverPolicy);
+                    $this->logger->info("Using customized backoff policy");
+                }
+            }
         }
 
         // Process subscription settings
@@ -927,17 +949,37 @@ class PushConsumer
         $request = new HeartbeatRequest();
         $request->setClientType($this->getClientType());
         $request->setGroup($this->getGroupResource());
-        $metadata = $this->buildMetadata();
-
-        try {
-            list($response, $status) = $this->client->Heartbeat($request, $metadata)->wait();
-            if ($status->code === 0) {
-                $this->logger->debug("Heartbeat sent successfully");
-            } else {
-                $this->logger->warning("Heartbeat failed: " . $status->details);
+        $endpointsMap = [];
+        foreach ($this->processQueueTable as $pq) {
+            $mq = $pq->getMessageQueue();
+            $broker = $mq->getBroker();
+            if ($broker && $broker->hasEndpoint()) {
+                $endpoints = $broker->getEndpoints();
+                $addresses = $endpoints->getAddresses();
+                if (!empty($addresses) && $addresses[0] !== null) {
+                    $key = $addresses[0]->getHost() . ':' . $addresses[0]->getPort();
+                    $endpointsMap[$key] = $endpoints;
+                }
             }
-        } catch (\Exception $e) {
-            $this->logger->warning("Heartbeat failed: " . $e->getMessage());
+        }
+        if (empty($endpointsMap)) {
+            return;
+        }
+        foreach ($endpointsMap as $brokerKey => $endpoints) {
+            $metadata = $this->buildMetadata();
+            try {
+                $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
+                    'credentials' => ChannelCredentials::createInsecure(),
+                ]);
+                list($response, $status) = $brokerClient->Heartbeat($request, $metadata)->wait();
+                if ($status->code === 0) {
+                    $this->logger->info("Heartbeat success, broker: {$brokerKey}");
+                } else {
+                    $this->logger->warning("Heartbeat failed, broker: {$brokerKey}, status: {$status->code}");
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning("Heartbeat failed, broker: {$brokerKey}, error: {$e->getMessage()}");
+            }
         }
     }
 
@@ -973,6 +1015,11 @@ class PushConsumer
         $now = time();
         if ($now - $this->lastHeartbeatTime >= 10) {
             $this->doHeartbeat();
+            static $lastRouteRefresh = 0;
+            if ($now - $lastRouteRefresh >= 30) {
+                $this->refreshRouteCache();
+                $lastRouteRefresh = $now;
+            }
             $this->lastHeartbeatTime = $now;
         }
     }
@@ -1003,5 +1050,17 @@ class PushConsumer
             $channel->push(true);
         });
         return true;
+    }
+
+    private function refreshRouteCache()
+    {
+        foreach ($this->subscriptionExpressions as $topic => $expression) {
+            try {
+                $this->queryAssignment($topic);
+                $this->logger->debug("Route refreshed for topic={$topic}");
+            } catch (\Throwable $e) {
+                $this->logger->warning("Route refreshed failed, topic={$topic}, error={$e->getMessage()}");
+            }
+        }
     }
 }

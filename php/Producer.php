@@ -34,6 +34,7 @@ require_once __DIR__ . '/SwooleCompat.php';
 require_once __DIR__ . '/ProtobufUtil.php';
 require_once __DIR__ . '/PublishingLoadBalancer.php';
 require_once __DIR__ . '/Transaction.php';
+require_once __DIR__ . '/IntMath.php';
 require_once __DIR__ . '/MessageHookPoints.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
@@ -216,20 +217,20 @@ class Producer
 
         $topic = $message->getTopic()->getName();
         $loadBalancer = $this->getPublishingLoadBalancer($topic);
-        $messageQueue = $loadBalancer->takeMessageQueue($this->isolatedEndpoints, 1);
+        $candidates = $loadBalancer->takeMessageQueue($this->getIsolatedBrokerNames(), $this->maxAttempts);
 
-        if (empty($messageQueue)) {
+        if (empty($candidates)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
         }
 
         if ($this->validateMessageType) {
             $msgType = $this->detectMessageType($message, false);
-            $loadBalancer->validateMessageTypeAgainstQueue($messageQueue[0], $msgType, $topic);
+            $loadBalancer->validateMessageTypeAgainstQueue($candidates[0], $msgType, $topic);
         }
 
-        $request = $this->wrapSendMessageRequest([$message], $messageQueue[0]);
+        $request = $this->wrapSendMessageRequest([$message], $candidates[0]);
 
-        return $this->sendMessageWithRetry($request, $message, $this->maxAttempts);
+        return $this->sendMessageWithRetry($request, $message, $candidates, $this->maxAttempts);
     }
 
     /**
@@ -338,7 +339,7 @@ class Producer
 
         $topic = $message->getTopic()->getName();
         $loadBalancer = $this->getPublishingLoadBalancer($topic);
-        $messageQueue = $loadBalancer->takeMessageQueue($this->isolatedEndpoints, 1);
+        $messageQueue = $loadBalancer->takeMessageQueue($this->getIsolatedBrokerNames(), $this->maxAttempts);
 
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
@@ -350,11 +351,11 @@ class Producer
         }
 
         $request = $this->wrapTransactionMessageRequest([$message], $messageQueue[0]);
-        $result = $this->sendMessageWithRetry($request, $message, $this->maxAttempts);
+        $result = $this->sendMessageWithRetry($request, $message, $messageQueue, $this->maxAttempts);
 
         if (isset($result['transactionId'])) {
             $transaction->tryAddMessage($message);
-            $transaction->tryAddReceipt($message, $result);
+            $transaction->tryAddReceipt($message, $result, $this->extractMessageQueueEndpoint($messageQueue[0]));
         }
 
         // Execute local transaction and auto-commit/rollback
@@ -381,14 +382,14 @@ class Producer
         return new Transaction($this);
     }
 
-    public function commitTransaction($messageId, $transactionId, $topic)
+    public function commitTransaction($messageId, $transactionId, $topic, $endpoints = null)
     {
-        $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::COMMIT);
+        $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::COMMIT, $endpoints);
     }
 
-    public function rollbackTransaction($messageId, $transactionId, $topic)
+    public function rollbackTransaction($messageId, $transactionId, $topic, $endpoints = null)
     {
-        $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::ROLLBACK);
+        $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::ROLLBACK, $endpoints);
     }
 
     public function sendPriorityMessage($topic, $body, $priority, $tag = '')
@@ -580,6 +581,11 @@ class Producer
         $now = time();
         if ($now - $this->lastHeartbeatTime >= 10) {
             $this->doHeartbeat();
+            static $lastRouteRefresh = 0;
+            if ($now - $lastRouteRefresh >= 30) {
+                $this->refreshRouteCache();
+                $lastRouteRefresh = $now;
+            }
             $this->lastHeartbeatTime = $now;
         }
     }
@@ -613,21 +619,36 @@ class Producer
             return;
         }
 
+        $brokerEndpoints = $this->getTotalRouteEndpoints();
+        if (empty($brokerEndpoints)) {
+            return;
+        }
+
         $request = new HeartbeatRequest();
         $request->setClientType(ClientType::PRODUCER);
 
-        $metadata = $this->buildMetadata();
-
-        try {
-            list($response, $status) = $this->client->Heartbeat($request, $metadata)->wait();
-            if ($status->code === 0) {
-                $this->logger->debug("Heartbeat sent successfully");
-                $this->isolatedEndpoints = [];
-            } else {
-                $this->logger->warning("Heartbeat failed: " . $status->details);
+        foreach ($brokerEndpoints as $endpoints) {
+            $addresses = $endpoints->getAddresses();
+            if (empty($addresses) || $addresses[0] === null) {
+                continue;
             }
-        } catch (\Exception $e) {
-            $this->logger->warning("Heartbeat failed: " . $e->getMessage());
+            $address = $addresses[0];
+            $brokerKey = $address->getHost() . ':' . $address->getPort();
+            try {
+                $brokerClient = RpcClientManager::getInstance()->getClent($brokerKey, [
+                    'credentials' => ChannelCredentials::createInsecure(),
+                ]);
+                $metadata = $this->buildMetadata();
+                list($response, $status) = $brokerClient->Heartbeat($request, $metadata)->wait();
+                if ($status->code === 0) {
+                    $this->logger->debug("Heartbeat to broker {$brokerKey} successful");
+                    $this->isolatedEndpoints = [];
+                } else {
+                    $this->logger->warning("Heartbeat to broker {$brokerKey} failed:" . $status->detail);
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning("Heartbeat to broker {$brokerKey} failed:" . $e->getMessage());
+            }
         }
     }
 
@@ -730,8 +751,12 @@ class Producer
                 $topicName = $message->getTopic()->getName();
             }
 
+            $endpoints = null;
+            if (method_exists($message, 'getEndpoints') && $command->hasEndpoints()) {
+                $endpoints = $message->getEndpoints();
+            }
             if (!empty($messageId) && !empty($topicName)) {
-                $this->endTransaction($messageId, $transactionId, $topicName, $resolution);
+                $this->endTransaction($messageId, $transactionId, $topicName, $resolution, $endpoints);
             }
         } catch (\Exception $e) {
             $this->logger->error("TransactionChecker threw exception: " . $e->getMessage());
@@ -993,12 +1018,19 @@ class Producer
     /**
      * Send message with retry using wired ExponentialBackoffRetryPolicy.
      */
-    private function sendMessageWithRetry($request, $message, $maxAttempts)
+    private function sendMessageWithRetry($request, $message, $candidates, $maxAttempts)
     {
         $lastException = null;
         $startTime = microtime(true);
+        $candidateCount = count($candidates);
+        $currentMessageQueue = $candidates[0];
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            if ($attempt > 1 && $candidateCount > 1) {
+                $queueIndex = \Apache\Rocketmq\IntMath::mod($attempt, $candidateCount);
+                $currentMessageQueue = $candidates[$queueIndex];
+                $request = $this->wrapSendMessageRequest([$message], $currentMessageQueue);
+            }
             try {
                 $metadata = $this->buildMetadata();
 
@@ -1068,6 +1100,11 @@ class Producer
                 $lastException = $e;
                 $this->logger->error("Send attempt {$attempt} failed: " . $e->getMessage());
 
+                $failedEndpoints = $this->extractMessageQueueEndpoint($currentMessageQueue);
+                if ($failedEndpoints !== null) {
+                    $this->isolateEndpoints($failedEndpoints);
+                }
+
                 if ($attempt < $maxAttempts) {
                     $delayMs = $this->retryPolicy->getNextDelayWithJitterMs($attempt);
                     if ($delayMs > 0) {
@@ -1089,13 +1126,20 @@ class Producer
     /**
      * Batch send with retry using wired ExponentialBackoffRetryPolicy.
      */
-    private function sendBatchWithRetry($request, $messages, $maxAttempts)
+    private function sendBatchWithRetry($request, $messages, $candidates, $maxAttempts)
     {
         $lastException = null;
         $startTime = microtime(true);
         $topic = $messages[0]->getTopic()->getName();
+        $candidateCount = count($candidates);
+        $currentMessageQueue = $candidates[0];
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            if ($attempt > 1 && $candidateCount > 1) {
+                $queueIndex = \Apache\Rocketmq\IntMath::mod($attempt, $candidateCount);
+                $currentMessageQueue = $candidates[$queueIndex];
+                $request = $this->wrapSendMessageRequest([$messages], $currentMessageQueue);
+            }
             try {
                 $metadata = $this->buildMetadata();
 
@@ -1147,6 +1191,11 @@ class Producer
                 $lastException = $e;
                 $this->logger->error("Batch send attempt {$attempt} failed: " . $e->getMessage());
 
+                $failedEndpoints = $this->extractMessageQueueEndpoint($currentMessageQueue);
+                if ($failedEndpoints !== null) {
+                    $this->isolateEndpoints($failedEndpoints);
+                }
+
                 if ($attempt < $maxAttempts) {
                     $delayMs = $this->retryPolicy->getNextDelayWithJitterMs($attempt);
                     if ($delayMs > 0) {
@@ -1165,7 +1214,7 @@ class Producer
         throw $lastException;
     }
 
-    private function endTransaction($messageId, $transactionId, $topic, $resolution)
+    private function endTransaction($messageId, $transactionId, $topic, $resolution, ?Endpoints $endpoints = null)
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -1193,7 +1242,20 @@ class Producer
 
         $metadata = $this->buildMetadata();
 
-        list($response, $status) = $this->client->EndTransaction($request, $metadata)->wait();
+        if ($endpoints !== null) {
+            $address = $endpoints->getAddresses();
+            if (!empty($addresses) && $addresses[0] !== null) {
+                $brokerKey = $addresses[0]->getHost() . ':' . $addresses[0]->getPort();
+                $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
+                    'credentials' => ChannelCredentials::createInsecure(),
+                ]);
+                list($response, $status) = $brokerClient->EndTransaction($request, $metadata)->wait();
+            } else {
+                list($response, $status) = $this->client->EndTransaction($request, $metadata)->wait();
+            }
+        } else {
+            list($response, $status) = $this->client->EndTransaction($request, $metadata)->wait();
+        }
 
         if ($status->code !== 0) {
             throw new \RuntimeException("End transaction failed: " . $status->details);
@@ -1203,6 +1265,77 @@ class Producer
             $statusCode = $response->getStatus()->getCode();
             if ($statusCode !== 20000) {
                 throw new \RuntimeException("End transaction failed with code: " . $statusCode);
+            }
+        }
+    }
+
+    private function isolateEndpoints(Endpoints $endpoints): void
+    {
+        foreach ($endpoints->getAddresses() as $address) {
+            $key = $address->getHost() . ":" . $address->getPort();
+            $this->isolatedEndpoints[$key] = $address;
+        }
+    }
+
+    private function getIsolatedBrokerNames(): array
+    {
+        $brokerNames = [];
+        foreach ($this->publishingRouteDataCache as $loadBBalancer) {
+            foreach ($loadBBalancer->getMessageQueues() as $messageQueue) {
+                $ep = $this->extractMessageQueueEndpoint($messageQueue);
+                if ($ep !== null) {
+                    $key = $this->endpointsKey($ep);
+                    if (isset($this->isolatedEndpoints[$key])) {
+                        $brokerNames[] = $ep->getBroker()->getName();
+                    }
+                }
+            }
+        }
+        return array_unique($brokerNames);
+    }
+
+    private function extractMessageQueueEndpoint($messageQueue): ?Endpoints
+    {
+        $broker = $messageQueue->getBroker();
+        if ($broker && $broker->hasEndpoints()) {
+            return $broker->getEndpoints();
+        }
+        return null;
+    }
+
+    public function endpointsKey(Endpoints $endpoints): string
+    {
+        $addresses = $endpoints->getAddresses();
+        if (!empty($addresses) && $addresses[0] !== null) {
+            return $addresses[0]->getHost() . ':' . $addresses[0]->getPort();
+        }
+        return spl_object_hash($endpoints);
+    }
+
+    private function getTotalRouteEndpoints(): array
+    {
+        $endpointMap = [];
+        foreach ($this->publishingRouteDataCache as $loadBBalancer) {
+            foreach ($loadBBalancer->getMessageQueues() as $messageQueue) {
+                $endpoints = $this->extractMessageQueueEndpoint($messageQueue);
+                if ($endpoints !== null) {
+                    $key = $this->endpointsKey($endpoints);
+                    $endpointMap[$key] = $endpoints;
+                }
+            }
+        }
+        return array_values($endpointMap);
+    }
+
+    private function refreshRouteCache(): void
+    {
+        foreach ($this->topics as $topic) {
+            try {
+                $routeData = $this->queryRoute($topic);
+                $this->publishingRouteDataCache[$topic] = new PublishingLoadBalancer($routeData);
+                $this->logger->debug("Route refreshed for topic={$topic}");
+            } catch (\Exception $e) {
+                $this->logger->error("Failed to refresh route for topic={$topic}", ['exception' => $e]);
             }
         }
     }
