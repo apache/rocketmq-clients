@@ -138,7 +138,7 @@ class ProcessQueue
                     $this->cacheMessages([$message]);
                     $this->receivedMessagesQuantity++;
                     $count++;
-                    $this->consmeStreamdMessage($message);
+                    $this->consumeStreamedMessage($message);
                 }
             }
 
@@ -158,13 +158,13 @@ class ProcessQueue
 
     private function consumeStreamedMessage($message)
     {
-        if ($this->consumer->getConsumeService === null) {
+        if ($this->consumer->getConsumeService() === null) {
             return;
         }
         if ($this->dropped) {
             return;
         }
-        $endpoints = $this->getBrokerEndpoints();
+        $endpoints = $this->getBrokerEndpoint();
         $messageView = new MessageView($message, null, $endpoints);
         $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
         if ($messageView->isCorrupted()) {
