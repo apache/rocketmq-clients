@@ -351,8 +351,8 @@ class ProcessQueue
     {
         $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
         $this->logger->debug("ProcessQueue discardFifoMessage message $messageId");
-        if ($this->consumer->getConssumeService() !== null) {
-            $this->consumer->getConssumeService()->forwardToDeadLetterQueue($messageView);
+        if ($this->consumer->getConsumeService() !== null) {
+            $this->consumer->getConsumeService()->forwardToDeadLetterQueue($messageView);
         }
     }
 

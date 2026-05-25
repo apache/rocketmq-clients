@@ -287,12 +287,15 @@ abstract class ConsumeService
             list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata)->wait();
             if ($status->code !== 0) {
                 $this->logger->warning("ConsumeService nackMessage failed: " . $status->details);
+                $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
                 return false;
             }
             $this->logger->debug("ConsumeService nackMessage success for messageId={$messageId}, nextDelay={$delaySeconds}s");
+            $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
             return true;
         } catch (\Exception $e) {
             $this->logger->error("ConsumeService nackMessage exception: " . $e->getMessage());
+            $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
             return false;
         }
     }
@@ -344,6 +347,7 @@ abstract class ConsumeService
                     return false;
                 } else {
                     $this->logger->warning("ConsumeService forwardToDeadLetterQueue success for messageId={$messageId}");
+                    $this->executeDLQInterceptor(true, $messageId, $topic);
                     return true;
                 }
             } catch (\Exception $e) {
@@ -357,6 +361,7 @@ abstract class ConsumeService
             }
         }
         $this->logger->error("ConsumeService forwardToDeadLetterQueue failed after $maxRetries attempts");
+        $this->executeDLQInterceptor(true, $messageId, $topic);
         return false;
     }
 
@@ -612,6 +617,30 @@ class FifoConsumeService extends ConsumeService
             $this->logger->error("FifoConsumeService max attempts reached for message, forwarding to DLQ");
             $this->forwardToDeadLetterQueue($messageView);
             $pq->evictMessage($messageView);
+        }
+    }
+
+    protected function executeNackInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds)
+    {
+        if (method_exists($this->consumer, 'executeInterceptors')) {
+            $this->consumer->executeInterceptors(MessageHookPoints::CHANGE_INVISIBLE_DURATION, [
+                'success' => $success,
+                'messageId' => $messageId,
+                'topic' => $topic,
+                'deliveryAttempt' => $deliveryAttempt,
+                'delaySeconds' => $delaySeconds
+            ]);
+        }
+    }
+
+    protected function executeDLQInterceptor($success, $messageId, $topic)
+    {
+        if (method_exists($this->consumer, 'executeInterceptors')) {
+            $this->consumer->executeInterceptors(MessageHookPoints::FORWARD_TO_DLQ, [
+               'success' => $success,
+               'messageId' => $messageId,
+               'topic' => $topic,
+            ]);
         }
     }
 

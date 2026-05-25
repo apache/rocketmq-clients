@@ -601,6 +601,13 @@ class PushConsumer
      */
     private function syncProcessQueues($topic, $newAssignments, $expression)
     {
+        if (empty($newAssignments)) {
+            $existingCount = count($this->processQueueTable);
+            if ($existingCount > 0) {
+                $this->logger->warning("Broker returned 0 assignments for topics={$topic}, keeping {$existingCount} existing ProcessQueues");
+            }
+            return;
+        }
         $latestMQKeys = [];
         foreach ($newAssignments as $assignment) {
             if (method_exists($assignment, 'getMessageQueue')) {
@@ -612,6 +619,11 @@ class PushConsumer
 
         // Drop ProcessQueues no longer in the latest assignments
         foreach ($this->processQueueTable as $key => $pq) {
+            $pqMq = $pq->getMessageQueue();
+            $pqTopic = method_exists($pqMq, 'getTopic') ? $pqTopic->getTopic()->getName() : null;
+            if ($pqTopic !== $topic) {
+                continue;
+            }
             if (!isset($latestMQKeys[$key])) {
                 $pq->drop();
                 unset($this->processQueueTable[$key]);
@@ -915,13 +927,13 @@ class PushConsumer
             if (method_exists($serverPolicy, 'getDurations') && !ProtobufUtil::isRepeatedFieldEmpty($serverPolicy->getDurations())) {
                 $delays = [];
                 foreach ($serverPolicy->getDurations() as $dur) {
-                    if (method_exists($dur, 'getSecounds')) {
-                        $delays[] = $dur->getSecounds() * 1000;
+                    if (method_exists($dur, 'getSeconds')) {
+                        $delays[] = $dur->getSeconds() * 1000;
                     }
                 }
                 if (!empty($delays)) {
                     $this->retryPolicy = CustomizedBackoffRetryPolicy::fromProtobuf($serverPolicy);
-                    $this->logger->info("Using customized backoff policy");
+                    $this->logger->info("Updated retry policy from server backoff");
                 }
             }
         }

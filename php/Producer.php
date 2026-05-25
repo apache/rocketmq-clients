@@ -635,7 +635,7 @@ class Producer
             $address = $addresses[0];
             $brokerKey = $address->getHost() . ':' . $address->getPort();
             try {
-                $brokerClient = RpcClientManager::getInstance()->getClent($brokerKey, [
+                $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'credentials' => ChannelCredentials::createInsecure(),
                 ]);
                 $metadata = $this->buildMetadata();
@@ -837,6 +837,35 @@ class Producer
             throw new \RuntimeException("Failed to establish Telemetry Session");
         }
 
+        $brokerEndpoints = $this->getTotalRouteEndpoints();
+        foreach ($brokerEndpoints as $endpoints) {
+            $addresses = $endpoints->getAddresses();
+            if (empty($addresses) || $addresses[0] === null) {
+                continue;
+            }
+            $address = $addresses[0];
+            $brokerKey = $addresses->getHost() . ':' . $addresses->getPort();
+            try {
+                $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
+                    'credentials' => ChannelCredentials::createInsecure(),
+                ]);
+                $metadata = $this->buildMetadata();
+                list($response, $status) = $brokerClient->Telemetry($command, $metadata)->wait();
+                if ($status->code === 0) {
+                    $this->logger->debug('Telemetry synced to broker', [
+                        'broker' => $brokerKey,
+                        'response' => $response,
+                    ]);
+                } else {
+                    $this->logger->debug('Telemetry to broker {$brokerKey} to confirmed} :' . $status->detaols);
+                }
+            } catch (\Exception $e) {
+                $this->logger->error('Telemetry to broker {$brokerKey} failed', [
+                    'broker' => $brokerKey,
+                    'exception' => $e,
+                ]);
+            }
+        }
         usleep(500000); // 500ms
     }
 
@@ -1051,6 +1080,7 @@ class Producer
                             'success' => false,
                             'latencyMs' => $latencyMs,
                             'topic' => $message->getTopic()->getName(),
+                            'messageType' => $this->detectMessageType($message, false),
                         ]);
                         throw new \RuntimeException("SendMessage failed with code: " . $respStatus->getCode() . ", message: " . $respStatus->getMessage());
                     }
@@ -1068,6 +1098,7 @@ class Producer
                             'success' => false,
                             'latencyMs' => $latencyMs,
                             'topic' => $message->getTopic()->getName(),
+                            'messageType' => $this->detectMessageType($message, false),
                         ]);
                         throw new \RuntimeException("Send message failed with code: " . $resultStatus->getCode());
                     }
@@ -1077,6 +1108,11 @@ class Producer
                         'success' => true,
                         'latencyMs' => $latencyMs,
                         'topic' => $message->getTopic()->getName(),
+                        'messageType' => $this->detectMessageType($message, false),
+                        'sendReceipts' => [
+                            'messageId' => $entry->getMessageId(),
+                            'transactionId' => $entry->getTransactionId(),
+                        ]
                     ]);
 
                     return [
@@ -1119,6 +1155,8 @@ class Producer
             'success' => false,
             'latencyMs' => $latencyMs,
             'topic' => $message->getTopic()->getName(),
+            'messageType' => $this->detectMessageType($message, false),
+            'sendException' => $lastException ? $lastException->getMessage() : '',
         ]);
         throw $lastException;
     }
@@ -1138,7 +1176,7 @@ class Producer
             if ($attempt > 1 && $candidateCount > 1) {
                 $queueIndex = \Apache\Rocketmq\IntMath::mod($attempt, $candidateCount);
                 $currentMessageQueue = $candidates[$queueIndex];
-                $request = $this->wrapSendMessageRequest([$messages], $currentMessageQueue);
+                $request = $this->wrapSendMessageRequest($messages, $currentMessageQueue);
             }
             try {
                 $metadata = $this->buildMetadata();
@@ -1273,20 +1311,20 @@ class Producer
     {
         foreach ($endpoints->getAddresses() as $address) {
             $key = $address->getHost() . ":" . $address->getPort();
-            $this->isolatedEndpoints[$key] = $address;
+            $this->isolatedEndpoints[$key] = $endpoints;
         }
     }
 
     private function getIsolatedBrokerNames(): array
     {
         $brokerNames = [];
-        foreach ($this->publishingRouteDataCache as $loadBBalancer) {
-            foreach ($loadBBalancer->getMessageQueues() as $messageQueue) {
+        foreach ($this->publishingRouteDataCache as $loadBalancer) {
+            foreach ($loadBalancer->getMessageQueues() as $messageQueue) {
                 $ep = $this->extractMessageQueueEndpoint($messageQueue);
                 if ($ep !== null) {
                     $key = $this->endpointsKey($ep);
                     if (isset($this->isolatedEndpoints[$key])) {
-                        $brokerNames[] = $ep->getBroker()->getName();
+                        $brokerNames[] = $messageQueue->getBroker()->getName();
                     }
                 }
             }
@@ -1315,8 +1353,8 @@ class Producer
     private function getTotalRouteEndpoints(): array
     {
         $endpointMap = [];
-        foreach ($this->publishingRouteDataCache as $loadBBalancer) {
-            foreach ($loadBBalancer->getMessageQueues() as $messageQueue) {
+        foreach ($this->publishingRouteDataCache as $loadBalancer) {
+            foreach ($loadBalancer->getMessageQueues() as $messageQueue) {
                 $endpoints = $this->extractMessageQueueEndpoint($messageQueue);
                 if ($endpoints !== null) {
                     $key = $this->endpointsKey($endpoints);

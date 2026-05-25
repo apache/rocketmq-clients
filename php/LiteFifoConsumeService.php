@@ -19,6 +19,7 @@
 namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/ConsumeService.php';
+require_once __DIR__ . '/ProcessQueue.php';
 
 /**
  * LiteFifoConsumeService - FIFO consume service for lite consumers.
@@ -42,5 +43,40 @@ class LiteFifoConsumeService extends FifoConsumeService
             return $sysProps->getLiteTopic();
         }
         return 'default';
+    }
+
+    protected function handleSuspend(ProcessQueue $pq, $messageView, ConsumeResultSuspend $suspendResult)
+    {
+        if ($pq->isDropped()) {
+            return;
+        }
+        $targetLiteTopic = null;
+        if (method_exists($messageView, 'getSystemProperties')) {
+            $sysProps = $messageView->getSystemProperties();
+            if (method_exists($sysProps, 'getLiteTopic') && $sysProps->hasLiteTopic()) {
+                $targetLiteTopic = $sysProps->getLiteTopic();
+            }
+        }
+        $suspendSec = (int)ceil($suspendResult->getSuspendTimeMs() / 1000);
+        $cachedMessages = $pq->getCachedMessages();
+        $suspendedCount = 0;
+        foreach ($cachedMessages as $msg) {
+            if ($targetLiteTopic !== null) {
+                $msgLiteTopic = null;
+                if (method_exists($msg, 'getSystemProperties')) {
+                    $msgSysProps = $msg->getSystemProperties();
+                    if (method_exists($msgSysProps, "getLiteTopic") && $msgSysProps->hasLiteTopic()) {
+                        $msgLiteTopic = $msgSysProps->getLiteTopic();
+                    }
+                }
+                if ($msgLiteTopic === $targetLiteTopic) {
+                    $this->nackMessage($msg, 1, $suspendSec);
+                    $pq->evictMessage($msg);
+                    $suspendedCount++;
+                }
+            }
+        }
+        $this->logger->debug("LiteFifoConsumeService batch-suspended {$suspendedCount} messages with same liteTopic, suspendSec={$suspendSec}");
+        usleep($suspendResult->getSuspendTimeMs() * 1000);
     }
 }
