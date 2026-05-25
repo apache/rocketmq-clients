@@ -469,7 +469,7 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 			} else {
 				dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, MessageHookPointsStatus_ERROR)
 				dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%s, "+
-					"nextAttemptId=%s, clientId=%s, err=%w", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
+					"nextAttemptId=%s, clientId=%s, err=%v", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
 					clientId, err)
 			}
 			dpq.onReceiveMessageException(err, nextAttemptId)
