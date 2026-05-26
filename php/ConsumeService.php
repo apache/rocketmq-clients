@@ -162,12 +162,10 @@ abstract class ConsumeService
         $request->setEntries([$entry]);
 
         $metadata = $this->buildMetadata();
-        $maxRetries = 3;
-        $attempt = 0;
-        $retryPolicy = new ExponentialBackoffRetryPolicy($maxRetries, 1000, 30000, 2.0);
 
         $brokerClient = $this->getBrokerClient($messageView);
-        while ($attempt < $maxRetries) {
+        $attempt = 0;
+        while (true) {
             try {
                 list($response, $status) = $brokerClient->AckMessage($request, $metadata)->wait();
                 if ($status->code !== 0) {
@@ -207,14 +205,8 @@ abstract class ConsumeService
             }
 
             $attempt++;
-            $delayMs = $retryPolicy->getNextDelayWithJitterMs($attempt);
-            if ($delayMs > 0) {
-                usleep($delayMs * 1000);
-            }
+            usleep( 1000000);
         }
-
-        $this->logger->error("ConsumeService ackMessage failed after {$maxRetries} retries for messageId={$messageId}");
-        return false;
     }
 
     /**
@@ -282,21 +274,38 @@ abstract class ConsumeService
         $metadata = $this->buildMetadata();
 
         $brokerClient = $this->getBrokerClient($messageView);
-
-        try {
-            list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata)->wait();
-            if ($status->code !== 0) {
-                $this->logger->warning("ConsumeService nackMessage failed: " . $status->details);
-                $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
-                return false;
+        $attempt = 0;
+        while (true) {
+            try {
+                list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata)->wait();
+                if ($status->code !== 0) {
+                    $this->logger->warning("ConsumeService nackMessage failed: " . $status->details);
+                    return false;
+                } else {
+                    if ($response->hasStatus()) {
+                        $statusCode = $response->getStatus()->getCode();
+                        if ($statusCode === 40003) {
+                            $this->logger->warning("ConsumeService nackMessage invalid receipt handle, giving up ");
+                            $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
+                            return false;
+                        }
+                        if ($statusCode === 20000) {
+                            $this->logger->warning("ConsumeService nackMessage status error: code={$statusCode} ");
+                            $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
+                            $attempt++;
+                            usleep(1000000);
+                            continue;
+                        }
+                    }
+                    $this->logger->debug("ConsumeService nackMessage success for messageId={$messageId}, nextDelay={$delaySeconds}s");
+                    $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
+                    return true;
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning("ConsumeService nackMessage exception: " . $e->getMessage());
             }
-            $this->logger->debug("ConsumeService nackMessage success for messageId={$messageId}, nextDelay={$delaySeconds}s");
-            $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
-            return true;
-        } catch (\Exception $e) {
-            $this->logger->error("ConsumeService nackMessage exception: " . $e->getMessage());
-            $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
-            return false;
+            $attempt++;
+            usleep(1000000);
         }
     }
 
@@ -306,7 +315,7 @@ abstract class ConsumeService
      * @param object $messageView
      * @return bool
      */
-    public function forwardToDeadLetterQueue($messageView)
+    public function forwardToDeadLetterQueue($messageView, $deliveryAttempt = null)
     {
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
@@ -321,9 +330,8 @@ abstract class ConsumeService
         $groupResource = $this->consumer->getGroupResourceWithNamespace();
         $topicResource = $this->consumer->getTopicResource($topic);
 
-        $maxRetries = 3;
-        $retryPolicy = new ExponentialBackoffRetryPolicy($maxRetries, 1000, 30000, 2.0);
-        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+        $attempt = 0;
+        while (true) {
             $request = new ForwardMessageToDeadLetterQueueRequest();
             $request->setGroup($groupResource);
             $request->setTopic($topicResource);
@@ -343,8 +351,7 @@ abstract class ConsumeService
             try {
                 list($response, $status) = $brokerClient->ForwardMessageToDeadLetterQueue($request, $metadata)->wait();
                 if ($status->code !== 0) {
-                    $this->logger->warning("ConsumeService forwardToDeadLetterQueue failed: " . $status->details);
-                    return false;
+                    $this->logger->warning("ConsumeService forwardToDeadLetterQueue attempt {$attempt}: " . $status->details);
                 } else {
                     $this->logger->warning("ConsumeService forwardToDeadLetterQueue success for messageId={$messageId}");
                     $this->executeDLQInterceptor(true, $messageId, $topic);
@@ -353,16 +360,9 @@ abstract class ConsumeService
             } catch (\Exception $e) {
                 $this->logger->error("ConsumeService forwardToDeadLetterQueue exception: " . $e->getMessage());
             }
-            if ($attempt < $maxRetries) {
-                $delayMs = $retryPolicy->getNextDelayWithJitterMs($attempt);
-                if ($delayMs > 0) {
-                    usleep($delayMs * 1000);
-                }
-            }
+            $attempt++;
+            usleep(1000000);
         }
-        $this->logger->error("ConsumeService forwardToDeadLetterQueue failed after $maxRetries attempts");
-        $this->executeDLQInterceptor(true, $messageId, $topic);
-        return false;
     }
 
     private function getBrokerClient($messageView)
@@ -445,13 +445,16 @@ class StandardConsumeService extends ConsumeService
             if ($result instanceof ConsumeResultSuspend) {
                 $suspendSec = (int)ceil($result->getSuspendTimeMs() / 1000);
                 $this->logger->debug('StandardConsumerService suspend for %d seconds, messageId: %s', $suspendSec, $messageId);
-                $pq->nackMessage($messageView, 1, $suspendSec);
+                $this->nackMessage($messageView, 1, $suspendSec);
+                $pq->evictMessage($messageView);
             } elseif ($result === \Apache\Rocketmq\ConsumeResult::SUCCESS) {
                 $this->logger->debug('StandardConsumerService consume success, messageId: %s', $messageId);
                 $this->ackMessage($messageView);
+                $pq->evictMessage($messageView);
             } else {
                 $this->logger->debug('StandardConsumerService consume failed, messageId: %s', $messageId);
-                $pq->nackMessage($messageView);
+                $this->nackMessage($messageView);
+                $pq->evictMessage($messageView);
             }
         }
     }
@@ -542,6 +545,10 @@ class FifoConsumeService extends ConsumeService
             $groupedMessages[$groupKey][] = $msg;
         }
 
+        $deliveryAttempts = [];
+        foreach ($groupedMessages as $groupKey => $groupMsgs) {
+            $deliveryAttempts[$groupKey] = 1;
+        }
         $this->logger->debug("FifoConsumeService accelerator: " . count($groupedMessages) . " groups, " . count($messages) . " total messages");
 
         // Process each group's head message concurrently
@@ -583,8 +590,9 @@ class FifoConsumeService extends ConsumeService
                 } elseif ($result instanceof ConsumeResultSuspend) {
                     $this->handleSuspend($pq, $messageView, $result);
                 } else {
+                    $attempt = $deliveryAttempts[$groupKey];
                     // On failure, retry with delay, then continue with other groups
-                    $this->handleFailure($pq, $messageView, 1);
+                    $this->handleFailure($pq, $messageView, $attempt);
                 }
             }
         }
@@ -613,9 +621,10 @@ class FifoConsumeService extends ConsumeService
                 $delayMs = min(pow(2, $deliveryAttempt - 1) * 10000, 30000);
             }
             usleep($delayMs * 1000);
+            $this->consumeFifoIteratively($pq, $messageView, $deliveryAttempt + 1);
         } else {
             $this->logger->error("FifoConsumeService max attempts reached for message, forwarding to DLQ");
-            $this->forwardToDeadLetterQueue($messageView);
+            $this->forwardToDeadLetterQueue($messageView, $deliveryAttempt);
             $pq->evictMessage($messageView);
         }
     }
@@ -647,7 +656,7 @@ class FifoConsumeService extends ConsumeService
     /**
      * Handle suspension result in FIFO consumption.
      */
-    private function handleSuspend(ProcessQueue $pq, $messageView, ConsumeResultSuspend $suspendResult)
+    protected function handleSuspend(ProcessQueue $pq, $messageView, ConsumeResultSuspend $suspendResult)
     {
         if ($pq->isDropped()) {
             return;

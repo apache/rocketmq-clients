@@ -594,6 +594,12 @@ class PushConsumer
                 $assignments = $this->queryAssignment($topic);
                 $newAssignments = $assignments ? $assignments->getAssignments() : [];
 
+                $oldAssignments = isset($this->cacheAssignments[$topic]) ? $this->cacheAssignments[$topic] : null;
+                $newIsEmpty = empty($newAssignments);
+                $oldIsEmpty = $oldAssignments === null || empty($oldAssignments);
+                if ($newIsEmpty && $oldIsEmpty) {
+                    $this->logger->debug("PushConsumer acquired empty assignment from remote, would scan later, for topic $topic");
+                }
                 $this->syncProcessQueues($topic, $newAssignments, $expression);
                 $this->cacheAssignments[$topic] = $newAssignments;
             } catch (\Exception $e) {
@@ -607,13 +613,6 @@ class PushConsumer
      */
     private function syncProcessQueues($topic, $newAssignments, $expression)
     {
-        if (empty($newAssignments)) {
-            $existingCount = count($this->processQueueTable);
-            if ($existingCount > 0) {
-                $this->logger->warning("Broker returned 0 assignments for topics={$topic}, keeping {$existingCount} existing ProcessQueues");
-            }
-            return;
-        }
         $latestMQKeys = [];
         foreach ($newAssignments as $assignment) {
             if (method_exists($assignment, 'getMessageQueue')) {
@@ -621,6 +620,13 @@ class PushConsumer
                 $mqKey = $this->getMqKey($mq);
                 $latestMQKeys[$mqKey] = $mq;
             }
+        }
+        if (empty($newAssignments)) {
+            $existingCount = count($this->processQueueTable);
+            if ($existingCount > 0) {
+                $this->logger->warning("Broker returned 0 assignments for topics={$topic}, keeping {$existingCount} existing ProcessQueues");
+            }
+            return;
         }
 
         // Drop ProcessQueues no longer in the latest assignments
@@ -917,6 +923,9 @@ class PushConsumer
         $this->telemetrySession->setOnSettingsChange(function ($settings) use ($self) {
             $self->onServerSettings($settings);
         });
+        $this->telemetrySession->setOnVerifyMessage(function ($verifyCmd) use ($self) {
+            return $self->onVerifyMessage($verifyCmd);
+        });
     }
 
     /**
@@ -1085,6 +1094,47 @@ class PushConsumer
             } catch (\Throwable $e) {
                 $this->logger->warning("Route refreshed failed, topic={$topic}, error={$e->getMessage()}");
             }
+        }
+    }
+
+    private function onVerifyMessage($verifyCmd)
+    {
+        $message = null;
+        if (method_exists($verifyCmd, 'getMessage')) {
+            $message = $verifyCmd->getMessage();
+        }
+        if ($message === null) {
+            $this->logger->warning("PushConsumer onVerifyMessage no message in verify command");
+            return null;
+        }
+        try {
+            $messageView = new MessageView($message, null, null, 1);
+            if ($messageView->isCorrupted()) {
+                $this->logger->error("PushConsumer onVerifyMessage message is corrupted");
+                $status = new \Apache\Rocketmq\V2\Status();
+                $status->setCode(50000);
+                $status->setMessage("message is corrupted");
+                $result = new \Apache\Rocketmq\V2\VerifyMessageResult();
+                $result->setNonce($verifyCmd->getNonce());
+                $resp = new \Apache\Rocketmq\V2\TelemetryCommand();
+                $resp->setStatus($status);
+                $resp->setVerifyMessageResult($result);
+                return $resp;
+            }
+            $result = $this->consumeService->consumeMessage($messageView);
+            $code = ($result === ConsumeResult::SUCCESS) ? 20000 : 40000;
+            $status = new \Apache\Rocketmq\V2\Status();
+            $status->setCode($code);
+            $verifyResult = new \Apache\Rocketmq\V2\VerifyMessageResult();
+            $verifyResult->setNonce($verifyCmd->getNonce());
+
+            $resp = new \Apache\Rocketmq\V2\TelemetryCommand();
+            $resp->setStatus($status);
+            $resp->setVerifyMessageResult($verifyResult);
+            return $resp;
+        } catch (\Exception $e) {
+            $this->logger->warning("PushConsumer onVerifyMessage failed: " . $e->getMessage());
+            return null;
         }
     }
 }

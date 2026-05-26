@@ -70,7 +70,8 @@ class CustomizedBackoffRetryPolicy
             return 0;
         }
 
-        return $this->delays[($attempt - 1) % $count];
+        $index = min($attempt - 1, $count - 1);
+        return $this->delays[$index];
     }
 
     /**

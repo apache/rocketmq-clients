@@ -138,6 +138,11 @@ class MessageView
         return $body;
     }
 
+    public function setReceiptHandle(?string $receiptHandle): void
+    {
+        $this->receiptHandle = $receiptHandle;
+    }
+
     /**
      * Verify body integrity using the given digest type and checksum.
      */

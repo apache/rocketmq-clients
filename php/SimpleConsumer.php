@@ -305,19 +305,23 @@ class SimpleConsumer
             throw new \RuntimeException("Consumer not started");
         }
 
-        $startTime = microtime(true);
-        $messages = [];
-
-        // Iterate over all subscribed topics
-        foreach ($this->subscriptions as $topic => $expression) {
-            $received = $this->receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration);
-            $messages = array_merge($messages, $received);
-
-            // Stop if maximum count is reached
-            if (count($messages) >= $maxMessages) {
-                break;
-            }
+        if ($maxMessages <= 0) {
+            throw new \InvalidArgumentException("Invalid maxMessages must be greater than 0");
         }
+
+        $startTime = microtime(true);
+
+        $topics = array_keys($this->subscriptions);
+        if (empty($topics)) {
+            return [];
+        }
+        $topicIndex = $this->topicIndex++;
+        $index = $topicIndex % count($topics);
+        $topic = $topics[$index];
+        $expression = $this->subscriptions[$topic];
+        $topicCount = count($topics);
+        $longPollingTimeout = $topicCount > 1 ? max(1, (int)($this->awaitDuration / $topicCount)) : $this->awaitDuration;
+        $messages = $this->receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration, $longPollingTimeout);
 
         $latencyMs = (microtime(true) - $startTime) * 1000;
         $this->executeInterceptors(MessageHookPoints::RECEIVE, [
@@ -337,7 +341,7 @@ class SimpleConsumer
     /**
      * Receive messages from a specific topic
      */
-    private function receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration)
+    private function receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration, $longPollingTimeout = null)
     {
         // Query route to get MessageQueue first
         $messageQueue = $this->getMessageQueue($topic);
@@ -364,9 +368,10 @@ class SimpleConsumer
         $invisibleDurationObj->setSeconds($invisibleDuration);
         $request->setInvisibleDuration($invisibleDurationObj);
 
-        $longPollingTimeout = new Duration();
-        $longPollingTimeout->setSeconds($this->awaitDuration);
-        $request->setLongPollingTimeout($longPollingTimeout);
+        $effectiveLongPollingTimeout = $longPollingTimeout ?? $this->awaitDuration;
+        $longPollingTimeoutObj = new Duration();
+        $longPollingTimeoutObj->setSeconds($effectiveLongPollingTimeout);
+        $request->setLongPollingTimeout($longPollingTimeoutObj);
 
         $attemptId = $this->generateAttemptId();
         $request->setAttemptId($attemptId);
@@ -375,7 +380,7 @@ class SimpleConsumer
         $receiveClient = $this->getBrokerClient($messageQueue);
 
         // gRPC timeout in microseconds — server reads this via ctx.getRemainingMs()
-        $grpcTimeoutMicroseconds = ($this->requestTimeout + $this->awaitDuration * 1000) * 1000;
+        $grpcTimeoutMicroseconds = ($this->requestTimeout + $effectiveLongPollingTimeout * 1000) * 1000;
         $grpcTimeoutMills = (int)($grpcTimeoutMicroseconds / 1000);
 
         // Use signed metadata via ClientTrait
@@ -543,10 +548,9 @@ class SimpleConsumer
 
         $metadata = $this->buildMetadata();
 
-        $maxRetries = 3;
         $attempt = 0;
 
-        while ($attempt < $maxRetries) {
+        while (true) {
             try {
                 list($response, $status) = $this->client->AckMessage($request, $metadata)->wait();
                 if ($status->code !== 0) {
@@ -554,31 +558,39 @@ class SimpleConsumer
                 } else {
                     $responseEntries = $response->getEntries();
                     if (!ProtobufUtil::isRepeatedFieldEmpty($responseEntries)) {
+                        $hasRetryableError = false;
+                        $hasInvalidHandleOnly = true;
                         foreach ($responseEntries as $resultEntry) {
                             if ($resultEntry->hasStatus()) {
                                 $entryCode = $resultEntry->getStatus()->getCode();
-                                if ($entryCode !== 20000) {
-                                    if ($entryCode == 40003) {
-                                        $this->logger->warning("AckMessage invalid receipt handle, giving up");
-                                    } else {
-                                        $this->logger->warning("AckMessage entry failed with code: " . $entryCode);
-                                    }
+                                if ($entryCode !== 20000 && $entryCode !== 40003) {
+                                    $hasRetryableError = true;
+                                    $hasInvalidHandleOnly = false;
                                 }
                             }
                         }
+                        if ($hasInvalidHandleOnly && !$hasRetryableError) {
+                            return;
+                        }
+                        if ($hasRetryableError) {
+                            $entries = $this->filterRetryableEntries($entries, $responseEntries);
+                            if (empty($entries)) {
+                                return;
+                            }
+                            $request->setEntries($entries);
+                            $attempt++;
+                            usleep(1000000);
+                            continue;
+                        }
                     }
+                    return;
                 }
-                return;
             } catch (\Exception $e) {
                 $this->logger->warning("AckMessage attempt {$attempt} failed: " . $e->getMessage());
-                $attempt++;
-                if ($attempt < $maxRetries) {
-                    usleep(pow(2, $attempt) * 100000);
-                }
             }
+            $attempt++;
+            usleep(1000000);
         }
-
-        $this->logger->error("AckMessage failed after {$maxRetries} retries for topic={$topic}");
     }
 
     /**
@@ -973,5 +985,22 @@ class SimpleConsumer
     public function __destruct()
     {
         $this->shutdown();
+    }
+
+    private function filterRetryableEntries($entries, $responseEntries)
+    {
+        $responseCodes = [];
+        foreach ($responseEntries as $i => $resultEntry) {
+            if ($resultEntry->hasStatus()) {
+                $responseCodes[$i] = $resultEntry->getStatus()->getCode();
+            }
+        }
+        $retryable = [];
+        foreach ($entries as $i => $entry) {
+            if (!isset($responseCodes[$i]) || ($responseCodes[$i] !== 20000 && $responseCodes[$i] !== 40003)) {
+                $retryable[] = $entry;
+            }
+        }
+        return $retryable;
     }
 }

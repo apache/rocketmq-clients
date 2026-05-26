@@ -17,7 +17,8 @@
  */
 
 namespace Apache\Rocketmq;
-
+require_once __DIR__ . '/SipHash24.php';
+require_once __DIR__ . '/IntMath.php';
 use Apache\Rocketmq\V2\Permission;
 
 /**
@@ -44,7 +45,8 @@ class PublishingLoadBalancer
         $allQueues = $routeData->getMessageQueues();
         foreach ($allQueues as $mq) {
             $permission = $mq->getPermission();
-            if ($permission === Permission::WRITE || $permission === Permission::READ_WRITE) {
+            if (($permission === Permission::WRITE || $permission === Permission::READ_WRITE)
+            && $mq->getBrokder()->getId() === ClientConstants::MASTER_BROKER_ID) {
                 $this->messageQueues[] = $mq;
             }
         }
@@ -68,8 +70,8 @@ class PublishingLoadBalancer
         }
 
         // Simple hash of message group string
-        $hash = crc32($messageGroup);
-        $hash = abs($hash);
+        $hash = SipHash24::hash($messageGroup);
+        $hash = IntMath::mod($hash, count($this->messageQueues));
         $index = $hash % count($this->messageQueues);
 
         return $this->messageQueues[$index];
@@ -108,15 +110,17 @@ class PublishingLoadBalancer
         }
 
         // Second pass: all brokers (fallback when all endpoints are isolated)
-        for ($i = 0; $i < $queueCount; $i++) {
-            $mq = $this->messageQueues[($next + $i) % $queueCount];
-            $brokerName = $mq->getBroker()->getName();
-            if (!in_array($brokerName, $candidateBrokerNames, true)) {
-                $candidateBrokerNames[] = $brokerName;
-                $candidates[] = $mq;
-            }
-            if (count($candidates) >= $count) {
-                break;
+        if (empty($candidates)) {
+            for ($i = 0; $i < $queueCount; $i++) {
+                $mq = $this->messageQueues[($next + $i) % $queueCount];
+                $brokerName = $mq->getBroker()->getName();
+                if (!in_array($brokerName, $candidateBrokerNames, true)) {
+                    $candidateBrokerNames[] = $brokerName;
+                    $candidates[] = $mq;
+                }
+                if (count($candidates) >= $count) {
+                    break;
+                }
             }
         }
 

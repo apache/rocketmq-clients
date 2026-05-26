@@ -870,6 +870,11 @@ class SimpleConsumerOptimized
                 }
             }
         }
+        $this->executeInterceptors(MessageHookPoints::ACK, [
+            'success' => true,
+            'messageId' => $messageId,
+            'topic' => $topic,
+        ]);
     }
     
     /**
@@ -911,6 +916,20 @@ class SimpleConsumerOptimized
         if ($status->code !== 0) {
             throw new \RuntimeException("Change invisible duration failed: " . $status->details);
         }
+        if (method_exists($response, 'hasReceiptHandle') && $response->hasReceiptHandle()) {
+            $newReceiptHandle = $response->getReceiptHandle();
+            if (method_exists($messageView, "setReceiptHandle")) {
+                $messageView->setReceiptHandle($newReceiptHandle);
+            }
+            $this->logger->debug("Receipt handle refreshed for messageId=" . $messageId);
+        }
+        $this->executeInterceptors(MessageHookPoints::CHANGE_INVISIBLE_DURATION, [
+            'success' => true,
+            'messageId' => $messageId,
+            'topic' => $topic,
+            'deliveryAttempt' => 1,
+            'delaySeconds' => $invisibleDuration,
+        ]);
     }
     
     /**

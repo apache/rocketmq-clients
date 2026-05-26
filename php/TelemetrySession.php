@@ -81,6 +81,9 @@ class TelemetrySession
 
     // Swoole coroutine reader state
     private $swooleCoroutineId = -1;
+    private $isClosing = false;
+    private $isReconnecting = false;
+    private $lastSettingsCommand = null;
 
     /**
      * Private constructor
@@ -162,10 +165,12 @@ class TelemetrySession
 
     public function syncSettings($settingsCommand)
     {
-        return $this->establishAndSyncSettings($settingsCommand);
+        $this->lastSettingsCommand = $settingsCommand;
+        $this->isClosing = false;
+        return $this->createStreamAndSync($settingsCommand);
     }
 
-    public function establishAndSyncSettings($settingsCommand)
+    public function createStreamAndSync($settingsCommand)
     {
         try {
             $this->logger->info("Creating telemetry stream...");
@@ -219,8 +224,10 @@ class TelemetrySession
 
         } catch (\Exception $e) {
             $this->logger->error("Failed to establish and sync settings: " . $e->getMessage());
-            $this->close();
-            throw $e;
+            if (!$this->isClosing) {
+                $this->scheduleReconnect($settingsCommand);
+            }
+            return false;
         }
     }
 
@@ -295,6 +302,10 @@ class TelemetrySession
             if (!$this->settingsSynced) {
                 $this->settingsError = $e->getMessage();
             }
+        }
+        if (!$this->isClosing && $this->lastSettingsCommand !== null) {
+            $this->logger->warning("Telemetry stream lost, attempting reconnection");
+            $this->scheduleReconnect($this->lastSettingsCommand);
         }
     }
 
@@ -467,5 +478,39 @@ class TelemetrySession
     private function getClientIdFromCommand($command)
     {
         return 'php-client-' . getmypid() . '-' . time();
+    }
+
+    private function scheduleReconnect($settingsCommand)
+    {
+        if ($this->isClosing || $this->isReconnecting) {
+            $this->logger->debug("Skipping telemetry reconnection : closing=" . $this->isClosing . ", reconnecting=" . $this->isReconnecting);
+            return;
+        }
+        $this->isReconnecting = true;
+        $this->logger->info("Scheduling telemetry reconnection in 1 second..");
+        if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
+            $self = $this;
+            \Swoole\Coroutine::create(function () use ($self, $settingsCommand) {
+                \Swoole\Coroutine::sleep(1);
+                try {
+                    if (!$self->isClosing) {
+                        $self->logger->info("Reconnecting to telemetry..");
+                        $self->createStreamAndSync($settingsCommand);
+                    }
+                } finally {
+                    $self->isReconnecting = false;
+                }
+            });
+        } else {
+            try {
+                usleep(1000000);
+                if (!$this->isClosing) {
+                    $this->logger->info("Reconnecting to telemetry..");
+                    $this->createStreamAndSync($settingsCommand);
+                }
+            } finally {
+                $this->isReconnecting = false;
+            }
+        }
     }
 }

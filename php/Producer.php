@@ -274,15 +274,34 @@ class Producer
 
         // Validate all messages share the same topic
         $topic = $messages[0]->getTopic()->getName();
+        $messageTypes = [];
+        $messageGroups = [];
+        $hasFifoMessage = false;
         foreach ($messages as $msg) {
             if ($msg->getTopic()->getName() !== $topic) {
                 throw new \InvalidArgumentException("All messages in a batch must have the same topic");
             }
             $this->validateMessage($msg);
+            if ($this->validateMessageType) {
+                $msgType = $this->detectMessageType($msg, false);
+                $messageTypes[] = $msgType;
+            }
+            $sysProps = $msg->getSystemProperties();
+            if ($sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup()) {
+                $hasFifoMessage = true;
+                $messageGroups[] = $sysProps->getMessageGroup();
+            }
+        }
+        if ($this->validateMessageType && count(array_unique($messageTypes)) > 1) {
+            throw new \InvalidArgumentException('Messages to send different message types , please check');
+        }
+        if ($hasFifoMessage && count(array_unique($messageGroups)) > 1) {
+            throw new \InvalidArgumentException("FIFO messages to send have different message groups, please check");
         }
 
         $loadBalancer = $this->getPublishingLoadBalancer($topic);
-        $messageQueue = $loadBalancer->takeMessageQueue($this->isolatedEndpoints, 1);
+        $isolatedBroker = array_keys($this->isolatedEndpoints);
+        $messageQueue = $loadBalancer->takeMessageQueue($isolatedBroker, 1);
 
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
@@ -379,6 +398,9 @@ class Producer
             throw new \RuntimeException("Producer is not running now");
         }
 
+        if ($this->transactionChecker === null) {
+            throw new \RuntimeException("Transaction checker should not be null. Please set TransactionChecker the Producer.");
+        }
         return new Transaction($this);
     }
 
@@ -734,6 +756,11 @@ class Producer
             // Call the transaction checker
             $resolution = $this->transactionChecker->check($messageView);
 
+            if ($resolution === null || $resolution === TransactionResolution::TRANSACTION_RESOLUTION_UNSPECIFIED) {
+                $this->logger->debug("Transaction checker returned TRANSACTION_RESOLUTION_UNSPECIFIED, leaving transaction unresolved.");
+                return;
+            }
+
             // Send the resolution back
             $transactionId = '';
             if (method_exists($command, 'getTransactionId')) {
@@ -756,7 +783,7 @@ class Producer
                 $endpoints = $message->getEndpoints();
             }
             if (!empty($messageId) && !empty($topicName)) {
-                $this->endTransaction($messageId, $transactionId, $topicName, $resolution, $endpoints);
+                $this->endTransaction($messageId, $transactionId, $topicName, $resolution, $endpoints, \Apache\Rocketmq\V2\TransactionSource::SOURCE_SERVER_CHECK);
             }
         } catch (\Exception $e) {
             $this->logger->error("TransactionChecker threw exception: " . $e->getMessage());
@@ -1252,7 +1279,7 @@ class Producer
         throw $lastException;
     }
 
-    private function endTransaction($messageId, $transactionId, $topic, $resolution, ?Endpoints $endpoints = null)
+    private function endTransaction($messageId, $transactionId, $topic, $resolution, ?Endpoints $endpoints = null, $source = TransactionSource::SOURCE_CLIENT)
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -1276,7 +1303,7 @@ class Producer
         $request->setTransactionId($transactionId);
         $request->setTopic($topicResource);
         $request->setResolution($resolution);
-        $request->setSource(TransactionSource::SOURCE_CLIENT);
+        $request->setSource($source);
 
         $metadata = $this->buildMetadata();
 

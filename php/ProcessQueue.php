@@ -487,4 +487,29 @@ class ProcessQueue
     {
         return $this->consumer->getClient();
     }
+
+    public function eraseFifoMessage($messageView, $consumeResult)
+    {
+        if ($consumeResult === ConsumeResult::SUCCESS) {
+            $this->consumer->ackMessage($messageView);
+        } elseif ($consumeResult instanceof ConsumeResultSuspend) {
+            $suspendSec = (int)ceil($consumeResult->getSuspendTimeMs() / 1000);
+            $this->consumer->nackMessage($messageView, 1, $suspendSec);
+        } else {
+            $this->consumer->forwardToDeadLetterQueue($messageView);
+        }
+        $this->evictMessage($messageView);
+    }
+
+    public function doStats()
+    {
+        $reception = $this->receptionTimes;
+        $received = $this->receivedMessagesQuantity;
+        $cachedCount = count($this->cachedMessages);
+        $cachedBytes = $this->cachedMessagesBytes;
+
+        $this->receptionTimes = 0;
+        $this->receivedMessagesQuantity = 0;
+        $this->logger->info("ProcessQueue: stats: topic=" . $this->messageQueue->getTopic()->getName() . " Received $received messages in $reception seconds. Cached $cachedCount messages ($cachedBytes bytes)");
+    }
 }

@@ -18,6 +18,7 @@
 
 namespace Apache\Rocketmq;
 
+require_once __DIR__ . '/ClientConstants.php';
 use Apache\Rocketmq\V2\Permission;
 
 /**
@@ -36,17 +37,20 @@ class SubscriptionLoadBalancer
         if ($routeData && method_exists($routeData, 'getMessageQueues')) {
             $allQueues = $routeData->getMessageQueues();
             $readableCount = 0;
+            $masterCount = 0;
 
             // Accept READ or READ_WRITE for consumer
             foreach ($allQueues as $queue) {
                 $permission = $queue->getPermission();
-                if ($permission === Permission::READ || $permission === Permission::READ_WRITE) {
+                $isMaster = $queue->getBroker()->getId() === ClientConstants::MASTER_BROKER_ID;
+                if (($permission === Permission::READ || $permission === Permission::READ_WRITE) && $isMaster) {
                     $this->messageQueues[] = $queue;
-                    $readableCount++;
+                    $masterCount++;
                 }
+                $readableCount++;
             }
 
-            Logger::getInstance('SubscriptionLoadBalancer')->info("Topic queues: {$readableCount} readable / " . count($allQueues) . " total");
+            Logger::getInstance('SubscriptionLoadBalancer')->info("Topic queues: {$masterCount} readable / {$readableCount} total");
         }
     }
 

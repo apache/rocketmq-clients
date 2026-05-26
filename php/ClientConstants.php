@@ -24,4 +24,5 @@ class ClientConstants
     const LANGUAGE = 'PHP';
     const LANGUAGE_PROTO = Language::PHP;
     const CLIENT_TYPE_PREFIX = 'php';
+    const MASTER_BROKER_ID = 0;
 }
