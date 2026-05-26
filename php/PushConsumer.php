@@ -277,19 +277,7 @@ class PushConsumer
                 $this->onHeartbeatTick();
 
                 // Fetch messages from each active ProcessQueue
-                foreach ($this->processQueueTable as $key => $pq) {
-                    if ($pq->isDropped()) {
-                        continue;
-                    }
-                    if ($pq->expired()) {
-                        $pq->drop();
-                        unset($this->processQueueTable[$key]);
-                        continue;
-                    }
-                    if (!$pq->isCacheFull()) {
-                        $pq->fetchMessages();
-                    }
-                }
+                $this->fetchMessageInterleavedHeartbeat();
                 // Short sleep between iterations
                 usleep(100000);
 
@@ -304,6 +292,7 @@ class PushConsumer
 
         } catch (\Exception $e) {
             $this->logger->error("PushConsumer start failed: " . $e->getMessage());
+            $this->onStop();
             throw $e;
         }
     }
@@ -357,27 +346,16 @@ class PushConsumer
 
                 $this->onHeartbeatTick();
 
-                foreach ($this->processQueueTable as $key => $pq) {
-                    if ($pq->isDropped()) {
-                        continue;
-                    }
-                    if ($pq->expired()) {
-                        $pq->drop();
-                        unset($this->processQueueTable[$key]);
-                        continue;
-                    }
-                    if (!$pq->isCacheFull()) {
-                        $pq->fetchMessages();
-                    }
-                }
+                $this->fetchMessageInterleavedHeartbeat();
                 usleep(100000);
                 gc_collect_cycles();
             }
 
             $this->logger->info("PushConsumer startWithTimeout completed after {$seconds}s, clientId={$this->clientId}");
-
+            $this->onStop();
         } catch (\Exception $e) {
             $this->logger->error("PushConsumer startWithTimeout failed: " . $e->getMessage());
+            $this->onStop();
             throw $e;
         }
     }
@@ -390,6 +368,34 @@ class PushConsumer
     protected function onStartBeforeLoop()
     {
 
+    }
+
+    protected function onStop()
+    {
+
+    }
+
+    private function wrapHeartbeatRequest()
+    {
+        $request = new HeartbeatRequest();
+        $request->setClientType($this->getClientType());
+        $request->setGroup($this->getGroupResource());
+        return $request;
+    }
+
+    private function fetchMessageInterleavedHeartbeat()
+    {
+        foreach ($this->processQueueTable as $key => $pq) {
+            if ($pq->isDropped() || $pq->expired()) {
+                $pq->drop();
+                unset($this->processQueueTable[$key]);
+                continue;
+            }
+            if (!$pq->isCacheFull()) {
+                $this->onHeartbeatTick();
+                $pq->fetchMessage();
+            }
+        }
     }
 
     /**
@@ -954,13 +960,22 @@ class PushConsumer
      */
     private function doHeartbeat()
     {
+        $metadata = $this->buildMetadata();
+        try {
+            list($response, $status) = $this->client->Heartbeat($this->wrapHeartbeatRequest(), $metadata)->wait();
+            if ($status->code === 0) {
+                $this->logger->info("Heartbeat success, broker: {$this->endpoints}");
+            } else {
+                $this->logger->warning("Heartbeat failed, broker: {$this->endpoints}");
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning("Heartbeat failed, broker: {$this->endpoints}, error: {$e->getMessage()}");
+        }
         if (empty($this->processQueueTable)) {
             return;
         }
 
-        $request = new HeartbeatRequest();
-        $request->setClientType($this->getClientType());
-        $request->setGroup($this->getGroupResource());
+        $request = $this->wrapHeartbeatRequest();
         $endpointsMap = [];
         foreach ($this->processQueueTable as $pq) {
             $mq = $pq->getMessageQueue();
@@ -973,9 +988,6 @@ class PushConsumer
                     $endpointsMap[$key] = $endpoints;
                 }
             }
-        }
-        if (empty($endpointsMap)) {
-            return;
         }
         foreach ($endpointsMap as $brokerKey => $endpoints) {
             $metadata = $this->buildMetadata();
@@ -1052,7 +1064,7 @@ class PushConsumer
             } catch (\Throwable $e) {
                 $self->logger->error("PushConsumer startAsync failed, clientId={$self->clientId}, error={$e->getMessage()}");
             }
-            if ($onDone ==  null) {
+            if ($onDone !==  null) {
                 try {
                     $onDone();
                 } catch (\Throwable $e) {

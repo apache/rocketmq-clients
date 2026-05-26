@@ -371,7 +371,7 @@ abstract class ConsumeService
         if ($endpoints && method_exists($endpoints, 'getAddresses')) {
             $addresses = $endpoints->getAddresses();
             $addressesArray = ProtobufUtil::repeatedFieldToArray($addresses);
-            if (!empty($addressesArray) && isset($addressesArray[0]) !== null) {
+            if (!empty($addressesArray) && $addressesArray[0] !== null) {
                 $address = $addressesArray[0];
 
                 $brokerKey = $address->getHost() . ':' . $address->getPort();

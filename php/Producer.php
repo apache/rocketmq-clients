@@ -290,7 +290,7 @@ class Producer
 
         $request = $this->wrapSendMessageRequest($messages, $messageQueue[0]);
 
-        return $this->sendBatchWithRetry($request, $messages, $this->maxAttempts);
+        return $this->sendBatchWithRetry($request, $messages, $messageQueue, $this->maxAttempts);
     }
 
     /**
@@ -752,7 +752,7 @@ class Producer
             }
 
             $endpoints = null;
-            if (method_exists($message, 'getEndpoints') && $command->hasEndpoints()) {
+            if (method_exists($message, 'getEndpoints') && $message->hasEndpoints()) {
                 $endpoints = $message->getEndpoints();
             }
             if (!empty($messageId) && !empty($topicName)) {
@@ -844,7 +844,7 @@ class Producer
                 continue;
             }
             $address = $addresses[0];
-            $brokerKey = $addresses->getHost() . ':' . $addresses->getPort();
+            $brokerKey = $address->getHost() . ':' . $address->getPort();
             try {
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'credentials' => ChannelCredentials::createInsecure(),
@@ -857,7 +857,7 @@ class Producer
                         'response' => $response,
                     ]);
                 } else {
-                    $this->logger->debug('Telemetry to broker {$brokerKey} to confirmed} :' . $status->detaols);
+                    $this->logger->debug("Telemetry to broker {$brokerKey} confirmed: " . $status->detail);
                 }
             } catch (\Exception $e) {
                 $this->logger->error('Telemetry to broker {$brokerKey} failed', [
@@ -1282,8 +1282,8 @@ class Producer
 
         if ($endpoints !== null) {
             $address = $endpoints->getAddresses();
-            if (!empty($addresses) && $addresses[0] !== null) {
-                $brokerKey = $addresses[0]->getHost() . ':' . $addresses[0]->getPort();
+            if (!empty($address) && $address[0] !== null) {
+                $brokerKey = $address[0]->getHost() . ':' . $address[0]->getPort();
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'credentials' => ChannelCredentials::createInsecure(),
                 ]);

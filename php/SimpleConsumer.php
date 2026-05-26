@@ -77,6 +77,7 @@ class SimpleConsumer
     private $brokerClients = [];
     private $subscriptionRouteDataCache = [];
     private $topicIndex = 0;
+    private $heartbeatCoroutineId = null;
 
     /**
      * Constructor

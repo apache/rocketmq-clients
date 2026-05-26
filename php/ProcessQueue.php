@@ -97,6 +97,7 @@ class ProcessQueue
         $filterExpression = new FilterExpression();
         $filterExpression->setExpression($this->filterExpression);
         $filterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);
+        $awaitDuration = $this->consumer->getAwaitDuration();
 
         $request = new ReceiveMessageRequest();
         $request->setGroup($this->consumer->getGroupResourceWithNamespace());
@@ -106,7 +107,6 @@ class ProcessQueue
         $request->setAutoRenew(true); // PushConsumer uses server-side auto-renew
         $request->setAttemptId($this->attemptId);
 
-        $awaitDuration = $this->consumer->getAwaitDuration();
         $longPollingTimeout = $this->createDuration($awaitDuration);
         $request->setLongPollingTimeout($longPollingTimeout);
 
@@ -173,23 +173,18 @@ class ProcessQueue
             $this->evictMessage($messageView);
             return;
         }
+        $this->evictMessage($messageView);
         $result = $this->consumer->getConsumeService()->consumeMessage($messageView);
-        $ackSuccess = true;
         if ($result instanceof \Apache\Rocketmq\ConsumeResultSuspend) {
             $suspendSec = (int)ceil($result->getSuspendTimeMs() / 1000);
             $this->logger->debug("ProcessQueue consumeStreamedMessage SUSPEND messageId={$messageId}, suspendSec={$suspendSec}");
-            $ackSuccess = $this->consumer->nackMessage($messageView, 1, $suspendSec);
+            $this->consumer->nackMessage($messageView, 1, $suspendSec);
         } elseif ($result === \Apache\Rocketmq\ConsumeResult::FAILURE) {
             $this->logger->debug("ProcessQueue consumeStreamedMessage FAILURE messageId={$messageId}");
-            $ackSuccess = $this->consumer->nackMessage($messageView);
+            $this->consumer->nackMessage($messageView);
         } else {
             $this->logger->debug("ProcessQueue consumeStreamedMessage SUCCESS messageId={$messageId}, ACKing immediately");
-            $ackSuccess = $this->consumer->ackMessage($messageView);
-        }
-        if ($ackSuccess) {
-            $this->evictMessage($messageView);
-        } else {
-            $this->logger->debug("ProcessQueue consumeStreamedMessage ACK/NACK FAILURE for messageId={$messageId}, NOT ACKing");
+            $this->consumer->ackMessage($messageView);
         }
     }
 
@@ -354,6 +349,7 @@ class ProcessQueue
         if ($this->consumer->getConsumeService() !== null) {
             $this->consumer->getConsumeService()->forwardToDeadLetterQueue($messageView);
         }
+        $this->evictMessage($messageView);
     }
 
     /**
@@ -489,19 +485,6 @@ class ProcessQueue
 
     private function getReceiveClient(): MessagingServiceClient
     {
-        $broker = $this->messageQueue->getBroker();
-        if ($broker && $broker->hasEndpoints()) {
-            $endpointsProto = $broker->getEndpoints();
-            $addresses = $endpointsProto->getAddresses();
-            $addressesArray = ProtobufUtil::repeatedFieldToArray($addresses);
-            if (!empty($addressesArray) && $addressesArray[0] !== null) {
-                $address = $addressesArray[0];
-                $brokerKey = $address->getHost() . ':' . $address->getPort();
-                return RpcClientManager::getInstance()->getClient($brokerKey, [
-                   'credentials' => ChannelCredentials::createInsecure(),
-                ]);
-            }
-        }
         return $this->consumer->getClient();
     }
 }
