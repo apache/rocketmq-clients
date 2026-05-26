@@ -576,7 +576,7 @@ class PushConsumer
         $command = new TelemetryCommand();
         $command->setSettings($settings);
 
-        $success = $this->telemetrySession->establishAndSyncSettings($command);
+        $success = $this->telemetrySession->createStreamAndSync($command);
         if (!$success) {
             throw new \RuntimeException("Failed to establish Telemetry Session");
         }

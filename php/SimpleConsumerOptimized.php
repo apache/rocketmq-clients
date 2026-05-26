@@ -565,7 +565,7 @@ class SimpleConsumerOptimized
         $command->setSettings($settings);
         
         // Send and wait for Settings confirmation (blocking, up to 5 seconds)
-        $success = $this->telemetrySession->establishAndSyncSettings($command);
+        $success = $this->telemetrySession->createStreamAndSync($command);
         
         if (!$success) {
             throw new \RuntimeException("Failed to establish and sync Telemetry Session");
