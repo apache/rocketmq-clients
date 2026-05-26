@@ -170,42 +170,28 @@ abstract class ConsumeService
                 list($response, $status) = $brokerClient->AckMessage($request, $metadata)->wait();
                 if ($status->code !== 0) {
                     $this->logger->warning("ConsumeService ackMessage attempt {$attempt}: status error: " . $status->details);
-                } else {
-                    $entries = $response->getEntries();
-                    if (!ProtobufUtil::isRepeatedFieldEmpty($entries)) {
-                        $entriesArray = is_object($entries) && method_exists($entries, 'getIterator')
-                            ? iterator_to_array($entries)
-                            : (array)$entries;
-
-                        if (!empty($entriesArray) && isset($entriesArray[0]) && $entriesArray[0]->hasStatus()) {
-                            $entryCode = $entriesArray[0]->getStatus()->getCode();
-                            if ($entryCode === 20000) {
-                                $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
-                                $this->executeAckInterceptor(true, $messageId, $topic);
-                                return true;
-                            }
-                            if ($entryCode == 40003) {
-                                $this->logger->warning("ConsumeService ackMessage invalid receipt handle, giving up");
-                                $this->executeAckInterceptor(false, $messageId, $topic);
-                                return false;
-                            }
-                        } else {
-                            $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
-                            $this->executeAckInterceptor(true, $messageId, $topic);
-                            return true;
-                        }
-                    } else {
+                } elseif ($response->hasStatus()) {
+                    $statusCode = $response->getStatus()->getCode();
+                    if ($statusCode === 20000) {
                         $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
                         $this->executeAckInterceptor(true, $messageId, $topic);
                         return true;
                     }
+                    if ($statusCode == 40003) {
+                        $this->logger->warning("ConsumeService ackMessage invalid receipt handle, giving up");
+                        $this->executeAckInterceptor(false, $messageId, $topic);
+                        return false;
+                    }
+                    $this->logger->warning("ConsumeService ackMessage $attempt : {$attempt}: error code={$statusCode}, retrying");
+                } else {
+                    $this->logger->warning("ConsumeService ackMessage $attempt : {$attempt} response missing staus, retrying");
                 }
             } catch (\Exception $e) {
                 $this->logger->warning("ConsumeService ackMessage attempt {$attempt} failed: " . $e->getMessage());
             }
 
             $attempt++;
-            usleep( 1000000);
+            usleep(1000000);
         }
     }
 
@@ -277,32 +263,27 @@ abstract class ConsumeService
         $attempt = 0;
         while (true) {
             try {
-                list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata)->wait();
+                list($response, $status) = $brokerClient->AckMessage($request, $metadata)->wait();
                 if ($status->code !== 0) {
-                    $this->logger->warning("ConsumeService nackMessage failed: " . $status->details);
-                    return false;
-                } else {
-                    if ($response->hasStatus()) {
-                        $statusCode = $response->getStatus()->getCode();
-                        if ($statusCode === 40003) {
-                            $this->logger->warning("ConsumeService nackMessage invalid receipt handle, giving up ");
-                            $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
-                            return false;
-                        }
-                        if ($statusCode === 20000) {
-                            $this->logger->warning("ConsumeService nackMessage status error: code={$statusCode} ");
-                            $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
-                            $attempt++;
-                            usleep(1000000);
-                            continue;
-                        }
+                    $this->logger->warning("ConsumeService ackMessage attempt {$attempt}: status error: " . $status->details);
+                } elseif ($response->hasStatus()) {
+                    $statusCode = $response->getStatus()->getCode();
+                    if ($statusCode === 20000) {
+                        $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
+                        $this->executeAckInterceptor(true, $messageId, $topic);
+                        return true;
                     }
-                    $this->logger->debug("ConsumeService nackMessage success for messageId={$messageId}, nextDelay={$delaySeconds}s");
-                    $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
-                    return true;
+                    if ($statusCode == 40003) {
+                        $this->logger->warning("ConsumeService ackMessage invalid receipt handle, giving up");
+                        $this->executeAckInterceptor(false, $messageId, $topic);
+                        return false;
+                    }
+                    $this->logger->warning("ConsumeService NackMessage $attempt : {$attempt}: error code={$statusCode}, retrying");
+                } else {
+                    $this->logger->warning("ConsumeService NackMessage $attempt : {$attempt} response missing staus, retrying");
                 }
             } catch (\Exception $e) {
-                $this->logger->warning("ConsumeService nackMessage exception: " . $e->getMessage());
+                $this->logger->warning("ConsumeService NackMessage attempt {$attempt} failed: " . $e->getMessage());
             }
             $attempt++;
             usleep(1000000);
@@ -330,6 +311,10 @@ abstract class ConsumeService
         $groupResource = $this->consumer->getGroupResourceWithNamespace();
         $topicResource = $this->consumer->getTopicResource($topic);
 
+        $metadata = $this->buildMetadata();
+        $brokerClient = $this->getBrokerClient($messageView);
+        $actualAttempt = $deliveryAttempt ?? $this->maxAttempts;
+
         $attempt = 0;
         while (true) {
             $request = new ForwardMessageToDeadLetterQueueRequest();
@@ -342,11 +327,8 @@ abstract class ConsumeService
             if ($liteTopic !== null) {
                 $request->setLiteTopic($liteTopic);
             }
-            $request->setDeliveryAttempt($this->maxAttempts);
+            $request->setDeliveryAttempt($actualAttempt);
             $request->setMaxDeliveryAttempts($this->maxAttempts);
-
-            $metadata = $this->buildMetadata();
-            $brokerClient = $this->getBrokerClient($messageView);
 
             try {
                 list($response, $status) = $brokerClient->ForwardMessageToDeadLetterQueue($request, $metadata)->wait();

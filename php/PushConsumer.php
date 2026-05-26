@@ -599,6 +599,7 @@ class PushConsumer
                 $oldIsEmpty = $oldAssignments === null || empty($oldAssignments);
                 if ($newIsEmpty && $oldIsEmpty) {
                     $this->logger->debug("PushConsumer acquired empty assignment from remote, would scan later, for topic $topic");
+                    continue;
                 }
                 $this->syncProcessQueues($topic, $newAssignments, $expression);
                 $this->cacheAssignments[$topic] = $newAssignments;

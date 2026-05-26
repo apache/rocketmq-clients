@@ -46,7 +46,7 @@ class PublishingLoadBalancer
         foreach ($allQueues as $mq) {
             $permission = $mq->getPermission();
             if (($permission === Permission::WRITE || $permission === Permission::READ_WRITE)
-            && $mq->getBrokder()->getId() === ClientConstants::MASTER_BROKER_ID) {
+            && $mq->getBroker()->getId() === ClientConstants::MASTER_BROKER_ID) {
                 $this->messageQueues[] = $mq;
             }
         }
