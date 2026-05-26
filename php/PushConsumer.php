@@ -393,7 +393,7 @@ class PushConsumer
             }
             if (!$pq->isCacheFull()) {
                 $this->onHeartbeatTick();
-                $pq->fetchMessage();
+                $pq->fetchMessages();
             }
         }
     }
