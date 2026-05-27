@@ -127,7 +127,7 @@ class ClientSessionTelemetryTest
         $session->close();
 
         // After close, getInstance should create a new instance
-        $newSession = TelemetrySession::getInstance($fakeClient, 'test-endpoints-5', 'client-5-new');
+        $newSession = TelemetrySession::getInstance($fakeClient, 'test-endpoints-5', 'client-5');
 
         TestRunner::assertTrue(
             $session !== $newSession,

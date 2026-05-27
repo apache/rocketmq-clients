@@ -19,6 +19,7 @@
 namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/autoload.php';
+require_once __DIR__ . '/RpcClientManager.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/ConsumeResult.php';

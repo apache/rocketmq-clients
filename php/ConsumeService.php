@@ -96,7 +96,7 @@ abstract class ConsumeService
                 return $result;
             }
 
-            $success = $result === ConsumeResult::FAILURE ? false : true;
+            $success = $result !== ConsumeResult::FAILURE;
 
             if (method_exists($this->consumer, 'executeInterceptors')) {
                 $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
@@ -164,8 +164,9 @@ abstract class ConsumeService
         $metadata = $this->buildMetadata();
 
         $brokerClient = $this->getBrokerClient($messageView);
+        $maxRetries = 3;
         $attempt = 0;
-        while (true) {
+        while ($attempt < $maxRetries) {
             try {
                 list($response, $status) = $brokerClient->AckMessage($request, $metadata)->wait();
                 if ($status->code !== 0) {
@@ -182,17 +183,21 @@ abstract class ConsumeService
                         $this->executeAckInterceptor(false, $messageId, $topic);
                         return false;
                     }
-                    $this->logger->warning("ConsumeService ackMessage $attempt : {$attempt}: error code={$statusCode}, retrying");
+                    $this->logger->warning("ConsumeService ackMessage attempt {$attempt}: error code={$statusCode}, retrying");
                 } else {
-                    $this->logger->warning("ConsumeService ackMessage $attempt : {$attempt} response missing staus, retrying");
+                    $this->logger->warning("ConsumeService ackMessage attempt {$attempt} response missing status, retrying");
                 }
             } catch (\Exception $e) {
                 $this->logger->warning("ConsumeService ackMessage attempt {$attempt} failed: " . $e->getMessage());
             }
 
             $attempt++;
-            usleep(1000000);
+            if ($attempt < $maxRetries) {
+                usleep(1000000 * $attempt); // linear backoff: 1s, 2s
+            }
         }
+        $this->logger->warning("ConsumeService ackMessage exhausted {$maxRetries} retries for messageId={$messageId}");
+        return false;
     }
 
     /**
@@ -260,34 +265,39 @@ abstract class ConsumeService
         $metadata = $this->buildMetadata();
 
         $brokerClient = $this->getBrokerClient($messageView);
+        $maxRetries = 3;
         $attempt = 0;
-        while (true) {
+        while ($attempt < $maxRetries) {
             try {
-                list($response, $status) = $brokerClient->AckMessage($request, $metadata)->wait();
+                list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata)->wait();
                 if ($status->code !== 0) {
-                    $this->logger->warning("ConsumeService ackMessage attempt {$attempt}: status error: " . $status->details);
+                    $this->logger->warning("ConsumeService nackMessage attempt {$attempt}: status error: " . $status->details);
                 } elseif ($response->hasStatus()) {
                     $statusCode = $response->getStatus()->getCode();
                     if ($statusCode === 20000) {
-                        $this->logger->debug("ConsumeService ackMessage success for messageId={$messageId}");
-                        $this->executeAckInterceptor(true, $messageId, $topic);
+                        $this->logger->debug("ConsumeService nackMessage success for messageId={$messageId}");
+                        $this->executeNackInterceptor(true, $messageId, $topic, $deliveryAttempt, $delaySeconds);
                         return true;
                     }
                     if ($statusCode == 40003) {
-                        $this->logger->warning("ConsumeService ackMessage invalid receipt handle, giving up");
-                        $this->executeAckInterceptor(false, $messageId, $topic);
+                        $this->logger->warning("ConsumeService nackMessage invalid receipt handle, giving up");
+                        $this->executeNackInterceptor(false, $messageId, $topic, $deliveryAttempt, $delaySeconds);
                         return false;
                     }
-                    $this->logger->warning("ConsumeService NackMessage $attempt : {$attempt}: error code={$statusCode}, retrying");
+                    $this->logger->warning("ConsumeService nackMessage attempt {$attempt}: error code={$statusCode}, retrying");
                 } else {
-                    $this->logger->warning("ConsumeService NackMessage $attempt : {$attempt} response missing staus, retrying");
+                    $this->logger->warning("ConsumeService nackMessage attempt {$attempt} response missing status, retrying");
                 }
             } catch (\Exception $e) {
-                $this->logger->warning("ConsumeService NackMessage attempt {$attempt} failed: " . $e->getMessage());
+                $this->logger->warning("ConsumeService nackMessage attempt {$attempt} failed: " . $e->getMessage());
             }
             $attempt++;
-            usleep(1000000);
+            if ($attempt < $maxRetries) {
+                usleep(1000000 * $attempt);
+            }
         }
+        $this->logger->warning("ConsumeService nackMessage exhausted {$maxRetries} retries for messageId={$messageId}");
+        return false;
     }
 
     /**
@@ -311,31 +321,31 @@ abstract class ConsumeService
         $groupResource = $this->consumer->getGroupResourceWithNamespace();
         $topicResource = $this->consumer->getTopicResource($topic);
 
+        $request = new ForwardMessageToDeadLetterQueueRequest();
+        $request->setGroup($groupResource);
+        $request->setTopic($topicResource);
+        $request->setReceiptHandle($receiptHandle);
+        if ($messageId) {
+            $request->setMessageId($messageId);
+        }
+        if ($liteTopic !== null) {
+            $request->setLiteTopic($liteTopic);
+        }
+        $actualAttempt = $deliveryAttempt ?? $this->maxAttempts;
+        $request->setDeliveryAttempt($actualAttempt);
+        $request->setMaxDeliveryAttempts($this->maxAttempts);
+
         $metadata = $this->buildMetadata();
         $brokerClient = $this->getBrokerClient($messageView);
-        $actualAttempt = $deliveryAttempt ?? $this->maxAttempts;
-
+        $maxRetries = 3;
         $attempt = 0;
-        while (true) {
-            $request = new ForwardMessageToDeadLetterQueueRequest();
-            $request->setGroup($groupResource);
-            $request->setTopic($topicResource);
-            $request->setReceiptHandle($receiptHandle);
-            if ($messageId) {
-                $request->setMessageId($messageId);
-            }
-            if ($liteTopic !== null) {
-                $request->setLiteTopic($liteTopic);
-            }
-            $request->setDeliveryAttempt($actualAttempt);
-            $request->setMaxDeliveryAttempts($this->maxAttempts);
-
+        while ($attempt < $maxRetries) {
             try {
                 list($response, $status) = $brokerClient->ForwardMessageToDeadLetterQueue($request, $metadata)->wait();
                 if ($status->code !== 0) {
                     $this->logger->warning("ConsumeService forwardToDeadLetterQueue attempt {$attempt}: " . $status->details);
                 } else {
-                    $this->logger->warning("ConsumeService forwardToDeadLetterQueue success for messageId={$messageId}");
+                    $this->logger->info("ConsumeService forwardToDeadLetterQueue success for messageId={$messageId}");
                     $this->executeDLQInterceptor(true, $messageId, $topic);
                     return true;
                 }
@@ -343,8 +353,12 @@ abstract class ConsumeService
                 $this->logger->error("ConsumeService forwardToDeadLetterQueue exception: " . $e->getMessage());
             }
             $attempt++;
-            usleep(1000000);
+            if ($attempt < $maxRetries) {
+                usleep(1000000 * $attempt);
+            }
         }
+        $this->logger->error("ConsumeService forwardToDeadLetterQueue exhausted {$maxRetries} retries for messageId={$messageId}");
+        return false;
     }
 
     private function getBrokerClient($messageView)

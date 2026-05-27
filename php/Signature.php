@@ -102,31 +102,17 @@ class Signature
     }
 
     /**
-     * Encode binary data as lowercase hex string.
-     */
-    private static function encodeHex(string $data): string
-    {
-        $hex = '';
-        $len = strlen($data);
-        for ($i = 0; $i < $len; $i++) {
-            $byte = ord($data[$i]);
-            $hex .= ($byte < 16 ? '0' : '') . dechex($byte);
-        }
-        return $hex;
-    }
-
-    /**
      * Generate a UUID v4 string for request-id.
      */
     private static function generateUUID(): string
     {
         return sprintf(
             '%08x-%04x-%04x-%04x-%012x',
-            mt_rand(0, 0xffffffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff) & 0x0fff | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffffffffffff)
+            random_int(0, 0xffffffff),
+            random_int(0, 0xffff),
+            random_int(0, 0xffff) & 0x0fff | 0x4000,
+            random_int(0, 0x3fff) | 0x8000,
+            random_int(0, 0xffffffffffff)
         );
     }
 }

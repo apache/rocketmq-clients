@@ -93,7 +93,7 @@ class SipHash24
         list($v0, $v1, $v2, $v3) = $this->sipRound($v0, $v1, $v2, $v3);
         $v0 = self::xor64($v0, $b);
 
-        $v2 = $v2 ^ 0xFF;
+        $v2 = self::xor64($v2, 0xFF);
 
         // Finalization: 4 rounds
         list($v0, $v1, $v2, $v3) = $this->sipRound($v0, $v1, $v2, $v3);

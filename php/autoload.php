@@ -73,10 +73,10 @@ spl_autoload_register(function (string $class): void {
         }
     }
 
-    // Grpc\* -> vendor/grpc/grpc/src/
+    // Grpc\* -> vendor/grpc/grpc/src/lib/
     if (strpos($class, 'Grpc\\') === 0) {
         $relativeClass = str_replace('\\', '/', substr($class, 5));
-        $file = __DIR__ . '/vendor/grpc/grpc/src/' . $relativeClass . '.php';
+        $file = __DIR__ . '/vendor/grpc/grpc/src/lib/' . $relativeClass . '.php';
         if (is_file($file)) {
             require_once $file;
             return;

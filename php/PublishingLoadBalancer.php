@@ -57,6 +57,20 @@ class PublishingLoadBalancer
     }
 
     /**
+     * Update with new route data while preserving the round-robin index.
+     * Matching Java's PublishingLoadBalancer.update() which reuses the AtomicInteger index.
+     *
+     * @param object $routeData New TopicRouteData
+     * @return PublishingLoadBalancer New instance with updated queues and preserved index
+     */
+    public function update($routeData): PublishingLoadBalancer
+    {
+        $updated = new self($routeData);
+        $updated->index = $this->index;
+        return $updated;
+    }
+
+    /**
      * Deterministic queue selection by message group (for FIFO messages).
      * Uses hash of message group to ensure same group always maps to same queue.
      *
@@ -71,8 +85,7 @@ class PublishingLoadBalancer
 
         // Simple hash of message group string
         $hash = SipHash24::hash($messageGroup);
-        $hash = IntMath::mod($hash, count($this->messageQueues));
-        $index = $hash % count($this->messageQueues);
+        $index = IntMath::mod($hash, count($this->messageQueues));
 
         return $this->messageQueues[$index];
     }

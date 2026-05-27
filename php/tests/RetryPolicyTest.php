@@ -106,8 +106,8 @@ class CustomizedBackoffRetryPolicyTest
 
         TestRunner::assertEquals(100, $policy->getNextDelayMs(1), "Attempt 1 should be 100ms");
         TestRunner::assertEquals(200, $policy->getNextDelayMs(2), "Attempt 2 should be 200ms");
-        TestRunner::assertEquals(100, $policy->getNextDelayMs(3), "Attempt 3 should cycle back to 100ms");
-        TestRunner::assertEquals(200, $policy->getNextDelayMs(4), "Attempt 4 should be 200ms");
+        TestRunner::assertEquals(200, $policy->getNextDelayMs(3), "Attempt 3 should clamp to last delay (200ms)");
+        TestRunner::assertEquals(200, $policy->getNextDelayMs(4), "Attempt 4 should clamp to last delay (200ms)");
     }
 
     public function testEmptyDelays()

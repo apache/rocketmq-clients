@@ -20,6 +20,7 @@ namespace Apache\Rocketmq\Test;
 
 require_once __DIR__ . '/TestRunner.php';
 require_once __DIR__ . '/../Producer.php';
+require_once __DIR__ . '/../RpcClientManager.php';
 require_once __DIR__ . '/../Logger.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -167,7 +168,10 @@ class ProducerValidationTest
         $ref->setAccessible(true);
         $ref->setValue($producer, true);
 
-        // Should not throw - transaction checker callback is optional in PHP
+        // Must set a TransactionChecker before beginTransaction
+        $checker = new FakeTransactionChecker();
+        $producer->setTransactionChecker($checker);
+
         $tx = $producer->beginTransaction();
         TestRunner::assertNotNull($tx, "beginTransaction should return a transaction");
     }
@@ -345,6 +349,17 @@ class ProducerValidationTest
             $producer->getClientId(),
             "ClientId should match configured value"
         );
+    }
+}
+
+/**
+ * Fake TransactionChecker for test use.
+ */
+class FakeTransactionChecker implements \Apache\Rocketmq\TransactionChecker
+{
+    public function check(\Apache\Rocketmq\MessageView $messageView): int
+    {
+        return \Apache\Rocketmq\V2\TransactionResolution::COMMIT;
     }
 }
 

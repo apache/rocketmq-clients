@@ -19,6 +19,7 @@
 namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/autoload.php';
+require_once __DIR__ . '/RpcClientManager.php';
 require_once __DIR__ . '/TelemetrySession.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Signature.php';
@@ -641,6 +642,10 @@ class SimpleConsumer
             if ($status->code !== 0) {
                 $this->logger->warning("SimpleConsumer changeInvisibleDuration failed: " . $status->details);
                 return false;
+            }
+            // Update receipt handle with the new one returned by server
+            if (method_exists($response, 'getReceiptHandle') && $response->getReceiptHandle() !== '') {
+                $message->setReceiptHandle($response->getReceiptHandle());
             }
             return true;
         } catch (\Exception $e) {

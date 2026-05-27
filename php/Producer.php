@@ -19,6 +19,7 @@
 namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/autoload.php';
+require_once __DIR__ . '/RpcClientManager.php';
 require_once __DIR__ . '/MessageId.php';
 require_once __DIR__ . '/MessageIdImpl.php';
 require_once __DIR__ . '/MessageIdCodec.php';
@@ -355,6 +356,18 @@ class Producer
         }
 
         $this->validateMessage($message);
+
+        $sysProps = $message->getSystemProperties();
+        $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
+        $hasLiteTopic = $sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic();
+        $hasDeliveryTimestamp = $sysProps && method_exists($sysProps, 'hasDeliveryTimestamp') && $sysProps->hasDeliveryTimestamp();
+        $hasPriority = $sysProps && method_exists($sysProps, 'hasPriority') && $sysProps->hasPriority();
+
+        if ($hasMessageGroup || $hasLiteTopic || $hasDeliveryTimestamp || $hasPriority) {
+            throw new \InvalidArgumentException(
+                "Transactional message should not set messageGroup, deliveryTimestamp, liteTopic, or priority"
+            );
+        }
 
         $topic = $message->getTopic()->getName();
         $loadBalancer = $this->getPublishingLoadBalancer($topic);
@@ -1102,13 +1115,6 @@ class Producer
                 if ($response->hasStatus()) {
                     $respStatus = $response->getStatus();
                     if ($respStatus->getCode() !== 20000) {
-                        $latencyMs = (microtime(true) - $startTime) * 1000;
-                        $this->executeInterceptors(MessageHookPoints::SEND, [
-                            'success' => false,
-                            'latencyMs' => $latencyMs,
-                            'topic' => $message->getTopic()->getName(),
-                            'messageType' => $this->detectMessageType($message, false),
-                        ]);
                         throw new \RuntimeException("SendMessage failed with code: " . $respStatus->getCode() . ", message: " . $respStatus->getMessage());
                     }
                 }
@@ -1120,13 +1126,6 @@ class Producer
                     $resultStatus = $entry->getStatus();
 
                     if ($resultStatus->getCode() !== 20000) {
-                        $latencyMs = (microtime(true) - $startTime) * 1000;
-                        $this->executeInterceptors(MessageHookPoints::SEND, [
-                            'success' => false,
-                            'latencyMs' => $latencyMs,
-                            'topic' => $message->getTopic()->getName(),
-                            'messageType' => $this->detectMessageType($message, false),
-                        ]);
                         throw new \RuntimeException("Send message failed with code: " . $resultStatus->getCode());
                     }
 
@@ -1151,12 +1150,6 @@ class Producer
                     ];
                 }
 
-                $latencyMs = (microtime(true) - $startTime) * 1000;
-                $this->executeInterceptors(MessageHookPoints::SEND, [
-                    'success' => false,
-                    'latencyMs' => $latencyMs,
-                    'topic' => $message->getTopic()->getName(),
-                ]);
                 throw new \RuntimeException("No response entries");
 
             } catch (\Exception $e) {
@@ -1219,12 +1212,6 @@ class Producer
                 if ($response->hasStatus()) {
                     $respStatus = $response->getStatus();
                     if ($respStatus->getCode() !== 20000) {
-                        $latencyMs = (microtime(true) - $startTime) * 1000;
-                        $this->executeInterceptors(MessageHookPoints::SEND, [
-                            'success' => false,
-                            'latencyMs' => $latencyMs,
-                            'topic' => $topic,
-                        ]);
                         throw new \RuntimeException("Batch send failed with code: " . $respStatus->getCode() . ", message: " . $respStatus->getMessage());
                     }
                 }
@@ -1397,7 +1384,10 @@ class Producer
         foreach ($this->topics as $topic) {
             try {
                 $routeData = $this->queryRoute($topic);
-                $this->publishingRouteDataCache[$topic] = new PublishingLoadBalancer($routeData);
+                $existing = $this->publishingRouteDataCache[$topic] ?? null;
+                $this->publishingRouteDataCache[$topic] = $existing !== null
+                    ? $existing->update($routeData)
+                    : new PublishingLoadBalancer($routeData);
                 $this->logger->debug("Route refreshed for topic={$topic}");
             } catch (\Exception $e) {
                 $this->logger->error("Failed to refresh route for topic={$topic}", ['exception' => $e]);

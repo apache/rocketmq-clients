@@ -83,7 +83,6 @@ class TelemetrySession
     private $swooleCoroutineId = -1;
     private $isClosing = false;
     private $isReconnecting = false;
-    private $lastSettingsCommand = null;
 
     /**
      * Private constructor
@@ -142,7 +141,8 @@ class TelemetrySession
 
     public static function getInstance($client, $endpoints, $clientId = null, $credentials = null, $namespace = '')
     {
-        $key = $endpoints;
+        $credId = $credentials !== null ? spl_object_id($credentials) : 'none';
+        $key = $endpoints . '|' . $credId . '|' . $namespace;
 
         if (!isset(self::$instances[$key])) {
             Logger::getInstance('TelemetrySession')->info("Creating new session for endpoints: {$endpoints}");
@@ -454,7 +454,8 @@ class TelemetrySession
             $this->logger->error("Error closing session: " . $e->getMessage());
         }
 
-        $key = $this->endpoints;
+        $credId = $this->credentials !== null ? spl_object_id($this->credentials) : 'none';
+        $key = $this->endpoints . '|' . $credId . '|' . $this->namespace;
         unset(self::$instances[$key]);
 
         $this->logger->info("Session closed");

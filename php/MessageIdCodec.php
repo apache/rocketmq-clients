@@ -161,30 +161,65 @@ class MessageIdCodec
      */
     private function getMacAddress(): string
     {
-        // Try to get MAC address from system
-        $macAddress = null;
-        
-        // macOS / Linux
-        if (PHP_OS_FAMILY === 'Darwin' || PHP_OS_FAMILY === 'Linux') {
-            $output = [];
-            exec('ifconfig 2>/dev/null | grep -E "ether|HWaddr" | head -n 1', $output);
-            
-            if (!empty($output)) {
-                $line = $output[0];
-                if (preg_match('/([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/', $line, $matches)) {
-                    $macString = str_replace([':', '-'], '', $matches[0]);
-                    $macAddress = hex2bin($macString);
-                }
-            }
+        // Try to read from /sys/class/net (Linux)
+        $macAddress = $this->readMacFromSysfs();
+
+        // Try ifconfig (macOS / Linux)
+        if ($macAddress === null) {
+            $macAddress = $this->readMacFromIfconfig();
         }
-        
+
         // Use random value if unable to obtain
         if ($macAddress === null || strlen($macAddress) < 6) {
             $macAddress = random_bytes(6);
         }
-        
-        // Ensure 6 bytes are returned
+
         return substr($macAddress, 0, 6);
+    }
+
+    private function readMacFromSysfs(): ?string
+    {
+        $interfaces = @scandir('/sys/class/net/');
+        if ($interfaces === false) {
+            return null;
+        }
+        foreach ($interfaces as $iface) {
+            if ($iface === '.' || $iface === '..' || $iface === 'lo') {
+                continue;
+            }
+            $mac = @file_get_contents('/sys/class/net/' . $iface . '/address');
+            if ($mac !== false && strlen(trim($mac)) === 17) {
+                $macString = str_replace(':', '', trim($mac));
+                $binary = hex2bin($macString);
+                if ($binary !== false) {
+                    return $binary;
+                }
+            }
+        }
+        return null;
+    }
+
+    private function readMacFromIfconfig(): ?string
+    {
+        $disabled = array_map('trim', explode(',', ini_get('disable_functions')));
+        if (in_array('exec', $disabled, true)) {
+            return null;
+        }
+
+        $output = [];
+        exec('ifconfig 2>/dev/null | grep -E "ether|HWaddr" | head -n 1', $output);
+
+        if (!empty($output)) {
+            $line = $output[0];
+            if (preg_match('/([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/', $line, $matches)) {
+                $macString = str_replace([':', '-'], '', $matches[0]);
+                $macAddress = hex2bin($macString);
+                if ($macAddress !== false) {
+                    return $macAddress;
+                }
+            }
+        }
+        return null;
     }
 
     /**
