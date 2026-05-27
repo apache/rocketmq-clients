@@ -174,11 +174,11 @@ class SipHash24
         }
 
         $aHi = ($a >> 32) & 0xFFFFFFFF;
-        $aLow = $a & 0xFFFFFFFF;
+        $alower = $a & 0xFFFFFFFF;
         $bHi = ($b >> 32) & 0xFFFFFFFF;
-        $bLow = $b & 0xFFFFFFFF;
+        $blower = $b & 0xFFFFFFFF;
 
-        return (($aHi ^ $bHi) << 32) | ($aLow ^ $bLow);
+        return (($aHi ^ $bHi) << 32) | ($alower ^ $blower);
     }
 
     /**
@@ -191,11 +191,11 @@ class SipHash24
         }
 
         $aHi = ($a >> 32) & 0xFFFFFFFF;
-        $aLow = $a & 0xFFFFFFFF;
+        $alower = $a & 0xFFFFFFFF;
         $mHi = ($mask >> 32) & 0xFFFFFFFF;
-        $mLow = $mask & 0xFFFFFFFF;
+        $mlower = $mask & 0xFFFFFFFF;
 
-        return (($aHi & $mHi) << 32) | ($aLow & $mLow);
+        return (($aHi & $mHi) << 32) | ($alower & $mlower);
     }
 
     /**
@@ -208,21 +208,21 @@ class SipHash24
         }
 
         $aHi = ($a >> 32) & 0xFFFFFFFF;
-        $aLow = $a & 0xFFFFFFFF;
+        $alower = $a & 0xFFFFFFFF;
 
         if ($n >= 32) {
             $shift = $n - 32;
-            return (($aLow << $shift) | ($aHi >> (32 - $shift))) & 0xFFFFFFFF
-                | ((($aHi << $shift) | ($aLow >> (32 - $shift))) & 0xFFFFFFFF) << 32;
+            return (($alower << $shift) | ($aHi >> (32 - $shift))) & 0xFFFFFFFF
+                | ((($aHi << $shift) | ($alower >> (32 - $shift))) & 0xFFFFFFFF) << 32;
         }
 
         if ($n === 0) {
             return $a;
         }
 
-        $newHi = (($aHi << $n) | ($aLow >> (32 - $n))) & 0xFFFFFFFF;
-        $newLow = (($aLow << $n) | ($aHi >> (32 - $n))) & 0xFFFFFFFF;
+        $newHi = (($aHi << $n) | ($alower >> (32 - $n))) & 0xFFFFFFFF;
+        $newlower = (($alower << $n) | ($aHi >> (32 - $n))) & 0xFFFFFFFF;
 
-        return ($newHi << 32) | $newLow;
+        return ($newHi << 32) | $newlower;
     }
 }
