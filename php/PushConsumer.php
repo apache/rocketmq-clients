@@ -101,6 +101,7 @@ class PushConsumer
     private $lastHeartbeatTime = 0;
     private $shutdownDrainDeadline = null;
     private $retryPolicy = null;
+    private $tlsCredentials = null;
 
     /**
      * Constructor with builder-style options.
@@ -128,6 +129,7 @@ class PushConsumer
         $this->enableFifoConsumeAccelerator = $options['enableFifoConsumeAccelerator'] ?? false;
         $this->isLiteConsumer = $options['isLiteConsumer'] ?? false;
         $this->namespace = $options['namespace'] ?? '';
+        $this->tlsCredentials = $options['tlsCredentials'] ?? null;
 
         // Set AK/SK credentials if provided
         if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
@@ -138,7 +140,7 @@ class PushConsumer
 
         // Use RpcClientManager for connection pooling
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
-            'credentials' => ChannelCredentials::createInsecure(),
+            'tlsCredentials' => $this->tlsCredentials,
         ]);
 
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
@@ -1004,7 +1006,7 @@ class PushConsumer
             $metadata = $this->buildMetadata();
             try {
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
-                    'credentials' => ChannelCredentials::createInsecure(),
+                    'tlsCredentials' => $this->tlsCredentials,
                 ]);
                 list($response, $status) = $brokerClient->Heartbeat($request, $metadata)->wait();
                 if ($status->code === 0) {

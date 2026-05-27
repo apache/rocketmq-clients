@@ -74,6 +74,7 @@ class LiteSimpleConsumer
     private $receiveBatchSize = 32;
     private $liteSubscriptionQuota = 0;
     private $maxLiteTopicSize = 64;
+    private $tlsCredentials = null;
     private $logger;
 
     /**

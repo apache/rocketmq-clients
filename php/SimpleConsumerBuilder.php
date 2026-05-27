@@ -30,6 +30,7 @@ class SimpleConsumerBuilder
     private $subscriptionExpressions = [];
     private $awaitDuration = 30;
     private $namespace = '';
+    private $tlsCredentials = null;
 
     /**
      * Set client configuration.
@@ -41,6 +42,9 @@ class SimpleConsumerBuilder
         $this->endpoints = $config->getEndpoints();
         $this->credentials = $config->getSessionCredentialsProvider();
         $this->namespace = $config->getNamespace();
+        if ($config->getTlsCredentials() !== null) {
+            $this->tlsCredentials = $config->getTlsCredentials();
+        }
         return $this;
     }
 
@@ -106,6 +110,18 @@ class SimpleConsumerBuilder
     }
 
     /**
+     * Set TLS credentials for the gRPC connection.
+     *
+     * @param TlsCredentials $tlsCredentials
+     * @return $this
+     */
+    public function setTlsCredentials(TlsCredentials $tlsCredentials): self
+    {
+        $this->tlsCredentials = $tlsCredentials;
+        return $this;
+    }
+
+    /**
      * Build and start the SimpleConsumerOptimized.
      *
      * @return SimpleConsumerOptimized
@@ -128,6 +144,7 @@ class SimpleConsumerBuilder
             'awaitDuration' => $this->awaitDuration,
             'namespace' => $this->namespace,
             'credentials' => $this->credentials,
+            'tlsCredentials' => $this->tlsCredentials,
         ]);
 
         $consumer->start();

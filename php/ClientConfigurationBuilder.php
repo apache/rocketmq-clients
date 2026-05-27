@@ -30,6 +30,7 @@ class ClientConfigurationBuilder
     private $sslEnabled = true;
     private $namespace = '';
     private $maxStartupAttempts = 3;
+    private $tlsCredentials = null;
 
     /**
      * Set the service endpoint address (required).
@@ -110,6 +111,65 @@ class ClientConfigurationBuilder
     }
 
     /**
+     * Set TLS credentials for the gRPC connection.
+     *
+     * @param TlsCredentials $tlsCredentials
+     * @return $this
+     */
+    public function setTlsCredentials(TlsCredentials $tlsCredentials): self
+    {
+        $this->tlsCredentials = $tlsCredentials;
+        $this->sslEnabled = true;
+        return $this;
+    }
+
+    /**
+     * Enable TLS with default system CA bundle.
+     *
+     * @return $this
+     */
+    public function enableTls(): self
+    {
+        $this->tlsCredentials = TlsCredentials::createDefault();
+        $this->sslEnabled = true;
+        return $this;
+    }
+
+    /**
+     * Enable mutual TLS (mTLS) with client certificate and key.
+     *
+     * @param string $clientCertPath Path to client certificate file
+     * @param string $clientKeyPath Path to client private key file
+     * @param string|null $caCertPath Optional CA certificate path
+     * @return $this
+     */
+    public function enableMutualTls(
+        string $clientCertPath,
+        string $clientKeyPath,
+        ?string $caCertPath = null
+    ): self {
+        $this->tlsCredentials = TlsCredentials::createMtls(
+            $clientCertPath,
+            $clientKeyPath,
+            $caCertPath
+        );
+        $this->sslEnabled = true;
+        return $this;
+    }
+
+    /**
+     * Enable TLS but skip peer verification (development only).
+     *
+     * @return $this
+     */
+    public function disableTlsVerification(): self
+    {
+        $this->tlsCredentials = TlsCredentials::createInsecureDev();
+        $this->sslEnabled = true;
+        return $this;
+    }
+
+    /**
      * Build the immutable ClientConfiguration object.
      *
      * @return ClientConfiguration
@@ -130,7 +190,8 @@ class ClientConfigurationBuilder
             $this->requestTimeoutMs,
             $this->sslEnabled,
             $this->namespace,
-            $this->maxStartupAttempts
+            $this->maxStartupAttempts,
+            $this->tlsCredentials
         );
     }
 }

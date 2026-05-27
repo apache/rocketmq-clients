@@ -37,6 +37,7 @@ class PushConsumerBuilder
     private $enableMessageInterceptorFiltering = false;
     private $namespace = '';
     private $fifo = false;
+    private $tlsCredentials = null;
 
     /**
      * Set client configuration.
@@ -48,6 +49,9 @@ class PushConsumerBuilder
         $this->endpoints = $config->getEndpoints();
         $this->credentials = $config->getSessionCredentialsProvider();
         $this->namespace = $config->getNamespace();
+        if ($config->getTlsCredentials() !== null) {
+            $this->tlsCredentials = $config->getTlsCredentials();
+        }
         return $this;
     }
 
@@ -177,6 +181,18 @@ class PushConsumerBuilder
     }
 
     /**
+     * Set TLS credentials for the gRPC connection.
+     *
+     * @param TlsCredentials $tlsCredentials
+     * @return $this
+     */
+    public function setTlsCredentials(TlsCredentials $tlsCredentials): self
+    {
+        $this->tlsCredentials = $tlsCredentials;
+        return $this;
+    }
+
+    /**
      * Build and start the PushConsumer.
      *
      * @return PushConsumer
@@ -207,6 +223,7 @@ class PushConsumerBuilder
             'enableFifoConsumeAccelerator' => $this->enableFifoConsumeAccelerator,
             'namespace' => $this->namespace,
             'credentials' => $this->credentials,
+            'tlsCredentials' => $this->tlsCredentials,
         ]);
     }
 

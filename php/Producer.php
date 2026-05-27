@@ -107,6 +107,7 @@ class Producer
     private $transactionChecker = null;
     private $localTransactionExecuter = null;
     private $retryPolicy = null;
+    private $tlsCredentials = null;
 
     /**
      * Constructor
@@ -125,6 +126,7 @@ class Producer
         $this->namespace = $options['namespace'] ?? '';
         $this->validateMessageType = $options['validateMessageType'] ?? true;
         $this->maxBodySizeBytes = $options['maxBodySizeBytes'] ?? 4194304;
+        $this->tlsCredentials = $options['tlsCredentials'] ?? null;
 
         // Set AK/SK credentials if provided
         if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
@@ -138,7 +140,7 @@ class Producer
 
         // Use RpcClientManager for connection pooling
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
-            'credentials' => ChannelCredentials::createInsecure(),
+            'tlsCredentials' => $this->tlsCredentials,
         ]);
 
         // Initialize Telemetry Session (singleton)
@@ -671,7 +673,7 @@ class Producer
             $brokerKey = $address->getHost() . ':' . $address->getPort();
             try {
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
-                    'credentials' => ChannelCredentials::createInsecure(),
+                    'tlsCredentials' => $this->tlsCredentials,
                 ]);
                 $metadata = $this->buildMetadata();
                 list($response, $status) = $brokerClient->Heartbeat($request, $metadata)->wait();
@@ -887,7 +889,7 @@ class Producer
             $brokerKey = $address->getHost() . ':' . $address->getPort();
             try {
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
-                    'credentials' => ChannelCredentials::createInsecure(),
+                    'tlsCredentials' => $this->tlsCredentials,
                 ]);
                 $metadata = $this->buildMetadata();
                 list($response, $status) = $brokerClient->Telemetry($command, $metadata)->wait();
@@ -1299,7 +1301,7 @@ class Producer
             if (!empty($address) && $address[0] !== null) {
                 $brokerKey = $address[0]->getHost() . ':' . $address[0]->getPort();
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
-                    'credentials' => ChannelCredentials::createInsecure(),
+                    'tlsCredentials' => $this->tlsCredentials,
                 ]);
                 list($response, $status) = $brokerClient->EndTransaction($request, $metadata)->wait();
             } else {

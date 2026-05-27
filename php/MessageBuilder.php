@@ -19,6 +19,7 @@
 namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/autoload.php';
+require_once __DIR__ . '/Utilities.php';
 
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\SystemProperties;
@@ -44,6 +45,7 @@ class MessageBuilder
     private $liteTopic = null;
     private $priority = null;
     private $properties = [];
+    private $encoding = null;
 
     /**
      * Set the topic (required).
@@ -209,6 +211,21 @@ class MessageBuilder
     }
 
     /**
+     * Set the body encoding for compression.
+     *
+     * When set to GZIP, ZLIB, ZSTD, or LZ4, the body will be compressed
+     * during build() and the encoding flag will be set in system properties.
+     *
+     * @param string|null $encoding One of Utilities::ENCODING_GZIP_STR, ENCODING_ZLIB_STR, etc.
+     * @return $this
+     */
+    public function setEncoding(?string $encoding)
+    {
+        $this->encoding = $encoding;
+        return $this;
+    }
+
+    /**
      * Build the Message protobuf object.
      *
      * @return Message Protobuf message
@@ -228,7 +245,13 @@ class MessageBuilder
 
         $message = new Message();
         $message->setTopic($topicResource);
-        $message->setBody($this->body);
+
+        // Compress body if encoding is set
+        $body = $this->body;
+        if ($this->encoding !== null && $this->encoding !== Utilities::ENCODING_IDENTITY_STR) {
+            $body = Utilities::compressBytes($this->body, $this->encoding);
+        }
+        $message->setBody($body);
 
         // Build system properties only if any are set
         if ($this->hasSystemProperties()) {
@@ -274,7 +297,8 @@ class MessageBuilder
             || $this->messageGroup !== null
             || $this->deliveryTimestamp !== null
             || $this->liteTopic !== null
-            || $this->priority !== null;
+            || $this->priority !== null
+            || $this->encoding !== null;
     }
 
     /**

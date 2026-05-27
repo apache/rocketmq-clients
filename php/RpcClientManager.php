@@ -20,6 +20,7 @@ namespace Apache\Rocketmq;
 
 require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/Logger.php';
+require_once __DIR__ . '/TlsCredentials.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Grpc\ChannelCredentials;
@@ -63,12 +64,13 @@ class RpcClientManager
      */
     public function getClient($endpoints, $options = [])
     {
+        $credentials = $this->resolveCredentials($options);
         $key = $this->makeKey($endpoints, $options);
 
         if (!isset($this->clients[$key])) {
             $this->logger->info("Creating new RPC client for: {$endpoints}");
             $this->clients[$key] = new MessagingServiceClient($endpoints, [
-                'credentials' => $options['credentials'] ?? ChannelCredentials::createInsecure(),
+                'credentials' => $credentials,
             ]);
         }
 
@@ -149,6 +151,43 @@ class RpcClientManager
 
     private function makeKey($endpoints, $options)
     {
-        return $endpoints . ':' . (isset($options['credentials']) ? 'secure' : 'insecure');
+        $tlsFingerprint = 'insecure';
+        if (isset($options['tlsCredentials']) && $options['tlsCredentials'] instanceof TlsCredentials) {
+            $tls = $options['tlsCredentials'];
+            $parts = [];
+            $parts[] = $tls->isInsecure() ? 'insecure' : 'tls';
+            if ($tls->getCaCertPath() !== null) {
+                $parts[] = 'ca:' . $tls->getCaCertPath();
+            }
+            if ($tls->getClientCertPath() !== null) {
+                $parts[] = 'mtls:' . $tls->getClientCertPath();
+            }
+            if (!$tls->shouldVerifyPeer()) {
+                $parts[] = 'no-verify';
+            }
+            $tlsFingerprint = implode('|', $parts);
+        } elseif (isset($options['credentials'])) {
+            $tlsFingerprint = 'secure';
+        }
+        return $endpoints . ':' . $tlsFingerprint;
+    }
+
+    /**
+     * Resolve gRPC channel credentials from options.
+     *
+     * @param array $options
+     * @return \Grpc\ChannelCredentials|null
+     */
+    private function resolveCredentials(array $options)
+    {
+        if (isset($options['tlsCredentials']) && $options['tlsCredentials'] instanceof TlsCredentials) {
+            return $options['tlsCredentials']->toChannelCredentials();
+        }
+
+        if (isset($options['credentials'])) {
+            return $options['credentials'];
+        }
+
+        return ChannelCredentials::createInsecure();
     }
 }

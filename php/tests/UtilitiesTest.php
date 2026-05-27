@@ -19,9 +19,12 @@
 namespace Apache\Rocketmq\Test;
 
 require_once __DIR__ . '/TestRunner.php';
+require_once __DIR__ . '/../Utilities.php';
+
+use Apache\Rocketmq\Utilities;
 
 /**
- * Tests for utility functions (compression, checksums).
+ * Tests for utility functions (compression, checksums) via Utilities class.
  */
 class UtilitiesTest
 {
@@ -29,9 +32,8 @@ class UtilitiesTest
 
     public function testCompressDecompressZlib()
     {
-        $bytes = $this->body;
-        $compressed = gzcompress($bytes, 5);
-        $original = gzuncompress($compressed);
+        $compressed = Utilities::compressBytes($this->body, Utilities::ENCODING_ZLIB_STR);
+        $original = Utilities::decompressBytes($compressed, Utilities::ENCODING_ZLIB);
 
         TestRunner::assertEquals(
             $this->body,
@@ -42,9 +44,8 @@ class UtilitiesTest
 
     public function testCompressDecompressGzip()
     {
-        $bytes = $this->body;
-        $compressed = gzencode($bytes);
-        $original = gzdecode($compressed);
+        $compressed = Utilities::compressBytes($this->body, Utilities::ENCODING_GZIP_STR);
+        $original = Utilities::decompressBytes($compressed, Utilities::ENCODING_GZIP);
 
         TestRunner::assertEquals(
             $this->body,
@@ -76,42 +77,41 @@ class UtilitiesTest
 
     public function testCrc32CheckSum()
     {
-        $crc32 = sprintf('%u', crc32($this->body));
-        $hex = strtoupper(dechex($crc32));
+        $result = Utilities::crc32CheckSum($this->body);
 
         TestRunner::assertEquals(
             '9EF61F95',
-            $hex,
+            $result,
             "CRC32 of 'foobar' should be 9EF61F95"
         );
     }
 
     public function testMd5CheckSum()
     {
-        $md5 = strtoupper(md5($this->body));
+        $result = Utilities::md5CheckSum($this->body);
 
         TestRunner::assertEquals(
             '3858F62230AC3C915F300C664312C63F',
-            $md5,
+            $result,
             "MD5 of 'foobar' should be 3858F62230AC3C915F300C664312C63F"
         );
     }
 
     public function testSha1CheckSum()
     {
-        $sha1 = strtoupper(sha1($this->body));
+        $result = Utilities::sha1CheckSum($this->body);
 
         TestRunner::assertEquals(
             '8843D7F92416211DE9EBB963FF4CE28125932878',
-            $sha1,
+            $result,
             "SHA1 of 'foobar' should be 8843D7F92416211DE9EBB963FF4CE28125932878"
         );
     }
 
     public function testChecksumCaseInsensitiveComparison()
     {
-        $md5Upper = strtoupper(md5($this->body));
-        $md5Lower = strtolower(md5($this->body));
+        $md5Upper = Utilities::md5CheckSum($this->body);
+        $md5Lower = strtolower(Utilities::md5CheckSum($this->body));
 
         TestRunner::assertTrue(
             strcasecmp($md5Upper, $md5Lower) === 0,
@@ -121,8 +121,8 @@ class UtilitiesTest
 
     public function testDifferentInputsDifferentChecksums()
     {
-        $crc1 = sprintf('%u', crc32('hello'));
-        $crc2 = sprintf('%u', crc32('world'));
+        $crc1 = Utilities::crc32CheckSum('hello');
+        $crc2 = Utilities::crc32CheckSum('world');
 
         TestRunner::assertTrue(
             $crc1 !== $crc2,
@@ -150,7 +150,6 @@ class UtilitiesTest
 
     public function testMaxIntValue()
     {
-        // PHP_INT_MAX should be large enough for message size calculations
         TestRunner::assertTrue(
             PHP_INT_MAX > 1000000000,
             "PHP_INT_MAX should support at least 1GB values"
@@ -159,13 +158,72 @@ class UtilitiesTest
 
     public function testEmptyStringChecksums()
     {
-        $crc32 = sprintf('%u', crc32(''));
-        $md5 = strtoupper(md5(''));
-        $sha1 = strtoupper(sha1(''));
+        $crc32 = Utilities::crc32CheckSum('');
+        $md5 = Utilities::md5CheckSum('');
+        $sha1 = Utilities::sha1CheckSum('');
 
         TestRunner::assertTrue(
             $crc32 !== '' && $md5 !== '' && $sha1 !== '',
             "Empty string should still produce non-empty checksums"
+        );
+    }
+
+    public function testAutoDetectGzipEncoding()
+    {
+        $compressed = Utilities::compressBytes($this->body, Utilities::ENCODING_GZIP_STR);
+        $decompressed = Utilities::decompressBytes($compressed);
+
+        TestRunner::assertEquals(
+            $this->body,
+            $decompressed,
+            "Auto-detect should recognize GZIP magic bytes"
+        );
+    }
+
+    public function testAutoDetectZlibEncoding()
+    {
+        $compressed = Utilities::compressBytes($this->body, Utilities::ENCODING_ZLIB_STR);
+        $decompressed = Utilities::decompressBytes($compressed);
+
+        TestRunner::assertEquals(
+            $this->body,
+            $decompressed,
+            "Auto-detect should recognize ZLIB magic bytes"
+        );
+    }
+
+    public function testIdentityEncodingReturnsOriginal()
+    {
+        $result = Utilities::decompressBytes($this->body, Utilities::ENCODING_IDENTITY);
+
+        TestRunner::assertEquals(
+            $this->body,
+            $result,
+            "IDENTITY encoding should return data unchanged"
+        );
+    }
+
+    public function testUnsupportedEncodingThrows()
+    {
+        $caught = false;
+        try {
+            Utilities::compressBytes($this->body, 'BROTLI');
+        } catch (\InvalidArgumentException $e) {
+            $caught = true;
+        }
+
+        TestRunner::assertTrue($caught, "Unsupported encoding should throw InvalidArgumentException");
+    }
+
+    public function testEncodeHexString()
+    {
+        $binary = "\x00\x0f\xff\xab\xcd";
+        $result = Utilities::encodeHexString($binary);
+
+        TestRunner::assertEquals(
+            '000FFFABCD',
+            $result,
+            "encodeHexString should produce uppercase hex"
         );
     }
 }

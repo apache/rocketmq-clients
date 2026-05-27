@@ -84,6 +84,7 @@ class SimpleConsumerOptimized
     private $lastHeartbeatTime = 0;
     private $retryPolicy = null;
     private $interceptors = [];
+    private $tlsCredentials = null;
 
     /**
      * Constructor
@@ -100,6 +101,7 @@ class SimpleConsumerOptimized
         $this->awaitDuration = $options['awaitDuration'] ?? 30;
         $this->subscriptionExpressions = $options['subscriptionExpressions'] ?? [];
         $this->namespace = $options['namespace'] ?? '';
+        $this->tlsCredentials = $options['tlsCredentials'] ?? null;
 
         // Set AK/SK credentials if provided
         if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
@@ -108,7 +110,7 @@ class SimpleConsumerOptimized
 
         // Create gRPC client via connection pool
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
-            'credentials' => ChannelCredentials::createInsecure(),
+            'tlsCredentials' => $this->tlsCredentials,
         ]);
         
         // Initialize Telemetry Session (singleton, with Settings sync confirmation)

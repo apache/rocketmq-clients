@@ -79,6 +79,7 @@ class SimpleConsumer
     private $subscriptionRouteDataCache = [];
     private $topicIndex = 0;
     private $heartbeatCoroutineId = null;
+    private $tlsCredentials = null;
 
     /**
      * Constructor
@@ -95,6 +96,7 @@ class SimpleConsumer
         $this->namespace = $options['namespace'] ?? '';
         $this->requestTimeout = $options['requestTimeout'] ?? 3000;
         $this->awaitDuration = $options['awaitDuration'] ?? 30;
+        $this->tlsCredentials = $options['tlsCredentials'] ?? null;
 
         // Set AK/SK credentials if provided
         if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
@@ -103,7 +105,7 @@ class SimpleConsumer
 
         // Create gRPC client via connection pool
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
-            'credentials' => ChannelCredentials::createInsecure(),
+            'tlsCredentials' => $this->tlsCredentials,
         ]);
 
         // Initialize Telemetry Session (singleton)
@@ -942,7 +944,7 @@ class SimpleConsumer
         // Create new gRPC client to broker
         $this->logger->info("Creating new broker client for {$brokerKey}");
         $this->brokerClients[$brokerKey] = RpcClientManager::getInstance()->getClient($brokerKey, [
-            'credentials' => ChannelCredentials::createInsecure(),
+            'tlsCredentials' => $this->tlsCredentials,
         ]);
 
         return $this->brokerClients[$brokerKey];

@@ -31,6 +31,7 @@ class ClientConfiguration
     private $sslEnabled;
     private $namespace;
     private $maxStartupAttempts;
+    private $tlsCredentials;
 
     private function __construct(
         string $endpoints,
@@ -38,7 +39,8 @@ class ClientConfiguration
         int $requestTimeoutMs,
         bool $sslEnabled,
         string $namespace,
-        int $maxStartupAttempts
+        int $maxStartupAttempts,
+        ?TlsCredentials $tlsCredentials = null
     ) {
         $this->endpoints = $endpoints;
         $this->sessionCredentialsProvider = $sessionCredentialsProvider;
@@ -46,6 +48,7 @@ class ClientConfiguration
         $this->sslEnabled = $sslEnabled;
         $this->namespace = $namespace;
         $this->maxStartupAttempts = $maxStartupAttempts;
+        $this->tlsCredentials = $tlsCredentials;
     }
 
     /**
@@ -59,7 +62,8 @@ class ClientConfiguration
         int $requestTimeoutMs,
         bool $sslEnabled,
         string $namespace,
-        int $maxStartupAttempts
+        int $maxStartupAttempts,
+        ?TlsCredentials $tlsCredentials = null
     ): ClientConfiguration {
         return new self(
             $endpoints,
@@ -67,7 +71,8 @@ class ClientConfiguration
             $requestTimeoutMs,
             $sslEnabled,
             $namespace,
-            $maxStartupAttempts
+            $maxStartupAttempts,
+            $tlsCredentials
         );
     }
 
@@ -99,5 +104,10 @@ class ClientConfiguration
     public function getMaxStartupAttempts(): int
     {
         return $this->maxStartupAttempts;
+    }
+
+    public function getTlsCredentials(): ?TlsCredentials
+    {
+        return $this->tlsCredentials;
     }
 }

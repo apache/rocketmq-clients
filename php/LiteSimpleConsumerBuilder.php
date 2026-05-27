@@ -31,6 +31,7 @@ class LiteSimpleConsumerBuilder
     private $awaitDuration = 30;
     private $namespace = '';
     private $liteTopics = [];
+    private $tlsCredentials = null;
 
     /**
      * Set client configuration.
@@ -42,6 +43,9 @@ class LiteSimpleConsumerBuilder
         $this->endpoints = $config->getEndpoints();
         $this->credentials = $config->getSessionCredentialsProvider();
         $this->namespace = $config->getNamespace();
+        if ($config->getTlsCredentials() !== null) {
+            $this->tlsCredentials = $config->getTlsCredentials();
+        }
         return $this;
     }
 
@@ -96,6 +100,18 @@ class LiteSimpleConsumerBuilder
     public function setNamespace(string $namespace): self
     {
         $this->namespace = $namespace;
+        return $this;
+    }
+
+    /**
+     * Set TLS credentials for the gRPC connection.
+     *
+     * @param TlsCredentials $tlsCredentials
+     * @return $this
+     */
+    public function setTlsCredentials(TlsCredentials $tlsCredentials): self
+    {
+        $this->tlsCredentials = $tlsCredentials;
         return $this;
     }
 

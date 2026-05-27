@@ -34,6 +34,7 @@ class ProducerBuilder
     private $localTransactionExecuter = null;
     private $validateMessageType = true;
     private $maxBodySizeBytes = 4194304;
+    private $tlsCredentials = null;
 
     /**
      * Set client configuration.
@@ -46,6 +47,9 @@ class ProducerBuilder
         $this->credentials = $config->getSessionCredentialsProvider();
         $this->requestTimeout = $config->getRequestTimeoutMs();
         $this->namespace = $config->getNamespace();
+        if ($config->getTlsCredentials() !== null) {
+            $this->tlsCredentials = $config->getTlsCredentials();
+        }
         return $this;
     }
 
@@ -173,6 +177,18 @@ class ProducerBuilder
     }
 
     /**
+     * Set TLS credentials for the gRPC connection.
+     *
+     * @param TlsCredentials $tlsCredentials
+     * @return $this
+     */
+    public function setTlsCredentials(TlsCredentials $tlsCredentials): self
+    {
+        $this->tlsCredentials = $tlsCredentials;
+        return $this;
+    }
+
+    /**
      * Build and start the Producer.
      *
      * @return Producer
@@ -192,6 +208,7 @@ class ProducerBuilder
             'credentials' => $this->credentials,
             'validateMessageType' => $this->validateMessageType,
             'maxBodySizeBytes' => $this->maxBodySizeBytes,
+            'tlsCredentials' => $this->tlsCredentials,
         ]);
 
         if ($this->transactionChecker !== null) {
