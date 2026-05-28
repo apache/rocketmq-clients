@@ -149,6 +149,23 @@ class PublishingLoadBalancer
     }
 
     /**
+     * Get all unique broker names from message queues.
+     *
+     * @return string[] Array of broker names
+     */
+    public function getAllBrokerNames(): array
+    {
+        $brokerNames = [];
+        foreach ($this->messageQueues as $mq) {
+            $brokerName = $mq->getBroker()->getName();
+            if (!in_array($brokerName, $brokerNames, true)) {
+                $brokerNames[] = $brokerName;
+            }
+        }
+        return $brokerNames;
+    }
+
+    /**
      * Validate message type against queue's accept message types.
      *
      * @param object $messageQueue MessageQueue protobuf object

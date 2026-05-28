@@ -93,6 +93,9 @@ class Producer
     // Helper classes for delegation
     private ProducerMessageConverter $messageConverter;
     private ProducerEndpointIsolator $endpointIsolator;
+    private ProducerHeartbeatManager $heartbeatManager;
+    private ProducerTransactionHandler $transactionHandler;
+    private ProducerRouteManager $routeManager;
 
     /**
      * Constructor
@@ -122,15 +125,29 @@ class Producer
         $this->retryPolicy = new ExponentialBackoffRetryPolicy($this->maxAttempts, 1000, 30000, 2.0);
 
         $this->logger = Logger::getInstance('Producer');
-        
-        // Initialize helper classes
-        $this->messageConverter = new ProducerMessageConverter();
-        $this->endpointIsolator = new ProducerEndpointIsolator();
 
         // Use RpcClientManager for connection pooling
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
             'tlsCredentials' => $this->tlsCredentials,
         ]);
+
+        // Initialize helper classes (after client is initialized)
+        $this->messageConverter = new ProducerMessageConverter();
+        $this->endpointIsolator = new ProducerEndpointIsolator();
+        $this->heartbeatManager = new ProducerHeartbeatManager(
+            $this->client, 
+            $this->endpoints,
+            $this->clientId, 
+            $this->credentials, 
+            $this->namespace
+        );
+        $this->transactionHandler = new ProducerTransactionHandler(
+            $this->client, 
+            $this->clientId, 
+            $this->credentials, 
+            $this->namespace
+        );
+        $this->routeManager = new ProducerRouteManager($this->client, [$this->endpoints]);
 
         // Initialize Telemetry Session (singleton)
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
@@ -177,7 +194,7 @@ class Producer
 
             // Warm up route cache
             foreach ($this->topics as $topic) {
-                $this->getPublishingLoadBalancer($topic);
+                $this->routeManager->getPublishingLoadBalancer($topic);
             }
 
             $this->isRunning = true;
@@ -208,7 +225,7 @@ class Producer
         $this->validateMessage($message);
 
         $topic = $message->getTopic()->getName();
-        $loadBalancer = $this->getPublishingLoadBalancer($topic);
+        $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
 
         $sysProps = $message->getSystemProperties();
         $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
@@ -219,7 +236,7 @@ class Producer
             }
             $candidates = [$messageQueue];
         } else {
-            $candidates = $loadBalancer->takeMessageQueue($this->endpointIsolator->getIsolatedBrokerNames($this->publishingRouteDataCache)), $this->maxAttempts);
+            $candidates = $loadBalancer->takeMessageQueue($this->endpointIsolator->getIsolatedBrokerNames($this->publishingRouteDataCache), $this->maxAttempts);
             if (empty($candidates)) {
                 throw new \RuntimeException("No available message queue for topic: {$topic}");
             }
@@ -306,7 +323,7 @@ class Producer
             throw new \InvalidArgumentException("FIFO messages to send have different message groups, please check");
         }
 
-        $loadBalancer = $this->getPublishingLoadBalancer($topic);
+        $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
         $isolatedBroker = array_keys($this->isolatedEndpoints);
 
         if ($hasFifoMessage) {
@@ -387,8 +404,8 @@ class Producer
         }
 
         $topic = $message->getTopic()->getName();
-        $loadBalancer = $this->getPublishingLoadBalancer($topic);
-        $messageQueue = $loadBalancer->takeMessageQueue($this->endpointIsolator->getIsolatedBrokerNames($this->publishingRouteDataCache)), $this->maxAttempts);
+        $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
+        $messageQueue = $loadBalancer->takeMessageQueue($this->endpointIsolator->getIsolatedBrokerNames($this->publishingRouteDataCache), $this->maxAttempts);
 
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
@@ -965,127 +982,6 @@ class Producer
             $mb = $this->maxBodySizeBytes / (1024 * 1024);
             throw new \InvalidArgumentException("Message size exceeds limit ({$mb}MB)");
         }
-    }
-
-    private function getPublishingLoadBalancer($topic)
-    {
-        if (!isset($this->publishingRouteDataCache[$topic])) {
-            $routeData = $this->queryRoute($topic);
-            $this->publishingRouteDataCache[$topic] = new PublishingLoadBalancer($routeData);
-        }
-
-        return $this->publishingRouteDataCache[$topic];
-    }
-
-    private function queryRoute($topic)
-    {
-        $topicResource = new Resource();
-        $topicResource->setName($topic);
-
-        $request = new QueryRouteRequest();
-        $request->setTopic($topicResource);
-        $request->setEndpoints($this->parseEndpoints($this->endpoints));
-
-        $metadata = $this->buildMetadata();
-
-        list($response, $status) = $this->client->QueryRoute($request, $metadata, $this->getCallOptions())->wait();
-
-        if ($status->code !== 0) {
-            throw new \RuntimeException("Query route failed: " . $status->details);
-        }
-
-        return $response;
-    }
-
-    private function toProtobufMessage(Message $msg, $messageQueue, $txEnabled = false)
-    {
-        $messageId = MessageIdCodec::getInstance()->nextMessageId()->toString();
-
-        $systemProperties = new SystemProperties();
-        $systemProperties->setMessageId($messageId);
-        $systemProperties->setBornTimestamp($this->createTimestamp());
-        $systemProperties->setBornHost(gethostname() ?: 'localhost');
-        $systemProperties->setBodyEncoding(Encoding::IDENTITY);
-        $queueId = $messageQueue->getId();
-        if ($queueId !== null) {
-            $systemProperties->setQueueId($queueId);
-        }
-        $systemProperties->setMessageType($this->messageConverter->detectMessageType($msg, $txEnabled));
-
-        $inputSysProps = $msg->getSystemProperties();
-        if ($inputSysProps) {
-            if (method_exists($inputSysProps, 'getTag') && $inputSysProps->hasTag()) {
-                $systemProperties->setTag($inputSysProps->getTag());
-            }
-            if (method_exists($inputSysProps, 'getKeys')) {
-                $keys = $inputSysProps->getKeys();
-                if (!ProtobufUtil::isRepeatedFieldEmpty($keys)) {
-                    $systemProperties->setKeys($keys);
-                }
-            }
-            if (method_exists($inputSysProps, 'getMessageGroup') && $inputSysProps->hasMessageGroup()) {
-                $systemProperties->setMessageGroup($inputSysProps->getMessageGroup());
-            }
-            if (method_exists($inputSysProps, 'getDeliveryTimestamp') && $inputSysProps->hasDeliveryTimestamp()) {
-                $systemProperties->setDeliveryTimestamp($inputSysProps->getDeliveryTimestamp());
-            }
-            if (method_exists($inputSysProps, 'getLiteTopic') && $inputSysProps->hasLiteTopic()) {
-                $systemProperties->setLiteTopic($inputSysProps->getLiteTopic());
-            }
-            if (method_exists($inputSysProps, 'getPriority') && $inputSysProps->hasPriority()) {
-                $systemProperties->setPriority($inputSysProps->getPriority());
-            }
-            if (method_exists($inputSysProps, 'getTraceContext') && $inputSysProps->hasTraceContext()) {
-                $systemProperties->setTraceContext($inputSysProps->getTraceContext());
-            }
-        }
-
-        $topicResource = new Resource();
-        $topicResource->setName($msg->getTopic()->getName());
-
-        $protoMsg = new Message();
-        $protoMsg->setTopic($topicResource);
-        $protoMsg->setBody($msg->getBody());
-        $protoMsg->setSystemProperties($systemProperties);
-
-        $userProps = $msg->getUserProperties();
-        if (!ProtobufUtil::isMapFieldEmpty($userProps)) {
-            foreach ($userProps as $key => $value) {
-                $protoMsg->getUserProperties()[$key] = $value;
-            }
-        }
-
-        return $protoMsg;
-    }
-
-    private function detectMessageType(Message $msg, $txEnabled = false)
-    {
-        $sysProps = $msg->getSystemProperties();
-        $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
-        $hasLiteTopic = $sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic();
-        $hasPriority = $sysProps && method_exists($sysProps, 'hasPriority') && $sysProps->hasPriority();
-        $hasDeliveryTimestamp = $sysProps && method_exists($sysProps, 'hasDeliveryTimestamp') && $sysProps->hasDeliveryTimestamp();
-
-        if (!$hasMessageGroup && !$hasLiteTopic && !$hasPriority && !$hasDeliveryTimestamp && !$txEnabled) {
-            return V2MessageType::NORMAL;
-        }
-        if ($hasMessageGroup && !$txEnabled) {
-            return V2MessageType::FIFO;
-        }
-        if ($hasLiteTopic && !$txEnabled) {
-            return V2MessageType::LITE;
-        }
-        if ($hasDeliveryTimestamp && !$txEnabled) {
-            return V2MessageType::DELAY;
-        }
-        if ($hasPriority && !$txEnabled) {
-            return V2MessageType::PRIORITY;
-        }
-        if (!$hasMessageGroup && !$hasLiteTopic && !$hasPriority && !$hasDeliveryTimestamp && $txEnabled) {
-            return V2MessageType::TRANSACTION;
-        }
-
-        return V2MessageType::NORMAL;
     }
 
     private function createTimestamp()
