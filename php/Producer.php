@@ -89,10 +89,6 @@ class Producer
     private ?LocalTransactionExecuter $localTransactionExecuter = null;
     private ?ExponentialBackoffRetryPolicy $retryPolicy = null;
     private ?TlsCredentials $tlsCredentials = null;
-    
-    // Helper classes for delegation
-    private ProducerMessageConverter $messageConverter;
-    private ProducerEndpointIsolator $endpointIsolator;
 
     /**
      * Constructor
@@ -122,10 +118,6 @@ class Producer
         $this->retryPolicy = new ExponentialBackoffRetryPolicy($this->maxAttempts, 1000, 30000, 2.0);
 
         $this->logger = Logger::getInstance('Producer');
-        
-        // Initialize helper classes
-        $this->messageConverter = new ProducerMessageConverter();
-        $this->endpointIsolator = new ProducerEndpointIsolator();
 
         // Use RpcClientManager for connection pooling
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
@@ -219,14 +211,14 @@ class Producer
             }
             $candidates = [$messageQueue];
         } else {
-            $candidates = $loadBalancer->takeMessageQueue($this->endpointIsolator->getIsolatedBrokerNames($this->publishingRouteDataCache)), $this->maxAttempts);
+            $candidates = $loadBalancer->takeMessageQueue($this->getIsolatedBrokerNames(), $this->maxAttempts);
             if (empty($candidates)) {
                 throw new \RuntimeException("No available message queue for topic: {$topic}");
             }
         }
 
         if ($this->validateMessageType) {
-            $msgType = $this->messageConverter->detectMessageType($message, false);
+            $msgType = $this->detectMessageType($message, false);
             $loadBalancer->validateMessageTypeAgainstQueue($candidates[0], $msgType, $topic);
         }
 
@@ -253,12 +245,7 @@ class Producer
                     $channel->push(['success' => false, 'error' => $e]);
                 }
             });
-            // Add timeout to prevent permanent blocking
-            $result = $channel->pop($this->requestTimeout / 1000.0); // Convert ms to seconds
-            if ($result === false) {
-                throw new \RuntimeException("Send async timeout after {$this->requestTimeout}ms");
-            }
-            return $result;
+            return $channel->pop();
         }
         yield $this->send($message);
     }
@@ -290,7 +277,7 @@ class Producer
             }
             $this->validateMessage($msg);
             if ($this->validateMessageType) {
-                $msgType = $this->messageConverter->detectMessageType($msg, false);
+                $msgType = $this->detectMessageType($msg, false);
                 $messageTypes[] = $msgType;
             }
             $sysProps = $msg->getSystemProperties();
@@ -343,12 +330,7 @@ class Producer
                     $channel->push(['success' => false, 'error' => $e]);
                 }
             });
-            // Add timeout to prevent permanent blocking
-            $result = $channel->pop($this->requestTimeout / 1000.0); // Convert ms to seconds
-            if ($result === false) {
-                throw new \RuntimeException("Batch send async timeout after {$this->requestTimeout}ms");
-            }
-            return $result;
+            return $channel->pop();
         }
         yield $this->sendBatch($messages);
     }
@@ -388,14 +370,14 @@ class Producer
 
         $topic = $message->getTopic()->getName();
         $loadBalancer = $this->getPublishingLoadBalancer($topic);
-        $messageQueue = $loadBalancer->takeMessageQueue($this->endpointIsolator->getIsolatedBrokerNames($this->publishingRouteDataCache)), $this->maxAttempts);
+        $messageQueue = $loadBalancer->takeMessageQueue($this->getIsolatedBrokerNames(), $this->maxAttempts);
 
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
         }
 
         if ($this->validateMessageType) {
-            $msgType = $this->messageConverter->detectMessageType($message, true);
+            $msgType = $this->detectMessageType($message, true);
             $loadBalancer->validateMessageTypeAgainstQueue($messageQueue[0], $msgType, $topic);
         }
 
@@ -561,12 +543,7 @@ class Producer
                     $channel->push(['success' => false, 'error' => $e]);
                 }
             });
-            // Add timeout to prevent permanent blocking
-            $result = $channel->pop($this->requestTimeout / 1000.0); // Convert ms to seconds
-            if ($result === false) {
-                throw new \RuntimeException("Recall message async timeout after {$this->requestTimeout}ms");
-            }
-            return $result;
+            return $channel->pop();
         }
         yield $this->recallMessage($topic, $recallHandle);
     }
@@ -644,13 +621,13 @@ class Producer
                 $this->logger->debug("Heartbeat already in progress, skipping this tick");
                 return;
             }
-            
+
             $this->heartbeatInProgress = true;
             try {
                 $this->doHeartbeat();
                 // Update timestamp AFTER successful heartbeat
                 $this->lastHeartbeatTime = time();
-                
+
                 static $lastRouteRefresh = 0;
                 if (time() - $lastRouteRefresh >= 30) {
                     $this->refreshRouteCache();
@@ -754,25 +731,25 @@ class Producer
         if (function_exists('pcntl_alarm')) {
             pcntl_alarm(0);
         }
-        
+
         // Reset signal handler to default
         if (function_exists('pcntl_signal')) {
             pcntl_signal(SIGALRM, SIG_DFL);
         }
-        
+
         // Wait for any in-progress heartbeat to complete
         $waitCount = 0;
         while ($this->heartbeatInProgress && $waitCount < 10) {
-            SwooleCompat::sleep(10000); // Wait 10ms
+            usleep(10000); // Wait 10ms
             $waitCount++;
         }
-        
+
         if ($this->heartbeatInProgress) {
             $this->logger->warning("Heartbeat still in progress after waiting, forcing shutdown");
         } else {
             $this->logger->debug("Heartbeat timer stopped cleanly");
         }
-        
+
         $this->heartbeatPid = null;
     }
 
@@ -948,7 +925,7 @@ class Producer
         if (!$success) {
             throw new \RuntimeException("Failed to establish Telemetry Session");
         }
-        SwooleCompat::sleep(500000); // 500ms
+        usleep(500000); // 500ms
     }
 
     private function validateMessage(Message $message)
@@ -1010,7 +987,7 @@ class Producer
         if ($queueId !== null) {
             $systemProperties->setQueueId($queueId);
         }
-        $systemProperties->setMessageType($this->messageConverter->detectMessageType($msg, $txEnabled));
+        $systemProperties->setMessageType($this->detectMessageType($msg, $txEnabled));
 
         $inputSysProps = $msg->getSystemProperties();
         if ($inputSysProps) {
@@ -1104,7 +1081,7 @@ class Producer
     {
         $enrichedMessages = [];
         foreach ($messages as $msg) {
-            $enrichedMessages[] = $this->messageConverter->toProtobufMessage($msg, $messageQueue);
+            $enrichedMessages[] = $this->toProtobufMessage($msg, $messageQueue);
         }
 
         $request = new SendMessageRequest();
@@ -1117,7 +1094,7 @@ class Producer
     {
         $enrichedMessages = [];
         foreach ($messages as $msg) {
-            $enrichedMessages[] = $this->messageConverter->toProtobufMessage($msg, $messageQueue, true);
+            $enrichedMessages[] = $this->toProtobufMessage($msg, $messageQueue, true);
         }
 
         $request = new SendMessageRequest();
@@ -1176,7 +1153,7 @@ class Producer
                         'success' => true,
                         'latencyMs' => $latencyMs,
                         'topic' => $message->getTopic()->getName(),
-                        'messageType' => $this->messageConverter->detectMessageType($message, false),
+                        'messageType' => $this->detectMessageType($message, false),
                         'sendReceipts' => [
                             'messageId' => $entry->getMessageId(),
                             'transactionId' => $entry->getTransactionId(),
@@ -1200,13 +1177,13 @@ class Producer
 
                 $failedEndpoints = $this->extractMessageQueueEndpoint($currentMessageQueue);
                 if ($failedEndpoints !== null) {
-                    $this->endpointIsolator->isolateEndpoints($failedEndpoints);
+                    $this->isolateEndpoints($failedEndpoints);
                 }
 
                 if ($attempt < $maxAttempts) {
                     $delayMs = $this->retryPolicy->getNextDelayWithJitterMs($attempt);
                     if ($delayMs > 0) {
-                        SwooleCompat::sleep($delayMs * 1000);
+                        usleep($delayMs * 1000);
                     }
                 }
             }
@@ -1217,7 +1194,7 @@ class Producer
             'success' => false,
             'latencyMs' => $latencyMs,
             'topic' => $message->getTopic()->getName(),
-            'messageType' => $this->messageConverter->detectMessageType($message, false),
+            'messageType' => $this->detectMessageType($message, false),
             'sendException' => $lastException ? $lastException->getMessage() : '',
         ]);
         throw $lastException;
@@ -1287,13 +1264,13 @@ class Producer
 
                 $failedEndpoints = $this->extractMessageQueueEndpoint($currentMessageQueue);
                 if ($failedEndpoints !== null) {
-                    $this->endpointIsolator->isolateEndpoints($failedEndpoints);
+                    $this->isolateEndpoints($failedEndpoints);
                 }
 
                 if ($attempt < $maxAttempts) {
                     $delayMs = $this->retryPolicy->getNextDelayWithJitterMs($attempt);
                     if ($delayMs > 0) {
-                        SwooleCompat::sleep($delayMs * 1000);
+                        usleep($delayMs * 1000);
                     }
                 }
             }

@@ -113,6 +113,10 @@ class SimpleConsumer
      */
     public function subscribe(string $topic, string $expression = '*'): self
     {
+        if (!$this->isStarted) {
+            throw new \RuntimeException("Consumer is not started");
+        }
+        
         $this->subscriptions[$topic] = $expression;
         return $this;
     }
@@ -125,6 +129,10 @@ class SimpleConsumer
      */
     public function unsubscribe(string $topic): self
     {
+        if (!$this->isStarted) {
+            throw new \RuntimeException("Consumer is not started");
+        }
+        
         unset($this->subscriptions[$topic]);
         return $this;
     }
