@@ -30,6 +30,9 @@ class SipHash24
     private $k0;
     /** @var int */
     private $k1;
+    
+    // 64-bit mask constant (avoid float conversion)
+    private const MASK_64 = -1; // All bits set to 1 in two's complement
 
     /**
      * @param int $k0 Lower 64 bits of the key
@@ -37,8 +40,8 @@ class SipHash24
      */
     public function __construct($k0 = 0, $k1 = 0)
     {
-        $this->k0 = $k0 & 0xFFFFFFFFFFFFFFFF;
-        $this->k1 = $k1 & 0xFFFFFFFFFFFFFFFF;
+        $this->k0 = $k0 & self::MASK_64;
+        $this->k1 = $k1 & self::MASK_64;
     }
 
     /**
@@ -64,10 +67,10 @@ class SipHash24
         $length = strlen($data);
 
         // Initialize state
-        $v0 = $this->k0 ^ 0x736f6d6570736575;
-        $v1 = $this->k1 ^ 0x646f72616e646f6d;
-        $v2 = $this->k0 ^ 0x6c6f6e67746f6163;
-        $v3 = $this->k1 ^ 0x7465646279746573;
+        $v0 = (int)($this->k0 ^ 0x736f6d6570736575);
+        $v1 = (int)($this->k1 ^ 0x646f72616e646f6d);
+        $v2 = (int)($this->k0 ^ 0x6c6f6e67746f6163);
+        $v3 = (int)($this->k1 ^ 0x7465646279746573);
 
         // Process full 8-byte blocks
         $blocks = intdiv($length, 8);
@@ -80,7 +83,7 @@ class SipHash24
         }
 
         // Build last block
-        $b = (($length & 0xFF) << 56);
+        $b = (int)(($length & 0xFF) << 56);
         $offset = $blocks * 8;
         for ($j = 7; $j >= 1; $j--) {
             if ($length - $offset > 7 - $j) {
@@ -93,7 +96,7 @@ class SipHash24
         list($v0, $v1, $v2, $v3) = $this->sipRound($v0, $v1, $v2, $v3);
         $v0 = self::xor64($v0, $b);
 
-        $v2 = self::xor64($v2, 0xFF);
+        $v2 = (int)(self::xor64($v2, 0xFF));
 
         // Finalization: 4 rounds
         list($v0, $v1, $v2, $v3) = $this->sipRound($v0, $v1, $v2, $v3);
@@ -101,7 +104,7 @@ class SipHash24
         list($v0, $v1, $v2, $v3) = $this->sipRound($v0, $v1, $v2, $v3);
         list($v0, $v1, $v2, $v3) = $this->sipRound($v0, $v1, $v2, $v3);
 
-        return self::and64(self::xor64(self::xor64($v0, $v1), self::xor64($v2, $v3)), 0xFFFFFFFFFFFFFFFF);
+        return self::and64(self::xor64(self::xor64($v0, $v1), self::xor64($v2, $v3)), self::MASK_64);
     }
 
     /**
@@ -113,7 +116,7 @@ class SipHash24
         for ($i = 7; $i >= 0; $i--) {
             $result |= (ord($data[$offset + (7 - $i)]) & 0xFF) << ($i * 8);
         }
-        return $result & 0xFFFFFFFFFFFFFFFF;
+        return $result & self::MASK_64;
     }
 
     /**
@@ -148,7 +151,7 @@ class SipHash24
     private static function add64($a, $b)
     {
         if (PHP_INT_SIZE >= 8) {
-            return ($a + $b) & 0xFFFFFFFFFFFFFFFF;
+            return ($a + $b) & self::MASK_64;
         }
 
         $ah = (int)(($a >> 32) & 0xFFFFFFFF);
@@ -170,7 +173,7 @@ class SipHash24
     private static function xor64($a, $b)
     {
         if (PHP_INT_SIZE >= 8) {
-            return ($a ^ $b) & 0xFFFFFFFFFFFFFFFF;
+            return ($a ^ $b) & self::MASK_64;
         }
 
         $aHi = (int)(($a >> 32) & 0xFFFFFFFF);
@@ -187,7 +190,7 @@ class SipHash24
     private static function and64($a, $mask)
     {
         if (PHP_INT_SIZE >= 8) {
-            return $a & $mask;
+            return (int)($a & $mask);
         }
 
         $aHi = (int)(($a >> 32) & 0xFFFFFFFF);
@@ -204,7 +207,7 @@ class SipHash24
     private static function rotl64($a, $n)
     {
         if (PHP_INT_SIZE >= 8) {
-            return (($a << $n) | ($a >> (64 - $n))) & 0xFFFFFFFFFFFFFFFF;
+            return (($a << $n) | ($a >> (64 - $n))) & self::MASK_64;
         }
 
         $aHi = (int)(($a >> 32) & 0xFFFFFFFF);

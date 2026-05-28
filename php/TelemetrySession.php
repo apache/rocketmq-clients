@@ -50,11 +50,6 @@ class TelemetrySession
     private ?string $settingsError = null;
     private float $settingsTimeout = 3.0; // seconds, matching Java's SETTINGS_INITIALIZATION_TIMEOUT
 
-    // Write queue (serial processing)
-    private array $writeQueue = [];
-    private bool $isWriting = false;
-    private int $maxQueueSize = 1000;
-
     // Credentials for AK/SK signing
     private ?SessionCredentials $credentials = null;
 
@@ -497,14 +492,12 @@ class TelemetrySession
 
         try {
             if ($this->stream) {
-                while (!empty($this->writeQueue)) {
-                    usleep(10000);
-                }
-
+                // Signal that we're done writing
                 if (method_exists($this->stream, 'writesDone')) {
                     $this->stream->writesDone();
                 }
 
+                // Cancel the stream
                 $this->stream->cancel();
             }
         } catch (\Exception $e) {
