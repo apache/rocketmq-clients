@@ -42,7 +42,7 @@ class ProcessQueue
     private array $cachedMessages = [];
     private int $cachedMessagesBytes = 0;
 
-    // O(1) eviction: index by receipt handle
+    // O(1) eviction: index by receipt handle + swap-with-last removal
     private array $cachedMessagesByReceiptHandle = [];
 
     private int $receptionTimes = 0;
@@ -104,12 +104,10 @@ class ProcessQueue
         $longPollingTimeout = $this->createDuration($awaitDuration);
         $request->setLongPollingTimeout($longPollingTimeout);
 
-        $metadata = $this->buildMetadata();
-
         $requestTimeoutMs = 3000;
         $awaitDurationMs = $awaitDuration * 1000;
         $totalTimeoutMs = $requestTimeoutMs + $awaitDurationMs;
-        $metadata['grpc-timeout'] = ["{$totalTimeoutMs}m"];
+        $metadata = $this->buildMetadata($totalTimeoutMs);
 
         $this->logger->debug("ProcessQueue fetching messages from queue, batchSize={$batchSize}, attemptId={$this->attemptId}");
 
@@ -255,7 +253,7 @@ class ProcessQueue
 
     /**
      * Evict a message from cache after consumption.
-     * Uses O(1) lookup via receipt handle index.
+     * Uses O(1) swop-with-last eviction with incremental index update.
      */
     public function evictMessage($messageView)
     {
@@ -265,6 +263,7 @@ class ProcessQueue
             $this->cachedMessagesBytes = 0;
         }
 
+        $idx = null;
         // Try O(1) lookup by receipt handle first
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
@@ -272,41 +271,36 @@ class ProcessQueue
                 $receiptHandle = $sysProps->getReceiptHandle();
                 if ($receiptHandle !== null && isset($this->cachedMessagesByReceiptHandle[$receiptHandle])) {
                     $idx = $this->cachedMessagesByReceiptHandle[$receiptHandle];
-                    array_splice($this->cachedMessages, $idx, 1);
-                    $this->rebuildReceiptHandleIndex();
-                    return;
+                    unset($this->cachedMessagesByReceiptHandle[$receiptHandle]);
                 }
             }
         }
 
-        // Fallback: linear scan
-        foreach ($this->cachedMessages as $i => $msg) {
-            if ($msg === $messageView) {
-                array_splice($this->cachedMessages, $i, 1);
-                $this->rebuildReceiptHandleIndex();
-                break;
-            }
-        }
-    }
-
-    /**
-     * Rebuild the receipt handle index after array reindexing.
-     */
-    private function rebuildReceiptHandleIndex()
-    {
-        $this->cachedMessagesByReceiptHandle = [];
-        foreach ($this->cachedMessages as $idx => $msg) {
-            $receiptHandle = null;
-            if (method_exists($msg, 'getSystemProperties')) {
-                $sysProps = $msg->getSystemProperties();
-                if (method_exists($sysProps, 'getReceiptHandle')) {
-                    $receiptHandle = $sysProps->getReceiptHandle();
+        if ($idx === null) {
+            // Fallback: linear scan
+            foreach ($this->cachedMessages as $i => $msg) {
+                if ($msg === $messageView) {
+                    $idx = $i;
+                    break;
                 }
             }
-            if ($receiptHandle !== null) {
-                $this->cachedMessagesByReceiptHandle[$receiptHandle] = $idx;
+        }
+        if ($idx === null) {
+            return;
+        }
+        $lastIdx = count($this->cachedMessages) - 1;
+        if ($idx !== $lastIdx) {
+            $swappedMsg = $this->cachedMessages[$idx];
+            $this->cachedMessages[$idx] = $this->cachedMessages[$lastIdx];
+            $this->cachedMessages[$lastIdx] = $swappedMsg;
+
+
+            $swappedReceipt = $this->getReceiptHandle($this->cachedMessages[$idx]);
+            if ($swappedReceipt !== null) {
+                $this->cachedMessagesByReceiptHandle[$swappedReceipt] = $idx;
             }
         }
+        array_pop($this->cachedMessages);
     }
 
     /**
@@ -459,7 +453,7 @@ class ProcessQueue
      *
      * @return array
      */
-    private function buildMetadata()
+    private function buildMetadata(?int $timeoutMs = null)
     {
         $credentials = null;
         $namespace = '';
@@ -469,7 +463,7 @@ class ProcessQueue
         if (method_exists($this->consumer, 'getNamespace')) {
             $namespace = $this->consumer->getNamespace();
         }
-        return Signature::sign(
+        $metadata = Signature::sign(
             $credentials,
             $this->consumer->getClientId(),
             ClientConstants::LANGUAGE,
@@ -477,6 +471,10 @@ class ProcessQueue
             $namespace,
             'v2'
         );
+        if ($timeoutMs !== null) {
+            $metadata['grpc-timeout'] = ["{$timeoutMs}m"];
+        }
+        return $metadata;
     }
 
     private function getReceiveClient(): MessagingServiceClient

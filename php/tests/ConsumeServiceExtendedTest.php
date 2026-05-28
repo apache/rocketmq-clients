@@ -182,7 +182,7 @@ class TestConsumeService extends ConsumeService
         parent::__construct($logger, $listener, $fakeConsumer);
     }
 
-    public function consume(ProcessQueue $pq)
+    public function consume(ProcessQueue $pq): void
     {
         // Not used in these tests
     }

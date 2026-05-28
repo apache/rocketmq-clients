@@ -43,9 +43,9 @@ trait ClientTrait
      *
      * @return array
      */
-    protected function buildMetadata(): array
+    protected function buildMetadata(?int $timeoutMs = null): array
     {
-        return Signature::sign(
+        $metadata = Signature::sign(
             $this->getCredentials(),
             $this->getClientIdValue(),
             ClientConstants::LANGUAGE,
@@ -53,6 +53,10 @@ trait ClientTrait
             $this->getNamespaceValue(),
             'v2'
         );
+        if ($timeoutMs !== null) {
+            $metadata['grpc-timeout'] = ["{$timeoutMs}m"];
+        }
+        return $metadata;
     }
 
     /**

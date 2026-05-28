@@ -720,7 +720,7 @@ class PushConsumer
         $groupResource->setName($this->consumerGroup);
         $request->setGroup($groupResource);
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_DEFAULT_TIMEOUT / 1000);
 
         list($response, $status) = $this->client->QueryAssignment($request, $metadata, $this->getCallOptions())->wait();
 
@@ -1008,7 +1008,7 @@ class PushConsumer
      */
     private function doHeartbeat()
     {
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_DEFAULT_TIMEOUT / 1000);
         try {
             list($response, $status) = $this->client->Heartbeat($this->wrapHeartbeatRequest(), $metadata, $this->getCallOptions())->wait();
             if ($status->code === 0) {
@@ -1038,7 +1038,7 @@ class PushConsumer
             }
         }
         foreach ($endpointsMap as $brokerKey => $endpoints) {
-            $metadata = $this->buildMetadata();
+            $metadata = $this->buildMetadata(ClientConstants::GRPC_DEFAULT_TIMEOUT / 1000);
             try {
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'tlsCredentials' => $this->tlsCredentials,
@@ -1065,7 +1065,7 @@ class PushConsumer
         $groupResource->setName($this->consumerGroup);
         $request->setGroup($groupResource);
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_DEFAULT_TIMEOUT / 1000);
 
         try {
             list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $this->getCallOptions())->wait();

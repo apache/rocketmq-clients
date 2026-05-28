@@ -38,10 +38,10 @@ abstract class ConsumeService
 {
     use ClientTrait;
 
-    protected $logger;
+    protected Logger $logger;
     protected $messageListener;
     protected $consumer;
-    protected $maxAttempts = 5;
+    protected int $maxAttempts = 5;
 
     /**
      * @param Logger $logger Logger instance
@@ -61,7 +61,7 @@ abstract class ConsumeService
      * @param ProcessQueue $pq
      * @return void
      */
-    abstract public function consume(ProcessQueue $pq);
+    abstract public function consume(ProcessQueue $pq): void;
 
     /**
      * Dispatch a single message to the user listener.
@@ -119,7 +119,7 @@ abstract class ConsumeService
      * @param object $messageView
      * @return bool
      */
-    public function ackMessage($messageView)
+    public function ackMessage($messageView): bool
     {
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
@@ -152,7 +152,7 @@ abstract class ConsumeService
         $request->setTopic($topicResource);
         $request->setEntries([$entry]);
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_DEFAULT_TIMEOUT / 1000);
 
         $brokerClient = $this->getBrokerClient($messageView);
         $maxRetries = 3;
@@ -199,7 +199,7 @@ abstract class ConsumeService
      * @param int|null $invisibleDuration Override invisible duration in seconds (for ConsumeResultSuspend)
      * @return bool
      */
-    public function nackMessage($messageView, $deliveryAttempt = 1, ?int $invisibleDuration = null)
+    public function nackMessage($messageView, $deliveryAttempt = 1, ?int $invisibleDuration = null): bool
     {
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
@@ -253,7 +253,7 @@ abstract class ConsumeService
             }
         }
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_DEFAULT_TIMEOUT / 1000);
 
         $brokerClient = $this->getBrokerClient($messageView);
         $maxRetries = 3;
@@ -297,7 +297,7 @@ abstract class ConsumeService
      * @param object $messageView
      * @return bool
      */
-    public function forwardToDeadLetterQueue($messageView, $deliveryAttempt = null)
+    public function forwardToDeadLetterQueue($messageView, $deliveryAttempt = null): bool
     {
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
@@ -326,7 +326,7 @@ abstract class ConsumeService
         $request->setDeliveryAttempt($actualAttempt);
         $request->setMaxDeliveryAttempts($this->maxAttempts);
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_DEFAULT_TIMEOUT / 1000);
         $brokerClient = $this->getBrokerClient($messageView);
         $maxRetries = 3;
         $attempt = 0;
@@ -402,7 +402,7 @@ abstract class ConsumeService
  */
 class StandardConsumeService extends ConsumeService
 {
-    public function consume(ProcessQueue $pq)
+    public function consume(ProcessQueue $pq): void
     {
         $messages = $pq->getCachedMessages();
         if (empty($messages)) {
@@ -454,7 +454,7 @@ class StandardConsumeService extends ConsumeService
  */
 class FifoConsumeService extends ConsumeService
 {
-    private $enableFifoConsumeAccelerator = false;
+    private bool $enableFifoConsumeAccelerator = false;
 
     public function __construct($logger, $messageListener, $consumer, $enableFifoConsumeAccelerator = false)
     {
@@ -474,7 +474,7 @@ class FifoConsumeService extends ConsumeService
         return 'default';
     }
 
-    public function consume(ProcessQueue $pq)
+    public function consume(ProcessQueue $pq): void
     {
         $messages = $pq->getCachedMessages();
         if (empty($messages)) {

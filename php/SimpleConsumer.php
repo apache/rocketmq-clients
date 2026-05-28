@@ -173,7 +173,7 @@ class SimpleConsumer
      * Heartbeat tick handler - call from main loop to keep connection alive.
      * Sends heartbeat every 10 seconds to the broker.
      */
-    public function onHeartbeatTick()
+    public function onHeartbeatTick(): void
     {
         $now = time();
         if ($now - $this->lastHeartbeatTime >= 10) {
@@ -212,7 +212,7 @@ class SimpleConsumer
         $groupResource->setName($this->consumerGroup);
         $request->setGroup($groupResource);
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         try {
             list($response, $status) = $this->client->Heartbeat($request, $metadata, $this->getCallOptions())->wait();
@@ -415,8 +415,7 @@ class SimpleConsumer
         $grpcTimeoutMills = (int)($grpcTimeoutMicroseconds / 1000);
 
         // Use signed metadata via ClientTrait
-        $metadata = $this->buildMetadata();
-        $metadata['grpc-timeout'] = ["{$grpcTimeoutMills}m"];
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         $this->logger->debug("ReceiveMessage: topic={$topic}, batchSize={$maxMessages}, grpcTimeout={$grpcTimeoutMills}us, attemptId={$attemptId}");
 
@@ -489,7 +488,7 @@ class SimpleConsumer
         $request->setTopic($topicResource);
         $request->setEndpoints($this->getParsedEndpoints());
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         try {
             list($response, $status) = $this->client->QueryRoute($request, $metadata, $this->getCallOptions())->wait();
@@ -577,7 +576,7 @@ class SimpleConsumer
         $request->setTopic($topicResource);
         $request->setEntries($entries);
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         $attempt = 0;
         $maxRetries = 16;
@@ -708,7 +707,7 @@ class SimpleConsumer
             $request->setMessageId($messageId);
         }
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         try {
             list($response, $status) = $this->client->ChangeInvisibleDuration($request, $metadata, $this->getCallOptions())->wait();
@@ -737,7 +736,7 @@ class SimpleConsumer
         $groupResource->setName($this->consumerGroup);
         $request->setGroup($groupResource);
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         try {
             list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $this->getCallOptions())->wait();
@@ -754,7 +753,7 @@ class SimpleConsumer
     /**
      * Shut down the consumer
      */
-    public function shutdown()
+    public function shutdown(): void
     {
         if (!$this->isStarted) {
             return;
@@ -953,7 +952,7 @@ class SimpleConsumer
     /**
      * Get Client ID
      */
-    public function getClientId()
+    public function getClientId(): string
     {
         return $this->clientId;
     }

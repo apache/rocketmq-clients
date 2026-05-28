@@ -220,7 +220,7 @@ class TestableStandardConsumeService extends StandardConsumeService
         parent::__construct($logger, $listener, $fakeConsumer);
     }
 
-    public function consume(ProcessQueue $pq)
+    public function consume(ProcessQueue $pq): void
     {
         // Not used in these tests
     }
@@ -256,7 +256,7 @@ class TestableFifoConsumeService extends FifoConsumeService
         parent::__construct($logger, $listener, $fakeConsumer, false);
     }
 
-    public function consume(ProcessQueue $pq)
+    public function consume(ProcessQueue $pq): void
     {
         // Not used in these tests
     }

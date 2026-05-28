@@ -242,10 +242,17 @@ class Producer
                     $result = $this->send($message);
                     $channel->push(['success' => true, 'result' => $result]);
                 } catch (\Throwable $e) {
-                    $channel->push(['success' => false, 'error' => $e]);
+                    $channel->push(['success' => false, 'exception' => $e]);
                 }
             });
-            return $channel->pop();
+            $data = $channel->pop($this->requestTimeout / 1000.0);
+            if ($data === false) {
+                throw new \RuntimeException("Send async Request timeout {$this->requestTimeout}ms");
+            }
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['result'] ?? null;
         }
         yield $this->send($message);
     }
@@ -327,10 +334,17 @@ class Producer
                     $result = $this->sendBatch($messages);
                     $channel->push(['success' => true, 'result' => $result]);
                 } catch (\Throwable $e) {
-                    $channel->push(['success' => false, 'error' => $e]);
+                    $channel->push(['success' => false, 'exception' => $e]);
                 }
             });
-            return $channel->pop();
+            $data = $channel->pop($this->requestTimeout / 1000.0);
+            if ($data === false) {
+                throw new \RuntimeException("Send batch async Request timeout {$this->requestTimeout}ms");
+            }
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['result'] ?? null;
         }
         yield $this->sendBatch($messages);
     }
@@ -426,7 +440,7 @@ class Producer
         $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::ROLLBACK, $endpoints);
     }
 
-    public function sendPriorityMessage($topic, $body, $priority, $tag = '')
+    public function sendPriorityMessage($topic, $body, $priority, $tag = ''): array
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -449,7 +463,7 @@ class Producer
         return $this->send($message);
     }
 
-    public function sendDelayedMessage($topic, $body, $deliveryTimestampUnixSec, $tag = '')
+    public function sendDelayedMessage($topic, $body, $deliveryTimestampUnixSec, $tag = ''): array
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -476,7 +490,7 @@ class Producer
         return $this->send($message);
     }
 
-    public function sendFifoMessage($topic, $body, $messageGroup, $tag = '')
+    public function sendFifoMessage($topic, $body, $messageGroup, $tag = ''): array
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -499,7 +513,7 @@ class Producer
         return $this->send($message);
     }
 
-    public function recallMessage($topic, $recallHandle)
+    public function recallMessage($topic, $recallHandle): array
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -512,7 +526,7 @@ class Producer
         $request->setTopic($topicResource);
         $request->setRecallHandle($recallHandle);
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         list($response, $status) = $this->client->RecallMessage($request, $metadata, $this->getCallOptions())->wait();
 
@@ -540,15 +554,22 @@ class Producer
                     $result = $this->recallMessage($topic, $recallHandle);
                     $channel->push(['success' => true, 'result' => $result]);
                 } catch (\Throwable $e) {
-                    $channel->push(['success' => false, 'error' => $e]);
+                    $channel->push(['success' => false, 'exception' => $e]);
                 }
             });
-            return $channel->pop();
+            $data = $channel->pop($this->requestTimeout / 1000.0);
+            if ($data === false) {
+            throw new \RuntimeException("Recall message async Request timeout {$this->requestTimeout}ms");
+            }
+            if (isset($data['exception'])) {
+                throw $data['exception'];
+            }
+            return $data['result'] ?? null;
         }
         yield $this->recallMessage($topic, $recallHandle);
     }
 
-    public function shutdown()
+    public function shutdown(): void
     {
         if (!$this->isRunning) {
             return;
@@ -578,12 +599,12 @@ class Producer
         $this->logger->info("Shutdown the rocketmq producer successfully, clientId={$this->clientId}");
     }
 
-    public function getClientId()
+    public function getClientId(): string
     {
         return $this->clientId;
     }
 
-    public function isRunning()
+    public function isRunning(): bool
     {
         return $this->isRunning;
     }
@@ -689,7 +710,7 @@ class Producer
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'tlsCredentials' => $this->tlsCredentials,
                 ]);
-                $metadata = $this->buildMetadata();
+                $metadata = $this->buildMetadata($this->requestTimeout);
                 list($response, $status) = $brokerClient->Heartbeat($request, $metadata, $this->getCallOptions())->wait();
                 if ($status->code === 0) {
                     $this->logger->debug("Heartbeat to broker {$brokerKey} successful");
@@ -711,7 +732,7 @@ class Producer
 
         $request = new NotifyClientTerminationRequest();
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         try {
             list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $this->getCallOptions())->wait();
@@ -740,7 +761,7 @@ class Producer
         // Wait for any in-progress heartbeat to complete
         $waitCount = 0;
         while ($this->heartbeatInProgress && $waitCount < 10) {
-            usleep(10000); // Wait 10ms
+            SwooleCompat::sleep(10000);
             $waitCount++;
         }
 
@@ -925,7 +946,7 @@ class Producer
         if (!$success) {
             throw new \RuntimeException("Failed to establish Telemetry Session");
         }
-        usleep(500000); // 500ms
+        SwooleCompat::sleep(500000);
     }
 
     private function validateMessage(Message $message)
@@ -963,7 +984,7 @@ class Producer
         $request->setTopic($topicResource);
         $request->setEndpoints($this->parseEndpoints($this->endpoints));
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         list($response, $status) = $this->client->QueryRoute($request, $metadata, $this->getCallOptions())->wait();
 
@@ -1120,7 +1141,7 @@ class Producer
                 $request = $this->wrapSendMessageRequest([$message], $currentMessageQueue);
             }
             try {
-                $metadata = $this->buildMetadata();
+                $metadata = $this->buildMetadata($this->requestTimeout);
 
                 list($response, $status) = $this->client->SendMessage($request, $metadata, $this->getCallOptions())->wait();
 
@@ -1183,7 +1204,7 @@ class Producer
                 if ($attempt < $maxAttempts) {
                     $delayMs = $this->retryPolicy->getNextDelayWithJitterMs($attempt);
                     if ($delayMs > 0) {
-                        usleep($delayMs * 1000);
+                        SwooleCompat::sleep($delayMs * 1000);
                     }
                 }
             }
@@ -1218,7 +1239,7 @@ class Producer
                 $request = $this->wrapSendMessageRequest($messages, $currentMessageQueue);
             }
             try {
-                $metadata = $this->buildMetadata();
+                $metadata = $this->buildMetadata($this->requestTimeout);
 
                 list($response, $status) = $this->client->SendMessage($request, $metadata, $this->getCallOptions())->wait();
 
@@ -1270,7 +1291,7 @@ class Producer
                 if ($attempt < $maxAttempts) {
                     $delayMs = $this->retryPolicy->getNextDelayWithJitterMs($attempt);
                     if ($delayMs > 0) {
-                        usleep($delayMs * 1000);
+                        SwooleCompat::sleep($delayMs * 1000);
                     }
                 }
             }
@@ -1311,7 +1332,7 @@ class Producer
         $request->setResolution($resolution);
         $request->setSource($source);
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata($this->requestTimeout);
 
         if ($endpoints !== null) {
             $address = $endpoints->getAddresses();
