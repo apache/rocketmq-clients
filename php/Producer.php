@@ -935,7 +935,7 @@ class Producer
 
         $metadata = $this->buildMetadata();
 
-        list($response, $status) = $this->client->QueryRoute($request, $metadata)->wait();
+        list($response, $status) = $this->client->QueryRoute($request, $metadata, $this->getCallOptions())->wait();
 
         if ($status->code !== 0) {
             throw new \RuntimeException("Query route failed: " . $status->details);
