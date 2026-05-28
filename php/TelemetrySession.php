@@ -186,7 +186,7 @@ class TelemetrySession
                 $this->pollTelemetryManual();
             }
             
-            usleep((int)($pollInterval * 1000000));
+            SwooleCompat::sleep((int)($pollInterval * 1000000));
         }
         
         // Timeout
@@ -555,7 +555,7 @@ class TelemetrySession
             });
         } else {
             try {
-                usleep(1000000);
+                SwooleCompat::sleep(1000000);
                 if (!$this->isClosing) {
                     $this->logger->info("Reconnecting to telemetry..");
                     $this->createStreamAndSync($settingsCommand);

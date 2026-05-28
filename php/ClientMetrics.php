@@ -51,7 +51,7 @@ class ClientMetrics
         self::$instance = null;
     }
 
-    public function recordSend($success = true, $latencyMs = 0)
+    public function recordSend(bool $success = true, int $latencyMs = 0): void
     {
         $this->sendCount++;
         if (!$success) {
@@ -64,7 +64,7 @@ class ClientMetrics
         }
     }
 
-    public function recordReceive($success = true)
+    public function recordReceive(bool $success = true): void
     {
         $this->receiveCount++;
         if (!$success) {
@@ -72,7 +72,7 @@ class ClientMetrics
         }
     }
 
-    public function recordConsume($success = true)
+    public function recordConsume(bool $success = true): void
     {
         if ($success) {
             $this->consumeOkCount++;
@@ -81,7 +81,7 @@ class ClientMetrics
         }
     }
 
-    public function recordAck($success = true)
+    public function recordAck(bool $success = true): void
     {
         $this->ackCount++;
         if (!$success) {
@@ -89,29 +89,29 @@ class ClientMetrics
         }
     }
 
-    public function getSendCount() { return $this->sendCount; }
-    public function getSendErrorCount() { return $this->sendErrorCount; }
-    public function getReceiveCount() { return $this->receiveCount; }
-    public function getReceiveErrorCount() { return $this->receiveErrorCount; }
-    public function getConsumeOkCount() { return $this->consumeOkCount; }
-    public function getConsumeErrorCount() { return $this->consumeErrorCount; }
-    public function getAckCount() { return $this->ackCount; }
-    public function getAckErrorCount() { return $this->ackErrorCount; }
+    public function getSendCount(): int { return $this->sendCount; }
+    public function getSendErrorCount(): int { return $this->sendErrorCount; }
+    public function getReceiveCount(): int { return $this->receiveCount; }
+    public function getReceiveErrorCount(): int { return $this->receiveErrorCount; }
+    public function getConsumeOkCount(): int { return $this->consumeOkCount; }
+    public function getConsumeErrorCount(): int { return $this->consumeErrorCount; }
+    public function getAckCount(): int { return $this->ackCount; }
+    public function getAckErrorCount(): int { return $this->ackErrorCount; }
 
-    public function getAverageSendLatencyMs()
+    public function getAverageSendLatencyMs(): float
     {
         if (empty($this->sendLatencyMs)) {
-            return 0;
+            return 0.0;
         }
         return array_sum($this->sendLatencyMs) / count($this->sendLatencyMs);
     }
 
-    public function getUptimeSeconds()
+    public function getUptimeSeconds(): int
     {
         return time() - $this->startTime;
     }
 
-    public function getStats()
+    public function getStats(): array
     {
         return [
             'uptimeSeconds' => $this->getUptimeSeconds(),
@@ -137,7 +137,7 @@ class MetricsInterceptor implements MessageInterceptor
         $this->metrics = ClientMetrics::getInstance();
     }
 
-    public function intercept($hookPoint, array $context = [])
+    public function intercept(string $hookPoint, array $context = []): void
     {
         switch ($hookPoint) {
             case MessageHookPoints::SEND:
@@ -160,7 +160,7 @@ class MetricsInterceptor implements MessageInterceptor
         }
     }
 
-    public function getMetrics()
+    public function getMetrics(): ClientMetrics
     {
         return $this->metrics;
     }

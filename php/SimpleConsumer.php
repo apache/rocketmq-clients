@@ -270,7 +270,7 @@ class SimpleConsumer
         }
 
         // Wait for server processing
-        usleep(500000); // 500ms
+        SwooleCompat::sleep(500000); // 500ms
     }
 
     /**
@@ -573,49 +573,90 @@ class SimpleConsumer
 
         $attempt = 0;
         $maxRetries = 16;
+        $successCount = 0;
+        $failureCount = 0;
 
         while ($attempt < $maxRetries) {
             try {
                 list($response, $status) = $this->client->AckMessage($request, $metadata, $this->getCallOptions())->wait();
                 if ($status->code !== 0) {
-                    $this->logger->warning("AckMessage attempt {$attempt}: status error: " . $status->details);
+                    $this->logger->warning("AckMessage attempt {$attempt}: gRPC status error: " . $status->details);
                 } else {
                     $responseEntries = $response->getEntries();
                     if (!ProtobufUtil::isRepeatedFieldEmpty($responseEntries)) {
-                        $hasRetryableError = false;
-                        $hasInvalidHandleOnly = true;
-                        foreach ($responseEntries as $resultEntry) {
+                        // Collect indices to remove (successful or permanent failure entries)
+                        $indicesToRemove = [];
+                        
+                        foreach ($responseEntries as $i => $resultEntry) {
+                            $messageId = isset($entries[$i]) ? $entries[$i]->getMessageId() : 'unknown';
+                            
                             if ($resultEntry->hasStatus()) {
                                 $entryCode = $resultEntry->getStatus()->getCode();
-                                if ($entryCode !== 20000 && $entryCode !== 40003) {
-                                    $hasRetryableError = true;
-                                    $hasInvalidHandleOnly = false;
+                                
+                                if ($entryCode === 20000) {
+                                    // SUCCESS - mark for removal
+                                    $successCount++;
+                                    $indicesToRemove[] = $i;
+                                    $this->logger->debug("AckMessage success for messageId={$messageId}");
+                                } elseif ($entryCode === 40013) {
+                                    // INVALID_RECEIPT_HANDLE - permanent failure, mark for removal
+                                    $failureCount++;
+                                    $indicesToRemove[] = $i;
+                                    $this->logger->warning("AckMessage failed with INVALID_RECEIPT_HANDLE for messageId={$messageId}, not retrying");
+                                } else {
+                                    // Other errors - check if retryable
+                                    $isRetryable = $this->isRetryableErrorCode($entryCode);
+                                    if (!$isRetryable) {
+                                        // Permanent failure - mark for removal
+                                        $failureCount++;
+                                        $indicesToRemove[] = $i;
+                                        $this->logger->warning("AckMessage permanent error code={$entryCode} for messageId={$messageId}, not retrying");
+                                    } else {
+                                        // Retryable - keep in array
+                                        $this->logger->debug("AckMessage retryable error code={$entryCode} for messageId={$messageId}, will retry");
+                                    }
                                 }
+                            } else {
+                                // No status in response entry, keep for retry
+                                $this->logger->debug("AckMessage no status for messageId={$messageId}, will retry");
                             }
                         }
-                        if ($hasInvalidHandleOnly && !$hasRetryableError) {
+                        
+                        // If all entries are done (no more to retry), we're finished
+                        if (empty($indicesToRemove) || count($indicesToRemove) === count($entries)) {
+                            $remainingForRetry = count($entries) - count($indicesToRemove);
+                            $this->logger->info("AckMessage batch completed: success={$successCount}, failure={$failureCount}, remaining_for_retry={$remainingForRetry}");
                             return;
                         }
-                        if ($hasRetryableError) {
-                            $entries = $this->filterRetryableEntries($entries, $responseEntries);
-                            if (empty($entries)) {
-                                return;
-                            }
-                            $request->setEntries($entries);
-                            $attempt++;
-                            usleep(1000000);
-                            continue;
+                        
+                        // Remove successful/permanent-failure entries in reverse order to maintain indices
+                        rsort($indicesToRemove);
+                        foreach ($indicesToRemove as $index) {
+                            array_splice($entries, $index, 1);
                         }
+                        
+                        // Update request with remaining retryable entries
+                        $request->setEntries($entries);
+                        $attempt++;
+                        SwooleCompat::sleep(1000000);
+                        continue;
                     }
+                    // Empty response entries, consider all successful
+                    $successCount = count($entries);
+                    $this->logger->info("AckMessage batch completed with empty response: success={$successCount}");
                     return;
                 }
             } catch (\Exception $e) {
                 $this->logger->warning("AckMessage attempt {$attempt} failed: " . $e->getMessage());
             }
             $attempt++;
-            usleep(1000000);
+            SwooleCompat::sleep(1000000);
         }
-        $this->logger->warning("AckMessage exceeded max retries {$maxRetries} , giving up");
+        
+        // Exhausted all retries
+        $remainingCount = count($entries);
+        $failureCount += $remainingCount;
+        $this->logger->error("AckMessage exceeded max retries {$maxRetries}, giving up. Remaining entries: {$remainingCount}, Total failures: {$failureCount}");
     }
 
     /**
@@ -792,7 +833,7 @@ class SimpleConsumer
         // Wait for any in-progress heartbeat to complete
         $waitCount = 0;
         while ($this->heartbeatInProgress && $waitCount < 10) {
-            usleep(10000); // Wait 10ms
+            SwooleCompat::sleep(10000); // Wait 10ms
             $waitCount++;
         }
         
@@ -823,7 +864,11 @@ class SimpleConsumer
                     $channel->push(['exception' => $e]);
                 }
             });
-            $data = $channel->pop();
+            // Add timeout to prevent permanent blocking
+            $data = $channel->pop($this->requestTimeout / 1000.0); // Convert ms to seconds
+            if ($data === false) {
+                throw new \RuntimeException("Receive async timeout after {$this->requestTimeout}ms");
+            }
             if (isset($data['exception'])) {
                 throw $data['exception'];
             }
@@ -851,7 +896,11 @@ class SimpleConsumer
                     $channel->push(['exception' => $e]);
                 }
             });
-            $data = $channel->pop();
+            // Add timeout to prevent permanent blocking
+            $data = $channel->pop($this->requestTimeout / 1000.0); // Convert ms to seconds
+            if ($data === false) {
+                throw new \RuntimeException("Ack async timeout after {$this->requestTimeout}ms");
+            }
             if (isset($data['exception'])) {
                 throw $data['exception'];
             }
@@ -880,7 +929,11 @@ class SimpleConsumer
                     $channel->push(['exception' => $e]);
                 }
             });
-            $data = $channel->pop();
+            // Add timeout to prevent permanent blocking
+            $data = $channel->pop($this->requestTimeout / 1000.0); // Convert ms to seconds
+            if ($data === false) {
+                throw new \RuntimeException("Change invisible duration async timeout after {$this->requestTimeout}ms");
+            }
             if (isset($data['exception'])) {
                 throw $data['exception'];
             }
@@ -1058,6 +1111,49 @@ class SimpleConsumer
         $this->shutdown();
     }
 
+    /**
+     * Check if an error code is retryable (transient error).
+     *
+     * Retryable errors:
+     * - 50001: INTERNAL_SERVER_ERROR
+     * - 50002: HA_NOT_AVAILABLE
+     * - 50400: PROXY_TIMEOUT
+     * - 50401: MASTER_PERSISTENCE_TIMEOUT
+     * - 50402: SLAVE_PERSISTENCE_TIMEOUT
+     * - 42900: TOO_MANY_REQUESTS
+     *
+     * Non-retryable errors:
+     * - 20000: OK
+     * - 40013: INVALID_RECEIPT_HANDLE
+     * - Other 4xx client errors
+     *
+     * @param int $code Error code from Status
+     * @return bool True if the error is transient and should be retried
+     */
+    private function isRetryableErrorCode(int $code): bool
+    {
+        // Server-side transient errors (5xx)
+        if ($code >= 50000 && $code < 60000) {
+            return true;
+        }
+        
+        // Specific retryable codes
+        $retryableCodes = [
+            42900, // TOO_MANY_REQUESTS
+        ];
+        
+        return in_array($code, $retryableCodes, true);
+    }
+
+    /**
+     * Filter entries that need to be retried based on response status.
+     * Deprecated: Use inline logic in ackMessage() instead.
+     *
+     * @param array $entries Original request entries
+     * @param array $responseEntries Response entries with status
+     * @return array Entries that should be retried
+     * @deprecated This method is no longer used. Logic moved to ackMessage().
+     */
     private function filterRetryableEntries($entries, $responseEntries)
     {
         $responseCodes = [];
@@ -1068,7 +1164,7 @@ class SimpleConsumer
         }
         $retryable = [];
         foreach ($entries as $i => $entry) {
-            if (!isset($responseCodes[$i]) || ($responseCodes[$i] !== 20000 && $responseCodes[$i] !== 40003)) {
+            if (!isset($responseCodes[$i]) || $this->isRetryableErrorCode($responseCodes[$i])) {
                 $retryable[] = $entry;
             }
         }

@@ -17,11 +17,11 @@
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../SimpleConsumerOptimized.php';
+require_once __DIR__ . '/../SimpleConsumer.php';
 require_once __DIR__ . '/../Logger.php';
 
 use Apache\Rocketmq\SessionCredentials;
-use Apache\Rocketmq\SimpleConsumerOptimized;
+use Apache\Rocketmq\SimpleConsumer;
 
 // Load configuration
 $config = ExampleConfig::getInstance();
@@ -33,7 +33,7 @@ $credentials = $config->getCredentials();
 // Display configuration
 $config->display();
 
-$consumer = new SimpleConsumerOptimized($endpoints, $consumerGroup, [
+$consumer = new SimpleConsumer($endpoints, $consumerGroup, [
     'credentials' => $credentials,
     'awaitDuration' => 30,
 ]);

@@ -47,6 +47,11 @@ class RpcClientManager
         return self::$instance;
     }
 
+    /**
+     * Reset the singleton instance (primarily for testing).
+     *
+     * @return void
+     */
     public static function reset(): void
     {
         self::$instance = null;
@@ -55,9 +60,14 @@ class RpcClientManager
     /**
      * Get or create a MessagingServiceClient for the given endpoints.
      *
-     * @param string $endpoints
-     * @param array $options
-     * @return MessagingServiceClient
+     * Clients are cached and reused based on endpoint + TLS configuration.
+     * Idle clients are automatically cleaned up every 60 seconds if unused for 30 minutes.
+     *
+     * @param string $endpoints Server endpoint in format "host:port"
+     * @param array $options Optional configuration:
+     *                       - 'tlsCredentials': TlsCredentials instance for TLS/mTLS
+     *                       - 'credentials': Pre-created ChannelCredentials
+     * @return MessagingServiceClient gRPC client instance
      */
     public function getClient(string $endpoints, array $options = []): MessagingServiceClient
     {
@@ -84,9 +94,12 @@ class RpcClientManager
     }
 
     /**
-     * Release a specific client connection.
+     * Release a specific client connection by endpoint prefix.
      *
-     * @param string $endpoints
+     * All clients whose key starts with the given endpoint will be removed.
+     *
+     * @param string $endpoints Endpoint prefix to match (e.g., "localhost:8080")
+     * @return void
      */
     public function releaseClient(string $endpoints): void
     {
@@ -105,7 +118,9 @@ class RpcClientManager
     }
 
     /**
-     * Release all client connections.
+     * Release all client connections and clear the cache.
+     *
+     * @return void
      */
     public function releaseAll(): void
     {
@@ -116,9 +131,9 @@ class RpcClientManager
     }
 
     /**
-     * Get the number of active connections.
+     * Get the number of active connections in the pool.
      *
-     * @return int
+     * @return int Number of cached client connections
      */
     public function getConnectionCount(): int
     {
@@ -126,7 +141,11 @@ class RpcClientManager
     }
 
     /**
-     * Clean up idle client connections.
+     * Clean up idle client connections that haven't been used for more than idleTimeoutSeconds.
+     *
+     * This method is called automatically every checkIntervalSeconds (60s) when getClient() is invoked.
+     *
+     * @return void
      */
     private function cleanupIdleClients(): void
     {
@@ -146,6 +165,19 @@ class RpcClientManager
         }
     }
 
+    /**
+     * Generate a unique cache key based on endpoint and TLS configuration.
+     *
+     * Key format: "{endpoint}:{tlsFingerprint}"
+     * Examples:
+     *   - "localhost:8080:insecure"
+     *   - "localhost:8080:tls|ca:/path/to/ca.pem"
+     *   - "localhost:8080:mtls:/path/to/client.pem|no-verify"
+     *
+     * @param string $endpoints Server endpoint
+     * @param array $options Client options containing TLS credentials
+     * @return string Unique cache key
+     */
     private function makeKey(string $endpoints, array $options): string
     {
         $tlsFingerprint = 'insecure';
@@ -172,8 +204,13 @@ class RpcClientManager
     /**
      * Resolve gRPC channel credentials from options.
      *
-     * @param array $options
-     * @return \Grpc\ChannelCredentials|null
+     * Priority:
+     * 1. tlsCredentials option (TlsCredentials instance)
+     * 2. credentials option (pre-created ChannelCredentials)
+     * 3. Default: ChannelCredentials::createInsecure()
+     *
+     * @param array $options Configuration options
+     * @return \Grpc\ChannelCredentials|null Resolved credentials (may be null in some gRPC versions)
      */
     private function resolveCredentials(array $options)
     {

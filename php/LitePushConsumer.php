@@ -187,7 +187,7 @@ class LitePushConsumer extends PushConsumer
                 $this->logger->error("Error querying lite subscription: " . $e->getMessage());
             }
             $this->logger->debug("Waiting doe lite subscription to take effect, attempt {$attempt}/{$maxAttempts}");
-            usleep($pollInterval);
+            SwooleCompat::sleep($pollInterval);
         }
         $this->logger->error("Lite subscription time out waiting assignments, will scan during normal cycle");
     }

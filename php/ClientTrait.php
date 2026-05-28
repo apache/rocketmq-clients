@@ -28,7 +28,7 @@ use Apache\Rocketmq\V2\Endpoints;
  * Eliminates duplication of:
  * - buildMetadata() (appeared in 7 classes)
  * - parseEndpoints() (appeared in 3 classes)
- * - extractReceiptHandle(), extractMessageId(), extractTopic() (appeared in ConsumeService, SimpleConsumerOptimized)
+ * - extractReceiptHandle(), extractMessageId(), extractTopic() (appeared in ConsumeService, SimpleConsumer)
  * - extractLiteTopic() (for lite consumer support)
  *
  * Consuming classes MUST implement:

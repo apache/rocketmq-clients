@@ -22,13 +22,13 @@ class ClientException extends \Exception
 {
     protected $code;
 
-    public function __construct($code, $message = '')
+    public function __construct(int $code, string $message = '')
     {
         $this->code = $code;
-        parent::__construct($message ?: "Client error with code: {$code}", (int)$code);
+        parent::__construct($message ?: "Client error with code: {$code}", $code);
     }
 
-    public function getStatusCode()
+    public function getStatusCode(): int
     {
         return $this->code;
     }

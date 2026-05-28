@@ -19,7 +19,7 @@
 namespace Apache\Rocketmq;
 
 /**
- * SimpleConsumerBuilder - Fluent builder for SimpleConsumerOptimized.
+ * SimpleConsumerBuilder - Fluent builder for SimpleConsumer.
  * Referencing Java SimpleConsumerBuilder.java
  */
 class SimpleConsumerBuilder
@@ -122,12 +122,12 @@ class SimpleConsumerBuilder
     }
 
     /**
-     * Build and start the SimpleConsumerOptimized.
+     * Build and start the SimpleConsumer.
      *
-     * @return SimpleConsumerOptimized
+     * @return SimpleConsumer
      * @throws \RuntimeException if required fields not set
      */
-    public function build(): SimpleConsumerOptimized
+    public function build(): SimpleConsumer
     {
         if ($this->endpoints === '') {
             throw new \RuntimeException("SimpleConsumer endpoints must be set");
@@ -139,7 +139,7 @@ class SimpleConsumerBuilder
             throw new \RuntimeException("SimpleConsumer must have at least one subscription");
         }
 
-        $consumer = new SimpleConsumerOptimized($this->endpoints, $this->consumerGroup, [
+        $consumer = new SimpleConsumer($this->endpoints, $this->consumerGroup, [
             'subscriptionExpressions' => $this->subscriptionExpressions,
             'awaitDuration' => $this->awaitDuration,
             'namespace' => $this->namespace,

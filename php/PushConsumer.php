@@ -266,7 +266,7 @@ class PushConsumer
                 // Fetch messages from each active ProcessQueue
                 $this->fetchMessageInterleavedHeartbeat();
                 // Short sleep between iterations
-                usleep(100000);
+                SwooleCompat::sleep(100000);
 
                 // Periodic garbage collection
                 gc_collect_cycles();
@@ -334,7 +334,7 @@ class PushConsumer
                 $this->onHeartbeatTick();
 
                 $this->fetchMessageInterleavedHeartbeat();
-                usleep(100000);
+                SwooleCompat::sleep(100000);
                 gc_collect_cycles();
             }
 
@@ -467,7 +467,7 @@ class PushConsumer
                 $this->logger->info("PushConsumer drain progress: {$remainingCount} messages remaining in {$activeQueues} queues after {$elapsed}s");
             }
 
-            usleep(100000); // 100ms
+            SwooleCompat::sleep(100000); // 100ms
             $drainIterations++;
         }
 
@@ -571,7 +571,7 @@ class PushConsumer
     }
 
     /**
-     * Establish Telemetry Session (same pattern as SimpleConsumerOptimized).
+     * Establish Telemetry Session (same pattern as SimpleConsumer).
      */
     protected function establishTelemetrySession()
     {

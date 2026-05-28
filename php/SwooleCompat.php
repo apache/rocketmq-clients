@@ -77,4 +77,25 @@ class SwooleCompat
         }
         return $result;
     }
+
+    /**
+     * Sleep for specified microseconds, using coroutine-friendly sleep if in Swoole context.
+     * 
+     * In Swoole coroutine: Uses \Swoole\Coroutine::sleep() (non-blocking)
+     * In traditional PHP: Uses usleep() (blocking)
+     *
+     * @param int $microseconds Sleep duration in microseconds
+     * @return void
+     */
+    public static function sleep(int $microseconds): void
+    {
+        if (self::isAvailable() && self::inCoroutine()) {
+            // Convert microseconds to seconds for Swoole coroutine sleep
+            $seconds = $microseconds / 1000000.0;
+            \Swoole\Coroutine::sleep($seconds);
+        } else {
+            // Traditional blocking sleep
+            usleep($microseconds);
+        }
+    }
 }

@@ -21,10 +21,10 @@ namespace Apache\Rocketmq\Test;
 use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../autoload.php';
 
-require_once __DIR__ . '/../SimpleConsumerOptimized.php';
+require_once __DIR__ . '/../SimpleConsumer.php';
 require_once __DIR__ . '/../Logger.php';
 
-use Apache\Rocketmq\SimpleConsumerOptimized;
+use Apache\Rocketmq\SimpleConsumer;
 
 /**
  * Tests for SimpleConsumer validation and state checks.
@@ -38,12 +38,12 @@ class SimpleConsumerTest extends TestCase
     }
 
     /**
-     * Mirrors Java: testBuildWithoutExpressions - SimpleConsumerOptimized
+     * Mirrors Java: testBuildWithoutExpressions - SimpleConsumer
      * validates subscriptions at start().
      */
     public function testStartWithoutSubscriptions()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group');
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group');
 
         $this->expectException(\RuntimeException::class);
         $consumer->start();
@@ -54,7 +54,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testReceiveWithoutStart()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
@@ -67,7 +67,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testAckWithoutStart()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
@@ -80,7 +80,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testSubscribeWithoutStart()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group');
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group');
 
         $this->expectException(\RuntimeException::class);
         $consumer->subscribe('test-topic', '*');
@@ -91,7 +91,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testUnsubscribeWithoutStart()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group');
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group');
 
         $this->expectException(\RuntimeException::class);
         $consumer->unsubscribe('test-topic');
@@ -102,7 +102,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testReceiveWithZeroMaxMessageNum()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
@@ -117,7 +117,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testReceiveWithNegativeMaxMessageNum()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
@@ -132,7 +132,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testChangeInvisibleDurationWithoutStart()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
@@ -145,7 +145,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testStartWhenAlreadyRunning()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
@@ -160,7 +160,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testSubscribeReturnsThis()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
@@ -185,7 +185,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testUnsubscribeReturnsThis()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
@@ -203,7 +203,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testMultipleSubscriptions()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'subscriptionExpressions' => ['topic-1' => 'tagA', 'topic-2' => '*'],
         ]);
 
@@ -231,7 +231,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testAwaitDurationConfiguration()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'awaitDuration' => 60,
         ]);
 
@@ -247,7 +247,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testGetClientId()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group', [
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
             'clientId' => 'custom-client-id',
         ]);
 
@@ -264,7 +264,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testGetConsumerGroup()
     {
-        $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'my-consumer-group');
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'my-consumer-group');
 
         $this->assertEquals(
             'my-consumer-group',

@@ -21,8 +21,14 @@ namespace Apache\Rocketmq;
 /**
  * SipHash-2-4 implementation compatible with Guava's Hashing.sipHash24().
  *
- * Uses 64-bit arithmetic via GMP or int fallback.
+ * Uses 64-bit arithmetic with platform-aware handling:
+ * - 64-bit PHP: Native integer operations
+ * - 32-bit PHP: Split into high/low 32-bit parts
+ *
  * Default key (0, 0) matches Guava's Hashing.sipHash24() behavior.
+ *
+ * Note: On 32-bit platforms, hash values may exceed PHP_INT_MAX and be
+ * represented as floats. Use with caution in array keys or strict comparisons.
  */
 class SipHash24
 {
@@ -35,8 +41,8 @@ class SipHash24
     private const MASK_64 = -1; // All bits set to 1 in two's complement
 
     /**
-     * @param int $k0 Lower 64 bits of the key
-     * @param int $k1 Upper 64 bits of the key
+     * @param int $k0 Key part 0 (will be masked to 64 bits)
+     * @param int $k1 Key part 1 (will be masked to 64 bits)
      */
     public function __construct($k0 = 0, $k1 = 0)
     {
@@ -48,7 +54,7 @@ class SipHash24
      * Convenience static method for quick hashing with default key.
      *
      * @param string $data Input data
-     * @return int 64-bit hash value
+     * @return int|float 64-bit hash value (may be float on 32-bit PHP if value exceeds PHP_INT_MAX)
      */
     public static function hash($data)
     {
@@ -60,7 +66,7 @@ class SipHash24
      * Compute SipHash-2-4 of the given bytes.
      *
      * @param string $data Input data
-     * @return int 64-bit hash value
+     * @return int|float 64-bit hash value (may be float on 32-bit PHP if value exceeds PHP_INT_MAX)
      */
     public function hashBytes($data)
     {
@@ -112,11 +118,30 @@ class SipHash24
      */
     private function readLong($data, $offset)
     {
-        $result = 0;
-        for ($i = 7; $i >= 0; $i--) {
-            $result |= (ord($data[$offset + (7 - $i)]) & 0xFF) << ($i * 8);
+        if (PHP_INT_SIZE >= 8) {
+            // 64-bit PHP: direct calculation
+            $result = 0;
+            for ($i = 7; $i >= 0; $i--) {
+                $result |= (ord($data[$offset + (7 - $i)]) & 0xFF) << ($i * 8);
+            }
+            return $result & self::MASK_64;
+        } else {
+            // 32-bit PHP: split into high and low 32-bit parts
+            $low = 0;
+            $high = 0;
+            
+            // Low 32 bits (bytes 0-3)
+            for ($i = 3; $i >= 0; $i--) {
+                $low |= (ord($data[$offset + (3 - $i)]) & 0xFF) << ($i * 8);
+            }
+            
+            // High 32 bits (bytes 4-7)
+            for ($i = 7; $i >= 4; $i--) {
+                $high |= (ord($data[$offset + (7 - $i)]) & 0xFF) << (($i - 4) * 8);
+            }
+            
+            return ($high << 32) | ($low & 0xFFFFFFFF);
         }
-        return $result & self::MASK_64;
     }
 
     /**
@@ -154,14 +179,23 @@ class SipHash24
             return ($a + $b) & self::MASK_64;
         }
 
+        // Split into high and low 32-bit parts
         $ah = (int)(($a >> 32) & 0xFFFFFFFF);
         $al = (int)($a & 0xFFFFFFFF);
         $bh = (int)(($b >> 32) & 0xFFFFFFFF);
         $bl = (int)($b & 0xFFFFFFFF);
 
-        $sumL = $al + $bl;
-        $carry = ($sumL > 0xFFFFFFFF) ? 1 : 0;
-        $sumL = (int)($sumL & 0xFFFFFFFF);
+        // Add low parts first
+        $sumL = (int)($al + $bl);
+        
+        // Check for carry (use comparison to avoid float conversion)
+        $carry = 0;
+        if ($sumL < 0 || ($al > 0 && $bl > 0 && $sumL < $al)) {
+            $carry = 1;
+            $sumL = (int)($sumL & 0xFFFFFFFF);
+        }
+        
+        // Add high parts with carry
         $sumH = (int)(($ah + $bh + $carry) & 0xFFFFFFFF);
 
         return ($sumH << 32) | $sumL;

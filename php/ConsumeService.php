@@ -184,7 +184,7 @@ abstract class ConsumeService
 
             $attempt++;
             if ($attempt < $maxRetries) {
-                usleep(1000000 * $attempt); // linear backoff: 1s, 2s
+                SwooleCompat::sleep(1000000 * $attempt); // linear backoff: 1s, 2s
             }
         }
         $this->logger->warning("ConsumeService ackMessage exhausted {$maxRetries} retries for messageId={$messageId}");
@@ -284,7 +284,7 @@ abstract class ConsumeService
             }
             $attempt++;
             if ($attempt < $maxRetries) {
-                usleep(1000000 * $attempt);
+                SwooleCompat::sleep(1000000 * $attempt);
             }
         }
         $this->logger->warning("ConsumeService nackMessage exhausted {$maxRetries} retries for messageId={$messageId}");
@@ -345,7 +345,7 @@ abstract class ConsumeService
             }
             $attempt++;
             if ($attempt < $maxRetries) {
-                usleep(1000000 * $attempt);
+                SwooleCompat::sleep(1000000 * $attempt);
             }
         }
         $this->logger->error("ConsumeService forwardToDeadLetterQueue exhausted {$maxRetries} retries for messageId={$messageId}");
@@ -363,9 +363,10 @@ abstract class ConsumeService
 
                 $brokerKey = $address->getHost() . ':' . $address->getPort();
                 $this->logger->debug("ConsumerService getBrokerClient : routing to broker {$brokerKey}");
-                return RpcClientManager::getInstance()->getClient($brokerKey, [
-                    'credentials' => ChannelCredentials::createInsecure(),
-                ]);
+                
+                // Use the same credentials as the consumer (inherited from ClientConfiguration)
+                // Don't hardcode insecure credentials - let RpcClientManager handle defaults
+                return RpcClientManager::getInstance()->getClient($brokerKey);
             }
         }
         return $this->consumer->getClient();
@@ -604,7 +605,7 @@ class FifoConsumeService extends ConsumeService
             } else {
                 $delayMs = min(pow(2, $deliveryAttempt - 1) * 10000, 30000);
             }
-            usleep($delayMs * 1000);
+            SwooleCompat::sleep($delayMs * 1000);
             $this->consumeFifoIteratively($pq, $messageView, $deliveryAttempt + 1);
         } else {
             $this->logger->error("FifoConsumeService max attempts reached for message, forwarding to DLQ");
@@ -648,7 +649,7 @@ class FifoConsumeService extends ConsumeService
         $suspendSec = (int)ceil($suspendResult->getSuspendTimeMs() / 1000);
         $this->nackMessage($messageView, 1, $suspendSec);
         $pq->evictMessage($messageView);
-        usleep($suspendResult->getSuspendTimeMs() * 1000);
+        SwooleCompat::sleep($suspendResult->getSuspendTimeMs() * 1000);
     }
 
     /**
