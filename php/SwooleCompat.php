@@ -49,7 +49,7 @@ class SwooleCompat
      * @param callable $fn
      * @return mixed
      */
-    public static function runInCoroutine(callable $fn)
+    public static function runInCoroutine(callable $fn, float $timeout = 30.0)
     {
         if (!self::isAvailable()) {
             return $fn();
@@ -68,7 +68,10 @@ class SwooleCompat
             }
             $channel->push(true);
         });
-        $channel->pop();
+        $popped = $channel->pop($timeout);
+        if ($popped === false) {
+            throw new \RuntimeException("Swoole execution timed out after {$timeout}");
+        }
         if ($exception !== null) {
             throw $exception;
         }

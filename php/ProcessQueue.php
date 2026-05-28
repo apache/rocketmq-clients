@@ -272,10 +272,7 @@ class ProcessQueue
                 $receiptHandle = $sysProps->getReceiptHandle();
                 if ($receiptHandle !== null && isset($this->cachedMessagesByReceiptHandle[$receiptHandle])) {
                     $idx = $this->cachedMessagesByReceiptHandle[$receiptHandle];
-                    unset($this->cachedMessages[$idx]);
-                    unset($this->cachedMessagesByReceiptHandle[$receiptHandle]);
-                    $this->cachedMessages = array_values($this->cachedMessages);
-                    // Rebuild index after reindexing
+                    array_splice($this->cachedMessages, $idx, 1);
                     $this->rebuildReceiptHandleIndex();
                     return;
                 }
@@ -285,8 +282,7 @@ class ProcessQueue
         // Fallback: linear scan
         foreach ($this->cachedMessages as $i => $msg) {
             if ($msg === $messageView) {
-                unset($this->cachedMessages[$i]);
-                $this->cachedMessages = array_values($this->cachedMessages);
+                array_splice($this->cachedMessages, $i, 1);
                 $this->rebuildReceiptHandleIndex();
                 break;
             }

@@ -245,7 +245,7 @@ class LitePushConsumer extends PushConsumer
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->getClient()->SyncLiteSubscription($request, $metadata)->wait();
+            list($response, $status) = $this->getClient()->SyncLiteSubscription($request, $metadata, $this->getCallOptions())->wait();
             if ($status->code !== 0) {
                 $this->logger->error("SyncLiteSubscription failed: " . $status->details);
             } else {
@@ -294,7 +294,7 @@ class LitePushConsumer extends PushConsumer
         $request->setGroup($groupResource);
         $request->setEndpoints($this->parseEndpoints($this->endpoints));
         $metadata = $this->buildMetadata();
-        list($response, $status) = $this->getClient()->QueryAssignment($request, $metadata)->wait();
+        list($response, $status) = $this->getClient()->QueryAssignment($request, $metadata, $this->getCallOptions())->wait();
         if ($status->code !== 0) {
             return null;
         }

@@ -687,7 +687,7 @@ class PushConsumer
 
         $metadata = $this->buildMetadata();
 
-        list($response, $status) = $this->client->QueryAssignment($request, $metadata)->wait();
+        list($response, $status) = $this->client->QueryAssignment($request, $metadata, $this->getCallOptions())->wait();
 
         if ($status->code !== 0) {
             throw new \RuntimeException("QueryAssignment failed for topic={$topic}: " . $status->details);
@@ -975,7 +975,7 @@ class PushConsumer
     {
         $metadata = $this->buildMetadata();
         try {
-            list($response, $status) = $this->client->Heartbeat($this->wrapHeartbeatRequest(), $metadata)->wait();
+            list($response, $status) = $this->client->Heartbeat($this->wrapHeartbeatRequest(), $metadata, $this->getCallOptions())->wait();
             if ($status->code === 0) {
                 $this->logger->info("Heartbeat success, broker: {$this->endpoints}");
             } else {
@@ -1008,7 +1008,7 @@ class PushConsumer
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'tlsCredentials' => $this->tlsCredentials,
                 ]);
-                list($response, $status) = $brokerClient->Heartbeat($request, $metadata)->wait();
+                list($response, $status) = $brokerClient->Heartbeat($request, $metadata, $this->getCallOptions())->wait();
                 if ($status->code === 0) {
                     $this->logger->info("Heartbeat success, broker: {$brokerKey}");
                 } else {
@@ -1033,7 +1033,7 @@ class PushConsumer
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $this->getCallOptions())->wait();
             if ($status->code === 0) {
                 $this->logger->debug("NotifyClientTermination sent successfully");
             } else {

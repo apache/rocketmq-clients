@@ -220,10 +220,20 @@ class Producer
 
         $topic = $message->getTopic()->getName();
         $loadBalancer = $this->getPublishingLoadBalancer($topic);
-        $candidates = $loadBalancer->takeMessageQueue($this->getIsolatedBrokerNames(), $this->maxAttempts);
 
-        if (empty($candidates)) {
-            throw new \RuntimeException("No available message queue for topic: {$topic}");
+        $sysProps = $message->getSystemProperties();
+        $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
+        if ($hasMessageGroup) {
+            $messageQueue = $loadBalancer->takeMessageQueueByMessageGroup($sysProps->getMessageGroup());
+            if (!$messageQueue) {
+                throw new \RuntimeException("No available message queue for message group: {$sysProps->getMessageGroup()}");
+            }
+            $candidates = [$messageQueue];
+        } else {
+            $candidates = $loadBalancer->takeMessageQueue($this->getIsolatedBrokerNames(), $this->maxAttempts);
+            if (empty($candidates)) {
+                throw new \RuntimeException("No available message queue for topic: {$topic}");
+            }
         }
 
         if ($this->validateMessageType) {
@@ -304,8 +314,14 @@ class Producer
 
         $loadBalancer = $this->getPublishingLoadBalancer($topic);
         $isolatedBroker = array_keys($this->isolatedEndpoints);
-        $messageQueue = $loadBalancer->takeMessageQueue($isolatedBroker, 1);
 
+        if ($hasFifoMessage) {
+            $messageGroup = $messageGroups[0];
+            $mq = $loadBalancer->takeMessageQueueByMessageGroup($messageGroup);
+            $messageQueue = $mq !== null ? [$mq] : [];
+        } else {
+            $messageQueue = $loadBalancer->takeMessageQueue($isolatedBroker, $this->maxAttempts);
+        }
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
         }
@@ -517,7 +533,7 @@ class Producer
 
         $metadata = $this->buildMetadata();
 
-        list($response, $status) = $this->client->RecallMessage($request, $metadata)->wait();
+        list($response, $status) = $this->client->RecallMessage($request, $metadata, $this->getCallOptions())->wait();
 
         if ($status->code !== 0) {
             throw new \RuntimeException("Recall message failed: " . $status->details);
@@ -604,12 +620,13 @@ class Producer
         $this->doHeartbeat();
         $this->lastHeartbeatTime = time();
 
-        if (function_exists('pcntl_signal')) {
-            declare(ticks=1);
+        if (function_exists('pcntl_signal') && function_exists('pcntl_alarm')) {
             $self = $this;
             pcntl_signal(SIGALRM, function() use ($self) {
                 $self->onHeartbeatTick();
+                pcntl_alarm(10);
             });
+            pcntl_alarm(10);
         }
     }
 
@@ -617,13 +634,13 @@ class Producer
     {
         $now = time();
         if ($now - $this->lastHeartbeatTime >= 10) {
+            $this->lastHeartbeatTime = $now;
             $this->doHeartbeat();
             static $lastRouteRefresh = 0;
             if ($now - $lastRouteRefresh >= 30) {
                 $this->refreshRouteCache();
                 $lastRouteRefresh = $now;
             }
-            $this->lastHeartbeatTime = $now;
         }
     }
 
@@ -676,7 +693,7 @@ class Producer
                     'tlsCredentials' => $this->tlsCredentials,
                 ]);
                 $metadata = $this->buildMetadata();
-                list($response, $status) = $brokerClient->Heartbeat($request, $metadata)->wait();
+                list($response, $status) = $brokerClient->Heartbeat($request, $metadata, $this->getCallOptions())->wait();
                 if ($status->code === 0) {
                     $this->logger->debug("Heartbeat to broker {$brokerKey} successful");
                     $this->isolatedEndpoints = [];
@@ -700,7 +717,7 @@ class Producer
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $this->getCallOptions())->wait();
             if ($status->code === 0) {
                 $this->logger->debug("NotifyClientTermination sent successfully");
             } else {
@@ -877,36 +894,6 @@ class Producer
 
         if (!$success) {
             throw new \RuntimeException("Failed to establish Telemetry Session");
-        }
-
-        $brokerEndpoints = $this->getTotalRouteEndpoints();
-        foreach ($brokerEndpoints as $endpoints) {
-            $addresses = $endpoints->getAddresses();
-            if (empty($addresses) || $addresses[0] === null) {
-                continue;
-            }
-            $address = $addresses[0];
-            $brokerKey = $address->getHost() . ':' . $address->getPort();
-            try {
-                $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
-                    'tlsCredentials' => $this->tlsCredentials,
-                ]);
-                $metadata = $this->buildMetadata();
-                list($response, $status) = $brokerClient->Telemetry($command, $metadata)->wait();
-                if ($status->code === 0) {
-                    $this->logger->debug('Telemetry synced to broker', [
-                        'broker' => $brokerKey,
-                        'response' => $response,
-                    ]);
-                } else {
-                    $this->logger->debug("Telemetry to broker {$brokerKey} confirmed: " . $status->detail);
-                }
-            } catch (\Exception $e) {
-                $this->logger->error('Telemetry to broker {$brokerKey} failed', [
-                    'broker' => $brokerKey,
-                    'exception' => $e,
-                ]);
-            }
         }
         usleep(500000); // 500ms
     }
@@ -1105,7 +1092,7 @@ class Producer
             try {
                 $metadata = $this->buildMetadata();
 
-                list($response, $status) = $this->client->SendMessage($request, $metadata)->wait();
+                list($response, $status) = $this->client->SendMessage($request, $metadata, $this->getCallOptions())->wait();
 
                 if ($status->code !== 0) {
                     throw new \RuntimeException("Send message failed: " . $status->details);
@@ -1203,7 +1190,7 @@ class Producer
             try {
                 $metadata = $this->buildMetadata();
 
-                list($response, $status) = $this->client->SendMessage($request, $metadata)->wait();
+                list($response, $status) = $this->client->SendMessage($request, $metadata, $this->getCallOptions())->wait();
 
                 if ($status->code !== 0) {
                     throw new \RuntimeException("Batch send failed: " . $status->details);
@@ -1303,12 +1290,12 @@ class Producer
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'tlsCredentials' => $this->tlsCredentials,
                 ]);
-                list($response, $status) = $brokerClient->EndTransaction($request, $metadata)->wait();
+                list($response, $status) = $brokerClient->EndTransaction($request, $metadata, $this->getCallOptions())->wait();
             } else {
-                list($response, $status) = $this->client->EndTransaction($request, $metadata)->wait();
+                list($response, $status) = $this->client->EndTransaction($request, $metadata, $this->getCallOptions())->wait();
             }
         } else {
-            list($response, $status) = $this->client->EndTransaction($request, $metadata)->wait();
+            list($response, $status) = $this->client->EndTransaction($request, $metadata, $this->getCallOptions())->wait();
         }
 
         if ($status->code !== 0) {

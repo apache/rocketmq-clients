@@ -27,6 +27,7 @@ require_once __DIR__ . '/ClientConstants.php';
 require_once __DIR__ . '/SwooleCompat.php';
 require_once __DIR__ . '/ClientTrait.php';
 require_once __DIR__ . '/ProtobufUtil.php';
+require_once __DIR__ . '/SubscriptionLoadBalancer.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\Permission;
@@ -592,7 +593,7 @@ class SimpleConsumerOptimized
 
         $metadata = $this->buildMetadata();
         
-        list($response, $status) = $this->client->QueryRoute($request, $metadata)->wait();
+        list($response, $status) = $this->client->QueryRoute($request, $metadata, $this->getCallOptions())->wait();
         
         if ($status->code !== 0) {
             throw new \RuntimeException("Query route failed: " . $status->details);
@@ -849,7 +850,7 @@ class SimpleConsumerOptimized
 
         $metadata = $this->buildMetadata();
 
-        list($response, $status) = $this->client->AckMessage($request, $metadata)->wait();
+        list($response, $status) = $this->client->AckMessage($request, $metadata, $this->getCallOptions())->wait();
 
         if ($status->code !== 0) {
             throw new \RuntimeException("Ack message failed: " . $status->details);
@@ -914,7 +915,7 @@ class SimpleConsumerOptimized
         
         $metadata = $this->buildMetadata();
         
-        list($response, $status) = $this->client->ChangeInvisibleDuration($request, $metadata)->wait();
+        list($response, $status) = $this->client->ChangeInvisibleDuration($request, $metadata, $this->getCallOptions())->wait();
         
         if ($status->code !== 0) {
             throw new \RuntimeException("Change invisible duration failed: " . $status->details);
@@ -985,7 +986,7 @@ class SimpleConsumerOptimized
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->client->Heartbeat($request, $metadata)->wait();
+            list($response, $status) = $this->client->Heartbeat($request, $metadata, $this->getCallOptions())->wait();
             if ($status->code === 0) {
                 $this->logger->debug("Heartbeat sent successfully");
             } else {
@@ -1030,7 +1031,7 @@ class SimpleConsumerOptimized
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $this->getCallOptions())->wait();
             if ($status->code === 0) {
                 $this->logger->debug("NotifyClientTermination sent successfully");
             } else {
@@ -1039,59 +1040,5 @@ class SimpleConsumerOptimized
         } catch (\Exception $e) {
             $this->logger->warning("NotifyClientTermination exception: " . $e->getMessage());
         }
-    }
-}
-
-/**
- * SubscriptionLoadBalancer - Subscription load balancer
- */
-class SubscriptionLoadBalancer
-{
-    private $messageQueues = [];
-    private $queueIndex = 0;
-    
-    public function __construct($routeData)
-    {
-        if ($routeData && method_exists($routeData, 'getMessageQueues')) {
-            $allQueues = $routeData->getMessageQueues();
-            $readableCount = 0;
-
-            // Accept READ or READ_WRITE for consumer
-            foreach ($allQueues as $queue) {
-                $permission = $queue->getPermission();
-                if ($permission === Permission::READ || $permission === Permission::READ_WRITE) {
-                    $this->messageQueues[] = $queue;
-                    $readableCount++;
-                }
-            }
-
-            Logger::getInstance('SubscriptionLoadBalancer')->info("Topic queues: {$readableCount} readable / " . count($allQueues) . " total");
-        }
-    }
-    
-    /**
-     * Get next MessageQueue (round-robin)
-     */
-    public function takeMessageQueue()
-    {
-        if (empty($this->messageQueues)) {
-            Logger::getInstance('SubscriptionLoadBalancer')->warning("No message queues available");
-            return null;
-        }
-        
-        $index = $this->queueIndex++ % count($this->messageQueues);
-        $queue = $this->messageQueues[$index];
-        
-        Logger::getInstance('SubscriptionLoadBalancer')->debug("Selected queue index: {$index}");
-        
-        return $queue;
-    }
-    
-    /**
-     * Get all MessageQueues
-     */
-    public function getMessageQueues()
-    {
-        return $this->messageQueues;
     }
 }

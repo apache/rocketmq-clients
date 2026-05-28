@@ -1,5 +1,5 @@
 {
-  "name": "rocketmq/rocketmq-php-sdk",
+  "name": "rocketmq/rocketmq-client-php",
   "description": "PHP SDK for Apache RocketMQ",
   "license": "Apache-2.0",
   "require": {
@@ -16,7 +16,8 @@
   "autoload": {
     "psr-4": {
       "GPBMetadata\\": "grpc/GPBMetadata",
-      "Apache\\Rocketmq\\V2\\": "grpc/Apache/Rocketmq/V2"
+      "Apache\\Rocketmq\\V2\\": "grpc/Apache/Rocketmq/V2",
+      "Apache\\Rocketmq\\": ""
     }
   },
   "config": {

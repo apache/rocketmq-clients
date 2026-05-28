@@ -142,22 +142,13 @@ class TelemetrySession
     public static function getInstance($client, $endpoints, $clientId = null, $credentials = null, $namespace = '')
     {
         $credId = $credentials !== null ? spl_object_id($credentials) : 'none';
-        $key = $endpoints . '|' . $credId . '|' . $namespace;
+        $effectiveClientId = $clientId ?? 'none';
+        $key = $endpoints . '|' . $credId . '|' . $namespace . '|' . $effectiveClientId;
 
         if (!isset(self::$instances[$key])) {
-            Logger::getInstance('TelemetrySession')->info("Creating new session for endpoints: {$endpoints}");
+            Logger::getInstance('TelemetrySession')->info("Creating new session for endpoints: {$endpoints}, clientId: {$effectiveClientId}");
             $instance = new self($client, $endpoints, $clientId, $credentials, $namespace);
             self::$instances[$key] = $instance;
-        } else {
-            if ($clientId && !self::$instances[$key]->clientId) {
-                self::$instances[$key]->clientId = $clientId;
-            }
-            if ($credentials && !self::$instances[$key]->credentials) {
-                self::$instances[$key]->credentials = $credentials;
-            }
-            if ($namespace && empty(self::$instances[$key]->namespace)) {
-                self::$instances[$key]->namespace = $namespace;
-            }
         }
 
         return self::$instances[$key];
@@ -455,7 +446,8 @@ class TelemetrySession
         }
 
         $credId = $this->credentials !== null ? spl_object_id($this->credentials) : 'none';
-        $key = $this->endpoints . '|' . $credId . '|' . $this->namespace;
+        $effectiveClientId = $this->clientId ?? 'none';
+        $key = $this->endpoints . '|' . $credId . '|' . $this->namespace . "|" . $effectiveClientId;
         unset(self::$instances[$key]);
 
         $this->logger->info("Session closed");

@@ -149,6 +149,17 @@ trait ClientTrait
     }
 
     /**
+     * Get call options for gRPC calls.
+     *
+     * @param int|null $overrideTimeout
+     * @return array
+     */
+    protected function getCallOptions(?int $overrideTimeout = null): array
+    {
+        return ['timeout' => $overrideTimeout ?? ClientConstants::GRPC_DEFAULT_TIMEOUT];
+    }
+
+    /**
      * Extract lite topic from a message view's system properties.
      *
      * @param object $messageView

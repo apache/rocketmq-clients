@@ -80,6 +80,7 @@ class SimpleConsumer
     private $topicIndex = 0;
     private $heartbeatCoroutineId = null;
     private $tlsCredentials = null;
+    private $heartbeatInProgress = false;
 
     /**
      * Constructor
@@ -197,7 +198,7 @@ class SimpleConsumer
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->client->Heartbeat($request, $metadata)->wait();
+            list($response, $status) = $this->client->Heartbeat($request, $metadata, $this->getCallOptions())->wait();
             if ($status->code === 0) {
                 $this->logger->debug("Heartbeat sent successfully");
             } else {
@@ -464,7 +465,7 @@ class SimpleConsumer
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->client->QueryRoute($request, $metadata)->wait();
+            list($response, $status) = $this->client->QueryRoute($request, $metadata, $this->getCallOptions())->wait();
 
             if ($status->code !== 0) {
                 $this->logger->warning("QueryRoute failed for topic={$topic}: " . $status->details);
@@ -552,10 +553,11 @@ class SimpleConsumer
         $metadata = $this->buildMetadata();
 
         $attempt = 0;
+        $maxRetries = 16;
 
-        while (true) {
+        while ($attempt < $maxRetries) {
             try {
-                list($response, $status) = $this->client->AckMessage($request, $metadata)->wait();
+                list($response, $status) = $this->client->AckMessage($request, $metadata, $this->getCallOptions())->wait();
                 if ($status->code !== 0) {
                     $this->logger->warning("AckMessage attempt {$attempt}: status error: " . $status->details);
                 } else {
@@ -594,6 +596,7 @@ class SimpleConsumer
             $attempt++;
             usleep(1000000);
         }
+        $this->logger->warning("AckMessage exceeded max retries {$maxRetries} , giving up");
     }
 
     /**
@@ -640,7 +643,7 @@ class SimpleConsumer
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->client->ChangeInvisibleDuration($request, $metadata)->wait();
+            list($response, $status) = $this->client->ChangeInvisibleDuration($request, $metadata, $this->getCallOptions())->wait();
             if ($status->code !== 0) {
                 $this->logger->warning("SimpleConsumer changeInvisibleDuration failed: " . $status->details);
                 return false;
@@ -669,7 +672,7 @@ class SimpleConsumer
         $metadata = $this->buildMetadata();
 
         try {
-            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata)->wait();
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $this->getCallOptions())->wait();
             if ($status->code === 0) {
                 $this->logger->debug("NotifyClientTermination sent successfully");
             } else {
@@ -711,8 +714,17 @@ class SimpleConsumer
         if (function_exists('pcntl_signal')) {
             $self = $this;
             pcntl_signal(SIGALRM, function () use ($self) {
-                $self->doHeartbeat();
-                $self->scheduleNextHeartbeat();
+                if ($self->heartbeatInProgress) {
+                    $self->scheduleNextHeartbeat();
+                    return;
+                }
+                $self->heartbeatInProgress = true;
+                try {
+                    $self->doHeartbeat();
+                } finally {
+                    $self->heartbeatInProgress = false;
+                    $self->scheduleNextHeartbeat();
+                }
             });
         }
 

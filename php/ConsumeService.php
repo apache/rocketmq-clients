@@ -168,7 +168,7 @@ abstract class ConsumeService
         $attempt = 0;
         while ($attempt < $maxRetries) {
             try {
-                list($response, $status) = $brokerClient->AckMessage($request, $metadata)->wait();
+                list($response, $status) = $brokerClient->AckMessage($request, $metadata, $this->getCallOptions())->wait();
                 if ($status->code !== 0) {
                     $this->logger->warning("ConsumeService ackMessage attempt {$attempt}: status error: " . $status->details);
                 } elseif ($response->hasStatus()) {
@@ -269,7 +269,7 @@ abstract class ConsumeService
         $attempt = 0;
         while ($attempt < $maxRetries) {
             try {
-                list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata)->wait();
+                list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata, $this->getCallOptions())->wait();
                 if ($status->code !== 0) {
                     $this->logger->warning("ConsumeService nackMessage attempt {$attempt}: status error: " . $status->details);
                 } elseif ($response->hasStatus()) {
@@ -341,7 +341,7 @@ abstract class ConsumeService
         $attempt = 0;
         while ($attempt < $maxRetries) {
             try {
-                list($response, $status) = $brokerClient->ForwardMessageToDeadLetterQueue($request, $metadata)->wait();
+                list($response, $status) = $brokerClient->ForwardMessageToDeadLetterQueue($request, $metadata, $this->getCallOptions())->wait();
                 if ($status->code !== 0) {
                     $this->logger->warning("ConsumeService forwardToDeadLetterQueue attempt {$attempt}: " . $status->details);
                 } else {
@@ -433,7 +433,6 @@ class StandardConsumeService extends ConsumeService
                 $pq->discardMessage($messageView);
                 continue;
             }
-            $pq->evictMessage($messageView);
             $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
 
             $result = $this->consumeMessage($messageView);
@@ -442,16 +441,14 @@ class StandardConsumeService extends ConsumeService
                 $suspendSec = (int)ceil($result->getSuspendTimeMs() / 1000);
                 $this->logger->debug('StandardConsumerService suspend for %d seconds, messageId: %s', $suspendSec, $messageId);
                 $this->nackMessage($messageView, 1, $suspendSec);
-                $pq->evictMessage($messageView);
             } elseif ($result === \Apache\Rocketmq\ConsumeResult::SUCCESS) {
                 $this->logger->debug('StandardConsumerService consume success, messageId: %s', $messageId);
                 $this->ackMessage($messageView);
-                $pq->evictMessage($messageView);
             } else {
                 $this->logger->debug('StandardConsumerService consume failed, messageId: %s', $messageId);
                 $this->nackMessage($messageView);
-                $pq->evictMessage($messageView);
             }
+            $pq->evictMessage($messageView);
         }
     }
 }

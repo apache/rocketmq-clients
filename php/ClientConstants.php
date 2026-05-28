@@ -25,4 +25,6 @@ class ClientConstants
     const LANGUAGE_PROTO = Language::PHP;
     const CLIENT_TYPE_PREFIX = 'php';
     const MASTER_BROKER_ID = 0;
+
+    const GRPC_DEFAULT_TIMEOUT = 30_000_000;
 }
