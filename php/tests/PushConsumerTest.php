@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../PushConsumer.php';
 require_once __DIR__ . '/../Logger.php';
 
@@ -28,7 +30,7 @@ use Apache\Rocketmq\PushConsumer;
  * Tests for PushConsumer validation rules.
  * Mirrors Java's PushConsumerBuilderImplTest.
  */
-class PushConsumerTest
+class PushConsumerTest extends TestCase
 {
     public function setUp(): void
     {
@@ -44,9 +46,8 @@ class PushConsumerTest
             'messageListener' => function($msg) { return 0; },
         ]);
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->start();
-        }, "Start without subscriptions should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->start();
     }
 
     /**
@@ -54,9 +55,8 @@ class PushConsumerTest
      */
     public function testConstructorWithNullConsumerGroup()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            new PushConsumer('127.0.0.1:9876', '');
-        }, "Empty consumer group should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        new PushConsumer('127.0.0.1:9876', '');
     }
 
     /**
@@ -69,9 +69,8 @@ class PushConsumerTest
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->start();
-        }, "Start without message listener should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->start();
     }
 
     /**
@@ -84,7 +83,7 @@ class PushConsumerTest
         ]);
 
         $threshold = $consumer->getCacheMessageCountThresholdPerQueue();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $threshold >= 0,
             "Cache count threshold should be non-negative (got {$threshold})"
         );
@@ -100,7 +99,7 @@ class PushConsumerTest
         ]);
 
         $threshold = $consumer->getCacheMessageBytesThresholdPerQueue();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $threshold >= 0,
             "Cache bytes threshold should be non-negative (got {$threshold})"
         );
@@ -119,7 +118,7 @@ class PushConsumerTest
         $consumer->unsubscribe('test-topic');
 
         $expressions = $consumer->getSubscriptionExpressions();
-        TestRunner::assertTrue(empty($expressions), "Topic should be removed from subscriptions");
+        $this->assertTrue(empty($expressions), "Topic should be removed from subscriptions");
     }
 
     /**
@@ -134,11 +133,11 @@ class PushConsumerTest
         $consumer->subscribe('new-topic', 'tagA');
 
         $expressions = $consumer->getSubscriptionExpressions();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             isset($expressions['new-topic']),
             "Topic should be added to subscriptions"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'tagA',
             $expressions['new-topic'],
             "Expression should match"
@@ -160,7 +159,7 @@ class PushConsumerTest
         $ref->setValue($consumer, true);
 
         $consumer->start();
-        TestRunner::assertTrue($consumer->isRunning(), "Consumer should still be running");
+        $this->assertTrue($consumer->isRunning(), "Consumer should still be running");
     }
 
     /**
@@ -173,13 +172,13 @@ class PushConsumerTest
         ]);
 
         $result = $consumer->subscribe('topic-1', 'tagA');
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $result === $consumer,
             "subscribe should return \$this for chaining"
         );
 
         $result = $consumer->unsubscribe('topic-1');
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $result === $consumer,
             "unsubscribe should return \$this for chaining"
         );
@@ -199,17 +198,17 @@ class PushConsumerTest
         $consumer->subscribe('topic-3', 'SQL:age > 10');
 
         $expressions = $consumer->getSubscriptionExpressions();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             3,
             count($expressions),
             "Should have 3 subscriptions"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'tagA',
             $expressions['topic-1'],
             "topic-1 expression should be tagA"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '*',
             $expressions['topic-2'],
             "topic-2 expression should be *"
@@ -227,7 +226,7 @@ class PushConsumerTest
         ]);
 
         $expressions = $consumer->getSubscriptionExpressions();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ['topic-1' => 'tagA'],
             $expressions,
             "Initial expressions should be stored correctly"
@@ -242,7 +241,7 @@ class PushConsumerTest
         $consumer = new PushConsumer('127.0.0.1:9876', 'test-group');
         $result = $consumer->setMessageListener(function($msg) { return 0; });
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $result === $consumer,
             "setMessageListener should return \$this for chaining"
         );
@@ -262,7 +261,7 @@ class PushConsumerTest
         $ref->setAccessible(true);
         $fifo = $ref->getValue($consumer);
 
-        TestRunner::assertTrue($fifo, "FIFO mode should be enabled");
+        $this->assertTrue($fifo, "FIFO mode should be enabled");
     }
 
     /**
@@ -276,17 +275,17 @@ class PushConsumerTest
             'messageListener' => function($msg) { return 0; },
         ]);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             15,
             $consumer->getAwaitDuration(),
             "awaitDuration should be 15"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             16,
             $consumer->getReceiveBatchSize(),
             "receiveBatchSize should be 16"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'test-group',
             $consumer->getGroupResource()->getName(),
             "consumerGroup should match"
@@ -304,20 +303,17 @@ class PushConsumerTest
         ]);
 
         $countThreshold = $consumer->getCacheMessageCountThresholdPerQueue();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             0,
             $countThreshold,
             "Count threshold should be 0 with no process queues"
         );
 
         $bytesThreshold = $consumer->getCacheMessageBytesThresholdPerQueue();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             0,
             $bytesThreshold,
             "Bytes threshold should be 0 with no process queues"
         );
     }
 }
-
-echo "=== PushConsumerTest ===\n";
-TestRunner::run(new PushConsumerTest());

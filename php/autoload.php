@@ -22,7 +22,23 @@
  */
 
 spl_autoload_register(function (string $class): void {
+    $baseDir = __DIR__;
     $grpcDir = __DIR__ . '/grpc/';
+
+    // Apache\Rocketmq\* -> current directory (excluding V2 which is in grpc/)
+    $prefix = 'Apache\\Rocketmq\\';
+    $prefixLen = strlen($prefix);
+    if (strncmp($class, $prefix, $prefixLen) === 0) {
+        $relativeClass = substr($class, $prefixLen);
+        // Skip V2 classes - they are handled separately below
+        if (strpos($relativeClass, 'V2\\') !== 0) {
+            $file = $baseDir . '/' . str_replace('\\', '/', $relativeClass) . '.php';
+            if (is_file($file)) {
+                require_once $file;
+                return;
+            }
+        }
+    }
 
     // Apache\Rocketmq\V2\* -> grpc/Apache/Rocketmq/V2/
     $prefix = 'Apache\\Rocketmq\\V2\\';

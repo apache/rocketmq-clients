@@ -25,13 +25,13 @@ namespace Apache\Rocketmq;
  */
 class ClientConfiguration
 {
-    private $endpoints;
-    private $sessionCredentialsProvider;
-    private $requestTimeoutMs;
-    private $sslEnabled;
-    private $namespace;
-    private $maxStartupAttempts;
-    private $tlsCredentials;
+    private string $endpoints;
+    private ?SessionCredentials $sessionCredentialsProvider;
+    private int $requestTimeoutMs;
+    private bool $sslEnabled;
+    private string $namespace;
+    private int $maxStartupAttempts;
+    private ?TlsCredentials $tlsCredentials;
 
     private function __construct(
         string $endpoints,

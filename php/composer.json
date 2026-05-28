@@ -8,6 +8,10 @@
     "grpc/grpc": "^1.57",
     "hanson/foundation-sdk": "^5.0"
   },
+  "require-dev": {
+    "phpunit/phpunit": "^9.6",
+    "ext-zlib": "*"
+  },
   "suggest": {
     "ext-grpc": "Required for gRPC transport (usually provided by grpc/grpc package)",
     "ext-swoole": "Enable Swoole coroutines for async operations (receiveAsync, sendAsync, etc.)",
@@ -24,5 +28,10 @@
     "audit": {
       "block-insecure": false
     }
+  },
+  "scripts": {
+    "test": "phpunit",
+    "test-coverage": "phpunit --coverage-html coverage",
+    "test-verbose": "phpunit --verbose"
   }
 }

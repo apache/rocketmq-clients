@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
+         bootstrap="autoload.php"
+         colors="true"
+         verbose="true"
+         stopOnFailure="false"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutTodoAnnotatedTests="true">
+
+    <testsuites>
+        <testsuite name="RocketMQ PHP Test Suite">
+            <directory suffix="Test.php">./tests</directory>
+        </testsuite>
+    </testsuites>
+
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">.</directory>
+        </include>
+        <exclude>
+            <directory>./grpc</directory>
+            <directory>./vendor</directory>
+            <directory>./examples</directory>
+            <directory>./tests</directory>
+            <file>./autoload.php</file>
+        </exclude>
+    </coverage>
+
+    <php>
+        <env name="ROCKETMQ_ENDPOINTS" value="127.0.0.1:8080"/>
+        <env name="ROCKETMQ_ACCESS_KEY" value=""/>
+        <env name="ROCKETMQ_SECRET_KEY" value=""/>
+    </php>
+</phpunit>

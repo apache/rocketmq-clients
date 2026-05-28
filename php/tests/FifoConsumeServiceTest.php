@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../ConsumeService.php';
 require_once __DIR__ . '/../Logger.php';
@@ -29,7 +31,7 @@ use Apache\Rocketmq\FifoConsumeService;
 /**
  * Fake message view for FifoConsumeService testing.
  */
-class FifoFakeMessageView
+class FifoFakeMessageView extends TestCase
 {
     private $systemProperties;
 
@@ -67,7 +69,7 @@ class FifoFakeMessageView
     }
 }
 
-class FifoFakeSystemProps
+class FifoFakeSystemProps extends TestCase
 {
     private ?string $receiptHandle;
 
@@ -92,14 +94,14 @@ class FifoFakeSystemProps
     }
 }
 
-class FifoFakeConsumerForConsume
+class FifoFakeConsumerForConsume extends TestCase
 {
     public function ack($messageView, int $timeout): void
     {
     }
 }
 
-class FifoConsumeServiceTest
+class FifoConsumeServiceTest extends TestCase
 {
     public function setUp(): void
     {
@@ -118,7 +120,7 @@ class FifoConsumeServiceTest
         $method->setAccessible(true);
         $result = $method->invoke($service, new FifoFakeMessageView('msg', 'topic'));
 
-        TestRunner::assertEquals(ConsumeResult::SUCCESS, $result, "consumeMessage should return SUCCESS");
+        $this->assertEquals(ConsumeResult::SUCCESS, $result, "consumeMessage should return SUCCESS");
     }
 
     public function testDefaultGroupKeyForNonGroupedMessages()
@@ -133,7 +135,7 @@ class FifoConsumeServiceTest
         $method->setAccessible(true);
         $groupKey = $method->invoke($service, $msg);
 
-        TestRunner::assertEquals('default', $groupKey, "Non-grouped message should have 'default' group key");
+        $this->assertEquals('default', $groupKey, "Non-grouped message should have 'default' group key");
     }
 
     public function testExtractReceiptHandle()
@@ -150,9 +152,6 @@ class FifoConsumeServiceTest
         $method->setAccessible(true);
         $handle = $method->invoke($service, $msgWithHandle);
 
-        TestRunner::assertEquals('receipt-handle-789', $handle, "Should extract receipt handle");
+        $this->assertEquals('receipt-handle-789', $handle, "Should extract receipt handle");
     }
 }
-
-echo "=== FifoConsumeServiceTest ===\n";
-TestRunner::run(new FifoConsumeServiceTest());

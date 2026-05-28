@@ -18,14 +18,16 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../MessageId.php';
 require_once __DIR__ . '/../MessageIdImpl.php';
 require_once __DIR__ . '/../MessageIdCodec.php';
 
 use Apache\Rocketmq\MessageIdCodec;
 
-class MessageIdCodecTest
+class MessageIdCodecTest extends TestCase
 {
     private $codec;
 
@@ -37,7 +39,7 @@ class MessageIdCodecTest
     public function testNextMessageId()
     {
         $messageId = $this->codec->nextMessageId();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             MessageIdCodec::MESSAGE_ID_LENGTH_FOR_V1_OR_LATER,
             strlen($messageId->toString()),
             "Message ID length should be " . MessageIdCodec::MESSAGE_ID_LENGTH_FOR_V1_OR_LATER
@@ -52,7 +54,7 @@ class MessageIdCodecTest
             $id = $this->codec->nextMessageId()->toString();
             $messageIds[$id] = true;
         }
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $messageIdCount,
             count($messageIds),
             "All {$messageIdCount} message IDs should be unique"
@@ -63,18 +65,15 @@ class MessageIdCodecTest
     {
         $messageIdString = "0156F7E71C361B21BC024CCDBE00000000";
         $messageId = $this->codec->decode($messageIdString);
-        TestRunner::assertEquals(
+        $this->assertEquals(
             MessageIdCodec::MESSAGE_ID_VERSION_V1,
             $messageId->getVersion(),
             "Version should be V1"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $messageIdString,
             $messageId->toString(),
             "Decoded message ID should match original"
         );
     }
 }
-
-echo "=== MessageIdCodecTest ===\n";
-TestRunner::run(new MessageIdCodecTest());

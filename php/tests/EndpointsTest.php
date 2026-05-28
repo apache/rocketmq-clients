@@ -18,7 +18,7 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../ClientTrait.php';
 require_once __DIR__ . '/../autoload.php';
 
@@ -27,7 +27,7 @@ use Apache\Rocketmq\V2\AddressScheme;
 /**
  * Concrete class that uses ClientTrait to test parseEndpoints().
  */
-class EndpointsTestClient
+class EndpointsTestClient extends TestCase
 {
     use \Apache\Rocketmq\ClientTrait;
 
@@ -56,7 +56,7 @@ class EndpointsTestClient
  * Tests for parseEndpoints() in ClientTrait.
  * Mirrors Java's EndpointsTest.
  */
-class EndpointsTest
+class EndpointsTest extends TestCase
 {
     private $client;
 
@@ -69,89 +69,88 @@ class EndpointsTest
     {
         $endpoints = $this->client->testParseEndpoints('127.0.0.1:8080');
 
-        TestRunner::assertEquals(AddressScheme::IPv4, $endpoints->getScheme(), "Scheme should be IPv4");
-        TestRunner::assertEquals(1, count($endpoints->getAddresses()), "Should have 1 address");
+        $this->assertEquals(AddressScheme::IPv4, $endpoints->getScheme(), "Scheme should be IPv4");
+        $this->assertEquals(1, count($endpoints->getAddresses()), "Should have 1 address");
 
         $address = $endpoints->getAddresses()[0];
-        TestRunner::assertEquals('127.0.0.1', $address->getHost(), "Host should be 127.0.0.1");
-        TestRunner::assertEquals(8080, $address->getPort(), "Port should be 8080");
+        $this->assertEquals('127.0.0.1', $address->getHost(), "Host should be 127.0.0.1");
+        $this->assertEquals(8080, $address->getPort(), "Port should be 8080");
     }
 
     public function testEndpointsWithSingleIpv4NoPort()
     {
         $endpoints = $this->client->testParseEndpoints('127.0.0.1');
 
-        TestRunner::assertEquals(AddressScheme::IPv4, $endpoints->getScheme(), "Scheme should be IPv4");
-        TestRunner::assertEquals(1, count($endpoints->getAddresses()), "Should have 1 address");
+        $this->assertEquals(AddressScheme::IPv4, $endpoints->getScheme(), "Scheme should be IPv4");
+        $this->assertEquals(1, count($endpoints->getAddresses()), "Should have 1 address");
 
         $address = $endpoints->getAddresses()[0];
-        TestRunner::assertEquals('127.0.0.1', $address->getHost(), "Host should be 127.0.0.1");
-        TestRunner::assertEquals(80, $address->getPort(), "Port should default to 80");
+        $this->assertEquals('127.0.0.1', $address->getHost(), "Host should be 127.0.0.1");
+        $this->assertEquals(80, $address->getPort(), "Port should default to 80");
     }
 
     public function testEndpointsWithDomainAndPort()
     {
         $endpoints = $this->client->testParseEndpoints('rocketmq.apache.org:8081');
 
-        TestRunner::assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
-        TestRunner::assertEquals(1, count($endpoints->getAddresses()), "Should have 1 address");
+        $this->assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
+        $this->assertEquals(1, count($endpoints->getAddresses()), "Should have 1 address");
 
         $address = $endpoints->getAddresses()[0];
-        TestRunner::assertEquals('rocketmq.apache.org', $address->getHost(), "Host should be rocketmq.apache.org");
-        TestRunner::assertEquals(8081, $address->getPort(), "Port should be 8081");
+        $this->assertEquals('rocketmq.apache.org', $address->getHost(), "Host should be rocketmq.apache.org");
+        $this->assertEquals(8081, $address->getPort(), "Port should be 8081");
     }
 
     public function testEndpointsWithDomainNoPort()
     {
         $endpoints = $this->client->testParseEndpoints('rocketmq.apache.org');
 
-        TestRunner::assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
-        TestRunner::assertEquals(1, count($endpoints->getAddresses()), "Should have 1 address");
+        $this->assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
+        $this->assertEquals(1, count($endpoints->getAddresses()), "Should have 1 address");
 
         $address = $endpoints->getAddresses()[0];
-        TestRunner::assertEquals('rocketmq.apache.org', $address->getHost(), "Host should be rocketmq.apache.org");
-        TestRunner::assertEquals(80, $address->getPort(), "Port should default to 80");
+        $this->assertEquals('rocketmq.apache.org', $address->getHost(), "Host should be rocketmq.apache.org");
+        $this->assertEquals(80, $address->getPort(), "Port should default to 80");
     }
 
     public function testEndpointsWithDomainAndHttpPrefix()
     {
         $endpoints = $this->client->testParseEndpoints('http://rocketmq.apache.org');
 
-        TestRunner::assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
+        $this->assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
         $address = $endpoints->getAddresses()[0];
-        TestRunner::assertEquals('rocketmq.apache.org', $address->getHost(), "HTTP prefix should be stripped");
-        TestRunner::assertEquals(80, $address->getPort(), "Port should default to 80");
+        $this->assertEquals('rocketmq.apache.org', $address->getHost(), "HTTP prefix should be stripped");
+        $this->assertEquals(80, $address->getPort(), "Port should default to 80");
     }
 
     public function testEndpointsWithDomainAndHttpsPrefix()
     {
         $endpoints = $this->client->testParseEndpoints('https://rocketmq.apache.org');
 
-        TestRunner::assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
+        $this->assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
         $address = $endpoints->getAddresses()[0];
-        TestRunner::assertEquals('rocketmq.apache.org', $address->getHost(), "HTTPS prefix should be stripped");
-        TestRunner::assertEquals(80, $address->getPort(), "Port should default to 80");
+        $this->assertEquals('rocketmq.apache.org', $address->getHost(), "HTTPS prefix should be stripped");
+        $this->assertEquals(80, $address->getPort(), "Port should default to 80");
     }
 
     public function testEndpointsWithDomainPortAndHttpPrefix()
     {
         $endpoints = $this->client->testParseEndpoints('http://rocketmq.apache.org:8081');
 
-        TestRunner::assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
+        $this->assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
         $address = $endpoints->getAddresses()[0];
-        TestRunner::assertEquals('rocketmq.apache.org', $address->getHost(), "HTTP prefix should be stripped");
-        TestRunner::assertEquals(8081, $address->getPort(), "Port should be 8081");
+        $this->assertEquals('rocketmq.apache.org', $address->getHost(), "HTTP prefix should be stripped");
+        $this->assertEquals(8081, $address->getPort(), "Port should be 8081");
     }
 
     public function testEndpointsWithDomainPortAndHttpsPrefix()
     {
         $endpoints = $this->client->testParseEndpoints('https://rocketmq.apache.org:8081');
 
-        TestRunner::assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
+        $this->assertEquals(AddressScheme::DOMAIN_NAME, $endpoints->getScheme(), "Scheme should be DOMAIN_NAME");
         $address = $endpoints->getAddresses()[0];
-        TestRunner::assertEquals('rocketmq.apache.org', $address->getHost(), "HTTPS prefix should be stripped");
-        TestRunner::assertEquals(8081, $address->getPort(), "Port should be 8081");
+        $this->assertEquals('rocketmq.apache.org', $address->getHost(), "HTTPS prefix should be stripped");
+        $this->assertEquals(8081, $address->getPort(), "Port should be 8081");
     }
 }
 
-TestRunner::run(new EndpointsTest());

@@ -18,15 +18,15 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../MessageId.php';
 require_once __DIR__ . '/../MessageIdImpl.php';
 require_once __DIR__ . '/../MessageIdCodec.php';
 
 use Apache\Rocketmq\MessageIdCodec;
-use Apache\Rocketmq\Test\TestRunner;
-
-class MessageIdImplTest
+class MessageIdImplTest extends TestCase
 {
     public function testToStringV0()
     {
@@ -36,7 +36,7 @@ class MessageIdImplTest
             '0156F7E71C361B21BC024CCDBE00000000'
         );
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '0156F7E71C361B21BC024CCDBE00000000',
             $messageId->toString(),
             "V0 toString should return suffix directly"
@@ -51,7 +51,7 @@ class MessageIdImplTest
             '56F7E71C361B21BC024CCDBE00000000'
         );
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '0156F7E71C361B21BC024CCDBE00000000',
             $messageId->toString(),
             "V1 toString should prefix with version"
@@ -64,10 +64,10 @@ class MessageIdImplTest
         $id2 = new \Apache\Rocketmq\MessageIdImpl('01', 'ABC123');
         $id3 = new \Apache\Rocketmq\MessageIdImpl('01', 'DEF456');
 
-        TestRunner::assertTrue($id1->equals($id2), "Same version and suffix should be equal");
-        TestRunner::assertFalse($id1->equals($id3), "Different suffix should not be equal");
-        TestRunner::assertTrue($id1->equals($id1), "Same instance should be equal");
-        TestRunner::assertFalse($id1->equals(null), "Null should not be equal");
+        $this->assertTrue($id1->equals($id2), "Same version and suffix should be equal");
+        $this->assertFalse($id1->equals($id3), "Different suffix should not be equal");
+        $this->assertTrue($id1->equals($id1), "Same instance should be equal");
+        $this->assertFalse($id1->equals(null), "Null should not be equal");
     }
 
     public function testHashCode()
@@ -75,7 +75,7 @@ class MessageIdImplTest
         $id1 = new \Apache\Rocketmq\MessageIdImpl('01', 'ABC123');
         $id2 = new \Apache\Rocketmq\MessageIdImpl('01', 'ABC123');
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $id1->hashCode(),
             $id2->hashCode(),
             "Equal IDs should have same hash code"
@@ -85,7 +85,7 @@ class MessageIdImplTest
     public function testDupeString()
     {
         $id = new \Apache\Rocketmq\MessageIdImpl('01', 'ABC123');
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '01ABC123',
             (string)$id,
             "__toString should return toString"
@@ -93,4 +93,3 @@ class MessageIdImplTest
     }
 }
 
-TestRunner::run(new MessageIdImplTest());

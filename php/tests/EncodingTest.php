@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../grpc/Apache/Rocketmq/V2/Encoding.php';
 require_once __DIR__ . '/../grpc/Apache/Rocketmq/V2/DigestType.php';
 
@@ -28,47 +30,43 @@ use Apache\Rocketmq\V2\DigestType;
 /**
  * Tests for Encoding and DigestType protobuf enum values.
  */
-class EncodingTest
+class EncodingTest extends TestCase
 {
     public function testEncodingValues()
     {
-        TestRunner::assertEquals(0, Encoding::ENCODING_UNSPECIFIED, "ENCODING_UNSPECIFIED should be 0");
-        TestRunner::assertEquals(1, Encoding::IDENTITY, "IDENTITY should be 1");
-        TestRunner::assertEquals(2, Encoding::GZIP, "GZIP should be 2");
+        $this->assertEquals(0, Encoding::ENCODING_UNSPECIFIED, "ENCODING_UNSPECIFIED should be 0");
+        $this->assertEquals(1, Encoding::IDENTITY, "IDENTITY should be 1");
+        $this->assertEquals(2, Encoding::GZIP, "GZIP should be 2");
     }
 
     public function testEncodingNameLookup()
     {
-        TestRunner::assertEquals('ENCODING_UNSPECIFIED', Encoding::name(Encoding::ENCODING_UNSPECIFIED), "name(0) should return ENCODING_UNSPECIFIED");
-        TestRunner::assertEquals('IDENTITY', Encoding::name(Encoding::IDENTITY), "name(1) should return IDENTITY");
-        TestRunner::assertEquals('GZIP', Encoding::name(Encoding::GZIP), "name(2) should return GZIP");
+        $this->assertEquals('ENCODING_UNSPECIFIED', Encoding::name(Encoding::ENCODING_UNSPECIFIED), "name(0) should return ENCODING_UNSPECIFIED");
+        $this->assertEquals('IDENTITY', Encoding::name(Encoding::IDENTITY), "name(1) should return IDENTITY");
+        $this->assertEquals('GZIP', Encoding::name(Encoding::GZIP), "name(2) should return GZIP");
     }
 
     public function testEncodingValueLookup()
     {
-        TestRunner::assertEquals(1, Encoding::value('IDENTITY'), "value('IDENTITY') should return 1");
-        TestRunner::assertEquals(2, Encoding::value('GZIP'), "value('GZIP') should return 2");
+        $this->assertEquals(1, Encoding::value('IDENTITY'), "value('IDENTITY') should return 1");
+        $this->assertEquals(2, Encoding::value('GZIP'), "value('GZIP') should return 2");
 
-        TestRunner::assertThrows(\UnexpectedValueException::class, function() {
-            Encoding::name(999);
-        }, "name() with invalid value should throw");
+        $this->expectException(\UnexpectedValueException::class);
+        Encoding::name(999);
     }
 
     public function testDigestTypeValues()
     {
-        TestRunner::assertEquals(0, DigestType::DIGEST_TYPE_UNSPECIFIED, "DIGEST_TYPE_UNSPECIFIED should be 0");
-        TestRunner::assertEquals(1, DigestType::CRC32, "CRC32 should be 1");
-        TestRunner::assertEquals(2, DigestType::MD5, "MD5 should be 2");
-        TestRunner::assertEquals(3, DigestType::SHA1, "SHA1 should be 3");
+        $this->assertEquals(0, DigestType::DIGEST_TYPE_UNSPECIFIED, "DIGEST_TYPE_UNSPECIFIED should be 0");
+        $this->assertEquals(1, DigestType::CRC32, "CRC32 should be 1");
+        $this->assertEquals(2, DigestType::MD5, "MD5 should be 2");
+        $this->assertEquals(3, DigestType::SHA1, "SHA1 should be 3");
     }
 
     public function testDigestTypeNameLookup()
     {
-        TestRunner::assertEquals('CRC32', DigestType::name(DigestType::CRC32), "name(CRC32) should return CRC32");
-        TestRunner::assertEquals('MD5', DigestType::name(DigestType::MD5), "name(MD5) should return MD5");
-        TestRunner::assertEquals('SHA1', DigestType::name(DigestType::SHA1), "name(SHA1) should return SHA1");
+        $this->assertEquals('CRC32', DigestType::name(DigestType::CRC32), "name(CRC32) should return CRC32");
+        $this->assertEquals('MD5', DigestType::name(DigestType::MD5), "name(MD5) should return MD5");
+        $this->assertEquals('SHA1', DigestType::name(DigestType::SHA1), "name(SHA1) should return SHA1");
     }
 }
-
-echo "=== EncodingTest ===\n";
-TestRunner::run(new EncodingTest());

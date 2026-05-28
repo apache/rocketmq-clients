@@ -18,23 +18,20 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
-require_once __DIR__ . '/../ConsumeResult.php';
+require_once __DIR__ . '/../autoload.php';
 
+use PHPUnit\Framework\TestCase;
 use Apache\Rocketmq\ConsumeResult;
 
-class ConsumeResultTest
+class ConsumeResultTest extends TestCase
 {
     public function testConstants()
     {
-        TestRunner::assertEquals(0, ConsumeResult::SUCCESS, "SUCCESS should be 0");
-        TestRunner::assertEquals(1, ConsumeResult::FAILURE, "FAILURE should be 1");
-        TestRunner::assertTrue(
+        $this->assertEquals(0, ConsumeResult::SUCCESS, "SUCCESS should be 0");
+        $this->assertEquals(1, ConsumeResult::FAILURE, "FAILURE should be 1");
+        $this->assertTrue(
             ConsumeResult::SUCCESS !== ConsumeResult::FAILURE,
             "SUCCESS and FAILURE should be different"
         );
     }
 }
-
-echo "=== ConsumeResultTest ===\n";
-TestRunner::run(new ConsumeResultTest());

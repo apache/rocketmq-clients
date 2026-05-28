@@ -18,7 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/ClientConstants.php';
 use Apache\Rocketmq\V2\Permission;
 
 /**

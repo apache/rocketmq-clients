@@ -18,12 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-require_once __DIR__ . '/Signature.php';
-require_once __DIR__ . '/MessageView.php';
-require_once __DIR__ . '/ClientConstants.php';
-require_once __DIR__ . '/RpcClientManager.php';
-
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\ReceiveMessageRequest;
 use Apache\Rocketmq\V2\FilterExpression;
@@ -42,22 +36,22 @@ use Grpc\ChannelCredentials;
 class ProcessQueue
 {
     private $consumer;
-    private $messageQueue;
+    private MessageQueue $messageQueue;
     private $filterExpression;
-    private $dropped = false;
-    private $cachedMessages = [];
-    private $cachedMessagesBytes = 0;
+    private bool $dropped = false;
+    private array $cachedMessages = [];
+    private int $cachedMessagesBytes = 0;
 
     // O(1) eviction: index by receipt handle
-    private $cachedMessagesByReceiptHandle = [];
+    private array $cachedMessagesByReceiptHandle = [];
 
-    private $receptionTimes = 0;
-    private $receivedMessagesQuantity = 0;
+    private int $receptionTimes = 0;
+    private int $receivedMessagesQuantity = 0;
     private $activityNanoTime;
     private $cacheFullNanoTime;
-    private $attemptId;
-    private $fetchImmediately = false;
-    private $logger;
+    private string $attemptId;
+    private bool $fetchImmediately = false;
+    private Logger $logger;
 
     public function __construct($consumer, MessageQueue $messageQueue, $filterExpression = '*')
     {
@@ -70,7 +64,7 @@ class ProcessQueue
         $this->logger = Logger::getInstance('ProcessQueue');
     }
 
-    public function fetchMessageImmediately()
+    public function fetchMessageImmediately(): void
     {
         $this->fetchImmediately = true;
     }
@@ -80,7 +74,7 @@ class ProcessQueue
      *
      * @return int Number of messages fetched
      */
-    public function fetchMessages()
+    public function fetchMessages(): int
     {
         if ($this->dropped) {
             return 0;
@@ -167,24 +161,30 @@ class ProcessQueue
         $endpoints = $this->getBrokerEndpoint();
         $messageView = new MessageView($message, null, $endpoints);
         $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+        
         if ($messageView->isCorrupted()) {
             $this->logger->error("ProcessQueue consumerStreamedMessage: message corrupted, discarding messageId={$messageId}");
             $this->consumer->nackMessage($messageView);
             $this->evictMessage($messageView);
             return;
         }
-        $this->evictMessage($messageView);
+        
+        // Consume FIRST, then evict based on result
         $result = $this->consumer->getConsumeService()->consumeMessage($messageView);
+        
         if ($result instanceof \Apache\Rocketmq\ConsumeResultSuspend) {
             $suspendSec = (int)ceil($result->getSuspendTimeMs() / 1000);
             $this->logger->debug("ProcessQueue consumeStreamedMessage SUSPEND messageId={$messageId}, suspendSec={$suspendSec}");
             $this->consumer->nackMessage($messageView, 1, $suspendSec);
+            $this->evictMessage($messageView);
         } elseif ($result === \Apache\Rocketmq\ConsumeResult::FAILURE) {
             $this->logger->debug("ProcessQueue consumeStreamedMessage FAILURE messageId={$messageId}");
             $this->consumer->nackMessage($messageView);
+            $this->evictMessage($messageView);
         } else {
             $this->logger->debug("ProcessQueue consumeStreamedMessage SUCCESS messageId={$messageId}, ACKing immediately");
             $this->consumer->ackMessage($messageView);
+            $this->evictMessage($messageView);
         }
     }
 

@@ -18,10 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-require_once __DIR__ . '/PushConsumer.php';
-require_once __DIR__ . '/ConsumeResultSuspend.php';
-
 use Apache\Rocketmq\V2\SyncLiteSubscriptionRequest;
 use Apache\Rocketmq\V2\LiteSubscriptionAction;
 use Apache\Rocketmq\V2\Resource;
@@ -150,7 +146,7 @@ class LitePushConsumer extends PushConsumer
      *
      * Overrides parent start() to sync lite subscriptions, register handlers, and use lite-aware consume service.
      */
-    public function start()
+    public function start(): void
     {
         if ($this->isRunning()) {
             return;

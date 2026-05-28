@@ -18,15 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/ConsumeResult.php';
-require_once __DIR__ . '/ConsumeResultSuspend.php';
-require_once __DIR__ . '/Signature.php';
-require_once __DIR__ . '/ClientConstants.php';
-require_once __DIR__ . '/ClientTrait.php';
-require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
-require_once __DIR__ . '/ProtobufUtil.php';
-require_once __DIR__ . '/RpcClientManager.php';
-
 use Apache\Rocketmq\V2\AckMessageRequest;
 use Apache\Rocketmq\V2\AckMessageEntry;
 use Apache\Rocketmq\V2\ChangeInvisibleDurationRequest;

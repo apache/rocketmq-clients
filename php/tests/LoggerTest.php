@@ -18,12 +18,14 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../Logger.php';
 
 use Apache\Rocketmq\Logger;
 
-class LoggerTest
+class LoggerTest extends TestCase
 {
     private $testLogFile;
 
@@ -46,7 +48,7 @@ class LoggerTest
         $logger1 = Logger::getInstance('TestComponent');
         $logger2 = Logger::getInstance('TestComponent');
 
-        TestRunner::assertTrue($logger1 === $logger2, "Should return same instance for same component");
+        $this->assertTrue($logger1 === $logger2, "Should return same instance for same component");
     }
 
     public function testDifferentComponents()
@@ -56,7 +58,7 @@ class LoggerTest
         $logger1 = Logger::getInstance('ComponentA');
         $logger2 = Logger::getInstance('ComponentB');
 
-        TestRunner::assertTrue($logger1 !== $logger2, "Should return different instances for different components");
+        $this->assertTrue($logger1 !== $logger2, "Should return different instances for different components");
     }
 
     public function testLogLevelFiltering()
@@ -73,7 +75,7 @@ class LoggerTest
         if (file_exists($this->testLogFile)) {
             $content = file_get_contents($this->testLogFile) ?: '';
         }
-        TestRunner::assertFalse(
+        $this->assertFalse(
             strpos($content, 'This should not be logged') !== false,
             "DEBUG/INFO/WARNING should be filtered when log level is ERROR"
         );
@@ -89,7 +91,7 @@ class LoggerTest
         $logger->info($marker);
 
         $content = file_get_contents($this->testLogFile) ?: '';
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($content, $marker) !== false,
             "INFO message should be written when log level is DEBUG"
         );
@@ -106,7 +108,7 @@ class LoggerTest
 
         $content = file_get_contents($this->testLogFile) ?: '';
         $expectedPattern = "/\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] \[INFO\] \[FormatTest\] {$marker}/";
-        TestRunner::assertTrue(
+        $this->assertTrue(
             preg_match($expectedPattern, $content) === 1,
             "Log line should match expected format"
         );
@@ -131,12 +133,9 @@ class LoggerTest
 
         // If system timezone was detected (not UTC anymore), the test passes
         // If it's still UTC, that's also valid (system may genuinely be UTC)
-        TestRunner::assertTrue(
+        $this->assertTrue(
             in_array($currentTz, timezone_identifiers_list(), true) || $currentTz === 'UTC',
             "Timezone should be a valid identifier after Logger init (got: {$currentTz})"
         );
     }
 }
-
-echo "=== LoggerTest ===\n";
-TestRunner::run(new LoggerTest());

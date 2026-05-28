@@ -18,11 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-require_once __DIR__ . '/Logger.php';
-require_once __DIR__ . '/Signature.php';
-require_once __DIR__ . '/ClientConstants.php';
-require_once __DIR__ . '/SwooleCompat.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\TelemetryCommand;
@@ -42,29 +37,29 @@ use Grpc\ChannelCredentials;
  */
 class TelemetrySession
 {
-    private static $instances = [];
+    private static array $instances = [];
 
-    private $client;
-    private $endpoints;
+    private object $client;
+    private string $endpoints;
     private $stream;
-    private $logger;
-    private $clientId;
+    private Logger $logger;
+    private string $clientId;
 
     // Settings sync state
-    private $settingsSynced = false;
-    private $settingsError = null;
-    private $settingsTimeout = 5.0;
+    private bool $settingsSynced = false;
+    private ?string $settingsError = null;
+    private float $settingsTimeout = 3.0; // seconds, matching Java's SETTINGS_INITIALIZATION_TIMEOUT
 
     // Write queue (serial processing)
-    private $writeQueue = [];
-    private $isWriting = false;
-    private $maxQueueSize = 1000;
+    private array $writeQueue = [];
+    private bool $isWriting = false;
+    private int $maxQueueSize = 1000;
 
     // Credentials for AK/SK signing
-    private $credentials = null;
+    private ?SessionCredentials $credentials = null;
 
     // Namespace for resource scoping
-    private $namespace = '';
+    private string $namespace = '';
 
     // Settings received from server
     private $serverSettings = null;
@@ -80,14 +75,14 @@ class TelemetrySession
     private $onNotifyUnsubscribeLite = null;
 
     // Swoole coroutine reader state
-    private $swooleCoroutineId = -1;
-    private $isClosing = false;
-    private $isReconnecting = false;
+    private int $swooleCoroutineId = -1;
+    private bool $isClosing = false;
+    private bool $isReconnecting = false;
 
     /**
      * Private constructor
      */
-    private function __construct($client, $endpoints, $clientId = null, $credentials = null, $namespace = '')
+    private function __construct(object $client, string $endpoints, ?string $clientId = null, ?SessionCredentials $credentials = null, string $namespace = '')
     {
         $this->client = $client;
         $this->endpoints = $endpoints;
@@ -134,12 +129,12 @@ class TelemetrySession
         return $this->serverSettings;
     }
 
-    public static function resetAll()
+    public static function resetAll(): void
     {
         self::$instances = [];
     }
 
-    public static function getInstance($client, $endpoints, $clientId = null, $credentials = null, $namespace = '')
+    public static function getInstance(object $client, string $endpoints, ?string $clientId = null, ?SessionCredentials $credentials = null, string $namespace = ''): self
     {
         $credId = $credentials !== null ? spl_object_id($credentials) : 'none';
         $effectiveClientId = $clientId ?? 'none';
@@ -158,7 +153,75 @@ class TelemetrySession
     {
         $this->lastSettingsCommand = $settingsCommand;
         $this->isClosing = false;
-        return $this->createStreamAndSync($settingsCommand);
+        
+        // Create stream and send settings
+        $success = $this->createStreamAndSync($settingsCommand);
+        if (!$success) {
+            return false;
+        }
+        
+        // Wait for settings confirmation with timeout
+        return $this->waitForSettingsConfirmation();
+    }
+
+    /**
+     * Wait for settings confirmation from broker with timeout.
+     * In Swoole mode, the background reader will set settingsSynced when SETTINGS is received.
+     * In non-Swoole mode, we poll manually.
+     */
+    private function waitForSettingsConfirmation(): bool
+    {
+        $startTime = microtime(true);
+        $pollInterval = 0.05; // 50ms
+        
+        while (microtime(true) - $startTime < $this->settingsTimeout) {
+            if ($this->settingsSynced) {
+                $elapsed = round(microtime(true) - $startTime, 2);
+                $this->logger->info("Settings confirmed by broker after {$elapsed}s");
+                return true;
+            }
+            
+            if ($this->settingsError !== null) {
+                $this->logger->error("Settings sync failed: " . $this->settingsError);
+                return false;
+            }
+            
+            // In non-Swoole mode, poll for responses
+            if (!SwooleCompat::isAvailable()) {
+                $this->pollTelemetryManual();
+            }
+            
+            usleep((int)($pollInterval * 1000000));
+        }
+        
+        // Timeout
+        $this->settingsError = "Settings sync timeout after {$this->settingsTimeout}s";
+        $this->logger->warning($this->settingsError);
+        return false;
+    }
+    
+    /**
+     * Manual poll for telemetry responses (non-Swoole mode).
+     * This is a blocking call that reads one response at a time.
+     */
+    private function pollTelemetryManual(): void
+    {
+        if (!$this->stream) {
+            return;
+        }
+        
+        try {
+            // Try to read with a very short timeout
+            // Note: gRPC PHP doesn't support non-blocking read easily,
+            // so we just check if there's data available
+            $response = $this->stream->read();
+            if ($response !== null) {
+                $this->handleResponse($response);
+            }
+        } catch (\Exception $e) {
+            // Ignore read errors during polling
+            $this->logger->debug("Poll read error: " . $e->getMessage());
+        }
     }
 
     public function createStreamAndSync($settingsCommand)
@@ -208,8 +271,9 @@ class TelemetrySession
                 throw new \RuntimeException("Failed to send settings command");
             }
 
-            $this->logger->info("Settings sent successfully (broker may not send immediate confirmation)");
-            $this->settingsSynced = true;
+            $this->logger->info("Settings sent successfully, waiting for broker confirmation (timeout: {$this->settingsTimeout}s)...");
+            // Don't set settingsSynced here - wait for confirmation from broker
+            // The settingsSynced flag will be set in handleResponse() when we receive SETTINGS from broker
 
             return true;
 
@@ -249,15 +313,17 @@ class TelemetrySession
      */
     public function pollTelemetry(): void
     {
-        if (!$this->stream || SwooleCompat::isAvailable()) {
+        if (!$this->stream) {
             return;
         }
-
-        // In non-Swoole mode, we can't truly non-block read from the stream.
-        // The responses() iterator is blocking. We use stream_select if possible,
-        // but for simplicity, we skip polling in non-Swoole mode and rely on
-        // the fact that the main loop already processes commands during sync.
-        // Users who need server-push processing should use Swoole.
+        
+        if (SwooleCompat::isAvailable()) {
+            // In Swoole mode, background reader handles it
+            return;
+        }
+        
+        // In non-Swoole mode, manually poll
+        $this->pollTelemetryManual();
     }
 
     private function readResponsesInBackground()

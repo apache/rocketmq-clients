@@ -18,13 +18,13 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../MessageBuilder.php';
 require_once __DIR__ . '/../autoload.php';
 
 use Apache\Rocketmq\MessageBuilder;
 
-class MessageBuilderTest
+class MessageBuilderTest extends TestCase
 {
     public function testBuildMinimalMessage()
     {
@@ -33,9 +33,9 @@ class MessageBuilderTest
             ->setBody('hello world')
             ->build();
 
-        TestRunner::assertEquals('test-topic', $msg->getTopic()->getName(), "Topic should be set");
-        TestRunner::assertEquals('hello world', $msg->getBody(), "Body should be set");
-        TestRunner::assertFalse($msg->hasSystemProperties(), "Should have no system properties for minimal message");
+        $this->assertEquals('test-topic', $msg->getTopic()->getName(), "Topic should be set");
+        $this->assertEquals('hello world', $msg->getBody(), "Body should be set");
+        $this->assertFalse($msg->hasSystemProperties(), "Should have no system properties for minimal message");
     }
 
     public function testBuildMessageWithTag()
@@ -46,8 +46,8 @@ class MessageBuilderTest
             ->setTag('my-tag')
             ->build();
 
-        TestRunner::assertTrue($msg->hasSystemProperties(), "Should have system properties");
-        TestRunner::assertEquals('my-tag', $msg->getSystemProperties()->getTag(), "Tag should match");
+        $this->assertTrue($msg->hasSystemProperties(), "Should have system properties");
+        $this->assertEquals('my-tag', $msg->getSystemProperties()->getTag(), "Tag should match");
     }
 
     public function testBuildMessageWithKeys()
@@ -59,7 +59,7 @@ class MessageBuilderTest
             ->build();
 
         $keys = $msg->getSystemProperties()->getKeys();
-        TestRunner::assertEquals(2, count($keys), "Should have 2 keys");
+        $this->assertEquals(2, count($keys), "Should have 2 keys");
     }
 
     public function testBuildFifoMessage()
@@ -71,8 +71,8 @@ class MessageBuilderTest
             ->build();
 
         $sysProps = $msg->getSystemProperties();
-        TestRunner::assertTrue($sysProps->hasMessageGroup(), "Should have message group");
-        TestRunner::assertEquals('order-group-1', $sysProps->getMessageGroup(), "Message group should match");
+        $this->assertTrue($sysProps->hasMessageGroup(), "Should have message group");
+        $this->assertEquals('order-group-1', $sysProps->getMessageGroup(), "Message group should match");
     }
 
     public function testBuildDelayMessage()
@@ -85,7 +85,7 @@ class MessageBuilderTest
             ->build();
 
         $sysProps = $msg->getSystemProperties();
-        TestRunner::assertTrue($sysProps->hasDeliveryTimestamp(), "Should have delivery timestamp");
+        $this->assertTrue($sysProps->hasDeliveryTimestamp(), "Should have delivery timestamp");
     }
 
     public function testBuildPriorityMessage()
@@ -97,8 +97,8 @@ class MessageBuilderTest
             ->build();
 
         $sysProps = $msg->getSystemProperties();
-        TestRunner::assertTrue($sysProps->hasPriority(), "Should have priority");
-        TestRunner::assertEquals(1, $sysProps->getPriority(), "Priority should be 1");
+        $this->assertTrue($sysProps->hasPriority(), "Should have priority");
+        $this->assertEquals(1, $sysProps->getPriority(), "Priority should be 1");
     }
 
     public function testBuildLiteMessage()
@@ -110,7 +110,7 @@ class MessageBuilderTest
             ->build();
 
         $sysProps = $msg->getSystemProperties();
-        TestRunner::assertTrue($sysProps->hasLiteTopic(), "Should have lite topic");
+        $this->assertTrue($sysProps->hasLiteTopic(), "Should have lite topic");
     }
 
     public function testBuildMessageWithUserProperties()
@@ -123,8 +123,8 @@ class MessageBuilderTest
             ->build();
 
         $props = $msg->getUserProperties();
-        TestRunner::assertEquals('custom-value', $props['custom-key'], "User property should match");
-        TestRunner::assertEquals(2, count($props), "Should have 2 user properties");
+        $this->assertEquals('custom-value', $props['custom-key'], "User property should match");
+        $this->assertEquals(2, count($props), "Should have 2 user properties");
     }
 
     public function testBuildFullMessage()
@@ -137,115 +137,102 @@ class MessageBuilderTest
             ->addProperty('env', 'production')
             ->build();
 
-        TestRunner::assertEquals('full-topic', $msg->getTopic()->getName(), "Topic should match");
-        TestRunner::assertEquals('full body content', $msg->getBody(), "Body should match");
-        TestRunner::assertEquals('full-tag', $msg->getSystemProperties()->getTag(), "Tag should match");
+        $this->assertEquals('full-topic', $msg->getTopic()->getName(), "Topic should match");
+        $this->assertEquals('full body content', $msg->getBody(), "Body should match");
+        $this->assertEquals('full-tag', $msg->getSystemProperties()->getTag(), "Tag should match");
     }
 
     public function testBuilderReturnsThisForChaining()
     {
         $builder = new MessageBuilder();
         $result = $builder->setTopic('test');
-        TestRunner::assertTrue($result === $builder, "setTopic should return \$this");
+        $this->assertTrue($result === $builder, "setTopic should return \$this");
     }
 
     // --- Validation tests (mirrors Java MessageImplTest) ---
 
     public function testRejectsEmptyTopic()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setTopic('')->setBody('body')->build();
-        }, "Empty topic should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setTopic('')->setBody('body')->build();
     }
 
     public function testRejectsMissingTopic()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setBody('body')->build();
-        }, "Missing topic should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setBody('body')->build();
     }
 
     public function testRejectsMissingBody()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setTopic('test')->build();
-        }, "Missing body should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setTopic('test')->build();
     }
 
     public function testRejectsTagWithVerticalBar()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setTopic('test')->setBody('body')->setTag('|')->build();
-        }, "Tag with '|' should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setTopic('test')->setBody('body')->setTag('|')->build();
     }
 
     public function testRejectsTagWithWhitespace()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setTopic('test')->setBody('body')->setTag("tag value")->build();
-        }, "Tag with whitespace should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setTopic('test')->setBody('body')->setTag("tag value")->build();
     }
 
     public function testRejectsBlankKey()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setTopic('test')->setBody('body')->addKey('  ')->build();
-        }, "Blank key should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setTopic('test')->setBody('body')->addKey('  ')->build();
     }
 
     public function testRejectsBlankLiteTopic()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setTopic('test')->setBody('body')->setLiteTopic('   ')->build();
-        }, "Blank lite topic should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setTopic('test')->setBody('body')->setLiteTopic('   ')->build();
     }
 
     public function testRejectsInvalidPriority()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setTopic('test')->setBody('body')->setPriority(0)->build();
-        }, "Priority 0 should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setTopic('test')->setBody('body')->setPriority(0)->build();
 
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setTopic('test')->setBody('body')->setPriority(10)->build();
-        }, "Priority 10 should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setTopic('test')->setBody('body')->setPriority(10)->build();
     }
 
     public function testRejectsMessageTypeConflict()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())
                 ->setTopic('test')
                 ->setBody('body')
                 ->setDeliveryTimestamp(time() * 1000)
                 ->setMessageGroup('group')
                 ->build();
-        }, "Delay + FIFO should conflict");
 
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())
                 ->setTopic('test')
                 ->setBody('body')
                 ->setMessageGroup('group')
                 ->setLiteTopic('lite')
                 ->build();
-        }, "FIFO + Lite should conflict");
 
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())
                 ->setTopic('test')
                 ->setBody('body')
                 ->setPriority(1)
                 ->setDeliveryTimestamp(time() * 1000)
                 ->build();
-        }, "Priority + Delay should conflict");
     }
 
     public function testTopicSetterWithEmptyString()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            (new MessageBuilder())->setTopic('  ')->build();
-        }, "Whitespace-only topic should be rejected");
+        $this->expectException(\InvalidArgumentException::class);
+        (new MessageBuilder())->setTopic('  ')->build();
     }
 
     public function testTagSetterReturnsValidTag()
@@ -256,8 +243,8 @@ class MessageBuilderTest
             ->setTag('tagA')
             ->build();
 
-        TestRunner::assertTrue($msg->hasSystemProperties(), "Should have system properties");
-        TestRunner::assertEquals('tagA', $msg->getSystemProperties()->getTag(), "Tag should be tagA");
+        $this->assertTrue($msg->hasSystemProperties(), "Should have system properties");
+        $this->assertEquals('tagA', $msg->getSystemProperties()->getTag(), "Tag should be tagA");
     }
 
     public function testKeySetterValidKey()
@@ -269,7 +256,7 @@ class MessageBuilderTest
             ->build();
 
         $keys = $msg->getSystemProperties()->getKeys();
-        TestRunner::assertTrue(count($keys) > 0, "Should have at least 1 key");
+        $this->assertTrue(count($keys) > 0, "Should have at least 1 key");
     }
 
     public function testBuildNoOptionalFields()
@@ -279,7 +266,7 @@ class MessageBuilderTest
             ->setBody('body')
             ->build();
 
-        TestRunner::assertFalse($msg->hasSystemProperties(), "Should not have system properties");
+        $this->assertFalse($msg->hasSystemProperties(), "Should not have system properties");
     }
 
     public function testMultiplePropertiesAdd()
@@ -292,11 +279,8 @@ class MessageBuilderTest
             ->build();
 
         $props = $msg->getUserProperties();
-        TestRunner::assertEquals(2, count($props), "Should have 2 user properties");
-        TestRunner::assertEquals('value', $props['foo'], "Property 'foo' should match");
-        TestRunner::assertEquals('value2', $props['bar'], "Property 'bar' should match");
+        $this->assertEquals(2, count($props), "Should have 2 user properties");
+        $this->assertEquals('value', $props['foo'], "Property 'foo' should match");
+        $this->assertEquals('value2', $props['bar'], "Property 'bar' should match");
     }
 }
-
-echo "=== MessageBuilderTest ===\n";
-TestRunner::run(new MessageBuilderTest());

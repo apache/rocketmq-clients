@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../Logger.php';
 require_once __DIR__ . '/../MessageView.php';
 
@@ -30,14 +32,14 @@ use Apache\Rocketmq\V2\SystemProperties;
 /**
  * Tests for MessageView accessors and behavior.
  */
-class MessageViewExtendedTest
+class MessageViewExtendedTest extends TestCase
 {
     public function testBornTimestamp()
     {
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $view->getBornTimestamp() >= 0,
             "Born timestamp should be non-negative"
         );
@@ -48,7 +50,7 @@ class MessageViewExtendedTest
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             is_string($view->getBornHost()),
             "Born host should be a string"
         );
@@ -60,7 +62,7 @@ class MessageViewExtendedTest
         $view = new MessageView($msg, null, null, 1);
         $beforeDecode = $view->getDecodeTimestamp();
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $beforeDecode > 0,
             "Decode timestamp should be positive"
         );
@@ -71,21 +73,21 @@ class MessageViewExtendedTest
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 1);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             $view->getDeliveryAttempt(),
             "Initial delivery attempt should be 1"
         );
 
         $view->incrementDeliveryAttempt();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             2,
             $view->getDeliveryAttempt(),
             "After increment, delivery attempt should be 2"
         );
 
         $view->incrementDeliveryAttempt();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             3,
             $view->getDeliveryAttempt(),
             "After second increment, delivery attempt should be 3"
@@ -97,7 +99,7 @@ class MessageViewExtendedTest
         $msg = $this->buildMessage();
         $view = new MessageView($msg, null, null, 0);
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $view->getDeliveryAttempt() >= 1,
             "Delivery attempt should be at least 1 even if passed 0"
         );
@@ -114,12 +116,12 @@ class MessageViewExtendedTest
 
         $view = new MessageView($message);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'production',
             $view->getProperty('env'),
             "getProperty should return the correct value"
         );
-        TestRunner::assertNull(
+        $this->assertNull(
             $view->getProperty('nonexistent'),
             "getProperty should return null for missing key"
         );
@@ -139,11 +141,11 @@ class MessageViewExtendedTest
         $view = new MessageView($message);
         $props = $view->getProperties();
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             is_array($props),
             "getProperties should return a native PHP array"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'val1',
             $props['key1'],
             "Property key1 should be accessible"
@@ -160,11 +162,11 @@ class MessageViewExtendedTest
         $view = new MessageView($message);
         $keys = $view->getKeys();
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             is_array($keys),
             "getKeys should return a native PHP array"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             2,
             count($keys),
             "Should have 2 keys"
@@ -177,7 +179,7 @@ class MessageViewExtendedTest
         $view = new MessageView($msg, null, null, 1);
         $str = (string)$view;
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($str, 'test-topic') !== false,
             "toString should include topic name"
         );
@@ -189,7 +191,7 @@ class MessageViewExtendedTest
         $view = new MessageView($msg, null, null, 1);
         $str = (string)$view;
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($str, 'msg-abc-123') !== false,
             "toString should include message ID"
         );
@@ -207,7 +209,7 @@ class MessageViewExtendedTest
 
         $str = (string)$view;
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($str, 'CORRUPTED') !== false,
             "toString should include CORRUPTED marker"
         );
@@ -232,6 +234,3 @@ class MessageViewExtendedTest
         return $message;
     }
 }
-
-echo "=== MessageViewExtendedTest ===\n";
-TestRunner::run(new MessageViewExtendedTest());

@@ -18,9 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-require_once __DIR__ . '/Utilities.php';
-
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\SystemProperties;
 use Apache\Rocketmq\V2\Resource;
@@ -36,16 +33,16 @@ class MessageBuilder
 {
     const TOPIC_PATTERN = '/^[%a-zA-Z0-9_-]+$/';
 
-    private $topic = null;
-    private $body = null;
-    private $tag = null;
-    private $keys = [];
-    private $messageGroup = null;
-    private $deliveryTimestamp = null;
-    private $liteTopic = null;
-    private $priority = null;
-    private $properties = [];
-    private $encoding = null;
+    private ?string $topic = null;
+    private ?string $body = null;
+    private ?string $tag = null;
+    private array $keys = [];
+    private ?string $messageGroup = null;
+    private ?Timestamp $deliveryTimestamp = null;
+    private ?string $liteTopic = null;
+    private ?int $priority = null;
+    private array $properties = [];
+    private ?string $encoding = null;
 
     /**
      * Set the topic (required).
@@ -53,7 +50,7 @@ class MessageBuilder
      * @param string $topic Topic name
      * @return $this
      */
-    public function setTopic(string $topic)
+    public function setTopic(string $topic): self
     {
         if (empty(trim($topic))) {
             throw new \InvalidArgumentException("Topic name cannot be empty");
@@ -73,7 +70,7 @@ class MessageBuilder
      * @param string $body Message body content
      * @return $this
      */
-    public function setBody(string $body)
+    public function setBody(string $body): self
     {
         $this->body = $body;
         return $this;
@@ -85,7 +82,7 @@ class MessageBuilder
      * @param string|null $tag Tag value
      * @return $this
      */
-    public function setTag(?string $tag)
+    public function setTag(?string $tag): self
     {
         if ($tag !== null) {
             $this->validateTag($tag);
@@ -100,7 +97,7 @@ class MessageBuilder
      * @param array $keys List of key strings
      * @return $this
      */
-    public function setKeys(array $keys)
+    public function setKeys(array $keys): self
     {
         foreach ($keys as $key) {
             $this->validateKey($key);
@@ -115,7 +112,7 @@ class MessageBuilder
      * @param string $key
      * @return $this
      */
-    public function addKey(string $key)
+    public function addKey(string $key): self
     {
         $this->validateKey($key);
         $this->keys[] = $key;
@@ -129,7 +126,7 @@ class MessageBuilder
      * @param string|null $messageGroup
      * @return $this
      */
-    public function setMessageGroup(?string $messageGroup)
+    public function setMessageGroup(?string $messageGroup): self
     {
         if ($messageGroup !== null) {
             $this->validateNoConflict('messageGroup');
@@ -145,7 +142,7 @@ class MessageBuilder
      * @param int|null $timestampMs Unix timestamp in milliseconds
      * @return $this
      */
-    public function setDeliveryTimestamp(?int $timestampMs)
+    public function setDeliveryTimestamp(?int $timestampMs): self
     {
         if ($timestampMs !== null) {
             $this->validateNoConflict('deliveryTimestamp');
@@ -166,7 +163,7 @@ class MessageBuilder
      * @param string|null $liteTopic
      * @return $this
      */
-    public function setLiteTopic(?string $liteTopic)
+    public function setLiteTopic(?string $liteTopic): self
     {
         if ($liteTopic !== null) {
             if (trim($liteTopic) === '') {
@@ -185,7 +182,7 @@ class MessageBuilder
      * @param int|null $priority Priority value (lower = higher priority)
      * @return $this
      */
-    public function setPriority(?int $priority)
+    public function setPriority(?int $priority): self
     {
         if ($priority !== null) {
             if ($priority < 1 || $priority > 9) {

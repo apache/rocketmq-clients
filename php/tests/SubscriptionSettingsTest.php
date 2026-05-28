@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Apache\Rocketmq\V2\Settings;
@@ -34,7 +36,7 @@ use Apache\Rocketmq\V2\Resource;
  * Mirrors Java's PushSubscriptionSettingsTest and SimpleSubscriptionSettingsTest.
  * Tests that Settings/Subscription protobuf objects are correctly built.
  */
-class SubscriptionSettingsTest
+class SubscriptionSettingsTest extends TestCase
 {
     /**
      * Mirrors Java: PushSubscriptionSettingsTest.testToProtobuf
@@ -62,22 +64,22 @@ class SubscriptionSettingsTest
         $subscription->setSubscriptions([$entry]);
 
         // Verify
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $subscription->hasGroup(),
             "Subscription should have group"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'test-consumer-group',
             $subscription->getGroup()->getName(),
             "Group name should match"
         );
-        TestRunner::assertFalse(
+        $this->assertFalse(
             $subscription->getFifo(),
             "Push subscription should not be FIFO by default"
         );
 
         $entries = $subscription->getSubscriptions();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             is_iterable($entries) && iterator_count($entries) === 1,
             "Should have 1 subscription entry"
         );
@@ -85,12 +87,12 @@ class SubscriptionSettingsTest
         $subscription->setSubscriptions([$entry]);
 
         $firstEntry = iterator_to_array($subscription->getSubscriptions())[0];
-        TestRunner::assertEquals(
+        $this->assertEquals(
             FilterType::TAG,
             $firstEntry->getExpression()->getType(),
             "Expression type should be TAG"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'test-topic',
             $firstEntry->getTopic()->getName(),
             "Topic name should match"
@@ -122,12 +124,12 @@ class SubscriptionSettingsTest
         $subscription->setSubscriptions([$entry]);
 
         $firstEntry = iterator_to_array($subscription->getSubscriptions())[0];
-        TestRunner::assertEquals(
+        $this->assertEquals(
             FilterType::SQL,
             $firstEntry->getExpression()->getType(),
             "Expression type should be SQL"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '(a > 10 AND a < 100) OR (b IS NOT NULL AND b=TRUE)',
             $firstEntry->getExpression()->getExpression(),
             "SQL expression should match"
@@ -143,7 +145,7 @@ class SubscriptionSettingsTest
         $settings = new Settings();
         $settings->setClientType(ClientType::PUSH_CONSUMER);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ClientType::PUSH_CONSUMER,
             $settings->getClientType(),
             "ClientType should be PUSH_CONSUMER"
@@ -175,17 +177,17 @@ class SubscriptionSettingsTest
         $entry->setExpression($filterExpression);
         $subscription->setSubscriptions([$entry]);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'simple-consumer-group',
             $subscription->getGroup()->getName(),
             "Group name should match"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             32,
             $subscription->getReceiveBatchSize(),
             "Receive batch size should be 32"
         );
-        TestRunner::assertFalse(
+        $this->assertFalse(
             $subscription->getFifo(),
             "Simple subscription should not be FIFO"
         );
@@ -204,11 +206,11 @@ class SubscriptionSettingsTest
         $subscription->setFifo(true);
         $subscription->setReceiveBatchSize(1);
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $subscription->getFifo(),
             "FIFO subscription should have fifo=true"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             $subscription->getReceiveBatchSize(),
             "FIFO receive batch size should be 1"
@@ -241,14 +243,14 @@ class SubscriptionSettingsTest
         $subscription->setSubscriptions($entries);
 
         $entryList = iterator_to_array($subscription->getSubscriptions());
-        TestRunner::assertEquals(
+        $this->assertEquals(
             3,
             count($entryList),
             "Should have 3 subscription entries"
         );
 
         for ($i = 0; $i < 3; $i++) {
-            TestRunner::assertEquals(
+            $this->assertEquals(
                 "topic-{$i}",
                 $entryList[$i]->getTopic()->getName(),
                 "Topic name at index {$i} should match"
@@ -264,7 +266,7 @@ class SubscriptionSettingsTest
         $resource = new Resource();
         $resource->setName('test-topic');
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'test-topic',
             $resource->getName(),
             "Resource name should match"
@@ -281,7 +283,7 @@ class SubscriptionSettingsTest
 
         // Default type is 0 (unspecified) - Java defaults to TAG
         $type = $filterExpression->getType();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             0,
             $type,
             "Default filter expression type should be 0 (unspecified)"
@@ -291,7 +293,7 @@ class SubscriptionSettingsTest
         $tagFilter = new FilterExpression();
         $tagFilter->setExpression('*');
         $tagFilter->setType(FilterType::TAG);
-        TestRunner::assertEquals(
+        $this->assertEquals(
             FilterType::TAG,
             $tagFilter->getType(),
             "Explicit filter type should be TAG"
@@ -310,7 +312,7 @@ class SubscriptionSettingsTest
         $subscription->setSubscriptions([]);
 
         $entries = iterator_to_array($subscription->getSubscriptions());
-        TestRunner::assertEquals(
+        $this->assertEquals(
             0,
             count($entries),
             "Empty subscriptions should have 0 entries"
@@ -331,11 +333,11 @@ class SubscriptionSettingsTest
         $settings->setClientType(ClientType::SIMPLE_CONSUMER);
         $settings->setSubscription($subscription);
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $settings->hasSubscription(),
             "Settings should have subscription"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ClientType::SIMPLE_CONSUMER,
             $settings->getClientType(),
             "ClientType should be SIMPLE_CONSUMER"
@@ -343,4 +345,3 @@ class SubscriptionSettingsTest
     }
 }
 
-TestRunner::run(new SubscriptionSettingsTest());

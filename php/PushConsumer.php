@@ -18,22 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-require_once __DIR__ . '/RpcClientManager.php';
-require_once __DIR__ . '/TelemetrySession.php';
-require_once __DIR__ . '/Logger.php';
-require_once __DIR__ . '/ConsumeResult.php';
-require_once __DIR__ . '/ConsumeResultSuspend.php';
-require_once __DIR__ . '/ProcessQueue.php';
-require_once __DIR__ . '/ConsumeService.php';
-require_once __DIR__ . '/LiteFifoConsumeService.php';
-require_once __DIR__ . '/Signature.php';
-require_once __DIR__ . '/ClientConstants.php';
-require_once __DIR__ . '/SwooleCompat.php';
-require_once __DIR__ . '/ClientTrait.php';
-require_once __DIR__ . '/ProtobufUtil.php';
-require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
-require_once __DIR__ . '/CustomizedBackoffRetryPolicy.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryAssignmentRequest;
@@ -73,35 +57,35 @@ class PushConsumer
 {
     use ClientTrait;
 
-    private $client;
-    protected $endpoints;
-    protected $clientId;
-    protected $consumerGroup;
-    protected $telemetrySession;
-    private $subscriptionExpressions = [];
-    private $cacheAssignments = [];
-    private $processQueueTable = [];
-    protected $consumeService = null;
-    protected $isRunning = false;
-    protected $shutdownRequested = false;
-    protected $logger;
+    private MessagingServiceClient $client;
+    protected string $endpoints;
+    protected string $clientId;
+    protected string $consumerGroup;
+    protected TelemetrySession $telemetrySession;
+    private array $subscriptionExpressions = [];
+    private array $cacheAssignments = [];
+    private array $processQueueTable = [];
+    protected ?ConsumeService $consumeService = null;
+    protected bool $isRunning = false;
+    protected bool $shutdownRequested = false;
+    protected Logger $logger;
 
     // Builder options
     protected $messageListener = null;
-    private $maxCacheMessageCount = 4096;
-    private $maxCacheMessageSizeInBytes = 67108864; // 64MB
-    private $awaitDuration = 30; // seconds
-    private $scanIntervalSeconds = 5;
-    private $fifo = false;
-    private $receiveBatchSize = 32;
-    protected $enableFifoConsumeAccelerator = false;
-    private $isLiteConsumer = false;
-    private $credentials = null; // SessionCredentials for AK/SK auth
-    private $namespace = '';
-    private $lastHeartbeatTime = 0;
+    private int $maxCacheMessageCount = 4096;
+    private int $maxCacheMessageSizeInBytes = 67108864; // 64MB
+    private int $awaitDuration = 30; // seconds
+    private int $scanIntervalSeconds = 5;
+    private bool $fifo = false;
+    private int $receiveBatchSize = 32;
+    protected bool $enableFifoConsumeAccelerator = false;
+    private bool $isLiteConsumer = false;
+    private ?SessionCredentials $credentials = null; // SessionCredentials for AK/SK auth
+    private string $namespace = '';
+    private int $lastHeartbeatTime = 0;
     private $shutdownDrainDeadline = null;
-    private $retryPolicy = null;
-    private $tlsCredentials = null;
+    private ?ExponentialBackoffRetryPolicy $retryPolicy = null;
+    private ?TlsCredentials $tlsCredentials = null;
 
     /**
      * Constructor with builder-style options.
@@ -110,7 +94,7 @@ class PushConsumer
      * @param string $consumerGroup Consumer group name
      * @param array $options Configuration options
      */
-    public function __construct($endpoints, $consumerGroup, $options = [])
+    public function __construct(string $endpoints, string $consumerGroup, array $options = [])
     {
         $this->endpoints = $endpoints;
         if (empty($consumerGroup)) {
@@ -154,7 +138,7 @@ class PushConsumer
      * @param string $expression Filter expression (default "*")
      * @return $this
      */
-    public function subscribe($topic, $expression = '*')
+    public function subscribe(string $topic, string $expression = '*'): self
     {
         if ($this->isRunning) {
             // Dynamic runtime subscription: update subscription expressions
@@ -166,7 +150,7 @@ class PushConsumer
         return $this;
     }
 
-    public function getRetryPolicy()
+    public function getRetryPolicy(): ?ExponentialBackoffRetryPolicy
     {
         return $this->retryPolicy;
     }
@@ -174,7 +158,7 @@ class PushConsumer
     /**
      * Unsubscribe from a topic.
      */
-    public function unsubscribe($topic)
+    public function unsubscribe(string $topic): self
     {
         if ($this->isRunning) {
             // Dynamic runtime unsubscription
@@ -212,7 +196,7 @@ class PushConsumer
     /**
      * Start the PushConsumer. Blocks in the main polling loop.
      */
-    public function start()
+    public function start(): void
     {
         if ($this->isRunning) {
             return;
@@ -413,34 +397,85 @@ class PushConsumer
 
         $this->logger->info("PushConsumer drain phase: waiting for in-flight messages to be consumed");
 
-        // Stop fetching new messages
+        // Step 1: Mark all queues as dropped to stop fetching NEW messages
+        // This prevents new messages from being added to the cache
         foreach ($this->processQueueTable as $pq) {
             $pq->drop();
         }
 
-        // Drain cached messages
+        // Step 2: Wait for cached messages to be consumed
+        // Note: ConsumeService checks isDropped() at the START of consume(),
+        // but since we call it AFTER drop(), it will skip consumption.
+        // Solution: Manually iterate and consume cached messages here,
+        // bypassing the isDropped() check in ConsumeService.
         while (microtime(true) - $drainStart < $drainTimeout) {
             $remainingCount = 0;
+            $activeQueues = 0;
 
             foreach ($this->processQueueTable as $pq) {
                 $messages = $pq->getCachedMessages();
-                $remainingCount += count($messages);
+                $cachedCount = count($messages);
+                $remainingCount += $cachedCount;
 
-                if (!empty($messages) && $this->consumeService !== null) {
-                    $this->consumeService->consume($pq);
+                if ($cachedCount > 0 && $this->consumeService !== null) {
+                    $activeQueues++;
+                    
+                    // Manually consume each cached message, bypassing isDropped() check
+                    // We copy the list first to avoid modification during iteration
+                    $toConsume = array_values($messages);
+                    foreach ($toConsume as $messageView) {
+                        // Skip if already evicted
+                        if (!in_array($messageView, $pq->getCachedMessages(), true)) {
+                            continue;
+                        }
+                        
+                        try {
+                            // Call the message listener directly
+                            $result = $this->consumeService->consumeMessage($messageView);
+                            
+                            // Handle result
+                            if ($result === \Apache\Rocketmq\ConsumeResult::SUCCESS) {
+                                $this->consumeService->ackMessage($messageView);
+                            } else {
+                                $this->consumeService->nackMessage($messageView);
+                            }
+                            
+                            // Evict from cache
+                            $pq->evictMessage($messageView);
+                        } catch (\Exception $e) {
+                            $this->logger->error("Drain phase consume error: " . $e->getMessage());
+                            // On error, nack and evict
+                            try {
+                                $this->consumeService->nackMessage($messageView);
+                            } catch (\Exception $ackError) {
+                                $this->logger->warning("Failed to nack message during drain: " . $ackError->getMessage());
+                            }
+                            $pq->evictMessage($messageView);
+                        }
+                    }
                 }
             }
 
             if ($remainingCount === 0) {
-                $this->logger->info("PushConsumer drain phase completed after {$drainIterations} iterations");
+                $this->logger->info("PushConsumer drain phase completed after {$drainIterations} iterations, all messages consumed");
                 return;
             }
 
-            usleep(100000);
+            // Log progress every 50 iterations (~5 seconds)
+            if ($drainIterations % 50 === 0 && $drainIterations > 0) {
+                $elapsed = round(microtime(true) - $drainStart, 1);
+                $this->logger->info("PushConsumer drain progress: {$remainingCount} messages remaining in {$activeQueues} queues after {$elapsed}s");
+            }
+
+            usleep(100000); // 100ms
             $drainIterations++;
         }
 
-        $this->logger->warning("PushConsumer drain phase timed out after {$drainTimeout}s, {$remainingCount} messages remaining");
+        $remainingCount = 0;
+        foreach ($this->processQueueTable as $pq) {
+            $remainingCount += count($pq->getCachedMessages());
+        }
+        $this->logger->warning("PushConsumer drain phase timed out after {$drainTimeout}s, {$remainingCount} messages remaining in " . count($this->processQueueTable) . " queues");
     }
 
     /**

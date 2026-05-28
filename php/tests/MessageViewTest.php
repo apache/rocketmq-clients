@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../MessageView.php';
 require_once __DIR__ . '/../Logger.php';
 
@@ -26,7 +28,7 @@ use Apache\Rocketmq\MessageView;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 
-class MessageViewTest
+class MessageViewTest extends TestCase
 {
     private function createTestMessage()
     {
@@ -53,7 +55,7 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg);
 
-        TestRunner::assertEquals('test-topic', $view->getTopic(), "Topic should match");
+        $this->assertEquals('test-topic', $view->getTopic(), "Topic should match");
     }
 
     public function testGetBody()
@@ -61,7 +63,7 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg);
 
-        TestRunner::assertEquals('test body content', $view->getBody(), "Body should match");
+        $this->assertEquals('test body content', $view->getBody(), "Body should match");
     }
 
     public function testGetMessageId()
@@ -69,7 +71,7 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg);
 
-        TestRunner::assertEquals('test-msg-id-001', $view->getMessageId(), "Message ID should match");
+        $this->assertEquals('test-msg-id-001', $view->getMessageId(), "Message ID should match");
     }
 
     public function testGetTag()
@@ -77,7 +79,7 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg);
 
-        TestRunner::assertEquals('test-tag', $view->getTag(), "Tag should match");
+        $this->assertEquals('test-tag', $view->getTag(), "Tag should match");
     }
 
     public function testGetKeys()
@@ -86,8 +88,8 @@ class MessageViewTest
         $view = new MessageView($protoMsg);
 
         $keys = $view->getKeys();
-        TestRunner::assertEquals(1, count($keys), "Should have 1 key");
-        TestRunner::assertEquals('key1', $keys[0], "Key should match");
+        $this->assertEquals(1, count($keys), "Should have 1 key");
+        $this->assertEquals('key1', $keys[0], "Key should match");
     }
 
     public function testGetMessageGroup()
@@ -95,7 +97,7 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg);
 
-        TestRunner::assertEquals('test-group', $view->getMessageGroup(), "Message group should match");
+        $this->assertEquals('test-group', $view->getMessageGroup(), "Message group should match");
     }
 
     public function testGetReceiptHandle()
@@ -103,7 +105,7 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg, 'receipt-handle-abc');
 
-        TestRunner::assertEquals('receipt-handle-abc', $view->getReceiptHandle(), "Receipt handle should match");
+        $this->assertEquals('receipt-handle-abc', $view->getReceiptHandle(), "Receipt handle should match");
     }
 
     public function testGetDeliveryAttempt()
@@ -111,7 +113,7 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg, null, null, 3);
 
-        TestRunner::assertEquals(3, $view->getDeliveryAttempt(), "Delivery attempt should be 3");
+        $this->assertEquals(3, $view->getDeliveryAttempt(), "Delivery attempt should be 3");
     }
 
     public function testGetUserProperties()
@@ -119,8 +121,8 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg);
 
-        TestRunner::assertEquals('test', $view->getProperty('env'), "User property should match");
-        TestRunner::assertNull($view->getProperty('nonexistent'), "Non-existent property should be null");
+        $this->assertEquals('test', $view->getProperty('env'), "User property should match");
+        $this->assertNull($view->getProperty('nonexistent'), "Non-existent property should be null");
     }
 
     public function testIsFifo()
@@ -128,7 +130,7 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg);
 
-        TestRunner::assertTrue($view->isFifo(), "Should be FIFO when messageGroup is set");
+        $this->assertTrue($view->isFifo(), "Should be FIFO when messageGroup is set");
 
         // Non-FIFO message
         $topic = new Resource();
@@ -138,7 +140,7 @@ class MessageViewTest
         $normalMsg->setBody('normal body');
 
         $normalView = new MessageView($normalMsg);
-        TestRunner::assertFalse($normalView->isFifo(), "Should not be FIFO without messageGroup");
+        $this->assertFalse($normalView->isFifo(), "Should not be FIFO without messageGroup");
     }
 
     public function testToString()
@@ -147,11 +149,11 @@ class MessageViewTest
         $view = new MessageView($protoMsg);
 
         $str = (string)$view;
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($str, 'test-topic') !== false,
             "__toString should contain topic"
         );
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($str, 'test-msg-id-001') !== false,
             "__toString should contain message ID"
         );
@@ -162,12 +164,9 @@ class MessageViewTest
         $protoMsg = $this->createTestMessage();
         $view = new MessageView($protoMsg);
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $view->getMessage() === $protoMsg,
             "getMessage should return the original protobuf message"
         );
     }
 }
-
-echo "=== MessageViewTest ===\n";
-TestRunner::run(new MessageViewTest());

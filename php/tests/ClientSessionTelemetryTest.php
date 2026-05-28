@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../TelemetrySession.php';
 require_once __DIR__ . '/../Logger.php';
 
@@ -31,7 +33,7 @@ use Apache\Rocketmq\V2\ClientType;
  * Tests for TelemetrySession lifecycle and behavior.
  * Mirrors Java's ClientSessionImplTest.
  */
-class ClientSessionTelemetryTest
+class ClientSessionTelemetryTest extends TestCase
 {
     public function setUp(): void
     {
@@ -52,8 +54,8 @@ class ClientSessionTelemetryTest
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session = TelemetrySession::getInstance($fakeClient, 'test-endpoints-1', 'test-client-1');
 
-        TestRunner::assertNotNull($session, "Session should not be null");
-        TestRunner::assertTrue($session->isSettingsSynced() === false, "New session should not be synced yet");
+        $this->assertNotNull($session, "Session should not be null");
+        $this->assertFalse($session->isSettingsSynced(), "New session should not be synced yet");
     }
 
     /**
@@ -65,7 +67,7 @@ class ClientSessionTelemetryTest
         $session1 = TelemetrySession::getInstance($fakeClient, 'test-endpoints-2', 'client-2');
         $session2 = TelemetrySession::getInstance($fakeClient, 'test-endpoints-2', 'client-2');
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $session1 === $session2,
             "Same endpoints should return same session instance"
         );
@@ -80,7 +82,7 @@ class ClientSessionTelemetryTest
         $session1 = TelemetrySession::getInstance($fakeClient, 'test-endpoints-3', 'client-3');
         $session2 = TelemetrySession::getInstance($fakeClient, 'test-endpoints-4', 'client-4');
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $session1 !== $session2,
             "Different endpoints should return different session instances"
         );
@@ -98,8 +100,8 @@ class ClientSessionTelemetryTest
         $command = new TelemetryCommand();
         $command->setSettings($settings);
 
-        TestRunner::assertTrue($command->hasSettings(), "Command should have settings");
-        TestRunner::assertEquals(
+        $this->assertTrue($command->hasSettings(), "Command should have settings");
+        $this->assertEquals(
             ClientType::PUSH_CONSUMER,
             $command->getSettings()->getClientType(),
             "Settings client type should match"
@@ -114,7 +116,7 @@ class ClientSessionTelemetryTest
     {
         $command = new TelemetryCommand();
 
-        TestRunner::assertFalse($command->hasSettings(), "Empty command should not have settings");
+        $this->assertFalse($command->hasSettings(), "Empty command should not have settings");
     }
 
     /**
@@ -129,7 +131,7 @@ class ClientSessionTelemetryTest
         // After close, getInstance should create a new instance
         $newSession = TelemetrySession::getInstance($fakeClient, 'test-endpoints-5', 'client-5');
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $session !== $newSession,
             "After close, new getInstance should create a new session"
         );
@@ -150,7 +152,7 @@ class ClientSessionTelemetryTest
         // Without a real stream, writeSync should return false
         $result = $session->writeSync($command);
 
-        TestRunner::assertFalse($result, "writeSync without stream should return false");
+        $this->assertFalse($result, "writeSync without stream should return false");
     }
 
     /**
@@ -161,7 +163,7 @@ class ClientSessionTelemetryTest
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session = TelemetrySession::getInstance($fakeClient, 'test-endpoints-7', 'my-custom-client-id');
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'my-custom-client-id',
             $session->getClientId(),
             "ClientId should match what was passed to getInstance"
@@ -177,8 +179,8 @@ class ClientSessionTelemetryTest
         $fakeClient = new FakeMessagingClientForTelemetry();
         $session = TelemetrySession::getInstance($fakeClient, 'test-endpoints-8', 'client-8');
 
-        TestRunner::assertFalse($session->isSettingsSynced(), "Initial settingsSynced should be false");
-        TestRunner::assertNull($session->getSettingsError(), "Initial settingsError should be null");
+        $this->assertFalse($session->isSettingsSynced(), "Initial settingsSynced should be false");
+        $this->assertNull($session->getSettingsError(), "Initial settingsError should be null");
     }
 
     /**
@@ -191,7 +193,7 @@ class ClientSessionTelemetryTest
 
         for ($i = 0; $i < 5; $i++) {
             $session = TelemetrySession::getInstance($fakeClient, "test-endpoints-loop-{$i}", "client-loop-{$i}");
-            TestRunner::assertNotNull($session, "Session {$i} should be created");
+            $this->assertNotNull($session, "Session {$i} should be created");
             $session->close();
         }
     }
@@ -199,20 +201,26 @@ class ClientSessionTelemetryTest
 
 /**
  * Fake gRPC MessagingServiceClient for telemetry tests.
+ * Implements minimal interface to satisfy type hints.
  */
-class FakeMessagingClientForTelemetry
-{
+class FakeMessagingClientForTelemetry {
+    private $stream;
+    
+    public function __construct($stream = null)
+    {
+        $this->stream = $stream ?: new FakeTelemetryStream();
+    }
+    
     public function Telemetry($metadata = [])
     {
-        return new FakeTelemetryStream();
+        return $this->stream;
     }
 }
 
 /**
  * Fake telemetry stream.
  */
-class FakeTelemetryStream
-{
+class FakeTelemetryStream {
     public function write($command) { return false; }
     public function flush() {}
     public function responses() { return []; }
@@ -220,4 +228,3 @@ class FakeTelemetryStream
     public function writesDone() {}
 }
 
-TestRunner::run(new ClientSessionTelemetryTest());

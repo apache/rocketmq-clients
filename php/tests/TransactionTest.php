@@ -18,20 +18,19 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../Producer.php';
 
 use Apache\Rocketmq\Transaction;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SystemProperties;
-use Apache\Rocketmq\Test\TestRunner;
-
 /**
  * Fake producer for transaction testing without network calls.
  */
-class FakeProducerForTransaction
-{
+class FakeProducerForTransaction {
     public $commitCalls = [];
     public $rollbackCalls = [];
 
@@ -54,7 +53,7 @@ class FakeProducerForTransaction
     }
 }
 
-class TransactionTest
+class TransactionTest extends TestCase
 {
     public function testTryAddMessage()
     {
@@ -68,7 +67,7 @@ class TransactionTest
         $message->setBody('test body');
 
         $transaction->tryAddMessage($message);
-        TestRunner::assertTrue(true, "Message should be added to transaction");
+        $this->assertTrue(true, "Message should be added to transaction");
     }
 
     public function testTryAddReceipt()
@@ -90,7 +89,7 @@ class TransactionTest
         ];
 
         $transaction->tryAddReceipt($message, $sendResult);
-        TestRunner::assertTrue(true, "Receipt should be recorded");
+        $this->assertTrue(true, "Receipt should be recorded");
     }
 
     public function testCommit()
@@ -113,17 +112,17 @@ class TransactionTest
         $transaction->tryAddReceipt($message, $sendResult);
         $transaction->commit();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Commit should be called once"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'test-msg-id-1',
             $fakeProducer->commitCalls[0]['messageId'],
             "Commit should use the correct message ID"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'test-tx-id-1',
             $fakeProducer->commitCalls[0]['transactionId'],
             "Commit should use the correct transaction ID"
@@ -150,12 +149,12 @@ class TransactionTest
         $transaction->tryAddReceipt($message, $sendResult);
         $transaction->rollback();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             count($fakeProducer->rollbackCalls),
             "Rollback should be called once"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'test-msg-id-2',
             $fakeProducer->rollbackCalls[0]['messageId'],
             "Rollback should use the correct message ID"
@@ -179,11 +178,10 @@ class TransactionTest
         $transaction->commit();
 
         // After commit, second commit throws because receipts are cleared
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($transaction) {
-            $transaction->commit();
-        }, "Second commit should throw (receipts cleared after first)");
+        $this->expectException(\RuntimeException::class);
+        $transaction->commit();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Only one commit should have been recorded"
@@ -210,7 +208,7 @@ class TransactionTest
 
         $transaction->commit();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Should commit 1 message"
@@ -218,4 +216,3 @@ class TransactionTest
     }
 }
 
-TestRunner::run(new TransactionTest());

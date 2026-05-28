@@ -18,16 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-require_once __DIR__ . '/RpcClientManager.php';
-require_once __DIR__ . '/TelemetrySession.php';
-require_once __DIR__ . '/Logger.php';
-require_once __DIR__ . '/Signature.php';
-require_once __DIR__ . '/ClientConstants.php';
-require_once __DIR__ . '/ClientTrait.php';
-require_once __DIR__ . '/SwooleCompat.php';
-require_once __DIR__ . '/ProtobufUtil.php';
-require_once __DIR__ . '/SubscriptionLoadBalancer.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -60,27 +50,27 @@ class SimpleConsumer
 {
     use ClientTrait;
 
-    private $client;
-    private $endpoints;
-    private $clientId;
-    private $consumerGroup;
-    private $telemetrySession;
-    private $subscriptions = [];
-    private $isStarted = false;
-    private $logger;
-    private $credentials = null;
-    private $namespace = '';
-    private $requestTimeout = 3000; // ms
-    private $interceptors = [];
+    private MessagingServiceClient $client;
+    private string $endpoints;
+    private string $clientId;
+    private string $consumerGroup;
+    private TelemetrySession $telemetrySession;
+    private array $subscriptions = [];
+    private bool $isStarted = false;
+    private Logger $logger;
+    private ?SessionCredentials $credentials = null;
+    private string $namespace = '';
+    private int $requestTimeout = 3000; // ms
+    private array $interceptors = [];
     private $parsedEndpoints = null;
-    private $awaitDuration = 30; // seconds
-    private $lastHeartbeatTime = 0;
-    private $brokerClients = [];
-    private $subscriptionRouteDataCache = [];
-    private $topicIndex = 0;
+    private int $awaitDuration = 30; // seconds
+    private int $lastHeartbeatTime = 0;
+    private array $brokerClients = [];
+    private array $subscriptionRouteDataCache = [];
+    private int $topicIndex = 0;
     private $heartbeatCoroutineId = null;
-    private $tlsCredentials = null;
-    private $heartbeatInProgress = false;
+    private ?TlsCredentials $tlsCredentials = null;
+    private bool $heartbeatInProgress = false;
 
     /**
      * Constructor
@@ -89,7 +79,7 @@ class SimpleConsumer
      * @param string $consumerGroup Consumer group name
      * @param array $options Configuration options
      */
-    public function __construct($endpoints, $consumerGroup, $options = [])
+    public function __construct(string $endpoints, string $consumerGroup, array $options = [])
     {
         $this->endpoints = $endpoints;
         $this->consumerGroup = $consumerGroup;
@@ -121,7 +111,7 @@ class SimpleConsumer
      * @param string $expression Filter expression (default "*")
      * @return $this
      */
-    public function subscribe($topic, $expression = '*')
+    public function subscribe(string $topic, string $expression = '*'): self
     {
         $this->subscriptions[$topic] = $expression;
         return $this;
@@ -133,7 +123,7 @@ class SimpleConsumer
      * @param string $topic Topic name
      * @return $this
      */
-    public function unsubscribe($topic)
+    public function unsubscribe(string $topic): self
     {
         unset($this->subscriptions[$topic]);
         return $this;
@@ -144,7 +134,7 @@ class SimpleConsumer
      *
      * @return array
      */
-    public function getSubscriptionExpressions()
+    public function getSubscriptionExpressions(): array
     {
         return $this->subscriptions;
     }
@@ -152,7 +142,7 @@ class SimpleConsumer
     /**
      * Start the consumer
      */
-    public function start()
+    public function start(): void
     {
         if ($this->isStarted) {
             return;
@@ -179,8 +169,21 @@ class SimpleConsumer
     {
         $now = time();
         if ($now - $this->lastHeartbeatTime >= 10) {
-            $this->doHeartbeat();
-            $this->lastHeartbeatTime = $now;
+            // Check concurrency guard before sending heartbeat
+            if ($this->heartbeatInProgress) {
+                $this->logger->debug("Heartbeat already in progress, skipping this tick");
+                return;
+            }
+            
+            $this->heartbeatInProgress = true;
+            try {
+                $this->doHeartbeat();
+                $this->lastHeartbeatTime = $now;
+            } catch (\Throwable $e) {
+                $this->logger->warning("Heartbeat tick failed: " . $e->getMessage());
+            } finally {
+                $this->heartbeatInProgress = false;
+            }
         }
     }
 
@@ -189,6 +192,12 @@ class SimpleConsumer
      */
     public function doHeartbeat()
     {
+        // Double-check concurrency guard
+        if ($this->heartbeatInProgress) {
+            $this->logger->warning("Heartbeat already in progress, aborting duplicate call");
+            return;
+        }
+
         $request = new HeartbeatRequest();
         $request->setClientType(ClientType::SIMPLE_CONSUMER);
         $groupResource = new Resource();
@@ -334,10 +343,20 @@ class SimpleConsumer
             'messageCount' => count($messages),
         ]);
 
+        // Periodic heartbeat with concurrency guard
         $now = time();
         if ($now - $this->lastHeartbeatTime >= 10) {
-            $this->doHeartbeat();
-            $this->lastHeartbeatTime = $now;
+            if (!$this->heartbeatInProgress) {
+                $this->heartbeatInProgress = true;
+                try {
+                    $this->doHeartbeat();
+                    $this->lastHeartbeatTime = $now;
+                } catch (\Throwable $e) {
+                    $this->logger->warning("Receive-triggered heartbeat failed: " . $e->getMessage());
+                } finally {
+                    $this->heartbeatInProgress = false;
+                }
+            }
         }
         return $messages;
     }
@@ -711,21 +730,28 @@ class SimpleConsumer
     {
         $this->doHeartbeat();
         $this->lastHeartbeatTime = time();
+        
         if (function_exists('pcntl_signal')) {
             $self = $this;
             pcntl_signal(SIGALRM, function () use ($self) {
+                // Concurrency guard: prevent reentrant heartbeat
                 if ($self->heartbeatInProgress) {
+                    $self->logger->debug("SIGALRM received but heartbeat already in progress, skipping");
                     $self->scheduleNextHeartbeat();
                     return;
                 }
+                
                 $self->heartbeatInProgress = true;
                 try {
                     $self->doHeartbeat();
+                    $self->lastHeartbeatTime = time();
+                } catch (\Throwable $e) {
+                    $self->logger->warning("SIGALRM heartbeat failed: " . $e->getMessage());
                 } finally {
                     $self->heartbeatInProgress = false;
                     $self->scheduleNextHeartbeat();
                 }
-            });
+            }, true); // restart = true to handle nested signals
         }
 
         // Schedule recurring heartbeat
@@ -752,13 +778,29 @@ class SimpleConsumer
             $this->logger->info("Swoole coroutine heartbeat stopped, coroutine_id=" . $this->heartbeatCoroutineId);
             $this->heartbeatCoroutineId = null;
         }
+        
+        // Cancel pending alarm
         if (function_exists('pcntl_alarm')) {
             pcntl_alarm(0);
         }
+        
+        // Reset signal handler to default
         if (function_exists('pcntl_signal')) {
             pcntl_signal(SIGALRM, SIG_DFL);
         }
-        $this->logger->debug("Heartbeat timer stopped");
+        
+        // Wait for any in-progress heartbeat to complete
+        $waitCount = 0;
+        while ($this->heartbeatInProgress && $waitCount < 10) {
+            usleep(10000); // Wait 10ms
+            $waitCount++;
+        }
+        
+        if ($this->heartbeatInProgress) {
+            $this->logger->warning("Heartbeat still in progress after waiting, forcing shutdown");
+        } else {
+            $this->logger->debug("Heartbeat timer stopped cleanly");
+        }
     }
 
     /**
@@ -861,6 +903,16 @@ class SimpleConsumer
     public function getConsumerGroup()
     {
         return $this->consumerGroup;
+    }
+
+    /**
+     * Check if heartbeat is currently in progress.
+     *
+     * @return bool
+     */
+    public function isHeartbeatInProgress(): bool
+    {
+        return $this->heartbeatInProgress;
     }
 
     /**

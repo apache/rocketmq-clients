@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../Logger.php';
 require_once __DIR__ . '/../ConsumeResult.php';
@@ -41,7 +43,7 @@ use Apache\Rocketmq\V2\SystemProperties;
  * Mirrors Java's ConsumeTaskTest which tests that listener exceptions
  * are caught and converted to ConsumeResult.FAILURE.
  */
-class ConsumeTaskTest
+class ConsumeTaskTest extends TestCase
 {
     public function setUp(): void
     {
@@ -63,12 +65,12 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('test-topic', 'success-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "Successful consume should return SUCCESS"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             $consumeCount,
             "Listener should be called exactly once"
@@ -88,7 +90,7 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('test-topic', 'error-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Listener exception should return FAILURE"
@@ -109,12 +111,12 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('fifo-topic', 'fifo-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "FIFO consume success should return SUCCESS"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             $consumeCount,
             "FIFO listener should be called once"
@@ -133,7 +135,7 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('fifo-topic', 'fifo-error-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "FIFO listener exception should return FAILURE"
@@ -156,12 +158,12 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('verify-topic', 'verify-body-content');
         $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'verify-body-content',
             $receivedBody,
             "Listener should receive correct message body"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'verify-topic',
             $receivedTopic,
             "Listener should receive correct topic"
@@ -180,7 +182,7 @@ class ConsumeTaskTest
         $msg = $this->buildMessageView('test-topic', 'error-body');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Listener Error should also return FAILURE"
@@ -278,4 +280,3 @@ class TestableFifoConsumeService extends FifoConsumeService
     }
 }
 
-TestRunner::run(new ConsumeTaskTest());

@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../Producer.php';
 require_once __DIR__ . '/../RpcClientManager.php';
 require_once __DIR__ . '/../Logger.php';
@@ -32,7 +34,7 @@ use Apache\Rocketmq\V2\Resource;
  * Tests for Producer validation rules.
  * Mirrors Java's ProducerBuilderImplTest.
  */
-class ProducerValidationTest
+class ProducerValidationTest extends TestCase
 {
     public function setUp(): void
     {
@@ -49,7 +51,7 @@ class ProducerValidationTest
         // Producer doesn't validate endpoints at construction in PHP.
         // The gRPC channel is created lazily. We just verify construction works.
         $producer = new Producer('', []);
-        TestRunner::assertNotNull($producer, "Producer object should be created");
+        $this->assertNotNull($producer, "Producer object should be created");
         // Cleanup: shutdown is safe since isRunning is false
     }
 
@@ -66,9 +68,8 @@ class ProducerValidationTest
         $ref->setValue($producer, true);
 
         $message = new Message();
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($producer, $message) {
-            $producer->send($message);
-        }, "Message with null topic should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        $producer->send($message);
     }
 
     /**
@@ -86,9 +87,8 @@ class ProducerValidationTest
         $tabTopic = new Resource();
         $tabTopic->setName("\t");
         $message->setTopic($tabTopic);
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($producer, $message) {
-            $producer->send($message);
-        }, "Message with illegal topic should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        $producer->send($message);
     }
 
     /**
@@ -108,9 +108,8 @@ class ProducerValidationTest
         $message = new Message();
         $message->setTopic($validTopic);
         // No body set - should throw for body validation
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($producer, $message) {
-            $producer->send($message);
-        }, "Message body should be validated");
+        $this->expectException(\InvalidArgumentException::class);
+        $producer->send($message);
     }
 
     /**
@@ -119,11 +118,10 @@ class ProducerValidationTest
      */
     public function testNegativeMaxAttempts()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            new Producer('127.0.0.1:9876', [
+        $this->expectException(\InvalidArgumentException::class);
+        new Producer('127.0.0.1:9876', [
                 'maxAttempts' => -1,
             ]);
-        }, "Negative maxAttempts should be rejected");
     }
 
     /**
@@ -139,7 +137,7 @@ class ProducerValidationTest
         $ref = new \ReflectionProperty($producer, 'maxAttempts');
         $ref->setAccessible(true);
         $actual = $ref->getValue($producer);
-        TestRunner::assertEquals(3, $actual, "maxAttempts should be 3");
+        $this->assertEquals(3, $actual, "maxAttempts should be 3");
     }
 
     /**
@@ -152,9 +150,8 @@ class ProducerValidationTest
         // Producer not running should throw
         $producer = new Producer('127.0.0.1:9876');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
-            $producer->beginTransaction();
-        }, "beginTransaction should throw when producer is not running");
+        $this->expectException(\RuntimeException::class);
+        $producer->beginTransaction();
     }
 
     /**
@@ -173,7 +170,7 @@ class ProducerValidationTest
         $producer->setTransactionChecker($checker);
 
         $tx = $producer->beginTransaction();
-        TestRunner::assertNotNull($tx, "beginTransaction should return a transaction");
+        $this->assertNotNull($tx, "beginTransaction should return a transaction");
     }
 
     /**
@@ -185,7 +182,7 @@ class ProducerValidationTest
     {
         // Empty endpoints: construction succeeds, connection fails lazily
         $producer = new Producer('');
-        TestRunner::assertNotNull($producer, "Producer object should be created even with empty endpoints");
+        $this->assertNotNull($producer, "Producer object should be created even with empty endpoints");
     }
 
     /**
@@ -200,9 +197,8 @@ class ProducerValidationTest
         $topic->setName('test-topic');
         $message->setTopic($topic);
         $message->setBody('hello');
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer, $message) {
-            $producer->send($message);
-        }, "send should throw when producer is not running");
+        $this->expectException(\RuntimeException::class);
+        $producer->send($message);
     }
 
     /**
@@ -212,9 +208,8 @@ class ProducerValidationTest
     {
         $producer = new Producer('127.0.0.1:9876');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
-            $producer->recallMessage('test-topic', 'handle-123');
-        }, "recallMessage should throw when producer is not running");
+        $this->expectException(\RuntimeException::class);
+        $producer->recallMessage('test-topic', 'handle-123');
     }
 
     /**
@@ -233,9 +228,8 @@ class ProducerValidationTest
         $message->setTopic($topic);
         $message->setBody('body');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer, $message) {
-            $producer->send($message);
-        }, "send before startup should throw");
+        $this->expectException(\RuntimeException::class);
+        $producer->send($message);
     }
 
     /**
@@ -245,9 +239,8 @@ class ProducerValidationTest
     {
         $producer = new Producer('127.0.0.1:9876');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
-            $producer->beginTransaction();
-        }, "beginTransaction should throw when not running");
+        $this->expectException(\RuntimeException::class);
+        $producer->beginTransaction();
     }
 
     /**
@@ -257,11 +250,10 @@ class ProducerValidationTest
     {
         $producer = new Producer('127.0.0.1:9876');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
-            foreach ($producer->recallMessageAsync('test-topic', 'handle') as $result) {
-                // generator execution will trigger the throw
-            }
-        }, "recallMessageAsync should throw when not running");
+        $this->expectException(\RuntimeException::class);
+        foreach ($producer->recallMessageAsync('test-topic', 'handle') as $result) {
+            // generator execution will trigger the throw
+        }
     }
 
     /**
@@ -282,9 +274,8 @@ class ProducerValidationTest
         // 4MB + 1 byte
         $message->setBody(str_repeat('x', 4 * 1024 * 1024 + 1));
 
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($producer, $message) {
-            $producer->send($message);
-        }, "Oversized message should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        $producer->send($message);
     }
 
     /**
@@ -294,9 +285,8 @@ class ProducerValidationTest
     {
         $producer = new Producer('127.0.0.1:9876');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
-            $producer->sendFifoMessage('test-topic', 'body', 'group-1');
-        }, "sendFifoMessage should throw when not running");
+        $this->expectException(\RuntimeException::class);
+        $producer->sendFifoMessage('test-topic', 'body', 'group-1');
     }
 
     /**
@@ -306,9 +296,8 @@ class ProducerValidationTest
     {
         $producer = new Producer('127.0.0.1:9876');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
-            $producer->sendPriorityMessage('test-topic', 'body', 1);
-        }, "sendPriorityMessage should throw when not running");
+        $this->expectException(\RuntimeException::class);
+        $producer->sendPriorityMessage('test-topic', 'body', 1);
     }
 
     /**
@@ -318,9 +307,8 @@ class ProducerValidationTest
     {
         $producer = new Producer('127.0.0.1:9876');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($producer) {
-            $producer->sendDelayedMessage('test-topic', 'body', time() + 3600);
-        }, "sendDelayedMessage should throw when not running");
+        $this->expectException(\RuntimeException::class);
+        $producer->sendDelayedMessage('test-topic', 'body', time() + 3600);
     }
 
     /**
@@ -332,7 +320,7 @@ class ProducerValidationTest
 
         // Should not throw
         $producer->shutdown();
-        TestRunner::assertFalse($producer->isRunning(), "Producer should not be running after shutdown");
+        $this->assertFalse($producer->isRunning(), "Producer should not be running after shutdown");
     }
 
     /**
@@ -344,7 +332,7 @@ class ProducerValidationTest
             'clientId' => 'my-test-producer',
         ]);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'my-test-producer',
             $producer->getClientId(),
             "ClientId should match configured value"
@@ -363,4 +351,3 @@ class FakeTransactionChecker implements \Apache\Rocketmq\TransactionChecker
     }
 }
 
-TestRunner::run(new ProducerValidationTest());

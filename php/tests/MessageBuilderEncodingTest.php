@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../MessageBuilder.php';
 require_once __DIR__ . '/../Utilities.php';
 
@@ -28,7 +30,7 @@ use Apache\Rocketmq\Utilities;
 /**
  * Tests for MessageBuilder::setEncoding compression integration.
  */
-class MessageBuilderEncodingTest
+class MessageBuilderEncodingTest extends TestCase
 {
     private $topic = 'test_topic';
     private $body = 'Hello, RocketMQ!';
@@ -40,7 +42,7 @@ class MessageBuilderEncodingTest
             ->setBody($this->body)
             ->build();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $message->getBody(),
             "Message body should be unchanged when no encoding is set"
@@ -56,13 +58,13 @@ class MessageBuilderEncodingTest
             ->build();
 
         $encodedBody = $message->getBody();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $encodedBody !== $this->body,
             "GZIP-encoded body should differ from original"
         );
 
         $decompressed = Utilities::decompressBytes($encodedBody, Utilities::ENCODING_GZIP);
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $decompressed,
             "GZIP-encoded body should decompress back to original"
@@ -78,13 +80,13 @@ class MessageBuilderEncodingTest
             ->build();
 
         $encodedBody = $message->getBody();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $encodedBody !== $this->body,
             "ZLIB-encoded body should differ from original"
         );
 
         $decompressed = Utilities::decompressBytes($encodedBody, Utilities::ENCODING_ZLIB);
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $decompressed,
             "ZLIB-encoded body should decompress back to original"
@@ -99,7 +101,7 @@ class MessageBuilderEncodingTest
             ->setEncoding(Utilities::ENCODING_IDENTITY_STR)
             ->build();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $message->getBody(),
             "IDENTITY encoding should leave body unchanged"
@@ -113,12 +115,9 @@ class MessageBuilderEncodingTest
             ->setBody($this->body)
             ->setEncoding(Utilities::ENCODING_GZIP_STR);
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $result instanceof MessageBuilder,
             "setEncoding should return the builder for chaining"
         );
     }
 }
-
-echo "=== MessageBuilderEncodingTest ===\n";
-TestRunner::run(new MessageBuilderEncodingTest());

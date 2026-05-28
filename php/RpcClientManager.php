@@ -18,23 +18,20 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-require_once __DIR__ . '/Logger.php';
-require_once __DIR__ . '/TlsCredentials.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Grpc\ChannelCredentials;
 
 class RpcClientManager
 {
-    private static $instance = null;
+    private static ?self $instance = null;
 
-    private $clients = [];
-    private $clientLastUsedTime = [];
-    private $idleTimeoutSeconds = 1800; // 30 minutes
-    private $checkIntervalSeconds = 60; // 1 minute
-    private $lastCheckTime = 0;
-    private $logger;
+    private array $clients = [];
+    private array $clientLastUsedTime = [];
+    private int $idleTimeoutSeconds = 1800; // 30 minutes
+    private int $checkIntervalSeconds = 60; // 1 minute
+    private int $lastCheckTime = 0;
+    private Logger $logger;
 
     private function __construct()
     {
@@ -42,7 +39,7 @@ class RpcClientManager
         $this->lastCheckTime = time();
     }
 
-    public static function getInstance()
+    public static function getInstance(): self
     {
         if (self::$instance === null) {
             self::$instance = new self();
@@ -50,7 +47,7 @@ class RpcClientManager
         return self::$instance;
     }
 
-    public static function reset()
+    public static function reset(): void
     {
         self::$instance = null;
     }
@@ -62,7 +59,7 @@ class RpcClientManager
      * @param array $options
      * @return MessagingServiceClient
      */
-    public function getClient($endpoints, $options = [])
+    public function getClient(string $endpoints, array $options = []): MessagingServiceClient
     {
         $credentials = $this->resolveCredentials($options);
         $key = $this->makeKey($endpoints, $options);
@@ -91,7 +88,7 @@ class RpcClientManager
      *
      * @param string $endpoints
      */
-    public function releaseClient($endpoints)
+    public function releaseClient(string $endpoints): void
     {
         $keysToRemove = [];
         foreach ($this->clients as $key => $client) {
@@ -110,7 +107,7 @@ class RpcClientManager
     /**
      * Release all client connections.
      */
-    public function releaseAll()
+    public function releaseAll(): void
     {
         $count = count($this->clients);
         $this->clients = [];
@@ -123,7 +120,7 @@ class RpcClientManager
      *
      * @return int
      */
-    public function getConnectionCount()
+    public function getConnectionCount(): int
     {
         return count($this->clients);
     }
@@ -131,7 +128,7 @@ class RpcClientManager
     /**
      * Clean up idle client connections.
      */
-    private function cleanupIdleClients()
+    private function cleanupIdleClients(): void
     {
         $now = time();
         $keysToRemove = [];
@@ -149,7 +146,7 @@ class RpcClientManager
         }
     }
 
-    private function makeKey($endpoints, $options)
+    private function makeKey(string $endpoints, array $options): string
     {
         $tlsFingerprint = 'insecure';
         if (isset($options['tlsCredentials']) && $options['tlsCredentials'] instanceof TlsCredentials) {

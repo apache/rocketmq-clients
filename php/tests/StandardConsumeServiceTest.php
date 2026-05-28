@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../ConsumeService.php';
 require_once __DIR__ . '/../Logger.php';
@@ -29,8 +31,7 @@ use Apache\Rocketmq\StandardConsumeService;
 /**
  * Fake message view for testing.
  */
-class FakeMessageView
-{
+class FakeMessageView {
     private $systemProperties;
     private $body;
     private $topic;
@@ -47,8 +48,7 @@ class FakeMessageView
     public function getTopic() { return $this->topic; }
 }
 
-class FakeSystemProps
-{
+class FakeSystemProps {
     private $receiptHandle;
     private $messageId;
 
@@ -64,8 +64,7 @@ class FakeSystemProps
     public function hasMessageId() { return $this->messageId !== null; }
 }
 
-class FakeTopic
-{
+class FakeTopic {
     private $name;
     public function __construct($name) { $this->name = $name; }
     public function getName() { return $this->name; }
@@ -75,8 +74,7 @@ class FakeTopic
 /**
  * Fake consumer for testing ConsumeService.
  */
-class FakeConsumerForConsume
-{
+class FakeConsumerForConsume {
     public $ackCalls = [];
     public $nackCalls = [];
     public $clientId = 'test-client-id';
@@ -104,7 +102,7 @@ class FakeConsumerForConsume
     }
 }
 
-class StandardConsumeServiceTest
+class StandardConsumeServiceTest extends TestCase
 {
     public function setUp(): void
     {
@@ -132,7 +130,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $result = $method->invoke($service, $msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "consumeMessage should return SUCCESS when listener returns SUCCESS"
@@ -155,7 +153,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $result = $method->invoke($service, $msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "consumeMessage should return FAILURE when listener returns FAILURE"
@@ -178,7 +176,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $result = $method->invoke($service, $msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "consumeMessage should return FAILURE when listener throws exception"
@@ -199,7 +197,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $handle = $method->invoke($service, $msgWithHandle);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'receipt-handle-123',
             $handle,
             "Should extract receipt handle from message"
@@ -220,7 +218,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $id = $method->invoke($service, $msgWithId);
 
-        TestRunner::assertEquals('msg-id-456', $id, "Should extract message ID");
+        $this->assertEquals('msg-id-456', $id, "Should extract message ID");
     }
 
     public function testExtractTopic()
@@ -237,8 +235,7 @@ class StandardConsumeServiceTest
         $method->setAccessible(true);
         $topic = $method->invoke($service, $msg);
 
-        TestRunner::assertEquals('my-test-topic', $topic, "Should extract topic name");
+        $this->assertEquals('my-test-topic', $topic, "Should extract topic name");
     }
 }
 
-TestRunner::run(new StandardConsumeServiceTest());

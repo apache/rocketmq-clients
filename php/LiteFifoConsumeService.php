@@ -18,9 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/ConsumeService.php';
-require_once __DIR__ . '/ProcessQueue.php';
-
 /**
  * LiteFifoConsumeService - FIFO consume service for lite consumers.
  *

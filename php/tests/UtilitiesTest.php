@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../Utilities.php';
 
 use Apache\Rocketmq\Utilities;
@@ -26,7 +28,7 @@ use Apache\Rocketmq\Utilities;
 /**
  * Tests for utility functions (compression, checksums) via Utilities class.
  */
-class UtilitiesTest
+class UtilitiesTest extends TestCase
 {
     private $body = 'foobar';
 
@@ -35,7 +37,7 @@ class UtilitiesTest
         $compressed = Utilities::compressBytes($this->body, Utilities::ENCODING_ZLIB_STR);
         $original = Utilities::decompressBytes($compressed, Utilities::ENCODING_ZLIB);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $original,
             "ZLIB compress/decompress round-trip should restore original"
@@ -47,7 +49,7 @@ class UtilitiesTest
         $compressed = Utilities::compressBytes($this->body, Utilities::ENCODING_GZIP_STR);
         $original = Utilities::decompressBytes($compressed, Utilities::ENCODING_GZIP);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $original,
             "GZIP compress/decompress round-trip should restore original"
@@ -60,7 +62,7 @@ class UtilitiesTest
         $compressed = gzdeflate($bytes, 5);
         $original = gzinflate($compressed);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $original,
             "DEFLATE compress/decompress round-trip should restore original"
@@ -69,7 +71,7 @@ class UtilitiesTest
 
     public function testDecompressCorruptData()
     {
-        TestRunner::assertFalse(
+        $this->assertFalse(
             @gzuncompress('this-is-not-valid-compressed-data'),
             "Decompressing corrupt data should return false"
         );
@@ -79,7 +81,7 @@ class UtilitiesTest
     {
         $result = Utilities::crc32CheckSum($this->body);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '9EF61F95',
             $result,
             "CRC32 of 'foobar' should be 9EF61F95"
@@ -90,7 +92,7 @@ class UtilitiesTest
     {
         $result = Utilities::md5CheckSum($this->body);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '3858F62230AC3C915F300C664312C63F',
             $result,
             "MD5 of 'foobar' should be 3858F62230AC3C915F300C664312C63F"
@@ -101,7 +103,7 @@ class UtilitiesTest
     {
         $result = Utilities::sha1CheckSum($this->body);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '8843D7F92416211DE9EBB963FF4CE28125932878',
             $result,
             "SHA1 of 'foobar' should be 8843D7F92416211DE9EBB963FF4CE28125932878"
@@ -113,7 +115,7 @@ class UtilitiesTest
         $md5Upper = Utilities::md5CheckSum($this->body);
         $md5Lower = strtolower(Utilities::md5CheckSum($this->body));
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strcasecmp($md5Upper, $md5Lower) === 0,
             "MD5 hex should be case-insensitive equivalent"
         );
@@ -124,7 +126,7 @@ class UtilitiesTest
         $crc1 = Utilities::crc32CheckSum('hello');
         $crc2 = Utilities::crc32CheckSum('world');
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $crc1 !== $crc2,
             "Different inputs should produce different CRC32 checksums"
         );
@@ -133,7 +135,7 @@ class UtilitiesTest
     public function testStackTrace()
     {
         $stackTrace = debug_backtrace();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             is_array($stackTrace) && count($stackTrace) > 0,
             "Stack trace should be a non-empty array"
         );
@@ -142,7 +144,7 @@ class UtilitiesTest
     public function testPhpDescription()
     {
         $description = PHP_VERSION;
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strlen($description) > 0,
             "PHP version description should be non-empty"
         );
@@ -150,7 +152,7 @@ class UtilitiesTest
 
     public function testMaxIntValue()
     {
-        TestRunner::assertTrue(
+        $this->assertTrue(
             PHP_INT_MAX > 1000000000,
             "PHP_INT_MAX should support at least 1GB values"
         );
@@ -162,7 +164,7 @@ class UtilitiesTest
         $md5 = Utilities::md5CheckSum('');
         $sha1 = Utilities::sha1CheckSum('');
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $crc32 !== '' && $md5 !== '' && $sha1 !== '',
             "Empty string should still produce non-empty checksums"
         );
@@ -173,7 +175,7 @@ class UtilitiesTest
         $compressed = Utilities::compressBytes($this->body, Utilities::ENCODING_GZIP_STR);
         $decompressed = Utilities::decompressBytes($compressed);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $decompressed,
             "Auto-detect should recognize GZIP magic bytes"
@@ -185,7 +187,7 @@ class UtilitiesTest
         $compressed = Utilities::compressBytes($this->body, Utilities::ENCODING_ZLIB_STR);
         $decompressed = Utilities::decompressBytes($compressed);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $decompressed,
             "Auto-detect should recognize ZLIB magic bytes"
@@ -196,7 +198,7 @@ class UtilitiesTest
     {
         $result = Utilities::decompressBytes($this->body, Utilities::ENCODING_IDENTITY);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $this->body,
             $result,
             "IDENTITY encoding should return data unchanged"
@@ -212,7 +214,7 @@ class UtilitiesTest
             $caught = true;
         }
 
-        TestRunner::assertTrue($caught, "Unsupported encoding should throw InvalidArgumentException");
+        $this->assertTrue($caught, "Unsupported encoding should throw InvalidArgumentException");
     }
 
     public function testEncodeHexString()
@@ -220,13 +222,10 @@ class UtilitiesTest
         $binary = "\x00\x0f\xff\xab\xcd";
         $result = Utilities::encodeHexString($binary);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '000FFFABCD',
             $result,
             "encodeHexString should produce uppercase hex"
         );
     }
 }
-
-echo "=== UtilitiesTest ===\n";
-TestRunner::run(new UtilitiesTest());

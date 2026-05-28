@@ -122,6 +122,11 @@ class TlsCredentials
      */
     public static function createInsecureDev(): self
     {
+        Logger::getInstance('TlsCredentials')->warning(
+            "SECURITY WARNING: Creating insecure TLS credentials with certificate verification disabled. " .
+            "This allows man-in-the-middle attacks and should ONLY be used for development/testing. " .
+            "DO NOT use in production environments!"
+        );
         return new self(
             isInsecure: false,
             verifyPeer: false,

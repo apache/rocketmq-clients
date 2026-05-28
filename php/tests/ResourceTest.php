@@ -18,19 +18,21 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Apache\Rocketmq\V2\Resource;
 
-class ResourceTest
+class ResourceTest extends TestCase
 {
     public function testConstructorWithNameOnly()
     {
         $resource = new Resource();
         $resource->setName('foobar');
-        TestRunner::assertEquals('foobar', $resource->getName(), "Name should be 'foobar'");
-        TestRunner::assertEquals('', $resource->getResourceNamespace(), "Namespace should be empty by default");
+        $this->assertEquals('foobar', $resource->getName(), "Name should be 'foobar'");
+        $this->assertEquals('', $resource->getResourceNamespace(), "Namespace should be empty by default");
     }
 
     public function testConstructorWithNameAndNamespace()
@@ -38,8 +40,8 @@ class ResourceTest
         $resource = new Resource();
         $resource->setResourceNamespace('foo');
         $resource->setName('bar');
-        TestRunner::assertEquals('bar', $resource->getName(), "Name should be 'bar'");
-        TestRunner::assertEquals('foo', $resource->getResourceNamespace(), "Namespace should be 'foo'");
+        $this->assertEquals('bar', $resource->getName(), "Name should be 'bar'");
+        $this->assertEquals('foo', $resource->getResourceNamespace(), "Namespace should be 'foo'");
     }
 
     public function testToProtobuf()
@@ -48,8 +50,8 @@ class ResourceTest
         $resource->setResourceNamespace('foo');
         $resource->setName('bar');
 
-        TestRunner::assertEquals('foo', $resource->getResourceNamespace(), "Protobuf namespace should be 'foo'");
-        TestRunner::assertEquals('bar', $resource->getName(), "Protobuf name should be 'bar'");
+        $this->assertEquals('foo', $resource->getResourceNamespace(), "Protobuf namespace should be 'foo'");
+        $this->assertEquals('bar', $resource->getName(), "Protobuf name should be 'bar'");
     }
 
     public function testEquals()
@@ -62,7 +64,7 @@ class ResourceTest
         $resource1->setResourceNamespace('foo');
         $resource1->setName('bar');
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             $resource0->serializeToString(),
             $resource1->serializeToString(),
             "Same name and namespace should serialize to same value"
@@ -72,7 +74,7 @@ class ResourceTest
         $resource2->setResourceNamespace('foo0');
         $resource2->setName('bar');
 
-        TestRunner::assertNotEquals(
+        $this->assertNotEquals(
             $resource0->serializeToString(),
             $resource2->serializeToString(),
             "Different namespace should serialize to different value"
@@ -83,12 +85,9 @@ class ResourceTest
     {
         $resource = new Resource();
         $result = $resource->setName('test');
-        TestRunner::assertTrue($result === $resource, "setName should return \$this for chaining");
+        $this->assertTrue($result === $resource, "setName should return \$this for chaining");
 
         $result = $resource->setResourceNamespace('ns');
-        TestRunner::assertTrue($result === $resource, "setResourceNamespace should return \$this for chaining");
+        $this->assertTrue($result === $resource, "setResourceNamespace should return \$this for chaining");
     }
 }
-
-echo "=== ResourceTest ===\n";
-TestRunner::run(new ResourceTest());

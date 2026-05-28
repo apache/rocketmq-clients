@@ -18,8 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Endpoints;
 use Apache\Rocketmq\V2\Encoding;
@@ -36,15 +34,15 @@ use Apache\Rocketmq\V2\Encoding;
  */
 class MessageView
 {
-    private $message;
-    private $receiptHandle;
-    private $endpoints;
-    private $deliveryAttempt;
-    private $bodyStr;
-    private $corrupted = false;
-    private $bornTimestamp = 0;
-    private $bornHost = '';
-    private $decodeTimestamp = 0;
+    private Message $message;
+    private ?string $receiptHandle;
+    private ?Endpoints $endpoints;
+    private int $deliveryAttempt;
+    private string $bodyStr = '';
+    private bool $corrupted = false;
+    private int $bornTimestamp = 0;
+    private string $bornHost = '';
+    private int $decodeTimestamp = 0;
 
     /**
      * @param Message $message The protobuf message from broker
@@ -52,7 +50,7 @@ class MessageView
      * @param Endpoints|null $endpoints Broker endpoints
      * @param int $deliveryAttempt Number of delivery attempts (starts at 1)
      */
-    public function __construct(Message $message, $receiptHandle = null, $endpoints = null, $deliveryAttempt = 1)
+    public function __construct(Message $message, ?string $receiptHandle = null, ?Endpoints $endpoints = null, int $deliveryAttempt = 1)
     {
         $this->message = $message;
         if ($receiptHandle == null) {

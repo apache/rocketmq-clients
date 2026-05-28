@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../SimpleConsumerOptimized.php';
 require_once __DIR__ . '/../Logger.php';
 
@@ -28,7 +30,7 @@ use Apache\Rocketmq\SimpleConsumerOptimized;
  * Tests for SimpleConsumer validation and state checks.
  * Mirrors Java's SimpleConsumerBuilderTest and SimpleConsumerImplTest.
  */
-class SimpleConsumerTest
+class SimpleConsumerTest extends TestCase
 {
     public function setUp(): void
     {
@@ -43,9 +45,8 @@ class SimpleConsumerTest
     {
         $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->start();
-        }, "Start without subscriptions should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->start();
     }
 
     /**
@@ -57,9 +58,8 @@ class SimpleConsumerTest
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->receive(10);
-        }, "Receive before start should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->receive(10);
     }
 
     /**
@@ -71,9 +71,8 @@ class SimpleConsumerTest
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->ack(new \stdClass());
-        }, "Ack before start should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->ack(new \stdClass());
     }
 
     /**
@@ -83,9 +82,8 @@ class SimpleConsumerTest
     {
         $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->subscribe('test-topic', '*');
-        }, "Subscribe before start should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->subscribe('test-topic', '*');
     }
 
     /**
@@ -95,9 +93,8 @@ class SimpleConsumerTest
     {
         $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'test-group');
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->unsubscribe('test-topic');
-        }, "Unsubscribe before start should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->unsubscribe('test-topic');
     }
 
     /**
@@ -111,9 +108,8 @@ class SimpleConsumerTest
 
         $this->setRunning($consumer, true);
 
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($consumer) {
-            $consumer->receive(0);
-        }, "Receive with zero max messages should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        $consumer->receive(0);
     }
 
     /**
@@ -127,9 +123,8 @@ class SimpleConsumerTest
 
         $this->setRunning($consumer, true);
 
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($consumer) {
-            $consumer->receive(-1);
-        }, "Receive with negative max messages should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        $consumer->receive(-1);
     }
 
     /**
@@ -141,9 +136,8 @@ class SimpleConsumerTest
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->changeInvisibleDuration(new \stdClass(), 30);
-        }, "ChangeInvisibleDuration before start should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->changeInvisibleDuration(new \stdClass(), 30);
     }
 
     /**
@@ -158,7 +152,7 @@ class SimpleConsumerTest
         $this->setRunning($consumer, true);
 
         $consumer->start();
-        TestRunner::assertTrue($consumer->isRunning(), "Consumer should still be running");
+        $this->assertTrue($consumer->isRunning(), "Consumer should still be running");
     }
 
     /**
@@ -179,7 +173,7 @@ class SimpleConsumerTest
         $refExpr->setValue($consumer, $expressions);
 
         $expressions = $refExpr->getValue($consumer);
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'tagA',
             $expressions['topic-2'],
             "topic-2 expression should be tagA after subscribe"
@@ -198,7 +192,7 @@ class SimpleConsumerTest
         $this->setRunning($consumer, true);
 
         $result = $consumer->unsubscribe('test-topic');
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $result === $consumer,
             "unsubscribe should return \$this for chaining"
         );
@@ -217,16 +211,16 @@ class SimpleConsumerTest
         $ref->setAccessible(true);
         $expressions = $ref->getValue($consumer);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             2,
             count($expressions),
             "Should have 2 initial subscriptions"
         );
-        TestRunner::assertTrue(
+        $this->assertTrue(
             isset($expressions['topic-1']),
             "topic-1 should be in subscriptions"
         );
-        TestRunner::assertTrue(
+        $this->assertTrue(
             isset($expressions['topic-2']),
             "topic-2 should be in subscriptions"
         );
@@ -245,7 +239,7 @@ class SimpleConsumerTest
         $ref->setAccessible(true);
         $actual = $ref->getValue($consumer);
 
-        TestRunner::assertEquals(60, $actual, "awaitDuration should be 60");
+        $this->assertEquals(60, $actual, "awaitDuration should be 60");
     }
 
     /**
@@ -258,7 +252,7 @@ class SimpleConsumerTest
         ]);
 
         $clientId = $consumer->getClientId();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'custom-client-id',
             $clientId,
             "ClientId should match configured value"
@@ -272,7 +266,7 @@ class SimpleConsumerTest
     {
         $consumer = new SimpleConsumerOptimized('127.0.0.1:9876', 'my-consumer-group');
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'my-consumer-group',
             $consumer->getConsumerGroup(),
             "ConsumerGroup should match configured value"
@@ -286,6 +280,3 @@ class SimpleConsumerTest
         $ref->setValue($consumer, $running);
     }
 }
-
-echo "=== SimpleConsumerTest ===\n";
-TestRunner::run(new SimpleConsumerTest());

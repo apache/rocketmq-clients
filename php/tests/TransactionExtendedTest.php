@@ -18,19 +18,18 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../Producer.php';
 
 use Apache\Rocketmq\Transaction;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
-use Apache\Rocketmq\Test\TestRunner;
-
 /**
  * Fake producer for extended transaction testing.
  */
-class FakeProducerForExtended
-{
+class FakeProducerForExtended {
     public $commitCalls = [];
     public $rollbackCalls = [];
 
@@ -62,7 +61,7 @@ class FakeProducerForExtended
  * limit or receipt containment checks that Java's TransactionImpl does.
  * These tests verify PHP's actual behavior.
  */
-class TransactionExtendedTest
+class TransactionExtendedTest extends TestCase
 {
     /**
      * Mirrors Java: testTryAddExceededMessages.
@@ -78,9 +77,8 @@ class TransactionExtendedTest
 
         $transaction->tryAddMessage($msg1);
 
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($transaction, $msg2) {
-            $transaction->tryAddMessage($msg2);
-        }, "Adding second message should throw (Java limits to 1)");
+        $this->expectException(\InvalidArgumentException::class);
+        $transaction->tryAddMessage($msg2);
     }
 
     /**
@@ -100,9 +98,8 @@ class TransactionExtendedTest
             'transactionId' => 'tx-id-1',
         ];
 
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() use ($transaction, $msg, $sendResult) {
-            $transaction->tryAddReceipt($msg, $sendResult);
-        }, "Adding receipt without prior tryAddMessage should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        $transaction->tryAddReceipt($msg, $sendResult);
     }
 
     /**
@@ -115,9 +112,8 @@ class TransactionExtendedTest
         $transaction = new Transaction($fakeProducer);
 
         // No messages or receipts added
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($transaction) {
-            $transaction->commit();
-        }, "Commit with no receipts should throw");
+        $this->expectException(\RuntimeException::class);
+        $transaction->commit();
     }
 
     /**
@@ -130,9 +126,8 @@ class TransactionExtendedTest
         $transaction = new Transaction($fakeProducer);
 
         // No messages or receipts added
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($transaction) {
-            $transaction->rollback();
-        }, "Rollback with no receipts should throw");
+        $this->expectException(\RuntimeException::class);
+        $transaction->rollback();
     }
 
     /**
@@ -154,23 +149,23 @@ class TransactionExtendedTest
 
         $transaction->commit();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Message should be committed"
         );
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'msg-id-0',
             $fakeProducer->commitCalls[0]['messageId'],
             "Commit should have correct messageId"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'tx-id-0',
             $fakeProducer->commitCalls[0]['transactionId'],
             "Commit should have correct transactionId"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'order-topic',
             $fakeProducer->commitCalls[0]['topic'],
             "Commit should have correct topic"
@@ -195,7 +190,7 @@ class TransactionExtendedTest
 
         $transaction->rollback();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             count($fakeProducer->rollbackCalls),
             "Message should be rolled back"
@@ -222,11 +217,10 @@ class TransactionExtendedTest
         $transaction->commit();
 
         // Second commit throws because receipts were cleared
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($transaction) {
-            $transaction->commit();
-        }, "Second commit should throw (receipts cleared after first)");
+        $this->expectException(\RuntimeException::class);
+        $transaction->commit();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "Only first commit should have been recorded"
@@ -252,12 +246,12 @@ class TransactionExtendedTest
         $transaction->addReceipt($msg, $sendResult);
         $transaction->commit();
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             1,
             count($fakeProducer->commitCalls),
             "addReceipt alias should work same as tryAddReceipt"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'alias-msg-id',
             $fakeProducer->commitCalls[0]['messageId'],
             "Alias should record correct messageId"
@@ -278,4 +272,3 @@ class TransactionExtendedTest
     }
 }
 
-TestRunner::run(new TransactionExtendedTest());

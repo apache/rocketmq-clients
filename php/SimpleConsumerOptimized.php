@@ -18,16 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-require_once __DIR__ . '/RpcClientManager.php';
-require_once __DIR__ . '/TelemetrySession.php';
-require_once __DIR__ . '/Logger.php';
-require_once __DIR__ . '/Signature.php';
-require_once __DIR__ . '/ClientConstants.php';
-require_once __DIR__ . '/SwooleCompat.php';
-require_once __DIR__ . '/ClientTrait.php';
-require_once __DIR__ . '/ProtobufUtil.php';
-require_once __DIR__ . '/SubscriptionLoadBalancer.php';
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\Permission;

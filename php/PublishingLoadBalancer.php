@@ -17,8 +17,6 @@
  */
 
 namespace Apache\Rocketmq;
-require_once __DIR__ . '/SipHash24.php';
-require_once __DIR__ . '/IntMath.php';
 use Apache\Rocketmq\V2\Permission;
 
 /**

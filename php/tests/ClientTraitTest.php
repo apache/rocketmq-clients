@@ -18,7 +18,7 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../ClientTrait.php';
 require_once __DIR__ . '/../autoload.php';
 
@@ -28,8 +28,7 @@ use Apache\Rocketmq\V2\SystemProperties;
 /**
  * Fake message view for ClientTrait extraction tests.
  */
-class FakeMessageViewForTrait
-{
+class FakeMessageViewForTrait {
     private $systemProperties;
     private $topic;
 
@@ -57,8 +56,7 @@ class FakeMessageViewForTrait
 /**
  * Concrete class that uses ClientTrait to test extract methods.
  */
-class ClientTraitExtractor
-{
+class ClientTraitExtractor {
     use \Apache\Rocketmq\ClientTrait;
 
     protected function getCredentials(): ?\Apache\Rocketmq\SessionCredentials
@@ -96,7 +94,7 @@ class ClientTraitExtractor
  * Tests for ClientTrait extraction methods.
  * Mirrors Java's extractReceiptHandle, extractMessageId, extractTopic tests.
  */
-class ClientTraitTest
+class ClientTraitTest extends TestCase
 {
     private $extractor;
 
@@ -113,7 +111,7 @@ class ClientTraitTest
         $messageView = new FakeMessageViewForTrait($sysProps);
         $handle = $this->extractor->testExtractReceiptHandle($messageView);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'test-receipt-handle-123',
             $handle,
             "Should extract receipt handle from message view"
@@ -126,7 +124,7 @@ class ClientTraitTest
         $messageView = new FakeMessageViewForTrait();
         $handle = $this->extractor->testExtractReceiptHandle($messageView);
 
-        TestRunner::assertNull($handle, "Should return null when no system properties");
+        $this->assertNull($handle, "Should return null when no system properties");
     }
 
     public function testExtractReceiptHandleReturnsEmptyForUnsetHandle()
@@ -136,7 +134,7 @@ class ClientTraitTest
         $messageView = new FakeMessageViewForTrait($sysProps);
         $handle = $this->extractor->testExtractReceiptHandle($messageView);
 
-        TestRunner::assertEquals('', $handle, "Should return empty string when sysProps has no receipt handle");
+        $this->assertEquals('', $handle, "Should return empty string when sysProps has no receipt handle");
     }
 
     public function testExtractMessageIdFromMessageView()
@@ -147,7 +145,7 @@ class ClientTraitTest
         $messageView = new FakeMessageViewForTrait($sysProps);
         $messageId = $this->extractor->testExtractMessageId($messageView);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'msg-id-abc-123',
             $messageId,
             "Should extract message ID from message view"
@@ -161,7 +159,7 @@ class ClientTraitTest
         $messageView = new FakeMessageViewForTrait($sysProps);
         $messageId = $this->extractor->testExtractMessageId($messageView);
 
-        TestRunner::assertEquals('', $messageId, "Should return empty string when sysProps has no message ID");
+        $this->assertEquals('', $messageId, "Should return empty string when sysProps has no message ID");
     }
 
     public function testExtractTopicFromMessageView()
@@ -169,7 +167,7 @@ class ClientTraitTest
         $messageView = new FakeMessageViewForTrait(null, 'test-topic-name');
         $topic = $this->extractor->testExtractTopic($messageView);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'test-topic-name',
             $topic,
             "Should extract topic name from message view"
@@ -181,8 +179,7 @@ class ClientTraitTest
         $messageView = new FakeMessageViewForTrait();
         $topic = $this->extractor->testExtractTopic($messageView);
 
-        TestRunner::assertNull($topic, "Should return null when no topic");
+        $this->assertNull($topic, "Should return null when no topic");
     }
 }
 
-TestRunner::run(new ClientTraitTest());

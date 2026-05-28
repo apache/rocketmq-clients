@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../grpc/Apache/Rocketmq/V2/Code.php';
 
 use Apache\Rocketmq\V2\Code;
@@ -31,15 +33,15 @@ use Apache\Rocketmq\V2\Code;
  * but these tests verify the Code enum constants are correct and
  * document how they should be grouped into exception categories.
  */
-class StatusCheckerTest
+class StatusCheckerTest extends TestCase
 {
     /**
      * Mirrors Java: testOK - success codes.
      */
     public function testSuccessCodes()
     {
-        TestRunner::assertEquals(20000, Code::OK, "OK should be 20000");
-        TestRunner::assertEquals(30000, Code::MULTIPLE_RESULTS, "MULTIPLE_RESULTS should be 30000");
+        $this->assertEquals(20000, Code::OK, "OK should be 20000");
+        $this->assertEquals(30000, Code::MULTIPLE_RESULTS, "MULTIPLE_RESULTS should be 30000");
     }
 
     /**
@@ -73,7 +75,7 @@ class StatusCheckerTest
 
         foreach ($badRequestCodes as $code) {
             $isBadRequest = ($code >= 40000 && $code < 40100);
-            TestRunner::assertTrue(
+            $this->assertTrue(
                 $isBadRequest,
                 "Code {$code} (" . Code::name($code) . ") should be in BadRequest range (40000-40099)"
             );
@@ -85,7 +87,7 @@ class StatusCheckerTest
      */
     public function testUnauthorizedCode()
     {
-        TestRunner::assertEquals(40100, Code::UNAUTHORIZED, "UNAUTHORIZED should be 40100");
+        $this->assertEquals(40100, Code::UNAUTHORIZED, "UNAUTHORIZED should be 40100");
     }
 
     /**
@@ -93,7 +95,7 @@ class StatusCheckerTest
      */
     public function testPaymentRequiredCode()
     {
-        TestRunner::assertEquals(40200, Code::PAYMENT_REQUIRED, "PAYMENT_REQUIRED should be 40200");
+        $this->assertEquals(40200, Code::PAYMENT_REQUIRED, "PAYMENT_REQUIRED should be 40200");
     }
 
     /**
@@ -101,7 +103,7 @@ class StatusCheckerTest
      */
     public function testForbiddenCode()
     {
-        TestRunner::assertEquals(40300, Code::FORBIDDEN, "FORBIDDEN should be 40300");
+        $this->assertEquals(40300, Code::FORBIDDEN, "FORBIDDEN should be 40300");
     }
 
     /**
@@ -109,11 +111,11 @@ class StatusCheckerTest
      */
     public function testNotFoundCodes()
     {
-        TestRunner::assertEquals(40400, Code::NOT_FOUND, "NOT_FOUND should be 40400");
-        TestRunner::assertEquals(40401, Code::MESSAGE_NOT_FOUND, "MESSAGE_NOT_FOUND should be 40401");
-        TestRunner::assertEquals(40402, Code::TOPIC_NOT_FOUND, "TOPIC_NOT_FOUND should be 40402");
-        TestRunner::assertEquals(40403, Code::CONSUMER_GROUP_NOT_FOUND, "CONSUMER_GROUP_NOT_FOUND should be 40403");
-        TestRunner::assertEquals(40404, Code::OFFSET_NOT_FOUND, "OFFSET_NOT_FOUND should be 40404");
+        $this->assertEquals(40400, Code::NOT_FOUND, "NOT_FOUND should be 40400");
+        $this->assertEquals(40401, Code::MESSAGE_NOT_FOUND, "MESSAGE_NOT_FOUND should be 40401");
+        $this->assertEquals(40402, Code::TOPIC_NOT_FOUND, "TOPIC_NOT_FOUND should be 40402");
+        $this->assertEquals(40403, Code::CONSUMER_GROUP_NOT_FOUND, "CONSUMER_GROUP_NOT_FOUND should be 40403");
+        $this->assertEquals(40404, Code::OFFSET_NOT_FOUND, "OFFSET_NOT_FOUND should be 40404");
     }
 
     /**
@@ -121,9 +123,9 @@ class StatusCheckerTest
      */
     public function testPayloadTooLargeCodes()
     {
-        TestRunner::assertEquals(41300, Code::PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE should be 41300");
-        TestRunner::assertEquals(41301, Code::MESSAGE_BODY_TOO_LARGE, "MESSAGE_BODY_TOO_LARGE should be 41301");
-        TestRunner::assertEquals(41302, Code::MESSAGE_BODY_EMPTY, "MESSAGE_BODY_EMPTY should be 41302");
+        $this->assertEquals(41300, Code::PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE should be 41300");
+        $this->assertEquals(41301, Code::MESSAGE_BODY_TOO_LARGE, "MESSAGE_BODY_TOO_LARGE should be 41301");
+        $this->assertEquals(41302, Code::MESSAGE_BODY_EMPTY, "MESSAGE_BODY_EMPTY should be 41302");
     }
 
     /**
@@ -131,9 +133,9 @@ class StatusCheckerTest
      */
     public function testTooManyRequestsCodes()
     {
-        TestRunner::assertEquals(42900, Code::TOO_MANY_REQUESTS, "TOO_MANY_REQUESTS should be 42900");
-        TestRunner::assertEquals(42901, Code::LITE_TOPIC_QUOTA_EXCEEDED, "LITE_TOPIC_QUOTA_EXCEEDED should be 42901");
-        TestRunner::assertEquals(42902, Code::LITE_SUBSCRIPTION_QUOTA_EXCEEDED, "LITE_SUBSCRIPTION_QUOTA_EXCEEDED should be 42902");
+        $this->assertEquals(42900, Code::TOO_MANY_REQUESTS, "TOO_MANY_REQUESTS should be 42900");
+        $this->assertEquals(42901, Code::LITE_TOPIC_QUOTA_EXCEEDED, "LITE_TOPIC_QUOTA_EXCEEDED should be 42901");
+        $this->assertEquals(42902, Code::LITE_SUBSCRIPTION_QUOTA_EXCEEDED, "LITE_SUBSCRIPTION_QUOTA_EXCEEDED should be 42902");
     }
 
     /**
@@ -141,8 +143,8 @@ class StatusCheckerTest
      */
     public function testRequestHeaderTooLargeCodes()
     {
-        TestRunner::assertEquals(43100, Code::REQUEST_HEADER_FIELDS_TOO_LARGE, "REQUEST_HEADER_FIELDS_TOO_LARGE should be 43100");
-        TestRunner::assertEquals(43101, Code::MESSAGE_PROPERTIES_TOO_LARGE, "MESSAGE_PROPERTIES_TOO_LARGE should be 43101");
+        $this->assertEquals(43100, Code::REQUEST_HEADER_FIELDS_TOO_LARGE, "REQUEST_HEADER_FIELDS_TOO_LARGE should be 43100");
+        $this->assertEquals(43101, Code::MESSAGE_PROPERTIES_TOO_LARGE, "MESSAGE_PROPERTIES_TOO_LARGE should be 43101");
     }
 
     /**
@@ -150,9 +152,9 @@ class StatusCheckerTest
      */
     public function testInternalErrorCodes()
     {
-        TestRunner::assertEquals(50000, Code::INTERNAL_ERROR, "INTERNAL_ERROR should be 50000");
-        TestRunner::assertEquals(50001, Code::INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR should be 50001");
-        TestRunner::assertEquals(50002, Code::HA_NOT_AVAILABLE, "HA_NOT_AVAILABLE should be 50002");
+        $this->assertEquals(50000, Code::INTERNAL_ERROR, "INTERNAL_ERROR should be 50000");
+        $this->assertEquals(50001, Code::INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR should be 50001");
+        $this->assertEquals(50002, Code::HA_NOT_AVAILABLE, "HA_NOT_AVAILABLE should be 50002");
     }
 
     /**
@@ -160,9 +162,9 @@ class StatusCheckerTest
      */
     public function testProxyTimeoutCodes()
     {
-        TestRunner::assertEquals(50400, Code::PROXY_TIMEOUT, "PROXY_TIMEOUT should be 50400");
-        TestRunner::assertEquals(50401, Code::MASTER_PERSISTENCE_TIMEOUT, "MASTER_PERSISTENCE_TIMEOUT should be 50401");
-        TestRunner::assertEquals(50402, Code::SLAVE_PERSISTENCE_TIMEOUT, "SLAVE_PERSISTENCE_TIMEOUT should be 50402");
+        $this->assertEquals(50400, Code::PROXY_TIMEOUT, "PROXY_TIMEOUT should be 50400");
+        $this->assertEquals(50401, Code::MASTER_PERSISTENCE_TIMEOUT, "MASTER_PERSISTENCE_TIMEOUT should be 50401");
+        $this->assertEquals(50402, Code::SLAVE_PERSISTENCE_TIMEOUT, "SLAVE_PERSISTENCE_TIMEOUT should be 50402");
     }
 
     /**
@@ -170,9 +172,9 @@ class StatusCheckerTest
      */
     public function testUnsupportedCodes()
     {
-        TestRunner::assertEquals(50500, Code::UNSUPPORTED, "UNSUPPORTED should be 50500");
-        TestRunner::assertEquals(50501, Code::VERSION_UNSUPPORTED, "VERSION_UNSUPPORTED should be 50501");
-        TestRunner::assertEquals(50502, Code::VERIFY_FIFO_MESSAGE_UNSUPPORTED, "VERIFY_FIFO_MESSAGE_UNSUPPORTED should be 50502");
+        $this->assertEquals(50500, Code::UNSUPPORTED, "UNSUPPORTED should be 50500");
+        $this->assertEquals(50501, Code::VERSION_UNSUPPORTED, "VERSION_UNSUPPORTED should be 50501");
+        $this->assertEquals(50502, Code::VERIFY_FIFO_MESSAGE_UNSUPPORTED, "VERIFY_FIFO_MESSAGE_UNSUPPORTED should be 50502");
     }
 
     /**
@@ -207,7 +209,7 @@ class StatusCheckerTest
 
         foreach ($allCodes as $code) {
             $name = Code::name($code);
-            TestRunner::assertTrue(
+            $this->assertTrue(
                 is_string($name) && strlen($name) > 0,
                 "Code {$code} should have a non-empty name"
             );
@@ -219,9 +221,8 @@ class StatusCheckerTest
      */
     public function testInvalidCodeNameThrows()
     {
-        TestRunner::assertThrows(\UnexpectedValueException::class, function() {
-            Code::name(99999);
-        }, "name() with invalid code should throw");
+        $this->expectException(\UnexpectedValueException::class);
+        Code::name(99999);
     }
 
     /**
@@ -252,7 +253,7 @@ class StatusCheckerTest
 
         foreach ($tests as [$code, $expectedCategory]) {
             $actualCategory = self::getStatusCodeCategory($code);
-            TestRunner::assertEquals(
+            $this->assertEquals(
                 $expectedCategory,
                 $actualCategory,
                 "Code " . Code::name($code) . " ({$code}) should be categorized as {$expectedCategory}"
@@ -314,4 +315,3 @@ class StatusCheckerTest
     }
 }
 
-TestRunner::run(new StatusCheckerTest());

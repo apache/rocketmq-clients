@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../TlsCredentials.php';
 
 use Apache\Rocketmq\TlsCredentials;
@@ -26,13 +28,13 @@ use Apache\Rocketmq\TlsCredentials;
 /**
  * Tests for TlsCredentials class.
  */
-class TlsCredentialsTest
+class TlsCredentialsTest extends TestCase
 {
     public function testCreateInsecureReturnsInsecureCredentials()
     {
         $tls = TlsCredentials::createInsecure();
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $tls->isInsecure(),
             "createInsecure() should return insecure credentials"
         );
@@ -43,7 +45,7 @@ class TlsCredentialsTest
         $tls = TlsCredentials::createInsecure();
         $creds = $tls->toChannelCredentials();
 
-        TestRunner::assertNull(
+        $this->assertNull(
             $creds,
             "Insecure credentials should return null ChannelCredentials"
         );
@@ -53,7 +55,7 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createDefault();
 
-        TestRunner::assertFalse(
+        $this->assertFalse(
             $tls->isInsecure(),
             "createDefault() should return secure credentials"
         );
@@ -63,7 +65,7 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createDefault();
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $tls->shouldVerifyPeer(),
             "createDefault() should have verifyPeer = true"
         );
@@ -73,7 +75,7 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createInsecureDev();
 
-        TestRunner::assertFalse(
+        $this->assertFalse(
             $tls->shouldVerifyPeer(),
             "createInsecureDev() should have verifyPeer = false"
         );
@@ -83,7 +85,7 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createInsecureDev();
 
-        TestRunner::assertFalse(
+        $this->assertFalse(
             $tls->isInsecure(),
             "createInsecureDev() should NOT be insecure (it uses TLS but skips verification)"
         );
@@ -93,7 +95,7 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createWithCa('/tmp/test-ca.pem');
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '/tmp/test-ca.pem',
             $tls->getCaCertPath(),
             "createWithCa should set the CA cert path"
@@ -104,7 +106,7 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createDefault();
 
-        TestRunner::assertNull(
+        $this->assertNull(
             $tls->getCaCertPath(),
             "createDefault() should have null CA path (use system CA)"
         );
@@ -114,7 +116,7 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createInsecure();
 
-        TestRunner::assertNull(
+        $this->assertNull(
             $tls->getCaCertPath(),
             "Insecure credentials should have null CA path"
         );
@@ -124,13 +126,13 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createMtls('/tmp/client.pem', '/tmp/client-key.pem');
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '/tmp/client.pem',
             $tls->getClientCertPath(),
             "createMtls should set client cert path"
         );
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             '/tmp/client-key.pem',
             $tls->getClientKeyPath(),
             "createMtls should set client key path"
@@ -141,7 +143,7 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createDefault();
 
-        TestRunner::assertNull(
+        $this->assertNull(
             $tls->getClientCertPath(),
             "createDefault() should have null client cert path"
         );
@@ -151,12 +153,9 @@ class TlsCredentialsTest
     {
         $tls = TlsCredentials::createDefault();
 
-        TestRunner::assertNull(
+        $this->assertNull(
             $tls->getClientKeyPath(),
             "createDefault() should have null client key path"
         );
     }
 }
-
-echo "=== TlsCredentialsTest ===\n";
-TestRunner::run(new TlsCredentialsTest());

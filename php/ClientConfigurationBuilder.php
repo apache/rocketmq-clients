@@ -164,6 +164,10 @@ class ClientConfigurationBuilder
      */
     public function disableTlsVerification(): self
     {
+        Logger::getInstance('ClientConfiguration')->warning(
+            "SECURITY WARNING: TLS certificate verification is disabled! This makes the connection vulnerable to man-in-the-middle attacks. " .
+            "This should ONLY be used in development/testing environments. NEVER use this in production!"
+        );
         $this->tlsCredentials = TlsCredentials::createInsecureDev();
         $this->sslEnabled = true;
         return $this;

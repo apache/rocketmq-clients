@@ -18,19 +18,19 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../Signature.php';
 require_once __DIR__ . '/../SessionCredentials.php';
 
 use Apache\Rocketmq\Signature;
 use Apache\Rocketmq\SessionCredentials;
-use Apache\Rocketmq\Test\TestRunner;
-
 /**
  * Tests for Signature class.
  * Mirrors Java's Signature and TLSHelper sign tests.
  */
-class SignatureTest
+class SignatureTest extends TestCase
 {
     /**
      * Verify sign() without credentials produces baseline metadata.
@@ -46,34 +46,34 @@ class SignatureTest
             'v2'
         );
 
-        TestRunner::assertNotNull($metadata, "Metadata should not be empty");
-        TestRunner::assertEquals(
+        $this->assertNotNull($metadata, "Metadata should not be empty");
+        $this->assertEquals(
             'test-client-id',
             $metadata['x-mq-client-id'][0],
             "Client ID should match"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'PHP',
             $metadata['x-mq-language'][0],
             "Language should be PHP"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'v2',
             $metadata['x-mq-protocol'][0],
             "Protocol should be v2"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'my-namespace',
             $metadata['x-mq-namespace'][0],
             "Namespace should match"
         );
 
         // Without credentials, no authorization header
-        TestRunner::assertFalse(
+        $this->assertFalse(
             isset($metadata['authorization']),
             "No authorization header without credentials"
         );
-        TestRunner::assertFalse(
+        $this->assertFalse(
             isset($metadata['x-mq-session-token']),
             "No session token without credentials"
         );
@@ -95,28 +95,28 @@ class SignatureTest
             'v2'
         );
 
-        TestRunner::assertNotNull($metadata, "Metadata should not be empty");
+        $this->assertNotNull($metadata, "Metadata should not be empty");
 
         // Authorization header must be present
-        TestRunner::assertTrue(
+        $this->assertTrue(
             isset($metadata['authorization']),
             "Authorization header should be present with credentials"
         );
 
         $auth = $metadata['authorization'][0];
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($auth, 'MQv2-HMAC-SHA1') !== false,
             "Authorization should contain algorithm"
         );
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($auth, 'Credential=ak-12345') !== false,
             "Authorization should contain access key"
         );
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($auth, 'SignedHeaders=x-mq-date-time') !== false,
             "Authorization should contain signed headers"
         );
-        TestRunner::assertTrue(
+        $this->assertTrue(
             strpos($auth, 'Signature=') !== false,
             "Authorization should contain signature"
         );
@@ -138,11 +138,11 @@ class SignatureTest
             'v2'
         );
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             isset($metadata['x-mq-session-token']),
             "x-mq-session-token should be present with STS credentials"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'sts-token-xyz',
             $metadata['x-mq-session-token'][0],
             "Session token value should match"
@@ -162,7 +162,7 @@ class SignatureTest
         $dateTime = $metadata['x-mq-date-time'][0];
 
         // Should match pattern like: 20260519T123456Z
-        TestRunner::assertTrue(
+        $this->assertTrue(
             preg_match('/^\d{8}T\d{6}Z$/', $dateTime) === 1,
             "DateTime should be in YYYYMMDDTHHmmssZ format (got: {$dateTime})"
         );
@@ -180,7 +180,7 @@ class SignatureTest
 
         $requestId = $metadata['x-mq-request-id'][0];
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $requestId) === 1,
             "RequestId should be UUID-like (got: {$requestId})"
         );
@@ -198,7 +198,7 @@ class SignatureTest
 
         // We can't guarantee same datetime, but we can verify structure
         $auth1 = $metadata1['authorization'][0];
-        TestRunner::assertTrue(
+        $this->assertTrue(
             preg_match('/MQv2-HMAC-SHA1.*Signature=[0-9A-F]{40}$/', $auth1) === 1,
             "Signature should be 40 hex chars (SHA1)"
         );
@@ -209,9 +209,8 @@ class SignatureTest
      */
     public function testSessionCredentialsRejectsEmptyAccessKey()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            new SessionCredentials('', 'sk-test');
-        }, "Empty access key should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        new SessionCredentials('', 'sk-test');
     }
 
     /**
@@ -219,9 +218,8 @@ class SignatureTest
      */
     public function testSessionCredentialsRejectsEmptySecretKey()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            new SessionCredentials('ak-test', '');
-        }, "Empty secret key should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        new SessionCredentials('ak-test', '');
     }
 
     /**
@@ -231,17 +229,17 @@ class SignatureTest
     {
         $credentials = new SessionCredentials('ak-val', 'sk-val', 'sts-val');
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'ak-val',
             $credentials->getAccessKey(),
             "Access key should match"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'sk-val',
             $credentials->getAccessSecret(),
             "Secret key should match"
         );
-        TestRunner::assertEquals(
+        $this->assertEquals(
             'sts-val',
             $credentials->getSecurityToken(),
             "Security token should match"
@@ -255,11 +253,10 @@ class SignatureTest
     {
         $credentials = new SessionCredentials('ak-val', 'sk-val');
 
-        TestRunner::assertNull(
+        $this->assertNull(
             $credentials->getSecurityToken(),
             "Security token should be null when not provided"
         );
     }
 }
 
-TestRunner::run(new SignatureTest());

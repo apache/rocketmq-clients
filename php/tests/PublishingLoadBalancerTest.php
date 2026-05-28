@@ -18,12 +18,13 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../Producer.php';
 require_once __DIR__ . '/../PublishingLoadBalancer.php';
 
 use Apache\Rocketmq\PublishingLoadBalancer;
-use Apache\Rocketmq\Test\TestRunner;
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\Broker;
 use Apache\Rocketmq\V2\Endpoints as V2Endpoints;
@@ -33,8 +34,7 @@ use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\Permission;
 use Apache\Rocketmq\V2\MessageType as V2MessageType;
 
-class FakeRouteData
-{
+class FakeRouteData {
     private $messageQueues = [];
 
     public function __construct($messageQueues)
@@ -48,7 +48,7 @@ class FakeRouteData
     }
 }
 
-class PublishingLoadBalancerTest
+class PublishingLoadBalancerTest extends TestCase
 {
     private function fakePbMessageQueue0()
     {
@@ -83,7 +83,7 @@ class PublishingLoadBalancerTest
         $loadBalancer = new PublishingLoadBalancer($routeData);
 
         $result = $loadBalancer->takeMessageQueueByMessageGroup('test');
-        TestRunner::assertNotNull($result, "Should return a message queue");
+        $this->assertNotNull($result, "Should return a message queue");
     }
 
     public function testTakeTwoMessageQueuesWithSingleQueue()
@@ -93,7 +93,7 @@ class PublishingLoadBalancerTest
         $loadBalancer = new PublishingLoadBalancer($routeData);
 
         $result = $loadBalancer->takeMessageQueue([], 2);
-        TestRunner::assertEquals(1, count($result), "Should return only 1 queue when only 1 exists");
+        $this->assertEquals(1, count($result), "Should return only 1 queue when only 1 exists");
     }
 
     public function testTakeMessageQueuesWithAllEndpointsIsolated()
@@ -106,8 +106,8 @@ class PublishingLoadBalancerTest
 
         // When all endpoints are isolated, should still return queues (round two fallback)
         $result = $loadBalancer->takeMessageQueue([$brokerName], 1);
-        TestRunner::assertNotNull($result, "Should return queues even when all endpoints are isolated");
-        TestRunner::assertEquals(1, count($result), "Should return 1 queue");
+        $this->assertNotNull($result, "Should return queues even when all endpoints are isolated");
+        $this->assertEquals(1, count($result), "Should return 1 queue");
     }
 
     public function testTakeMessageQueueRoundRobin()
@@ -150,8 +150,7 @@ class PublishingLoadBalancerTest
         }
 
         $uniqueBrokers = array_unique($brokers);
-        TestRunner::assertTrue(count($uniqueBrokers) >= 2, "Should distribute across multiple brokers");
+        $this->assertTrue(count($uniqueBrokers) >= 2, "Should distribute across multiple brokers");
     }
 }
 
-TestRunner::run(new PublishingLoadBalancerTest());

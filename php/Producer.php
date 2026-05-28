@@ -18,26 +18,6 @@
 
 namespace Apache\Rocketmq;
 
-require_once __DIR__ . '/autoload.php';
-require_once __DIR__ . '/RpcClientManager.php';
-require_once __DIR__ . '/MessageId.php';
-require_once __DIR__ . '/MessageIdImpl.php';
-require_once __DIR__ . '/MessageIdCodec.php';
-require_once __DIR__ . '/TelemetrySession.php';
-require_once __DIR__ . '/ConsumeResult.php';
-require_once __DIR__ . '/Logger.php';
-require_once __DIR__ . '/Signature.php';
-require_once __DIR__ . '/ClientConstants.php';
-require_once __DIR__ . '/ClientTrait.php';
-require_once __DIR__ . '/TransactionChecker.php';
-require_once __DIR__ . '/ExponentialBackoffRetryPolicy.php';
-require_once __DIR__ . '/SwooleCompat.php';
-require_once __DIR__ . '/ProtobufUtil.php';
-require_once __DIR__ . '/PublishingLoadBalancer.php';
-require_once __DIR__ . '/Transaction.php';
-require_once __DIR__ . '/IntMath.php';
-require_once __DIR__ . '/MessageHookPoints.php';
-
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\Permission;
 use Apache\Rocketmq\V2\QueryRouteRequest;
@@ -85,29 +65,30 @@ class Producer
 {
     use ClientTrait;
 
-    private $client;
-    private $endpoints;
-    private $clientId;
-    private $telemetrySession;
-    private $publishingRouteDataCache = [];
-    private $isRunning = false;
-    private $shutdownRequested = false;
-    private $maxAttempts = 3;
-    private $requestTimeout = 3000; // ms
-    private $topics = [];
-    private $isolatedEndpoints = [];
-    private $namespace = '';
-    private $logger;
-    private $credentials = null; // SessionCredentials for AK/SK auth
-    private $validateMessageType = true;
-    private $maxBodySizeBytes = 4194304; // 4MB default
+    private MessagingServiceClient $client;
+    private string $endpoints;
+    private string $clientId;
+    private TelemetrySession $telemetrySession;
+    private array $publishingRouteDataCache = [];
+    private bool $isRunning = false;
+    private bool $shutdownRequested = false;
+    private int $maxAttempts = 3;
+    private int $requestTimeout = 3000; // ms
+    private array $topics = [];
+    private array $isolatedEndpoints = [];
+    private string $namespace = '';
+    private Logger $logger;
+    private ?SessionCredentials $credentials = null; // SessionCredentials for AK/SK auth
+    private bool $validateMessageType = true;
+    private int $maxBodySizeBytes = 4194304; // 4MB default
     private $heartbeatPid = null;
-    private $lastHeartbeatTime = 0;
-    private $interceptors = [];
-    private $transactionChecker = null;
-    private $localTransactionExecuter = null;
-    private $retryPolicy = null;
-    private $tlsCredentials = null;
+    private int $lastHeartbeatTime = 0;
+    private bool $heartbeatInProgress = false;
+    private array $interceptors = [];
+    private ?TransactionChecker $transactionChecker = null;
+    private ?LocalTransactionExecuter $localTransactionExecuter = null;
+    private ?ExponentialBackoffRetryPolicy $retryPolicy = null;
+    private ?TlsCredentials $tlsCredentials = null;
 
     /**
      * Constructor
@@ -116,7 +97,7 @@ class Producer
      * @param array $options Configuration options
      * @deprecated Use ProducerBuilder instead.
      */
-    public function __construct($endpoints, $options = [])
+    public function __construct(string $endpoints, array $options = [])
     {
         $this->endpoints = $endpoints;
         $this->clientId = $options['clientId'] ?? ('php-producer-' . getmypid() . '-' . time());
@@ -168,7 +149,7 @@ class Producer
         return $this;
     }
 
-    public function start()
+    public function start(): void
     {
         if ($this->isRunning) {
             return;
@@ -210,7 +191,7 @@ class Producer
      * @param Message $message Message object
      * @return array Send result ['messageId' => ..., 'transactionId' => ..., 'status' => ...]
      */
-    public function send(Message $message)
+    public function send(Message $message): array
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -275,7 +256,7 @@ class Producer
      * @param Message[] $messages
      * @return array Array of send results
      */
-    public function sendBatch(array $messages)
+    public function sendBatch(array $messages): array
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -618,6 +599,7 @@ class Producer
     private function startHeartbeat()
     {
         $this->doHeartbeat();
+        // Update timestamp AFTER initial heartbeat
         $this->lastHeartbeatTime = time();
 
         if (function_exists('pcntl_signal') && function_exists('pcntl_alarm')) {
@@ -634,12 +616,27 @@ class Producer
     {
         $now = time();
         if ($now - $this->lastHeartbeatTime >= 10) {
-            $this->lastHeartbeatTime = $now;
-            $this->doHeartbeat();
-            static $lastRouteRefresh = 0;
-            if ($now - $lastRouteRefresh >= 30) {
-                $this->refreshRouteCache();
-                $lastRouteRefresh = $now;
+            // Check concurrency guard before sending heartbeat
+            if ($this->heartbeatInProgress) {
+                $this->logger->debug("Heartbeat already in progress, skipping this tick");
+                return;
+            }
+            
+            $this->heartbeatInProgress = true;
+            try {
+                $this->doHeartbeat();
+                // Update timestamp AFTER successful heartbeat
+                $this->lastHeartbeatTime = time();
+                
+                static $lastRouteRefresh = 0;
+                if (time() - $lastRouteRefresh >= 30) {
+                    $this->refreshRouteCache();
+                    $lastRouteRefresh = time();
+                }
+            } catch (\Throwable $e) {
+                $this->logger->warning("Heartbeat tick failed: " . $e->getMessage());
+            } finally {
+                $this->heartbeatInProgress = false;
             }
         }
     }
@@ -730,7 +727,40 @@ class Producer
 
     private function stopHeartbeat()
     {
+        // Cancel pending alarm
+        if (function_exists('pcntl_alarm')) {
+            pcntl_alarm(0);
+        }
+        
+        // Reset signal handler to default
+        if (function_exists('pcntl_signal')) {
+            pcntl_signal(SIGALRM, SIG_DFL);
+        }
+        
+        // Wait for any in-progress heartbeat to complete
+        $waitCount = 0;
+        while ($this->heartbeatInProgress && $waitCount < 10) {
+            usleep(10000); // Wait 10ms
+            $waitCount++;
+        }
+        
+        if ($this->heartbeatInProgress) {
+            $this->logger->warning("Heartbeat still in progress after waiting, forcing shutdown");
+        } else {
+            $this->logger->debug("Heartbeat timer stopped cleanly");
+        }
+        
         $this->heartbeatPid = null;
+    }
+
+    /**
+     * Check if heartbeat is currently in progress.
+     *
+     * @return bool
+     */
+    public function isHeartbeatInProgress(): bool
+    {
+        return $this->heartbeatInProgress;
     }
 
     // ==================== Private Methods ====================

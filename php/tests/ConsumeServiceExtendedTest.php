@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../ConsumeService.php';
 require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../MessageView.php';
@@ -38,7 +40,7 @@ use Apache\Rocketmq\V2\SystemProperties;
  * Mirrors Java's ConsumeServiceTest and ConsumeTaskTest.
  * Tests consumeMessage() returning SUCCESS/FAILURE and catching exceptions.
  */
-class ConsumeServiceExtendedTest
+class ConsumeServiceExtendedTest extends TestCase
 {
     public function setUp(): void
     {
@@ -57,7 +59,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "Consume result should be SUCCESS"
@@ -76,7 +78,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Consume result should be FAILURE"
@@ -96,7 +98,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Consume result should be FAILURE when listener throws"
@@ -116,7 +118,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::FAILURE,
             $result,
             "Consume result should be FAILURE for any Throwable"
@@ -135,7 +137,7 @@ class ConsumeServiceExtendedTest
         $msg = $this->buildMessageView('test-topic', 'hello');
         $result = $service->consumeMessage($msg);
 
-        TestRunner::assertEquals(
+        $this->assertEquals(
             ConsumeResult::SUCCESS,
             $result,
             "Non-FAILURE return should be treated as SUCCESS"
@@ -192,4 +194,3 @@ class TestConsumeService extends ConsumeService
     }
 }
 
-TestRunner::run(new ConsumeServiceExtendedTest());

@@ -18,7 +18,9 @@
 
 namespace Apache\Rocketmq\Test;
 
-require_once __DIR__ . '/TestRunner.php';
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
 require_once __DIR__ . '/../LitePushConsumer.php';
 require_once __DIR__ . '/../Logger.php';
 
@@ -28,7 +30,7 @@ use Apache\Rocketmq\LitePushConsumer;
  * Tests for LitePushConsumer validation rules.
  * Mirrors Java's LitePushConsumerBuilderImplTest.
  */
-class LitePushConsumerTest
+class LitePushConsumerTest extends TestCase
 {
     public function setUp(): void
     {
@@ -40,9 +42,8 @@ class LitePushConsumerTest
      */
     public function testConstructorWithNullConsumerGroup()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            new LitePushConsumer('127.0.0.1:9876', '', 'parent-topic');
-        }, "Empty consumer group should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        new LitePushConsumer('127.0.0.1:9876', '', 'parent-topic');
     }
 
     /**
@@ -50,9 +51,8 @@ class LitePushConsumerTest
      */
     public function testConstructorWithNullParentTopic()
     {
-        TestRunner::assertThrows(\InvalidArgumentException::class, function() {
-            new LitePushConsumer('127.0.0.1:9876', 'test-group', '');
-        }, "Empty parent topic should throw");
+        $this->expectException(\InvalidArgumentException::class);
+        new LitePushConsumer('127.0.0.1:9876', 'test-group', '');
     }
 
     /**
@@ -62,9 +62,8 @@ class LitePushConsumerTest
     {
         $consumer = new LitePushConsumer('127.0.0.1:9876', 'test-group', 'parent-topic', []);
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->start();
-        }, "Start without message listener should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->start();
     }
 
     /**
@@ -78,7 +77,7 @@ class LitePushConsumerTest
         ]);
 
         $threshold = $consumer->getCacheMessageCountThresholdPerQueue();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $threshold >= 0,
             "Cache count threshold should be non-negative (got {$threshold})"
         );
@@ -95,7 +94,7 @@ class LitePushConsumerTest
         ]);
 
         $threshold = $consumer->getCacheMessageBytesThresholdPerQueue();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $threshold >= 0,
             "Cache bytes threshold should be non-negative (got {$threshold})"
         );
@@ -110,9 +109,8 @@ class LitePushConsumerTest
             'messageListener' => function($msg) { return 0; },
         ]);
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->start();
-        }, "Start without lite topics should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->start();
     }
 
     /**
@@ -128,16 +126,16 @@ class LitePushConsumerTest
         $consumer->subscribeLite('lite-topic-2');
 
         $topics = $consumer->getLiteTopics();
-        TestRunner::assertEquals(
+        $this->assertEquals(
             2,
             count($topics),
             "Should have 2 lite topics"
         );
-        TestRunner::assertTrue(
+        $this->assertTrue(
             in_array('lite-topic-1', $topics),
             "lite-topic-1 should be in topics"
         );
-        TestRunner::assertTrue(
+        $this->assertTrue(
             in_array('lite-topic-2', $topics),
             "lite-topic-2 should be in topics"
         );
@@ -156,7 +154,7 @@ class LitePushConsumerTest
         $consumer->unsubscribeLite('lite-topic');
 
         $topics = $consumer->getLiteTopics();
-        TestRunner::assertTrue(
+        $this->assertTrue(
             empty($topics),
             "Lite topics should be empty after unsubscribe"
         );
@@ -172,9 +170,8 @@ class LitePushConsumerTest
             'messageListener' => function($msg) { return 0; },
         ]);
 
-        TestRunner::assertThrows(\RuntimeException::class, function() use ($consumer) {
-            $consumer->subscribeLite('this-is-a-very-long-lite-topic-name', function($msg) { return 0; });
-        }, "Long lite topic name should throw");
+        $this->expectException(\RuntimeException::class);
+        $consumer->subscribeLite('this-is-a-very-long-lite-topic-name', function($msg) { return 0; });
     }
 
     /**
@@ -186,12 +183,9 @@ class LitePushConsumerTest
             'messageListener' => function($msg) { return 0; },
         ]);
 
-        TestRunner::assertTrue(
+        $this->assertTrue(
             $consumer->isLiteConsumer(),
             "LitePushConsumer should return true for isLiteConsumer"
         );
     }
 }
-
-echo "=== LitePushConsumerTest ===\n";
-TestRunner::run(new LitePushConsumerTest());
