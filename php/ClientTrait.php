@@ -41,7 +41,7 @@ trait ClientTrait
     /**
      * Build metadata for gRPC calls using Signature class.
      *
-     * @param int|null $timeoutMs Optional timeout in milliseconds
+     * @param int|null $timeoutMs Optional timeout in milliseconds (will be converted to microseconds for gRPC deadline)
      * @return array
      */
     protected function buildMetadata(?int $timeoutMs = null): array
@@ -54,9 +54,14 @@ trait ClientTrait
             $this->getNamespaceValue(),
             'v2'
         );
-        if ($timeoutMs !== null) {
-            $metadata['grpc-timeout'] = ["{$timeoutMs}m"];
+        
+        // Set gRPC deadline if timeout is provided
+        if ($timeoutMs !== null && $timeoutMs > 0) {
+            // Convert milliseconds to microseconds for gRPC deadline
+            $timeoutUs = $timeoutMs * 1000;
+            $metadata['grpc-timeout'] = $timeoutUs . 'u'; // microseconds format
         }
+        
         return $metadata;
     }
 
@@ -156,12 +161,27 @@ trait ClientTrait
     /**
      * Get call options for gRPC calls.
      *
-     * @param int|null $overrideTimeout Optional timeout to override default
-     * @return array
+     * @param int|null $overrideTimeout Optional timeout to override default (in microseconds)
+     * @return array Array with 'timeout' key for gRPC call options
      */
     protected function getCallOptions(?int $overrideTimeout = null): array
     {
         return ['timeout' => $overrideTimeout ?? ClientConstants::GRPC_DEFAULT_TIMEOUT];
+    }
+
+    /**
+     * Get operation-specific timeout from constants.
+     *
+     * @param string $operation Operation name (e.g., 'SEND_MESSAGE', 'ACK_MESSAGE')
+     * @return int Timeout in microseconds
+     */
+    protected function getOperationTimeout(string $operation): int
+    {
+        $constantName = "GRPC_{$operation}_TIMEOUT";
+        if (defined("Apache\\Rocketmq\\ClientConstants::{$constantName}")) {
+            return constant("Apache\\Rocketmq\\ClientConstants::{$constantName}");
+        }
+        return ClientConstants::GRPC_DEFAULT_TIMEOUT;
     }
 
     /**

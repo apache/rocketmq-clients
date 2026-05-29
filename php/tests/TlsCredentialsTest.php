@@ -73,22 +73,53 @@ class TlsCredentialsTest extends TestCase
 
     public function testCreateInsecureDevShouldNotVerifyPeer()
     {
-        $tls = TlsCredentials::createInsecureDev();
+        // Expect E_USER_WARNING trigger_error
+        $warningTriggered = false;
+        set_error_handler(function($errno, $errstr) use (&$warningTriggered) {
+            if ($errno === E_USER_WARNING && strpos($errstr, 'SECURITY WARNING') !== false) {
+                $warningTriggered = true;
+                return true; // Prevent default error handler
+            }
+            return false;
+        });
 
-        $this->assertFalse(
-            $tls->shouldVerifyPeer(),
-            "createInsecureDev() should have verifyPeer = false"
-        );
+        try {
+            $tls = TlsCredentials::createInsecureDev();
+
+            $this->assertFalse(
+                $tls->shouldVerifyPeer(),
+                "createInsecureDev() should have verifyPeer = false"
+            );
+            
+            $this->assertTrue(
+                $warningTriggered,
+                "createInsecureDev() should trigger a security warning"
+            );
+        } finally {
+            restore_error_handler();
+        }
     }
 
     public function testInsecureDevIsSecure()
     {
-        $tls = TlsCredentials::createInsecureDev();
+        // Expect E_USER_WARNING trigger_error
+        set_error_handler(function($errno, $errstr) {
+            if ($errno === E_USER_WARNING && strpos($errstr, 'SECURITY WARNING') !== false) {
+                return true; // Prevent default error handler
+            }
+            return false;
+        });
 
-        $this->assertFalse(
-            $tls->isInsecure(),
-            "createInsecureDev() should NOT be insecure (it uses TLS but skips verification)"
-        );
+        try {
+            $tls = TlsCredentials::createInsecureDev();
+
+            $this->assertFalse(
+                $tls->isInsecure(),
+                "createInsecureDev() should NOT be insecure (it uses TLS but skips verification)"
+            );
+        } finally {
+            restore_error_handler();
+        }
     }
 
     public function testCreateWithCaSetsCaPath()

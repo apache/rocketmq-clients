@@ -26,5 +26,18 @@ class ClientConstants
     const CLIENT_TYPE_PREFIX = 'php';
     const MASTER_BROKER_ID = 0;
 
-    const GRPC_DEFAULT_TIMEOUT = 30_000_000;
+    // Default gRPC timeout (30 seconds)
+    const GRPC_DEFAULT_TIMEOUT = 30_000_000; // microseconds
+    
+    // Operation-specific timeouts (microseconds)
+    const GRPC_SEND_MESSAGE_TIMEOUT = 10_000_000;      // 10s - Send message
+    const GRPC_RECEIVE_MESSAGE_TIMEOUT = 60_000_000;   // 60s - Receive with long polling
+    const GRPC_ACK_MESSAGE_TIMEOUT = 5_000_000;        // 5s - Acknowledge message
+    const GRPC_HEARTBEAT_TIMEOUT = 5_000_000;          // 5s - Heartbeat
+    const GRPC_QUERY_ROUTE_TIMEOUT = 10_000_000;       // 10s - Query route
+    const GRPC_QUERY_ASSIGNMENT_TIMEOUT = 10_000_000;  // 10s - Query assignment
+    const GRPC_END_TRANSACTION_TIMEOUT = 10_000_000;   // 10s - End transaction
+    const GRPC_CHANGE_INVISIBLE_TIMEOUT = 5_000_000;   // 5s - Change invisible duration
+    const GRPC_FORWARD_DLQ_TIMEOUT = 5_000_000;        // 5s - Forward to DLQ
+    const GRPC_RECALL_MESSAGE_TIMEOUT = 10_000_000;    // 10s - Recall message
 }

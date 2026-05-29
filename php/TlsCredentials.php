@@ -128,15 +128,31 @@ class TlsCredentials
     /**
      * Create TLS credentials that skip peer verification (for development only).
      *
+     * ⚠️ SECURITY WARNING: This method bypasses TLS certificate verification and allows
+     * man-in-the-middle attacks. It should ONLY be used in isolated development/testing
+     * environments with full awareness of security risks.
+     *
+     * NEVER use this in production!
+     *
      * @return self New instance with peer verification disabled
+     * @internal Not intended for public API usage - use explicit configuration instead
      */
     public static function createInsecureDev(): self
     {
-        Logger::getInstance('TlsCredentials')->warning(
-            "SECURITY WARNING: Creating insecure TLS credentials with certificate verification disabled. " .
-            "This allows man-in-the-middle attacks and should ONLY be used for development/testing. " .
-            "DO NOT use in production environments!"
+        trigger_error(
+            "SECURITY WARNING: TlsCredentials::createInsecureDev() creates credentials with TLS verification disabled. " .
+            "This allows man-in-the-middle attacks and should ONLY be used in isolated test environments. " .
+            "DO NOT use in production!",
+            E_USER_WARNING
         );
+        
+        Logger::getInstance('TlsCredentials')->error(
+            "CRITICAL SECURITY WARNING: Creating insecure TLS credentials with certificate verification disabled! " .
+            "This allows man-in-the-middle attacks and compromises connection security. " .
+            "ONLY use in isolated development/testing environments. " .
+            "NEVER deploy this in production under any circumstances!"
+        );
+        
         return new self(
             isInsecure: false,
             verifyPeer: false,

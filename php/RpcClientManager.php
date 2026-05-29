@@ -247,7 +247,10 @@ class RpcClientManager
      * Priority:
      * 1. tlsCredentials option (TlsCredentials instance)
      * 2. credentials option (pre-created ChannelCredentials)
-     * 3. Default: ChannelCredentials::createInsecure()
+     * 3. Default: TlsCredentials::createDefault() for secure connection
+     *
+     * SECURITY NOTE: The default is now TLS-enabled to prevent accidental insecure connections.
+     * Use TlsCredentials::createInsecure() explicitly only for development/testing.
      *
      * @param array $options Configuration options
      * @return \Grpc\ChannelCredentials|null Resolved credentials (may be null in some gRPC versions)
@@ -262,6 +265,12 @@ class RpcClientManager
             return $options['credentials'];
         }
 
-        return ChannelCredentials::createInsecure();
+        // Default to secure TLS connection instead of insecure
+        // This prevents accidental plaintext connections in production
+        Logger::getInstance('RpcClientManager')->info(
+            "No TLS credentials provided, using default TLS configuration. " .
+            "For production, explicitly configure TLS with custom CA or mTLS."
+        );
+        return TlsCredentials::createDefault()->toChannelCredentials();
     }
 }

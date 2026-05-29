@@ -162,14 +162,34 @@ class ClientConfigurationBuilder
     /**
      * Enable TLS but skip peer verification (development only).
      *
+     * ⚠️ SECURITY WARNING: This method is for internal testing use ONLY.
+     * It should NOT be used in production code as it allows man-in-the-middle attacks.
+     *
+     * For development/testing, use environment variables or configuration files instead:
+     * - Set ROCKETMQ_TLS_SKIP_VERIFY=true in your .env file
+     * - Use TlsCredentials::createInsecureDev() directly with explicit awareness of risks
+     *
      * @return $this
+     * @internal Not intended for public API usage
+     * @deprecated Will be removed in future versions. Use environment-based configuration instead.
      */
     public function disableTlsVerification(): self
     {
-        Logger::getInstance('ClientConfiguration')->warning(
-            "SECURITY WARNING: TLS certificate verification is disabled! This makes the connection vulnerable to man-in-the-middle attacks. " .
-            "This should ONLY be used in development/testing environments. NEVER use this in production!"
+        trigger_error(
+            "SECURITY WARNING: ClientConfigurationBuilder::disableTlsVerification() is deprecated and will be removed. " .
+            "This method bypasses TLS certificate verification and allows man-in-the-middle attacks. " .
+            "For development/testing, use TlsCredentials::createInsecureDev() explicitly with full awareness of security risks. " .
+            "NEVER use this in production!",
+            E_USER_DEPRECATED
         );
+        
+        Logger::getInstance('ClientConfiguration')->error(
+            "CRITICAL SECURITY WARNING: TLS certificate verification is being disabled! " .
+            "This makes the connection vulnerable to man-in-the-middle attacks. " .
+            "This should ONLY be used in isolated development/testing environments. " .
+            "DO NOT use this in production under any circumstances!"
+        );
+        
         $this->tlsCredentials = TlsCredentials::createInsecureDev();
         $this->sslEnabled = true;
         return $this;

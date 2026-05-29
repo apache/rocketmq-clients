@@ -530,16 +530,15 @@ class SimpleConsumer
         // Route ReceiveMessage to broker endpoints from MessageQueue
         $receiveClient = $this->getBrokerClient($messageQueue);
 
-        // gRPC timeout in microseconds — server reads this via ctx.getRemainingMs()
-        $grpcTimeoutMicroseconds = ($this->requestTimeout + $effectiveLongPollingTimeout * 1000) * 1000;
-        $grpcTimeoutMills = (int)($grpcTimeoutMicroseconds / 1000);
+        // Calculate total gRPC timeout including long polling (convert to milliseconds for buildMetadata)
+        $grpcTimeoutMs = $this->requestTimeout + $effectiveLongPollingTimeout * 1000;
+        
+        // Use signed metadata via ClientTrait with deadline
+        $metadata = $this->buildMetadata($grpcTimeoutMs);
 
-        // Use signed metadata via ClientTrait
-        $metadata = $this->buildMetadata($this->requestTimeout);
+        $this->logger->debug("ReceiveMessage: topic={$topic}, batchSize={$maxMessages}, grpcTimeout={$grpcTimeoutMs}ms, attemptId={$attemptId}");
 
-        $this->logger->debug("ReceiveMessage: topic={$topic}, batchSize={$maxMessages}, grpcTimeout={$grpcTimeoutMills}us, attemptId={$attemptId}");
-
-        // Receive messages
+        // Receive messages - deadline enforced by server
         $call = $receiveClient->ReceiveMessage($request, $metadata);
 
         $messages = [];
@@ -617,10 +616,15 @@ class SimpleConsumer
         $request->setTopic($topicResource);
         $request->setEndpoints($this->getParsedEndpoints());
 
-        $metadata = $this->buildMetadata($this->requestTimeout);
+        // Set gRPC deadline using operation-specific timeout
+        $queryRouteTimeoutMs = $this->getOperationTimeout('QUERY_ROUTE') / 1000; // Convert to milliseconds for buildMetadata
+        $metadata = $this->buildMetadata($queryRouteTimeoutMs);
+        
+        // Also set client-side timeout as safety net (in microseconds)
+        $callOptions = ['timeout' => $this->getOperationTimeout('QUERY_ROUTE')];
 
         try {
-            list($response, $status) = $this->client->QueryRoute($request, $metadata, $this->getCallOptions())->wait();
+            list($response, $status) = $this->client->QueryRoute($request, $metadata, $callOptions)->wait();
 
             if ($status->code !== 0) {
                 $this->logger->warning("QueryRoute failed for topic={$topic}: " . $status->details);
@@ -711,7 +715,12 @@ class SimpleConsumer
         $request->setTopic($topicResource);
         $request->setEntries($entries);
 
-        $metadata = $this->buildMetadata($this->requestTimeout);
+        // Set gRPC deadline using operation-specific timeout
+        $ackTimeoutMs = $this->getOperationTimeout('ACK_MESSAGE') / 1000; // Convert to milliseconds for buildMetadata
+        $metadata = $this->buildMetadata($ackTimeoutMs);
+        
+        // Also set client-side timeout as safety net (in microseconds)
+        $callOptions = ['timeout' => $this->getOperationTimeout('ACK_MESSAGE')];
 
         $attempt = 0;
         $maxRetries = 16;
@@ -720,7 +729,7 @@ class SimpleConsumer
 
         while ($attempt < $maxRetries) {
             try {
-                list($response, $status) = $this->client->AckMessage($request, $metadata, $this->getCallOptions())->wait();
+                list($response, $status) = $this->client->AckMessage($request, $metadata, $callOptions)->wait();
                 if ($status->code !== 0) {
                     $this->logger->warning("AckMessage attempt {$attempt}: gRPC status error: " . $status->details);
                 } else {
@@ -842,10 +851,16 @@ class SimpleConsumer
             $request->setMessageId($messageId);
         }
 
+        // Set gRPC deadline in metadata (server-side enforcement)
         $metadata = $this->buildMetadata($this->requestTimeout);
+        $grpcTimeoutUs = $this->getOperationTimeout('CHANGE_INVISIBLE');
+        $metadata['grpc-timeout'] = $grpcTimeoutUs . 'u'; // microseconds
+        
+        // Also set client-side timeout as safety net
+        $callOptions = ['timeout' => $grpcTimeoutUs];
 
         try {
-            list($response, $status) = $this->client->ChangeInvisibleDuration($request, $metadata, $this->getCallOptions())->wait();
+            list($response, $status) = $this->client->ChangeInvisibleDuration($request, $metadata, $callOptions)->wait();
             if ($status->code !== 0) {
                 $this->logger->warning("SimpleConsumer changeInvisibleDuration failed: " . $status->details);
                 return false;
@@ -876,10 +891,16 @@ class SimpleConsumer
         $groupResource->setName($this->consumerGroup);
         $request->setGroup($groupResource);
 
+        // Set gRPC deadline in metadata (server-side enforcement)
         $metadata = $this->buildMetadata($this->requestTimeout);
+        $grpcTimeoutUs = $this->getOperationTimeout('HEARTBEAT');
+        $metadata['grpc-timeout'] = $grpcTimeoutUs . 'u'; // microseconds
+        
+        // Also set client-side timeout as safety net
+        $callOptions = ['timeout' => $grpcTimeoutUs];
 
         try {
-            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $this->getCallOptions())->wait();
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $callOptions)->wait();
             if ($status->code === 0) {
                 $this->logger->debug("NotifyClientTermination sent successfully");
             } else {

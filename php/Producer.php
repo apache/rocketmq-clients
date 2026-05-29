@@ -81,7 +81,7 @@ class Producer
     private ?SessionCredentials $credentials = null; // SessionCredentials for AK/SK auth
     private bool $validateMessageType = true;
     private int $maxBodySizeBytes = 4194304; // 4MB default
-    private $heartbeatPid = null;
+    private ?int $heartbeatPid = null;
     private int $lastHeartbeatTime = 0;
     private bool $heartbeatInProgress = false;
     private array $interceptors = [];
@@ -840,8 +840,15 @@ class Producer
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'tlsCredentials' => $this->tlsCredentials,
                 ]);
-                $metadata = $this->buildMetadata($this->requestTimeout);
-                list($response, $status) = $brokerClient->Heartbeat($request, $metadata, $this->getCallOptions())->wait();
+                
+                // Set gRPC deadline using operation-specific timeout
+                $heartbeatTimeoutMs = $this->getOperationTimeout('HEARTBEAT') / 1000; // Convert to milliseconds for buildMetadata
+                $metadata = $this->buildMetadata($heartbeatTimeoutMs);
+                
+                // Also set client-side timeout as safety net (in microseconds)
+                $callOptions = ['timeout' => $this->getOperationTimeout('HEARTBEAT')];
+                
+                list($response, $status) = $brokerClient->Heartbeat($request, $metadata, $callOptions)->wait();
                 if ($status->code === 0) {
                     $this->logger->debug("Heartbeat to broker {$brokerKey} successful");
                     $this->isolatedEndpoints = [];
@@ -867,10 +874,15 @@ class Producer
 
         $request = new NotifyClientTerminationRequest();
 
-        $metadata = $this->buildMetadata($this->requestTimeout);
+        // Set gRPC deadline using operation-specific timeout
+        $heartbeatTimeoutMs = $this->getOperationTimeout('HEARTBEAT') / 1000; // Convert to milliseconds for buildMetadata
+        $metadata = $this->buildMetadata($heartbeatTimeoutMs);
+        
+        // Also set client-side timeout as safety net (in microseconds)
+        $callOptions = ['timeout' => $this->getOperationTimeout('HEARTBEAT')];
 
         try {
-            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $this->getCallOptions())->wait();
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $callOptions)->wait();
             if ($status->code === 0) {
                 $this->logger->debug("NotifyClientTermination sent successfully");
             } else {
@@ -1167,9 +1179,14 @@ class Producer
         $request->setTopic($topicResource);
         $request->setEndpoints($this->parseEndpoints($this->endpoints));
 
-        $metadata = $this->buildMetadata($this->requestTimeout);
+        // Set gRPC deadline using operation-specific timeout
+        $queryRouteTimeoutMs = $this->getOperationTimeout('QUERY_ROUTE') / 1000; // Convert to milliseconds for buildMetadata
+        $metadata = $this->buildMetadata($queryRouteTimeoutMs);
+        
+        // Also set client-side timeout as safety net (in microseconds)
+        $callOptions = ['timeout' => $this->getOperationTimeout('QUERY_ROUTE')];
 
-        list($response, $status) = $this->client->QueryRoute($request, $metadata, $this->getCallOptions())->wait();
+        list($response, $status) = $this->client->QueryRoute($request, $metadata, $callOptions)->wait();
 
         if ($status->code !== 0) {
             throw new \RuntimeException("Query route failed: " . $status->details);
@@ -1349,7 +1366,7 @@ class Producer
      * @param array $candidates Candidate message queues
      * @param int $maxAttempts Maximum retry attempts
      * @return array Send result
-     * @throws \RuntimeException If all attempts fail
+     * @throws \RuntimeException If all attempts fail or deadline exceeded
      */
     private function sendMessageWithRetry($request, $message, $candidates, $maxAttempts)
     {
@@ -1357,17 +1374,44 @@ class Producer
         $startTime = microtime(true);
         $candidateCount = count($candidates);
         $currentMessageQueue = $candidates[0];
+        
+        // Calculate total deadline for this operation
+        $operationTimeout = $this->getOperationTimeout('SEND_MESSAGE');
+        $deadlineMicroseconds = $startTime + ($operationTimeout / 1000000);
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            // Check if we've exceeded the total deadline
+            $now = microtime(true);
+            if ($now >= $deadlineMicroseconds) {
+                throw new \RuntimeException(
+                    "Send message deadline exceeded after " . 
+                    round(($now - $startTime) * 1000, 2) . "ms"
+                );
+            }
+            
             if ($attempt > 1 && $candidateCount > 1) {
                 $queueIndex = \Apache\Rocketmq\IntMath::mod($attempt, $candidateCount);
                 $currentMessageQueue = $candidates[$queueIndex];
                 $request = $this->wrapSendMessageRequest([$message], $currentMessageQueue);
             }
             try {
-                $metadata = $this->buildMetadata($this->requestTimeout);
+                // Calculate remaining time for this attempt
+                $remainingTimeUs = max(1000000, ($deadlineMicroseconds - microtime(true)) * 1000000);
+                $remainingTimeMs = (int)($remainingTimeUs / 1000); // Convert to milliseconds for buildMetadata
+                
+                // Set gRPC deadline using remaining time (server-side enforcement)
+                $metadata = $this->buildMetadata($remainingTimeMs);
+                
+                // Also set client-side timeout as safety net (in microseconds, capped at SEND_MESSAGE_TIMEOUT)
+                $callOptions = [
+                    'timeout' => min($remainingTimeUs, ClientConstants::GRPC_SEND_MESSAGE_TIMEOUT)
+                ];
 
-                list($response, $status) = $this->client->SendMessage($request, $metadata, $this->getCallOptions())->wait();
+                list($response, $status) = $this->client->SendMessage(
+                    $request, 
+                    $metadata, 
+                    $callOptions
+                )->wait();
 
                 if ($status->code !== 0) {
                     throw new \RuntimeException("Send message failed: " . $status->details);
@@ -1453,7 +1497,7 @@ class Producer
      * @param array $candidates Candidate message queues
      * @param int $maxAttempts Maximum retry attempts
      * @return array Batch send results
-     * @throws \RuntimeException If all attempts fail
+     * @throws \RuntimeException If all attempts fail or deadline exceeded
      */
     private function sendBatchWithRetry($request, $messages, $candidates, $maxAttempts)
     {
@@ -1462,17 +1506,44 @@ class Producer
         $topic = $messages[0]->getTopic()->getName();
         $candidateCount = count($candidates);
         $currentMessageQueue = $candidates[0];
+        
+        // Calculate total deadline for this operation
+        $operationTimeout = $this->getOperationTimeout('SEND_MESSAGE');
+        $deadlineMicroseconds = $startTime + ($operationTimeout / 1000000);
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            // Check if we've exceeded the total deadline
+            $now = microtime(true);
+            if ($now >= $deadlineMicroseconds) {
+                throw new \RuntimeException(
+                    "Batch send deadline exceeded after " . 
+                    round(($now - $startTime) * 1000, 2) . "ms"
+                );
+            }
+            
             if ($attempt > 1 && $candidateCount > 1) {
                 $queueIndex = \Apache\Rocketmq\IntMath::mod($attempt, $candidateCount);
                 $currentMessageQueue = $candidates[$queueIndex];
                 $request = $this->wrapSendMessageRequest($messages, $currentMessageQueue);
             }
             try {
-                $metadata = $this->buildMetadata($this->requestTimeout);
+                // Calculate remaining time for this attempt
+                $remainingTimeUs = max(1000000, ($deadlineMicroseconds - microtime(true)) * 1000000);
+                $remainingTimeMs = (int)($remainingTimeUs / 1000); // Convert to milliseconds for buildMetadata
+                
+                // Set gRPC deadline using remaining time (server-side enforcement)
+                $metadata = $this->buildMetadata($remainingTimeMs);
+                
+                // Also set client-side timeout as safety net (in microseconds, capped at SEND_MESSAGE_TIMEOUT)
+                $callOptions = [
+                    'timeout' => min($remainingTimeUs, ClientConstants::GRPC_SEND_MESSAGE_TIMEOUT)
+                ];
 
-                list($response, $status) = $this->client->SendMessage($request, $metadata, $this->getCallOptions())->wait();
+                list($response, $status) = $this->client->SendMessage(
+                    $request, 
+                    $metadata, 
+                    $callOptions
+                )->wait();
 
                 if ($status->code !== 0) {
                     throw new \RuntimeException("Batch send failed: " . $status->details);
@@ -1575,7 +1646,12 @@ class Producer
         $request->setResolution($resolution);
         $request->setSource($source);
 
-        $metadata = $this->buildMetadata($this->requestTimeout);
+        // Set gRPC deadline using operation-specific timeout
+        $endTransactionTimeoutMs = $this->getOperationTimeout('END_TRANSACTION') / 1000; // Convert to milliseconds for buildMetadata
+        $metadata = $this->buildMetadata($endTransactionTimeoutMs);
+        
+        // Also set client-side timeout as safety net (in microseconds)
+        $callOptions = ['timeout' => $this->getOperationTimeout('END_TRANSACTION')];
 
         if ($endpoints !== null) {
             $address = $endpoints->getAddresses();
@@ -1584,12 +1660,12 @@ class Producer
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'tlsCredentials' => $this->tlsCredentials,
                 ]);
-                list($response, $status) = $brokerClient->EndTransaction($request, $metadata, $this->getCallOptions())->wait();
+                list($response, $status) = $brokerClient->EndTransaction($request, $metadata, $callOptions)->wait();
             } else {
-                list($response, $status) = $this->client->EndTransaction($request, $metadata, $this->getCallOptions())->wait();
+                list($response, $status) = $this->client->EndTransaction($request, $metadata, $callOptions)->wait();
             }
         } else {
-            list($response, $status) = $this->client->EndTransaction($request, $metadata, $this->getCallOptions())->wait();
+            list($response, $status) = $this->client->EndTransaction($request, $metadata, $callOptions)->wait();
         }
 
         if ($status->code !== 0) {
