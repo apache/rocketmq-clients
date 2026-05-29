@@ -340,13 +340,15 @@ class SimpleConsumer
     }
 
     /**
-     * Receive messages.
+     * Receive messages from all queues of subscribed topics.
+     * Iterates through ALL queues of each topic (not just one round-robin queue)
+     * with short per-queue timeout, so the full cycle completes quickly.
      *
-     * @param int $maxMessages Maximum number of messages
-     * @param int $invisibleDuration Invisible duration (seconds)
-     * @return array List of received Message objects
-     * @throws \RuntimeException If consumer is not started
-     * @throws \InvalidArgumentException If maxMessages is not positive
+     * @param int $maxMessages Maximum number of messages to receive in total
+     * @param int $invisibleDuration Invisible duration in seconds for received messages
+     * @return array List of received MessageView objects
+     * @throws \RuntimeException If consumer not started
+     * @throws \InvalidArgumentException If maxMessages <= 0
      */
     public function receive($maxMessages = 10, $invisibleDuration = 30)
     {
@@ -359,24 +361,15 @@ class SimpleConsumer
         }
 
         $startTime = microtime(true);
-
-        $topics = array_keys($this->subscriptions);
-        if (empty($topics)) {
-            return [];
-        }
-        $topicIndex = $this->topicIndex++;
-        $index = $topicIndex % count($topics);
-        $topic = $topics[$index];
-        $expression = $this->subscriptions[$topic];
-        $topicCount = count($topics);
-        $longPollingTimeout = $topicCount > 1 ? max(1, (int)($this->awaitDuration / $topicCount)) : $this->awaitDuration;
-        $messages = $this->receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration, $longPollingTimeout);
+        
+        // Receive from all queues
+        $allMessages = $this->receiveFromAllQueues($maxMessages, $invisibleDuration);
 
         $latencyMs = (microtime(true) - $startTime) * 1000;
         $this->executeInterceptors(MessageHookPoints::RECEIVE, [
             'success' => true,
             'latencyMs' => $latencyMs,
-            'messageCount' => count($messages),
+            'messageCount' => count($allMessages),
         ]);
 
         // Periodic heartbeat with concurrency guard
@@ -394,7 +387,83 @@ class SimpleConsumer
                 }
             }
         }
-        return $messages;
+
+        return $allMessages;
+    }
+
+    /**
+     * Receive messages from all queues of all subscribed topics.
+     * Iterates through ALL queues with short per-queue timeout.
+     *
+     * @param int $maxMessages Maximum number of messages to receive in total
+     * @param int $invisibleDuration Invisible duration in seconds for received messages
+     * @return array List of received Message objects
+     */
+    private function receiveFromAllQueues($maxMessages, $invisibleDuration)
+    {
+        $allMessages = [];
+        $topics = array_keys($this->subscriptions);
+        
+        if (empty($topics)) {
+            return [];
+        }
+
+        // Calculate per-queue timeout to ensure quick completion
+        // Total queues across all topics
+        $totalQueues = 0;
+        $topicQueueMap = [];
+        
+        foreach ($topics as $topic) {
+            $expression = $this->subscriptions[$topic];
+            $loadBalancer = $this->getSubscriptionLoadBalancer($topic);
+            $queues = $loadBalancer->getMessageQueues();
+            $topicQueueMap[$topic] = [
+                'expression' => $expression,
+                'queues' => $queues
+            ];
+            $totalQueues += count($queues);
+        }
+
+        if ($totalQueues === 0) {
+            return [];
+        }
+
+        // Short per-queue timeout: distribute awaitDuration across all queues
+        // This ensures the full cycle completes quickly
+        $perQueueTimeout = max(1, min(3, (int)($this->awaitDuration / max(1, $totalQueues))));
+
+        // Iterate through ALL queues of ALL topics
+        foreach ($topicQueueMap as $topic => $queueInfo) {
+            if (count($allMessages) >= $maxMessages) {
+                break; // Already collected enough messages
+            }
+
+            $expression = $queueInfo['expression'];
+            $queues = $queueInfo['queues'];
+
+            // Try each queue of this topic
+            foreach ($queues as $messageQueue) {
+                if (count($allMessages) >= $maxMessages) {
+                    break; // Already collected enough messages
+                }
+
+                // Receive from this specific queue with short timeout
+                $messages = $this->receiveFromSpecificQueue(
+                    $topic,
+                    $expression,
+                    $messageQueue,
+                    $maxMessages - count($allMessages),
+                    $invisibleDuration,
+                    $perQueueTimeout
+                );
+
+                if (!empty($messages)) {
+                    $allMessages = array_merge($allMessages, $messages);
+                }
+            }
+        }
+
+        return $allMessages;
     }
 
     /**
@@ -416,6 +485,22 @@ class SimpleConsumer
             return [];
         }
 
+        return $this->receiveFromSpecificQueue($topic, $expression, $messageQueue, $maxMessages, $invisibleDuration, $longPollingTimeout);
+    }
+
+    /**
+     * Receive messages from a specific message queue via streaming gRPC call.
+     *
+     * @param string $topic Topic name
+     * @param string $expression Filter expression
+     * @param \Apache\Rocketmq\V2\MessageQueue $messageQueue The specific message queue to receive from
+     * @param int $maxMessages Maximum number of messages to receive
+     * @param int $invisibleDuration Invisible duration in seconds
+     * @param int|null $longPollingTimeout Long polling timeout in seconds
+     * @return array List of received Message objects
+     */
+    private function receiveFromSpecificQueue($topic, $expression, $messageQueue, $maxMessages, $invisibleDuration, $longPollingTimeout = null)
+    {
         $filterExpression = new FilterExpression();
         $filterExpression->setExpression($expression);
         $filterExpression->setType(\Apache\Rocketmq\V2\FilterType::TAG);

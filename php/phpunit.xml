@@ -24,9 +24,6 @@
 
     <testsuites>
         <testsuite name="RocketMQ PHP Test Suite">
-            <directory suffix="Test.php">./tests</directory>
-        </testsuite>
-        <testsuite name="RocketMQ PHP Integration Tests">
             <directory suffix="Test.php">./tests/integration</directory>
         </testsuite>
     </testsuites>

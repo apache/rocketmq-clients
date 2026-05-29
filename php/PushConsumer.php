@@ -74,7 +74,7 @@ class PushConsumer
     protected $messageListener = null;
     private int $maxCacheMessageCount = 4096;
     private int $maxCacheMessageSizeInBytes = 67108864; // 64MB
-    private int $awaitDuration = 30; // seconds
+    private int $awaitDuration = 5; // seconds
     private int $scanIntervalSeconds = 5;
     private bool $fifo = false;
     private int $receiveBatchSize = 32;

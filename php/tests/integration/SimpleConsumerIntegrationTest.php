@@ -33,6 +33,8 @@ use Apache\Rocketmq\V2\Broker;
 use Apache\Rocketmq\V2\Endpoints;
 use Apache\Rocketmq\V2\Address;
 use Apache\Rocketmq\V2\AddressScheme;
+use Apache\Rocketmq\V2\Settings;
+use Apache\Rocketmq\V2\ClientType;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\Permission;
@@ -245,16 +247,21 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
     {
         $mock = $this->createAndRegisterMock($this->endpoints);
 
-        // Bidi stream returns no response — TelemetrySession polls until timeout
+        // Bidi stream returns a SETTINGS response immediately (normal path)
+        $settings = new Settings();
+        $settings->setClientType(ClientType::SIMPLE_CONSUMER);
+        $settingsResponse = new TelemetryCommand();
+        $settingsResponse->setSettings($settings);
         GrpcMockHelper::mockBidiStreamCall($mock, 'Telemetry', []);
 
+        GrpcMockHelper::createUnaryCall($mock, 'Heartbeat', new HeartbeatResponse());
+        GrpcMockHelper::createUnaryCall($mock, 'NotifyClientTermination', new NotifyClientTerminationResponse());
         $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessageMatches('/Telemetry/');
         $consumer->start();
+        $this->assertTrue(true, "Consumer should start successfully with valid SETTINGS response");
     }
 
     /**

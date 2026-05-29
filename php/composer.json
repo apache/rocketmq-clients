@@ -24,6 +24,11 @@
       "Apache\\Rocketmq\\": ""
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
   "config": {
     "audit": {
       "block-insecure": true,
