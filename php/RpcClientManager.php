@@ -27,6 +27,7 @@ class RpcClientManager
     private static ?self $instance = null;
 
     private array $clients = [];
+    private array $mocks = [];
     private array $clientLastUsedTime = [];
     private int $idleTimeoutSeconds = 1800; // 30 minutes
     private int $checkIntervalSeconds = 60; // 1 minute
@@ -74,6 +75,12 @@ class RpcClientManager
         $credentials = $this->resolveCredentials($options);
         $key = $this->makeKey($endpoints, $options);
 
+        // Check mock registry first
+        if (isset($this->mocks[$key])) {
+            $this->clientLastUsedTime[$key] = time();
+            return $this->mocks[$key];
+        }
+
         if (!isset($this->clients[$key])) {
             $this->logger->info("Creating new RPC client for: {$endpoints}");
             $this->clients[$key] = new MessagingServiceClient($endpoints, [
@@ -91,6 +98,31 @@ class RpcClientManager
         }
 
         return $this->clients[$key];
+    }
+
+    /**
+     * Register a mock MessagingServiceClient for the given endpoints.
+     * Subsequent calls to getClient() with matching endpoints will return this mock.
+     *
+     * @param string $endpoints Server endpoint in format "host:port"
+     * @param MessagingServiceClient $mock The mock client to return
+     * @return void
+     */
+    public function registerMock(string $endpoints, MessagingServiceClient $mock): void
+    {
+        $key = $this->makeKey($endpoints, []);
+        $this->mocks[$key] = $mock;
+        $this->logger->info("Registered mock client for: {$key}");
+    }
+
+    /**
+     * Remove all registered mocks.
+     *
+     * @return void
+     */
+    public function clearMocks(): void
+    {
+        $this->mocks = [];
     }
 
     /**
