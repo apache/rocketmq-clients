@@ -106,7 +106,7 @@ class PushConsumer
         $this->subscriptionExpressions = $options['subscriptionExpressions'] ?? [];
         $this->maxCacheMessageCount = $options['maxCacheMessageCount'] ?? 4096;
         $this->maxCacheMessageSizeInBytes = $options['maxCacheMessageSizeInBytes'] ?? 67108864;
-        $this->awaitDuration = $options['awaitDuration'] ?? 30;
+        $this->awaitDuration = $options['awaitDuration'] ?? 5;
         $this->scanIntervalSeconds = $options['scanIntervalSeconds'] ?? 5;
         $this->fifo = $options['fifo'] ?? false;
         $this->receiveBatchSize = $options['receiveBatchSize'] ?? 32;
