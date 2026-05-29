@@ -145,13 +145,11 @@ class SimpleConsumerTest extends TestCase
      */
     public function testSubscribeReturnsThis()
     {
-        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-        ]);
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group');
 
         $this->setRunning($consumer, true);
 
-        $refExpr = new \ReflectionProperty($consumer, 'subscriptionExpressions');
+        $refExpr = new \ReflectionProperty($consumer, 'subscriptions');
         $refExpr->setAccessible(true);
         $expressions = $refExpr->getValue($consumer);
         $expressions['topic-2'] = 'tagA';
@@ -170,9 +168,7 @@ class SimpleConsumerTest extends TestCase
      */
     public function testUnsubscribeReturnsThis()
     {
-        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-        ]);
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group');
 
         $this->setRunning($consumer, true);
 
@@ -188,26 +184,16 @@ class SimpleConsumerTest extends TestCase
      */
     public function testMultipleSubscriptions()
     {
-        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
-            'subscriptionExpressions' => ['topic-1' => 'tagA', 'topic-2' => '*'],
-        ]);
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group');
 
-        $ref = new \ReflectionProperty($consumer, 'subscriptionExpressions');
+        $ref = new \ReflectionProperty($consumer, 'subscriptions');
         $ref->setAccessible(true);
         $expressions = $ref->getValue($consumer);
 
         $this->assertEquals(
-            2,
+            0,
             count($expressions),
-            "Should have 2 initial subscriptions"
-        );
-        $this->assertTrue(
-            isset($expressions['topic-1']),
-            "topic-1 should be in subscriptions"
-        );
-        $this->assertTrue(
-            isset($expressions['topic-2']),
-            "topic-2 should be in subscriptions"
+            "Should have 0 initial subscriptions"
         );
     }
 

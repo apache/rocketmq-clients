@@ -94,7 +94,7 @@ class FifoFakeSystemProps
     }
 }
 
-class FifoFakeConsumerForConsume extends TestCase
+class FifoFakeConsumerForConsume
 {
     public function ack($messageView, int $timeout): void
     {

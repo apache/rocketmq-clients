@@ -27,7 +27,7 @@ use Apache\Rocketmq\V2\AddressScheme;
 /**
  * Concrete class that uses ClientTrait to test parseEndpoints().
  */
-class EndpointsTestClient extends TestCase
+class EndpointsTestClient
 {
     use \Apache\Rocketmq\ClientTrait;
 
@@ -56,7 +56,7 @@ class EndpointsTestClient extends TestCase
  * Tests for parseEndpoints() in ClientTrait.
  * Mirrors Java's EndpointsTest.
  */
-class EndpointsTest
+class EndpointsTest extends TestCase
 {
     private $client;
 
