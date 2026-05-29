@@ -1379,7 +1379,7 @@ class Producer
         $isolatedEndpoints = $this->isolatedEndpoints;
         $routeCache = $this->publishingRouteDataCache;
         foreach ($this->publishingRouteDataCache as $loadBalancer) {
-            foreach ($routeCache as $messageQueue) {
+            foreach ($loadBalancer->getMessageQueues() as $messageQueue) {
                 $ep = $this->extractMessageQueueEndpoint($messageQueue);
                 if ($ep !== null) {
                     $key = $this->endpointsKey($ep);
