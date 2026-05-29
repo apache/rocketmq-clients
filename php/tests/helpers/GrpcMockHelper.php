@@ -26,9 +26,10 @@ class GrpcMockHelper
 
         return (new \PHPUnit\Framework\MockObject\Generator())->getMock(
             MessagingServiceClient::class,
+            $methods,
             [],
             '',
-            $methods
+            false
         );
     }
 
