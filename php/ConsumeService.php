@@ -643,7 +643,7 @@ class FifoConsumeService extends ConsumeService
         }
     }
 
-    protected function executeDLQInterceptor($success, $messageId, $topic):  void
+    protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
     {
         if (method_exists($this->consumer, 'executeInterceptors')) {
             $this->consumer->executeInterceptors(MessageHookPoints::FORWARD_TO_DLQ, [
