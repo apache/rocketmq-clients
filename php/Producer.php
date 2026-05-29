@@ -301,6 +301,7 @@ class Producer
         }
 
         $loadBalancer = $this->getPublishingLoadBalancer($topic);
+        // Snapshot shared state to prevent race conditions in Swoole cooroutine mode
         $isolatedBroker = array_keys($this->isolatedEndpoints);
 
         if ($hasFifoMessage) {
@@ -1363,21 +1364,26 @@ class Producer
 
     private function isolateEndpoints(Endpoints $endpoints): void
     {
+        // Build all entries locally, then merge atomically
+        $newEntries = [];
         foreach ($endpoints->getAddresses() as $address) {
             $key = $address->getHost() . ":" . $address->getPort();
-            $this->isolatedEndpoints[$key] = $endpoints;
+            $newEntries[$key] = $endpoints;
         }
+        $this->isolatedEndpoints += $newEntries;
     }
 
     private function getIsolatedBrokerNames(): array
     {
         $brokerNames = [];
+        $isolatedEndpoints = $this->isolatedEndpoints;
+        $routeCache = $this->publishingRouteDataCache;
         foreach ($this->publishingRouteDataCache as $loadBalancer) {
-            foreach ($loadBalancer->getMessageQueues() as $messageQueue) {
+            foreach ($routeCache as $messageQueue) {
                 $ep = $this->extractMessageQueueEndpoint($messageQueue);
                 if ($ep !== null) {
                     $key = $this->endpointsKey($ep);
-                    if (isset($this->isolatedEndpoints[$key])) {
+                    if (isset($isolatedEndpoints[$key])) {
                         $brokerNames[] = $messageQueue->getBroker()->getName();
                     }
                 }
@@ -1407,7 +1413,8 @@ class Producer
     private function getTotalRouteEndpoints(): array
     {
         $endpointMap = [];
-        foreach ($this->publishingRouteDataCache as $loadBalancer) {
+        $routeCache = $this->publishingRouteDataCache;
+        foreach ($routeCache as $loadBalancer) {
             foreach ($loadBalancer->getMessageQueues() as $messageQueue) {
                 $endpoints = $this->extractMessageQueueEndpoint($messageQueue);
                 if ($endpoints !== null) {

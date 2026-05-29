@@ -31,7 +31,7 @@ use Apache\Rocketmq\FifoConsumeService;
 /**
  * Fake message view for FifoConsumeService testing.
  */
-class FifoFakeMessageView extends TestCase
+class FifoFakeMessageView
 {
     private $systemProperties;
 
@@ -69,7 +69,7 @@ class FifoFakeMessageView extends TestCase
     }
 }
 
-class FifoFakeSystemProps extends TestCase
+class FifoFakeSystemProps
 {
     private ?string $receiptHandle;
 

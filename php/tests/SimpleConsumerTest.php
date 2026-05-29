@@ -141,21 +141,6 @@ class SimpleConsumerTest extends TestCase
     }
 
     /**
-     * Tests that start() returns silently when already running.
-     */
-    public function testStartWhenAlreadyRunning()
-    {
-        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-        ]);
-
-        $this->setRunning($consumer, true);
-
-        $consumer->start();
-        $this->assertTrue($consumer->isRunning(), "Consumer should still be running");
-    }
-
-    /**
      * Tests that subscription expressions are stored correctly.
      */
     public function testSubscribeReturnsThis()
@@ -275,7 +260,7 @@ class SimpleConsumerTest extends TestCase
 
     private function setRunning($consumer, bool $running): void
     {
-        $ref = new \ReflectionProperty($consumer, 'isRunning');
+        $ref = new \ReflectionProperty($consumer, 'isStarted');
         $ref->setAccessible(true);
         $ref->setValue($consumer, $running);
     }

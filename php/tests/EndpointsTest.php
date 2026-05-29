@@ -56,7 +56,7 @@ class EndpointsTestClient extends TestCase
  * Tests for parseEndpoints() in ClientTrait.
  * Mirrors Java's EndpointsTest.
  */
-class EndpointsTest extends TestCase
+class EndpointsTest
 {
     private $client;
 

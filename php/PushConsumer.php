@@ -165,7 +165,8 @@ class PushConsumer
             unset($this->subscriptionExpressions[$topic]);
             unset($this->cacheAssignments[$topic]);
             // Drop related ProcessQueues
-            foreach ($this->processQueueTable as $key => $pq) {
+            $processQueue = $this->processQueueTable;
+            foreach ($processQueue as $key => $pq) {
                 $mq = $pq->getMessageQueue();
                 if (method_exists($mq, 'getTopic') && $mq->getTopic()->getName() === $topic) {
                     $pq->drop();
@@ -372,7 +373,8 @@ class PushConsumer
 
     private function fetchMessageInterleavedHeartbeat()
     {
-        foreach ($this->processQueueTable as $key => $pq) {
+        $processQueues = $this->processQueueTable;
+        foreach ($processQueues as $key => $pq) {
             if ($pq->isDropped() || $pq->expired()) {
                 $pq->drop();
                 unset($this->processQueueTable[$key]);
@@ -399,7 +401,8 @@ class PushConsumer
 
         // Step 1: Mark all queues as dropped to stop fetching NEW messages
         // This prevents new messages from being added to the cache
-        foreach ($this->processQueueTable as $pq) {
+        $processQueues = $this->processQueueTable;
+        foreach ($processQueues as $pq) {
             $pq->drop();
         }
 
@@ -472,7 +475,8 @@ class PushConsumer
         }
 
         $remainingCount = 0;
-        foreach ($this->processQueueTable as $pq) {
+        $processQueues = $this->processQueueTable;
+        foreach ($processQueues as $pq) {
             $remainingCount += count($pq->getCachedMessages());
         }
         $this->logger->warning("PushConsumer drain phase timed out after {$drainTimeout}s, {$remainingCount} messages remaining in " . count($this->processQueueTable) . " queues");
@@ -627,7 +631,8 @@ class PushConsumer
     {
         $this->logger->debug("PushConsumer scanning assignments");
 
-        foreach ($this->subscriptionExpressions as $topic => $expression) {
+        $subscriptions = $this->subscriptionExpressions;
+        foreach ($subscriptions as $topic => $expression) {
             try {
                 $assignments = $this->queryAssignment($topic);
                 $newAssignments = $assignments ? $assignments->getAssignments() : [];
@@ -669,7 +674,8 @@ class PushConsumer
         }
 
         // Drop ProcessQueues no longer in the latest assignments
-        foreach ($this->processQueueTable as $key => $pq) {
+        $processQueues = $this->processQueueTable;
+        foreach ($processQueues as $key => $pq) {
             $pqMq = $pq->getMessageQueue();
             $pqTopic = method_exists($pqMq, 'getTopic') ? $pqMq->getTopic()->getName() : null;
             if ($pqTopic !== $topic) {
@@ -685,7 +691,8 @@ class PushConsumer
         // Create new ProcessQueues for new assignments
         foreach ($latestMQKeys as $key => $mq) {
             $alreadyExists = false;
-            foreach ($this->processQueueTable as $existingKey => $existingPq) {
+            $processQueues = $this->processQueueTable;
+            foreach ($processQueues as $existingKey => $existingPq) {
                 if ($existingKey === $key) {
                     $alreadyExists = true;
                     break;
@@ -1025,7 +1032,8 @@ class PushConsumer
 
         $request = $this->wrapHeartbeatRequest();
         $endpointsMap = [];
-        foreach ($this->processQueueTable as $pq) {
+        $processQueues = $this->processQueueTable;
+        foreach ($processQueues as $pq) {
             $mq = $pq->getMessageQueue();
             $broker = $mq->getBroker();
             if ($broker && $broker->hasEndpoints()) {
