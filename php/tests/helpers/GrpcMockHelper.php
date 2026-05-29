@@ -147,6 +147,10 @@ class GrpcMockHelper
                 return $this->written;
             }
 
+            public function cancel(): void
+            {
+            }
+
             public function isCancelled(): bool
             {
                 return false;

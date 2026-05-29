@@ -77,7 +77,14 @@ class SimpleConsumer
      *
      * @param string $endpoints gRPC server endpoint
      * @param string $consumerGroup Consumer group name
-     * @param array $options Configuration options
+     * @param array $options Configuration options:
+     *                        - clientId: string, custom client identifier
+     *                        - namespace: string, resource namespace
+     *                        - requestTimeout: int, gRPC request timeout in ms (default 3000)
+     *                        - awaitDuration: int, long polling timeout in seconds (default 30)
+     *                        - tlsCredentials: TlsCredentials|null, TLS configuration
+     *                        - credentials: SessionCredentials|null, AK/SK credentials
+     *                        - subscriptionExpressions: array<string,string>, pre-populated subscriptions (topic => expression)
      */
     public function __construct(string $endpoints, string $consumerGroup, array $options = [])
     {
@@ -88,6 +95,12 @@ class SimpleConsumer
         $this->requestTimeout = $options['requestTimeout'] ?? 3000;
         $this->awaitDuration = $options['awaitDuration'] ?? 30;
         $this->tlsCredentials = $options['tlsCredentials'] ?? null;
+
+        // Pre-populate subscriptions from options, since subscribe() requires isStarted=true
+        // and start() requires non-empty subscriptions — breaking the cyclic dependency.
+        if (isset($options['subscriptionExpressions']) && is_array($options['subscriptionExpressions'])) {
+            $this->subscriptions = $options['subscriptionExpressions'];
+        }
 
         // Set AK/SK credentials if provided
         if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
@@ -717,7 +730,10 @@ class SimpleConsumer
             }
             // Update receipt handle with the new one returned by server
             if (method_exists($response, 'getReceiptHandle') && $response->getReceiptHandle() !== '') {
-                $message->setReceiptHandle($response->getReceiptHandle());
+                $sysProps = $message->getSystemProperties();
+                if ($sysProps !== null && method_exists($sysProps, 'setReceiptHandle')) {
+                    $sysProps->setReceiptHandle($response->getReceiptHandle());
+                }
             }
             return true;
         } catch (\Exception $e) {
