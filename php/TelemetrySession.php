@@ -40,8 +40,6 @@ class TelemetrySession
     private static array $instances = [];
     private static array $instanceTimestamps = [];
     private const MAX_INSTANCES = 10;
-    private const STALE_THRESHOLD_SECONDS = 300;
-
     private object $client;
     private string $endpoints;
     private $stream;
@@ -76,6 +74,7 @@ class TelemetrySession
     private int $swooleCoroutineId = -1;
     private bool $isClosing = false;
     private bool $isReconnecting = false;
+    private $lastSettingsCommand = null;
 
     /**
      * Private constructor
@@ -178,18 +177,23 @@ class TelemetrySession
     }
 
     /**
-     * @return void Check if the underlying stream is closed
+     * Check if the underlying stream is closed.
      */
     private function isStreamClosed(): bool
     {
         if ($this->stream === null) {
             return true;
         }
-        $className = get_class($this->stream);
-        if (strpos($className, 'BidStreamingCall') !== false) {
-            if (method_exists($this->stream, 'isCancelled') && $this->stream->isCancelled()) {
-                return true;
+        try {
+            if (method_exists($this->stream, 'getStatus')) {
+                $status = $this->stream->getStatus();
+                $code = is_object($status) ? ($status->code ?? -1) : (is_array($status) ? ($status['code'] ?? -1) : -1);
+                if ($code !== 0) {
+                    return true;
+                }
             }
+        } catch (Exception $e) {
+            return true;
         }
         return false;
     }

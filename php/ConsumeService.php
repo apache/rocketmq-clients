@@ -352,6 +352,22 @@ abstract class ConsumeService
         return false;
     }
 
+    /**
+     * Execute NACK interceptor hook.Overridden by FifoConsumeService.
+     */
+    protected function executeNackInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
+    {
+
+    }
+
+    /**
+     * Execute DLQ interceptor hook.Overridden by FifoConsumeService.
+     */
+    protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
+    {
+
+    }
+
     private function getBrokerClient($messageView)
     {
         $endpoints = $messageView->getEndpoints();
@@ -614,7 +630,7 @@ class FifoConsumeService extends ConsumeService
         }
     }
 
-    protected function executeNackInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds)
+    protected function executeNackInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
     {
         if (method_exists($this->consumer, 'executeInterceptors')) {
             $this->consumer->executeInterceptors(MessageHookPoints::CHANGE_INVISIBLE_DURATION, [
@@ -627,7 +643,7 @@ class FifoConsumeService extends ConsumeService
         }
     }
 
-    protected function executeDLQInterceptor($success, $messageId, $topic)
+    protected function executeDLQInterceptor($success, $messageId, $topic):  void
     {
         if (method_exists($this->consumer, 'executeInterceptors')) {
             $this->consumer->executeInterceptors(MessageHookPoints::FORWARD_TO_DLQ, [

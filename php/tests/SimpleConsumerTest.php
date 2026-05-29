@@ -186,7 +186,7 @@ class SimpleConsumerTest extends TestCase
             'topic-1 should be subscriptions'
         );
 
-        $this->assretTrue(
+        $this->assertTrue(
             isset($expressions['topic-2']),
             'topic-2 should be subscriptions'
         );

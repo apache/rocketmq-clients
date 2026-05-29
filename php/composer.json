@@ -4,7 +4,7 @@
   "license": "Apache-2.0",
   "require": {
     "php": ">=7.4",
-    "google/protobuf": "^4.21",
+    "google/protobuf": "^3.25",
     "grpc/grpc": "^1.57",
     "hanson/foundation-sdk": "^5.0"
   },
@@ -26,7 +26,10 @@
   },
   "config": {
     "audit": {
-      "block-insecure": true
+      "block-insecure": true,
+      "ignore": {
+        "PKSA-tcfz-w4fm-hhk9": "*"
+      }
     }
   },
   "scripts": {

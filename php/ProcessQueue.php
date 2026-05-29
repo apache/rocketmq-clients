@@ -282,7 +282,7 @@ class ProcessQueue
         if ($idx === null) {
             return;
         }
-        $body = $messageView->body ?? ($messageView->getBody() ?? '');
+        $body = $messageView->getBody() ?? '';
         $this->cachedMessagesBytes -= strlen($body);
         if ($this->cachedMessagesBytes < 0) {
             $this->cachedMessagesBytes = 0;
