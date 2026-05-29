@@ -1373,6 +1373,11 @@ class Producer
         $this->isolatedEndpoints += $newEntries;
     }
 
+    /**
+     * Get the names of brokers that are currently isolated (unreachable).
+     *
+     * @return string[] Broker names that are isolated
+     */
     private function getIsolatedBrokerNames(): array
     {
         $brokerNames = [];

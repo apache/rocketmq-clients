@@ -162,6 +162,9 @@ class SimpleConsumer
 
     /**
      * Start the consumer
+     *
+     * @return void
+     * @throws \RuntimeException If no subscriptions configured or Telemetry Session fails
      */
     public function start(): void
     {
@@ -185,6 +188,8 @@ class SimpleConsumer
     /**
      * Heartbeat tick handler - call from main loop to keep connection alive.
      * Sends heartbeat every 10 seconds to the broker.
+     *
+     * @return void
      */
     public function onHeartbeatTick(): void
     {
@@ -210,8 +215,10 @@ class SimpleConsumer
 
     /**
      * Send heartbeat to the broker to keep connection alive.
+     *
+     * @return void
      */
-    public function doHeartbeat()
+    public function doHeartbeat(): void
     {
         // Double-check concurrency guard
         if ($this->heartbeatInProgress) {
@@ -768,6 +775,8 @@ class SimpleConsumer
 
     /**
      * Shut down the consumer
+     *
+     * @return void
      */
     public function shutdown(): void
     {

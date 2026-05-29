@@ -353,7 +353,14 @@ abstract class ConsumeService
     }
 
     /**
-     * Execute NACK interceptor hook.Overridden by FifoConsumeService.
+     * Execute NACK interceptor hook. Overridden by FifoConsumeService.
+     *
+     * @param bool $success Whether the NACK was successful
+     * @param string $messageId Message ID being NACKed
+     * @param string $topic Topic name
+     * @param int $deliveryAttempt Current delivery attempt count
+     * @param int $delaySeconds Delay in seconds before next delivery
+     * @return void
      */
     protected function executeNackInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
     {
@@ -361,7 +368,14 @@ abstract class ConsumeService
     }
 
     /**
-     * Execute DLQ interceptor hook.Overridden by FifoConsumeService.
+     * Execute DLQ interceptor hook. Overridden by FifoConsumeService.
+     *
+     * @param bool $success Whether the DLQ forward was successful
+     * @param string $messageId Message ID being forwarded
+     * @param string $topic Topic name
+     * @param int $deliveryAttempt Current delivery attempt count
+     * @param int $delaySeconds Delay in seconds before DLQ forwarding
+     * @return void
      */
     protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
     {
@@ -630,6 +644,16 @@ class FifoConsumeService extends ConsumeService
         }
     }
 
+    /**
+     * Execute NACK interceptor for change-invisible-duration hook.
+     *
+     * @param bool $success Whether the NACK was successful
+     * @param string $messageId Message ID being NACKed
+     * @param string $topic Topic name
+     * @param int $deliveryAttempt Current delivery attempt count
+     * @param int $delaySeconds Delay in seconds before next delivery
+     * @return void
+     */
     protected function executeNackInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
     {
         if (method_exists($this->consumer, 'executeInterceptors')) {
@@ -643,6 +667,16 @@ class FifoConsumeService extends ConsumeService
         }
     }
 
+    /**
+     * Execute DLQ interceptor for forward-to-dead-letter-queue hook.
+     *
+     * @param bool $success Whether the DLQ forward was successful
+     * @param string $messageId Message ID being forwarded
+     * @param string $topic Topic name
+     * @param int $deliveryAttempt Current delivery attempt count
+     * @param int $delaySeconds Delay in seconds before DLQ forwarding
+     * @return void
+     */
     protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
     {
         if (method_exists($this->consumer, 'executeInterceptors')) {

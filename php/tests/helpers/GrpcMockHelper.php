@@ -41,6 +41,7 @@ class GrpcMockHelper
      * @param object|null $response Protobuf response message
      * @param int $statusCode gRPC status code (0 = OK)
      * @param string $statusDetails Status details string
+     * @return void
      */
     public static function mockUnaryCall(
         $mockClient,
@@ -78,6 +79,7 @@ class GrpcMockHelper
      * @param object $mockClient Mock MessagingServiceClient
      * @param string $methodName gRPC method name (e.g. 'ReceiveMessage')
      * @param array $responses Array of protobuf response messages to yield
+     * @return void
      */
     public static function mockServerStreamCall(
         $mockClient,
@@ -109,6 +111,7 @@ class GrpcMockHelper
      * @param object $mockClient Mock MessagingServiceClient
      * @param string $methodName gRPC method name
      * @param array $readResponses Array of protobuf response messages for read()
+     * @return void
      */
     public static function mockBidiStreamCall(
         $mockClient,
