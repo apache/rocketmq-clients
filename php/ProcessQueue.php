@@ -206,7 +206,7 @@ class ProcessQueue
             $messageView = new MessageView($msg, null, $endpoint);
             $idx = count($this->cachedMessages);
             $this->cachedMessages[] = $messageView;
-            $body = $msg->getBody() ?? '';
+            $body = $messageView->getBody() ?? '';
             $this->cachedMessagesBytes += strlen($body);
 
             // O(1) eviction index
@@ -257,12 +257,6 @@ class ProcessQueue
      */
     public function evictMessage($messageView)
     {
-        $body = $messageView->body ?? ($messageView->getBody() ?? '');
-        $this->cachedMessagesBytes -= strlen($body);
-        if ($this->cachedMessagesBytes < 0) {
-            $this->cachedMessagesBytes = 0;
-        }
-
         $idx = null;
         // Try O(1) lookup by receipt handle first
         if (method_exists($messageView, 'getSystemProperties')) {
@@ -288,12 +282,16 @@ class ProcessQueue
         if ($idx === null) {
             return;
         }
+        $body = $messageView->body ?? ($messageView->getBody() ?? '');
+        $this->cachedMessagesBytes -= strlen($body);
+        if ($this->cachedMessagesBytes < 0) {
+            $this->cachedMessagesBytes = 0;
+        }
         $lastIdx = count($this->cachedMessages) - 1;
         if ($idx !== $lastIdx) {
             $swappedMsg = $this->cachedMessages[$idx];
             $this->cachedMessages[$idx] = $this->cachedMessages[$lastIdx];
             $this->cachedMessages[$lastIdx] = $swappedMsg;
-
 
             $swappedReceipt = $this->getReceiptHandle($this->cachedMessages[$idx]);
             if ($swappedReceipt !== null) {

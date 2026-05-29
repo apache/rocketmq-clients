@@ -38,6 +38,9 @@ use Grpc\ChannelCredentials;
 class TelemetrySession
 {
     private static array $instances = [];
+    private static array $instanceTimestamps = [];
+    private const MAX_INSTANCES = 10;
+    private const STALE_THRESHOLD_SECONDS = 300;
 
     private object $client;
     private string $endpoints;
@@ -127,6 +130,7 @@ class TelemetrySession
     public static function resetAll(): void
     {
         self::$instances = [];
+        self::$instanceTimestamps = [];
     }
 
     public static function getInstance(object $client, string $endpoints, ?string $clientId = null, ?SessionCredentials $credentials = null, string $namespace = ''): self
@@ -135,13 +139,84 @@ class TelemetrySession
         $effectiveClientId = $clientId ?? 'none';
         $key = $endpoints . '|' . $credId . '|' . $namespace . '|' . $effectiveClientId;
 
+        if (isset(self::$instances[$key])) {
+            $existing = self::$instances[$key];
+            if (!$existing->isAlive()) {
+                Logger::getInstance('TelemetrySession')->info("Evicting stale session for endpoints: {$endpoints}");
+                unset(self::$instances[$key]);
+                unset(self::$instanceTimestamps[$key]);
+            }
+        }
+
         if (!isset(self::$instances[$key])) {
+            if (count(self::$instances) >= self::MAX_INSTANCES) {
+                self::evictOldest();
+            }
             Logger::getInstance('TelemetrySession')->info("Creating new session for endpoints: {$endpoints}, clientId: {$effectiveClientId}");
             $instance = new self($client, $endpoints, $clientId, $credentials, $namespace);
             self::$instances[$key] = $instance;
+            self::$instanceTimestamps[$key] = time();
         }
 
         return self::$instances[$key];
+    }
+
+    /**
+     * Check if this session is still olive (stream was created and is valid).
+     * A session that never had a stream is not stale - it just not yet started
+     */
+    private function isAlive(): bool
+    {
+        if ($this->isClosing) {
+            return false;
+        }
+
+        if ($this->stream !== null && $this->isStreamClosed()) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * @return void Check if the underlying stream is closed
+     */
+    private function isStreamClosed(): bool
+    {
+        if ($this->stream === null) {
+            return true;
+        }
+        $className = get_class($this->stream);
+        if (strpos($className, 'BidStreamingCall') !== false) {
+            if (method_exists($this->stream, 'isCancelled') && $this->stream->isCancelled()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Evict the oldest instance to make room for a new one.
+     * @return void
+     */
+    private static function evictOldest(): void
+    {
+        $oldestKey = null;
+        $oldestTime = PHP_INT_MAX;
+        foreach (self::$instanceTimestamps as $key => $timestamp) {
+            if ($timestamp < $oldestTime) {
+                $oldestTime = $timestamp;
+                $oldestKey = $key;
+            }
+        }
+
+        if ($oldestKey !== null) {
+            Logger::getInstance('TelemetrySession')->info("Evicting oldest session (max instance reached): {$oldestKey}");
+            if (isset(self::$instances[$oldestKey])) {
+                self::$instances[$oldestKey]->close();
+            }
+            unset(self::$instances[$oldestKey]);
+            unset(self::$instanceTimestamps[$oldestKey]);
+        }
     }
 
     public function syncSettings($settingsCommand)
@@ -508,6 +583,7 @@ class TelemetrySession
         $effectiveClientId = $this->clientId ?? 'none';
         $key = $this->endpoints . '|' . $credId . '|' . $this->namespace . "|" . $effectiveClientId;
         unset(self::$instances[$key]);
+        unset(self::$instanceTimestamps[$key]);
 
         $this->logger->info("Session closed");
     }

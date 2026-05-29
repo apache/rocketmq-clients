@@ -141,26 +141,15 @@ class SimpleConsumerTest extends TestCase
     }
 
     /**
-     * Tests that subscription expressions are stored correctly.
+     * Tests that subscriptions returns $this for method chaining.
      */
     public function testSubscribeReturnsThis()
     {
         $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group');
-
         $this->setRunning($consumer, true);
 
-        $refExpr = new \ReflectionProperty($consumer, 'subscriptions');
-        $refExpr->setAccessible(true);
-        $expressions = $refExpr->getValue($consumer);
-        $expressions['topic-2'] = 'tagA';
-        $refExpr->setValue($consumer, $expressions);
-
-        $expressions = $refExpr->getValue($consumer);
-        $this->assertEquals(
-            'tagA',
-            $expressions['topic-2'],
-            "topic-2 expression should be tagA after subscribe"
-        );
+        $result = $consumer->subscribe('test-topic', '*');
+        $this->assertSame($consumer, $result, "subscribe should return \$this for chaining");
     }
 
     /**
@@ -180,21 +169,29 @@ class SimpleConsumerTest extends TestCase
     }
 
     /**
-     * Tests multiple subscription expressions are stored.
+     * Tests multiple subscriptions can coexist and be enumerated.
      */
     public function testMultipleSubscriptions()
     {
         $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group');
+        $this->setRunning($consumer, true);
 
-        $ref = new \ReflectionProperty($consumer, 'subscriptions');
-        $ref->setAccessible(true);
-        $expressions = $ref->getValue($consumer);
+        $consumer->subscribe('topic-1', 'tagA');
+        $consumer->subscribe('topic-2', '*');
+        $expressions = $consumer->getSubscriptionExpressions();
+        $this->assertEquals(2, count($expressions), 'Should have 2 subscriptions after two subscribe calls');
 
-        $this->assertEquals(
-            0,
-            count($expressions),
-            "Should have 0 initial subscriptions"
+        $this->assertTrue(
+            isset($expressions['topic-1']),
+            'topic-1 should be subscriptions'
         );
+
+        $this->assretTrue(
+            isset($expressions['topic-2']),
+            'topic-2 should be subscriptions'
+        );
+        $this->assertEquals('tagA', $expressions['topic-1'], "topic-1 should have tag 'tagA'");
+        $this->assertEquals('*', $expressions['topic-2'], "topic-2 should have tag '*'");
     }
 
     /**
@@ -241,6 +238,26 @@ class SimpleConsumerTest extends TestCase
             'my-consumer-group',
             $consumer->getConsumerGroup(),
             "ConsumerGroup should match configured value"
+        );
+    }
+
+    /**
+     * Tests subscribe stores the subscription and returns $this for chaining.
+     */
+    public function testSubscribeStoresAndReturnsThis()
+    {
+        $consumer = new SimpleConsumer('127.0.0.1:9876', 'test-group');
+        $this->setRunning($consumer, true);
+        $result = $consumer->subscribe('topic-a', '*');
+        $this->assertSame($consumer, $result, "subscribe should return \$this for chaining");
+        $result2 = $consumer->subscribe('topic-b', 'tagX');
+        $this->assertSame($consumer, $result2, "subscribe should return \$this for chaining");
+
+        $expressions = $consumer->getSubscriptionExpressions();
+        $this->assertCount(2, $expressions, "should have 2 subscriptions after two subscribe calls");
+        $this->assertEquals("*", $expressions['topic-a'], "topic-a should have tag '*'");
+        $this->assertEquals(
+            'tagX', $expressions['topic-b'], "topic-b should have tag 'tagX'"
         );
     }
 

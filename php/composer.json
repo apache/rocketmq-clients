@@ -4,7 +4,7 @@
   "license": "Apache-2.0",
   "require": {
     "php": ">=7.4",
-    "google/protobuf": "^3.21",
+    "google/protobuf": "^4.21",
     "grpc/grpc": "^1.57",
     "hanson/foundation-sdk": "^5.0"
   },
