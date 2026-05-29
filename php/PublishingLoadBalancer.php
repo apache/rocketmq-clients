@@ -34,7 +34,10 @@ class PublishingLoadBalancer
     private $messageQueues = [];
 
     /**
+     * Initialize the load balancer with writable message queues from route data.
+     *
      * @param object $routeData TopicRouteData / QueryRouteResponse with getMessageQueues()
+     * @throws \InvalidArgumentException if no writable message queue is found
      */
     public function __construct($routeData)
     {
@@ -141,7 +144,7 @@ class PublishingLoadBalancer
     /**
      * Get all writable message queues.
      *
-     * @return array
+     * @return array Array of writable MessageQueue objects
      */
     public function getMessageQueues()
     {
@@ -171,6 +174,8 @@ class PublishingLoadBalancer
      * @param object $messageQueue MessageQueue protobuf object
      * @param int $messageType Message type to validate
      * @param string $topic Topic name for error message
+     * @return void
+     * @throws \InvalidArgumentException if message type is not accepted by the queue
      */
     public function validateMessageTypeAgainstQueue($messageQueue, $messageType, $topic)
     {

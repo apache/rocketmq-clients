@@ -30,6 +30,12 @@ class ConsumeResultSuspend extends ConsumeResult
 
     private $suspendTimeMs;
 
+    /**
+     * Private constructor - instantiated only via ConsumeResultSuspend::of().
+     *
+     * @param int $suspendTimeMs Suspend duration in milliseconds
+     * @throws \InvalidArgumentException if suspend time is below minimum
+     */
     private function __construct(int $suspendTimeMs)
     {
         if ($suspendTimeMs < self::MIN_SUSPEND_TIME_MS) {
@@ -53,6 +59,8 @@ class ConsumeResultSuspend extends ConsumeResult
 
     /**
      * Get the suspend time in milliseconds.
+     *
+     * @return int Suspend duration in milliseconds
      */
     public function getSuspendTimeMs(): int
     {
@@ -61,6 +69,8 @@ class ConsumeResultSuspend extends ConsumeResult
 
     /**
      * Get the suspend time as a named constant (SUSPEND=2).
+     *
+     * @return int The suspend constant value (SUSPEND = 2)
      */
     public function getValue(): int
     {

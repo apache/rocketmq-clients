@@ -27,6 +27,14 @@ class SessionCredentials
     private $accessSecret;
     private $securityToken; // Optional STS token
 
+    /**
+     * Constructor.
+     *
+     * @param string $accessKey Access key for authentication
+     * @param string $accessSecret Access secret for HMAC signing
+     * @param string|null $securityToken Optional STS security token
+     * @throws \InvalidArgumentException If accessKey or accessSecret is empty
+     */
     public function __construct(string $accessKey, string $accessSecret, ?string $securityToken = null)
     {
         if (empty($accessKey)) {
@@ -40,16 +48,31 @@ class SessionCredentials
         $this->securityToken = $securityToken;
     }
 
+    /**
+     * Get the access key.
+     *
+     * @return string The access key
+     */
     public function getAccessKey(): string
     {
         return $this->accessKey;
     }
 
+    /**
+     * Get the access secret.
+     *
+     * @return string The access secret
+     */
     public function getAccessSecret(): string
     {
         return $this->accessSecret;
     }
 
+    /**
+     * Get the optional STS security token.
+     *
+     * @return string|null The security token, or null if not set
+     */
     public function getSecurityToken(): ?string
     {
         return $this->securityToken;

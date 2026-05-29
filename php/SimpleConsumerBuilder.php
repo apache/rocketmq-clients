@@ -35,6 +35,7 @@ class SimpleConsumerBuilder
     /**
      * Set client configuration.
      *
+     * @param ClientConfiguration $config Client configuration
      * @return $this
      */
     public function setClientConfiguration(ClientConfiguration $config): self
@@ -51,6 +52,7 @@ class SimpleConsumerBuilder
     /**
      * Set the consumer group.
      *
+     * @param string $consumerGroup Consumer group name
      * @return $this
      */
     public function setConsumerGroup(string $consumerGroup): self
@@ -87,7 +89,9 @@ class SimpleConsumerBuilder
     /**
      * Set long-polling await duration in seconds.
      *
+     * @param int $seconds Await duration in seconds
      * @return $this
+     * @throws \InvalidArgumentException if seconds is not positive
      */
     public function setAwaitDuration(int $seconds): self
     {
@@ -101,6 +105,7 @@ class SimpleConsumerBuilder
     /**
      * Set namespace.
      *
+     * @param string $namespace Namespace string
      * @return $this
      */
     public function setNamespace(string $namespace): self

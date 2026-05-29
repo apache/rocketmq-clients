@@ -33,6 +33,17 @@ class ClientConfiguration
     private int $maxStartupAttempts;
     private ?TlsCredentials $tlsCredentials;
 
+    /**
+     * Private constructor - instantiated only via ClientConfiguration::create().
+     *
+     * @param string                     $endpoints                 Target endpoint addresses.
+     * @param SessionCredentials|null    $sessionCredentialsProvider Session credentials provider for authentication.
+     * @param int                        $requestTimeoutMs          RPC request timeout in milliseconds.
+     * @param bool                       $sslEnabled                Whether SSL is enabled.
+     * @param string                     $namespace                 Namespace for the client.
+     * @param int                        $maxStartupAttempts        Maximum number of startup retry attempts.
+     * @param TlsCredentials|null        $tlsCredentials            TLS credentials for secure connections.
+     */
     private function __construct(
         string $endpoints,
         ?SessionCredentials $sessionCredentialsProvider,
@@ -53,6 +64,15 @@ class ClientConfiguration
 
     /**
      * Factory method - only callable from ClientConfigurationBuilder.
+     *
+     * @param string                     $endpoints                 Target endpoint addresses.
+     * @param SessionCredentials|null    $sessionCredentialsProvider Session credentials provider for authentication.
+     * @param int                        $requestTimeoutMs          RPC request timeout in milliseconds.
+     * @param bool                       $sslEnabled                Whether SSL is enabled.
+     * @param string                     $namespace                 Namespace for the client.
+     * @param int                        $maxStartupAttempts        Maximum number of startup retry attempts.
+     * @param TlsCredentials|null        $tlsCredentials            TLS credentials for secure connections.
+     * @return ClientConfiguration       New immutable configuration instance.
      *
      * @internal
      */
@@ -76,36 +96,71 @@ class ClientConfiguration
         );
     }
 
+    /**
+     * Get the target endpoints address.
+     *
+     * @return string Target endpoint addresses.
+     */
     public function getEndpoints(): string
     {
         return $this->endpoints;
     }
 
+    /**
+     * Get the session credentials provider.
+     *
+     * @return SessionCredentials|null Session credentials provider, or null if not set.
+     */
     public function getSessionCredentialsProvider(): ?SessionCredentials
     {
         return $this->sessionCredentialsProvider;
     }
 
+    /**
+     * Get the RPC request timeout in milliseconds.
+     *
+     * @return int RPC request timeout in milliseconds.
+     */
     public function getRequestTimeoutMs(): int
     {
         return $this->requestTimeoutMs;
     }
 
+    /**
+     * Check whether SSL is enabled.
+     *
+     * @return bool True if SSL is enabled, false otherwise.
+     */
     public function isSslEnabled(): bool
     {
         return $this->sslEnabled;
     }
 
+    /**
+     * Get the namespace.
+     *
+     * @return string Namespace for the client.
+     */
     public function getNamespace(): string
     {
         return $this->namespace;
     }
 
+    /**
+     * Get the maximum number of startup retry attempts.
+     *
+     * @return int Maximum number of startup retry attempts.
+     */
     public function getMaxStartupAttempts(): int
     {
         return $this->maxStartupAttempts;
     }
 
+    /**
+     * Get the TLS credentials for gRPC connections.
+     *
+     * @return TlsCredentials|null TLS credentials, or null if not set.
+     */
     public function getTlsCredentials(): ?TlsCredentials
     {
         return $this->tlsCredentials;

@@ -178,8 +178,8 @@ class Utilities
     /**
      * Compute CRC32 checksum and return as zero-padded uppercase hex string.
      *
-     * @param string $data
-     * @return string
+     * @param string $data Input data to checksum
+     * @return string Uppercase zero-padded hex checksum
      */
     public static function crc32CheckSum(string $data): string
     {
@@ -189,8 +189,8 @@ class Utilities
     /**
      * Compute MD5 checksum and return as uppercase hex string.
      *
-     * @param string $data
-     * @return string
+     * @param string $data Input data to checksum
+     * @return string Uppercase hex checksum
      */
     public static function md5CheckSum(string $data): string
     {
@@ -200,8 +200,8 @@ class Utilities
     /**
      * Compute SHA1 checksum and return as uppercase hex string.
      *
-     * @param string $data
-     * @return string
+     * @param string $data Input data to checksum
+     * @return string Uppercase hex checksum
      */
     public static function sha1CheckSum(string $data): string
     {
@@ -211,7 +211,7 @@ class Utilities
     /**
      * Encode binary data as uppercase hexadecimal string.
      *
-     * @param string $bytes Binary data
+     * @param string $bytes Binary data to encode
      * @return string Uppercase hex string
      */
     public static function encodeHexString(string $bytes): string

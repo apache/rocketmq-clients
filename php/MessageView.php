@@ -45,6 +45,8 @@ class MessageView
     private int $decodeTimestamp = 0;
 
     /**
+     * Construct a MessageView, extracting metadata and processing body.
+     *
      * @param Message $message The protobuf message from broker
      * @param string|null $receiptHandle Receipt handle for ack/nack
      * @param Endpoints|null $endpoints Broker endpoints
@@ -89,7 +91,10 @@ class MessageView
 
     /**
      * Process body: verify integrity and decompress if needed.
-     * Returns the processed body string, or null if processing was skipped.
+     *
+     * @param Message $message The protobuf message
+     * @param object|null $sysProps System properties from the message
+     * @return string|null The processed body string, or null if processing was skipped
      */
     private function processBody(Message $message, $sysProps): ?string
     {
@@ -136,6 +141,12 @@ class MessageView
         return $body;
     }
 
+    /**
+     * Set the receipt handle for ack/nack operations.
+     *
+     * @param string|null $receiptHandle The receipt handle
+     * @return void
+     */
     public function setReceiptHandle(?string $receiptHandle): void
     {
         $this->receiptHandle = $receiptHandle;
@@ -143,6 +154,11 @@ class MessageView
 
     /**
      * Verify body integrity using the given digest type and checksum.
+     *
+     * @param string $body The message body string to verify
+     * @param string $checksum The expected checksum
+     * @param int|null $digestType The digest type (CRC32, MD5, SHA1)
+     * @return void
      */
     private function verifyBodyDigest(string $body, string $checksum, $digestType): void
     {
@@ -312,10 +328,10 @@ class MessageView
     }
 
     /**
-     * Get a specific user property.
+     * Get a specific user property by key.
      *
-     * @param string $key
-     * @return string|null
+     * @param string $key The property key
+     * @return string|null The property value, or null if not found
      */
     public function getProperty(string $key): ?string
     {
@@ -324,9 +340,9 @@ class MessageView
     }
 
     /**
-     * Get system properties object.
+     * Get the system properties from the underlying protobuf message.
      *
-     * @return object|null
+     * @return object|null The system properties object, or null if not set
      */
     public function getSystemProperties()
     {
@@ -386,6 +402,8 @@ class MessageView
 
     /**
      * Increment delivery attempt (used internally for retry tracking).
+     *
+     * @return void
      */
     public function incrementDeliveryAttempt(): void
     {

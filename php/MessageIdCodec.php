@@ -64,7 +64,9 @@ class MessageIdCodec
     private $sequence;
 
     /**
-     * Private constructor (singleton pattern)
+     * Private constructor (singleton pattern).
+     *
+     * @throws \Exception If MAC address retrieval fails
      */
     private function __construct()
     {
@@ -99,7 +101,7 @@ class MessageIdCodec
     }
 
     /**
-     * Generate the next message ID
+     * Generate the next message ID.
      *
      * @return MessageId
      */
@@ -121,7 +123,7 @@ class MessageIdCodec
     }
 
     /**
-     * Decode message ID string
+     * Decode message ID string.
      *
      * @param string $messageId Message ID string
      * @return MessageId
@@ -136,9 +138,10 @@ class MessageIdCodec
     }
 
     /**
-     * Generate process fixed string (MAC address + PID)
+     * Generate process fixed string (MAC address + PID).
      *
      * @return string Hexadecimal string
+     * @throws \Exception If MAC address retrieval fails
      */
     private function generateProcessFixedString(): string
     {
@@ -155,9 +158,10 @@ class MessageIdCodec
     }
 
     /**
-     * Get MAC address
+     * Get MAC address.
      *
      * @return string 6-byte MAC address
+     * @throws \Exception If no suitable source of randomness is available for fallback
      */
     private function getMacAddress(): string
     {
@@ -177,6 +181,11 @@ class MessageIdCodec
         return substr($macAddress, 0, 6);
     }
 
+    /**
+     * Read MAC address from /sys/class/net (Linux sysfs).
+     *
+     * @return string|null Binary MAC address string, or null if not available
+     */
     private function readMacFromSysfs(): ?string
     {
         $interfaces = @scandir('/sys/class/net/');
@@ -199,6 +208,11 @@ class MessageIdCodec
         return null;
     }
 
+    /**
+     * Read MAC address from ifconfig command output (macOS/Linux fallback).
+     *
+     * @return string|null Binary MAC address string, or null if not available
+     */
     private function readMacFromIfconfig(): ?string
     {
         $disabled = array_map('trim', explode(',', ini_get('disable_functions')));

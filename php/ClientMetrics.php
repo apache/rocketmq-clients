@@ -33,11 +33,19 @@ class ClientMetrics
     private $ackErrorCount = 0;
     private $startTime = 0;
 
+    /**
+     * Private constructor - initialize start time.
+     */
     private function __construct()
     {
         $this->startTime = time();
     }
 
+    /**
+     * Get the singleton instance of ClientMetrics.
+     *
+     * @return ClientMetrics The singleton ClientMetrics instance
+     */
     public static function getInstance()
     {
         if (self::$instance === null) {
@@ -46,11 +54,23 @@ class ClientMetrics
         return self::$instance;
     }
 
+    /**
+     * Reset the singleton instance to null.
+     *
+     * @return void
+     */
     public static function reset()
     {
         self::$instance = null;
     }
 
+    /**
+     * Record a send operation with success flag and latency.
+     *
+     * @param bool $success Whether the send operation succeeded
+     * @param int  $latencyMs Send latency in milliseconds
+     * @return void
+     */
     public function recordSend(bool $success = true, int $latencyMs = 0): void
     {
         $this->sendCount++;
@@ -64,6 +84,12 @@ class ClientMetrics
         }
     }
 
+    /**
+     * Record a receive operation with success flag.
+     *
+     * @param bool $success Whether the receive operation succeeded
+     * @return void
+     */
     public function recordReceive(bool $success = true): void
     {
         $this->receiveCount++;
@@ -72,6 +98,12 @@ class ClientMetrics
         }
     }
 
+    /**
+     * Record a consume operation with success flag.
+     *
+     * @param bool $success Whether the consume operation succeeded
+     * @return void
+     */
     public function recordConsume(bool $success = true): void
     {
         if ($success) {
@@ -81,6 +113,12 @@ class ClientMetrics
         }
     }
 
+    /**
+     * Record an ack operation with success flag.
+     *
+     * @param bool $success Whether the ack operation succeeded
+     * @return void
+     */
     public function recordAck(bool $success = true): void
     {
         $this->ackCount++;
@@ -89,15 +127,67 @@ class ClientMetrics
         }
     }
 
+    /**
+     * Get total send count.
+     *
+     * @return int Total number of send operations recorded
+     */
     public function getSendCount(): int { return $this->sendCount; }
+
+    /**
+     * Get send error count.
+     *
+     * @return int Total number of failed send operations
+     */
     public function getSendErrorCount(): int { return $this->sendErrorCount; }
+
+    /**
+     * Get total receive count.
+     *
+     * @return int Total number of receive operations recorded
+     */
     public function getReceiveCount(): int { return $this->receiveCount; }
+
+    /**
+     * Get receive error count.
+     *
+     * @return int Total number of failed receive operations
+     */
     public function getReceiveErrorCount(): int { return $this->receiveErrorCount; }
+
+    /**
+     * Get successful consume count.
+     *
+     * @return int Total number of successful consume operations
+     */
     public function getConsumeOkCount(): int { return $this->consumeOkCount; }
+
+    /**
+     * Get consume error count.
+     *
+     * @return int Total number of failed consume operations
+     */
     public function getConsumeErrorCount(): int { return $this->consumeErrorCount; }
+
+    /**
+     * Get total ack count.
+     *
+     * @return int Total number of ack operations recorded
+     */
     public function getAckCount(): int { return $this->ackCount; }
+
+    /**
+     * Get ack error count.
+     *
+     * @return int Total number of failed ack operations
+     */
     public function getAckErrorCount(): int { return $this->ackErrorCount; }
 
+    /**
+     * Get the average send latency in milliseconds.
+     *
+     * @return float Average send latency across all recorded send operations
+     */
     public function getAverageSendLatencyMs(): float
     {
         if (empty($this->sendLatencyMs)) {
@@ -106,11 +196,21 @@ class ClientMetrics
         return array_sum($this->sendLatencyMs) / count($this->sendLatencyMs);
     }
 
+    /**
+     * Get the uptime in seconds since instance creation.
+     *
+     * @return int Number of seconds elapsed since the ClientMetrics instance was created
+     */
     public function getUptimeSeconds(): int
     {
         return time() - $this->startTime;
     }
 
+    /**
+     * Get a snapshot of all metrics statistics.
+     *
+     * @return array Associative array containing all current metrics values
+     */
     public function getStats(): array
     {
         return [
@@ -132,11 +232,21 @@ class MetricsInterceptor implements MessageInterceptor
 {
     private $metrics;
 
+    /**
+     * Construct a metrics interceptor and attach the singleton ClientMetrics.
+     */
     public function __construct()
     {
         $this->metrics = ClientMetrics::getInstance();
     }
 
+    /**
+     * Intercept a message hook point and record the corresponding metric.
+     *
+     * @param string $hookPoint The hook point identifier (one of MessageHookPoints constants)
+     * @param array  $context Context data including success flag and optional latency
+     * @return void
+     */
     public function intercept(string $hookPoint, array $context = []): void
     {
         switch ($hookPoint) {
@@ -160,6 +270,11 @@ class MetricsInterceptor implements MessageInterceptor
         }
     }
 
+    /**
+     * Get the ClientMetrics instance attached to this interceptor.
+     *
+     * @return ClientMetrics The singleton metrics instance used by this interceptor
+     */
     public function getMetrics(): ClientMetrics
     {
         return $this->metrics;

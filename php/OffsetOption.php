@@ -36,6 +36,12 @@ class OffsetOption
     private $type;
     private $value;
 
+    /**
+     * Private constructor. Use static factory methods instead.
+     *
+     * @param string $type One of TYPE_POLICY, TYPE_OFFSET, TYPE_TAIL_N, TYPE_TIMESTAMP
+     * @param int $value Policy constant or numeric value
+     */
     private function __construct(string $type, int $value)
     {
         $this->type = $type;
@@ -44,6 +50,8 @@ class OffsetOption
 
     /**
      * Resume from last consumed position.
+     *
+     * @return OffsetOption
      */
     public static function lastOffset(): OffsetOption
     {
@@ -52,6 +60,8 @@ class OffsetOption
 
     /**
      * Start from earliest offset.
+     *
+     * @return OffsetOption
      */
     public static function minOffset(): OffsetOption
     {
@@ -60,6 +70,8 @@ class OffsetOption
 
     /**
      * Start from latest offset.
+     *
+     * @return OffsetOption
      */
     public static function maxOffset(): OffsetOption
     {
@@ -70,6 +82,8 @@ class OffsetOption
      * Start from a specific offset.
      *
      * @param int $offset Must be >= 0
+     * @return OffsetOption
+     * @throws \InvalidArgumentException if offset < 0
      */
     public static function ofOffset(int $offset): OffsetOption
     {
@@ -83,6 +97,8 @@ class OffsetOption
      * Start from N messages from tail.
      *
      * @param int $n Must be >= 0
+     * @return OffsetOption
+     * @throws \InvalidArgumentException if n < 0
      */
     public static function ofTailN(int $n): OffsetOption
     {
@@ -96,6 +112,8 @@ class OffsetOption
      * Start from messages at/after a timestamp.
      *
      * @param int $timestamp Unix timestamp in seconds, must be >= 0
+     * @return OffsetOption
+     * @throws \InvalidArgumentException if timestamp < 0
      */
     public static function ofTimestamp(int $timestamp): OffsetOption
     {
@@ -105,31 +123,61 @@ class OffsetOption
         return new self(self::TYPE_TIMESTAMP, $timestamp);
     }
 
+    /**
+     * Get the offset type.
+     *
+     * @return string One of TYPE_POLICY, TYPE_OFFSET, TYPE_TAIL_N, TYPE_TIMESTAMP
+     */
     public function getType(): string
     {
         return $this->type;
     }
 
+    /**
+     * Get the offset value.
+     *
+     * @return int Policy constant or numeric value
+     */
     public function getValue(): int
     {
         return $this->value;
     }
 
+    /**
+     * Check if this is a policy-based offset.
+     *
+     * @return bool
+     */
     public function isPolicy(): bool
     {
         return $this->type === self::TYPE_POLICY;
     }
 
+    /**
+     * Check if this is a specific offset.
+     *
+     * @return bool
+     */
     public function isOffset(): bool
     {
         return $this->type === self::TYPE_OFFSET;
     }
 
+    /**
+     * Check if this is a tail-N offset.
+     *
+     * @return bool
+     */
     public function isTailN(): bool
     {
         return $this->type === self::TYPE_TAIL_N;
     }
 
+    /**
+     * Check if this is a timestamp-based offset.
+     *
+     * @return bool
+     */
     public function isTimestamp(): bool
     {
         return $this->type === self::TYPE_TIMESTAMP;

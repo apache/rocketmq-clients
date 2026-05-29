@@ -53,6 +53,13 @@ class ProcessQueue
     private bool $fetchImmediately = false;
     private Logger $logger;
 
+    /**
+     * Constructor.
+     *
+     * @param object $consumer The parent consumer instance
+     * @param MessageQueue $messageQueue The message queue to consume from
+     * @param string $filterExpression Filter expression (default '*')
+     */
     public function __construct($consumer, MessageQueue $messageQueue, $filterExpression = '*')
     {
         $this->consumer = $consumer;
@@ -64,6 +71,11 @@ class ProcessQueue
         $this->logger = Logger::getInstance('ProcessQueue');
     }
 
+    /**
+     * Signal that messages should be fetched immediately on next loop iteration.
+     *
+     * @return void
+     */
     public function fetchMessageImmediately(): void
     {
         $this->fetchImmediately = true;
@@ -148,6 +160,12 @@ class ProcessQueue
         return $count;
     }
 
+    /**
+     * Consume a streamed message and handle the result (ack/nack/evict).
+     *
+     * @param object $message Protobuf message received from stream
+     * @return void
+     */
     private function consumeStreamedMessage($message)
     {
         if ($this->consumer->getConsumeService() === null) {
@@ -186,6 +204,11 @@ class ProcessQueue
         }
     }
 
+    /**
+     * Get the broker endpoint from the message queue.
+     *
+     * @return object|null Broker endpoints object or null
+     */
     private function getBrokerEndpoint()
     {
         $broker = $this->messageQueue->getBroker();
@@ -198,6 +221,9 @@ class ProcessQueue
     /**
      * Cache received messages and track byte size.
      * Also indexes by receipt handle for O(1) eviction.
+     *
+     * @param array $messages Protobuf messages to cache
+     * @return void
      */
     private function cacheMessages($messages)
     {
@@ -219,6 +245,9 @@ class ProcessQueue
 
     /**
      * Extract receipt handle from a protobuf message.
+     *
+     * @param object $msg Protobuf message
+     * @return string|null Receipt handle or null if not available
      */
     private function getReceiptHandle($msg): ?string
     {
@@ -235,6 +264,7 @@ class ProcessQueue
      * Test wrapper for cacheMessages (used by unit tests).
      *
      * @param array $messages
+     * @return void
      */
     public function testCacheMessages($messages)
     {
@@ -254,6 +284,9 @@ class ProcessQueue
     /**
      * Evict a message from cache after consumption.
      * Uses O(1) swop-with-last eviction with incremental index update.
+     *
+     * @param object $messageView Message to evict
+     * @return void
      */
     public function evictMessage($messageView)
     {
@@ -307,6 +340,7 @@ class ProcessQueue
      * @param object $messageView Message to erase
      * @param int $consumeResult ConsumeResult::SUCCESS, FAILURE, or ConsumeResultSuspend::SUSPEND
      * @param int|null $suspendSeconds Optional suspend time in seconds (for SUSPEND result)
+     * @return void
      */
     public function eraseMessage($messageView, $consumeResult, ?int $suspendSeconds = null)
     {
@@ -323,6 +357,12 @@ class ProcessQueue
         $this->evictMessage($messageView);
     }
 
+    /**
+     * Discard a message immediately (nack and evict).
+     *
+     * @param object $messageView
+     * @return void
+     */
     public function discardMessage($messageView) {
         $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
         $this->logger->debug("ProcessQueue Discarding message $messageId");
@@ -330,6 +370,12 @@ class ProcessQueue
         $this->evictMessage($messageView);
     }
 
+    /**
+     * Discard a FIFO message by forwarding to dead letter queue and evicting.
+     *
+     * @param object $messageView
+     * @return void
+     */
     public function discardFifoMessage($messageView)
     {
         $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
@@ -361,6 +407,8 @@ class ProcessQueue
 
     /**
      * Mark this ProcessQueue as dropped. Stops fetching.
+     *
+     * @return void
      */
     public function drop()
     {
@@ -369,6 +417,8 @@ class ProcessQueue
     }
 
     /**
+     * Check if this ProcessQueue has been dropped.
+     *
      * @return bool
      */
     public function isDropped()
@@ -397,6 +447,8 @@ class ProcessQueue
     }
 
     /**
+     * Get the number of cached messages.
+     *
      * @return int
      */
     public function cachedMessagesCount()
@@ -405,6 +457,8 @@ class ProcessQueue
     }
 
     /**
+     * Get the total bytes of cached messages.
+     *
      * @return int
      */
     public function cachedMessageBytes()
@@ -413,6 +467,8 @@ class ProcessQueue
     }
 
     /**
+     * Get the associated message queue.
+     *
      * @return MessageQueue
      */
     public function getMessageQueue()
@@ -449,6 +505,7 @@ class ProcessQueue
     /**
      * Build metadata for gRPC calls using Signature.
      *
+     * @param int|null $timeoutMs Optional timeout in milliseconds
      * @return array
      */
     private function buildMetadata(?int $timeoutMs = null)
@@ -475,11 +532,23 @@ class ProcessQueue
         return $metadata;
     }
 
+    /**
+     * Get the gRPC messaging service client for receiving messages.
+     *
+     * @return MessagingServiceClient
+     */
     private function getReceiveClient(): MessagingServiceClient
     {
         return $this->consumer->getClient();
     }
 
+    /**
+     * Erase a FIFO message: ack on SUCCESS, nack with delay on SUSPEND, or forward to DLQ otherwise.
+     *
+     * @param object $messageView
+     * @param mixed $consumeResult ConsumeResult::SUCCESS, ConsumeResultSuspend, or ConsumeResult::FAILURE
+     * @return void
+     */
     public function eraseFifoMessage($messageView, $consumeResult)
     {
         if ($consumeResult === ConsumeResult::SUCCESS) {
@@ -493,6 +562,11 @@ class ProcessQueue
         $this->evictMessage($messageView);
     }
 
+    /**
+     * Log stats for this ProcessQueue and reset counters.
+     *
+     * @return void
+     */
     public function doStats()
     {
         $reception = $this->receptionTimes;

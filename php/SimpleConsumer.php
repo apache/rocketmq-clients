@@ -151,9 +151,9 @@ class SimpleConsumer
     }
 
     /**
-     * Get all subscription expressions
+     * Get all subscription expressions.
      *
-     * @return array
+     * @return array<string, string> Map of topic to filter expression
      */
     public function getSubscriptionExpressions(): array
     {
@@ -247,7 +247,12 @@ class SimpleConsumer
     }
 
     /**
-     * Establish Telemetry Session
+     * Establish Telemetry Session with the broker.
+     *
+     * Sends settings command synchronously to register subscriptions.
+     *
+     * @return void
+     * @throws \RuntimeException If settings sync fails
      */
     private function establishTelemetrySession()
     {
@@ -318,6 +323,7 @@ class SimpleConsumer
      *
      * @param string $hookPoint One of MessageHookPoints constants
      * @param array $context Context data for the hook point
+     * @return void
      */
     public function executeInterceptors($hookPoint, $context = [])
     {
@@ -334,11 +340,13 @@ class SimpleConsumer
     }
 
     /**
-     * Receive messages
+     * Receive messages.
      *
      * @param int $maxMessages Maximum number of messages
      * @param int $invisibleDuration Invisible duration (seconds)
-     * @return array Message list
+     * @return array List of received Message objects
+     * @throws \RuntimeException If consumer is not started
+     * @throws \InvalidArgumentException If maxMessages is not positive
      */
     public function receive($maxMessages = 10, $invisibleDuration = 30)
     {
@@ -390,7 +398,14 @@ class SimpleConsumer
     }
 
     /**
-     * Receive messages from a specific topic
+     * Receive messages from a specific topic via streaming gRPC call.
+     *
+     * @param string $topic Topic name
+     * @param string $expression Filter expression
+     * @param int $maxMessages Maximum number of messages to receive
+     * @param int $invisibleDuration Invisible duration in seconds
+     * @param int|null $longPollingTimeout Long polling timeout in seconds
+     * @return array List of received Message objects
      */
     private function receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration, $longPollingTimeout = null)
     {
@@ -475,6 +490,9 @@ class SimpleConsumer
      * Get MessageQueue via QueryRoute + SubscriptionLoadBalancer.
      * SimpleConsumer uses QueryRoute (not QueryAssignment) like Java's SimpleConsumerImpl.
      * Round-robin across subscribed topics.
+     *
+     * @param string $topic Topic name
+     * @return \Apache\Rocketmq\V2\MessageQueue|null
      */
     private function getMessageQueue($topic)
     {
@@ -485,6 +503,9 @@ class SimpleConsumer
     /**
      * Get SubscriptionLoadBalancer for a topic.
      * Caches route data per topic, creating load balancer on first access.
+     *
+     * @param string $topic Topic name
+     * @return SubscriptionLoadBalancer
      */
     private function getSubscriptionLoadBalancer($topic)
     {
@@ -498,6 +519,9 @@ class SimpleConsumer
 
     /**
      * Query route data for a topic via QueryRoute RPC.
+     *
+     * @param string $topic Topic name
+     * @return \Apache\Rocketmq\V2\QueryRouteResponse|null
      */
     private function getRouteData($topic)
     {
@@ -526,9 +550,11 @@ class SimpleConsumer
     }
 
     /**
-     * Acknowledge messages
+     * Acknowledge messages.
      *
      * @param array $messages List of message objects to acknowledge
+     * @return void
+     * @throws \RuntimeException If consumer is not started
      */
     public function ack($messages)
     {
@@ -559,7 +585,11 @@ class SimpleConsumer
     }
 
     /**
-     * Acknowledge messages for a specific topic
+     * Acknowledge messages for a specific topic with retry logic.
+     *
+     * @param string $topic Topic name
+     * @param array $messages List of message objects to acknowledge
+     * @return void
      */
     private function ackMessagesForTopic($topic, $messages)
     {
@@ -751,6 +781,8 @@ class SimpleConsumer
 
     /**
      * Notify server that this client is terminating.
+     *
+     * @return void
      */
     private function notifyClientTermination()
     {
@@ -798,6 +830,8 @@ class SimpleConsumer
     /**
      * Start periodic heartbeat via SIGALRM timer.
      * Sends initial heartbeat then schedules recurring heartbeat every 10s.
+     *
+     * @return void
      */
     public function startHeartbeat()
     {
@@ -833,6 +867,8 @@ class SimpleConsumer
 
     /**
      * Schedule next heartbeat alarm in 10 seconds.
+     *
+     * @return void
      */
     private function scheduleNextHeartbeat()
     {
@@ -843,6 +879,8 @@ class SimpleConsumer
 
     /**
      * Stop heartbeat timer (cancel SIGALRM).
+     *
+     * @return void
      */
     public function stopHeartbeat()
     {
@@ -975,7 +1013,9 @@ class SimpleConsumer
     }
 
     /**
-     * Get Client ID
+     * Get the client ID.
+     *
+     * @return string
      */
     public function getClientId(): string
     {
@@ -983,7 +1023,9 @@ class SimpleConsumer
     }
 
     /**
-     * Get consumer group
+     * Get the consumer group name.
+     *
+     * @return string
      */
     public function getConsumerGroup()
     {
@@ -1050,7 +1092,7 @@ class SimpleConsumer
     /**
      * Get the await duration in seconds.
      *
-     * @return int
+     * @return int Long polling timeout in seconds
      */
     public function getAwaitDuration()
     {
@@ -1109,17 +1151,31 @@ class SimpleConsumer
         return $this->client;
     }
 
-    // ClientTrait required methods
+    /**
+     * Get credentials for signing (ClientTrait required method).
+     *
+     * @return SessionCredentials|null
+     */
     protected function getCredentials(): ?SessionCredentials
     {
         return $this->credentials;
     }
 
+    /**
+     * Get client ID value for signing (ClientTrait required method).
+     *
+     * @return string
+     */
     protected function getClientIdValue(): string
     {
         return $this->clientId;
     }
 
+    /**
+     * Get namespace value for signing (ClientTrait required method).
+     *
+     * @return string
+     */
     protected function getNamespaceValue(): string
     {
         return $this->namespace;
@@ -1136,7 +1192,9 @@ class SimpleConsumer
     }
 
     /**
-     * Destructor
+     * Destructor - shuts down the consumer gracefully.
+     *
+     * @return void
      */
     public function __destruct()
     {

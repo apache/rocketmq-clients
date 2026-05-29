@@ -40,6 +40,7 @@ class LitePushConsumerBuilder
     /**
      * Set client configuration.
      *
+     * @param ClientConfiguration $config
      * @return $this
      */
     public function setClientConfiguration(ClientConfiguration $config): self
@@ -53,6 +54,12 @@ class LitePushConsumerBuilder
         return $this;
     }
 
+    /**
+     * Subscribe to a lite topic.
+     *
+     * @param string $liteTopic
+     * @return $this
+     */
     public function subscriptionLite(string $liteTopic): self
     {
         $this->liteTopics[$liteTopic] = null;
@@ -62,6 +69,7 @@ class LitePushConsumerBuilder
     /**
      * Set the consumer group.
      *
+     * @param string $consumerGroup
      * @return $this
      */
     public function setConsumerGroup(string $consumerGroup): self
@@ -97,7 +105,9 @@ class LitePushConsumerBuilder
     /**
      * Set max cached message count.
      *
+     * @param int $count Must be > 0
      * @return $this
+     * @throws \InvalidArgumentException if count <= 0
      */
     public function setMaxCacheMessageCount(int $count): self
     {
@@ -111,7 +121,9 @@ class LitePushConsumerBuilder
     /**
      * Set max cached message size in bytes.
      *
+     * @param int $bytes Must be > 0
      * @return $this
+     * @throws \InvalidArgumentException if bytes <= 0
      */
     public function setMaxCacheMessageSizeInBytes(int $bytes): self
     {
@@ -125,6 +137,7 @@ class LitePushConsumerBuilder
     /**
      * Set consumption thread count (no-op in PHP).
      *
+     * @param int $count
      * @return $this
      */
     public function setConsumptionThreadCount(int $count): self
@@ -136,6 +149,7 @@ class LitePushConsumerBuilder
     /**
      * Enable FIFO consume accelerator.
      *
+     * @param bool $enable
      * @return $this
      */
     public function setEnableFifoConsumeAccelerator(bool $enable): self
@@ -147,6 +161,7 @@ class LitePushConsumerBuilder
     /**
      * Set namespace.
      *
+     * @param string $namespace
      * @return $this
      */
     public function setNamespace(string $namespace): self
@@ -211,6 +226,12 @@ class LitePushConsumerBuilder
         return $consumer;
     }
 
+    /**
+     * Build and start the LitePushConsumer.
+     *
+     * @return LitePushConsumer
+     * @throws \RuntimeException if required fields not set
+     */
     public function build(): LitePushConsumer
     {
         $consumer = $this->buildWithoutStart();
@@ -218,6 +239,12 @@ class LitePushConsumerBuilder
         return $consumer;
     }
 
+    /**
+     * Build, start, run for a given duration, then shutdown.
+     *
+     * @param int $seconds Duration in seconds to consume
+     * @throws \RuntimeException if required fields not set
+     */
     public function startFor(int $seconds):  void
     {
         $consumer = $this->buildWithoutStart();
@@ -225,6 +252,13 @@ class LitePushConsumerBuilder
         $consumer->shutdown();
     }
 
+    /**
+     * Build and start the LitePushConsumer asynchronously.
+     *
+     * @param callable|null $onDone Optional callback invoked after start completes
+     * @return LitePushConsumer
+     * @throws \RuntimeException if required fields not set
+     */
     public function buildAsync(?callable $onDone = null): LitePushConsumer
     {
         $consumer = $this->buildWithoutStart();

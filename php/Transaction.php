@@ -35,6 +35,11 @@ class Transaction
     private $committed = false;
     private $rolledBack = false;
 
+    /**
+     * Initialize transaction with producer reference.
+     *
+     * @param object $producer Producer instance for commit/rollback operations
+     */
     public function __construct($producer)
     {
         $this->producer = $producer;
@@ -44,6 +49,9 @@ class Transaction
      * Add a message to this transaction before sending.
      *
      * @param object $message Message protobuf object
+     * @return void
+     * @throws \RuntimeException If transaction is already terminated
+     * @throws \InvalidArgumentException If a message was already added
      */
     public function tryAddMessage($message): void
     {
@@ -63,6 +71,10 @@ class Transaction
      *
      * @param object $message Message protobuf object
      * @param array $sendResult ['messageId' => ..., 'transactionId' => ...]
+     * @param object|null $endpoints Endpoints for the sent message
+     * @return void
+     * @throws \RuntimeException If transaction is terminated or send result is invalid
+     * @throws \InvalidArgumentException If message is not part of this transaction
      */
     public function tryAddReceipt($message, array $sendResult, $endpoints = null): void
     {
@@ -91,6 +103,12 @@ class Transaction
 
     /**
      * Alias for tryAddReceipt.
+     *
+     * @param object $message Message protobuf object
+     * @param array $sendResult ['messageId' => ..., 'transactionId' => ...]
+     * @return void
+     * @throws \RuntimeException If transaction is terminated or send result invalid
+     * @throws \InvalidArgumentException If message is not part of this transaction
      */
     public function addReceipt($message, array $sendResult): void
     {
@@ -99,6 +117,9 @@ class Transaction
 
     /**
      * Commit all half-messages in this transaction.
+     *
+     * @return void
+     * @throws \RuntimeException If transaction is already terminated or has no receipts
      */
     public function commit(): void
     {
@@ -126,6 +147,9 @@ class Transaction
 
     /**
      * Rollback all half-messages in this transaction.
+     *
+     * @return void
+     * @throws \RuntimeException If transaction is already terminated or has no receipts
      */
     public function rollback(): void
     {
@@ -154,7 +178,7 @@ class Transaction
     /**
      * Get tracked messages.
      *
-     * @return array
+     * @return array List of tracked messages
      */
     public function getMessages(): array
     {
@@ -164,7 +188,7 @@ class Transaction
     /**
      * Get tracked receipts.
      *
-     * @return array
+     * @return array List of tracked receipts
      */
     public function getReceipts(): array
     {
@@ -174,7 +198,7 @@ class Transaction
     /**
      * Check if this transaction has been committed.
      *
-     * @return bool
+     * @return bool True if committed, false otherwise
      */
     public function isCommitted(): bool
     {
@@ -184,7 +208,7 @@ class Transaction
     /**
      * Check if this transaction has been rolled back.
      *
-     * @return bool
+     * @return bool True if rolled back, false otherwise
      */
     public function isRolledBack(): bool
     {

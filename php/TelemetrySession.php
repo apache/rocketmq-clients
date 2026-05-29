@@ -77,7 +77,13 @@ class TelemetrySession
     private $lastSettingsCommand = null;
 
     /**
-     * Private constructor
+     * Initialize telemetry session with client and connection details.
+     *
+     * @param object $client gRPC messaging service client
+     * @param string $endpoints Server endpoints
+     * @param string|null $clientId Client identifier
+     * @param SessionCredentials|null $credentials Session credentials for signing
+     * @param string $namespace Resource namespace
      */
     private function __construct(object $client, string $endpoints, ?string $clientId = null, ?SessionCredentials $credentials = null, string $namespace = '')
     {
@@ -91,47 +97,103 @@ class TelemetrySession
         }
     }
 
+    /**
+     * Register callback for server settings changes.
+     *
+     * @param callable $callback Callback receiving server Settings
+     * @return void
+     */
     public function setOnSettingsChange(callable $callback): void
     {
         $this->onSettingsChange = $callback;
     }
 
+    /**
+     * Register callback for orphaned transaction recovery.
+     *
+     * @param callable $callback Callback receiving RecoverOrphanedTransactionCommand
+     * @return void
+     */
     public function setOnRecoverOrphanedTransaction(callable $callback): void
     {
         $this->onRecoverOrphanedTransaction = $callback;
     }
 
+    /**
+     * Register callback for message verification.
+     *
+     * @param callable $callback Callback receiving VerifyMessageCommand
+     * @return void
+     */
     public function setOnVerifyMessage(callable $callback): void
     {
         $this->onVerifyMessage = $callback;
     }
 
+    /**
+     * Register callback for printing thread stack trace.
+     *
+     * @param callable $callback Callback receiving PrintThreadStackTraceCommand
+     * @return void
+     */
     public function setOnPrintThreadStackTrace(callable $callback): void
     {
         $this->onPrintThreadStackTrace = $callback;
     }
 
+    /**
+     * Register callback for endpoint reconnection.
+     *
+     * @param callable $callback Callback receiving ReconnectEndpointsCommand
+     * @return void
+     */
     public function setOnReconnectEndpoints(callable $callback): void
     {
         $this->onReconnectEndpoints = $callback;
     }
 
+    /**
+     * Register callback for unsubscribe notification.
+     *
+     * @param callable $callback Callback receiving NotifyUnsubscribeLiteCommand
+     * @return void
+     */
     public function setOnNotifyUnsubscribeLite(callable $callback): void
     {
         $this->onNotifyUnsubscribeLite = $callback;
     }
 
+    /**
+     * Get the current server settings.
+     *
+     * @return object|null Server settings object or null
+     */
     public function getServerSettings()
     {
         return $this->serverSettings;
     }
 
+    /**
+     * Reset all session instances (mainly for testing).
+     *
+     * @return void
+     */
     public static function resetAll(): void
     {
         self::$instances = [];
         self::$instanceTimestamps = [];
     }
 
+    /**
+     * Get or create a session instance for the given endpoints.
+     *
+     * @param object $client gRPC messaging service client
+     * @param string $endpoints Server endpoints
+     * @param string|null $clientId Client identifier
+     * @param SessionCredentials|null $credentials Session credentials
+     * @param string $namespace Resource namespace
+     * @return self
+     */
     public static function getInstance(object $client, string $endpoints, ?string $clientId = null, ?SessionCredentials $credentials = null, string $namespace = ''): self
     {
         $credId = $credentials !== null ? spl_object_id($credentials) : 'none';
@@ -161,8 +223,10 @@ class TelemetrySession
     }
 
     /**
-     * Check if this session is still olive (stream was created and is valid).
-     * A session that never had a stream is not stale - it just not yet started
+     * Check if this session is still alive (stream was created and is valid).
+     * A session that never had a stream is not stale - it just not yet started.
+     *
+     * @return bool
      */
     private function isAlive(): bool
     {
@@ -178,6 +242,8 @@ class TelemetrySession
 
     /**
      * Check if the underlying stream is closed.
+     *
+     * @return bool
      */
     private function isStreamClosed(): bool
     {
@@ -223,6 +289,12 @@ class TelemetrySession
         }
     }
 
+    /**
+     * Synchronize settings with broker via telemetry stream.
+     *
+     * @param object $settingsCommand Telemetry command containing settings
+     * @return bool True if settings were successfully synced
+     */
     public function syncSettings($settingsCommand)
     {
         $this->lastSettingsCommand = $settingsCommand;
@@ -242,6 +314,8 @@ class TelemetrySession
      * Wait for settings confirmation from broker with timeout.
      * In Swoole mode, the background reader will set settingsSynced when SETTINGS is received.
      * In non-Swoole mode, we poll manually.
+     *
+     * @return bool True if settings confirmed before timeout
      */
     private function waitForSettingsConfirmation(): bool
     {
@@ -277,6 +351,8 @@ class TelemetrySession
     /**
      * Manual poll for telemetry responses (non-Swoole mode).
      * This is a blocking call that reads one response at a time.
+     *
+     * @return void
      */
     private function pollTelemetryManual(): void
     {
@@ -298,6 +374,12 @@ class TelemetrySession
         }
     }
 
+    /**
+     * Create telemetry stream and send settings command.
+     *
+     * @param object $settingsCommand Telemetry command containing settings
+     * @return bool True on success
+     */
     public function createStreamAndSync($settingsCommand)
     {
         try {
@@ -363,6 +445,8 @@ class TelemetrySession
     /**
      * Start background reader. With Swoole, runs in a coroutine.
      * Without Swoole, the reader must be invoked manually via pollTelemetry().
+     *
+     * @return void
      */
     private function startBackgroundReader()
     {
@@ -384,6 +468,8 @@ class TelemetrySession
      * Poll for telemetry responses (non-Swoole fallback).
      * Call this from the client's main loop to process server-pushed commands.
      * Note: This is a blocking call that reads one response at a time.
+     *
+     * @return void
      */
     public function pollTelemetry(): void
     {
@@ -400,6 +486,11 @@ class TelemetrySession
         $this->pollTelemetryManual();
     }
 
+    /**
+     * Continuously read and handle telemetry responses in a loop.
+     *
+     * @return void
+     */
     private function readResponsesInBackground()
     {
         if (!$this->stream) {
@@ -440,6 +531,12 @@ class TelemetrySession
         }
     }
 
+    /**
+     * Dispatch a telemetry command to the appropriate handler.
+     *
+     * @param object $command Telemetry command from broker
+     * @return void
+     */
     private function handleResponse($command)
     {
         $this->logger->info("Received command from broker");
@@ -532,6 +629,12 @@ class TelemetrySession
         }
     }
 
+    /**
+     * Write a telemetry command to the stream synchronously.
+     *
+     * @param object $command Telemetry command to send
+     * @return bool True on success
+     */
     public function writeSync($command)
     {
         try {
@@ -565,6 +668,11 @@ class TelemetrySession
         }
     }
 
+    /**
+     * Close the telemetry session and remove from instance pool.
+     *
+     * @return void
+     */
     public function close()
     {
         $this->logger->info("Closing session...");
@@ -592,26 +700,53 @@ class TelemetrySession
         $this->logger->info("Session closed");
     }
 
+    /**
+     * Get the client identifier.
+     *
+     * @return string
+     */
     public function getClientId()
     {
         return $this->clientId;
     }
 
+    /**
+     * Check if settings have been synced with broker.
+     *
+     * @return bool
+     */
     public function isSettingsSynced()
     {
         return $this->settingsSynced;
     }
 
+    /**
+     * Get the settings error message if sync failed.
+     *
+     * @return string|null
+     */
     public function getSettingsError()
     {
         return $this->settingsError;
     }
 
+    /**
+     * Generate a client ID from the current process and time.
+     *
+     * @param object $command Telemetry command
+     * @return string Generated client identifier
+     */
     private function getClientIdFromCommand($command)
     {
         return 'php-client-' . getmypid() . '-' . time();
     }
 
+    /**
+     * Schedule reconnection after stream loss.
+     *
+     * @param object $settingsCommand Settings command to resend on reconnect
+     * @return void
+     */
     private function scheduleReconnect($settingsCommand)
     {
         if ($this->isClosing || $this->isReconnecting) {

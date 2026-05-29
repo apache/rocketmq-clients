@@ -27,10 +27,10 @@ class MessageIdImpl implements MessageId
     private $suffix;
 
     /**
-     * Constructor
+     * Construct a new MessageIdImpl instance.
      *
      * @param string $version Version number
-     * @param string $suffix Suffix
+     * @param string $suffix  Suffix
      */
     public function __construct($version, $suffix)
     {

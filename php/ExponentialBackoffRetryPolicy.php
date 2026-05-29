@@ -36,10 +36,13 @@ class ExponentialBackoffRetryPolicy
     private $multiplier;
 
     /**
+     * Construct a new ExponentialBackoffRetryPolicy.
+     *
      * @param int $maxAttempts Maximum retry attempts (>= 1)
      * @param int $baseDelayMs Base delay in milliseconds
      * @param int $maxDelayMs Maximum delay cap in milliseconds
      * @param float $multiplier Multiplier for each subsequent attempt
+     * @throws \InvalidArgumentException if maxAttempts < 1
      */
     public function __construct($maxAttempts = 3, $baseDelayMs = 1000, $maxDelayMs = 30000, $multiplier = 2.0)
     {

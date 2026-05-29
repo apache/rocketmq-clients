@@ -101,6 +101,11 @@ class LitePushConsumer extends PushConsumer
         return $this;
     }
 
+    /**
+     * Get the client type for this consumer.
+     *
+     * @return int ClientType::LITE_PUSH_CONSUMER
+     */
     protected function getClientType(): int
     {
         return ClientType::LITE_PUSH_CONSUMER;
@@ -109,7 +114,7 @@ class LitePushConsumer extends PushConsumer
     /**
      * Unsubscribe from a lite topic.
      *
-     * @param string $liteTopic
+     * @param string $liteTopic Lite topic name to remove
      * @return $this
      */
     public function unsubscribeLite($liteTopic)
@@ -132,7 +137,7 @@ class LitePushConsumer extends PushConsumer
     /**
      * Set the global lite message listener (used when no per-lite-topic listener is set).
      *
-     * @param callable $listener
+     * @param callable $listener Callback invoked for messages with no per-lite-topic listener
      * @return $this
      */
     public function setLiteMessageListener(callable $listener)
@@ -164,6 +169,9 @@ class LitePushConsumer extends PushConsumer
         parent::start();
     }
 
+    /**
+     * Setup before the main scan loop: sync lite subscriptions and wait for assignments.
+     */
     protected function onStartBeforeLoop()
     {
         $self = $this;
@@ -195,7 +203,8 @@ class LitePushConsumer extends PushConsumer
     /**
      * Handle server-initiated lite topic unsubscription.
      *
-     * @param string $liteTopic
+     * @param string $liteTopic Lite topic name to remove from subscriptions
+     * @return void
      */
     public function handleUnsubscribeLite($liteTopic)
     {
@@ -279,6 +288,11 @@ class LitePushConsumer extends PushConsumer
         return true;
     }
 
+    /**
+     * Query the server for lite topic assignment information.
+     *
+     * @return object|null Assignment response or null on failure
+     */
     private function queryLiteAssignment()
     {
         $topicResource = new \Apache\Rocketmq\V2\Resource();

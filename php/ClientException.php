@@ -22,12 +22,23 @@ class ClientException extends \Exception
 {
     protected $code;
 
+    /**
+     * Construct a client exception with a status code and optional message.
+     *
+     * @param int $code Error status code
+     * @param string $message Optional error message
+     */
     public function __construct(int $code, string $message = '')
     {
         $this->code = $code;
         parent::__construct($message ?: "Client error with code: {$code}", $code);
     }
 
+    /**
+     * Get the error status code.
+     *
+     * @return int The error status code
+     */
     public function getStatusCode(): int
     {
         return $this->code;

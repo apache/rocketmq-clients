@@ -34,11 +34,24 @@ class CompositedMessageInterceptor implements MessageInterceptor
 {
     private $interceptors = [];
 
+    /**
+     * Register an interceptor to be called at each hook point.
+     *
+     * @param MessageInterceptor $interceptor The interceptor instance to add
+     * @return void
+     */
     public function addInterceptor(MessageInterceptor $interceptor)
     {
         $this->interceptors[] = $interceptor;
     }
 
+    /**
+     * Call all registered interceptors for the given hook point.
+     *
+     * @param string $hookPoint One of MessageHookPoints constants
+     * @param array $context Context data specific to the hook point
+     * @return void
+     */
     public function intercept($hookPoint, array $context = [])
     {
         foreach ($this->interceptors as $interceptor) {

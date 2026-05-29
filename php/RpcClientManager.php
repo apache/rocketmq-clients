@@ -34,12 +34,20 @@ class RpcClientManager
     private int $lastCheckTime = 0;
     private Logger $logger;
 
+    /**
+     * Initialize client manager with logger and timestamp.
+     */
     private function __construct()
     {
         $this->logger = Logger::getInstance('RpcClientManager');
         $this->lastCheckTime = time();
     }
 
+    /**
+     * Get the singleton instance, creating it if necessary.
+     *
+     * @return self
+     */
     public static function getInstance(): self
     {
         if (self::$instance === null) {

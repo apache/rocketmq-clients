@@ -130,6 +130,9 @@ class Producer
 
     /**
      * Set transaction checker for orphaned transaction recovery.
+     *
+     * @param TransactionChecker $checker Transaction checker instance
+     * @return $this
      */
     public function setTransactionChecker(TransactionChecker $checker): self
     {
@@ -149,6 +152,12 @@ class Producer
         return $this;
     }
 
+    /**
+     * Start the producer, establishing telemetry session and heartbeat.
+     *
+     * @return void
+     * @throws \Exception If startup fails
+     */
     public function start(): void
     {
         if ($this->isRunning) {
@@ -231,7 +240,8 @@ class Producer
      * Asynchronously send a message using Swoole coroutine if available.
      *
      * @param Message $message
-     * @return array|\Generator
+     * @return array|\Generator Send result or Generator
+     * @throws \RuntimeException|\Throwable On send failure
      */
     public function sendAsync(Message $message)
     {
@@ -262,6 +272,7 @@ class Producer
      *
      * @param Message[] $messages
      * @return array Array of send results
+     * @throws \RuntimeException|\InvalidArgumentException On batch send failure
      */
     public function sendBatch(array $messages): array
     {
@@ -324,7 +335,8 @@ class Producer
      * Asynchronously batch send using Swoole coroutine if available.
      *
      * @param Message[] $messages
-     * @return array|\Generator
+     * @return array|\Generator Batch send result or Generator
+     * @throws \RuntimeException|\Throwable On batch async send failure
      */
     public function sendBatchAsync(array $messages)
     {
@@ -419,6 +431,12 @@ class Producer
         return $result;
     }
 
+    /**
+     * Begin a new transaction.
+     *
+     * @return Transaction New transaction instance
+     * @throws \RuntimeException If producer is not running or TransactionChecker is not set
+     */
     public function beginTransaction()
     {
         if (!$this->isRunning) {
@@ -431,16 +449,46 @@ class Producer
         return new Transaction($this);
     }
 
+    /**
+     * Commit a transaction by messageId and transactionId.
+     *
+     * @param string $messageId Message identifier
+     * @param string $transactionId Transaction identifier
+     * @param string $topic Topic name
+     * @param Endpoints|null $endpoints Broker endpoints (optional)
+     * @return void
+     * @throws \RuntimeException If end transaction fails
+     */
     public function commitTransaction($messageId, $transactionId, $topic, $endpoints = null)
     {
         $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::COMMIT, $endpoints);
     }
 
+    /**
+     * Rollback a transaction by messageId and transactionId.
+     *
+     * @param string $messageId Message identifier
+     * @param string $transactionId Transaction identifier
+     * @param string $topic Topic name
+     * @param Endpoints|null $endpoints Broker endpoints (optional)
+     * @return void
+     * @throws \RuntimeException If end transaction fails
+     */
     public function rollbackTransaction($messageId, $transactionId, $topic, $endpoints = null)
     {
         $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::ROLLBACK, $endpoints);
     }
 
+    /**
+     * Send a priority message.
+     *
+     * @param string $topic Topic name
+     * @param string $body Message body
+     * @param int $priority Message priority
+     * @param string $tag Message tag (optional)
+     * @return array Send result
+     * @throws \RuntimeException If producer is not running or send fails
+     */
     public function sendPriorityMessage($topic, $body, $priority, $tag = ''): array
     {
         if (!$this->isRunning) {
@@ -464,6 +512,16 @@ class Producer
         return $this->send($message);
     }
 
+    /**
+     * Send a delayed message with a delivery timestamp.
+     *
+     * @param string $topic Topic name
+     * @param string $body Message body
+     * @param int $deliveryTimestampUnixSec Unix timestamp in seconds for delivery
+     * @param string $tag Message tag (optional)
+     * @return array Send result
+     * @throws \RuntimeException If producer is not running or send fails
+     */
     public function sendDelayedMessage($topic, $body, $deliveryTimestampUnixSec, $tag = ''): array
     {
         if (!$this->isRunning) {
@@ -491,6 +549,16 @@ class Producer
         return $this->send($message);
     }
 
+    /**
+     * Send a FIFO (ordered) message with a message group.
+     *
+     * @param string $topic Topic name
+     * @param string $body Message body
+     * @param string $messageGroup Message group identifier for ordering
+     * @param string $tag Message tag (optional)
+     * @return array Send result
+     * @throws \RuntimeException If producer is not running or send fails
+     */
     public function sendFifoMessage($topic, $body, $messageGroup, $tag = ''): array
     {
         if (!$this->isRunning) {
@@ -514,6 +582,14 @@ class Producer
         return $this->send($message);
     }
 
+    /**
+     * Recall a previously sent delayed message.
+     *
+     * @param string $topic Topic name
+     * @param string $recallHandle Recall handle from the original send result
+     * @return array Recall result ['messageId' => ..., 'status' => ...]
+     * @throws \RuntimeException If producer is not running or recall fails
+     */
     public function recallMessage($topic, $recallHandle): array
     {
         if (!$this->isRunning) {
@@ -546,6 +622,14 @@ class Producer
         ];
     }
 
+    /**
+     * Asynchronously recall a delayed message using Swoole coroutine if available.
+     *
+     * @param string $topic Topic name
+     * @param string $recallHandle Recall handle from the original send result
+     * @return array|\Generator Recall result or Generator
+     * @throws \RuntimeException|\Throwable On recall failure
+     */
     public function recallMessageAsync($topic, $recallHandle)
     {
         if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
@@ -570,6 +654,11 @@ class Producer
         yield $this->recallMessage($topic, $recallHandle);
     }
 
+    /**
+     * Shutdown the producer, stopping heartbeat and notifying server.
+     *
+     * @return void
+     */
     public function shutdown(): void
     {
         if (!$this->isRunning) {
@@ -600,16 +689,31 @@ class Producer
         $this->logger->info("Shutdown the rocketmq producer successfully, clientId={$this->clientId}");
     }
 
+    /**
+     * Get the client identifier.
+     *
+     * @return string Client ID
+     */
     public function getClientId(): string
     {
         return $this->clientId;
     }
 
+    /**
+     * Check if the producer is currently running.
+     *
+     * @return bool True if running
+     */
     public function isRunning(): bool
     {
         return $this->isRunning;
     }
 
+    /**
+     * Destructor, calls shutdown.
+     *
+     * @return void
+     */
     public function __destruct()
     {
         $this->shutdown();
@@ -617,6 +721,8 @@ class Producer
 
     /**
      * Start periodic heartbeat to all route endpoints.
+     *
+     * @return void
      */
     private function startHeartbeat()
     {
@@ -634,6 +740,11 @@ class Producer
         }
     }
 
+    /**
+     * Heartbeat tick handler, invoked by alarm signal periodically.
+     *
+     * @return void
+     */
     private function onHeartbeatTick()
     {
         $now = time();
@@ -663,6 +774,12 @@ class Producer
         }
     }
 
+    /**
+     * Add a message interceptor for hook point callbacks.
+     *
+     * @param MessageInterceptor $interceptor Interceptor instance
+     * @return $this
+     */
     public function addInterceptor(MessageInterceptor $interceptor)
     {
         if (!isset($this->interceptors)) {
@@ -672,6 +789,13 @@ class Producer
         return $this;
     }
 
+    /**
+     * Execute all registered interceptors at the given hook point.
+     *
+     * @param string $hookPoint Hook point identifier
+     * @param array $context Context data passed to interceptors
+     * @return void
+     */
     public function executeInterceptors($hookPoint, $context = [])
     {
         if (empty($this->interceptors)) {
@@ -686,6 +810,11 @@ class Producer
         }
     }
 
+    /**
+     * Send a heartbeat to all broker endpoints in the route cache.
+     *
+     * @return void
+     */
     private function doHeartbeat()
     {
         if (empty($this->publishingRouteDataCache)) {
@@ -725,6 +854,11 @@ class Producer
         }
     }
 
+    /**
+     * Notify the server that this client is terminating.
+     *
+     * @return void
+     */
     private function notifyClientTermination()
     {
         if (empty($this->publishingRouteDataCache)) {
@@ -747,6 +881,11 @@ class Producer
         }
     }
 
+    /**
+     * Stop the periodic heartbeat and cancel pending alarm signals.
+     *
+     * @return void
+     */
     private function stopHeartbeat()
     {
         // Cancel pending alarm
@@ -787,6 +926,11 @@ class Producer
 
     // ==================== Private Methods ====================
 
+    /**
+     * Register the server settings change callback on the telemetry session.
+     *
+     * @return void
+     */
     private function registerSettingsCallback()
     {
         $self = $this;
@@ -799,6 +943,8 @@ class Producer
      * Register TransactionChecker callback on TelemetrySession.
      * When the server sends RecoverOrphanedTransactionCommand, this calls the checker
      * and responds with the resolution.
+     *
+     * @return void
      */
     private function registerTransactionCheckerCallback()
     {
@@ -814,6 +960,9 @@ class Producer
 
     /**
      * Handle an orphaned transaction command from the server.
+     *
+     * @param mixed $command Orphaned transaction command from the server
+     * @return void
      */
     private function handleOrphanedTransaction($command)
     {
@@ -874,6 +1023,12 @@ class Producer
         }
     }
 
+    /**
+     * Process server settings updates (max body size, validation, backoff policy).
+     *
+     * @param Settings $settings Server settings protobuf message
+     * @return void
+     */
     private function onServerSettings($settings)
     {
         $this->logger->info("Processing server settings");
@@ -918,6 +1073,12 @@ class Producer
         }
     }
 
+    /**
+     * Establish the telemetry session with the server.
+     *
+     * @return void
+     * @throws \RuntimeException If session establishment fails
+     */
     private function establishTelemetrySession()
     {
         $ua = new UA();
@@ -950,6 +1111,13 @@ class Producer
         SwooleCompat::sleep(500000);
     }
 
+    /**
+     * Validate a message (topic, body, size) before sending.
+     *
+     * @param Message $message Message to validate
+     * @return void
+     * @throws \InvalidArgumentException If message is invalid
+     */
     private function validateMessage(Message $message)
     {
         if (!$message->hasTopic() || empty(trim($message->getTopic()->getName()))) {
@@ -966,6 +1134,13 @@ class Producer
         }
     }
 
+    /**
+     * Get or create the PublishingLoadBalancer for a topic.
+     *
+     * @param string $topic Topic name
+     * @return PublishingLoadBalancer Load balancer instance
+     * @throws \RuntimeException If route query fails
+     */
     private function getPublishingLoadBalancer($topic)
     {
         if (!isset($this->publishingRouteDataCache[$topic])) {
@@ -976,6 +1151,13 @@ class Producer
         return $this->publishingRouteDataCache[$topic];
     }
 
+    /**
+     * Query the route data for a topic from the server.
+     *
+     * @param string $topic Topic name
+     * @return QueryRouteResponse Route data response
+     * @throws \RuntimeException If query fails
+     */
     private function queryRoute($topic)
     {
         $topicResource = new Resource();
@@ -996,6 +1178,14 @@ class Producer
         return $response;
     }
 
+    /**
+     * Convert a user Message to a protobuf Message, enriching with system properties.
+     *
+     * @param Message $msg User message
+     * @param mixed $messageQueue Target message queue
+     * @param bool $txEnabled Whether transaction mode is enabled
+     * @return Message Protobuf Message ready for sending
+     */
     private function toProtobufMessage(Message $msg, $messageQueue, $txEnabled = false)
     {
         $messageId = MessageIdCodec::getInstance()->nextMessageId()->toString();
@@ -1057,6 +1247,13 @@ class Producer
         return $protoMsg;
     }
 
+    /**
+     * Detect the message type (NORMAL, FIFO, DELAY, TRANSACTION, etc.) from system properties.
+     *
+     * @param Message $msg User message
+     * @param bool $txEnabled Whether transaction mode is enabled
+     * @return int Message type constant from V2MessageType
+     */
     private function detectMessageType(Message $msg, $txEnabled = false)
     {
         $sysProps = $msg->getSystemProperties();
@@ -1087,6 +1284,11 @@ class Producer
         return V2MessageType::NORMAL;
     }
 
+    /**
+     * Create a protobuf Timestamp from the current time with nanosecond precision.
+     *
+     * @return Timestamp Current timestamp
+     */
     private function createTimestamp()
     {
         $now = microtime(true);
@@ -1099,6 +1301,13 @@ class Producer
         return $timestamp;
     }
 
+    /**
+     * Wrap messages into a SendMessageRequest protobuf for the given message queue.
+     *
+     * @param Message[] $messages User messages to wrap
+     * @param mixed $messageQueue Target message queue
+     * @return SendMessageRequest Ready-to-send request
+     */
     private function wrapSendMessageRequest($messages, $messageQueue)
     {
         $enrichedMessages = [];
@@ -1112,6 +1321,13 @@ class Producer
         return $request;
     }
 
+    /**
+     * Wrap messages into a SendMessageRequest with transaction mode enabled.
+     *
+     * @param Message[] $messages User messages to wrap
+     * @param mixed $messageQueue Target message queue
+     * @return SendMessageRequest Ready-to-send transaction request
+     */
     private function wrapTransactionMessageRequest($messages, $messageQueue)
     {
         $enrichedMessages = [];
@@ -1127,6 +1343,13 @@ class Producer
 
     /**
      * Send message with retry using wired ExponentialBackoffRetryPolicy.
+     *
+     * @param SendMessageRequest $request The send request
+     * @param Message $message The user message being sent
+     * @param array $candidates Candidate message queues
+     * @param int $maxAttempts Maximum retry attempts
+     * @return array Send result
+     * @throws \RuntimeException If all attempts fail
      */
     private function sendMessageWithRetry($request, $message, $candidates, $maxAttempts)
     {
@@ -1224,6 +1447,13 @@ class Producer
 
     /**
      * Batch send with retry using wired ExponentialBackoffRetryPolicy.
+     *
+     * @param SendMessageRequest $request The batch send request
+     * @param Message[] $messages User messages being sent
+     * @param array $candidates Candidate message queues
+     * @param int $maxAttempts Maximum retry attempts
+     * @return array Batch send results
+     * @throws \RuntimeException If all attempts fail
      */
     private function sendBatchWithRetry($request, $messages, $candidates, $maxAttempts)
     {
@@ -1307,6 +1537,18 @@ class Producer
         throw $lastException;
     }
 
+    /**
+     * End (commit or rollback) a transaction.
+     *
+     * @param string $messageId Message identifier
+     * @param string $transactionId Transaction identifier
+     * @param string $topic Topic name
+     * @param int $resolution Transaction resolution (COMMIT or ROLLBACK)
+     * @param Endpoints|null $endpoints Broker endpoints (optional)
+     * @param int $source Transaction source (client or server)
+     * @return void
+     * @throws \RuntimeException If end transaction fails
+     */
     private function endTransaction($messageId, $transactionId, $topic, $resolution, ?Endpoints $endpoints = null, $source = TransactionSource::SOURCE_CLIENT)
     {
         if (!$this->isRunning) {
@@ -1362,6 +1604,12 @@ class Producer
         }
     }
 
+    /**
+     * Mark broker endpoints as isolated (unreachable).
+     *
+     * @param Endpoints $endpoints Endpoints to isolate
+     * @return void
+     */
     private function isolateEndpoints(Endpoints $endpoints): void
     {
         // Build all entries locally, then merge atomically
@@ -1397,6 +1645,12 @@ class Producer
         return array_unique($brokerNames);
     }
 
+    /**
+     * Extract broker endpoints from a message queue.
+     *
+     * @param mixed $messageQueue Message queue with broker information
+     * @return Endpoints|null Broker endpoints or null
+     */
     private function extractMessageQueueEndpoint($messageQueue): ?Endpoints
     {
         $broker = $messageQueue->getBroker();
@@ -1406,6 +1660,12 @@ class Producer
         return null;
     }
 
+    /**
+     * Generate a unique key string for a set of endpoints.
+     *
+     * @param Endpoints $endpoints Broker endpoints
+     * @return string Unique key (host:port or object hash)
+     */
     public function endpointsKey(Endpoints $endpoints): string
     {
         $addresses = $endpoints->getAddresses();
@@ -1415,6 +1675,11 @@ class Producer
         return spl_object_hash($endpoints);
     }
 
+    /**
+     * Collect all unique broker endpoints from the publishing route cache.
+     *
+     * @return Endpoints[] Unique broker endpoints
+     */
     private function getTotalRouteEndpoints(): array
     {
         $endpointMap = [];
@@ -1431,6 +1696,11 @@ class Producer
         return array_values($endpointMap);
     }
 
+    /**
+     * Refresh route data for all known topics.
+     *
+     * @return void
+     */
     private function refreshRouteCache(): void
     {
         foreach ($this->topics as $topic) {
@@ -1448,7 +1718,25 @@ class Producer
     }
 
     // ClientTrait required methods
+
+    /**
+     * Get session credentials for AK/SK auth (required by ClientTrait).
+     *
+     * @return SessionCredentials|null
+     */
     protected function getCredentials(): ?SessionCredentials { return $this->credentials; }
+
+    /**
+     * Get the client ID (required by ClientTrait).
+     *
+     * @return string
+     */
     protected function getClientIdValue(): string { return $this->clientId; }
+
+    /**
+     * Get the namespace (required by ClientTrait).
+     *
+     * @return string
+     */
     protected function getNamespaceValue(): string { return $this->namespace; }
 }

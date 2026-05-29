@@ -42,6 +42,7 @@ class PushConsumerBuilder
     /**
      * Set client configuration.
      *
+     * @param ClientConfiguration $config Client configuration
      * @return $this
      */
     public function setClientConfiguration(ClientConfiguration $config): self
@@ -55,6 +56,12 @@ class PushConsumerBuilder
         return $this;
     }
 
+    /**
+     * Set FIFO mode.
+     *
+     * @param bool $fifo
+     * @return $this
+     */
     public function setFifo(bool $fifo): self
     {
         $this->fifo = $fifo;
@@ -63,6 +70,7 @@ class PushConsumerBuilder
     /**
      * Set the consumer group.
      *
+     * @param string $consumerGroup Consumer group name
      * @return $this
      */
     public function setConsumerGroup(string $consumerGroup): self
@@ -111,7 +119,9 @@ class PushConsumerBuilder
     /**
      * Set max cached message count.
      *
+     * @param int $count Max cached message count
      * @return $this
+     * @throws \InvalidArgumentException if count <= 0
      */
     public function setMaxCacheMessageCount(int $count): self
     {
@@ -125,7 +135,9 @@ class PushConsumerBuilder
     /**
      * Set max cached message size in bytes.
      *
+     * @param int $bytes Max cached message size in bytes
      * @return $this
+     * @throws \InvalidArgumentException if bytes <= 0
      */
     public function setMaxCacheMessageSizeInBytes(int $bytes): self
     {
@@ -139,6 +151,7 @@ class PushConsumerBuilder
     /**
      * Set consumption thread count (no-op in PHP, stored for API parity).
      *
+     * @param int $count Thread count
      * @return $this
      */
     public function setConsumptionThreadCount(int $count): self
@@ -150,6 +163,7 @@ class PushConsumerBuilder
     /**
      * Enable FIFO consume accelerator (parallel processing by messageGroup).
      *
+     * @param bool $enable
      * @return $this
      */
     public function setEnableFifoConsumeAccelerator(bool $enable): self
@@ -161,6 +175,7 @@ class PushConsumerBuilder
     /**
      * Enable client-side message interceptor filtering.
      *
+     * @param bool $enable
      * @return $this
      */
     public function setEnableMessageInterceptorFiltering(bool $enable): self
@@ -172,6 +187,7 @@ class PushConsumerBuilder
     /**
      * Set namespace.
      *
+     * @param string $namespace Namespace
      * @return $this
      */
     public function setNamespace(string $namespace): self
@@ -227,6 +243,12 @@ class PushConsumerBuilder
         ]);
     }
 
+    /**
+     * Build and start the PushConsumer synchronously.
+     *
+     * @return PushConsumer
+     * @throws \RuntimeException if required fields not set
+     */
     public function build(): PushConsumer
     {
         $consumer = $this->buildWithoutStart();
@@ -234,6 +256,13 @@ class PushConsumerBuilder
         return $consumer;
     }
 
+    /**
+     * Build, start, run for a duration, and shutdown the PushConsumer.
+     *
+     * @param int $seconds Duration in seconds to run
+     * @return void
+     * @throws \RuntimeException if required fields not set
+     */
     public function startFor(int $seconds):  void
     {
         $consumer = $this->buildWithoutStart();
@@ -241,6 +270,13 @@ class PushConsumerBuilder
         $consumer->shutdown();
     }
 
+    /**
+     * Build and start the PushConsumer asynchronously.
+     *
+     * @param callable|null $onDone Optional callback invoked when startup completes
+     * @return PushConsumer
+     * @throws \RuntimeException if required fields not set
+     */
     public function buildAsync(?callable $onDone = null): PushConsumer
     {
         $consumer = $this->buildWithoutStart();

@@ -30,8 +30,8 @@ class LiteFifoConsumeService extends FifoConsumeService
     /**
      * Get the group key for a lite message (uses liteTopic).
      *
-     * @param object $messageView
-     * @return string
+     * @param object $messageView The message view to extract the lite topic from
+     * @return string The lite topic name or 'default' if not set
      */
     protected function getMessageGroupKey($messageView)
     {
@@ -42,6 +42,14 @@ class LiteFifoConsumeService extends FifoConsumeService
         return 'default';
     }
 
+    /**
+     * Suspend and nack all cached messages matching the same liteTopic, then sleep.
+     *
+     * @param ProcessQueue $pq The process queue holding cached messages
+     * @param object $messageView The message that triggered the suspend
+     * @param ConsumeResultSuspend $suspendResult The suspend result with duration
+     * @return void
+     */
     protected function handleSuspend(ProcessQueue $pq, $messageView, ConsumeResultSuspend $suspendResult)
     {
         if ($pq->isDropped()) {

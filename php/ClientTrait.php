@@ -41,6 +41,7 @@ trait ClientTrait
     /**
      * Build metadata for gRPC calls using Signature class.
      *
+     * @param int|null $timeoutMs Optional timeout in milliseconds
      * @return array
      */
     protected function buildMetadata(?int $timeoutMs = null): array
@@ -155,7 +156,7 @@ trait ClientTrait
     /**
      * Get call options for gRPC calls.
      *
-     * @param int|null $overrideTimeout
+     * @param int|null $overrideTimeout Optional timeout to override default
      * @return array
      */
     protected function getCallOptions(?int $overrideTimeout = null): array

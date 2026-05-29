@@ -31,6 +31,11 @@ class SubscriptionLoadBalancer
     private $messageQueues = [];
     private $queueIndex = 0;
 
+    /**
+     * Initialize with route data, filtering readable master queues.
+     *
+     * @param object $routeData Route data object containing message queues with broker and permission info
+     */
     public function __construct($routeData)
     {
         if ($routeData && method_exists($routeData, 'getMessageQueues')) {
@@ -54,9 +59,9 @@ class SubscriptionLoadBalancer
     }
 
     /**
-     * Get next MessageQueue (round-robin)
+     * Get next MessageQueue using round-robin selection.
      *
-     * @return object|null MessageQueue
+     * @return object|null The next MessageQueue or null if none available
      */
     public function takeMessageQueue()
     {
@@ -74,9 +79,9 @@ class SubscriptionLoadBalancer
     }
 
     /**
-     * Get all MessageQueues
+     * Get all readable message queues.
      *
-     * @return array
+     * @return array List of filtered MessageQueue objects
      */
     public function getMessageQueues()
     {

@@ -79,6 +79,14 @@ class StatusChecker
         'VERIFY_FIFO_MESSAGE_UNSUPPORTED' => 14,
     ];
 
+    /**
+     * Check gRPC status and throw appropriate exception on failure.
+     *
+     * @param \Google\Rpc\Status|null $status gRPC status object
+     * @param string $detailMessage Optional additional detail message
+     * @return void
+     * @throws BadRequestException|UnauthorizedException|ForbiddenException|NotFoundException|InternalErrorException|TooManyRequestsException|\Exception
+     */
     public static function check($status, $detailMessage = '')
     {
         if ($status === null) {
@@ -99,6 +107,12 @@ class StatusChecker
         throw new $exceptionClass($code, $message);
     }
 
+    /**
+     * Resolve the exception class name for a given status code.
+     *
+     * @param int $code gRPC status code
+     * @return string Fully qualified exception class name
+     */
     private static function resolveExceptionClass($code)
     {
         if (in_array($code, self::$badRequestCodes)) {
@@ -151,6 +165,12 @@ class StatusChecker
         }
     }
 
+    /**
+     * Map a status message string to a numeric code.
+     *
+     * @param string $statusMessage Human-readable status message
+     * @return int Numeric status code, defaults to 40000
+     */
     public static function codeFromStatusMessage($statusMessage)
     {
         $upper = strtoupper(trim($statusMessage));

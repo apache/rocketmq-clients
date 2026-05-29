@@ -38,15 +38,16 @@ class Signature
     private const SIGNED_HEADERS_VALUE = 'x-mq-date-time';
 
     /**
-     * Generate signed gRPC metadata.
+     * Generate signed gRPC metadata with MQv2-HMAC-SHA1 authorization.
      *
-     * @param SessionCredentials|null $credentials
-     * @param string $clientId
+     * @param SessionCredentials|null $credentials Session credentials or null for unsigned metadata
+     * @param string $clientId Client identifier
      * @param string $language Language string (e.g., "PHP")
      * @param string $clientVersion Client version string (e.g., "5.0.0")
      * @param string $namespace Namespace string
      * @param string $protocol Protocol version (e.g., "v2")
      * @return array gRPC metadata array
+     * @throws \Exception If random_int() fails to gather sufficient randomness
      */
     public static function sign(
         ?SessionCredentials $credentials,
@@ -95,6 +96,10 @@ class Signature
 
     /**
      * Compute HMAC-SHA1 and return uppercase hex digest.
+     *
+     * @param string $key Secret key for HMAC
+     * @param string $data Data to sign
+     * @return string Uppercase hex-encoded HMAC-SHA1 digest
      */
     private static function hmacSha1(string $key, string $data): string
     {
@@ -103,6 +108,9 @@ class Signature
 
     /**
      * Generate a UUID v4 string for request-id.
+     *
+     * @return string UUID v4 string
+     * @throws \Exception If random_int() fails to gather sufficient randomness
      */
     private static function generateUUID(): string
     {

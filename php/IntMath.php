@@ -20,6 +20,13 @@ namespace Apache\Rocketmq;
 
 class IntMath {
 
+    /**
+     * Compute the mathematical modulus (always non-negative).
+     *
+     * @param int $a The dividend
+     * @param int $m The modulus
+     * @return int The non-negative remainder
+     */
     public static function mod($a, $m)
     {
         $result = $a % $m;

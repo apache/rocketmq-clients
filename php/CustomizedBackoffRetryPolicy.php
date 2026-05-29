@@ -32,6 +32,7 @@ class CustomizedBackoffRetryPolicy
     /**
      * @param int $maxAttempts Maximum retry attempts (>= 1)
      * @param array $delays Array of delay durations in milliseconds
+     * @throws \InvalidArgumentException if maxAttempts < 1
      */
     public function __construct($maxAttempts = 3, $delays = [1000, 5000, 10000])
     {

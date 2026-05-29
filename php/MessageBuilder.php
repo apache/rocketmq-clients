@@ -286,6 +286,8 @@ class MessageBuilder
 
     /**
      * Check if any system properties are configured.
+     *
+     * @return bool True if at least one system property is set
      */
     private function hasSystemProperties(): bool
     {
@@ -300,6 +302,10 @@ class MessageBuilder
 
     /**
      * Validate that the new message type does not conflict with existing ones.
+     *
+     * @param string $newType The message type being set (messageGroup, deliveryTimestamp, liteTopic, or priority)
+     * @return void
+     * @throws \InvalidArgumentException if conflicting message types are already set
      */
     private function validateNoConflict(string $newType)
     {
@@ -333,6 +339,10 @@ class MessageBuilder
 
     /**
      * Validate tag does not contain vertical bar or whitespace.
+     *
+     * @param string $tag The tag string to validate
+     * @return void
+     * @throws \InvalidArgumentException if tag contains vertical bar or whitespace
      */
     private function validateTag(string $tag)
     {
@@ -346,6 +356,10 @@ class MessageBuilder
 
     /**
      * Validate key is not blank.
+     *
+     * @param string $key The key string to validate
+     * @return void
+     * @throws \InvalidArgumentException if the key is blank
      */
     private function validateKey(string $key)
     {

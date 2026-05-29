@@ -150,6 +150,11 @@ class PushConsumer
         return $this;
     }
 
+    /**
+     * Get the retry policy.
+     *
+     * @return ExponentialBackoffRetryPolicy|null
+     */
     public function getRetryPolicy(): ?ExponentialBackoffRetryPolicy
     {
         return $this->retryPolicy;
@@ -157,6 +162,9 @@ class PushConsumer
 
     /**
      * Unsubscribe from a topic.
+     *
+     * @param string $topic Topic name
+     * @return $this
      */
     public function unsubscribe(string $topic): self
     {
@@ -196,6 +204,8 @@ class PushConsumer
 
     /**
      * Start the PushConsumer. Blocks in the main polling loop.
+     *
+     * @throws \RuntimeException If messageListener or subscriptions are not set
      */
     public function start(): void
     {
@@ -285,6 +295,13 @@ class PushConsumer
         }
     }
 
+    /**
+     * Start the PushConsumer with a timeout. Blocks for at most the given seconds.
+     *
+     * @param int $seconds Maximum duration in seconds
+     * @return void
+     * @throws \RuntimeException If messageListener or subscriptions are not set
+     */
     public function startWithTimeout(int $seconds)
     {
         if ($this->isRunning()) {
@@ -348,21 +365,41 @@ class PushConsumer
         }
     }
 
+    /**
+     * Get the consume service instance.
+     *
+     * @return ConsumeService|null
+     */
     public function getConsumeService()
     {
         return $this->consumeService;
     }
 
+    /**
+     * Hook called before the main polling loop starts. Override in subclasses.
+     *
+     * @return void
+     */
     protected function onStartBeforeLoop()
     {
 
     }
 
+    /**
+     * Hook called when the consumer stops. Override in subclasses.
+     *
+     * @return void
+     */
     protected function onStop()
     {
 
     }
 
+    /**
+     * Create a heartbeat request with client type and group.
+     *
+     * @return HeartbeatRequest
+     */
     private function wrapHeartbeatRequest()
     {
         $request = new HeartbeatRequest();
@@ -371,6 +408,11 @@ class PushConsumer
         return $request;
     }
 
+    /**
+     * Fetch messages from each active ProcessQueue, interleaved with heartbeat ticks.
+     *
+     * @return void
+     */
     private function fetchMessageInterleavedHeartbeat()
     {
         $processQueues = $this->processQueueTable;
@@ -537,6 +579,10 @@ class PushConsumer
 
     /**
      * Execute interceptors at a given hook point.
+     *
+     * @param string $hookPoint The hook point identifier
+     * @param array $context Additional context for the interceptor
+     * @return void
      */
     public function executeInterceptors($hookPoint, $context = [])
     {
@@ -552,6 +598,11 @@ class PushConsumer
         }
     }
 
+    /**
+     * Get the client type identifier.
+     *
+     * @return int The PUSH_CONSUMER client type
+     */
     protected function getClientType(): int
     {
         return ClientType::PUSH_CONSUMER;
@@ -575,7 +626,10 @@ class PushConsumer
     }
 
     /**
-     * Establish Telemetry Session (same pattern as SimpleConsumer).
+     * Establish Telemetry Session with the server for this consumer group.
+     *
+     * @return void
+     * @throws \RuntimeException If session establishment fails
      */
     protected function establishTelemetrySession()
     {
@@ -653,7 +707,12 @@ class PushConsumer
     }
 
     /**
-     * Sync ProcessQueues with the latest assignments.
+     * Sync ProcessQueues with the latest assignments, creating new queues and dropping stale ones.
+     *
+     * @param string $topic Topic name
+     * @param array $newAssignments Latest assignment list from the server
+     * @param string $expression Filter expression for the topic
+     * @return void
      */
     private function syncProcessQueues($topic, $newAssignments, $expression)
     {
@@ -759,6 +818,8 @@ class PushConsumer
     }
 
     /**
+     * Check if the consumer is currently running.
+     *
      * @return bool
      */
     public function isRunning()
@@ -808,6 +869,12 @@ class PushConsumer
         return $resource;
     }
 
+    /**
+     * Get a Resource object for a topic, including namespace if set.
+     *
+     * @param string $topic Topic name
+     * @return Resource
+     */
     public function getTopicResource($topic)
     {
         $resource = new Resource();
@@ -818,6 +885,11 @@ class PushConsumer
         return $resource;
     }
 
+    /**
+     * Get the consumer group Resource object with namespace if set.
+     *
+     * @return Resource
+     */
     public function getGroupResourceWithNamespace()
     {
         $resource = new Resource();
@@ -828,6 +900,11 @@ class PushConsumer
         return $resource;
     }
 
+    /**
+     * Get the session credentials for AK/SK authentication.
+     *
+     * @return SessionCredentials|null
+     */
     public function getSessionCredentials(): ?SessionCredentials
     {
         return $this->credentials;
@@ -920,7 +997,8 @@ class PushConsumer
      * Reject a message (change invisible duration for retry).
      *
      * @param MessageView $messageView
-     * @param int $invisibleDuration Next invisible duration in seconds
+     * @param int $deliveryAttempt Current delivery attempt count
+     * @param int|null $invisibleDuration Next invisible duration in seconds
      * @return bool
      */
     public function nackMessage(MessageView $messageView, int $deliveryAttempt = 1, ?int $invisibleDuration = null): bool
@@ -933,7 +1011,10 @@ class PushConsumer
     }
 
     /**
-     * Check that the consumer is not yet running.
+     * Check that the consumer is not yet running. Throws if already started.
+     *
+     * @return void
+     * @throws \RuntimeException If the consumer is already running
      */
     protected function checkNotRunning()
     {
@@ -943,18 +1024,30 @@ class PushConsumer
     }
 
     /**
-     * ClientTrait required methods
+     * Get session credentials for AK/SK authentication (required by ClientTrait).
+     *
+     * @return SessionCredentials|null
      */
     protected function getCredentials(): ?SessionCredentials
     {
         return $this->credentials;
     }
 
+    /**
+     * Get the client ID value for ClientTrait.
+     *
+     * @return string
+     */
     protected function getClientIdValue(): string
     {
         return $this->clientId;
     }
 
+    /**
+     * Get the namespace value for ClientTrait.
+     *
+     * @return string
+     */
     protected function getNamespaceValue(): string
     {
         return $this->namespace;
@@ -975,7 +1068,10 @@ class PushConsumer
     }
 
     /**
-     * Handle server-pushed Settings.
+     * Handle server-pushed Settings (backoff policy, subscription config).
+     *
+     * @param Settings $settings Server settings protobuf message
+     * @return void
      */
     private function onServerSettings($settings)
     {
@@ -1104,6 +1200,12 @@ class PushConsumer
         }
     }
 
+    /**
+     * Start the PushConsumer in an async coroutine (requires Swoole).
+     *
+     * @param callable|null $onDone Optional callback invoked when the consumer stops
+     * @return bool True if started in coroutine, false if fell back to synchronous start
+     */
     public function startAsync(?callable $onDone = null): bool
     {
         if (!SwooleCompat::isAvailable()) {
@@ -1132,6 +1234,11 @@ class PushConsumer
         return true;
     }
 
+    /**
+     * Refresh the route cache for all subscribed topics via QueryAssignment.
+     *
+     * @return void
+     */
     private function refreshRouteCache()
     {
         foreach ($this->subscriptionExpressions as $topic => $expression) {
@@ -1144,6 +1251,12 @@ class PushConsumer
         }
     }
 
+    /**
+     * Handle server-pushed message verification command.
+     *
+     * @param mixed $verifyCmd The verification command from the server
+     * @return \Apache\Rocketmq\V2\TelemetryCommand|null Response command or null on failure
+     */
     private function onVerifyMessage($verifyCmd)
     {
         $message = null;

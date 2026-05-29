@@ -25,6 +25,8 @@ class SwooleCompat
 {
     /**
      * Check if Swoole or OpenSwoole extension is loaded.
+     *
+     * @return bool True if the swoole or openswoole extension is loaded
      */
     public static function isAvailable(): bool
     {
@@ -33,6 +35,8 @@ class SwooleCompat
 
     /**
      * Check if currently running inside a Swoole coroutine.
+     *
+     * @return bool True if inside a coroutine context
      */
     public static function inCoroutine(): bool
     {
@@ -44,10 +48,11 @@ class SwooleCompat
 
     /**
      * Run a callback in a coroutine if not already in one.
-     * If Swoole is not available, executes synchronously.
      *
-     * @param callable $fn
-     * @return mixed
+     * @param callable $fn Callback to execute
+     * @param float   $timeout Timeout in seconds for coroutine execution
+     * @return mixed The return value of the callback
+     * @throws \RuntimeException If execution times out
      */
     public static function runInCoroutine(callable $fn, float $timeout = 30.0)
     {
@@ -80,9 +85,6 @@ class SwooleCompat
 
     /**
      * Sleep for specified microseconds, using coroutine-friendly sleep if in Swoole context.
-     * 
-     * In Swoole coroutine: Uses \Swoole\Coroutine::sleep() (non-blocking)
-     * In traditional PHP: Uses usleep() (blocking)
      *
      * @param int $microseconds Sleep duration in microseconds
      * @return void

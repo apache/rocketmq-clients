@@ -295,6 +295,7 @@ abstract class ConsumeService
      * Forward a message to the dead letter queue.
      *
      * @param object $messageView
+     * @param int|null $deliveryAttempt Current delivery attempt number
      * @return bool
      */
     public function forwardToDeadLetterQueue($messageView, $deliveryAttempt = null): bool
@@ -382,6 +383,12 @@ abstract class ConsumeService
 
     }
 
+    /**
+     * Get the gRPC broker client for the given message's endpoint.
+     *
+     * @param object $messageView
+     * @return object gRPC client instance
+     */
     private function getBrokerClient($messageView)
     {
         $endpoints = $messageView->getEndpoints();
@@ -404,6 +411,11 @@ abstract class ConsumeService
 
     /**
      * Execute ACK interceptor on consumer.
+     *
+     * @param bool $success Whether the ACK was successful
+     * @param string $messageId Message ID being ACKed
+     * @param string $topic Topic name
+     * @return void
      */
     private function executeAckInterceptor($success, $messageId, $topic)
     {
@@ -417,10 +429,25 @@ abstract class ConsumeService
     }
 
     // ClientTrait required methods
+    /**
+     * Get session credentials from the consumer.
+     *
+     * @return SessionCredentials|null
+     */
     protected function getCredentials(): ?SessionCredentials {
         return method_exists($this->consumer, 'getSessionCredentials') ? $this->consumer->getSessionCredentials() : null;
     }
+    /**
+     * Get the client ID from the consumer.
+     *
+     * @return string
+     */
     protected function getClientIdValue(): string { return method_exists($this->consumer, 'getClientId') ? $this->consumer->getClientId() : ''; }
+    /**
+     * Get the namespace from the consumer.
+     *
+     * @return string
+     */
     protected function getNamespaceValue(): string { return method_exists($this->consumer, 'getNamespace') ? $this->consumer->getNamespace() : ''; }
 }
 
@@ -432,6 +459,12 @@ abstract class ConsumeService
  */
 class StandardConsumeService extends ConsumeService
 {
+    /**
+     * Consume messages sequentially from the process queue.
+     *
+     * @param ProcessQueue $pq
+     * @return void
+     */
     public function consume(ProcessQueue $pq): void
     {
         $messages = $pq->getCachedMessages();
@@ -486,6 +519,12 @@ class FifoConsumeService extends ConsumeService
 {
     private bool $enableFifoConsumeAccelerator = false;
 
+    /**
+     * @param Logger $logger Logger instance
+     * @param callable $messageListener User callback
+     * @param object $consumer Reference to PushConsumer
+     * @param bool $enableFifoConsumeAccelerator Whether to enable FIFO consume accelerator
+     */
     public function __construct($logger, $messageListener, $consumer, $enableFifoConsumeAccelerator = false)
     {
         parent::__construct($logger, $messageListener, $consumer);
@@ -494,6 +533,9 @@ class FifoConsumeService extends ConsumeService
 
     /**
      * Get the group key for a message. Override in subclasses (e.g., liteTopic).
+     *
+     * @param object $messageView
+     * @return string
      */
     protected function getMessageGroupKey($messageView)
     {
@@ -504,6 +546,12 @@ class FifoConsumeService extends ConsumeService
         return 'default';
     }
 
+    /**
+     * Consume messages from the process queue preserving FIFO order.
+     *
+     * @param ProcessQueue $pq
+     * @return void
+     */
     public function consume(ProcessQueue $pq): void
     {
         $messages = $pq->getCachedMessages();
@@ -524,6 +572,10 @@ class FifoConsumeService extends ConsumeService
 
     /**
      * Sequential consumption (original behavior, accelerator disabled).
+     *
+     * @param ProcessQueue $pq
+     * @param array $messages Array of message views
+     * @return void
      */
     private function consumeSequentially(ProcessQueue $pq, $messages)
     {
@@ -550,6 +602,10 @@ class FifoConsumeService extends ConsumeService
     /**
      * Accelerated FIFO consumption: group by messageGroup, process groups in parallel.
      * Each group is still processed one-at-a-time internally, but groups run concurrently.
+     *
+     * @param ProcessQueue $pq
+     * @param array $messages Array of message views
+     * @return void
      */
     private function consumeWithAccelerator(ProcessQueue $pq, $messages)
     {
@@ -615,6 +671,11 @@ class FifoConsumeService extends ConsumeService
 
     /**
      * Handle consumption failure with retry.
+     *
+     * @param ProcessQueue $pq
+     * @param object $messageView
+     * @param int $deliveryAttempt Current delivery attempt number
+     * @return void
      */
     private function handleFailure(ProcessQueue $pq, $messageView, $deliveryAttempt)
     {
@@ -690,6 +751,11 @@ class FifoConsumeService extends ConsumeService
 
     /**
      * Handle suspension result in FIFO consumption.
+     *
+     * @param ProcessQueue $pq
+     * @param object $messageView
+     * @param ConsumeResultSuspend $suspendResult
+     * @return void
      */
     protected function handleSuspend(ProcessQueue $pq, $messageView, ConsumeResultSuspend $suspendResult)
     {
@@ -704,6 +770,11 @@ class FifoConsumeService extends ConsumeService
 
     /**
      * Consume a message and handle retry/DLQ/SUSPEND logic recursively.
+     *
+     * @param ProcessQueue $pq
+     * @param object $messageView
+     * @param int $deliveryAttempt Current delivery attempt number
+     * @return void
      */
     private function consumeFifoIteratively(ProcessQueue $pq, $messageView, $deliveryAttempt)
     {

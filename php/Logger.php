@@ -60,6 +60,7 @@ class Logger
      * Set the minimum log level.
      *
      * @param int $level One of the LEVEL_* constants
+     * @return void
      */
     public static function setLogLevel($level)
     {
@@ -70,6 +71,7 @@ class Logger
      * Set the log file path.
      *
      * @param string $path Absolute path to the log file
+     * @return void
      */
     public static function setLogFile($path)
     {
@@ -82,7 +84,10 @@ class Logger
 
     /**
      * Detect and correct timezone on first use.
+     *
      * PHP CLI defaults to UTC when date.timezone is not set in php.ini.
+     *
+     * @return void
      */
     private static function initTimezone(): void
     {
@@ -135,32 +140,68 @@ class Logger
         }
     }
 
+    /**
+     * Private constructor to enforce singleton-per-component pattern.
+     *
+     * @param string $component Component name for log line prefix
+     */
     private function __construct($component)
     {
         $this->component = $component;
         self::initTimezone();
     }
 
+    /**
+     * Log a debug message.
+     *
+     * @param string $message The log message
+     * @return void
+     */
     public function debug($message)
     {
         $this->log(self::LEVEL_DEBUG, $message);
     }
 
+    /**
+     * Log an info message.
+     *
+     * @param string $message The log message
+     * @return void
+     */
     public function info($message)
     {
         $this->log(self::LEVEL_INFO, $message);
     }
 
+    /**
+     * Log a warning message.
+     *
+     * @param string $message The log message
+     * @return void
+     */
     public function warning($message)
     {
         $this->log(self::LEVEL_WARNING, $message);
     }
 
+    /**
+     * Log an error message.
+     *
+     * @param string $message The log message
+     * @return void
+     */
     public function error($message)
     {
         $this->log(self::LEVEL_ERROR, $message);
     }
 
+    /**
+     * Write a log entry to the log file with timestamp, level, and component prefix.
+     *
+     * @param int $level One of the LEVEL_* constants
+     * @param string $message The log message
+     * @return void
+     */
     private function log($level, $message)
     {
         if ($level < self::$logLevel) {
@@ -190,6 +231,11 @@ class Logger
         }
     }
 
+    /**
+     * Get or open the shared log file handle.
+     *
+     * @return resource|false The file handle, or false on failure
+     */
     private function getHandle()
     {
         if (self::$handle !== null) {
@@ -210,6 +256,8 @@ class Logger
 
     /**
      * Close the log file handle. Called on shutdown.
+     *
+     * @return void
      */
     public static function close()
     {
@@ -219,6 +267,11 @@ class Logger
         }
     }
 
+    /**
+     * Destructor. Does not close the shared handle.
+     *
+     * @return void
+     */
     public function __destruct()
     {
         // Do not close here - handle is shared across all instances

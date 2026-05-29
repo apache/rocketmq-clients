@@ -36,6 +36,16 @@ class TlsCredentials
     private $verifyPeer;
     private $verifyPeerName;
 
+    /**
+     * Initialize TLS credentials.
+     *
+     * @param bool $isInsecure Whether to use insecure (plaintext) connection
+     * @param string|null $caCertPath Path to CA certificate file
+     * @param string|null $clientCertPath Path to client certificate file
+     * @param string|null $clientKeyPath Path to client private key file
+     * @param bool $verifyPeer Whether to verify peer certificate
+     * @param bool $verifyPeerName Whether to verify peer name
+     */
     private function __construct(
         bool $isInsecure = false,
         ?string $caCertPath = null,
@@ -55,7 +65,7 @@ class TlsCredentials
     /**
      * Create insecure credentials (no TLS, plaintext connection).
      *
-     * @return TlsCredentials
+     * @return self New instance configured for insecure connections
      */
     public static function createInsecure(): self
     {
@@ -65,7 +75,7 @@ class TlsCredentials
     /**
      * Create default TLS credentials using system CA bundle.
      *
-     * @return TlsCredentials
+     * @return self New instance configured with system CA bundle
      */
     public static function createDefault(): self
     {
@@ -80,7 +90,7 @@ class TlsCredentials
      * Create TLS credentials with a custom CA certificate.
      *
      * @param string $caCertPath Path to CA certificate file
-     * @return TlsCredentials
+     * @return self New instance configured with the given CA certificate
      */
     public static function createWithCa(string $caCertPath): self
     {
@@ -98,7 +108,7 @@ class TlsCredentials
      * @param string $clientCertPath Path to client certificate file
      * @param string $clientKeyPath Path to client private key file
      * @param string|null $caCertPath Optional CA certificate path (null = system CA)
-     * @return TlsCredentials
+     * @return self New instance configured for mTLS authentication
      */
     public static function createMtls(
         string $clientCertPath,
@@ -118,7 +128,7 @@ class TlsCredentials
     /**
      * Create TLS credentials that skip peer verification (for development only).
      *
-     * @return TlsCredentials
+     * @return self New instance with peer verification disabled
      */
     public static function createInsecureDev(): self
     {
@@ -137,7 +147,8 @@ class TlsCredentials
     /**
      * Convert to Grpc\ChannelCredentials for use with gRPC client.
      *
-     * @return \Grpc\ChannelCredentials|null Null for insecure, ChannelCredentials for TLS
+     * @return \Grpc\ChannelCredentials|null Null for insecure connections, ChannelCredentials instance for TLS
+     * @throws \RuntimeException If certificate file cannot be read
      */
     public function toChannelCredentials()
     {
@@ -172,7 +183,7 @@ class TlsCredentials
     /**
      * Check if this is insecure (plaintext) credentials.
      *
-     * @return bool
+     * @return bool True if insecure, false if TLS is enabled
      */
     public function isInsecure(): bool
     {
@@ -182,7 +193,7 @@ class TlsCredentials
     /**
      * Get the CA certificate path.
      *
-     * @return string|null
+     * @return string|null The CA certificate file path, or null if using system CA
      */
     public function getCaCertPath(): ?string
     {
@@ -192,7 +203,7 @@ class TlsCredentials
     /**
      * Get the client certificate path (for mTLS).
      *
-     * @return string|null
+     * @return string|null The client certificate file path, or null if mTLS is not configured
      */
     public function getClientCertPath(): ?string
     {
@@ -202,7 +213,7 @@ class TlsCredentials
     /**
      * Get the client key path (for mTLS).
      *
-     * @return string|null
+     * @return string|null The client private key file path, or null if mTLS is not configured
      */
     public function getClientKeyPath(): ?string
     {
@@ -210,9 +221,9 @@ class TlsCredentials
     }
 
     /**
-     * Check if peer verification is enabled.
+     * Check if peer certificate verification is enabled.
      *
-     * @return bool
+     * @return bool True if peer certificate is verified, false if verification is skipped
      */
     public function shouldVerifyPeer(): bool
     {
@@ -222,7 +233,7 @@ class TlsCredentials
     /**
      * Check if peer name verification is enabled.
      *
-     * @return bool
+     * @return bool True if peer hostname is verified against the certificate, false otherwise
      */
     public function shouldVerifyPeerName(): bool
     {

@@ -39,6 +39,7 @@ class ProducerBuilder
     /**
      * Set client configuration.
      *
+     * @param ClientConfiguration $config
      * @return $this
      */
     public function setClientConfiguration(ClientConfiguration $config): self
@@ -68,6 +69,7 @@ class ProducerBuilder
     /**
      * Set AK/SK credentials.
      *
+     * @param SessionCredentials $credentials
      * @return $this
      */
     public function setCredentials(SessionCredentials $credentials): self
@@ -106,6 +108,7 @@ class ProducerBuilder
     /**
      * Set transaction checker for orphaned transaction recovery.
      *
+     * @param TransactionChecker $checker
      * @return $this
      */
     public function setTransactionChecker(TransactionChecker $checker): self
@@ -129,6 +132,7 @@ class ProducerBuilder
     /**
      * Set whether to validate message type against route accept types.
      *
+     * @param bool $validate
      * @return $this
      */
     public function setValidateMessageType(bool $validate): self
@@ -140,6 +144,7 @@ class ProducerBuilder
     /**
      * Set max message body size in bytes.
      *
+     * @param int $bytes
      * @return $this
      */
     public function setMaxBodySizeBytes(int $bytes): self
@@ -154,6 +159,7 @@ class ProducerBuilder
     /**
      * Set request timeout in milliseconds.
      *
+     * @param int $timeoutMs Request timeout in milliseconds
      * @return $this
      */
     public function setRequestTimeout(int $timeoutMs): self
@@ -168,6 +174,7 @@ class ProducerBuilder
     /**
      * Set namespace.
      *
+     * @param string $namespace
      * @return $this
      */
     public function setNamespace(string $namespace): self

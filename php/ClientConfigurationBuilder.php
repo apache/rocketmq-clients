@@ -61,6 +61,7 @@ class ClientConfigurationBuilder
      *
      * @param int $timeoutMs Timeout in milliseconds (default 3000)
      * @return $this
+     * @throws \InvalidArgumentException if timeout is zero or negative
      */
     public function setRequestTimeout(int $timeoutMs): self
     {
@@ -100,6 +101,7 @@ class ClientConfigurationBuilder
      *
      * @param int $attempts Must be > 0
      * @return $this
+     * @throws \InvalidArgumentException if attempts is zero or negative
      */
     public function setMaxStartupAttempts(int $attempts): self
     {

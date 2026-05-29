@@ -41,6 +41,8 @@ class SipHash24
     private const MASK_64 = -1; // All bits set to 1 in two's complement
 
     /**
+     * Constructor - initializes SipHash-2-4 with given key.
+     *
      * @param int $k0 Key part 0 (will be masked to 64 bits)
      * @param int $k1 Key part 1 (will be masked to 64 bits)
      */
@@ -115,6 +117,10 @@ class SipHash24
 
     /**
      * Read a little-endian 64-bit integer from $data at $offset.
+     *
+     * @param string $data Input byte string
+     * @param int $offset Byte offset to read from
+     * @return int|float 64-bit value (may be float on 32-bit PHP)
      */
     private function readLong($data, $offset)
     {
@@ -145,7 +151,13 @@ class SipHash24
     }
 
     /**
-     * One SipRound.
+     * One SipRound mixing operation.
+     *
+     * @param int|float $v0 State word 0
+     * @param int|float $v1 State word 1
+     * @param int|float $v2 State word 2
+     * @param int|float $v3 State word 3
+     * @return array Array of four state words [$v0, $v1, $v2, $v3]
      */
     private function sipRound($v0, $v1, $v2, $v3)
     {
@@ -172,6 +184,10 @@ class SipHash24
 
     /**
      * 64-bit addition, works on both 64-bit and 32-bit PHP.
+     *
+     * @param int|float $a First 64-bit operand
+     * @param int|float $b Second 64-bit operand
+     * @return int|float 64-bit sum masked to 64 bits
      */
     private static function add64($a, $b)
     {
@@ -203,6 +219,10 @@ class SipHash24
 
     /**
      * 64-bit XOR.
+     *
+     * @param int|float $a First 64-bit operand
+     * @param int|float $b Second 64-bit operand
+     * @return int|float 64-bit XOR result masked to 64 bits
      */
     private static function xor64($a, $b)
     {
@@ -220,6 +240,10 @@ class SipHash24
 
     /**
      * 64-bit AND mask.
+     *
+     * @param int|float $a 64-bit value to mask
+     * @param int $mask 64-bit mask value
+     * @return int|float 64-bit masked result
      */
     private static function and64($a, $mask)
     {
@@ -237,6 +261,10 @@ class SipHash24
 
     /**
      * 64-bit left rotate.
+     *
+     * @param int|float $a 64-bit value to rotate
+     * @param int $n Number of bits to rotate left
+     * @return int|float 64-bit rotated result masked to 64 bits
      */
     private static function rotl64($a, $n)
     {
