@@ -174,7 +174,7 @@ trait ClientTrait
     {
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if (method_exists($sysProps, 'getLiteTopic') && $sysProps->hasLiteTopic()) {
+            if ($sysProps !== null && method_exists($sysProps, 'getLiteTopic') && $sysProps->hasLiteTopic()) {
                 return $sysProps->getLiteTopic();
             }
         }

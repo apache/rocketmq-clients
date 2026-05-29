@@ -208,7 +208,7 @@ class LitePushConsumer extends PushConsumer
      */
     public function handleUnsubscribeLite($liteTopic)
     {
-        if (isset($this->liteTopics[$liteTopic])) {
+        if (array_key_exists($liteTopic, $this->liteTopics)) {
             unset($this->liteTopics[$liteTopic]);
             $this->logger->info("Unsubscribed from lite topic: {$liteTopic}");
         }

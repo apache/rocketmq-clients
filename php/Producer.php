@@ -1631,7 +1631,7 @@ class Producer
         $brokerNames = [];
         $isolatedEndpoints = $this->isolatedEndpoints;
         $routeCache = $this->publishingRouteDataCache;
-        foreach ($this->publishingRouteDataCache as $loadBalancer) {
+        foreach ($routeCache as $loadBalancer) {
             foreach ($loadBalancer->getMessageQueues() as $messageQueue) {
                 $ep = $this->extractMessageQueueEndpoint($messageQueue);
                 if ($ep !== null) {

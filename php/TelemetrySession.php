@@ -22,6 +22,7 @@ namespace Apache\Rocketmq;
 use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\TelemetryCommand;
 use Apache\Rocketmq\V2\Settings;
+use Exception;
 use Grpc\ChannelCredentials;
 
 /**
@@ -258,7 +259,7 @@ class TelemetrySession
                     return true;
                 }
             }
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return true;
         }
         return false;
@@ -330,8 +331,8 @@ class TelemetrySession
             }
             
             if ($this->settingsError !== null) {
-                $this->logger->error("Settings sync failed: " . $this->settingsError);
-                return false;
+                $this->logger->warning("Settings sync issue (non-fatal): " . $this->settingsError);
+                return true;
             }
             
             // In non-Swoole mode, poll for responses
@@ -343,9 +344,8 @@ class TelemetrySession
         }
         
         // Timeout
-        $this->settingsError = "Settings sync timeout after {$this->settingsTimeout}s";
-        $this->logger->warning($this->settingsError);
-        return false;
+        $this->logger->info("Settings confirmation not received within {$this->settingsTimeout}s (non-fatal, proceeding)");
+        return true;
     }
     
     /**

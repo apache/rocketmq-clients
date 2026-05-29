@@ -378,7 +378,7 @@ abstract class ConsumeService
      * @param int $delaySeconds Delay in seconds before DLQ forwarding
      * @return void
      */
-    protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
+    protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt = null, $delaySeconds = null):  void
     {
 
     }
@@ -738,7 +738,7 @@ class FifoConsumeService extends ConsumeService
      * @param int $delaySeconds Delay in seconds before DLQ forwarding
      * @return void
      */
-    protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
+    protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt = null, $delaySeconds = null):  void
     {
         if (method_exists($this->consumer, 'executeInterceptors')) {
             $this->consumer->executeInterceptors(MessageHookPoints::FORWARD_TO_DLQ, [
