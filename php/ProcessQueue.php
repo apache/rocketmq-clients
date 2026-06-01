@@ -534,7 +534,8 @@ class ProcessQueue
             'v2'
         );
         if ($timeoutMs !== null) {
-            $metadata['grpc-timeout'] = [$timeoutMs . 'u'];
+            $timeoutUs = $timeoutMs * 1000;
+            $metadata['grpc-timeout'] = [$timeoutUs . 'u'];
         }
         return $metadata;
     }
