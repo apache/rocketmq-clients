@@ -19,6 +19,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../Producer.php';
 require_once __DIR__ . '/../Logger.php';
+require_once __DIR__ . '/ExampleConfig.php';
 
 use Apache\Rocketmq\Producer;
 use Apache\Rocketmq\SessionCredentials;
@@ -26,11 +27,10 @@ use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SystemProperties;
 
-$endpoints = '127.0.0.1:8081';
-$topic = 'yourParentTopic';
-$accessKey = 'yourAccessKey';
-$secretKey = 'yourSecretKey';
-$credentials = new SessionCredentials($accessKey, $secretKey);
+$config = ExampleConfig::getInstance();
+$endpoints = $config->getEndpoints();
+$topic = $config->getTopic('priority');
+$credentials = $config->getCredentials();
 
 $producer = new Producer($endpoints, [
     'topics' => [$topic],

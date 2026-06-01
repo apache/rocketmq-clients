@@ -532,14 +532,15 @@ class SimpleConsumer
 
         // Calculate total gRPC timeout including long polling (convert to milliseconds for buildMetadata)
         $grpcTimeoutMs = $this->requestTimeout + $effectiveLongPollingTimeout * 1000;
-        
+        $grpcTimeoutUs = $grpcTimeoutMs * 1000;
         // Use signed metadata via ClientTrait with deadline
         $metadata = $this->buildMetadata($grpcTimeoutMs);
 
+        $callOptions = ['timeout' => $grpcTimeoutUs];
         $this->logger->debug("ReceiveMessage: topic={$topic}, batchSize={$maxMessages}, grpcTimeout={$grpcTimeoutMs}ms, attemptId={$attemptId}");
 
         // Receive messages - deadline enforced by server
-        $call = $receiveClient->ReceiveMessage($request, $metadata);
+        $call = $receiveClient->ReceiveMessage($request, $metadata, $callOptions);
 
         $messages = [];
         try {
@@ -815,7 +816,8 @@ class SimpleConsumer
      *
      * @param object $message Message to modify
      * @param int $invisibleDurationSeconds New invisible duration
-     * @return bool
+     * @return bool true if operation succeeded, false if skipped or failed
+     * @throws \RuntimeException If consumer is not started
      */
     public function changeInvisibleDuration($message, $invisibleDurationSeconds)
     {
@@ -854,7 +856,7 @@ class SimpleConsumer
         // Set gRPC deadline in metadata (server-side enforcement)
         $metadata = $this->buildMetadata($this->requestTimeout);
         $grpcTimeoutUs = $this->getOperationTimeout('CHANGE_INVISIBLE');
-        $metadata['grpc-timeout'] = $grpcTimeoutUs . 'u'; // microseconds
+        $metadata['grpc-timeout'] = [$grpcTimeoutUs . 'u']; // microseconds
         
         // Also set client-side timeout as safety net
         $callOptions = ['timeout' => $grpcTimeoutUs];
@@ -894,7 +896,7 @@ class SimpleConsumer
         // Set gRPC deadline in metadata (server-side enforcement)
         $metadata = $this->buildMetadata($this->requestTimeout);
         $grpcTimeoutUs = $this->getOperationTimeout('HEARTBEAT');
-        $metadata['grpc-timeout'] = $grpcTimeoutUs . 'u'; // microseconds
+        $metadata['grpc-timeout'] = [$grpcTimeoutUs . 'u']; // microseconds
         
         // Also set client-side timeout as safety net
         $callOptions = ['timeout' => $grpcTimeoutUs];

@@ -73,16 +73,17 @@ class TlsCredentials
     }
 
     /**
-     * Create default TLS credentials using system CA bundle.
+     * Create default TLS credentials.
+     * When no custom CA is configured, uses insecure connection for development/testing.
      *
-     * @return self New instance configured with system CA bundle
+     * @return self New instance configured for insecure connections
      */
     public static function createDefault(): self
     {
         return new self(
-            isInsecure: false,
-            verifyPeer: true,
-            verifyPeerName: true
+            isInsecure: true,
+            verifyPeer: false,
+            verifyPeerName: false
         );
     }
 

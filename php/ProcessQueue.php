@@ -44,6 +44,7 @@ class ProcessQueue
 
     // O(1) eviction: index by receipt handle + swap-with-last removal
     private array $cachedMessagesByReceiptHandle = [];
+    private array $evictedMessageIds = [];
 
     private int $receptionTimes = 0;
     private int $receivedMessagesQuantity = 0;
@@ -290,6 +291,11 @@ class ProcessQueue
      */
     public function evictMessage($messageView)
     {
+        $objId = spl_object_id($messageView);
+        if (isset($this->evictedMessageIds[$objId])) {
+            return;
+        }
+        $this->evictedMessageIds[$objId] = true;
         $idx = null;
         // Try O(1) lookup by receipt handle first
         if (method_exists($messageView, 'getSystemProperties')) {
@@ -413,6 +419,7 @@ class ProcessQueue
     public function drop()
     {
         $this->dropped = true;
+        $this->evictedMessageIds = [];
         $this->logger->info("ProcessQueue dropped for topic=" . $this->messageQueue->getTopic()->getName());
     }
 
@@ -527,7 +534,7 @@ class ProcessQueue
             'v2'
         );
         if ($timeoutMs !== null) {
-            $metadata['grpc-timeout'] = ["{$timeoutMs}m"];
+            $metadata['grpc-timeout'] = [$timeoutMs . 'u'];
         }
         return $metadata;
     }

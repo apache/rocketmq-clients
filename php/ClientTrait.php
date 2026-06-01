@@ -59,7 +59,7 @@ trait ClientTrait
         if ($timeoutMs !== null && $timeoutMs > 0) {
             // Convert milliseconds to microseconds for gRPC deadline
             $timeoutUs = $timeoutMs * 1000;
-            $metadata['grpc-timeout'] = $timeoutUs . 'u'; // microseconds format
+            $metadata['grpc-timeout'] = [$timeoutUs . 'u']; // microseconds format, array-wrapped for gRPC
         }
         
         return $metadata;

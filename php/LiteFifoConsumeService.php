@@ -82,6 +82,6 @@ class LiteFifoConsumeService extends FifoConsumeService
             }
         }
         $this->logger->debug("LiteFifoConsumeService batch-suspended {$suspendedCount} messages with same liteTopic, suspendSec={$suspendSec}");
-        SwooleCompat::sleep($suspendResult->getSuspendTimeMs() * 1000);
+        SwooleCompat::sleepBlocking($suspendResult->getSuspendTimeMs() * 1000, fn($msg) => $this->logger->debug("LiteFifoConsumeService suspend : {$msg}"));
     }
 }

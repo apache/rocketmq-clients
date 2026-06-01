@@ -114,10 +114,11 @@ abstract class ConsumeService
     }
 
     /**
-     * ACK a message via gRPC.
+     * ACK a message via gRPC.Retries up to 3 times an failure
      *
      * @param object $messageView
-     * @return bool
+     * @return bool true if successful, false if skipped or all retries exhausted
+     * @throws \RuntimeException If gRPC call fails after all retries
      */
     public function ackMessage($messageView): bool
     {
@@ -184,7 +185,7 @@ abstract class ConsumeService
 
             $attempt++;
             if ($attempt < $maxRetries) {
-                SwooleCompat::sleep(1000000 * $attempt); // linear backoff: 1s, 2s
+                SwooleCompat::sleepBlocking(1000000 * $attempt, fn($msg) => $this->logger->debug("ackMessage retry: {$msg}")); // linear backoff: 1s, 2s
             }
         }
         $this->logger->warning("ConsumeService ackMessage exhausted {$maxRetries} retries for messageId={$messageId}");
@@ -192,12 +193,13 @@ abstract class ConsumeService
     }
 
     /**
-     * NACK a message (change invisible duration for retry).
+     * NACK a message (change invisible duration for retry).Retries up to 3 times on failure.
      *
      * @param object $messageView
      * @param int $deliveryAttempt Current delivery attempt number
      * @param int|null $invisibleDuration Override invisible duration in seconds (for ConsumeResultSuspend)
-     * @return bool
+     * @return bool true if NACK succeeded, false if skipped or all retries exhausted
+     * @throws \RuntimeException If gRPC call fails after all retries
      */
     public function nackMessage($messageView, $deliveryAttempt = 1, ?int $invisibleDuration = null): bool
     {
@@ -284,7 +286,7 @@ abstract class ConsumeService
             }
             $attempt++;
             if ($attempt < $maxRetries) {
-                SwooleCompat::sleep(1000000 * $attempt);
+                SwooleCompat::sleepBlocking(1000000 * $attempt, fn($msg) => $this->logger->debug("nackMessage retry: {$msg}"));
             }
         }
         $this->logger->warning("ConsumeService nackMessage exhausted {$maxRetries} retries for messageId={$messageId}");
@@ -292,11 +294,12 @@ abstract class ConsumeService
     }
 
     /**
-     * Forward a message to the dead letter queue.
+     * Forward a message to the dead letter queue.Retries up to 3 times on failure.
      *
      * @param object $messageView
      * @param int|null $deliveryAttempt Current delivery attempt number
-     * @return bool
+     * @return bool true if DLQ forward succeeded, false if skipped or all retries exhausted
+     * @throws \RuntimeException If gRPC call fails after all retries
      */
     public function forwardToDeadLetterQueue($messageView, $deliveryAttempt = null): bool
     {
@@ -346,7 +349,7 @@ abstract class ConsumeService
             }
             $attempt++;
             if ($attempt < $maxRetries) {
-                SwooleCompat::sleep(1000000 * $attempt);
+                SwooleCompat::sleepBlocking(1000000 * $attempt, fn($msg) => $this->logger->debug("forwardToDeadLetterQueue retry: {$msg}"));
             }
         }
         $this->logger->error("ConsumeService forwardToDeadLetterQueue exhausted {$maxRetries} retries for messageId={$messageId}");
@@ -696,7 +699,7 @@ class FifoConsumeService extends ConsumeService
             } else {
                 $delayMs = min(pow(2, $deliveryAttempt - 1) * 10000, 30000);
             }
-            SwooleCompat::sleep($delayMs * 1000);
+            SwooleCompat::sleepBlocking($delayMs * 1000, fn($msg) => $this->logger->debug("FifoConsumeService retry : {$msg}"));
             $this->consumeFifoIteratively($pq, $messageView, $deliveryAttempt + 1);
         } else {
             $this->logger->error("FifoConsumeService max attempts reached for message, forwarding to DLQ");
@@ -765,7 +768,7 @@ class FifoConsumeService extends ConsumeService
         $suspendSec = (int)ceil($suspendResult->getSuspendTimeMs() / 1000);
         $this->nackMessage($messageView, 1, $suspendSec);
         $pq->evictMessage($messageView);
-        SwooleCompat::sleep($suspendResult->getSuspendTimeMs() * 1000);
+        SwooleCompat::sleepBlocking($suspendResult->getSuspendTimeMs() * 1000, fn($msg) => $this->logger->debug("FifoConsumeService suspend: {$msg}"));
     }
 
     /**

@@ -26,11 +26,10 @@ use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SystemProperties;
 
-$endpoints = '127.0.0.1:8081';
-$topic = 'yourTransactionTopic';
-$accessKey = 'yourAccessKey';
-$secretKey = 'yourSecretKey';
-$credentials = new SessionCredentials($accessKey, $secretKey);
+$config = ExampleConfig::getInstance();
+$endpoints = $config->getEndpoints();
+$topic = $config->getTopic('transaction');
+$credentials = $config->getCredentials();
 
 $producer = new Producer($endpoints, [
     'topics' => [$topic],

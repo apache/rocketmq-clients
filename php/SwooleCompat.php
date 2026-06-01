@@ -100,4 +100,20 @@ class SwooleCompat
             usleep($microseconds);
         }
     }
+
+    /**
+     * Sleep with on optional warning callback for non-Swoole blakcing
+     * @param int $microseconds sleep duration in microseconds
+     * @param callable|null $warningCallback Called with a warning message
+     * @return void
+     */
+    public static function sleepBlocking(int $microseconds, ?callable $warningCallback = null):  void
+    {
+        if (!self::isAvailable() || !self::inCoroutine()) {
+            if ($warningCallback !== null) {
+                $warningCallback("Blocking sleeping for {$microseconds} microseconds in non-Swoole mode (process blocked)");
+            }
+        }
+        self::sleep($microseconds);
+    }
 }

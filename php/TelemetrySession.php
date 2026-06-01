@@ -314,14 +314,15 @@ class TelemetrySession
     /**
      * Wait for settings confirmation from broker with timeout.
      * In Swoole mode, the background reader will set settingsSynced when SETTINGS is received.
-     * In non-Swoole mode, we poll manually.
+     * In non-Swoole mode, we poll manually with exponential backoff.
      *
      * @return bool True if settings confirmed before timeout
      */
     private function waitForSettingsConfirmation(): bool
     {
         $startTime = microtime(true);
-        $pollInterval = 0.05; // 50ms
+        $pollIntervalUs = 10000;
+        $maxPollIntervalUs = 200000;
         
         while (microtime(true) - $startTime < $this->settingsTimeout) {
             if ($this->settingsSynced) {
@@ -340,7 +341,8 @@ class TelemetrySession
                 $this->pollTelemetryManual();
             }
             
-            SwooleCompat::sleep((int)($pollInterval * 1000000));
+            SwooleCompat::sleep($pollIntervalUs);
+            $pollIntervalUs = min($pollIntervalUs * 2, $maxPollIntervalUs);
         }
         
         // Timeout

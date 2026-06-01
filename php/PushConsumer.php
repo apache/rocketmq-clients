@@ -132,6 +132,15 @@ class PushConsumer
     }
 
     /**
+     * Check if this is a FIFO consumer.
+     * @return bool
+     */
+    public function fifo(): bool
+    {
+        return $this->fifo;
+    }
+
+    /**
      * Subscribe to a topic.
      *
      * @param string $topic Topic name
