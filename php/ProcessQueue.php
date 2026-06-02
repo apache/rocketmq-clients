@@ -212,7 +212,7 @@ class ProcessQueue
             $deliveryAttempt = method_exists($messageView, 'getDeliveryAttempt') ? $messageView->getDeliveryAttempt() : 1;
             $maxAttempts = $this->getMaxAttempts();
             if ($deliveryAttempt >= $maxAttempts) {
-                $this->logger->warning("ProcessQueue consumeStreamedMessage FAILURE messageId={$messageId}, deliveryAttempt={$deliveryAttempt}/${maxAttempts}, forwarding to DLQ");
+                $this->logger->warning("ProcessQueue consumeStreamedMessage FAILURE messageId={$messageId}, deliveryAttempt={$deliveryAttempt}/{$maxAttempts}, forwarding to DLQ");
                 $this->consumer->getConsumeService()->forwardToDeadLetterQueue($messageView);
                 $this->evictMessage($messageView);
             } else {
