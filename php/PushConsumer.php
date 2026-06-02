@@ -1217,7 +1217,7 @@ class PushConsumer implements ConsumerInterface
      */
     protected function onHeartbeatTick()
     {
-        // Concurrency guard: prevent overlapping hearbeat executions
+        // Concurrency guard: prevent overlapping heartbeat executions
         if ($this->heartbeatInProgress) {
             return;
         }

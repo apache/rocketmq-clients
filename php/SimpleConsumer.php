@@ -992,7 +992,7 @@ class SimpleConsumer
                 }
             });
             if ($this->heartbeatCoroutineId >0 ) {
-                $this->logger->debug("Hearbeat started with Swoole timer (ID : {$this->heartbeatTimerId}");
+                $this->logger->debug("Heartbeat started with Swoole timer (ID : {$this->heartbeatTimerId}");
                 return;
             }
         }

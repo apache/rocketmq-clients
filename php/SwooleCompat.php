@@ -118,7 +118,7 @@ class SwooleCompat
     }
 
     /**
-     * Create a recurring timer that invokes the callabck at the specified interval.
+     * Create a recurring timer that invokes the callback at the specified interval.
      *
      * @param int $intervalMs Interval in milliseconds
      * @param callable $callback Function to invoke on each tick
