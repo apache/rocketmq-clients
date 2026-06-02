@@ -18,6 +18,8 @@
 
 namespace Apache\Rocketmq\Test;
 
+use Apache\Rocketmq\ConsumerInterface;
+use Apache\Rocketmq\ExponentialBackoffRetryPolicy;
 use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../autoload.php';
 
@@ -25,6 +27,7 @@ require_once __DIR__ . '/../ConsumeService.php';
 require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../MessageView.php';
 require_once __DIR__ . '/../Logger.php';
+require_once __DIR__ . '/helpers/FakeConsumer.php';
 
 use Apache\Rocketmq\ConsumeResult;
 use Apache\Rocketmq\ConsumeService;
@@ -171,14 +174,7 @@ class TestConsumeService extends ConsumeService
     public function __construct($listener)
     {
         $logger = Logger::getInstance('TestConsumeService');
-        $fakeConsumer = new class {
-            public function getGroupResource() {
-                $r = new Resource();
-                $r->setName('test-group');
-                return $r;
-            }
-            public function getAwaitDuration() { return 30; }
-        };
+        $fakeConsumer = new \FakeConsumer('test-client');
         parent::__construct($logger, $listener, $fakeConsumer);
     }
 

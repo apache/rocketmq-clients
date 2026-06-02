@@ -40,15 +40,15 @@ abstract class ConsumeService
 
     protected Logger $logger;
     protected $messageListener;
-    protected $consumer;
+    protected \Apache\Rocketmq\ConsumerInterface $consumer;
     protected int $maxAttempts = 5;
 
     /**
      * @param Logger $logger Logger instance
      * @param callable $messageListener User callback: function($messageView): int
-     * @param object $consumer Reference to PushConsumer
+     * @param \Apache\Rocketmq\ConsumerInterface $consumer Reference to PushConsumer
      */
-    public function __construct($logger, $messageListener, $consumer)
+    public function __construct($logger, $messageListener, \Apache\Rocketmq\ConsumerInterface $consumer)
     {
         $this->logger = $logger;
         $this->messageListener = $messageListener;
@@ -76,38 +76,32 @@ abstract class ConsumeService
 
             // Handle ConsumeResultSuspend
             if ($result instanceof ConsumeResultSuspend) {
-                if (method_exists($this->consumer, 'executeInterceptors')) {
-                    $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
-                        'success' => false,
-                        'messageId' => $this->extractMessageId($messageView),
-                        'topic' => $this->extractTopic($messageView),
-                    ]);
-                }
+                $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
+                    'success' => false,
+                    'messageId' => $this->extractMessageId($messageView),
+                    'topic' => $this->extractTopic($messageView),
+                ]);
                 // Return the ConsumeResultSuspend instance with suspend time info
                 return $result;
             }
 
             $success = $result !== ConsumeResult::FAILURE;
 
-            if (method_exists($this->consumer, 'executeInterceptors')) {
-                $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
-                    'success' => $success,
-                    'messageId' => $this->extractMessageId($messageView),
-                    'topic' => $this->extractTopic($messageView),
-                ]);
-            }
+            $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
+                'success' => $success,
+                'messageId' => $this->extractMessageId($messageView),
+                'topic' => $this->extractTopic($messageView),
+            ]);
 
             return $result === ConsumeResult::FAILURE ? ConsumeResult::FAILURE : ConsumeResult::SUCCESS;
         } catch (\Throwable $e) {
             $this->logger->warning("ConsumeService listener threw exception: " . $e->getMessage());
 
-            if (method_exists($this->consumer, 'executeInterceptors')) {
-                $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
-                    'success' => false,
-                    'messageId' => $this->extractMessageId($messageView),
-                    'topic' => $this->extractTopic($messageView),
-                ]);
-            }
+            $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
+                'success' => false,
+                'messageId' => $this->extractMessageId($messageView),
+                'topic' => $this->extractTopic($messageView),
+            ]);
 
             return ConsumeResult::FAILURE;
         }
@@ -216,10 +210,7 @@ abstract class ConsumeService
         if ($invisibleDuration !== null) {
             $delaySeconds = $invisibleDuration;
         } else {
-            $retryPolicy = null;
-            if (method_exists($this->consumer, 'getRetryPolicy')) {
-                $retryPolicy = $this->consumer->getRetryPolicy();
-            }
+            $retryPolicy = $this->consumer->getRetryPolicy();
             if ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
                 $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
                 $delaySeconds = max(1, (int)ceil($delayMs / 1000));
@@ -422,13 +413,11 @@ abstract class ConsumeService
      */
     private function executeAckInterceptor($success, $messageId, $topic)
     {
-        if (method_exists($this->consumer, 'executeInterceptors')) {
-            $this->consumer->executeInterceptors(MessageHookPoints::ACK, [
-                'success' => $success,
-                'messageId' => $messageId,
-                'topic' => $topic,
-            ]);
-        }
+        $this->consumer->executeInterceptors(MessageHookPoints::ACK, [
+            'success' => $success,
+            'messageId' => $messageId,
+            'topic' => $topic,
+        ]);
     }
 
     // ClientTrait required methods
@@ -438,20 +427,20 @@ abstract class ConsumeService
      * @return SessionCredentials|null
      */
     protected function getCredentials(): ?SessionCredentials {
-        return method_exists($this->consumer, 'getSessionCredentials') ? $this->consumer->getSessionCredentials() : null;
+        return $this->consumer->getSessionCredentials();
     }
     /**
      * Get the client ID from the consumer.
      *
      * @return string
      */
-    protected function getClientIdValue(): string { return method_exists($this->consumer, 'getClientId') ? $this->consumer->getClientId() : ''; }
+    protected function getClientIdValue(): string { return $this->consumer->getClientId(); }
     /**
      * Get the namespace from the consumer.
      *
      * @return string
      */
-    protected function getNamespaceValue(): string { return method_exists($this->consumer, 'getNamespace') ? $this->consumer->getNamespace() : ''; }
+    protected function getNamespaceValue(): string { return $this->consumer->getNamespace(); }
 }
 
 /**
@@ -499,14 +488,23 @@ class StandardConsumeService extends ConsumeService
                 $suspendSec = (int)ceil($result->getSuspendTimeMs() / 1000);
                 $this->logger->debug('StandardConsumerService suspend for %d seconds, messageId: %s', $suspendSec, $messageId);
                 $this->nackMessage($messageView, 1, $suspendSec);
+                $pq->evictMessage($messageView);
             } elseif ($result === \Apache\Rocketmq\ConsumeResult::SUCCESS) {
                 $this->logger->debug('StandardConsumerService consume success, messageId: %s', $messageId);
                 $this->ackMessage($messageView);
+                $pq->evictMessage($messageView);
             } else {
-                $this->logger->debug('StandardConsumerService consume failed, messageId: %s', $messageId);
-                $this->nackMessage($messageView);
+                $deliveryAttempt = method_exists($messageView, 'getDeliveryAttempt') ? $messageView->getDeliveryAttempt() : 1;
+                if ($deliveryAttempt >= $this->maxAttempts) {
+                    $this->logger->debug('StandardConsumerService consume failed, messageId: %s, deliveryAttempt: %s , forwarding to DLQ', $messageId, $deliveryAttempt);
+                    $this->forwardToDeadLetterQueue($messageView, $deliveryAttempt);
+                    $pq->evictMessage($messageView);
+                } else {
+                    $this->logger->debug('StandardConsumerService consume failed, messageId: %s, attempt %d', $messageId, $deliveryAttempt);
+                    $this->nackMessage($messageView);
+                    $messageView->incrementDeliveryAttempt();
+                }
             }
-            $pq->evictMessage($messageView);
         }
     }
 }
@@ -690,10 +688,7 @@ class FifoConsumeService extends ConsumeService
             $this->logger->warning("FifoConsumeService message consume failed, attempt {$deliveryAttempt}/{$this->maxAttempts}");
             $this->nackMessage($messageView, $deliveryAttempt);
             $pq->evictMessage($messageView);
-            $retryPolicy = null;
-            if (method_exists($this->consumer, 'getRetryPolicy')) {
-                $retryPolicy = $this->consumer->getRetryPolicy();
-            }
+            $retryPolicy = $this->consumer->getRetryPolicy();
             if ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
                 $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
             } else {
@@ -720,15 +715,13 @@ class FifoConsumeService extends ConsumeService
      */
     protected function executeNackInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
     {
-        if (method_exists($this->consumer, 'executeInterceptors')) {
-            $this->consumer->executeInterceptors(MessageHookPoints::CHANGE_INVISIBLE_DURATION, [
-                'success' => $success,
-                'messageId' => $messageId,
-                'topic' => $topic,
-                'deliveryAttempt' => $deliveryAttempt,
-                'delaySeconds' => $delaySeconds
-            ]);
-        }
+        $this->consumer->executeInterceptors(MessageHookPoints::CHANGE_INVISIBLE_DURATION, [
+            'success' => $success,
+            'messageId' => $messageId,
+            'topic' => $topic,
+            'deliveryAttempt' => $deliveryAttempt,
+            'delaySeconds' => $delaySeconds
+        ]);
     }
 
     /**
@@ -743,13 +736,11 @@ class FifoConsumeService extends ConsumeService
      */
     protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt = null, $delaySeconds = null):  void
     {
-        if (method_exists($this->consumer, 'executeInterceptors')) {
-            $this->consumer->executeInterceptors(MessageHookPoints::FORWARD_TO_DLQ, [
-               'success' => $success,
-               'messageId' => $messageId,
-               'topic' => $topic,
-            ]);
-        }
+        $this->consumer->executeInterceptors(MessageHookPoints::FORWARD_TO_DLQ, [
+            'success' => $success,
+            'messageId' => $messageId,
+            'topic' => $topic,
+        ]);
     }
 
     /**

@@ -71,6 +71,7 @@ class SimpleConsumer
     private $heartbeatCoroutineId = null;
     private ?TlsCredentials $tlsCredentials = null;
     private bool $heartbeatInProgress = false;
+    private int $heartbeatTimerId = -1;
 
     /**
      * Constructor
@@ -945,6 +946,28 @@ class SimpleConsumer
     {
         $this->doHeartbeat();
         $this->lastHeartbeatTime = time();
+        // Prefer Swoole tick timer in coroutine context (non-blocking, no signal overhead)
+        if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
+            $this->heartbeatTimerId = SwooleCompat::tick(10000, function () {
+                if ($this->heartbeatInProgress) {
+                    $this->logger->debug("Swoole tick but heartbeat already in progress, skipping");
+                    return;
+                }
+                $this->heartbeatInProgress = true;
+                try {
+                    $this->doHeartbeat();
+                    $this->lastHeartbeatTime = time();
+                } catch (\Throwable $e) {
+                    $this->logger->warning("Swoole tick heartbeat failed: " . $e->getMessage());
+                } finally {
+                    $this->heartbeatInProgress = false;
+                }
+            });
+            if ($this->heartbeatCoroutineId >0 ) {
+                $this->logger->debug("Hearbeat started with Swoole timer (ID : {$this->heartbeatTimerId}");
+                return;
+            }
+        }
         
         if (function_exists('pcntl_signal')) {
             $self = $this;
@@ -992,6 +1015,11 @@ class SimpleConsumer
      */
     public function stopHeartbeat()
     {
+        if ($this->heartbeatTimerId > 0) {
+            SwooleCompat::clearTimer($this->heartbeatTimerId);
+            $this->heartbeatTimerId = -1;
+            $this->logger->debug("Swoole heartbeat timer cleared");
+        }
         if ($this->heartbeatCoroutineId !== null) {
             \Swoole\Coroutine::cancel($this->heartbeatCoroutineId);
             $this->logger->info("Swoole coroutine heartbeat stopped, coroutine_id=" . $this->heartbeatCoroutineId);

@@ -35,9 +35,9 @@ use Grpc\ChannelCredentials;
  */
 class ProcessQueue
 {
-    private $consumer;
+    private ConsumerInterface $consumer;
     private MessageQueue $messageQueue;
-    private $filterExpression;
+    private string $filterExpression;
     private bool $dropped = false;
     private array $cachedMessages = [];
     private int $cachedMessagesBytes = 0;
@@ -48,8 +48,8 @@ class ProcessQueue
 
     private int $receptionTimes = 0;
     private int $receivedMessagesQuantity = 0;
-    private $activityNanoTime;
-    private $cacheFullNanoTime;
+    private int $activityNanoTime;
+    private int $cacheFullNanoTime;
     private string $attemptId;
     private bool $fetchImmediately = false;
     private Logger $logger;
@@ -57,7 +57,7 @@ class ProcessQueue
     /**
      * Constructor.
      *
-     * @param object $consumer The parent consumer instance
+     * @param ConsumerInterface $consumer The parent consumer instance
      * @param MessageQueue $messageQueue The message queue to consume from
      * @param string $filterExpression Filter expression (default '*')
      */
@@ -162,6 +162,22 @@ class ProcessQueue
     }
 
     /**
+     * Get the delivery attempt count from the consumer retry policy.
+     * @return int
+     */
+    private function getMaxAttempts(): int
+    {
+        if (method_exists($this->consumer, 'getRetryPolicy')) {
+            $retryPolicy = $this->consumer->getRetryPolicy();
+            if ($retryPolicy !== null && method_exists($retryPolicy, 'getMaxAttempts')) {
+                return $retryPolicy->getMaxAttempts();
+            }
+        }
+        // Default max attempts
+        return 5;
+    }
+
+    /**
      * Consume a streamed message and handle the result (ack/nack/evict).
      *
      * @param object $message Protobuf message received from stream
@@ -195,9 +211,17 @@ class ProcessQueue
             $this->consumer->nackMessage($messageView, 1, $suspendSec);
             $this->evictMessage($messageView);
         } elseif ($result === \Apache\Rocketmq\ConsumeResult::FAILURE) {
-            $this->logger->debug("ProcessQueue consumeStreamedMessage FAILURE messageId={$messageId}");
-            $this->consumer->nackMessage($messageView);
-            $this->evictMessage($messageView);
+            $deliveryAttempt = method_exists($messageView, 'getDeliveryAttempt') ? $messageView->getDeliveryAttempt() : 1;
+            $maxAttempts = $this->getMaxAttempts();
+            if ($deliveryAttempt >= $maxAttempts) {
+                $this->logger->warning("ProcessQueue consumeStreamedMessage FAILURE messageId={$messageId}, deliveryAttempt={$deliveryAttempt}/${maxAttempts}, forwarding to DLQ");
+                $this->consumer->getConsumeService()->forwardToDeadLetterQueue($messageView);
+                $this->evictMessage($messageView);
+            } else {
+                $this->logger->debug("ProcessQueue consumeStreamedMessage FAILURE messageId={$messageId}");
+                $this->consumer->nackMessage($messageView, $deliveryAttempt);
+                $messageView->incrementDeliveryAttempt();
+            }
         } else {
             $this->logger->debug("ProcessQueue consumeStreamedMessage SUCCESS messageId={$messageId}, ACKing immediately");
             $this->consumer->ackMessage($messageView);
@@ -284,7 +308,7 @@ class ProcessQueue
 
     /**
      * Evict a message from cache after consumption.
-     * Uses O(1) swop-with-last eviction with incremental index update.
+     * Uses O(1) swap-with-last eviction with incremental index update.
      *
      * @param object $messageView Message to evict
      * @return void
@@ -519,12 +543,8 @@ class ProcessQueue
     {
         $credentials = null;
         $namespace = '';
-        if (method_exists($this->consumer, 'getSessionCredentials')) {
-            $credentials = $this->consumer->getSessionCredentials();
-        }
-        if (method_exists($this->consumer, 'getNamespace')) {
-            $namespace = $this->consumer->getNamespace();
-        }
+        $credentials = $this->consumer->getSessionCredentials();
+        $namespace = $this->consumer->getNamespace();
         $metadata = Signature::sign(
             $credentials,
             $this->consumer->getClientId(),
@@ -565,7 +585,7 @@ class ProcessQueue
             $suspendSec = (int)ceil($consumeResult->getSuspendTimeMs() / 1000);
             $this->consumer->nackMessage($messageView, 1, $suspendSec);
         } else {
-            $this->consumer->forwardToDeadLetterQueue($messageView);
+            $this->consumer->getConsumeService()->forwardToDeadLetterQueue($messageView);
         }
         $this->evictMessage($messageView);
     }

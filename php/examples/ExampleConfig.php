@@ -32,7 +32,10 @@
  *   $credentials = $config->getCredentials();
  */
 
+use Apache\Rocketmq\TlsCredentials;
+
 require_once __DIR__ . '/../SessionCredentials.php';
+require_once __DIR__ . '/../TlsCredentials.php';
 
 class ExampleConfig
 {
@@ -54,6 +57,9 @@ class ExampleConfig
     
     // Lite consumer configuration
     private $liteTopicConfig;
+    private $tlsCaCert;
+    private $tlsClientCent;
+    private $tlsClientKey;
     
     /**
      * Private constructor - use getInstance() instead
@@ -91,6 +97,26 @@ class ExampleConfig
         $this->liteTopicConfig = [
             'parentTopic' => getenv('ROCKETMQ_PHP_LITE_PARENT_TOPIC') ?: 'yourParentTopic',
         ];
+        // TLS configuration
+        $this->tlsCaCert = getenv('ROCKETMQ_PHP_TLS_CA_CERT') ?: null;
+        $this->tlsClientCent = getenv('ROCKETMQ_PHP_TLS_CLIENT_CERT') ?: null;
+        $this->tlsClientKey = getenv('ROCKETMQ_PHP_TLS_CLIENT_KEY') ?: null;
+    }
+
+    /**
+     * Get TLS credentials
+     * @return void
+     */
+    public function getTlsCredentials()
+    {
+        if (!empty($this->tlsClientCent) && !empty($this->tlsClientKey)) {
+            return TlsCredentials::createMtls($this->tlsCaCert, $this->tlsClientCent, $this->tlsClientKey);
+        }
+
+        if (!empty($this->tlsCaCert)) {
+            return TlsCredentials::createWithCa($this->tlsCaCert);
+        }
+        return null;
     }
     
     /**
@@ -236,6 +262,9 @@ class ExampleConfig
         }
         echo "\nLite Topic:\n";
         echo "  Parent Topic: {$this->liteTopicConfig['parentTopic']}\n";
+        echo "  TLS: " . ($this->tlsCaCert ? 'Enabled' : 'Disabled') . "\n";
+        echo "  TLS CA Cert: " . ($this->tlsCaCert ? 'Configured' : 'Not configured') . "\n";
+        echo "  TLS Client Key: ". ($this->tlsClientKey ?? 'Not configured') . "\n";
         echo "========================================\n";
     }
 }

@@ -18,12 +18,14 @@
 
 namespace Apache\Rocketmq\Test;
 
+use FakeConsumer;
 use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../autoload.php';
 
 require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../ConsumeService.php';
 require_once __DIR__ . '/../Logger.php';
+require_once __DIR__ . '/helpers/FakeConsumer.php';
 
 use Apache\Rocketmq\ConsumeResult;
 use Apache\Rocketmq\FifoConsumeService;
@@ -94,10 +96,11 @@ class FifoFakeSystemProps
     }
 }
 
-class FifoFakeConsumerForConsume
+class FifoFakeConsumerForConsume extends FakeConsumer
 {
-    public function ack($messageView, int $timeout): void
+    public function __construct()
     {
+        parent::__construct('test-fifo-consumer');
     }
 }
 

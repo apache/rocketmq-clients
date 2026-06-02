@@ -40,4 +40,5 @@ class ClientConstants
     const GRPC_CHANGE_INVISIBLE_TIMEOUT = 5_000_000;   // 5s - Change invisible duration
     const GRPC_FORWARD_DLQ_TIMEOUT = 5_000_000;        // 5s - Forward to DLQ
     const GRPC_RECALL_MESSAGE_TIMEOUT = 10_000_000;    // 10s - Recall message
+    const GRPC_SYNC_LITE_MESSAGE_TIMEOUT = 10_000_000;    // 10s - Sync lite subscript
 }

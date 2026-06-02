@@ -3,7 +3,7 @@
   "description": "PHP SDK for Apache RocketMQ",
   "license": "Apache-2.0",
   "require": {
-    "php": ">=7.4",
+    "php": ">=8.1",
     "google/protobuf": "^3.25",
     "grpc/grpc": "^1.57",
     "hanson/foundation-sdk": "^5.0"

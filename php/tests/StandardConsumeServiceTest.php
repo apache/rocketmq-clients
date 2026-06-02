@@ -18,12 +18,14 @@
 
 namespace Apache\Rocketmq\Test;
 
+use FakeConsumer;
 use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../autoload.php';
 
 require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../ConsumeService.php';
 require_once __DIR__ . '/../Logger.php';
+require_once __DIR__ . '/helpers/FakeConsumer.php';
 
 use Apache\Rocketmq\ConsumeResult;
 use Apache\Rocketmq\StandardConsumeService;
@@ -74,11 +76,13 @@ class FakeTopic {
 /**
  * Fake consumer for testing ConsumeService.
  */
-class FakeConsumerForConsume {
-    public $ackCalls = [];
-    public $nackCalls = [];
-    public $clientId = 'test-client-id';
-    private $client = null;
+class FakeConsumerForConsume extends FakeConsumer{
+    private ?\Apache\Rocketmq\V2\MessagingServiceClient $client = null;
+
+    public function __construct(string $clientId = 'test-consumer')
+    {
+        parent::__construct('test-client-id');
+    }
 
     public function getGroupResource()
     {
@@ -87,19 +91,8 @@ class FakeConsumerForConsume {
         return $resource;
     }
 
-    public function getClientId() { return $this->clientId; }
-    public function getClient() { return $this->client; }
+    public function getClient(): ?\Apache\Rocketmq\V2\MessagingServiceClient { return $this->client; }
     public function setClient($client) { $this->client = $client; }
-
-    public function ackMessage($messageView)
-    {
-        $this->ackCalls[] = $messageView;
-    }
-
-    public function nackMessage($messageView)
-    {
-        $this->nackCalls[] = $messageView;
-    }
 }
 
 class StandardConsumeServiceTest extends TestCase

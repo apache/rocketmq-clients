@@ -29,12 +29,6 @@ use Grpc\ChannelCredentials;
  */
 class TlsCredentials
 {
-    private $isInsecure;
-    private $caCertPath;
-    private $clientCertPath;
-    private $clientKeyPath;
-    private $verifyPeer;
-    private $verifyPeerName;
 
     /**
      * Initialize TLS credentials.
@@ -47,19 +41,13 @@ class TlsCredentials
      * @param bool $verifyPeerName Whether to verify peer name
      */
     private function __construct(
-        bool $isInsecure = false,
-        ?string $caCertPath = null,
-        ?string $clientCertPath = null,
-        ?string $clientKeyPath = null,
-        bool $verifyPeer = true,
-        bool $verifyPeerName = true
+        private readonly bool $isInsecure = false,
+        private readonly ?string $caCertPath = null,
+        private readonly ?string $clientCertPath = null,
+        private readonly ?string $clientKeyPath = null,
+        private readonly bool $verifyPeer = true,
+        private readonly bool $verifyPeerName = true
     ) {
-        $this->isInsecure = $isInsecure;
-        $this->caCertPath = $caCertPath;
-        $this->clientCertPath = $clientCertPath;
-        $this->clientKeyPath = $clientKeyPath;
-        $this->verifyPeer = $verifyPeer;
-        $this->verifyPeerName = $verifyPeerName;
     }
 
     /**

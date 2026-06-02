@@ -57,7 +57,7 @@ class FakeMessageViewForTrait {
  * Concrete class that uses ClientTrait to test extract methods.
  */
 class ClientTraitExtractor {
-    use \Apache\Rocketmq\ClientTrait;
+    use Apache\Rocketmq\ClientTrait;
 
     protected function getCredentials(): ?\Apache\Rocketmq\SessionCredentials
     {

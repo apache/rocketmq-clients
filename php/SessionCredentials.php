@@ -23,9 +23,9 @@ namespace Apache\Rocketmq;
  */
 class SessionCredentials
 {
-    private $accessKey;
-    private $accessSecret;
-    private $securityToken; // Optional STS token
+    private readonly  string$accessKey;
+    private readonly  string $accessSecret;
+    private readonly  ?string $securityToken; // Optional STS token
 
     /**
      * Constructor.

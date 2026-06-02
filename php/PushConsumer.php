@@ -53,7 +53,7 @@ use Grpc\ChannelCredentials;
  *
  * Configuration options mirror Java PushConsumerBuilderImpl.
  */
-class PushConsumer
+class PushConsumer implements ConsumerInterface
 {
     use ClientTrait;
 
@@ -65,6 +65,7 @@ class PushConsumer
     private array $subscriptionExpressions = [];
     private array $cacheAssignments = [];
     private array $processQueueTable = [];
+    private bool $heartbeatInProgress = false;
     protected ?ConsumeService $consumeService = null;
     protected bool $isRunning = false;
     protected bool $shutdownRequested = false;
@@ -93,6 +94,19 @@ class PushConsumer
      * @param string $endpoints gRPC server endpoint
      * @param string $consumerGroup Consumer group name
      * @param array $options Configuration options
+     *  - messageListener Message listener
+     *  - subscriptionExpressions Subscription expressions
+     *  - maxCacheMessageCount Maximum number of cached messages
+     *  - maxCacheMessageSizeInBytes Maximum size of cached messages
+     *  - awaitDuration Await duration for message listener
+     *  - scanIntervalSeconds Interval between assignment scans
+     *  - fifo mode
+     *  - receiveBatchSize Batch size for receiving messages
+     *  - enableFifoConsumeAccelerator Enable FIFO consume accelerator
+     *  - isLiteConsumer Lite consumer mode
+     *  - credentials for authentication
+     *  - namespace for consumer
+     *  - tlsCredentials TLS credentials
      */
     public function __construct(string $endpoints, string $consumerGroup, array $options = [])
     {
@@ -379,7 +393,7 @@ class PushConsumer
      *
      * @return ConsumeService|null
      */
-    public function getConsumeService()
+    public function getConsumeService(): ?ConsumeService
     {
         return $this->consumeService;
     }
@@ -487,11 +501,18 @@ class PushConsumer
                             // Call the message listener directly
                             $result = $this->consumeService->consumeMessage($messageView);
                             
-                            // Handle result
+                            // Handle result : SUCCESS, SUSPEND, or FAILURE
                             if ($result === \Apache\Rocketmq\ConsumeResult::SUCCESS) {
                                 $this->consumeService->ackMessage($messageView);
+                                $pq->evictMessage($messageView);
+                            } elseif ($result instanceof \Apache\Rocketmq\ConsumeResultSuspend) {
+                                // Respect the suspend time during drain
+                                $suspendSec = (int)ceil($result->getSuspendTimeMs() / 1000);
+                                $this->consumeService->nackMessage($messageView, 1, $suspendSec);
+                                $pq->evictMessage($messageView);
                             } else {
                                 $this->consumeService->nackMessage($messageView);
+                                $pq->evictMessage($messageView);
                             }
                             
                             // Evict from cache
@@ -593,7 +614,7 @@ class PushConsumer
      * @param array $context Additional context for the interceptor
      * @return void
      */
-    public function executeInterceptors($hookPoint, $context = [])
+    public function executeInterceptors(string $hookPoint, array $context = []): void
     {
         if (empty($this->interceptors)) {
             return;
@@ -851,7 +872,7 @@ class PushConsumer
      *
      * @return MessagingServiceClient
      */
-    public function getClient()
+    public function getClient(): ?MessagingServiceClient
     {
         return $this->client;
     }
@@ -861,7 +882,7 @@ class PushConsumer
      *
      * @return string
      */
-    public function getClientId()
+    public function getClientId(): string
     {
         return $this->clientId;
     }
@@ -884,7 +905,7 @@ class PushConsumer
      * @param string $topic Topic name
      * @return Resource
      */
-    public function getTopicResource($topic)
+    public function getTopicResource($topic): Resource
     {
         $resource = new Resource();
         if ($this->namespace !== '') {
@@ -899,7 +920,7 @@ class PushConsumer
      *
      * @return Resource
      */
-    public function getGroupResourceWithNamespace()
+    public function getGroupResourceWithNamespace(): Resource
     {
         $resource = new Resource();
         if ($this->namespace !== '') {
@@ -932,7 +953,7 @@ class PushConsumer
      *
      * @return string
      */
-    public function getNamespace()
+    public function getNamespace(): string
     {
         return $this->namespace;
     }
@@ -942,7 +963,7 @@ class PushConsumer
      *
      * @return int
      */
-    public function getAwaitDuration()
+    public function getAwaitDuration(): int
     {
         return $this->awaitDuration;
     }
@@ -952,7 +973,7 @@ class PushConsumer
      *
      * @return int
      */
-    public function getReceiveBatchSize()
+    public function getReceiveBatchSize(): int
     {
         return $this->receiveBatchSize;
     }
@@ -962,7 +983,7 @@ class PushConsumer
      *
      * @return int
      */
-    public function getCacheMessageCountThresholdPerQueue()
+    public function getCacheMessageCountThresholdPerQueue(): int
     {
         $size = count($this->processQueueTable);
         if ($size <= 0) {
@@ -976,7 +997,7 @@ class PushConsumer
      *
      * @return int
      */
-    public function getCacheMessageBytesThresholdPerQueue()
+    public function getCacheMessageBytesThresholdPerQueue(): int
     {
         $size = count($this->processQueueTable);
         if ($size <= 0) {
@@ -989,7 +1010,7 @@ class PushConsumer
      * Acknowledge a message via gRPC.
      *
      * @param MessageView $messageView
-     * @return bool
+     * @return bool True if ACK was sent successfully, false if consumeService is not initialized
      */
     public function ackMessage(MessageView $messageView): bool
     {
@@ -1197,15 +1218,24 @@ class PushConsumer
      */
     protected function onHeartbeatTick()
     {
-        $now = time();
-        if ($now - $this->lastHeartbeatTime >= 10) {
-            $this->doHeartbeat();
-            static $lastRouteRefresh = 0;
-            if ($now - $lastRouteRefresh >= 30) {
-                $this->refreshRouteCache();
-                $lastRouteRefresh = $now;
+        // Concurrency guard: prevent overlapping hearbeat executions
+        if ($this->$this->heartbeatInProgress) {
+            return;
+        }
+        $this->heartbeatInProgress = true;
+        try {
+            $now = time();
+            if ($now - $this->lastHeartbeatTime >= 10) {
+                $this->doHeartbeat();
+                static $lastRouteRefresh = 0;
+                if ($now - $lastRouteRefresh >= 30) {
+                    $this->refreshRouteCache();
+                    $lastRouteRefresh = $now;
+                }
+                $this->lastHeartbeatTime = $now;
             }
-            $this->lastHeartbeatTime = $now;
+        } finally {
+            $this->heartbeatInProgress = false;
         }
     }
 

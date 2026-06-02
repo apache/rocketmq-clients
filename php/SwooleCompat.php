@@ -102,7 +102,7 @@ class SwooleCompat
     }
 
     /**
-     * Sleep with on optional warning callback for non-Swoole blakcing
+     * Sleep with on optional warning callback for non-Swoole blocking
      * @param int $microseconds sleep duration in microseconds
      * @param callable|null $warningCallback Called with a warning message
      * @return void
@@ -115,5 +115,35 @@ class SwooleCompat
             }
         }
         self::sleep($microseconds);
+    }
+
+    /**
+     * Create a recurring timer that invokes the callabck at the specified interval.
+     *
+     * @param int $intervalMs Interval in milliseconds
+     * @param callable $callback Function to invoke on each tick
+     * @return int Timer ID (positive) on success, -1 if Swoole timer is unavailable
+     */
+    public static function tick(int $intervalMs, callable $callback): int
+    {
+        if (!self::isAvailable() || !self::inCoroutine()) {
+            return -1;
+        }
+
+        return \Swoole\Timer::tick($intervalMs, $callback);
+    }
+
+    /**
+     * Clear a previously created timer.
+     *
+     * @param int $timerId Timer ID returned by tick()
+     * @return bool True if the timer was cleared, false if the timer ID was invalid
+     */
+    public static function clearTimer(int $timerId): bool
+    {
+        if ($timerId < 0 || !self::isAvailable()) {
+            return false;
+        }
+        return \Swoole\Timer::clear($timerId);
     }
 }

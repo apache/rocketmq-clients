@@ -27,6 +27,7 @@ require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../MessageView.php';
 require_once __DIR__ . '/../ProcessQueue.php';
 require_once __DIR__ . '/../ConsumeService.php';
+require_once __DIR__ . '/helpers/FakeConsumer.php';
 
 use Apache\Rocketmq\ConsumeResult;
 use Apache\Rocketmq\StandardConsumeService;
@@ -232,15 +233,7 @@ class TestableStandardConsumeService extends StandardConsumeService
 
     private function createFakeConsumer()
     {
-        return new class {
-            public function getGroupResource() {
-                $r = new Resource();
-                $r->setName('test-group');
-                return $r;
-            }
-            public function getAwaitDuration() { return 30; }
-            public function getClient() { return null; }
-        };
+        return new \FakeConsumer('test-client');
     }
 }
 
@@ -268,15 +261,7 @@ class TestableFifoConsumeService extends FifoConsumeService
 
     private function createFakeConsumer()
     {
-        return new class {
-            public function getGroupResource() {
-                $r = new Resource();
-                $r->setName('test-group');
-                return $r;
-            }
-            public function getAwaitDuration() { return 30; }
-            public function getClient() { return null; }
-        };
+        return new \FakeConsumer('test-client');
     }
 }
 

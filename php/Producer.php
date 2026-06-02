@@ -85,6 +85,7 @@ class Producer
     private int $lastHeartbeatTime = 0;
     private bool $heartbeatInProgress = false;
     private array $interceptors = [];
+    private int $heartbeatTimerId = -1;
     private ?TransactionChecker $transactionChecker = null;
     private ?LocalTransactionExecuter $localTransactionExecuter = null;
     private ?ExponentialBackoffRetryPolicy $retryPolicy = null;
@@ -94,7 +95,18 @@ class Producer
      * Constructor
      *
      * @param string $endpoints gRPC server endpoint
-     * @param array $options Configuration options
+     * @param array $options Configuration options:
+     * - clientId: Client ID for telemetry session
+     * - maxAttempts: Maximum number of retries
+     * - requestTimeout: Request timeout in milliseconds
+     * - topics: Topics to subscribe
+     * - namespace: Namespace for telemetry session
+     * - validateMessageType: Validate message type
+     * - tlsCredentials: TLS credentials
+     * - transactionChecker: Transaction checker
+     * - localTransactionExecuter: Local transaction executer
+     * - retryPolicy: Retry policy
+     * - interceptors: Interceptors
      * @deprecated Use ProducerBuilder instead.
      */
     public function __construct(string $endpoints, array $options = [])
@@ -730,6 +742,15 @@ class Producer
         // Update timestamp AFTER initial heartbeat
         $this->lastHeartbeatTime = time();
 
+        if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
+            $this->heartbeatTimerId = SwooleCompat::tick(10000, function () {
+                $this->onHeartbeatTick();
+            });
+            if ($this->heartbeatTimerId > 0) {
+                $this->logger->debug("Started heartbeat with Swoole timer, timerId={$this->heartbeatTimerId}");
+                return;
+            }
+        }
         if (function_exists('pcntl_signal') && function_exists('pcntl_alarm')) {
             $self = $this;
             pcntl_signal(SIGALRM, function() use ($self) {
@@ -737,6 +758,7 @@ class Producer
                 pcntl_alarm(10);
             });
             pcntl_alarm(10);
+            $this->logger->debug("Started heartbeat with PCNTL alarm");
         }
     }
 
@@ -900,6 +922,11 @@ class Producer
      */
     private function stopHeartbeat()
     {
+        if ($this->heartbeatTimerId > 0) {
+            SwooleCompat::clearTimer($this->heartbeatTimerId);
+            $this->heartbeatTimerId = -1;
+            $this->logger->debug("Swoole heartbeat timer cleared");
+        }
         // Cancel pending alarm
         if (function_exists('pcntl_alarm')) {
             pcntl_alarm(0);
@@ -1688,13 +1715,15 @@ class Producer
      */
     private function isolateEndpoints(Endpoints $endpoints): void
     {
-        // Build all entries locally, then merge atomically
+        // Build all entries locally, then merge atomically via copy-on-wirte
         $newEntries = [];
         foreach ($endpoints->getAddresses() as $address) {
             $key = $address->getHost() . ":" . $address->getPort();
             $newEntries[$key] = $endpoints;
         }
-        $this->isolatedEndpoints += $newEntries;
+        $merged = $this->isolatedEndpoints;
+        $merged += $newEntries;
+        $this->isolatedEndpoints = $merged;
     }
 
     /**

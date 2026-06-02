@@ -38,14 +38,14 @@ use Apache\Rocketmq\V2\ClientType;
  */
 class LitePushConsumer extends PushConsumer
 {
-    private $parentTopic = '';
-    private $liteTopics = [];
-    private $liteSubscriptionQuota = 0;
-    private $maxLiteTopicSize = 64;
-    private $syncLiteSubscriptionInterval = 30;
-    private $liteMessageListener = null;
-    private $lastSyncTime = 0;
-    private $virtualProcessQueue = null;
+    private string $parentTopic = '';
+    private array $liteTopics = [];
+    private int $liteSubscriptionQuota = 0;
+    private int $maxLiteTopicSize = 64;
+    private int $syncLiteSubscriptionInterval = 30;
+    private $liteMessageListener = null; // callable|null, per-lite-topic callback
+    private int $lastSyncTime = 0;
+    private $virtualProcessQueue = null; // ProcessQueue|null
 
     /**
      * Constructor.
@@ -247,7 +247,7 @@ class LitePushConsumer extends PushConsumer
         $request->setGroup($groupResource);
         $request->setLiteTopicSet(array_keys($this->liteTopics));
 
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_SYNC_LITE_MESSAGE_TIMEOUT / 1000);
 
         try {
             list($response, $status) = $this->getClient()->SyncLiteSubscription($request, $metadata, $this->getCallOptions())->wait();
@@ -303,7 +303,7 @@ class LitePushConsumer extends PushConsumer
         $request->setTopic($topicResource);
         $request->setGroup($groupResource);
         $request->setEndpoints($this->parseEndpoints($this->endpoints));
-        $metadata = $this->buildMetadata();
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_SYNC_LITE_MESSAGE_TIMEOUT / 1000);
         list($response, $status) = $this->getClient()->QueryAssignment($request, $metadata, $this->getCallOptions())->wait();
         if ($status->code !== 0) {
             return null;

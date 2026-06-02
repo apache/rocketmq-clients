@@ -672,25 +672,68 @@ class TelemetrySession
 
     /**
      * Close the telemetry session and remove from instance pool.
+     * Sets the closing flag to prevent reconnection, canceling the stream, and removing from instance pool.
      *
+     *
+     * @param float $timeoutSec Timeout in seconds
      * @return void
      */
-    public function close()
+    public function close(float $timeoutSec = 3.0)
     {
         $this->logger->info("Closing session...");
-
-        try {
-            if ($this->stream) {
-                // Signal that we're done writing
-                if (method_exists($this->stream, 'writesDone')) {
-                    $this->stream->writesDone();
-                }
-
-                // Cancel the stream
-                $this->stream->cancel();
+        // Prevent reconnection attempts from background reader
+        $this->isClosing = true;
+        // Cancel Swoole background reader coroutine if running
+        if ($this->swooleCoroutineId > 0 && SwooleCompat::isAvailable()) {
+            try {
+                \Swoole\Coroutine::cancel($this->swooleCoroutineId);
+                $this->logger->info("Cancelled Swoole background reader coroutine (ID : {$this->swooleCoroutineId})");
+            } catch (\Throwable $e) {
+                $this->logger->warning("Error cancelling Swoole background reader coroutine (ID : {$this->swooleCoroutineId}): " . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            $this->logger->error("Error closing session: " . $e->getMessage());
+            $this->swooleCoroutineId = -1;
+        }
+        // Close the gRPC stream with timeout protection
+
+        if ($this->stream) {
+            // Signal that we're done writing
+             if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
+                 // Swoole coroutine context: ise channel-based timeout
+                 $channel = new \Swoole\Coroutine\Channel(1);
+                 $stream = $this->stream;
+                 $logger = $this->logger;
+                 \Swoole\Coroutine::create(function () use ($channel, $stream, $logger) {
+                     try {
+                        if (method_exists($stream, 'writesDone')) {
+                            $stream->writesDone();
+                        }
+                         $stream->canel();
+                         $channel->push(true);
+                     } catch (\Throwable $e) {
+                         $logger->error("Error closing stream coroutine: " . $e->getMessage());
+                         $channel->push(false);
+                     }
+                 });
+                 $result = $channel->pop($timeoutSec);
+                 if ($result === false) {
+                     $this->logger->warning("Session close timed out after {$timeoutSec}s, forcing cleanup");
+                     try {
+                         $this->stream->cancel();
+                     } catch (\Throwable $e) {
+
+                     }
+                 }
+             } else {
+                 // Non-Swoole context: call directly(cancel is typically non-blocking)
+                 try {
+                     if (method_exists($this->stream, 'writesDone')) {
+                         $this->stream->writesDone();
+                     }
+                     $this->stream->cancel();
+                 } catch (\Throwable $e) {
+                     $this->logger->error("Error closing stream: " . $e->getMessage());
+                 }
+             }
         }
 
         $credId = $this->credentials !== null ? spl_object_id($this->credentials) : 'none';
@@ -699,6 +742,7 @@ class TelemetrySession
         unset(self::$instances[$key]);
         unset(self::$instanceTimestamps[$key]);
 
+        $this->stream = null;
         $this->logger->info("Session closed");
     }
 

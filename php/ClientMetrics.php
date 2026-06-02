@@ -249,25 +249,13 @@ class MetricsInterceptor implements MessageInterceptor
      */
     public function intercept(string $hookPoint, array $context = []): void
     {
-        switch ($hookPoint) {
-            case MessageHookPoints::SEND:
-                $success = $context['success'] ?? true;
-                $latencyMs = $context['latencyMs'] ?? 0;
-                $this->metrics->recordSend($success, $latencyMs);
-                break;
-            case MessageHookPoints::RECEIVE:
-                $success = $context['success'] ?? true;
-                $this->metrics->recordReceive($success);
-                break;
-            case MessageHookPoints::CONSUME:
-                $success = $context['success'] ?? true;
-                $this->metrics->recordConsume($success);
-                break;
-            case MessageHookPoints::ACK:
-                $success = $context['success'] ?? true;
-                $this->metrics->recordAck($success);
-                break;
-        }
+        match ($hookPoint) {
+            MessageHookPoints::SEND => $this->metrics->recordSend($context['success'] ?? true, $context['latencyMs'] ?? 0),
+            MessageHookPoints::RECEIVE => $this->metrics->recordReceive($context['success'] ?? true),
+            MessageHookPoints::CONSUME => $this->metrics->recordConsume($context['success'] ?? true),
+            MessageHookPoints::ACK => $this->metrics->recordAck($context['success'] ?? true),
+            default => null
+        };
     }
 
     /**
