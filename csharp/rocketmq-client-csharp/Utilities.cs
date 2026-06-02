@@ -57,7 +57,7 @@ namespace Org.Apache.Rocketmq
 
             var mac = nic.GetPhysicalAddress().GetAddressBytes();
 
-            return mac.Length < 6 ? mac : RandomMacAddressBytes;
+            return mac.Length >= 6 ? mac : RandomMacAddressBytes;
         }
 
         public static int GetProcessId()
