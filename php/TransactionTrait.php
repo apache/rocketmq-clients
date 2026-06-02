@@ -79,8 +79,8 @@ trait TransactionTrait
         }
 
         $topic = $message->getTopic()->getName();
-        $loadBalancer = $this->getPublishingLoadBalancer($topic);
-        $messageQueue = $loadBalancer->takeMessageQueue($this->getIsolatedBrokerNames(), $this->maxAttempts);
+        $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
+        $messageQueue = $loadBalancer->takeMessageQueue($this->routeManager->getIsolatedBrokerNames(), $this->maxAttempts);
 
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
@@ -96,7 +96,7 @@ trait TransactionTrait
 
         if (isset($result['transactionId'])) {
             $transaction->tryAddMessage($message);
-            $transaction->tryAddReceipt($message, $result, $this->extractMessageQueueEndpoint($messageQueue[0]));
+            $transaction->tryAddReceipt($message, $result, PublishingRouteManager::extractMessageQueueEndpoint($messageQueue[0]));
         }
 
         if ($executor !== null) {

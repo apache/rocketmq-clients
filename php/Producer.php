@@ -19,8 +19,6 @@
 namespace Apache\Rocketmq;
 
 use Apache\Rocketmq\V2\MessagingServiceClient;
-use Apache\Rocketmq\V2\Permission;
-use Apache\Rocketmq\V2\QueryRouteRequest;
 use Apache\Rocketmq\V2\SendMessageRequest;
 use Apache\Rocketmq\V2\RecallMessageRequest;
 use Apache\Rocketmq\V2\Resource;
@@ -47,7 +45,7 @@ use Google\Protobuf\Timestamp;
  *
  * Use ProducerBuilder for convenient construction.
  */
-class Producer implements TransactionCommitter
+class Producer implements TransactionCommitter, ClientTraitProvider
 {
     use ClientTrait {
         buildMetadata as public;
@@ -59,13 +57,12 @@ class Producer implements TransactionCommitter
     private readonly MessagingServiceClient $client;
     private readonly string $clientId;
     private readonly TelemetrySession $telemetrySession;
-    private array $publishingRouteDataCache = [];
+    private readonly PublishingRouteManager $routeManager;
     private bool $isRunning = false;
     private bool $shutdownRequested = false;
     private int $maxAttempts = 3;
     private int $requestTimeout = 3000;
     private array $topics = [];
-    private array $isolatedEndpoints = [];
     private readonly string $namespace;
     private readonly Logger $logger;
     private ?SessionCredentials $credentials = null;
@@ -106,7 +103,8 @@ class Producer implements TransactionCommitter
         ]);
 
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
-        $this->heartbeatManager = new HeartbeatManager($this);
+        $this->routeManager = new PublishingRouteManager($this->client, $endpoints, $this);
+        $this->heartbeatManager = new HeartbeatManager($this->routeManager, $this->client, $this, $this->tlsCredentials);
     }
 
     // ==================== Lifecycle ====================
@@ -123,9 +121,7 @@ class Producer implements TransactionCommitter
             $this->registerSettingsCallback();
             $this->registerTransactionCheckerCallback();
 
-            foreach ($this->topics as $topic) {
-                $this->getPublishingLoadBalancer($topic);
-            }
+            $this->routeManager->warmUp($this->topics);
 
             $this->isRunning = true;
             $this->heartbeatManager->start();
@@ -178,7 +174,7 @@ class Producer implements TransactionCommitter
         $this->validateMessage($message);
 
         $topic = $message->getTopic()->getName();
-        $loadBalancer = $this->getPublishingLoadBalancer($topic);
+        $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
 
         $sysProps = $message->getSystemProperties();
         $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
@@ -189,7 +185,7 @@ class Producer implements TransactionCommitter
             }
             $candidates = [$messageQueue];
         } else {
-            $candidates = $loadBalancer->takeMessageQueue($this->getIsolatedBrokerNames(), $this->maxAttempts);
+            $candidates = $loadBalancer->takeMessageQueue($this->routeManager->getIsolatedBrokerNames(), $this->maxAttempts);
             if (empty($candidates)) {
                 throw new \RuntimeException("No available message queue for topic: {$topic}");
             }
@@ -265,8 +261,8 @@ class Producer implements TransactionCommitter
             throw new \InvalidArgumentException("FIFO messages to send have different message groups, please check");
         }
 
-        $loadBalancer = $this->getPublishingLoadBalancer($topic);
-        $isolatedBroker = array_keys($this->isolatedEndpoints);
+        $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
+        $isolatedBroker = $this->routeManager->getIsolatedBrokerNames();
 
         if ($hasFifoMessage) {
             $messageGroup = $messageGroups[0];
@@ -415,63 +411,6 @@ class Producer implements TransactionCommitter
 
     public function getClientId(): string { return $this->clientId; }
     public function isRunning(): bool { return $this->isRunning; }
-
-    // ==================== @internal Accessors for HeartbeatManager ====================
-
-    /** @internal */
-    public function getPublishingRouteCache(): array { return $this->publishingRouteDataCache; }
-
-    /** @internal */
-    public function getProducerClient(): MessagingServiceClient { return $this->client; }
-
-    /** @internal */
-    public function getTlsCredentials(): ?TlsCredentials { return $this->tlsCredentials; }
-
-    /** @internal */
-    public function clearIsolatedEndpoints(): void { $this->isolatedEndpoints = []; }
-
-    /** @internal */
-    public function getTotalRouteEndpoints(): array
-    {
-        $endpointMap = [];
-        $routeCache = $this->publishingRouteDataCache;
-        foreach ($routeCache as $loadBalancer) {
-            foreach ($loadBalancer->getMessageQueues() as $messageQueue) {
-                $endpoints = $this->extractMessageQueueEndpoint($messageQueue);
-                if ($endpoints !== null) {
-                    $key = $this->endpointsKey($endpoints);
-                    $endpointMap[$key] = $endpoints;
-                }
-            }
-        }
-        return array_values($endpointMap);
-    }
-
-    /** @internal */
-    public function refreshRouteCache(): void
-    {
-        foreach ($this->topics as $topic) {
-            try {
-                $routeData = $this->queryRoute($topic);
-                $existing = $this->publishingRouteDataCache[$topic] ?? null;
-                $this->publishingRouteDataCache[$topic] = $existing !== null
-                    ? $existing->update($routeData)
-                    : new PublishingLoadBalancer($routeData);
-                $this->logger->debug("Route refreshed for topic={$topic}");
-            } catch (\Exception $e) {
-                $this->logger->error("Failed to refresh route for topic={$topic}", ['exception' => $e]);
-            }
-        }
-    }
-
-    public function endpointsKey(Endpoints $endpoints): string
-    {
-        $addresses = $endpoints->getAddresses();
-        if (!empty($addresses) && $addresses[0] !== null) {
-            return $addresses[0]->getHost() . ':' . $addresses[0]->getPort();
-        }
-        return spl_object_hash($endpoints);
-    }
 
     // ==================== ClientTrait Required Methods ====================
 
@@ -691,38 +630,6 @@ class Producer implements TransactionCommitter
         return $request;
     }
 
-    // ==================== Private: Routing ====================
-
-    private function getPublishingLoadBalancer($topic)
-    {
-        if (!isset($this->publishingRouteDataCache[$topic])) {
-            $routeData = $this->queryRoute($topic);
-            $this->publishingRouteDataCache[$topic] = new PublishingLoadBalancer($routeData);
-        }
-        return $this->publishingRouteDataCache[$topic];
-    }
-
-    private function queryRoute($topic)
-    {
-        $topicResource = new Resource();
-        $topicResource->setName($topic);
-
-        $request = new QueryRouteRequest();
-        $request->setTopic($topicResource);
-        $request->setEndpoints($this->parseEndpoints($this->endpoints));
-
-        $timeoutMs = (int)($this->getOperationTimeout('QUERY_ROUTE') / 1000);
-        $metadata = $this->buildMetadata($timeoutMs);
-        $callOptions = ['timeout' => $this->getOperationTimeout('QUERY_ROUTE')];
-
-        list($response, $status) = $this->client->QueryRoute($request, $metadata, $callOptions)->wait();
-
-        if ($status->code !== 0) {
-            throw new \RuntimeException("Query route failed: " . $status->details);
-        }
-        return $response;
-    }
-
     // ==================== Private: Retry Logic ====================
 
     private function sendMessageWithRetry($request, $message, $candidates, $maxAttempts)
@@ -805,9 +712,9 @@ class Producer implements TransactionCommitter
                 $lastException = $e;
                 $this->logger->error("Send attempt {$attempt} failed: " . $e->getMessage());
 
-                $failedEndpoints = $this->extractMessageQueueEndpoint($currentMessageQueue);
+                $failedEndpoints = PublishingRouteManager::extractMessageQueueEndpoint($currentMessageQueue);
                 if ($failedEndpoints !== null) {
-                    $this->isolateEndpoints($failedEndpoints);
+                    $this->routeManager->isolateEndpoints($failedEndpoints);
                 }
 
                 if ($attempt < $maxAttempts) {
@@ -903,9 +810,9 @@ class Producer implements TransactionCommitter
                 $lastException = $e;
                 $this->logger->error("Batch send attempt {$attempt} failed: " . $e->getMessage());
 
-                $failedEndpoints = $this->extractMessageQueueEndpoint($currentMessageQueue);
+                $failedEndpoints = PublishingRouteManager::extractMessageQueueEndpoint($currentMessageQueue);
                 if ($failedEndpoints !== null) {
-                    $this->isolateEndpoints($failedEndpoints);
+                    $this->routeManager->isolateEndpoints($failedEndpoints);
                 }
 
                 if ($attempt < $maxAttempts) {
@@ -924,47 +831,5 @@ class Producer implements TransactionCommitter
             'topic' => $topic,
         ]);
         throw $lastException;
-    }
-
-    // ==================== Private: Endpoint Isolation ====================
-
-    private function isolateEndpoints(Endpoints $endpoints): void
-    {
-        $newEntries = [];
-        foreach ($endpoints->getAddresses() as $address) {
-            $key = $address->getHost() . ":" . $address->getPort();
-            $newEntries[$key] = $endpoints;
-        }
-        $merged = $this->isolatedEndpoints;
-        $merged += $newEntries;
-        $this->isolatedEndpoints = $merged;
-    }
-
-    private function getIsolatedBrokerNames(): array
-    {
-        $brokerNames = [];
-        $isolatedEndpoints = $this->isolatedEndpoints;
-        $routeCache = $this->publishingRouteDataCache;
-        foreach ($routeCache as $loadBalancer) {
-            foreach ($loadBalancer->getMessageQueues() as $messageQueue) {
-                $ep = $this->extractMessageQueueEndpoint($messageQueue);
-                if ($ep !== null) {
-                    $key = $this->endpointsKey($ep);
-                    if (isset($isolatedEndpoints[$key])) {
-                        $brokerNames[] = $messageQueue->getBroker()->getName();
-                    }
-                }
-            }
-        }
-        return array_unique($brokerNames);
-    }
-
-    private function extractMessageQueueEndpoint($messageQueue): ?Endpoints
-    {
-        $broker = $messageQueue->getBroker();
-        if ($broker && $broker->hasEndpoints()) {
-            return $broker->getEndpoints();
-        }
-        return null;
     }
 }

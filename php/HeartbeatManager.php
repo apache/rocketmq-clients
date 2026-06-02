@@ -19,13 +19,15 @@
 namespace Apache\Rocketmq;
 
 use Apache\Rocketmq\V2\HeartbeatRequest;
+use Apache\Rocketmq\V2\MessagingServiceClient;
 use Apache\Rocketmq\V2\NotifyClientTerminationRequest;
 use Apache\Rocketmq\V2\ClientType;
 
 /**
  * Manages periodic heartbeat and client termination notification for Producer.
  *
- * Extracted from Producer to keep concerns separated.
+ * Depends on PublishingRouteManager for route data and ClientTraitProvider for
+ * metadata/timeout helpers, rather than a raw Producer reference.
  */
 class HeartbeatManager
 {
@@ -34,11 +36,12 @@ class HeartbeatManager
     private bool $inProgress = false;
     private readonly Logger $logger;
 
-    /**
-     * @param object $producer Producer instance (must expose internal accessors)
-     */
-    public function __construct(private object $producer)
-    {
+    public function __construct(
+        private readonly PublishingRouteManager $routeManager,
+        private readonly MessagingServiceClient $client,
+        private readonly ClientTraitProvider $traitProvider,
+        private readonly ?TlsCredentials $tlsCredentials = null,
+    ) {
         $this->logger = Logger::getInstance('HeartbeatManager');
     }
 
@@ -130,7 +133,7 @@ class HeartbeatManager
 
                 static $lastRouteRefresh = 0;
                 if (time() - $lastRouteRefresh >= 30) {
-                    $this->producer->refreshRouteCache();
+                    $this->routeManager->refreshRouteCache();
                     $lastRouteRefresh = time();
                 }
             } catch (\Throwable $e) {
@@ -146,20 +149,18 @@ class HeartbeatManager
      */
     public function doHeartbeat(): void
     {
-        $routeCache = $this->producer->getPublishingRouteCache();
+        $routeCache = $this->routeManager->getRouteCache();
         if (empty($routeCache)) {
             return;
         }
 
-        $brokerEndpoints = $this->producer->getTotalRouteEndpoints();
+        $brokerEndpoints = $this->routeManager->getTotalRouteEndpoints();
         if (empty($brokerEndpoints)) {
             return;
         }
 
         $request = new HeartbeatRequest();
         $request->setClientType(ClientType::PRODUCER);
-
-        $tlsCredentials = $this->producer->getTlsCredentials();
 
         foreach ($brokerEndpoints as $endpoints) {
             $addresses = $endpoints->getAddresses();
@@ -170,17 +171,17 @@ class HeartbeatManager
             $brokerKey = $address->getHost() . ':' . $address->getPort();
             try {
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
-                    'tlsCredentials' => $tlsCredentials,
+                    'tlsCredentials' => $this->tlsCredentials,
                 ]);
 
-                $heartbeatTimeoutMs = (int)($this->producer->getOperationTimeout('HEARTBEAT') / 1000);
-                $metadata = $this->producer->buildMetadata($heartbeatTimeoutMs);
-                $callOptions = ['timeout' => $this->producer->getOperationTimeout('HEARTBEAT')];
+                $heartbeatTimeoutMs = (int)($this->traitProvider->getOperationTimeout('HEARTBEAT') / 1000);
+                $metadata = $this->traitProvider->buildMetadata($heartbeatTimeoutMs);
+                $callOptions = ['timeout' => $this->traitProvider->getOperationTimeout('HEARTBEAT')];
 
                 list($response, $status) = $brokerClient->Heartbeat($request, $metadata, $callOptions)->wait();
                 if ($status->code === 0) {
                     $this->logger->debug("Heartbeat to broker {$brokerKey} successful");
-                    $this->producer->clearIsolatedEndpoints();
+                    $this->routeManager->clearIsolatedEndpoints();
                 } else {
                     $this->logger->warning("Heartbeat to broker {$brokerKey} failed:" . $status->details);
                 }
@@ -195,20 +196,19 @@ class HeartbeatManager
      */
     public function notifyClientTermination(): void
     {
-        $routeCache = $this->producer->getPublishingRouteCache();
+        $routeCache = $this->routeManager->getRouteCache();
         if (empty($routeCache)) {
             return;
         }
 
         $request = new NotifyClientTerminationRequest();
 
-        $timeoutMs = (int)($this->producer->getOperationTimeout('HEARTBEAT') / 1000);
-        $metadata = $this->producer->buildMetadata($timeoutMs);
-        $callOptions = ['timeout' => $this->producer->getOperationTimeout('HEARTBEAT')];
+        $timeoutMs = (int)($this->traitProvider->getOperationTimeout('HEARTBEAT') / 1000);
+        $metadata = $this->traitProvider->buildMetadata($timeoutMs);
+        $callOptions = ['timeout' => $this->traitProvider->getOperationTimeout('HEARTBEAT')];
 
-        $client = $this->producer->getProducerClient();
         try {
-            list($response, $status) = $client->NotifyClientTermination($request, $metadata, $callOptions)->wait();
+            list($response, $status) = $this->client->NotifyClientTermination($request, $metadata, $callOptions)->wait();
             if ($status->code === 0) {
                 $this->logger->debug("NotifyClientTermination sent successfully");
             } else {
