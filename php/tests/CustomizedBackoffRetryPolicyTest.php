@@ -61,7 +61,7 @@ class CustomizedBackoffRetryPolicyTest extends TestCase
     public function testRejectsNegativeMaxAttempts()
     {
         $this->expectException(\InvalidArgumentException::class);
-        new CustomizedBackoffRetryPolicy(0);
+        new CustomizedBackoffRetryPolicy(0, []);
     }
 
     /**

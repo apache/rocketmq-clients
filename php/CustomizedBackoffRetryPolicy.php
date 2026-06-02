@@ -26,10 +26,13 @@ namespace Apache\Rocketmq;
  */
 class CustomizedBackoffRetryPolicy extends ExponentialBackoffRetryPolicy
 {
+    private readonly array $delays;
     public function __construct(
-        private readonly array $delays,
+        int $maxAttempts,
+        array $delays,
     ) {
-        parent::__construct(count($this->delays), 0, 0, 1.0);
+        $this->delays = $delays;
+        parent::__construct($maxAttempts, 0, 0, 1.0);
     }
 
     /**
@@ -95,7 +98,7 @@ class CustomizedBackoffRetryPolicy extends ExponentialBackoffRetryPolicy
             $delays[] = (int)($duration->getSeconds() * 1000 + intdiv($duration->getNanos(), 1000000));
         }
 
-        return new self($delays);
+        return new self($protobuf->getMaxAttempts(), $delays);
     }
 
     /**
@@ -143,6 +146,6 @@ class CustomizedBackoffRetryPolicy extends ExponentialBackoffRetryPolicy
             $inheritedDelays[] = (int)($duration->getSeconds() * 1000 + intdiv($duration->getNanos(), 1000000));
         }
 
-        return new self($inheritedDelays);
+        return new self($this->maxAttempts, $inheritedDelays);
     }
 }

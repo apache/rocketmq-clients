@@ -19,6 +19,7 @@
 namespace Apache\Rocketmq;
 
 use Apache\Rocketmq\V2\EndTransactionRequest;
+use Apache\Rocketmq\V2\Endpoints;
 use Apache\Rocketmq\V2\TransactionResolution;
 use Apache\Rocketmq\V2\TransactionSource;
 use Apache\Rocketmq\V2\Resource;
@@ -131,7 +132,7 @@ trait TransactionTrait
     /**
      * Commit a transaction by messageId and transactionId.
      */
-    public function commitTransaction(string $messageId, string $transactionId, string $topic, ?\Apache\Rocketmq\V2\Endpoints $endpoints = null)
+    public function commitTransaction(string $messageId, string $transactionId, string $topic, ?Endpoints $endpoints = null): void
     {
         $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::COMMIT, $endpoints);
     }
@@ -139,7 +140,7 @@ trait TransactionTrait
     /**
      * Rollback a transaction by messageId and transactionId.
      */
-    public function rollbackTransaction(string $messageId, string $transactionId, string $topic, ?\Apache\Rocketmq\V2\Endpoints $endpoints = null)
+    public function rollbackTransaction(string $messageId, string $transactionId, string $topic, ?Endpoints $endpoints = null): void
     {
         $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::ROLLBACK, $endpoints);
     }
@@ -147,7 +148,7 @@ trait TransactionTrait
     /**
      * End (commit or rollback) a transaction via gRPC.
      */
-    private function endTransaction($messageId, $transactionId, $topic, $resolution, ?\Apache\Rocketmq\V2\Endpoints $endpoints = null, $source = TransactionSource::SOURCE_CLIENT)
+    private function endTransaction($messageId, $transactionId, $topic, $resolution, ?Endpoints $endpoints = null, $source = TransactionSource::SOURCE_CLIENT)
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");

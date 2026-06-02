@@ -26,15 +26,17 @@ require_once __DIR__ . '/../Producer.php';
 use Apache\Rocketmq\Transaction;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
+use Apache\Rocketmq\TransactionCommitter;
 use Apache\Rocketmq\V2\SystemProperties;
+use Apache\Rocketmq\V2\Endpoints;
 /**
  * Fake producer for transaction testing without network calls.
  */
-class FakeProducerForTransaction {
+class FakeProducerForTransaction implements TransactionCommitter{
     public $commitCalls = [];
     public $rollbackCalls = [];
 
-    public function commitTransaction($messageId, $transactionId, $topic)
+    public function commitTransaction(string $messageId, string $transactionId, string $topic, ?Endpoints $endpoints = null): void
     {
         $this->commitCalls[] = [
             'messageId' => $messageId,
@@ -43,7 +45,7 @@ class FakeProducerForTransaction {
         ];
     }
 
-    public function rollbackTransaction($messageId, $transactionId, $topic)
+    public function rollbackTransaction(string $messageId, string $transactionId, string $topic, ?Endpoints $endpoints = null): void
     {
         $this->rollbackCalls[] = [
             'messageId' => $messageId,

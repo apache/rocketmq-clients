@@ -40,7 +40,7 @@ class ExponentialBackoffRetryPolicy
      * @throws \InvalidArgumentException if maxAttempts < 1
      */
     public function __construct(
-        private readonly int $maxAttempts = 3,
+        protected readonly int $maxAttempts = 3,
         private int $baseDelayMs = 1000,
         private int $maxDelayMs = 30000,
         private float $multiplier = 2.0,
