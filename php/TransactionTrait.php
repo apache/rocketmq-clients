@@ -131,7 +131,7 @@ trait TransactionTrait
     /**
      * Commit a transaction by messageId and transactionId.
      */
-    public function commitTransaction($messageId, $transactionId, $topic, $endpoints = null)
+    public function commitTransaction(string $messageId, string $transactionId, string $topic, ?\Apache\Rocketmq\V2\Endpoints $endpoints = null)
     {
         $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::COMMIT, $endpoints);
     }
@@ -139,7 +139,7 @@ trait TransactionTrait
     /**
      * Rollback a transaction by messageId and transactionId.
      */
-    public function rollbackTransaction($messageId, $transactionId, $topic, $endpoints = null)
+    public function rollbackTransaction(string $messageId, string $transactionId, string $topic, ?\Apache\Rocketmq\V2\Endpoints $endpoints = null)
     {
         $this->endTransaction($messageId, $transactionId, $topic, TransactionResolution::ROLLBACK, $endpoints);
     }

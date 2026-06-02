@@ -119,50 +119,24 @@ class StatusChecker
             return BadRequestException::class;
         }
 
-        switch ($code) {
-            case 40100:
-                return UnauthorizedException::class;
-            case 40200:
-                return PaymentRequiredException::class;
-            case 40300:
-                return ForbiddenException::class;
-            case 40400:
-            case 40401:
-            case 40402:
-                return NotFoundException::class;
-            case 41300:
-            case 41301:
-                return PayloadTooLargeException::class;
-            case 41400:
-            case 41401:
-                return PayloadEmptyException::class;
-            case 42900:
-                return TooManyRequestsException::class;
-            case 40901:
-                return LiteTopicQuotaExceededException::class;
-            case 40902:
-                return LiteSubscriptionQuotaExceededException::class;
-            case 43100:
-            case 43101:
-                return RequestHeaderFieldsTooLargeException::class;
-            case 50000:
-            case 50001:
-            case 50002:
-                return InternalErrorException::class;
-            case 50400:
-            case 50401:
-            case 50402:
-                return ProxyTimeoutException::class;
-            case 50100:
-            case 50101:
-            case 50102:
-                return UnsupportedException::class;
-            default:
-                if ($code >= 40000 && $code < 50000) {
-                    return BadRequestException::class;
-                }
-                return InternalErrorException::class;
-        }
+        return match ($code) {
+            40100 => UnauthorizedException::class,
+            40200 => PaymentRequiredException::class,
+            40300 => ForbiddenException::class,
+            40400, 40401, 40402 => NotFoundException::class,
+            41300, 41301 => PayloadTooLargeException::class,
+            41400, 41401 => PayloadEmptyException::class,
+            42900 => TooManyRequestsException::class,
+            40901 => LiteTopicQuotaExceededException::class,
+            40902 => LiteSubscriptionQuotaExceededException::class,
+            43100, 43101 => RequestHeaderFieldsTooLargeException::class,
+            50000, 50001, 50002 => InternalErrorException::class,
+            50400, 50401, 50402 => ProxyTimeoutException::class,
+            50100, 50101, 50102 => UnsupportedException::class,
+            default => ($code >= 40000 && $code < 50000)
+                ? BadRequestException::class
+                : InternalErrorException::class,
+        };
     }
 
     /**

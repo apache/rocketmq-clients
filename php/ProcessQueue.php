@@ -167,11 +167,9 @@ class ProcessQueue
      */
     private function getMaxAttempts(): int
     {
-        if (method_exists($this->consumer, 'getRetryPolicy')) {
-            $retryPolicy = $this->consumer->getRetryPolicy();
-            if ($retryPolicy !== null && method_exists($retryPolicy, 'getMaxAttempts')) {
-                return $retryPolicy->getMaxAttempts();
-            }
+        $retryPolicy = $this->consumer->getRetryPolicy();
+        if ($retryPolicy !== null && method_exists($retryPolicy, 'getMaxAttempts')) {
+            return $retryPolicy->getMaxAttempts();
         }
         // Default max attempts
         return 5;

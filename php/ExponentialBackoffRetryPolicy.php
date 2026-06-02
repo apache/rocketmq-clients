@@ -43,7 +43,7 @@ class ExponentialBackoffRetryPolicy
         private readonly int $maxAttempts = 3,
         private int $baseDelayMs = 1000,
         private int $maxDelayMs = 30000,
-        private readonly float $multiplier = 2.0,
+        private float $multiplier = 2.0,
     ) {
         if ($this->maxAttempts < 1) {
             throw new \InvalidArgumentException("maxAttempts must be >= 1");
