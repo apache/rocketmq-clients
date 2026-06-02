@@ -25,6 +25,7 @@ require_once __DIR__ . '/../ProcessQueue.php';
 require_once __DIR__ . '/../ConsumeResult.php';
 require_once __DIR__ . '/../Logger.php';
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/helpers/FakeConsumer.php';
 
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\MessageQueue;
@@ -35,64 +36,6 @@ use Apache\Rocketmq\V2\Address;
 use Apache\Rocketmq\V2\AddressScheme;
 use Apache\Rocketmq\V2\Permission;
 use Apache\Rocketmq\V2\SystemProperties;
-
-/**
- * Fake consumer for ProcessQueue testing.
- */
-class FakeConsumerForPQ {
-    public $countThreshold = 1024;
-    public $bytesThreshold = 1048576;
-    public $awaitDuration = 30;
-    public $receiveBatchSize = 32;
-    public $clientId = 'test-pq-client-id';
-
-    public function getGroupResource()
-    {
-        $resource = new Resource();
-        $resource->setName('test-group');
-        return $resource;
-    }
-
-    public function getClientId() { return $this->clientId; }
-    public function getAwaitDuration() { return $this->awaitDuration; }
-    public function getReceiveBatchSize() { return $this->receiveBatchSize; }
-
-    public function getCacheMessageCountThresholdPerQueue() { return $this->countThreshold; }
-    public function getCacheMessageBytesThresholdPerQueue() { return $this->bytesThreshold; }
-
-    public function ackMessage($messageView) {}
-    public function nackMessage($messageView) {}
-}
-
-/**
- * Fake consumer that tracks ack/nack calls for eraseMessage tests.
- */
-class FakeConsumerForAckPQ {
-    public $countThreshold = 1024;
-    public $bytesThreshold = 1048576;
-    public $awaitDuration = 30;
-    public $receiveBatchSize = 32;
-    public $clientId = 'test-pq-ack-client-id';
-    public $ackCalled = false;
-    public $nackCalled = false;
-
-    public function getGroupResource()
-    {
-        $resource = new Resource();
-        $resource->setName('test-group');
-        return $resource;
-    }
-
-    public function getClientId() { return $this->clientId; }
-    public function getAwaitDuration() { return $this->awaitDuration; }
-    public function getReceiveBatchSize() { return $this->receiveBatchSize; }
-
-    public function getCacheMessageCountThresholdPerQueue() { return $this->countThreshold; }
-    public function getCacheMessageBytesThresholdPerQueue() { return $this->bytesThreshold; }
-
-    public function ackMessage($messageView) { $this->ackCalled = true; }
-    public function nackMessage($messageView) { $this->nackCalled = true; }
-}
 
 class ProcessQueueTest extends TestCase
 {
@@ -129,7 +72,7 @@ class ProcessQueueTest extends TestCase
 
     public function testConstructorAndInitialState()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -141,7 +84,7 @@ class ProcessQueueTest extends TestCase
 
     public function testDropAndIsDropped()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -153,7 +96,7 @@ class ProcessQueueTest extends TestCase
 
     public function testGetMessageQueue()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -167,7 +110,7 @@ class ProcessQueueTest extends TestCase
 
     public function testFetchMessageImmediately()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -178,7 +121,7 @@ class ProcessQueueTest extends TestCase
 
     public function testExpiredNotInitially()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -188,7 +131,7 @@ class ProcessQueueTest extends TestCase
 
     public function testCacheNotFullInitially()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -213,12 +156,11 @@ class ProcessQueueTest extends TestCase
     }
 
     /**
-     * Mirrors Java: testCachedMessagesCount and testCachedMessageBytes.
      * Tests that cacheMessages and eviction track count/bytes correctly.
      */
     public function testCachedMessagesCountAndBytes()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -231,12 +173,11 @@ class ProcessQueueTest extends TestCase
     }
 
     /**
-     * Mirrors Java: testEraseMessageWithConsumeSuccess.
      * eraseMessage with SUCCESS should call ackMessage and evict.
      */
     public function testEraseMessageWithConsumeSuccess()
     {
-        $fakeConsumer = new FakeConsumerForAckPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -250,17 +191,16 @@ class ProcessQueueTest extends TestCase
         $pq->eraseMessage($messageViews[0], \Apache\Rocketmq\ConsumeResult::SUCCESS);
 
         $this->assertEquals(0, $pq->cachedMessagesCount(), "Message should be evicted after erase");
-        $this->assertTrue($fakeConsumer->ackCalled, "ackMessage should be called for SUCCESS");
-        $this->assertFalse($fakeConsumer->nackCalled, "nackMessage should NOT be called for SUCCESS");
+        $this->assertCount(1, $fakeConsumer->ackCalls, "ackMessage should be called for SUCCESS");
+        $this->assertCount(0, $fakeConsumer->nackCalls, "nackMessage should NOT be called for SUCCESS");
     }
 
     /**
-     * Mirrors Java: testEraseMessageWithConsumeFailure.
      * eraseMessage with FAILURE should call nackMessage and evict.
      */
     public function testEraseMessageWithConsumeFailure()
     {
-        $fakeConsumer = new FakeConsumerForAckPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -272,8 +212,8 @@ class ProcessQueueTest extends TestCase
         $pq->eraseMessage($messageViews[0], \Apache\Rocketmq\ConsumeResult::FAILURE);
 
         $this->assertEquals(0, $pq->cachedMessagesCount(), "Message should be evicted after erase");
-        $this->assertFalse($fakeConsumer->ackCalled, "ackMessage should NOT be called for FAILURE");
-        $this->assertTrue($fakeConsumer->nackCalled, "nackMessage should be called for FAILURE");
+        $this->assertCount(0, $fakeConsumer->ackCalls, "ackMessage should NOT be called for FAILURE");
+        $this->assertCount(1, $fakeConsumer->nackCalls, "nackMessage should be called for FAILURE");
     }
 
     /**
@@ -281,7 +221,7 @@ class ProcessQueueTest extends TestCase
      */
     public function testCacheFullThreshold()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $fakeConsumer->countThreshold = 3;
         $mq = $this->createFakeMessageQueue();
 
@@ -304,7 +244,7 @@ class ProcessQueueTest extends TestCase
      */
     public function testDroppedQueueDoesNotFetch()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -320,7 +260,7 @@ class ProcessQueueTest extends TestCase
      */
     public function testEvictMessageReducesBytes()
     {
-        $fakeConsumer = new FakeConsumerForPQ();
+        $fakeConsumer = new \FakeConsumer();
         $mq = $this->createFakeMessageQueue();
 
         $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
@@ -340,4 +280,3 @@ class ProcessQueueTest extends TestCase
         $this->assertEquals(1, $pq->cachedMessagesCount(), "Count should be 1 after eviction");
     }
 }
-

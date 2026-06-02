@@ -81,7 +81,7 @@ class FakeConsumer implements \Apache\Rocketmq\ConsumerInterface
 
     public function nackMessage(\Apache\Rocketmq\MessageView $messageView, int $deliveryAttempt = 1, ?int $invisibleDuration = null): bool
     {
-        $this->ackCalls[] = $messageView;
+        $this->nackCalls[] = $messageView;
         return true;
     }
 
@@ -103,5 +103,10 @@ class FakeConsumer implements \Apache\Rocketmq\ConsumerInterface
     public function getCacheMessageBytesThresholdPerQueue(): int
     {
         return $this->bytesThreshold;
+    }
+
+    public function getClient(): \Apache\Rocketmq\V2\MessagingServiceClient
+    {
+        throw new \RuntimeException('FakeConsumer::getClient() should not be called directly. Use GrpcMockHelper instead.');
     }
 }

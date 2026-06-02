@@ -409,18 +409,18 @@ class SimpleConsumer
             return [];
         }
 
-        // Calculate per-queue timeout to ensure quick completion
-        // Total queues across all topics
+        // Count total queues across all topics
         $totalQueues = 0;
-        $topicQueueMap = [];
+        $topicInfo = [];
         
         foreach ($topics as $topic) {
             $expression = $this->subscriptions[$topic];
             $loadBalancer = $this->getSubscriptionLoadBalancer($topic);
             $queues = $loadBalancer->getMessageQueues();
-            $topicQueueMap[$topic] = [
+            $topicInfo[$topic] = [
                 'expression' => $expression,
-                'queues' => $queues
+                'queues' => $queues,
+                'loadBalancer' => $loadBalancer,
             ];
             $totalQueues += count($queues);
         }
@@ -431,40 +431,62 @@ class SimpleConsumer
 
         // Short per-queue timeout: distribute awaitDuration across all queues
         // This ensures the full cycle completes quickly
-        $perQueueTimeout = max(1, min(3, (int)($this->awaitDuration / max(1, $totalQueues))));
-
-        // Iterate through ALL queues of ALL topics
-        foreach ($topicQueueMap as $topic => $queueInfo) {
-            if (count($allMessages) >= $maxMessages) {
-                break; // Already collected enough messages
-            }
-
-            $expression = $queueInfo['expression'];
-            $queues = $queueInfo['queues'];
-
-            // Try each queue of this topic
-            foreach ($queues as $messageQueue) {
-                if (count($allMessages) >= $maxMessages) {
-                    break; // Already collected enough messages
+        $avgQueueOverhead = 2;
+        $targetCallTime = 30;
+        $perQueueTimeout = max(2, (int)($this->awaitDuration / max(1, $totalQueues)));
+        $perQueueTimeout = min($perQueueTimeout, 5);
+        $batchSize = (int)ceil($targetCallTime / $avgQueueOverhead);
+        $batchSize = max(4, min($batchSize, $totalQueues));
+        $batchSize = min($batchSize, 32);
+        $selectedQueues = [];
+        $seenKeys = [];
+        foreach ($topicInfo as $topic => $info) {
+            $lb = $info['loadBalancer'];
+            $topicQueueCount = count($info['queues']);
+            $attempts = 0;
+            while (count($selectedQueues) < $batchSize && $attempts < $topicQueueCount * 2) {
+                $attempts++;
+                $queue = $lb->takeMessageQueue();
+                if (!$queue) {
+                    break;
                 }
-
-                // Receive from this specific queue with short timeout
-                $messages = $this->receiveFromSpecificQueue(
-                    $topic,
-                    $expression,
-                    $messageQueue,
-                    $maxMessages - count($allMessages),
-                    $invisibleDuration,
-                    $perQueueTimeout
-                );
-
-                if (!empty($messages)) {
-                    $allMessages = array_merge($allMessages, $messages);
+                $key = spl_object_id($queue);
+                if (!isset($seenKeys[$key])) {
+                    $seenKeys[$key] = true;
+                    $selectedQueues[] = ['topic' => $topic, 'queue' => $queue];
                 }
             }
         }
 
-        return $allMessages;
+        // Poll each selected queue in the batch
+        $debugBatch = getenv('SC_DEBUG') ? true : false;
+        $batchResults = [];
+        foreach ($selectedQueues as $sq) {
+            if (count($allMessages) >= $maxMessages) {
+                break;
+            }
+            $messages = $this->receiveFromSpecificQueue(
+                $sq['topic'],
+                $topicInfo[$sq['topic']]['expression'],
+                $sq['queue'],
+                $maxMessages - count($allMessages),
+                $invisibleDuration,
+                $perQueueTimeout
+            );
+            if ($debugBatch) {
+                $broker = $sq['queue']->getBroker();
+                $brokerName = $broker ? $broker->getName() : '';
+                $batchResults[] = $brokerName . '=' . count($messages);
+            }
+            if (!empty($messages)) {
+                $allMessages = array_merge($allMessages, $messages);
+            }
+            if ($debugBatch) {
+                $totalFound = count($allMessages);
+                $this->logger->debug("Batch: " . implode(',', $batchResults) . " (found $totalFound)");
+            }
+            return $allMessages;
+        }
     }
 
     /**
