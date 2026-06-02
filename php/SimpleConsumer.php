@@ -388,6 +388,13 @@ class SimpleConsumer
             }
         }
 
+        if (isset($this->telemetrySession)) {
+            try {
+                $this->telemetrySession->pollTelemetry();
+            } catch (\Throwable $e) {
+                $this->logger->debug("Telemetry poll failed: " . $e->getMessage());
+            }
+        }
         return $allMessages;
     }
 

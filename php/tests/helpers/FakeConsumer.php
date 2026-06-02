@@ -15,12 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * FakeConsumer - Test stub for consumer
+ */
 class FakeConsumer implements \Apache\Rocketmq\ConsumerInterface
 {
     public int $countThreshold = 1024;
     public int $bytesThreshold = 1048576;
     public int $awaitDuration = 30;
-    public int $receiveBathSize = 32;
+    public int $receiveBatchSize = 32;
     public string $clientId;
     public array $ackCalls = [];
     public array $nackCalls = [];
@@ -44,7 +48,7 @@ class FakeConsumer implements \Apache\Rocketmq\ConsumerInterface
 
     public function getNamespace(): string
     {
-        return  '';
+        return '';
     }
 
     public function getGroupResourceWithNamespace(): \Apache\Rocketmq\V2\Resource
@@ -92,7 +96,7 @@ class FakeConsumer implements \Apache\Rocketmq\ConsumerInterface
 
     public function getReceiveBatchSize(): int
     {
-        return $this->receiveBathSize;
+        return $this->receiveBatchSize;
     }
 
     public function getCacheMessageCountThresholdPerQueue(): int
@@ -105,8 +109,8 @@ class FakeConsumer implements \Apache\Rocketmq\ConsumerInterface
         return $this->bytesThreshold;
     }
 
-    public function getClient(): \Apache\Rocketmq\V2\MessagingServiceClient
+    public function getClient(): ?\Apache\Rocketmq\V2\MessagingServiceClient
     {
-        throw new \RuntimeException('FakeConsumer::getClient() should not be called directly. Use GrpcMockHelper instead.');
+        return null;
     }
 }

@@ -29,7 +29,7 @@ use Apache\Rocketmq\V2\AddressScheme;
  */
 class EndpointsTestClient
 {
-    use Apache\Rocketmq\ClientTrait;
+    use \Apache\Rocketmq\ClientTrait;
 
     protected function getCredentials(): ?\Apache\Rocketmq\SessionCredentials
     {
