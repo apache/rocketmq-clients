@@ -41,17 +41,32 @@ $consumer = new SimpleConsumer($endpoints, $consumerGroup, [
 $consumer->start();
 $consumer->subscribe($topic);
 
-echo "Simple consumer started. Receiving messages...\n";
+echo "Simple consumer started. Press Ctrl+C to exit.\n";
 
 // Receive messages in a loop
 $maxMessageNum = 16;
 $invisibleDuration = 15;
 
-while (true) {
+$running = true;
+if (function_exists('pcntl_signal')) {
+    pcntl_signal(SIGTERM, function () use (&$running) {
+        echo "Received SIGTERM, shutting down...\n";
+        $running = false;
+    });
+    pcntl_signal(SIGINT, function () use (&$running) {
+        echo "Received SIGINT, shutting down...\n";
+        $running = false;
+    });
+}
+
+while ($running) {
+    if (function_exists('pcntl_signal_dispatch')) {
+        pcntl_signal_dispatch();
+    }
+
     try {
         $messages = $consumer->receive($maxMessageNum, $invisibleDuration);
         if (empty($messages)) {
-            echo "No messages received, retrying...\n";
             sleep(1);
             continue;
         }
@@ -75,5 +90,5 @@ while (true) {
     }
 }
 
-// Close the consumer when done (unreachable in this example).
-// $consumer->shutdown();
+$consumer->shutdown();
+echo "Simple consumer shut down gracefully.\n";

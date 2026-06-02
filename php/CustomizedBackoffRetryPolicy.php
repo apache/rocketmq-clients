@@ -24,23 +24,12 @@ namespace Apache\Rocketmq;
  * Each retry uses the delay from the configured sequence, cycling through 
  * the list until maxAttempts is reached.
  */
-class CustomizedBackoffRetryPolicy
+class CustomizedBackoffRetryPolicy extends ExponentialBackoffRetryPolicy
 {
-    private $maxAttempts;
-    private $delays;
-
-    /**
-     * @param int $maxAttempts Maximum retry attempts (>= 1)
-     * @param array $delays Array of delay durations in milliseconds
-     * @throws \InvalidArgumentException if maxAttempts < 1
-     */
-    public function __construct($maxAttempts = 3, $delays = [1000, 5000, 10000])
-    {
-        if ($maxAttempts < 1) {
-            throw new \InvalidArgumentException("maxAttempts must be >= 1");
-        }
-        $this->maxAttempts = $maxAttempts;
-        $this->delays = $delays;
+    public function __construct(
+        private readonly array $delays,
+    ) {
+        parent::__construct(count($this->delays), 0, 0, 1.0);
     }
 
     /**
@@ -106,7 +95,7 @@ class CustomizedBackoffRetryPolicy
             $delays[] = (int)($duration->getSeconds() * 1000 + intdiv($duration->getNanos(), 1000000));
         }
 
-        return new self($protobuf->getMaxAttempts(), $delays);
+        return new self($delays);
     }
 
     /**
@@ -154,6 +143,6 @@ class CustomizedBackoffRetryPolicy
             $inheritedDelays[] = (int)($duration->getSeconds() * 1000 + intdiv($duration->getNanos(), 1000000));
         }
 
-        return new self($this->maxAttempts, $inheritedDelays);
+        return new self($inheritedDelays);
     }
 }

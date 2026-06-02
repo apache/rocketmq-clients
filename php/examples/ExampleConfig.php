@@ -39,27 +39,27 @@ require_once __DIR__ . '/../TlsCredentials.php';
 
 class ExampleConfig
 {
-    private static $instance = null;
+    private static ?self $instance = null;
     
     // Connection settings
-    private $endpoints;
-    private $namespace;
+    private readonly string $endpoints;
+    private readonly string $namespace;
     
     // Topic configuration
-    private $topics;
+    private readonly array $topics;
     
     // Consumer configuration
-    private $consumerGroup;
-    private $tag;
+    private readonly string $consumerGroup;
+    private readonly string $tag;
     
     // Credentials
-    private $credentials;
+    private readonly ?SessionCredentials $credentials;
     
     // Lite consumer configuration
-    private $liteTopicConfig;
-    private $tlsCaCert;
-    private $tlsClientCent;
-    private $tlsClientKey;
+    private readonly array $liteTopicConfig;
+    private readonly ?string $tlsCaCert;
+    private readonly ?string $tlsClientCent;
+    private readonly ?string $tlsClientKey;
     
     /**
      * Private constructor - use getInstance() instead

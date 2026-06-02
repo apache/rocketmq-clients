@@ -30,11 +30,6 @@ namespace Apache\Rocketmq;
  */
 class ExponentialBackoffRetryPolicy
 {
-    private $maxAttempts;
-    private $baseDelayMs;
-    private $maxDelayMs;
-    private $multiplier;
-
     /**
      * Construct a new ExponentialBackoffRetryPolicy.
      *
@@ -44,14 +39,17 @@ class ExponentialBackoffRetryPolicy
      * @param float $multiplier Multiplier for each subsequent attempt
      * @throws \InvalidArgumentException if maxAttempts < 1
      */
-    public function __construct($maxAttempts = 3, $baseDelayMs = 1000, $maxDelayMs = 30000, $multiplier = 2.0)
-    {
-        if ($maxAttempts < 1) {
+    public function __construct(
+        private readonly int $maxAttempts = 3,
+        private int $baseDelayMs = 1000,
+        private int $maxDelayMs = 30000,
+        private readonly float $multiplier = 2.0,
+    ) {
+        if ($this->maxAttempts < 1) {
             throw new \InvalidArgumentException("maxAttempts must be >= 1");
         }
-        $this->maxAttempts = $maxAttempts;
         $this->baseDelayMs = max(0, $baseDelayMs);
-        $this->maxDelayMs = max($baseDelayMs, $maxDelayMs);
+        $this->maxDelayMs = max($this->baseDelayMs, $maxDelayMs);
         $this->multiplier = max(1.0, $multiplier);
     }
 

@@ -73,12 +73,11 @@ trait ClientTrait
      */
     protected function parseEndpoints(string $endpoints): Endpoints
     {
-        $cleaned = $endpoints;
-        if (strpos($cleaned, 'http://') === 0) {
-            $cleaned = substr($cleaned, 7);
-        } elseif (strpos($cleaned, 'https://') === 0) {
-            $cleaned = substr($cleaned, 8);
-        }
+        $cleaned = match (true) {
+            str_starts_with($endpoints, 'https://') => substr($endpoints, 8),
+            str_starts_with($endpoints, 'http://') => substr($endpoints, 7),
+            default => $endpoints,
+        };
 
         $lastColon = strrpos($cleaned, ':');
         if ($lastColon !== false) {
@@ -149,10 +148,10 @@ trait ClientTrait
         if (method_exists($messageView, 'getTopic')) {
             $topic = $messageView->getTopic();
             if ($topic !== null && $topic !== '') {
-                if (is_object($topic) && method_exists($topic, 'getName')) {
-                    return $topic->getName();
-                }
-                return (string)$topic;
+                return match (true) {
+                    is_object($topic) && method_exists($topic, 'getName') => $topic->getName(),
+                    default => (string) $topic,
+                };
             }
         }
         return null;
@@ -177,11 +176,15 @@ trait ClientTrait
      */
     protected function getOperationTimeout(string $operation): int
     {
-        $constantName = "GRPC_{$operation}_TIMEOUT";
-        if (defined("Apache\\Rocketmq\\ClientConstants::{$constantName}")) {
-            return constant("Apache\\Rocketmq\\ClientConstants::{$constantName}");
-        }
-        return ClientConstants::GRPC_DEFAULT_TIMEOUT;
+        return match ($operation) {
+            'SEND_MESSAGE' => ClientConstants::GRPC_SEND_MESSAGE_TIMEOUT,
+            'ACK_MESSAGE' => ClientConstants::GRPC_ACK_MESSAGE_TIMEOUT,
+            'QUERY_ROUTE' => ClientConstants::GRPC_QUERY_ROUTE_TIMEOUT,
+            'HEARTBEAT' => ClientConstants::GRPC_HEARTBEAT_TIMEOUT,
+            'END_TRANSACTION' => ClientConstants::GRPC_END_TRANSACTION_TIMEOUT,
+            'CHANGE_INVISIBLE' => ClientConstants::GRPC_CHANGE_INVISIBLE_TIMEOUT,
+            default => ClientConstants::GRPC_DEFAULT_TIMEOUT,
+        };
     }
 
     /**

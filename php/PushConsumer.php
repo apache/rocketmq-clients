@@ -57,11 +57,9 @@ class PushConsumer implements ConsumerInterface
 {
     use ClientTrait;
 
-    private MessagingServiceClient $client;
-    protected string $endpoints;
-    protected string $clientId;
-    protected string $consumerGroup;
-    protected TelemetrySession $telemetrySession;
+    private readonly MessagingServiceClient $client;
+    protected readonly string $clientId;
+    protected readonly TelemetrySession $telemetrySession;
     private array $subscriptionExpressions = [];
     private array $cacheAssignments = [];
     private array $processQueueTable = [];
@@ -69,7 +67,7 @@ class PushConsumer implements ConsumerInterface
     protected ?ConsumeService $consumeService = null;
     protected bool $isRunning = false;
     protected bool $shutdownRequested = false;
-    protected Logger $logger;
+    protected readonly Logger $logger;
 
     // Builder options
     protected $messageListener = null;
@@ -81,12 +79,12 @@ class PushConsumer implements ConsumerInterface
     private int $receiveBatchSize = 32;
     protected bool $enableFifoConsumeAccelerator = false;
     private bool $isLiteConsumer = false;
-    private ?SessionCredentials $credentials = null; // SessionCredentials for AK/SK auth
-    private string $namespace = '';
+    private readonly ?SessionCredentials $credentials;
+    private readonly string $namespace;
     private int $lastHeartbeatTime = 0;
     private $shutdownDrainDeadline = null;
-    private ?ExponentialBackoffRetryPolicy $retryPolicy = null;
-    private ?TlsCredentials $tlsCredentials = null;
+    private readonly ?ExponentialBackoffRetryPolicy $retryPolicy;
+    private readonly ?TlsCredentials $tlsCredentials;
 
     /**
      * Constructor with builder-style options.
@@ -108,13 +106,14 @@ class PushConsumer implements ConsumerInterface
      *  - namespace for consumer
      *  - tlsCredentials TLS credentials
      */
-    public function __construct(string $endpoints, string $consumerGroup, array $options = [])
-    {
-        $this->endpoints = $endpoints;
+    public function __construct(
+        protected readonly string $endpoints,
+        protected readonly string $consumerGroup,
+        array $options = []
+    ) {
         if (empty($consumerGroup)) {
             throw new \InvalidArgumentException("PushConsumer consumerGroup cannot be empty");
         }
-        $this->consumerGroup = $consumerGroup;
         $this->clientId = $options['clientId'] ?? ('php-push-consumer-' . getmypid() . '-' . time());
         $this->messageListener = $options['messageListener'] ?? null;
         $this->subscriptionExpressions = $options['subscriptionExpressions'] ?? [];
@@ -130,9 +129,9 @@ class PushConsumer implements ConsumerInterface
         $this->tlsCredentials = $options['tlsCredentials'] ?? null;
 
         // Set AK/SK credentials if provided
-        if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
-            $this->credentials = $options['credentials'];
-        }
+        $this->credentials = (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials)
+            ? $options['credentials']
+            : null;
 
         $this->logger = Logger::getInstance('PushConsumer');
 

@@ -50,14 +50,12 @@ class SimpleConsumer
 {
     use ClientTrait;
 
-    private MessagingServiceClient $client;
-    private string $endpoints;
-    private string $clientId;
-    private string $consumerGroup;
-    private TelemetrySession $telemetrySession;
+    private readonly MessagingServiceClient $client;
+    private readonly string $clientId;
+    private readonly TelemetrySession $telemetrySession;
     private array $subscriptions = [];
     private bool $isStarted = false;
-    private Logger $logger;
+    private readonly Logger $logger;
     private ?SessionCredentials $credentials = null;
     private string $namespace = '';
     private int $requestTimeout = 3000; // ms
@@ -69,7 +67,7 @@ class SimpleConsumer
     private array $subscriptionRouteDataCache = [];
     private int $topicIndex = 0;
     private $heartbeatCoroutineId = null;
-    private ?TlsCredentials $tlsCredentials = null;
+    private readonly ?TlsCredentials $tlsCredentials;
     private bool $heartbeatInProgress = false;
     private int $heartbeatTimerId = -1;
 
@@ -87,10 +85,11 @@ class SimpleConsumer
      *                        - credentials: SessionCredentials|null, AK/SK credentials
      *                        - subscriptionExpressions: array<string,string>, pre-populated subscriptions (topic => expression)
      */
-    public function __construct(string $endpoints, string $consumerGroup, array $options = [])
-    {
-        $this->endpoints = $endpoints;
-        $this->consumerGroup = $consumerGroup;
+    public function __construct(
+        private readonly string $endpoints,
+        private readonly string $consumerGroup,
+        array $options = []
+    ) {
         $this->clientId = $options['clientId'] ?? ('php-consumer-' . getmypid() . '-' . time());
         $this->namespace = $options['namespace'] ?? '';
         $this->requestTimeout = $options['requestTimeout'] ?? 3000;
@@ -1385,12 +1384,10 @@ class SimpleConsumer
             return true;
         }
         
-        // Specific retryable codes
-        $retryableCodes = [
-            42900, // TOO_MANY_REQUESTS
-        ];
-        
-        return in_array($code, $retryableCodes, true);
+        return match ($code) {
+            42900 => true, // TOO_MANY_REQUESTS
+            default => false,
+        };
     }
 
     /**

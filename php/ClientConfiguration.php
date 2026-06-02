@@ -25,13 +25,13 @@ namespace Apache\Rocketmq;
  */
 class ClientConfiguration
 {
-    private string $endpoints;
-    private ?SessionCredentials $sessionCredentialsProvider;
-    private int $requestTimeoutMs;
-    private bool $sslEnabled;
-    private string $namespace;
-    private int $maxStartupAttempts;
-    private ?TlsCredentials $tlsCredentials;
+    private readonly string $endpoints;
+    private readonly ?SessionCredentials $sessionCredentialsProvider;
+    private readonly int $requestTimeoutMs;
+    private readonly bool $sslEnabled;
+    private readonly string $namespace;
+    private readonly int $maxStartupAttempts;
+    private readonly ?TlsCredentials $tlsCredentials;
 
     /**
      * Private constructor - instantiated only via ClientConfiguration::create().

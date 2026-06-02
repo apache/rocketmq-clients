@@ -48,11 +48,26 @@ $consumer = new PushConsumer($endpoints, $consumerGroup, [
 
 $consumer->start();
 
-// Block the main thread (not needed in production).
-while (true) {
-    pcntl_signal_dispatch();
+echo "Push consumer started. Press Ctrl+C to exit.\n";
+
+$running = true;
+if (function_exists('pcntl_signal')) {
+    pcntl_signal(SIGTERM, function () use (&$running) {
+        echo "Received SIGTERM, shutting down...\n";
+        $running = false;
+    });
+    pcntl_signal(SIGINT, function () use (&$running) {
+        echo "Received SIGINT, shutting down...\n";
+        $running = false;
+    });
+}
+
+while ($running) {
+    if (function_exists('pcntl_signal_dispatch')) {
+        pcntl_signal_dispatch();
+    }
     sleep(1);
 }
 
-// Close the push consumer when you don't need it anymore.
-// $consumer->shutdown();
+$consumer->shutdown();
+echo "Push consumer shut down gracefully.\n";

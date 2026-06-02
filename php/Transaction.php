@@ -29,21 +29,14 @@ namespace Apache\Rocketmq;
  */
 class Transaction
 {
-    private $producer;
-    private $messages = [];
-    private $receipts = [];
-    private $committed = false;
-    private $rolledBack = false;
+    private array $messages = [];
+    private array $receipts = [];
+    private bool $committed = false;
+    private bool $rolledBack = false;
 
-    /**
-     * Initialize transaction with producer reference.
-     *
-     * @param object $producer Producer instance for commit/rollback operations
-     */
-    public function __construct($producer)
-    {
-        $this->producer = $producer;
-    }
+    public function __construct(
+        private readonly TransactionCommitter $committer
+    ) {}
 
     /**
      * Add a message to this transaction before sending.
@@ -132,7 +125,7 @@ class Transaction
         }
 
         foreach ($this->receipts as $receipt) {
-            $this->producer->commitTransaction(
+            $this->committer->commitTransaction(
                 $receipt['messageId'],
                 $receipt['transactionId'],
                 $receipt['topic'],
@@ -162,7 +155,7 @@ class Transaction
         }
 
         foreach ($this->receipts as $receipt) {
-            $this->producer->rollbackTransaction(
+            $this->committer->rollbackTransaction(
                 $receipt['messageId'],
                 $receipt['transactionId'],
                 $receipt['topic'],
