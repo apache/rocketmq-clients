@@ -123,8 +123,8 @@ class Logger
                 }
             }
 
-            // Method 3: timedatectl (systemd-based Linux)
-            if ($systemTz === null) {
+            // Method 3: timedatectl (systemd-based Linux only)
+            if ($systemTz === null && \PHP_OS_FAMILY !== 'Windows') {
                 $output = @shell_exec('timedatectl show --property=Timezone --value 2>/dev/null');
                 if ($output !== null) {
                     $candidate = trim($output);

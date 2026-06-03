@@ -215,6 +215,11 @@ class MessageIdCodec
      */
     private function readMacFromIfconfig(): ?string
     {
+        // ifconfig/grep/head are not available on Windows
+        if (\PHP_OS_FAMILY === 'Windows') {
+            return null;
+        }
+
         $disabled = array_map('trim', explode(',', ini_get('disable_functions')));
         if (in_array('exec', $disabled, true)) {
             return null;
