@@ -242,11 +242,30 @@ class Logger
             return self::$handle;
         }
 
-        $logFile = self::$logFile ?? (getenv('HOME') . '/logs/rocketmq/rocketmq_client_php.log');
+        if (self::$logFile !== null) {
+            $logFile = self::$logFile;
+        } else {
+            // Cross-platform home directory detection
+            $home = getenv('HOME');
+            if (empty($home)) {
+                $home = getenv('USERPROFILE');
+            }
+            if (empty($home)) {
+                $home = sys_get_temp_dir();
+            }
+            $logDir = $home . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'rocketmq';
+            $logFile = $logDir . DIRECTORY_SEPARATOR . 'rocketmq_client_php.log';
+
+            // Ensure log directory exists
+            if (!is_dir($logDir)) {
+                @mkdir($logDir, 0755, true);
+            }
+        }
+
         $handle = @fopen($logFile, 'a');
         if ($handle === false) {
-            // Fallback to error_log if file cannot be opened
-            error_log("[Logger] Failed to open log file: $logFile");
+            // Silently disable file logging if file cannot be opened
+            self::$handle = false;
             return false;
         }
 
