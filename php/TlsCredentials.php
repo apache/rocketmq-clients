@@ -154,6 +154,10 @@ class TlsCredentials
     /**
      * Convert to Grpc\ChannelCredentials for use with gRPC client.
      *
+     * Note: gRPC PHP extension's createSsl() only accepts 3 optional string parameters:
+     *   createSsl(string|null $pem_root_certs, string|null $private_key, string|null $cert_chain)
+     * It does NOT support verification options. Peer cert verification is always enabled by gRPC C-core.
+     *
      * @return \Grpc\ChannelCredentials|null Null for insecure connections, ChannelCredentials instance for TLS
      * @throws \RuntimeException If certificate file cannot be read
      */
@@ -168,23 +172,35 @@ class TlsCredentials
             $rootCert = file_get_contents($this->caCertPath);
         }
 
-        $keyCertPair = null;
+        $privateKey = null;
+        $certChain = null;
         if ($this->clientCertPath !== null && $this->clientKeyPath !== null) {
-            $keyCertPair = [
-                file_get_contents($this->clientKeyPath),
-                file_get_contents($this->clientCertPath),
-            ];
+            $privateKey = file_get_contents($this->clientKeyPath);
+            $certChain = file_get_contents($this->clientCertPath);
         }
 
-        if ($this->verifyPeer === false) {
-            $opts = [
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-            ];
-            return ChannelCredentials::createSsl($rootCert, $keyCertPair, $opts);
-        }
+        // gRPC createSsl() signature: createSsl(string|null, string|null, string|null)
+        return ChannelCredentials::createSsl($rootCert, $privateKey, $certChain);
+    }
 
-        return ChannelCredentials::createSsl($rootCert, $keyCertPair);
+    /**
+     * Get gRPC channel arguments derived from this TLS configuration.
+     *
+     * These args should be merged into the opts array when creating the gRPC stub.
+     * For verifyPeer=false (dev only), sets grpc.ssl_target_name_override to bypass
+     * hostname verification. Note: gRPC C-core always verifies the certificate itself;
+     * only the hostname matching can be overridden.
+     *
+     * @return array Associative array of gRPC channel args
+     */
+    public function getChannelArgs(): array
+    {
+        $args = [];
+        if (!$this->isInsecure && !$this->verifyPeerName) {
+            $args['grpc.ssl_target_name_override'] = '';
+            $args['grpc.default_authority'] = '';
+        }
+        return $args;
     }
 
     /**

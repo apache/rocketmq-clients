@@ -189,4 +189,72 @@ class TlsCredentialsTest extends TestCase
             "createDefault() should have null client key path"
         );
     }
+
+    public function testGetChannelArgsDefaultReturnsEmpty()
+    {
+        $tls = TlsCredentials::createDefault();
+
+        $this->assertEmpty(
+            $tls->getChannelArgs(),
+            "createDefault() should return empty channel args (no overrides)"
+        );
+    }
+
+    public function testGetChannelArgsInsecureReturnsEmpty()
+    {
+        $tls = TlsCredentials::createInsecure();
+
+        $this->assertEmpty(
+            $tls->getChannelArgs(),
+            "createInsecure() should return empty channel args"
+        );
+    }
+
+    public function testGetChannelArgsInsecureDevSetsOverride()
+    {
+        set_error_handler(function($errno, $errstr) {
+            if ($errno === E_USER_WARNING) {
+                return true;
+            }
+            return false;
+        });
+
+        try {
+            $tls = TlsCredentials::createInsecureDev();
+            $args = $tls->getChannelArgs();
+
+            $this->assertArrayHasKey(
+                'grpc.ssl_target_name_override',
+                $args,
+                "createInsecureDev() should set grpc.ssl_target_name_override"
+            );
+            $this->assertArrayHasKey(
+                'grpc.default_authority',
+                $args,
+                "createInsecureDev() should set grpc.default_authority"
+            );
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    public function testGetChannelArgsWithCaReturnsEmpty()
+    {
+        $tls = TlsCredentials::createWithCa('/tmp/test-ca.pem');
+
+        $this->assertEmpty(
+            $tls->getChannelArgs(),
+            "createWithCa() should return empty channel args (full verification)"
+        );
+    }
+
+    public function testGetChannelArgsMtlsReturnsEmpty()
+    {
+        $tls = TlsCredentials::createMtls('/tmp/client.pem', '/tmp/client-key.pem');
+
+        $this->assertEmpty(
+            $tls->getChannelArgs(),
+            "createMtls() should return empty channel args (full verification)"
+        );
+    }
 }
