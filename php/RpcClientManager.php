@@ -80,6 +80,10 @@ class RpcClientManager
      */
     public function getClient(string $endpoints, array $options = []): MessagingServiceClient
     {
+        if (trim($endpoints) === '') {
+            throw new \InvalidArgumentException('endpoints must not be empty');
+        }
+
         $credentials = $this->resolveCredentials($options);
         $key = $this->makeKey($endpoints, $options);
 

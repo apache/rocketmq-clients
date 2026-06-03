@@ -48,11 +48,9 @@ class ProducerValidationTest extends TestCase
      */
     public function testConstructorWithNullEndpoints()
     {
-        // Producer doesn't validate endpoints at construction in PHP.
-        // The gRPC channel is created lazily. We just verify construction works.
-        $producer = new Producer('', []);
-        $this->assertNotNull($producer, "Producer object should be created");
-        // Cleanup: shutdown is safe since isRunning is false
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/endpoints/i');
+        new Producer('', []);
     }
 
     /**
@@ -180,9 +178,9 @@ class ProducerValidationTest extends TestCase
      */
     public function testConstructorValidatesEndpoints()
     {
-        // Empty endpoints: construction succeeds, connection fails lazily
-        $producer = new Producer('');
-        $this->assertNotNull($producer, "Producer object should be created even with empty endpoints");
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/endpoints/i');
+        new Producer('');
     }
 
     /**
