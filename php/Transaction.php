@@ -90,7 +90,7 @@ class Transaction
             'messageId' => $messageId,
             'transactionId' => $transactionId,
             'topic' => $message->getTopic()->getName(),
-            'endpoint' => $endpoints,
+            'endpoints' => $endpoints,
         ];
     }
 

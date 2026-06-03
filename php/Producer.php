@@ -221,6 +221,17 @@ class Producer implements TransactionCommitter, ClientTraitProvider
             }
             return $data['result'] ?? null;
         }
+        return $this->sendSyncFallback($message);
+    }
+
+    /**
+     * Generator fallback for sendAsync when Swoole is not available.
+     *
+     * @param Message $message
+     * @return \Generator
+     */
+    private function sendSyncFallback(Message $message): \Generator
+    {
         yield $this->send($message);
     }
 
@@ -300,6 +311,17 @@ class Producer implements TransactionCommitter, ClientTraitProvider
             }
             return $data['result'] ?? null;
         }
+        return $this->sendBatchSyncFallback($messages);
+    }
+
+    /**
+     * Generator fallback for sendBatchAsync when Swoole is not available.
+     *
+     * @param array $messages
+     * @return \Generator
+     */
+    private function sendBatchSyncFallback(array $messages): \Generator
+    {
         yield $this->sendBatch($messages);
     }
 
@@ -379,6 +401,18 @@ class Producer implements TransactionCommitter, ClientTraitProvider
             }
             return $data['result'] ?? null;
         }
+        return $this->recallMessageSyncFallback($topic, $recallHandle);
+    }
+
+    /**
+     * Generator fallback for recallMessageAsync when Swoole is not available.
+     *
+     * @param string $topic
+     * @param string $recallHandle
+     * @return \Generator
+     */
+    private function recallMessageSyncFallback($topic, $recallHandle): \Generator
+    {
         yield $this->recallMessage($topic, $recallHandle);
     }
 
@@ -558,14 +592,23 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         $systemProperties->setMessageId($messageId);
         $systemProperties->setBornTimestamp($this->createTimestamp());
         $systemProperties->setBornHost(gethostname() ?: 'localhost');
-        $systemProperties->setBodyEncoding(Encoding::IDENTITY);
+
+        // Preserve encoding from input message; default to IDENTITY
+        $inputSysProps = $msg->getSystemProperties();
+        $encoding = Encoding::IDENTITY;
+        if ($inputSysProps && method_exists($inputSysProps, 'getBodyEncoding')) {
+            $inputEncoding = $inputSysProps->getBodyEncoding();
+            if ($inputEncoding !== Encoding::ENCODING_UNSPECIFIED) {
+                $encoding = $inputEncoding;
+            }
+        }
+        $systemProperties->setBodyEncoding($encoding);
         $queueId = $messageQueue->getId();
         if ($queueId !== null) {
             $systemProperties->setQueueId($queueId);
         }
         $systemProperties->setMessageType($this->detectMessageType($msg, $txEnabled));
 
-        $inputSysProps = $msg->getSystemProperties();
         if ($inputSysProps) {
             if (method_exists($inputSysProps, 'getTag') && $inputSysProps->hasTag()) {
                 $systemProperties->setTag($inputSysProps->getTag());
@@ -783,18 +826,35 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                     }
                 }
 
+                // Verify response entry count matches request message count
+                $entryCount = count($entries);
+                $messageCount = count($messages);
+                if ($entryCount !== $messageCount) {
+                    throw new \RuntimeException(
+                        "Batch response entry count ({$entryCount}) does not match request message count ({$messageCount})"
+                    );
+                }
+
+                // Fail the batch on any non-OK entry to trigger retry
                 $results = [];
-                foreach ($entries as $entry) {
+                foreach ($entries as $i => $entry) {
                     $entryStatus = $entry->getStatus();
-                    if ($entryStatus && $entryStatus->getCode() === 20000) {
-                        $results[] = [
-                            'messageId' => $entry->getMessageId(),
-                            'transactionId' => $entry->getTransactionId() ?? '',
-                            'recallHandle' => $entry->getRecallHandle() ?? '',
-                            'code' => $entryStatus->getCode(),
-                            'message' => $entryStatus->getMessage(),
-                        ];
+                    $code = $entryStatus ? $entryStatus->getCode() : 0;
+                    $msg = $entryStatus ? $entryStatus->getMessage() : 'No status';
+
+                    if ($code !== 20000) {
+                        throw new \RuntimeException(
+                            "Batch entry {$i} failed with code: {$code}, message: {$msg}"
+                        );
                     }
+
+                    $results[] = [
+                        'messageId' => $entry->getMessageId(),
+                        'transactionId' => $entry->getTransactionId() ?? '',
+                        'recallHandle' => $entry->getRecallHandle() ?? '',
+                        'code' => $code,
+                        'message' => $msg,
+                    ];
                 }
 
                 $latencyMs = (microtime(true) - $startTime) * 1000;

@@ -276,6 +276,16 @@ class MessageBuilder
             $message->setSystemProperties($sysProps);
         }
 
+        // Set bodyEncoding when compression was applied
+        if ($this->encoding !== null && $this->encoding !== Utilities::ENCODING_IDENTITY_STR) {
+            if (!$message->hasSystemProperties()) {
+                $message->setSystemProperties(new SystemProperties());
+            }
+            $message->getSystemProperties()->setBodyEncoding(
+                Utilities::encodingToProtobuf($this->encoding)
+            );
+        }
+
         // Set user properties
         foreach ($this->properties as $key => $value) {
             $message->getUserProperties()[$key] = $value;

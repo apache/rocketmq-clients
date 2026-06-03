@@ -42,6 +42,7 @@ class FakeProducerForTransaction implements TransactionCommitter{
             'messageId' => $messageId,
             'transactionId' => $transactionId,
             'topic' => $topic,
+            'endpoints' => $endpoints,
         ];
     }
 
@@ -51,6 +52,7 @@ class FakeProducerForTransaction implements TransactionCommitter{
             'messageId' => $messageId,
             'transactionId' => $transactionId,
             'topic' => $topic,
+            'endpoints' => $endpoints,
         ];
     }
 }
@@ -215,6 +217,94 @@ class TransactionTest extends TestCase
             count($fakeProducer->commitCalls),
             "Should commit 1 message"
         );
+    }
+
+    public function testCommitPassesEndpointsToCommitter()
+    {
+        $fakeProducer = new FakeProducerForTransaction();
+        $transaction = new Transaction($fakeProducer);
+
+        $topicResource = new Resource();
+        $topicResource->setName('test-topic');
+        $message = new Message();
+        $message->setTopic($topicResource);
+        $message->setBody('test body');
+
+        // Create broker endpoints
+        $address = new \Apache\Rocketmq\V2\Address();
+        $address->setHost('broker-1.example.com');
+        $address->setPort(10911);
+        $endpoints = new Endpoints();
+        $endpoints->setAddresses([$address]);
+
+        $transaction->tryAddMessage($message);
+        $transaction->tryAddReceipt($message, [
+            'messageId' => 'msg-ep-1',
+            'transactionId' => 'tx-ep-1',
+        ], $endpoints);
+
+        $transaction->commit();
+
+        $this->assertCount(1, $fakeProducer->commitCalls, "Commit should be called once");
+        $call = $fakeProducer->commitCalls[0];
+        $this->assertNotNull($call['endpoints'], "Endpoints should be passed to committer");
+        $this->assertSame($endpoints, $call['endpoints'], "Exact endpoints object should be forwarded");
+    }
+
+    public function testRollbackPassesEndpointsToCommitter()
+    {
+        $fakeProducer = new FakeProducerForTransaction();
+        $transaction = new Transaction($fakeProducer);
+
+        $topicResource = new Resource();
+        $topicResource->setName('test-topic');
+        $message = new Message();
+        $message->setTopic($topicResource);
+        $message->setBody('test body');
+
+        // Create broker endpoints
+        $address = new \Apache\Rocketmq\V2\Address();
+        $address->setHost('broker-2.example.com');
+        $address->setPort(10911);
+        $endpoints = new Endpoints();
+        $endpoints->setAddresses([$address]);
+
+        $transaction->tryAddMessage($message);
+        $transaction->tryAddReceipt($message, [
+            'messageId' => 'msg-ep-2',
+            'transactionId' => 'tx-ep-2',
+        ], $endpoints);
+
+        $transaction->rollback();
+
+        $this->assertCount(1, $fakeProducer->rollbackCalls, "Rollback should be called once");
+        $call = $fakeProducer->rollbackCalls[0];
+        $this->assertNotNull($call['endpoints'], "Endpoints should be passed to committer on rollback");
+        $this->assertSame($endpoints, $call['endpoints'], "Exact endpoints object should be forwarded on rollback");
+    }
+
+    public function testCommitWithNullEndpoints()
+    {
+        $fakeProducer = new FakeProducerForTransaction();
+        $transaction = new Transaction($fakeProducer);
+
+        $topicResource = new Resource();
+        $topicResource->setName('test-topic');
+        $message = new Message();
+        $message->setTopic($topicResource);
+        $message->setBody('test body');
+
+        $transaction->tryAddMessage($message);
+        // No endpoints passed
+        $transaction->tryAddReceipt($message, [
+            'messageId' => 'msg-null-ep',
+            'transactionId' => 'tx-null-ep',
+        ]);
+
+        $transaction->commit();
+
+        $call = $fakeProducer->commitCalls[0];
+        $this->assertNull($call['endpoints'], "Endpoints should be null when not provided");
     }
 }
 

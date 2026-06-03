@@ -62,16 +62,18 @@ class TlsCredentials
 
     /**
      * Create default TLS credentials.
-     * When no custom CA is configured, uses insecure connection for development/testing.
      *
-     * @return self New instance configured for insecure connections
+     * Enables TLS with peer and peer-name verification using the system CA bundle.
+     * Use createWithCa() or createMtls() for custom certificate configurations.
+     *
+     * @return self New instance configured with secure TLS (verifyPeer=true)
      */
     public static function createDefault(): self
     {
         return new self(
-            isInsecure: true,
-            verifyPeer: false,
-            verifyPeerName: false
+            isInsecure: false,
+            verifyPeer: true,
+            verifyPeerName: true
         );
     }
 

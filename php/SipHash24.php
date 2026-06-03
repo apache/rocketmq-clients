@@ -193,7 +193,7 @@ class SipHash24
     {
         if (PHP_INT_SIZE >= 8) {
             $sum = (int)$a + (int)$b;
-            return $sum & self::MASK_64;
+            return (int)$sum & self::MASK_64;
         }
 
         // Split into high and low 32-bit parts

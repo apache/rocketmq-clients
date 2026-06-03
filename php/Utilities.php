@@ -52,6 +52,23 @@ class Utilities
     const MAGIC_LZ4 = "\x04\x22\x4d\x18";
 
     /**
+     * Map an encoding string to its protobuf Encoding enum value.
+     *
+     * @param string|int $encoding Encoding string (e.g. 'GZIP') or int constant
+     * @return int Protobuf Encoding enum value
+     */
+    public static function encodingToProtobuf($encoding): int
+    {
+        switch ($encoding) {
+            case self::ENCODING_GZIP_STR:
+            case self::ENCODING_GZIP:
+                return self::ENCODING_GZIP;
+            default:
+                return self::ENCODING_IDENTITY;
+        }
+    }
+
+    /**
      * Compress data with the specified encoding.
      *
      * @param string $data Raw data to compress

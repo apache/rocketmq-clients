@@ -18,6 +18,8 @@
 
 namespace Apache\Rocketmq;
 
+use Apache\Rocketmq\V2\Language;
+
 class ClientConstants
 {
     const CLIENT_VERSION = '5.0.0';

@@ -17,9 +17,13 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-version }}
+          extensions: grpc, protobuf
       - name: Validate composer.json
         working-directory: ./php
         run: composer validate
       - name: Install Dependencies
         working-directory: ./php
-        run: composer install
+        run: composer install --no-interaction --prefer-dist
+      - name: Run PHPUnit Tests
+        working-directory: ./php
+        run: vendor/bin/phpunit --testsuite "RocketMQ PHP Test Suite" --no-coverage

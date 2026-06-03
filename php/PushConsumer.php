@@ -83,7 +83,7 @@ class PushConsumer implements ConsumerInterface
     private readonly string $namespace;
     private int $lastHeartbeatTime = 0;
     private $shutdownDrainDeadline = null;
-    private readonly ?ExponentialBackoffRetryPolicy $retryPolicy;
+    private ?ExponentialBackoffRetryPolicy $retryPolicy;
     private readonly ?TlsCredentials $tlsCredentials;
 
     /**

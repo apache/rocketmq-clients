@@ -220,12 +220,6 @@ class SimpleConsumer
      */
     public function doHeartbeat(): void
     {
-        // Double-check concurrency guard
-        if ($this->heartbeatInProgress) {
-            $this->logger->warning("Heartbeat already in progress, aborting duplicate call");
-            return;
-        }
-
         $request = new HeartbeatRequest();
         $request->setClientType(ClientType::SIMPLE_CONSUMER);
         $groupResource = new Resource();
@@ -491,8 +485,8 @@ class SimpleConsumer
                 $totalFound = count($allMessages);
                 $this->logger->debug("Batch: " . implode(',', $batchResults) . " (found $totalFound)");
             }
-            return $allMessages;
         }
+        return $allMessages;
     }
 
     /**
@@ -803,17 +797,18 @@ class SimpleConsumer
                             }
                         }
                         
-                        // If all entries are done (no more to retry), we're finished
-                        if (empty($indicesToRemove) || count($indicesToRemove) === count($entries)) {
-                            $remainingForRetry = count($entries) - count($indicesToRemove);
-                            $this->logger->info("AckMessage batch completed: success={$successCount}, failure={$failureCount}, remaining_for_retry={$remainingForRetry}");
+                        // If all entries are terminal (success or permanent failure), we're finished
+                        if (count($indicesToRemove) === count($entries)) {
+                            $this->logger->info("AckMessage batch completed: success={$successCount}, failure={$failureCount}");
                             return;
                         }
-                        
-                        // Remove successful/permanent-failure entries in reverse order to maintain indices
-                        rsort($indicesToRemove);
-                        foreach ($indicesToRemove as $index) {
-                            array_splice($entries, $index, 1);
+
+                        // Remove terminal entries in reverse order to maintain indices
+                        if (!empty($indicesToRemove)) {
+                            rsort($indicesToRemove);
+                            foreach ($indicesToRemove as $index) {
+                                array_splice($entries, $index, 1);
+                            }
                         }
                         
                         // Update request with remaining retryable entries
@@ -1083,7 +1078,7 @@ class SimpleConsumer
      *
      * @param int $maxMessages Maximum messages
      * @param int $invisibleDuration Invisible duration in seconds
-     * @return \Generator|array
+     * @return array|\Generator Array of messages when Swoole available, Generator otherwise
      */
     public function receiveAsync($maxMessages = 10, $invisibleDuration = 30)
     {
@@ -1108,6 +1103,18 @@ class SimpleConsumer
             }
             return $data['result'];
         }
+        return $this->receiveSyncFallback($maxMessages, $invisibleDuration);
+    }
+
+    /**
+     * Generator fallback for receiveAsync when Swoole is not available.
+     *
+     * @param int $maxMessages
+     * @param int $invisibleDuration
+     * @return \Generator
+     */
+    private function receiveSyncFallback($maxMessages, $invisibleDuration): \Generator
+    {
         yield $this->receive($maxMessages, $invisibleDuration);
     }
 
@@ -1115,7 +1122,7 @@ class SimpleConsumer
      * Asynchronously acknowledge messages via Swoole coroutine.
      *
      * @param array $messages Messages to ack
-     * @return \Generator
+     * @return bool|\Generator True on success when Swoole available, Generator otherwise
      */
     public function ackAsync($messages)
     {
@@ -1140,6 +1147,17 @@ class SimpleConsumer
             }
             return $data['success'];
         }
+        return $this->ackSyncFallback($messages);
+    }
+
+    /**
+     * Generator fallback for ackAsync when Swoole is not available.
+     *
+     * @param array $messages
+     * @return \Generator
+     */
+    private function ackSyncFallback($messages): \Generator
+    {
         yield $this->ack($messages);
     }
 
@@ -1148,7 +1166,7 @@ class SimpleConsumer
      *
      * @param object $message Message to modify
      * @param int $invisibleDurationSeconds New invisible duration
-     * @return \Generator
+     * @return bool|\Generator True on success when Swoole available, Generator otherwise
      */
     public function changeInvisibleDurationAsync($message, $invisibleDurationSeconds)
     {
@@ -1173,6 +1191,18 @@ class SimpleConsumer
             }
             return $data['success'];
         }
+        return $this->changeInvisibleDurationSyncFallback($message, $invisibleDurationSeconds);
+    }
+
+    /**
+     * Generator fallback for changeInvisibleDurationAsync when Swoole is not available.
+     *
+     * @param object $message
+     * @param int $invisibleDurationSeconds
+     * @return \Generator
+     */
+    private function changeInvisibleDurationSyncFallback($message, $invisibleDurationSeconds): \Generator
+    {
         yield $this->changeInvisibleDuration($message, $invisibleDurationSeconds);
     }
 
