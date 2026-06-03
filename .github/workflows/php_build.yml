@@ -26,7 +26,4 @@ jobs:
         run: composer install --no-interaction --prefer-dist
       - name: Run PHPUnit Tests
         working-directory: ./php
-        env:
-          GRPC_VERBOSITY: ERROR
-          GRPC_TRACE: -all
         run: vendor/bin/phpunit --testsuite "RocketMQ PHP Test Suite" --no-coverage
