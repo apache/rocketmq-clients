@@ -21,6 +21,23 @@
  * Handles V2 gRPC classes, GPBMetadata, and Google\Protobuf well-known types.
  */
 
+// Suppress gRPC C-core stderr noise on Windows CI.
+// GRPC_VERBOSITY/GRPC_TRACE are read at OS level by the gRPC C library,
+// and phpunit.xml <env> tags only set PHP $_ENV, not the process environment.
+// Setting them via putenv ensures the C library can read them.
+if (!getenv('GRPC_VERBOSITY')) {
+    putenv('GRPC_VERBOSITY=ERROR');
+    $_ENV['GRPC_VERBOSITY'] = 'ERROR';
+}
+if (!getenv('GRPC_TRACE')) {
+    putenv('GRPC_TRACE=-all');
+    $_ENV['GRPC_TRACE'] = '-all';
+}
+
+// Also attempt ini-level suppression if the gRPC extension supports it.
+@ini_set('grpc.grpc_verbosity', 'ERROR');
+@ini_set('grpc.grpc_trace', '-all');
+
 spl_autoload_register(function (string $class): void {
     $baseDir = __DIR__;
     $grpcDir = __DIR__ . '/grpc/';
