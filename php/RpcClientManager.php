@@ -95,7 +95,12 @@ class RpcClientManager
 
             // Merge channel args from TlsCredentials (e.g., SSL target name override for dev)
             if (isset($options['tlsCredentials']) && $options['tlsCredentials'] instanceof TlsCredentials) {
-                $opts = array_merge($opts, $options['tlsCredentials']->getChannelArgs());
+                // Extract host from endpoints for ssl_target_name_override
+                $targetHost = $endpoints;
+                if (str_contains($endpoints, ':')) {
+                    $targetHost = explode(":", $endpoints)[0];
+                }
+                $opts = array_merge($opts, $options['tlsCredentials']->getChannelArgs($targetHost));
             }
 
             $this->clients[$key] = new MessagingServiceClient($endpoints, $opts);

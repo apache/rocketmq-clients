@@ -30,13 +30,13 @@ if (!getenv('GRPC_VERBOSITY')) {
     $_ENV['GRPC_VERBOSITY'] = 'ERROR';
 }
 if (!getenv('GRPC_TRACE')) {
-    putenv('GRPC_TRACE=-all');
-    $_ENV['GRPC_TRACE'] = '-all';
+    putenv('GRPC_TRACE=none');
+    $_ENV['GRPC_TRACE'] = 'none';
 }
 
 // Also attempt ini-level suppression if the gRPC extension supports it.
 @ini_set('grpc.grpc_verbosity', 'ERROR');
-@ini_set('grpc.grpc_trace', '-all');
+@ini_set('grpc.grpc_trace', 'none');
 
 spl_autoload_register(function (string $class): void {
     $baseDir = __DIR__;

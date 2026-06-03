@@ -193,12 +193,12 @@ class TlsCredentials
      *
      * @return array Associative array of gRPC channel args
      */
-    public function getChannelArgs(): array
+    public function getChannelArgs(string $targetHost = ''): array
     {
         $args = [];
         if (!$this->isInsecure && !$this->verifyPeerName) {
-            $args['grpc.ssl_target_name_override'] = '';
-            $args['grpc.default_authority'] = '';
+            $args['grpc.ssl_target_name_override'] = $targetHost;
+            $args['grpc.default_authority'] = $targetHost;
         }
         return $args;
     }
