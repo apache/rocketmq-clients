@@ -19,7 +19,7 @@
          colors="true"
          verbose="true"
          stopOnFailure="false"
-         beStrictAboutOutputDuringTests="true"
+         beStrictAboutOutputDuringTests="false"
          beStrictAboutTodoAnnotatedTests="true">
 
     <testsuites>
@@ -49,5 +49,8 @@
         <env name="ROCKETMQ_ENDPOINTS" value="127.0.0.1:8080"/>
         <env name="ROCKETMQ_ACCESS_KEY" value=""/>
         <env name="ROCKETMQ_SECRET_KEY" value=""/>
+        <!-- Suppress gRPC C-core stderr output on Windows CI -->
+        <env name="GRPC_VERBOSITY" value="ERROR"/>
+        <env name="GRPC_TRACE" value="-all"/>
     </php>
 </phpunit>
