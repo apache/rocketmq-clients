@@ -85,6 +85,7 @@ class PushConsumer implements ConsumerInterface
     private $shutdownDrainDeadline = null;
     private ?ExponentialBackoffRetryPolicy $retryPolicy;
     private readonly ?TlsCredentials $tlsCredentials;
+    private readonly bool $sslEnabled;
 
     /**
      * Constructor with builder-style options.
@@ -127,6 +128,7 @@ class PushConsumer implements ConsumerInterface
         $this->isLiteConsumer = $options['isLiteConsumer'] ?? false;
         $this->namespace = $options['namespace'] ?? '';
         $this->tlsCredentials = $options['tlsCredentials'] ?? null;
+        $this->sslEnabled = $options['sslEnabled'] ?? true;
 
         // Set AK/SK credentials if provided
         $this->credentials = (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials)
@@ -138,6 +140,7 @@ class PushConsumer implements ConsumerInterface
         // Use RpcClientManager for connection pooling
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
             'tlsCredentials' => $this->tlsCredentials,
+            'sslEnabled' => $options['sslEnabled'] ?? true,
         ]);
 
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
@@ -1175,6 +1178,7 @@ class PushConsumer implements ConsumerInterface
             try {
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'tlsCredentials' => $this->tlsCredentials,
+                    'sslEnabled' => $this->sslEnabled,
                 ]);
                 list($response, $status) = $brokerClient->Heartbeat($request, $metadata, $this->getCallOptions())->wait();
                 if ($status->code === 0) {

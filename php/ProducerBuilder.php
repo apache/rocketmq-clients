@@ -35,6 +35,7 @@ class ProducerBuilder
     private $validateMessageType = true;
     private $maxBodySizeBytes = 4194304;
     private $tlsCredentials = null;
+    private $sslEnabled = true;
 
     /**
      * Set client configuration.
@@ -48,6 +49,7 @@ class ProducerBuilder
         $this->credentials = $config->getSessionCredentialsProvider();
         $this->requestTimeout = $config->getRequestTimeoutMs();
         $this->namespace = $config->getNamespace();
+        $this->sslEnabled = $config->isSslEnabled();
         if ($config->getTlsCredentials() !== null) {
             $this->tlsCredentials = $config->getTlsCredentials();
         }
@@ -216,6 +218,7 @@ class ProducerBuilder
             'validateMessageType' => $this->validateMessageType,
             'maxBodySizeBytes' => $this->maxBodySizeBytes,
             'tlsCredentials' => $this->tlsCredentials,
+            'sslEnabled' => $this->sslEnabled,
         ]);
 
         if ($this->transactionChecker !== null) {

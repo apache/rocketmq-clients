@@ -186,6 +186,7 @@ trait TransactionTrait
                 $brokerKey = $address[0]->getHost() . ':' . $address[0]->getPort();
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'tlsCredentials' => $this->tlsCredentials,
+                    'sslEnabled' => $this->sslEnabled ?? true,
                 ]);
                 list($response, $status) = $brokerClient->EndTransaction($request, $metadata, $callOptions)->wait();
             } else {

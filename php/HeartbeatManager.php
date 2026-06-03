@@ -41,6 +41,7 @@ class HeartbeatManager
         private readonly MessagingServiceClient $client,
         private readonly ClientTraitProvider $traitProvider,
         private readonly ?TlsCredentials $tlsCredentials = null,
+        private readonly bool $sslEnabled = true,
     ) {
         $this->logger = Logger::getInstance('HeartbeatManager');
     }
@@ -172,6 +173,7 @@ class HeartbeatManager
             try {
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
                     'tlsCredentials' => $this->tlsCredentials,
+                    'sslEnabled' => $this->sslEnabled,
                 ]);
 
                 $heartbeatTimeoutMs = (int)($this->traitProvider->getOperationTimeout('HEARTBEAT') / 1000);

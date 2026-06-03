@@ -71,6 +71,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
     private array $interceptors = [];
     private ?ExponentialBackoffRetryPolicy $retryPolicy = null;
     private readonly ?TlsCredentials $tlsCredentials;
+    private readonly bool $sslEnabled;
     private readonly HeartbeatManager $heartbeatManager;
 
     /**
@@ -90,6 +91,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         $this->validateMessageType = $options['validateMessageType'] ?? true;
         $this->maxBodySizeBytes = $options['maxBodySizeBytes'] ?? 4194304;
         $this->tlsCredentials = $options['tlsCredentials'] ?? null;
+        $this->sslEnabled = $options['sslEnabled'] ?? true;
 
         if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
             $this->credentials = $options['credentials'];
@@ -100,11 +102,12 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
             'tlsCredentials' => $this->tlsCredentials,
+            'sslEnabled' => $options['sslEnabled'] ?? true,
         ]);
 
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
         $this->routeManager = new PublishingRouteManager($this->client, $endpoints, $this);
-        $this->heartbeatManager = new HeartbeatManager($this->routeManager, $this->client, $this, $this->tlsCredentials);
+        $this->heartbeatManager = new HeartbeatManager($this->routeManager, $this->client, $this, $this->tlsCredentials, $this->sslEnabled);
     }
 
     // ==================== Lifecycle ====================

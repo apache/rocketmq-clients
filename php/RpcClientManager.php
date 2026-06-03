@@ -91,9 +91,14 @@ class RpcClientManager
 
         if (!isset($this->clients[$key])) {
             $this->logger->info("Creating new RPC client for: {$endpoints}");
-            $this->clients[$key] = new MessagingServiceClient($endpoints, [
-                'credentials' => $credentials,
-            ]);
+            $opts = ['credentials' => $credentials];
+
+            // Merge channel args from TlsCredentials (e.g., SSL target name override for dev)
+            if (isset($options['tlsCredentials']) && $options['tlsCredentials'] instanceof TlsCredentials) {
+                $opts = array_merge($opts, $options['tlsCredentials']->getChannelArgs());
+            }
+
+            $this->clients[$key] = new MessagingServiceClient($endpoints, $opts);
         }
 
         $this->clientLastUsedTime[$key] = time();
@@ -245,15 +250,17 @@ class RpcClientManager
      * Resolve gRPC channel credentials from options.
      *
      * Priority:
-     * 1. tlsCredentials option (TlsCredentials instance)
-     * 2. credentials option (pre-created ChannelCredentials)
-     * 3. Default: TlsCredentials::createDefault() for secure connection
+     * 1. Explicit tlsCredentials option (TlsCredentials instance)
+     * 2. Explicit credentials option (pre-created ChannelCredentials)
+     * 3. sslEnabled=false → TlsCredentials::createInsecure() (plaintext, for dev/CI)
+     * 4. Default: TlsCredentials::createDefault() for secure connection
      *
-     * SECURITY NOTE: The default is now TLS-enabled to prevent accidental insecure connections.
-     * Use TlsCredentials::createInsecure() explicitly only for development/testing.
+     * SECURITY NOTE: SSL is enabled by default to prevent accidental plaintext
+     * connections in production. Set sslEnabled=false explicitly only for
+     * development/testing/CI.
      *
      * @param array $options Configuration options
-     * @return \Grpc\ChannelCredentials|null Resolved credentials (may be null in some gRPC versions)
+     * @return \Grpc\ChannelCredentials|null Resolved credentials
      */
     private function resolveCredentials(array $options)
     {
@@ -265,12 +272,14 @@ class RpcClientManager
             return $options['credentials'];
         }
 
-        // Default to secure TLS connection instead of insecure
-        // This prevents accidental plaintext connections in production
-        Logger::getInstance('RpcClientManager')->info(
-            "No TLS credentials provided, using default TLS configuration. " .
-            "For production, explicitly configure TLS with custom CA or mTLS."
-        );
+        $sslEnabled = $options['sslEnabled'] ?? true;
+
+        if (!$sslEnabled) {
+            $this->logger->debug("SSL disabled, using insecure (plaintext) connection");
+            return TlsCredentials::createInsecure()->toChannelCredentials();
+        }
+
+        $this->logger->debug("Using default TLS configuration");
         return TlsCredentials::createDefault()->toChannelCredentials();
     }
 }

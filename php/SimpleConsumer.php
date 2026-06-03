@@ -68,6 +68,7 @@ class SimpleConsumer
     private int $topicIndex = 0;
     private $heartbeatCoroutineId = null;
     private readonly ?TlsCredentials $tlsCredentials;
+    private readonly bool $sslEnabled;
     private bool $heartbeatInProgress = false;
     private int $heartbeatTimerId = -1;
 
@@ -95,6 +96,7 @@ class SimpleConsumer
         $this->requestTimeout = $options['requestTimeout'] ?? 3000;
         $this->awaitDuration = $options['awaitDuration'] ?? 30;
         $this->tlsCredentials = $options['tlsCredentials'] ?? null;
+        $this->sslEnabled = $options['sslEnabled'] ?? true;
 
         // Pre-populate subscriptions from options, since subscribe() requires isStarted=true
         // and start() requires non-empty subscriptions — breaking the cyclic dependency.
@@ -110,6 +112,7 @@ class SimpleConsumer
         // Create gRPC client via connection pool
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
             'tlsCredentials' => $this->tlsCredentials,
+            'sslEnabled' => $this->sslEnabled,
         ]);
 
         // Initialize Telemetry Session (singleton)
@@ -1330,6 +1333,7 @@ class SimpleConsumer
         $this->logger->info("Creating new broker client for {$brokerKey}");
         $this->brokerClients[$brokerKey] = RpcClientManager::getInstance()->getClient($brokerKey, [
             'tlsCredentials' => $this->tlsCredentials,
+            'sslEnabled' => $this->sslEnabled,
         ]);
 
         return $this->brokerClients[$brokerKey];
