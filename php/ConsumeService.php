@@ -135,9 +135,9 @@ abstract class ConsumeService
         }
         $entry->setReceiptHandle($receiptHandle);
 
-        if (method_exists($messageView, 'getSystemProperties')) {
+        if ($messageView instanceof MessageViewInterface) {
             $sysProps = $messageView->getSystemProperties();
-            if ($sysProps instanceof SystemPropertiesInterface && $sysProps->hasLiteTopic()) {
+            if ($sysProps !== null && $sysProps->hasLiteTopic()) {
                 $entry->setLiteTopic($sysProps->getLiteTopic());
             } elseif ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
                 $entry->setLiteTopic($sysProps->getLiteTopic());
@@ -560,9 +560,7 @@ class FifoConsumeService extends ConsumeService
     protected function getMessageGroupKey($messageView)
     {
         $sysProps = $messageView->getSystemProperties();
-        if ($sysProps instanceof SystemPropertiesInterface) {
-            return $sysProps->hasMessageGroup() ? $sysProps->getMessageGroup() : 'default';
-        } elseif ($sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup()) {
+        if ($sysProps !== null && $sysProps->hasMessageGroup()) {
             return $sysProps->getMessageGroup();
         }
         return 'default';
@@ -609,11 +607,7 @@ class FifoConsumeService extends ConsumeService
         }
 
         if ($messageView->isCorrupted()) {
-            if ($messageView instanceof MessageViewInterface) {
-                $messageId = $messageView->getMessageId() ?: 'unknown';
-            } else {
-                $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
-            }
+            $messageId = $messageView instanceof MessageViewInterface ? ($messageView->getMessageId() ?: 'unknown') : 'unknown';
             $this->logger->error("FifoConsumeService: Message $messageId is corrupted");
             $pq->discardFifoMessage($messageView);
             $next = next($messages);
@@ -673,11 +667,7 @@ class FifoConsumeService extends ConsumeService
                 array_shift($groupedMessages[$groupKey]);
 
                 if ($messageView->isCorrupted()) {
-                    if ($messageView instanceof MessageViewInterface) {
-                        $messageId = $messageView->getMessageId() ?: 'unknown';
-                    } else {
-                        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
-                    }
+                    $messageId = $messageView instanceof MessageViewInterface ? ($messageView->getMessageId() ?: 'unknown') : 'unknown';
                     $this->logger->error("FifoConsumeService accelerator: Message $messageId is corrupted");
                     $pq->discardFifoMessage($messageView);
                     continue;
@@ -808,11 +798,7 @@ class FifoConsumeService extends ConsumeService
         }
 
         if ($messageView->isCorrupted()) {
-            if ($messageView instanceof MessageViewInterface) {
-                $messageId = $messageView->getMessageId() ?: 'unknown';
-            } else {
-                $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
-            }
+            $messageId = $messageView instanceof MessageViewInterface ? ($messageView->getMessageId() ?: 'unknown') : 'unknown';
             $this->logger->error("FifoConsumeService: discarding Message $messageId is corrupted");
             $pq->discardFifoMessage($messageView);
             return;

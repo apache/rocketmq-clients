@@ -1110,19 +1110,20 @@ class PushConsumer implements ConsumerInterface
         $this->logger->info("Processing server settings");
 
         // Process backoff policy
-        if (method_exists($settings, 'getBackoffPolicy') && $settings->hasBackoffPolicy()) {
+        if ($settings->hasBackoffPolicy()) {
             $serverPolicy = $settings->getBackoffPolicy();
             $this->logger->info("Received backoff policy from server");
-            if (method_exists($serverPolicy, 'getDurations') && !ProtobufUtil::isRepeatedFieldEmpty($serverPolicy->getDurations())) {
-                $delays = [];
-                foreach ($serverPolicy->getDurations() as $dur) {
-                    if (method_exists($dur, 'getSeconds')) {
+            if ($serverPolicy->hasCustomizedBackoff()) {
+                $customizedBackoff = $serverPolicy->getCustomizedBackoff();
+                if ($customizedBackoff !== null && !ProtobufUtil::isRepeatedFieldEmpty($customizedBackoff->getNext())) {
+                    $delays = [];
+                    foreach ($customizedBackoff->getNext() as $dur) {
                         $delays[] = $dur->getSeconds() * 1000;
                     }
-                }
-                if (!empty($delays)) {
-                    $this->retryPolicy = CustomizedBackoffRetryPolicy::fromProtobuf($serverPolicy);
-                    $this->logger->info("Updated retry policy from server backoff");
+                    if (!empty($delays)) {
+                        $this->retryPolicy = CustomizedBackoffRetryPolicy::fromProtobuf($serverPolicy);
+                        $this->logger->info("Updated retry policy from server backoff");
+                    }
                 }
             }
         }
@@ -1130,7 +1131,7 @@ class PushConsumer implements ConsumerInterface
         // Process subscription settings
         if ($settings->hasSubscription()) {
             $sub = $settings->getSubscription();
-            if (method_exists($sub, 'getReceiveBatchSize') && $sub->getReceiveBatchSize() > 0) {
+            if ($sub->getReceiveBatchSize() > 0) {
                 $oldBatchSize = $this->receiveBatchSize;
                 $this->receiveBatchSize = $sub->getReceiveBatchSize();
                 $this->logger->info("Server set receiveBatchSize: {$oldBatchSize} -> {$this->receiveBatchSize}");

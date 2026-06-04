@@ -223,7 +223,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
 
         $sysProps = $message->getSystemProperties();
-        $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
+        $hasMessageGroup = $sysProps !== null && $sysProps->hasMessageGroup();
         if ($hasMessageGroup) {
             $messageQueue = $loadBalancer->takeMessageQueueByMessageGroup($sysProps->getMessageGroup());
             if (!$messageQueue) {
@@ -317,7 +317,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                 $messageTypes[] = $this->detectMessageType($msg, false);
             }
             $sysProps = $msg->getSystemProperties();
-            if ($sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup()) {
+            if ($sysProps !== null && $sysProps->hasMessageGroup()) {
                 $hasFifoMessage = true;
                 $messageGroups[] = $sysProps->getMessageGroup();
             }
@@ -640,22 +640,24 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
         if ($settings->hasPublishing()) {
             $publishing = $settings->getPublishing();
-            if (method_exists($publishing, 'getMaxBodySize') && $publishing->getMaxBodySize() > 0) {
+            if ($publishing->getMaxBodySize() > 0) {
                 $this->maxBodySizeBytes = $publishing->getMaxBodySize();
                 $this->logger->info("Updated maxBodySize from server: {$this->maxBodySizeBytes}");
             }
-            if (method_exists($publishing, 'getValidateMessageType')) {
-                $this->validateMessageType = $publishing->getValidateMessageType();
-                $this->logger->info("Updated validateMessageType from server: " . ($this->validateMessageType ? 'true' : 'false'));
-            }
+            $this->validateMessageType = $publishing->getValidateMessageType();
+            $this->logger->info("Updated validateMessageType from server: " . ($this->validateMessageType ? 'true' : 'false'));
         }
 
-        if (method_exists($settings, 'getBackoffPolicy') && $settings->hasBackoffPolicy()) {
+        if ($settings->hasBackoffPolicy()) {
             $serverPolicy = $settings->getBackoffPolicy();
             $this->logger->info("Received backoff policy from server");
-            if (method_exists($serverPolicy, 'getDurations') && !ProtobufUtil::isRepeatedFieldEmpty($serverPolicy->getDurations())) {
-                $this->retryPolicy = CustomizedBackoffRetryPolicy::fromProtobuf($serverPolicy);
-                $this->logger->info("Updated retry policy from server backoff");
+
+            if ($serverPolicy->hasCustomizedBackoff()) {
+                $customizedBackoff = $serverPolicy->getCustomizedBackoff();
+                if ($customizedBackoff !== null && !ProtobufUtil::isRepeatedFieldEmpty($customizedBackoff->getNext())) {
+                    $this->retryPolicy = CustomizedBackoffRetryPolicy::fromProtobuf($serverPolicy);
+                    $this->logger->info("Updated retry policy from server backoff");
+                }
             }
         }
     }
@@ -702,10 +704,10 @@ class Producer implements TransactionCommitter, ClientTraitProvider
     private function detectMessageType(Message $msg, bool $txEnabled = false): int
     {
         $sysProps = $msg->getSystemProperties();
-        $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
-        $hasLiteTopic = $sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic();
-        $hasPriority = $sysProps && method_exists($sysProps, 'hasPriority') && $sysProps->hasPriority();
-        $hasDeliveryTimestamp = $sysProps && method_exists($sysProps, 'hasDeliveryTimestamp') && $sysProps->hasDeliveryTimestamp();
+        $hasMessageGroup = $sysProps !== null && $sysProps->hasMessageGroup();
+        $hasLiteTopic = $sysProps !== null && $sysProps->hasLiteTopic();
+        $hasPriority = $sysProps !== null && $sysProps->hasPriority();
+        $hasDeliveryTimestamp = $sysProps !== null && $sysProps->hasDeliveryTimestamp();
 
         return match (true) {
             $txEnabled && !$hasMessageGroup && !$hasLiteTopic && !$hasPriority && !$hasDeliveryTimestamp
@@ -739,7 +741,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         // Preserve encoding from input message; default to IDENTITY
         $inputSysProps = $msg->getSystemProperties();
         $encoding = Encoding::IDENTITY;
-        if ($inputSysProps && method_exists($inputSysProps, 'getBodyEncoding')) {
+        if ($inputSysProps !== null) {
             $inputEncoding = $inputSysProps->getBodyEncoding();
             if ($inputEncoding !== Encoding::ENCODING_UNSPECIFIED) {
                 $encoding = $inputEncoding;
@@ -753,25 +755,25 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         $systemProperties->setMessageType($this->detectMessageType($msg, $txEnabled));
 
         if ($inputSysProps) {
-            if (method_exists($inputSysProps, 'getTag') && $inputSysProps->hasTag()) {
+            if ($inputSysProps->hasTag()) {
                 $systemProperties->setTag($inputSysProps->getTag());
             }
-            if (method_exists($inputSysProps, 'getKeys') && !ProtobufUtil::isRepeatedFieldEmpty($inputSysProps->getKeys())) {
+            if (!ProtobufUtil::isRepeatedFieldEmpty($inputSysProps->getKeys())) {
                 $systemProperties->setKeys($inputSysProps->getKeys());
             }
-            if (method_exists($inputSysProps, 'getMessageGroup') && $inputSysProps->hasMessageGroup()) {
+            if ($inputSysProps->hasMessageGroup()) {
                 $systemProperties->setMessageGroup($inputSysProps->getMessageGroup());
             }
-            if (method_exists($inputSysProps, 'getDeliveryTimestamp') && $inputSysProps->hasDeliveryTimestamp()) {
+            if ($inputSysProps->hasDeliveryTimestamp()) {
                 $systemProperties->setDeliveryTimestamp($inputSysProps->getDeliveryTimestamp());
             }
-            if (method_exists($inputSysProps, 'getLiteTopic') && $inputSysProps->hasLiteTopic()) {
+            if ($inputSysProps->hasLiteTopic()) {
                 $systemProperties->setLiteTopic($inputSysProps->getLiteTopic());
             }
-            if (method_exists($inputSysProps, 'getPriority') && $inputSysProps->hasPriority()) {
+            if ($inputSysProps->hasPriority()) {
                 $systemProperties->setPriority($inputSysProps->getPriority());
             }
-            if (method_exists($inputSysProps, 'getTraceContext') && $inputSysProps->hasTraceContext()) {
+            if ($inputSysProps->hasTraceContext()) {
                 $systemProperties->setTraceContext($inputSysProps->getTraceContext());
             }
         }

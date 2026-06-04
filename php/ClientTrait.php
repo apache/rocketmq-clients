@@ -114,16 +114,12 @@ trait ClientTrait
         // try interface first
         if ($messageView instanceof MessageViewInterface) {
             $sysProps = $messageView->getSystemProperties();
-            if ($sysProps instanceof SystemPropertiesInterface) {
-                return $sysProps->getReceiptHandle();
-            }
+            return $sysProps?->getReceiptHandle();
         }
-        // fallback for backward compatibility
+        // Fallback for backward compatibility
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if ($sysProps !== null && method_exists($sysProps, 'getReceiptHandle')) {
-                return $sysProps->getReceiptHandle();
-            }
+            return $sysProps?->getReceiptHandle();
         }
         return null;
     }
@@ -136,11 +132,12 @@ trait ClientTrait
      */
     protected function extractMessageId($messageView): ?string
     {
+        if ($messageView instanceof MessageViewInterface) {
+            return $messageView->getMessageId();
+        }
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if ($sysProps !== null && method_exists($sysProps, 'getMessageId')) {
-                return $sysProps->getMessageId();
-            }
+            return $sysProps?->getMessageId();
         }
         return null;
     }
@@ -160,11 +157,8 @@ trait ClientTrait
         }
         if (method_exists($messageView, 'getTopic')) {
             $topic = $messageView->getTopic();
-            if ($topic !== null && $topic !== '') {
-                return match (true) {
-                    is_object($topic) && method_exists($topic, 'getName') => $topic->getName(),
-                    default => (string) $topic,
-                };
+            if ($topic !== '') {
+                return is_object($topic) ? $topic->getName() : (string) $topic;
             }
         }
         return null;
@@ -211,13 +205,14 @@ trait ClientTrait
         // try interface first
         if ($messageView instanceof MessageViewInterface) {
             $sysProps = $messageView->getSystemProperties();
-            if ($sysProps instanceof SystemPropertiesInterface && $sysProps->hasLiteTopic()) {
+            if ($sysProps !== null && $sysProps->hasLiteTopic()) {
                 return $sysProps->getLiteTopic();
             }
+            return null;
         }
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if ($sysProps !== null && method_exists($sysProps, 'getLiteTopic') && $sysProps->hasLiteTopic()) {
+            if ($sysProps !== null && $sysProps->hasLiteTopic()) {
                 return $sysProps->getLiteTopic();
             }
         }

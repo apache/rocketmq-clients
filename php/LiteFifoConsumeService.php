@@ -36,7 +36,7 @@ class LiteFifoConsumeService extends FifoConsumeService
     protected function getMessageGroupKey($messageView)
     {
         $sysProps = $messageView->getSystemProperties();
-        if ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
+        if ($sysProps !== null && $sysProps->hasLiteTopic()) {
             return $sysProps->getLiteTopic();
         }
         return 'default';

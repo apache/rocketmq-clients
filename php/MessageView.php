@@ -57,9 +57,7 @@ class MessageView implements MessageViewInterface
         $this->message = $message;
         if ($receiptHandle == null) {
             $sysProps = $message->getSystemProperties();
-            if ($sysProps && method_exists($sysProps, 'getReceiptHandle')) {
-                $receiptHandle = $sysProps->getReceiptHandle();
-            }
+            $receiptHandle = $sysProps->getReceiptHandle();
         }
         $this->receiptHandle = $receiptHandle;
         $this->endpoints = $endpoints;
@@ -69,15 +67,11 @@ class MessageView implements MessageViewInterface
         // Extract born timestamp and host from system properties
         $sysProps = $message->getSystemProperties();
         if ($sysProps) {
-            if (method_exists($sysProps, 'getBornTimestamp')) {
-                $bornTs = $sysProps->getBornTimestamp();
-                if ($bornTs) {
-                    $this->bornTimestamp = method_exists($bornTs, 'getSeconds') ? $bornTs->getSeconds() : 0;
-                }
+            $bornTs = $sysProps->getBornTimestamp();
+            if ($bornTs) {
+                $this->bornTimestamp = $bornTs->getSeconds() ?? 0;
             }
-            if (method_exists($sysProps, 'getBornHost')) {
-                $this->bornHost = $sysProps->getBornHost() ?? '';
-            }
+            $this->bornHost = $sysProps->getBornHost() ?? '';
 
             // Verify body integrity and decompress
             $this->bodyStr = $this->processBody($message, $sysProps);
@@ -116,7 +110,7 @@ class MessageView implements MessageViewInterface
 
         // Step 1: Decompress if encoding is GZIP
         $encoding = Encoding::IDENTITY;
-        if (method_exists($sysProps, 'getBodyEncoding')) {
+        if ($sysProps !== null) {
             $encoding = $sysProps->getBodyEncoding();
         }
 
@@ -131,16 +125,12 @@ class MessageView implements MessageViewInterface
         }
 
         // Step 2: Verify body integrity via digest
-        if (method_exists($sysProps, 'getBodyDigest')) {
+        if ($sysProps !== null) {
             $bodyDigest = $sysProps->getBodyDigest();
             if ($bodyDigest !== null && $bodyDigest !== '') {
                 // getBodyDigest returns a Digest object, extract type and checksum
-                $digestType = is_object($bodyDigest) && method_exists($bodyDigest, 'getType')
-                    ? $bodyDigest->getType()
-                    : null;
-                $digestChecksum = is_object($bodyDigest) && method_exists($bodyDigest, 'getChecksum')
-                    ? $bodyDigest->getChecksum()
-                    : (string)$bodyDigest;
+                $digestType = is_object($bodyDigest) ? $bodyDigest->getType() : null;
+                $digestChecksum = is_object($bodyDigest) ? $bodyDigest->getChecksum() : (string)$bodyDigest;
                 if ($digestChecksum !== '' && $digestChecksum !== null) {
                     $this->verifyBodyDigest($body, $digestChecksum, $digestType);
                 }
@@ -247,7 +237,7 @@ class MessageView implements MessageViewInterface
     public function getTag(): ?string
     {
         $sysProps = $this->message->getSystemProperties();
-        if ($sysProps && method_exists($sysProps, 'hasTag') && $sysProps->hasTag()) {
+        if ($sysProps !== null && $sysProps->hasTag()) {
             return $sysProps->getTag();
         }
         return null;
@@ -261,7 +251,7 @@ class MessageView implements MessageViewInterface
     public function getKeys(): array
     {
         $sysProps = $this->message->getSystemProperties();
-        if ($sysProps && method_exists($sysProps, 'getKeys')) {
+        if ($sysProps !== null) {
             $keys = $sysProps->getKeys();
             if ($keys === null) {
                 return [];
@@ -282,7 +272,7 @@ class MessageView implements MessageViewInterface
     public function getMessageGroup(): ?string
     {
         $sysProps = $this->message->getSystemProperties();
-        if ($sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup()) {
+        if ($sysProps !== null && $sysProps->hasMessageGroup()) {
             return $sysProps->getMessageGroup();
         }
         return null;
