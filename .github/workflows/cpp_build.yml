@@ -64,6 +64,7 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$TEMP_DIR/grpc-install" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DBUILD_EXAMPLES=OFF
           cmake --build build --parallel 4
 
