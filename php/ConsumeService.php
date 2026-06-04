@@ -137,7 +137,9 @@ abstract class ConsumeService
 
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
+            if ($sysProps instanceof SystemPropertiesInterface && $sysProps->hasLiteTopic()) {
+                $entry->setLiteTopic($sysProps->getLiteTopic());
+            } elseif ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
                 $entry->setLiteTopic($sysProps->getLiteTopic());
             }
         }
@@ -211,7 +213,10 @@ abstract class ConsumeService
             $delaySeconds = $invisibleDuration;
         } else {
             $retryPolicy = $this->consumer->getRetryPolicy();
-            if ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
+            if ($retryPolicy instanceof RetryPolicyInterface) {
+                $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
+                $delaySeconds = max(1, (int)ceil($delayMs / 1000));
+            } elseif ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
                 $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
                 $delaySeconds = max(1, (int)ceil($delayMs / 1000));
             } else {
@@ -240,7 +245,11 @@ abstract class ConsumeService
 
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
+            if ($sysProps instanceof SystemPropertiesInterface && $sysProps->hasLiteTopic()) {
+                $request->setLiteTopic($sysProps->getLiteTopic());
+                $request->setSuspend(true);
+            }
+            elseif ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
                 $request->setLiteTopic($sysProps->getLiteTopic());
                 $request->setSuspend(true);
             }
@@ -475,12 +484,20 @@ class StandardConsumeService extends ConsumeService
             }
 
             if ($messageView->isCorrupted()) {
-                $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+                if ($messageView instanceof MessageViewInterface) {
+                    $messageId = $messageView->getMessageId() ?: 'unknown';
+                } else {
+                    $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+                }
                 $this->logger->error("StandardConsumeService: Message $messageId is corrupted");
                 $pq->discardMessage($messageView);
                 continue;
             }
-            $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+            if ($messageView instanceof MessageViewInterface) {
+                $messageId = $messageView->getMessageId() ?: 'unknown';
+            } else {
+                $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+            }
 
             $result = $this->consumeMessage($messageView);
 
@@ -494,7 +511,9 @@ class StandardConsumeService extends ConsumeService
                 $this->ackMessage($messageView);
                 $pq->evictMessage($messageView);
             } else {
-                $deliveryAttempt = method_exists($messageView, 'getDeliveryAttempt') ? $messageView->getDeliveryAttempt() : 1;
+                $deliveryAttempt = $messageView instanceof MessageViewInterface
+                    ? $messageView->getDeliveryAttempt()
+                    : (method_exists($messageView, 'getDeliveryAttempt') ? $messageView->getDeliveryAttempt() : 1);
                 if ($deliveryAttempt >= $this->maxAttempts) {
                     $this->logger->debug('StandardConsumerService consume failed, messageId: %s, deliveryAttempt: %s , forwarding to DLQ', $messageId, $deliveryAttempt);
                     $this->forwardToDeadLetterQueue($messageView, $deliveryAttempt);
@@ -541,7 +560,9 @@ class FifoConsumeService extends ConsumeService
     protected function getMessageGroupKey($messageView)
     {
         $sysProps = $messageView->getSystemProperties();
-        if ($sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup()) {
+        if ($sysProps instanceof SystemPropertiesInterface) {
+            return $sysProps->hasMessageGroup() ? $sysProps->getMessageGroup() : 'default';
+        } elseif ($sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup()) {
             return $sysProps->getMessageGroup();
         }
         return 'default';
@@ -588,7 +609,11 @@ class FifoConsumeService extends ConsumeService
         }
 
         if ($messageView->isCorrupted()) {
-            $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+            if ($messageView instanceof MessageViewInterface) {
+                $messageId = $messageView->getMessageId() ?: 'unknown';
+            } else {
+                $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+            }
             $this->logger->error("FifoConsumeService: Message $messageId is corrupted");
             $pq->discardFifoMessage($messageView);
             $next = next($messages);
@@ -648,7 +673,11 @@ class FifoConsumeService extends ConsumeService
                 array_shift($groupedMessages[$groupKey]);
 
                 if ($messageView->isCorrupted()) {
-                    $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+                    if ($messageView instanceof MessageViewInterface) {
+                        $messageId = $messageView->getMessageId() ?: 'unknown';
+                    } else {
+                        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+                    }
                     $this->logger->error("FifoConsumeService accelerator: Message $messageId is corrupted");
                     $pq->discardFifoMessage($messageView);
                     continue;
@@ -689,7 +718,9 @@ class FifoConsumeService extends ConsumeService
             $this->nackMessage($messageView, $deliveryAttempt);
             $pq->evictMessage($messageView);
             $retryPolicy = $this->consumer->getRetryPolicy();
-            if ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
+            if ($retryPolicy instanceof RetryPolicyInterface) {
+                $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
+            } elseif ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
                 $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
             } else {
                 $delayMs = min(pow(2, $deliveryAttempt - 1) * 10000, 30000);
@@ -777,7 +808,11 @@ class FifoConsumeService extends ConsumeService
         }
 
         if ($messageView->isCorrupted()) {
-            $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+            if ($messageView instanceof MessageViewInterface) {
+                $messageId = $messageView->getMessageId() ?: 'unknown';
+            } else {
+                $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+            }
             $this->logger->error("FifoConsumeService: discarding Message $messageId is corrupted");
             $pq->discardFifoMessage($messageView);
             return;

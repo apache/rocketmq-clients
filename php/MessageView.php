@@ -32,7 +32,7 @@ use Apache\Rocketmq\V2\Encoding;
  * On construction, verifies body integrity (CRC32) and decompresses GZIP if needed.
  * Marks the message as corrupted if verification or decompression fails.
  */
-class MessageView
+class MessageView implements MessageViewInterface
 {
     private Message $message;
     private ?string $receiptHandle;
@@ -87,6 +87,15 @@ class MessageView
             $body = $message->getBody();
             $this->bodyStr = is_string($body) ? $body : (string)$body;
         }
+    }
+
+    /**
+     * Get the topic resource.
+     * @return object The topic resource
+     */
+    public function getTopicResource(): object
+    {
+        return $this->message->getTopic();
     }
 
     /**
@@ -344,7 +353,7 @@ class MessageView
      *
      * @return object|null The system properties object, or null if not set
      */
-    public function getSystemProperties()
+    public function getSystemProperties(): ?object
     {
         return $this->message->getSystemProperties();
     }

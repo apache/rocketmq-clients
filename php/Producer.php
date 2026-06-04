@@ -73,11 +73,22 @@ class Producer implements TransactionCommitter, ClientTraitProvider
     private readonly ?TlsCredentials $tlsCredentials;
     private readonly bool $sslEnabled;
     private readonly HeartbeatManager $heartbeatManager;
+    private $stateLock = null;
 
     /**
      * @param string $endpoints gRPC server endpoint
      * @param array $options Configuration options (use ProducerBuilder instead)
-     * @deprecated Use ProducerBuilder instead.
+     *                      - clientId: clientId for this client
+     *                      - maxAttempts: max retry attempts
+     *                      - requestTimeout: request timeout
+     *                      - topics: topics to publish
+     *                      - namespace: namespace
+     *                      - interceptors: interceptors
+     *                      - tlsCredentials: tlsCredentials
+     *                      - sslEnabled: sslEnabled
+     *                      - stateLock: stateLock
+     *                      - logger: logger
+     * @deprecated Use ProducerBuilder instead for better type safety and IDE support.
      */
     public function __construct(
         private readonly string $endpoints,
@@ -108,57 +119,76 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
         $this->routeManager = new PublishingRouteManager($this->client, $endpoints, $this);
         $this->heartbeatManager = new HeartbeatManager($this->routeManager, $this->client, $this, $this->tlsCredentials, $this->sslEnabled);
+
+        if (class_exists('\Mutex', false)) {
+            $this->stateLock = \Mutex::create();
+        } elseif (class_exists('\Swoole\Coroutine\Channel', false)) {
+            $this->stateLock = new \Swoole\Coroutine\Channel(1);
+            $this->stateLock->push(1);
+        }
     }
 
     // ==================== Lifecycle ====================
 
     public function start(): void
     {
-        if ($this->isRunning) {
-            return;
-        }
-
+        // Acquire lock to prevent concurrent start
+        $this->acquireLock();
         try {
-            Logger::getInstance('Producer')->info("Begin to start the rocketmq producer, clientId={$this->clientId}");
-            $this->establishTelemetrySession();
-            $this->registerSettingsCallback();
-            $this->registerTransactionCheckerCallback();
+            try {
+                if ($this->isRunning) {
+                    return;
+                }
 
-            $this->routeManager->warmUp($this->topics);
+                Logger::getInstance('Producer')->info("Begin to start the rocketmq producer, clientId={$this->clientId}");
+                $this->establishTelemetrySession();
+                $this->registerSettingsCallback();
+                $this->registerTransactionCheckerCallback();
 
-            $this->isRunning = true;
-            $this->heartbeatManager->start();
+                $this->routeManager->warmUp($this->topics);
 
-            Logger::getInstance('Producer')->info("The rocketmq producer starts successfully, clientId={$this->clientId}");
-        } catch (\Exception $e) {
-            Logger::getInstance('Producer')->error("Failed to start: " . $e->getMessage());
-            $this->shutdown();
-            throw $e;
+                $this->isRunning = true;
+                $this->heartbeatManager->start();
+
+                Logger::getInstance('Producer')->info("The rocketmq producer starts successfully, clientId={$this->clientId}");
+            } catch (\Exception $e) {
+                Logger::getInstance('Producer')->error("Failed to start: " . $e->getMessage());
+                $this->shutdown();
+                throw $e;
+            }
+        } finally {
+            $this->releaseLock();
         }
     }
 
     public function shutdown(): void
     {
-        if (!$this->isRunning) {
-            return;
+        // Acquire lock to prevent concurrent start
+        $this->acquireLock();
+        try {
+            if (!$this->isRunning) {
+                return;
+            }
+
+            $this->shutdownRequested = true;
+            $this->logger->info("Begin to shutdown the rocketmq producer, clientId={$this->clientId}");
+
+            if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
+                \Swoole\Coroutine::sleep(1);
+            }
+
+            $this->heartbeatManager->stop();
+            $this->heartbeatManager->notifyClientTermination();
+
+            if ($this->telemetrySession) {
+                $this->telemetrySession->close();
+            }
+
+            $this->isRunning = false;
+            $this->logger->info("Shutdown the rocketmq producer successfully, clientId={$this->clientId}");
+        } finally {
+            $this->releaseLock();
         }
-
-        $this->shutdownRequested = true;
-        $this->logger->info("Begin to shutdown the rocketmq producer, clientId={$this->clientId}");
-
-        if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
-            \Swoole\Coroutine::sleep(1);
-        }
-
-        $this->heartbeatManager->stop();
-        $this->heartbeatManager->notifyClientTermination();
-
-        if ($this->telemetrySession) {
-            $this->telemetrySession->close();
-        }
-
-        $this->isRunning = false;
-        $this->logger->info("Shutdown the rocketmq producer successfully, clientId={$this->clientId}");
     }
 
     public function __destruct()
@@ -168,6 +198,19 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
     // ==================== Send ====================
 
+    /**
+     * Send a message
+     * @param Message $message to send
+     * @return array Send result containing:
+     * - messageId: messageId
+     * - messageQueue: messageQueue
+     * - offset: offset
+     * - requestId: requestId
+     * - sendTime: sendTime
+     * - transactionId: transactionId
+     * - transactionState: transactionState
+     * @throws \Exception if producer is not running
+     */
     public function send(Message $message): array
     {
         if (!$this->isRunning) {
@@ -203,6 +246,11 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         return $this->sendMessageWithRetry($request, $message, $candidates, $this->maxAttempts);
     }
 
+    /**
+     * Send a message asynchronously
+     * @param Message $message to send
+     * @return \Generator|mixed|null | void
+     */
     public function sendAsync(Message $message)
     {
         if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
@@ -240,6 +288,12 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
     // ==================== Batch Send ====================
 
+    /**
+     * Send a batch of messages
+     * @param array $messages to send
+     * @return array Send result containing:
+     * @throws \Exception if producer is not running
+     */
     public function sendBatch(array $messages): array
     {
         if (!$this->isRunning) {
@@ -293,6 +347,12 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         return $this->sendBatchWithRetry($request, $messages, $messageQueue, $this->maxAttempts);
     }
 
+
+    /**
+     * Generator fallback for sendBatchAsync when Swoole is not available.
+     * @param array $messages to send
+     * @return \Generator|mixed|null | void
+     */
     public function sendBatchAsync(array $messages)
     {
         if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
@@ -330,6 +390,15 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
     // ==================== Convenience Send Methods ====================
 
+    /**
+     * Send a priority message
+     * @param $topic  string Topic name
+     * @param $body  string Message body
+     * @param $priority  int Message priority
+     * @param $tag  string Message tag
+     * @return array Send result containing:
+     * @throws \Exception if producer is not running
+     */
     public function sendPriorityMessage($topic, $body, $priority, $tag = ''): array
     {
         return $this->send($this->buildConvenienceMessage($topic, $body, $tag, function (SystemProperties $sp) use ($priority) {
@@ -337,6 +406,15 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         }));
     }
 
+    /**
+     * Send a delayed message
+     * @param $topic string Topic name
+     * @param $body string Message body
+     * @param $deliveryTimestampUnixSec Unix timestamp
+     * @param $tag  string Message tag
+     * @return array Send result containing:
+     * @throws \Exception if producer is not running
+     */
     public function sendDelayedMessage($topic, $body, $deliveryTimestampUnixSec, $tag = ''): array
     {
         $ts = new Timestamp();
@@ -348,6 +426,16 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         }));
     }
 
+    /**
+     * Send a FIFO message
+     *
+     * @param $topic string Topic name
+     * @param $body string Message body
+     * @param $messageGroup  string FIFO message group
+     * @param $tag  string  Message tag
+     * @return array Send result containing:
+     * @throws \Exception if producer is not running
+     */
     public function sendFifoMessage($topic, $body, $messageGroup, $tag = ''): array
     {
         return $this->send($this->buildConvenienceMessage($topic, $body, $tag, function (SystemProperties $sp) use ($messageGroup) {
@@ -357,6 +445,12 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
     // ==================== Recall ====================
 
+    /**
+     * Recall a message
+     * @param $topic string Topic name
+     * @param $recallHandle recall handle
+     * @return array recall result containing:
+     */
     public function recallMessage($topic, $recallHandle): array
     {
         if (!$this->isRunning) {
@@ -421,6 +515,12 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
     // ==================== Interceptors ====================
 
+    /**
+     * Add an interceptor
+     * @param MessageInterceptor $interceptor The interceptor to add
+     * @return $this  For method chaining
+     * @throws \Exception if producer is not running
+     */
     public function addInterceptor(MessageInterceptor $interceptor)
     {
         if (!isset($this->interceptors)) {
@@ -430,6 +530,12 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         return $this;
     }
 
+    /**
+     * Execute interceptors
+     * @param $hookPoint
+     * @param $context
+     * @return void
+     */
     public function executeInterceptors($hookPoint, $context = [])
     {
         if (empty($this->interceptors)) {
@@ -441,6 +547,40 @@ class Producer implements TransactionCommitter, ClientTraitProvider
             } catch (\Exception $e) {
                 $this->logger->warning("Interceptor failed at {$hookPoint}: " . $e->getMessage());
             }
+        }
+    }
+
+    /**
+     * Acquire lock
+     * @return void
+     */
+    private function acquireLock(): void
+    {
+        if ($this->stateLock === null) {
+            return;
+        }
+
+        if (class_exists('\Mutex', false) && is_resource($this->stateLock)) {
+            \Mutex::lock($this->stateLock);
+        } elseif ($this->stateLock instanceof \Swoole\Coroutine\Channel) {
+            $this->stateLock->pop();
+        }
+    }
+
+    /**
+     * Release lock
+     * @return void
+     */
+    private function releaseLock(): void
+    {
+        if ($this->stateLock === null) {
+            return;
+        }
+
+        if (class_exists('\Mutex', false) && is_resource($this->stateLock)) {
+            \Mutex::unlock($this->stateLock);
+        } elseif ($this->stateLock instanceof \Swoole\Coroutine\Channel) {
+            $this->stateLock->push(1);
         }
     }
 
