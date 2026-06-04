@@ -52,8 +52,8 @@ jobs:
             -DgRPC_BUILD_TESTS=OFF \
             -DgRPC_SSL_PROVIDER=package \
             -DgRPC_ZLIB_PROVIDER=$ZLIB_PROVIDER
-          cmake --build "$TEMP_DIR/grpc-build" --parallel 4
-          cmake --install "$TEMP_DIR/grpc-build"
+          cmake --build "$TEMP_DIR/grpc-build" --parallel 4 --config Release
+          cmake --install "$TEMP_DIR/grpc-build" --config Release
 
       - name: Build
         working-directory: ./cpp
@@ -66,9 +66,9 @@ jobs:
             -DCMAKE_PREFIX_PATH="$TEMP_DIR/grpc-install" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DBUILD_EXAMPLES=OFF
-          cmake --build build --parallel 4
+          cmake --build build --parallel 4 --config Release
 
       - name: Run Unit Tests
         working-directory: ./cpp/build
         shell: bash
-        run: ctest --output-on-failure -j4
+        run: ctest --output-on-failure -j4 -C Release
