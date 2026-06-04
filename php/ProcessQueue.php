@@ -274,11 +274,8 @@ class ProcessQueue
      */
     private function getReceiptHandle($msg): ?string
     {
-        if (method_exists($msg, 'getSystemProperties')) {
-            $sysProps = $msg->getSystemProperties();
-            return $sysProps?->getReceiptHandle();
-        }
-        return null;
+        $sysProps = $msg->getSystemProperties();
+        return $sysProps?->getReceiptHandle();
     }
 
     /**
@@ -318,13 +315,11 @@ class ProcessQueue
         $this->evictedMessageIds[$objId] = true;
         $idx = null;
         // Try O(1) lookup by receipt handle first
-        if (method_exists($messageView, 'getSystemProperties')) {
-            $sysProps = $messageView->getSystemProperties();
-            $receiptHandle = $sysProps->getReceiptHandle();
-            if ($receiptHandle !== null && isset($this->cachedMessagesByReceiptHandle[$receiptHandle])) {
-                $idx = $this->cachedMessagesByReceiptHandle[$receiptHandle];
-                unset($this->cachedMessagesByReceiptHandle[$receiptHandle]);
-            }
+        $sysProps = $messageView->getSystemProperties();
+        $receiptHandle = $sysProps->getReceiptHandle();
+        if ($receiptHandle !== null && isset($this->cachedMessagesByReceiptHandle[$receiptHandle])) {
+            $idx = $this->cachedMessagesByReceiptHandle[$receiptHandle];
+            unset($this->cachedMessagesByReceiptHandle[$receiptHandle]);
         }
 
         if ($idx === null) {

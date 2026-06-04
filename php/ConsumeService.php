@@ -139,8 +139,6 @@ abstract class ConsumeService
             $sysProps = $messageView->getSystemProperties();
             if ($sysProps !== null && $sysProps->hasLiteTopic()) {
                 $entry->setLiteTopic($sysProps->getLiteTopic());
-            } elseif ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
-                $entry->setLiteTopic($sysProps->getLiteTopic());
             }
         }
 
@@ -243,12 +241,10 @@ abstract class ConsumeService
             $request->setMessageId($messageId);
         }
 
-        if (method_exists($messageView, 'getSystemProperties')) {
-            $sysProps = $messageView->getSystemProperties();
-            if ($sysProps !== null && $sysProps->hasLiteTopic()) {
-                $request->setLiteTopic($sysProps->getLiteTopic());
-                $request->setSuspend(true);
-            }
+        $sysProps = $messageView->getSystemProperties();
+        if ($sysProps !== null && $sysProps->hasLiteTopic()) {
+            $request->setLiteTopic($sysProps->getLiteTopic());
+            $request->setSuspend(true);
         }
 
         $metadata = $this->buildMetadata(ClientConstants::GRPC_DEFAULT_TIMEOUT / 1000);
@@ -391,7 +387,7 @@ abstract class ConsumeService
     private function getBrokerClient($messageView)
     {
         $endpoints = $messageView->getEndpoints();
-        if ($endpoints && method_exists($endpoints, 'getAddresses')) {
+        if ($endpoints !== null) {
             $addresses = $endpoints->getAddresses();
             $addressesArray = ProtobufUtil::repeatedFieldToArray($addresses);
             if (!empty($addressesArray) && $addressesArray[0] !== null) {
