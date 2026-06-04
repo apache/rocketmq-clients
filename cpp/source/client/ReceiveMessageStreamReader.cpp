@@ -16,6 +16,7 @@
  */
 
 #include "ReceiveMessageStreamReader.h"
+#include "FmtEnumFormatter.h"
 
 #include <chrono>
 
