@@ -223,10 +223,7 @@ class MessageView implements MessageViewInterface
     public function getMessageId(): string
     {
         $sysProps = $this->message->getSystemProperties();
-        if ($sysProps && method_exists($sysProps, 'getMessageId')) {
-            return $sysProps->getMessageId() ?? '';
-        }
-        return '';
+        return $sysProps?->getMessageId() ?? '';
     }
 
     /**

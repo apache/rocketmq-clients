@@ -245,11 +245,7 @@ abstract class ConsumeService
 
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if ($sysProps instanceof SystemPropertiesInterface && $sysProps->hasLiteTopic()) {
-                $request->setLiteTopic($sysProps->getLiteTopic());
-                $request->setSuspend(true);
-            }
-            elseif ($sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
+            if ($sysProps !== null && $sysProps->hasLiteTopic()) {
                 $request->setLiteTopic($sysProps->getLiteTopic());
                 $request->setSuspend(true);
             }

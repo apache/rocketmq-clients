@@ -276,9 +276,7 @@ class ProcessQueue
     {
         if (method_exists($msg, 'getSystemProperties')) {
             $sysProps = $msg->getSystemProperties();
-            if (method_exists($sysProps, 'getReceiptHandle')) {
-                return $sysProps->getReceiptHandle();
-            }
+            return $sysProps?->getReceiptHandle();
         }
         return null;
     }
@@ -322,12 +320,10 @@ class ProcessQueue
         // Try O(1) lookup by receipt handle first
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if (method_exists($sysProps, 'getReceiptHandle')) {
-                $receiptHandle = $sysProps->getReceiptHandle();
-                if ($receiptHandle !== null && isset($this->cachedMessagesByReceiptHandle[$receiptHandle])) {
-                    $idx = $this->cachedMessagesByReceiptHandle[$receiptHandle];
-                    unset($this->cachedMessagesByReceiptHandle[$receiptHandle]);
-                }
+            $receiptHandle = $sysProps->getReceiptHandle();
+            if ($receiptHandle !== null && isset($this->cachedMessagesByReceiptHandle[$receiptHandle])) {
+                $idx = $this->cachedMessagesByReceiptHandle[$receiptHandle];
+                unset($this->cachedMessagesByReceiptHandle[$receiptHandle]);
             }
         }
 

@@ -58,7 +58,7 @@ class LiteFifoConsumeService extends FifoConsumeService
         $targetLiteTopic = null;
         if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
-            if (method_exists($sysProps, 'getLiteTopic') && $sysProps->hasLiteTopic()) {
+            if ($sysProps !== null && $sysProps->hasLiteTopic()) {
                 $targetLiteTopic = $sysProps->getLiteTopic();
             }
         }
@@ -70,7 +70,7 @@ class LiteFifoConsumeService extends FifoConsumeService
                 $msgLiteTopic = null;
                 if (method_exists($msg, 'getSystemProperties')) {
                     $msgSysProps = $msg->getSystemProperties();
-                    if (method_exists($msgSysProps, "getLiteTopic") && $msgSysProps->hasLiteTopic()) {
+                    if ($msgSysProps !== null && $msgSysProps->hasLiteTopic()) {
                         $msgLiteTopic = $msgSysProps->getLiteTopic();
                     }
                 }
