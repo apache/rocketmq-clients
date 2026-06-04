@@ -1,5 +1,5 @@
 name: CPP Build
-on: 
+on:
   workflow_call:
 jobs:
   build:
@@ -8,35 +8,57 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Disable VS 2022 before https://github.com/bazelbuild/bazel/issues/18592 issue is solved
-        # Remove macos-11 since there is no such runner available
-        # os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019, windows-2022]
-        os: [ubuntu-22.04]
+        os: [ubuntu-22.04, macos-latest, windows-2022]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Compile On Linux
-        working-directory: ./cpp
+
+      - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
-        run: bazel build //...
-      - name: Compile On Windows
-        working-directory: ./cpp
-        if: runner.os == 'Windows'
-        run: bazel build //...
-      - name: Compile On macOS
-        working-directory: ./cpp
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev zlib1g-dev
+
+      - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
-        run: bazel build //...
-      - name: Run Unit Tests On Linux
-        working-directory: ./cpp
-        if: runner.os == 'Linux'
-        run: bazel test //...
-      - name: Run Unit Tests On Windows
-        working-directory: ./cpp  
+        run: brew install openssl zlib
+
+      - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
-        run: bazel test --test_output=streamed //...
-      - name: Run Unit Tests On macOS
+        run: choco install nasm
+
+      - name: Cache gRPC
+        id: cache-grpc
+        uses: actions/cache@v3
+        with:
+          path: ${{ runner.temp }}/grpc-install
+          key: grpc-1.46.3-${{ matrix.os }}
+
+      - name: Build gRPC from source
+        if: steps.cache-grpc.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          git clone --recurse-submodules -b v1.46.3 --depth 1 https://github.com/grpc/grpc.git ${{ runner.temp }}/grpc-src
+          cmake -S ${{ runner.temp }}/grpc-src -B ${{ runner.temp }}/grpc-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=${{ runner.temp }}/grpc-install \
+            -DgRPC_INSTALL=ON \
+            -DgRPC_BUILD_TESTS=OFF \
+            -DgRPC_SSL_PROVIDER=package \
+            -DgRPC_ZLIB_PROVIDER=package
+          cmake --build ${{ runner.temp }}/grpc-build --parallel 4
+          cmake --install ${{ runner.temp }}/grpc-build
+
+      - name: Build
         working-directory: ./cpp
-        if: runner.os == 'macOS'
-        run: bazel test --test_output=errors //...
+        shell: bash
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${{ runner.temp }}/grpc-install" \
+            -DBUILD_EXAMPLES=OFF
+          cmake --build build --parallel 4
+
+      - name: Run Unit Tests
+        working-directory: ./cpp/build
+        shell: bash
+        run: ctest --output-on-failure -j4
