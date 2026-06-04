@@ -39,6 +39,10 @@ jobs:
         run: |
           TEMP_DIR="${{ runner.temp }}"
           TEMP_DIR="${TEMP_DIR//\\//}"
+          ZLIB_PROVIDER=package
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            ZLIB_PROVIDER=module
+          fi
           git clone --recurse-submodules -b v1.46.3 --depth 1 https://github.com/grpc/grpc.git "$TEMP_DIR/grpc-src"
           cmake -S "$TEMP_DIR/grpc-src" -B "$TEMP_DIR/grpc-build" \
             -DCMAKE_BUILD_TYPE=Release \
@@ -47,7 +51,7 @@ jobs:
             -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             -DgRPC_SSL_PROVIDER=package \
-            -DgRPC_ZLIB_PROVIDER=package
+            -DgRPC_ZLIB_PROVIDER=$ZLIB_PROVIDER
           cmake --build "$TEMP_DIR/grpc-build" --parallel 4
           cmake --install "$TEMP_DIR/grpc-build"
 
