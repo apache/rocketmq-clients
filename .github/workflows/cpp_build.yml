@@ -37,24 +37,29 @@ jobs:
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          git clone --recurse-submodules -b v1.46.3 --depth 1 https://github.com/grpc/grpc.git ${{ runner.temp }}/grpc-src
-          cmake -S ${{ runner.temp }}/grpc-src -B ${{ runner.temp }}/grpc-build \
+          TEMP_DIR="${{ runner.temp }}"
+          TEMP_DIR="${TEMP_DIR//\\//}"
+          git clone --recurse-submodules -b v1.46.3 --depth 1 https://github.com/grpc/grpc.git "$TEMP_DIR/grpc-src"
+          cmake -S "$TEMP_DIR/grpc-src" -B "$TEMP_DIR/grpc-build" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=${{ runner.temp }}/grpc-install \
+            -DCMAKE_INSTALL_PREFIX="$TEMP_DIR/grpc-install" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             -DgRPC_SSL_PROVIDER=package \
             -DgRPC_ZLIB_PROVIDER=package
-          cmake --build ${{ runner.temp }}/grpc-build --parallel 4
-          cmake --install ${{ runner.temp }}/grpc-build
+          cmake --build "$TEMP_DIR/grpc-build" --parallel 4
+          cmake --install "$TEMP_DIR/grpc-build"
 
       - name: Build
         working-directory: ./cpp
         shell: bash
         run: |
+          TEMP_DIR="${{ runner.temp }}"
+          TEMP_DIR="${TEMP_DIR//\\//}"
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="${{ runner.temp }}/grpc-install" \
+            -DCMAKE_PREFIX_PATH="$TEMP_DIR/grpc-install" \
             -DBUILD_EXAMPLES=OFF
           cmake --build build --parallel 4
 
