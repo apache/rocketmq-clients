@@ -24,18 +24,19 @@ namespace Apache\Rocketmq;
  */
 class LitePushConsumerBuilder
 {
-    private $endpoints = '';
-    private $consumerGroup = '';
-    private $parentTopic = '';
-    private $credentials = null;
+    private string $endpoints = '';
+    private string $consumerGroup = '';
+    private string $parentTopic = '';
+    private ?SessionCredentials $credentials = null;
+    /** @var callable|null */
     private $messageListener = null;
-    private $maxCacheMessageCount = 4096;
-    private $maxCacheMessageSizeInBytes = 67108864;
-    private $consumptionThreadCount = 1;
-    private $enableFifoConsumeAccelerator = true;
-    private $namespace = '';
-    private $liteTopics = [];
-    private $tlsCredentials = null;
+    private int $maxCacheMessageCount = 4096;
+    private int $maxCacheMessageSizeInBytes = 67108864;
+    private int $consumptionThreadCount = 1;
+    private bool $enableFifoConsumeAccelerator = true;
+    private string $namespace = '';
+    private array $liteTopics = [];
+    private ?TlsCredentials $tlsCredentials = null;
 
     /**
      * Set client configuration.

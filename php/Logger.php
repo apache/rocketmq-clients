@@ -35,12 +35,13 @@ class Logger
     const LEVEL_WARNING = 2;
     const LEVEL_ERROR = 3;
 
-    private static $instances = [];
-    private static $logLevel = self::LEVEL_INFO;
-    private static $logFile = null;
+    private static array $instances = [];
+    private static int $logLevel = self::LEVEL_INFO;
+    private static ?string $logFile = null;
+    /** @var resource|false|null */
     private static $handle = null;
 
-    private $component;
+    private string $component;
 
     /**
      * Get or create a Logger instance for the given component.
@@ -48,7 +49,7 @@ class Logger
      * @param string $component Component name (e.g., 'Producer', 'SimpleConsumer')
      * @return Logger
      */
-    public static function getInstance($component)
+    public static function getInstance(string $component): self
     {
         if (!isset(self::$instances[$component])) {
             self::$instances[$component] = new self($component);
@@ -62,7 +63,7 @@ class Logger
      * @param int $level One of the LEVEL_* constants
      * @return void
      */
-    public static function setLogLevel($level)
+    public static function setLogLevel(int $level): void
     {
         self::$logLevel = $level;
     }
@@ -73,12 +74,12 @@ class Logger
      * @param string $path Absolute path to the log file
      * @return void
      */
-    public static function setLogFile($path)
+    public static function setLogFile(string $path): void
     {
-        if (self::$handle !== null) {
+        if (self::$handle !== null && self::$handle !== false) {
             fclose(self::$handle);
-            self::$handle = null;
         }
+        self::$handle = null;
         self::$logFile = $path;
     }
 
@@ -145,7 +146,7 @@ class Logger
      *
      * @param string $component Component name for log line prefix
      */
-    private function __construct($component)
+    private function __construct(string $component)
     {
         $this->component = $component;
         self::initTimezone();
@@ -157,7 +158,7 @@ class Logger
      * @param string $message The log message
      * @return void
      */
-    public function debug($message)
+    public function debug(string $message): void
     {
         $this->log(self::LEVEL_DEBUG, $message);
     }
@@ -168,7 +169,7 @@ class Logger
      * @param string $message The log message
      * @return void
      */
-    public function info($message)
+    public function info(string $message): void
     {
         $this->log(self::LEVEL_INFO, $message);
     }
@@ -179,7 +180,7 @@ class Logger
      * @param string $message The log message
      * @return void
      */
-    public function warning($message)
+    public function warning(string $message): void
     {
         $this->log(self::LEVEL_WARNING, $message);
     }
@@ -190,7 +191,7 @@ class Logger
      * @param string $message The log message
      * @return void
      */
-    public function error($message)
+    public function error(string $message): void
     {
         $this->log(self::LEVEL_ERROR, $message);
     }
@@ -202,7 +203,7 @@ class Logger
      * @param string $message The log message
      * @return void
      */
-    private function log($level, $message)
+    private function log(int $level, string $message): void
     {
         if ($level < self::$logLevel) {
             return;
@@ -278,9 +279,9 @@ class Logger
      *
      * @return void
      */
-    public static function close()
+    public static function close(): void
     {
-        if (self::$handle !== null) {
+        if (self::$handle !== null && self::$handle !== false) {
             fclose(self::$handle);
             self::$handle = null;
         }

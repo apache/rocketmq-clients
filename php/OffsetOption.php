@@ -33,8 +33,8 @@ class OffsetOption
     const POLICY_MIN_VALUE = 1;
     const POLICY_MAX_VALUE = 2;
 
-    private $type;
-    private $value;
+    private string $type;
+    private int $value;
 
     /**
      * Private constructor. Use static factory methods instead.

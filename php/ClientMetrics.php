@@ -20,18 +20,18 @@ namespace Apache\Rocketmq;
 
 class ClientMetrics
 {
-    private static $instance = null;
+    private static ?self $instance = null;
 
-    private $sendCount = 0;
-    private $sendErrorCount = 0;
-    private $sendLatencyMs = [];
-    private $receiveCount = 0;
-    private $receiveErrorCount = 0;
-    private $consumeOkCount = 0;
-    private $consumeErrorCount = 0;
-    private $ackCount = 0;
-    private $ackErrorCount = 0;
-    private $startTime = 0;
+    private int $sendCount = 0;
+    private int $sendErrorCount = 0;
+    private array $sendLatencyMs = [];
+    private int $receiveCount = 0;
+    private int $receiveErrorCount = 0;
+    private int $consumeOkCount = 0;
+    private int $consumeErrorCount = 0;
+    private int $ackCount = 0;
+    private int $ackErrorCount = 0;
+    private int $startTime = 0;
 
     /**
      * Private constructor - initialize start time.
@@ -46,7 +46,7 @@ class ClientMetrics
      *
      * @return ClientMetrics The singleton ClientMetrics instance
      */
-    public static function getInstance()
+    public static function getInstance(): self
     {
         if (self::$instance === null) {
             self::$instance = new self();
@@ -59,7 +59,7 @@ class ClientMetrics
      *
      * @return void
      */
-    public static function reset()
+    public static function reset(): void
     {
         self::$instance = null;
     }
@@ -230,7 +230,7 @@ class ClientMetrics
 
 class MetricsInterceptor implements MessageInterceptor
 {
-    private $metrics;
+    private ClientMetrics $metrics;
 
     /**
      * Construct a metrics interceptor and attach the singleton ClientMetrics.

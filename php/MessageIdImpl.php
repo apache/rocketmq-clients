@@ -23,8 +23,8 @@ namespace Apache\Rocketmq;
  */
 class MessageIdImpl implements MessageId
 {
-    private $version;
-    private $suffix;
+    private string $version;
+    private string $suffix;
 
     /**
      * Construct a new MessageIdImpl instance.
@@ -32,7 +32,7 @@ class MessageIdImpl implements MessageId
      * @param string $version Version number
      * @param string $suffix  Suffix
      */
-    public function __construct($version, $suffix)
+    public function __construct(string $version, string $suffix)
     {
         $this->version = $version;
         $this->suffix = $suffix;

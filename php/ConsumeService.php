@@ -39,8 +39,9 @@ abstract class ConsumeService
     use ClientTrait;
 
     protected Logger $logger;
+    /** @var callable */
     protected $messageListener;
-    protected \Apache\Rocketmq\ConsumerInterface $consumer;
+    protected ConsumerInterface $consumer;
     protected int $maxAttempts = 5;
 
     /**
@@ -48,7 +49,7 @@ abstract class ConsumeService
      * @param callable $messageListener User callback: function($messageView): int
      * @param \Apache\Rocketmq\ConsumerInterface $consumer Reference to PushConsumer
      */
-    public function __construct($logger, $messageListener, \Apache\Rocketmq\ConsumerInterface $consumer)
+    public function __construct(Logger $logger, callable $messageListener, ConsumerInterface $consumer)
     {
         $this->logger = $logger;
         $this->messageListener = $messageListener;
@@ -586,7 +587,7 @@ class FifoConsumeService extends ConsumeService
         }
 
         if ($messageView->isCorrupted()) {
-            $messageId = $messageView instanceof MessageViewInterface ? ($messageView->getMessageId() ?: 'unknown') : 'unknown';
+            $messageId = $messageView->getMessageId() ?: 'unknown';
             $this->logger->error("FifoConsumeService: Message $messageId is corrupted");
             $pq->discardFifoMessage($messageView);
             $next = next($messages);
@@ -646,7 +647,7 @@ class FifoConsumeService extends ConsumeService
                 array_shift($groupedMessages[$groupKey]);
 
                 if ($messageView->isCorrupted()) {
-                    $messageId = $messageView instanceof MessageViewInterface ? ($messageView->getMessageId() ?: 'unknown') : 'unknown';
+                    $messageId = $messageView->getMessageId() ?: 'unknown';
                     $this->logger->error("FifoConsumeService accelerator: Message $messageId is corrupted");
                     $pq->discardFifoMessage($messageView);
                     continue;
@@ -775,7 +776,7 @@ class FifoConsumeService extends ConsumeService
         }
 
         if ($messageView->isCorrupted()) {
-            $messageId = $messageView instanceof MessageViewInterface ? ($messageView->getMessageId() ?: 'unknown') : 'unknown';
+            $messageId = $messageView->getMessageId() ?: 'unknown';
             $this->logger->error("FifoConsumeService: discarding Message $messageId is corrupted");
             $pq->discardFifoMessage($messageView);
             return;

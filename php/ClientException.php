@@ -20,7 +20,6 @@ namespace Apache\Rocketmq;
 
 class ClientException extends \Exception
 {
-    protected $code;
 
     /**
      * Construct a client exception with a status code and optional message.

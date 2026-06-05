@@ -63,6 +63,11 @@ class FakeConsumer implements \Apache\Rocketmq\ConsumerInterface
         return null;
     }
 
+    public function buildMetadata(?int $timeoutMs = null): array
+    {
+        return [];
+    }
+
     public function ackMessage(\Apache\Rocketmq\MessageView $messageView): bool
     {
         $this->ackCalls[] = $messageView;

@@ -30,8 +30,8 @@ use Apache\Rocketmq\V2\Permission;
  */
 class PublishingLoadBalancer
 {
-    private $index;
-    private $messageQueues = [];
+    private int $index;
+    private array $messageQueues = [];
 
     /**
      * Initialize the load balancer with writable message queues from route data.
@@ -78,7 +78,7 @@ class PublishingLoadBalancer
      * @param string $messageGroup
      * @return object|null MessageQueue
      */
-    public function takeMessageQueueByMessageGroup($messageGroup)
+    public function takeMessageQueueByMessageGroup(string $messageGroup): ?object
     {
         if (empty($this->messageQueues)) {
             return null;
@@ -99,7 +99,7 @@ class PublishingLoadBalancer
      * @param int $count Number of queues to take
      * @return array Array of MessageQueue objects
      */
-    public function takeMessageQueue($excludedBrokerNames, $count)
+    public function takeMessageQueue(array $excludedBrokerNames, int $count): array
     {
         if (empty($this->messageQueues)) {
             return [];
@@ -146,7 +146,7 @@ class PublishingLoadBalancer
      *
      * @return array Array of writable MessageQueue objects
      */
-    public function getMessageQueues()
+    public function getMessageQueues(): array
     {
         return $this->messageQueues;
     }
@@ -177,7 +177,7 @@ class PublishingLoadBalancer
      * @return void
      * @throws \InvalidArgumentException if message type is not accepted by the queue
      */
-    public function validateMessageTypeAgainstQueue($messageQueue, $messageType, $topic)
+    public function validateMessageTypeAgainstQueue(object $messageQueue, int $messageType, string $topic): void
     {
         if (!method_exists($messageQueue, 'getAcceptMessageTypes')) {
             return;

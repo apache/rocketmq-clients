@@ -28,7 +28,7 @@ class ConsumeResultSuspend extends ConsumeResult
     const SUSPEND = 2;
     const MIN_SUSPEND_TIME_MS = 50;
 
-    private $suspendTimeMs;
+    private int $suspendTimeMs;
 
     /**
      * Private constructor - instantiated only via ConsumeResultSuspend::of().

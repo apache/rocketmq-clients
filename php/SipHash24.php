@@ -33,9 +33,9 @@ namespace Apache\Rocketmq;
 class SipHash24
 {
     /** @var int */
-    private $k0;
+    private int $k0;
     /** @var int */
-    private $k1;
+    private int $k1;
     
     // 64-bit mask constant (avoid float conversion)
     private const MASK_64 = -1; // All bits set to 1 in two's complement
@@ -46,7 +46,7 @@ class SipHash24
      * @param int $k0 Key part 0 (will be masked to 64 bits)
      * @param int $k1 Key part 1 (will be masked to 64 bits)
      */
-    public function __construct($k0 = 0, $k1 = 0)
+    public function __construct(int $k0 = 0, int $k1 = 0)
     {
         $this->k0 = (int)$k0 & self::MASK_64;
         $this->k1 = (int)$k1 & self::MASK_64;
@@ -58,7 +58,7 @@ class SipHash24
      * @param string $data Input data
      * @return int|float 64-bit hash value (may be float on 32-bit PHP if value exceeds PHP_INT_MAX)
      */
-    public static function hash($data)
+    public static function hash(string $data): int
     {
         $instance = new self();
         return $instance->hashBytes($data);
@@ -70,7 +70,7 @@ class SipHash24
      * @param string $data Input data
      * @return int|float 64-bit hash value (may be float on 32-bit PHP if value exceeds PHP_INT_MAX)
      */
-    public function hashBytes($data)
+    public function hashBytes(string $data): int
     {
         $length = strlen($data);
 
@@ -122,7 +122,7 @@ class SipHash24
      * @param int $offset Byte offset to read from
      * @return int|float 64-bit value (may be float on 32-bit PHP)
      */
-    private function readLong($data, $offset)
+    private function readLong(string $data, int $offset): int
     {
         if (PHP_INT_SIZE >= 8) {
             // 64-bit PHP: direct calculation
@@ -159,7 +159,7 @@ class SipHash24
      * @param int|float $v3 State word 3
      * @return array Array of four state words [$v0, $v1, $v2, $v3]
      */
-    private function sipRound($v0, $v1, $v2, $v3)
+    private function sipRound(int $v0, int $v1, int $v2, int $v3): array
     {
         $v0 = self::add64($v0, $v1);
         $v1 = self::rotl64($v1, 13);
@@ -189,7 +189,7 @@ class SipHash24
      * @param int|float $b Second 64-bit operand
      * @return int|float 64-bit sum masked to 64 bits
      */
-    private static function add64($a, $b)
+    private static function add64(int $a, int $b): int
     {
         if (PHP_INT_SIZE >= 8) {
             $sum = (int)$a + (int)$b;
@@ -225,7 +225,7 @@ class SipHash24
      * @param int|float $b Second 64-bit operand
      * @return int|float 64-bit XOR result masked to 64 bits
      */
-    private static function xor64($a, $b)
+    private static function xor64(int $a, int $b): int
     {
         if (PHP_INT_SIZE >= 8) {
             return ((int)$a ^ (int)$b) & self::MASK_64;
@@ -246,7 +246,7 @@ class SipHash24
      * @param int $mask 64-bit mask value
      * @return int|float 64-bit masked result
      */
-    private static function and64($a, $mask)
+    private static function and64(int $a, int $mask): int
     {
         if (PHP_INT_SIZE >= 8) {
             return (int)($a & $mask);
@@ -267,7 +267,7 @@ class SipHash24
      * @param int $n Number of bits to rotate left
      * @return int|float 64-bit rotated result masked to 64 bits
      */
-    private static function rotl64($a, $n)
+    private static function rotl64(int $a, int $n): int
     {
         if (PHP_INT_SIZE >= 8) {
             return (((int)$a << $n) | ((int)$a >> (64 - $n))) & self::MASK_64;

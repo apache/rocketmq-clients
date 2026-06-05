@@ -24,20 +24,21 @@ namespace Apache\Rocketmq;
  */
 class PushConsumerBuilder
 {
-    private $endpoints = '';
-    private $consumerGroup = '';
-    private $credentials = null;
-    private $subscriptionExpressions = [];
+    private string $endpoints = '';
+    private string $consumerGroup = '';
+    private ?SessionCredentials $credentials = null;
+    private array $subscriptionExpressions = [];
+    /** @var callable|null */
     private $messageListener = null;
-    private $maxCacheMessageCount = 4096;
-    private $maxCacheMessageSizeInBytes = 67108864;
-    private $awaitDuration = 30;
-    private $consumptionThreadCount = 1; // no-op in PHP, stored for API parity
-    private $enableFifoConsumeAccelerator = false;
-    private $enableMessageInterceptorFiltering = false;
-    private $namespace = '';
-    private $fifo = false;
-    private $tlsCredentials = null;
+    private int $maxCacheMessageCount = 4096;
+    private int $maxCacheMessageSizeInBytes = 67108864;
+    private int $awaitDuration = 30;
+    private int $consumptionThreadCount = 1; // no-op in PHP, stored for API parity
+    private bool $enableFifoConsumeAccelerator = false;
+    private bool $enableMessageInterceptorFiltering = false;
+    private string $namespace = '';
+    private bool $fifo = false;
+    private ?TlsCredentials $tlsCredentials = null;
 
     /**
      * Set client configuration.

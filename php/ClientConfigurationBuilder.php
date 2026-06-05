@@ -24,13 +24,13 @@ namespace Apache\Rocketmq;
  */
 class ClientConfigurationBuilder
 {
-    private $endpoints = null;
-    private $sessionCredentialsProvider = null;
-    private $requestTimeoutMs = 3000; // default 3s
-    private $sslEnabled = true;
-    private $namespace = '';
-    private $maxStartupAttempts = 3;
-    private $tlsCredentials = null;
+    private ?string $endpoints = null;
+    private ?SessionCredentials $sessionCredentialsProvider = null;
+    private int $requestTimeoutMs = 3000; // default 3s
+    private bool $sslEnabled = true;
+    private string $namespace = '';
+    private int $maxStartupAttempts = 3;
+    private ?TlsCredentials $tlsCredentials = null;
 
     /**
      * Set the service endpoint address (required).

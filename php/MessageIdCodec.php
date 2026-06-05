@@ -55,13 +55,13 @@ class MessageIdCodec
     const MESSAGE_ID_VERSION_V0 = '00';
     const MESSAGE_ID_VERSION_V1 = '01';
 
-    private static $instance = null;
+    private static ?self $instance = null;
 
-    private $processFixedStringV1;
-    private $secondsSinceCustomEpoch;
-    private $secondsStartTimestamp;
-    private $seconds;
-    private $sequence;
+    private string $processFixedStringV1;
+    private int $secondsSinceCustomEpoch;
+    private int $secondsStartTimestamp;
+    private int $seconds;
+    private int $sequence;
 
     /**
      * Private constructor (singleton pattern).

@@ -24,7 +24,6 @@ use Apache\Rocketmq\V2\FilterExpression;
 use Apache\Rocketmq\V2\Resource;
 use Google\Protobuf\Duration;
 use Apache\Rocketmq\V2\MessagingServiceClient;
-use Grpc\ChannelCredentials;
 
 /**
  * ProcessQueue - Per-MessageQueue message cache and fetcher.
@@ -120,7 +119,7 @@ class ProcessQueue
         $requestTimeoutMs = 3000;
         $awaitDurationMs = $awaitDuration * 1000;
         $totalTimeoutMs = $requestTimeoutMs + $awaitDurationMs;
-        $metadata = $this->buildMetadata($totalTimeoutMs);
+        $metadata = $this->consumer->buildMetadata($totalTimeoutMs);
 
         $this->logger->debug("ProcessQueue fetching messages from queue, batchSize={$batchSize}, attemptId={$this->attemptId}");
 
@@ -522,32 +521,6 @@ class ProcessQueue
         return $duration;
     }
 
-    /**
-     * Build metadata for gRPC calls using Signature.
-     *
-     * @param int|null $timeoutMs Optional timeout in milliseconds
-     * @return array
-     */
-    private function buildMetadata(?int $timeoutMs = null)
-    {
-        $credentials = null;
-        $namespace = '';
-        $credentials = $this->consumer->getSessionCredentials();
-        $namespace = $this->consumer->getNamespace();
-        $metadata = Signature::sign(
-            $credentials,
-            $this->consumer->getClientId(),
-            ClientConstants::LANGUAGE,
-            ClientConstants::CLIENT_VERSION,
-            $namespace,
-            'v2'
-        );
-        if ($timeoutMs !== null) {
-            $timeoutUs = $timeoutMs * 1000;
-            $metadata['grpc-timeout'] = [$timeoutUs . 'u'];
-        }
-        return $metadata;
-    }
 
     /**
      * Get the gRPC messaging service client for receiving messages.

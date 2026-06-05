@@ -56,7 +56,9 @@ use Grpc\ChannelCredentials;
  */
 class PushConsumer implements ConsumerInterface
 {
-    use ClientTrait;
+    use ClientTrait {
+        buildMetadata as public;
+    }
 
     private readonly MessagingServiceClient $client;
     protected readonly string $clientId;
@@ -71,6 +73,7 @@ class PushConsumer implements ConsumerInterface
     protected readonly Logger $logger;
 
     // Builder options
+    /** @var callable|null */
     protected $messageListener = null;
     private int $maxCacheMessageCount = 4096;
     private int $maxCacheMessageSizeInBytes = 67108864; // 64MB
@@ -83,10 +86,11 @@ class PushConsumer implements ConsumerInterface
     private readonly ?SessionCredentials $credentials;
     private readonly string $namespace;
     private int $lastHeartbeatTime = 0;
-    private $shutdownDrainDeadline = null;
+    private ?int $shutdownDrainDeadline = null;
     private ?ExponentialBackoffRetryPolicy $retryPolicy;
     private readonly ?TlsCredentials $tlsCredentials;
     private readonly bool $sslEnabled;
+    private array $interceptors = [];
 
     /**
      * Constructor with builder-style options.
@@ -601,11 +605,8 @@ class PushConsumer implements ConsumerInterface
      * @param MessageInterceptor $interceptor
      * @return $this
      */
-    public function addInterceptor(MessageInterceptor $interceptor)
+    public function addInterceptor(MessageInterceptor $interceptor): self
     {
-        if (!isset($this->interceptors)) {
-            $this->interceptors = [];
-        }
         $this->interceptors[] = $interceptor;
         return $this;
     }

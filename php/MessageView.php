@@ -57,7 +57,7 @@ class MessageView implements MessageViewInterface
         $this->message = $message;
         if ($receiptHandle == null) {
             $sysProps = $message->getSystemProperties();
-            $receiptHandle = $sysProps->getReceiptHandle();
+            $receiptHandle = $sysProps?->getReceiptHandle() ?: null;
         }
         $this->receiptHandle = $receiptHandle;
         $this->endpoints = $endpoints;

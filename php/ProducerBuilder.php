@@ -24,18 +24,18 @@ namespace Apache\Rocketmq;
  */
 class ProducerBuilder
 {
-    private $endpoints = '';
-    private $credentials = null;
-    private $topics = [];
-    private $maxAttempts = 3;
-    private $requestTimeout = 3000;
-    private $namespace = '';
-    private $transactionChecker = null;
-    private $localTransactionExecuter = null;
-    private $validateMessageType = true;
-    private $maxBodySizeBytes = 4194304;
-    private $tlsCredentials = null;
-    private $sslEnabled = true;
+    private string $endpoints = '';
+    private ?SessionCredentials $credentials = null;
+    private array $topics = [];
+    private int $maxAttempts = 3;
+    private int $requestTimeout = 3000;
+    private string $namespace = '';
+    private ?TransactionChecker $transactionChecker = null;
+    private ?LocalTransactionExecuter $localTransactionExecuter = null;
+    private bool $validateMessageType = true;
+    private int $maxBodySizeBytes = 4194304;
+    private ?TlsCredentials $tlsCredentials = null;
+    private bool $sslEnabled = true;
 
     /**
      * Set client configuration.

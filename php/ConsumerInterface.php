@@ -55,6 +55,13 @@ interface ConsumerInterface
     public function getSessionCredentials(): ?SessionCredentials;
 
     /**
+     * Build metadata for gRPC calls.
+     * @param int|null $timeoutMs Optional timeout in milliseconds
+     * @return array
+     */
+    public function buildMetadata(?int $timeoutMs = null): array;
+
+    /**
      * ACK a message (acknowledge successful consumption)
      *
      * @param MessageView $messageView The message to

@@ -60,13 +60,13 @@ class SimpleConsumer
     private string $namespace = '';
     private int $requestTimeout = 3000; // ms
     private array $interceptors = [];
-    private $parsedEndpoints = null;
+    private ?array $parsedEndpoints = null;
     private int $awaitDuration = 30; // seconds
     private int $lastHeartbeatTime = 0;
     private array $brokerClients = [];
     private array $subscriptionRouteDataCache = [];
     private int $topicIndex = 0;
-    private $heartbeatCoroutineId = null;
+    private ?int $heartbeatCoroutineId = null;
     private readonly ?TlsCredentials $tlsCredentials;
     private readonly bool $sslEnabled;
     private bool $heartbeatInProgress = false;

@@ -24,13 +24,13 @@ namespace Apache\Rocketmq;
  */
 class SimpleConsumerBuilder
 {
-    private $endpoints = '';
-    private $consumerGroup = '';
-    private $credentials = null;
-    private $subscriptionExpressions = [];
-    private $awaitDuration = 30;
-    private $namespace = '';
-    private $tlsCredentials = null;
+    private string $endpoints = '';
+    private string $consumerGroup = '';
+    private ?SessionCredentials $credentials = null;
+    private array $subscriptionExpressions = [];
+    private int $awaitDuration = 30;
+    private string $namespace = '';
+    private ?TlsCredentials $tlsCredentials = null;
 
     /**
      * Set client configuration.

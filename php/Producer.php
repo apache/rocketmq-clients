@@ -501,11 +501,8 @@ class Producer implements TransactionCommitter, ClientTraitProvider
      * @return $this  For method chaining
      * @throws \Exception if producer is not running
      */
-    public function addInterceptor(MessageInterceptor $interceptor)
+    public function addInterceptor(MessageInterceptor $interceptor): self
     {
-        if (!isset($this->interceptors)) {
-            $this->interceptors = [];
-        }
         $this->interceptors[] = $interceptor;
         return $this;
     }

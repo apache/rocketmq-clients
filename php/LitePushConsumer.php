@@ -43,9 +43,10 @@ class LitePushConsumer extends PushConsumer
     private int $liteSubscriptionQuota = 0;
     private int $maxLiteTopicSize = 64;
     private int $syncLiteSubscriptionInterval = 30;
-    private $liteMessageListener = null; // callable|null, per-lite-topic callback
+    /** @var callable|null per-lite-topic callback */
+    private $liteMessageListener = null;
     private int $lastSyncTime = 0;
-    private $virtualProcessQueue = null; // ProcessQueue|null
+    private ?ProcessQueue $virtualProcessQueue = null; // ProcessQueue|null
 
     /**
      * Constructor.

@@ -29,11 +29,12 @@ require_once __DIR__ . '/helpers/FakeConsumer.php';
 
 use Apache\Rocketmq\ConsumeResult;
 use Apache\Rocketmq\StandardConsumeService;
+use Apache\Rocketmq\MessageViewInterface;
 
 /**
  * Fake message view for testing.
  */
-class FakeMessageView {
+class FakeMessageView implements MessageViewInterface {
     private $systemProperties;
     private $body;
     private $topic;
@@ -42,12 +43,17 @@ class FakeMessageView {
     {
         $this->body = $body;
         $this->systemProperties = new FakeSystemProps($receiptHandle, $messageId);
-        $this->topic = new FakeTopic($topic);
+        $this->topic = $topic;
     }
 
-    public function getSystemProperties() { return $this->systemProperties; }
+    public function getSystemProperties(): ?object { return $this->systemProperties; }
     public function getBody() { return $this->body; }
-    public function getTopic() { return $this->topic; }
+    public function getTopic(): string { return $this->topic; }
+    public function getMessageId(): string { return $this->systemProperties?->getMessageId() ?? ''; }
+    public function getDeliveryAttempt(): int { return 1; }
+    public function incrementDeliveryAttempt(): void {}
+    public function isCorrupted(): bool { return false; }
+    public function getEndpoints(): ?object { return null; }
 }
 
 class FakeSystemProps {

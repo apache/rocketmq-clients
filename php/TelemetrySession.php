@@ -43,6 +43,7 @@ class TelemetrySession
     private const MAX_INSTANCES = 10;
     private object $client;
     private string $endpoints;
+    /** @var object|null gRPC stream */
     private $stream;
     private Logger $logger;
     private string $clientId;
@@ -59,23 +60,29 @@ class TelemetrySession
     private string $namespace = '';
 
     // Settings received from server
-    private $serverSettings = null;
+    private ?object $serverSettings = null;
 
     // Settings change callback
+    /** @var callable|null */
     private $onSettingsChange = null;
 
     // Server command callbacks
+    /** @var callable|null */
     private $onRecoverOrphanedTransaction = null;
+    /** @var callable|null */
     private $onVerifyMessage = null;
+    /** @var callable|null */
     private $onPrintThreadStackTrace = null;
+    /** @var callable|null */
     private $onReconnectEndpoints = null;
+    /** @var callable|null */
     private $onNotifyUnsubscribeLite = null;
 
     // Swoole coroutine reader state
     private int $swooleCoroutineId = -1;
     private bool $isClosing = false;
     private bool $isReconnecting = false;
-    private $lastSettingsCommand = null;
+    private ?object $lastSettingsCommand = null;
 
     /**
      * Initialize telemetry session with client and connection details.

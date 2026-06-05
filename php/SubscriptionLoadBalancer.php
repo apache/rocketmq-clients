@@ -28,8 +28,8 @@ use Apache\Rocketmq\V2\Permission;
  */
 class SubscriptionLoadBalancer
 {
-    private $messageQueues = [];
-    private $queueIndex = 0;
+    private array $messageQueues = [];
+    private int $queueIndex = 0;
 
     /**
      * Initialize with route data, filtering readable master queues.
