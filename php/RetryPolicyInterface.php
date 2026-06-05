@@ -36,7 +36,7 @@ interface RetryPolicyInterface
      * Get the delay for the next retry attempt in milliseconds.
      *
      * @param int $attempt Current attempt number.(1-based)
-     * @return int Delay int milliseconds.
+     * @return int Delay in milliseconds.
      */
     public function getNextAttemptDelayMs(int $attempt): int;
 

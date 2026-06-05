@@ -111,13 +111,7 @@ trait ClientTrait
      */
     protected function extractReceiptHandle($messageView): ?string
     {
-        // try interface first
         if ($messageView instanceof MessageViewInterface) {
-            $sysProps = $messageView->getSystemProperties();
-            return $sysProps?->getReceiptHandle();
-        }
-        // Fallback for backward compatibility
-        if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
             return $sysProps?->getReceiptHandle();
         }
@@ -135,10 +129,6 @@ trait ClientTrait
         if ($messageView instanceof MessageViewInterface) {
             return $messageView->getMessageId();
         }
-        if (method_exists($messageView, 'getSystemProperties')) {
-            $sysProps = $messageView->getSystemProperties();
-            return $sysProps?->getMessageId();
-        }
         return null;
     }
 
@@ -150,16 +140,9 @@ trait ClientTrait
      */
     protected function extractTopic($messageView): ?string
     {
-        // try interface first
         if ($messageView instanceof MessageViewInterface) {
             $topic = $messageView->getTopic();
             return $topic !== '' ? $topic : null;
-        }
-        if (method_exists($messageView, 'getTopic')) {
-            $topic = $messageView->getTopic();
-            if ($topic !== '') {
-                return is_object($topic) ? $topic->getName() : (string) $topic;
-            }
         }
         return null;
     }
@@ -202,15 +185,7 @@ trait ClientTrait
      */
     protected function extractLiteTopic($messageView): ?string
     {
-        // try interface first
         if ($messageView instanceof MessageViewInterface) {
-            $sysProps = $messageView->getSystemProperties();
-            if ($sysProps !== null && $sysProps->hasLiteTopic()) {
-                return $sysProps->getLiteTopic();
-            }
-            return null;
-        }
-        if (method_exists($messageView, 'getSystemProperties')) {
             $sysProps = $messageView->getSystemProperties();
             if ($sysProps !== null && $sysProps->hasLiteTopic()) {
                 return $sysProps->getLiteTopic();

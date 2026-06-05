@@ -168,7 +168,7 @@ class ProcessQueue
     private function getMaxAttempts(): int
     {
         $retryPolicy = $this->consumer->getRetryPolicy();
-        if ($retryPolicy !== null && method_exists($retryPolicy, 'getMaxAttempts')) {
+        if ($retryPolicy instanceof RetryPolicyInterface) {
             return $retryPolicy->getMaxAttempts();
         }
         // Default max attempts
@@ -191,7 +191,7 @@ class ProcessQueue
         }
         $endpoints = $this->getBrokerEndpoint();
         $messageView = new MessageView($message, null, $endpoints);
-        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+        $messageId = $messageView->getMessageId() ?: 'unknown';
         
         if ($messageView->isCorrupted()) {
             $this->logger->error("ProcessQueue consumerStreamedMessage: message corrupted, discarding messageId={$messageId}");
@@ -209,7 +209,7 @@ class ProcessQueue
             $this->consumer->nackMessage($messageView, 1, $suspendSec);
             $this->evictMessage($messageView);
         } elseif ($result === \Apache\Rocketmq\ConsumeResult::FAILURE) {
-            $deliveryAttempt = method_exists($messageView, 'getDeliveryAttempt') ? $messageView->getDeliveryAttempt() : 1;
+            $deliveryAttempt = $messageView->getDeliveryAttempt();
             $maxAttempts = $this->getMaxAttempts();
             if ($deliveryAttempt >= $maxAttempts) {
                 $this->logger->warning("ProcessQueue consumeStreamedMessage FAILURE messageId={$messageId}, deliveryAttempt={$deliveryAttempt}/{$maxAttempts}, forwarding to DLQ");
@@ -379,11 +379,11 @@ class ProcessQueue
     /**
      * Discard a message immediately (nack and evict).
      *
-     * @param object $messageView
+     * @param MessageViewInterface $messageView
      * @return void
      */
-    public function discardMessage($messageView) {
-        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+    public function discardMessage(MessageViewInterface $messageView) {
+        $messageId = $messageView->getMessageId() ?: 'unknown';
         $this->logger->debug("ProcessQueue Discarding message $messageId");
         $this->consumer->nackMessage($messageView);
         $this->evictMessage($messageView);
@@ -392,12 +392,12 @@ class ProcessQueue
     /**
      * Discard a FIFO message by forwarding to dead letter queue and evicting.
      *
-     * @param object $messageView
+     * @param MessageViewInterface $messageView
      * @return void
      */
-    public function discardFifoMessage($messageView)
+    public function discardFifoMessage(MessageViewInterface $messageView)
     {
-        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+        $messageId = $messageView->getMessageId() ?: 'unknown';
         $this->logger->debug("ProcessQueue discardFifoMessage message $messageId");
         if ($this->consumer->getConsumeService() !== null) {
             $this->consumer->getConsumeService()->forwardToDeadLetterQueue($messageView);

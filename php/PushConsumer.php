@@ -28,6 +28,7 @@ use Apache\Rocketmq\V2\FilterExpression;
 use Apache\Rocketmq\V2\MessageQueue;
 use Apache\Rocketmq\V2\Settings;
 use Apache\Rocketmq\V2\ClientType;
+use Apache\Rocketmq\V2\VerifyMessageCommand;
 use Apache\Rocketmq\V2\UA;
 use Apache\Rocketmq\V2\Language;
 use Apache\Rocketmq\V2\TelemetryCommand;
@@ -201,7 +202,7 @@ class PushConsumer implements ConsumerInterface
             $processQueue = $this->processQueueTable;
             foreach ($processQueue as $key => $pq) {
                 $mq = $pq->getMessageQueue();
-                if (method_exists($mq, 'getTopic') && $mq->getTopic()->getName() === $topic) {
+                if ($mq->getTopic()->getName() === $topic) {
                     $pq->drop();
                     unset($this->processQueueTable[$key]);
                 }
@@ -750,11 +751,9 @@ class PushConsumer implements ConsumerInterface
     {
         $latestMQKeys = [];
         foreach ($newAssignments as $assignment) {
-            if (method_exists($assignment, 'getMessageQueue')) {
-                $mq = $assignment->getMessageQueue();
-                $mqKey = $this->getMqKey($mq);
-                $latestMQKeys[$mqKey] = $mq;
-            }
+            $mq = $assignment->getMessageQueue();
+            $mqKey = $this->getMqKey($mq);
+            $latestMQKeys[$mqKey] = $mq;
         }
         if (empty($newAssignments)) {
             $existingCount = count($this->processQueueTable);
@@ -768,7 +767,7 @@ class PushConsumer implements ConsumerInterface
         $processQueues = $this->processQueueTable;
         foreach ($processQueues as $key => $pq) {
             $pqMq = $pq->getMessageQueue();
-            $pqTopic = method_exists($pqMq, 'getTopic') ? $pqMq->getTopic()->getName() : null;
+            $pqTopic = $pqMq->getTopic()->getName();
             if ($pqTopic !== $topic) {
                 continue;
             }
@@ -1020,7 +1019,7 @@ class PushConsumer implements ConsumerInterface
             $this->logger->warning("PushConsumer ackMessage: consume service not initialized");
             return false;
         }
-        $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
+        $messageId = $messageView->getMessageId() ?: 'unknown';
         $this->logger->debug("PushConsumer ackMessage: delegating to consumeService for messageId: {$messageId}");
         return $this->consumeService->ackMessage($messageView);
     }
@@ -1297,15 +1296,12 @@ class PushConsumer implements ConsumerInterface
     /**
      * Handle server-pushed message verification command.
      *
-     * @param mixed $verifyCmd The verification command from the server
+     * @param VerifyMessageCommand $verifyCmd The verification command from the server
      * @return \Apache\Rocketmq\V2\TelemetryCommand|null Response command or null on failure
      */
-    private function onVerifyMessage($verifyCmd)
+    private function onVerifyMessage(VerifyMessageCommand $verifyCmd)
     {
-        $message = null;
-        if (method_exists($verifyCmd, 'getMessage')) {
-            $message = $verifyCmd->getMessage();
-        }
+        $message = $verifyCmd->getMessage();
         if ($message === null) {
             $this->logger->warning("PushConsumer onVerifyMessage no message in verify command");
             return null;

@@ -29,11 +29,12 @@ require_once __DIR__ . '/helpers/FakeConsumer.php';
 
 use Apache\Rocketmq\ConsumeResult;
 use Apache\Rocketmq\FifoConsumeService;
+use Apache\Rocketmq\MessageViewInterface;
 
 /**
  * Fake message view for FifoConsumeService testing.
  */
-class FifoFakeMessageView
+class FifoFakeMessageView implements MessageViewInterface
 {
     private $systemProperties;
 
@@ -65,10 +66,20 @@ class FifoFakeMessageView
         return null;
     }
 
-    public function getSystemProperties(): FifoFakeSystemProps
+    public function getSystemProperties(): ?object
     {
         return $this->systemProperties;
     }
+
+    public function getMessageId(): string
+    {
+        return '';
+    }
+
+    public function getDeliveryAttempt(): int { return 1; }
+    public function incrementDeliveryAttempt(): void {}
+    public function isCorrupted(): bool { return false; }
+    public function getEndpoints(): ?object { return null; }
 }
 
 class FifoFakeSystemProps

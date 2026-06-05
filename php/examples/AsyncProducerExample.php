@@ -47,6 +47,7 @@ $config = ExampleConfig::getInstance();
 $endpoints = $config->getEndpoints();
 $topic = $config->getTopic('normal');
 $credentials = $config->getCredentials();
+$sslEnabled = $config->isSslEnabled();
 
 // Display configuration
 $config->display();
@@ -64,11 +65,12 @@ echo "[INFO] Swoole version: " . SWOOLE_VERSION . "\n";
 echo "[INFO] Sending 5 messages concurrently using coroutines...\n\n";
 
 // Use Swoole coroutine context
-\Swoole\Coroutine\run(function() use ($endpoints, $topic, $credentials) {
+\Swoole\Coroutine\run(function() use ($endpoints, $topic, $credentials, $sslEnabled) {
     // Create producer
     $producer = new Producer($endpoints, [
         'topics' => [$topic],
         'credentials' => $credentials,
+        'sslEnabled' => $sslEnabled,
         'maxAttempts' => 3,
         'requestTimeout' => 3000,
     ]);

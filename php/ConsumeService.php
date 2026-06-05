@@ -214,9 +214,6 @@ abstract class ConsumeService
             if ($retryPolicy instanceof RetryPolicyInterface) {
                 $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
                 $delaySeconds = max(1, (int)ceil($delayMs / 1000));
-            } elseif ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
-                $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
-                $delaySeconds = max(1, (int)ceil($delayMs / 1000));
             } else {
                 $delaySeconds = min(pow(2, $deliveryAttempt - 1) * 10, 30);
             }
@@ -476,20 +473,12 @@ class StandardConsumeService extends ConsumeService
             }
 
             if ($messageView->isCorrupted()) {
-                if ($messageView instanceof MessageViewInterface) {
-                    $messageId = $messageView->getMessageId() ?: 'unknown';
-                } else {
-                    $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
-                }
+                $messageId = $messageView->getMessageId() ?: 'unknown';
                 $this->logger->error("StandardConsumeService: Message $messageId is corrupted");
                 $pq->discardMessage($messageView);
                 continue;
             }
-            if ($messageView instanceof MessageViewInterface) {
-                $messageId = $messageView->getMessageId() ?: 'unknown';
-            } else {
-                $messageId = method_exists($messageView, 'getMessageId') ? $messageView->getMessageId() : 'unknown';
-            }
+            $messageId = $messageView->getMessageId() ?: 'unknown';
 
             $result = $this->consumeMessage($messageView);
 
@@ -503,9 +492,7 @@ class StandardConsumeService extends ConsumeService
                 $this->ackMessage($messageView);
                 $pq->evictMessage($messageView);
             } else {
-                $deliveryAttempt = $messageView instanceof MessageViewInterface
-                    ? $messageView->getDeliveryAttempt()
-                    : (method_exists($messageView, 'getDeliveryAttempt') ? $messageView->getDeliveryAttempt() : 1);
+                $deliveryAttempt = $messageView->getDeliveryAttempt();
                 if ($deliveryAttempt >= $this->maxAttempts) {
                     $this->logger->debug('StandardConsumerService consume failed, messageId: %s, deliveryAttempt: %s , forwarding to DLQ', $messageId, $deliveryAttempt);
                     $this->forwardToDeadLetterQueue($messageView, $deliveryAttempt);
@@ -701,8 +688,6 @@ class FifoConsumeService extends ConsumeService
             $pq->evictMessage($messageView);
             $retryPolicy = $this->consumer->getRetryPolicy();
             if ($retryPolicy instanceof RetryPolicyInterface) {
-                $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
-            } elseif ($retryPolicy !== null && method_exists($retryPolicy, 'getNextAttemptDelayMs')) {
                 $delayMs = $retryPolicy->getNextAttemptDelayMs($deliveryAttempt);
             } else {
                 $delayMs = min(pow(2, $deliveryAttempt - 1) * 10000, 30000);

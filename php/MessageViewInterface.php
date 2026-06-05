@@ -41,9 +41,9 @@ interface MessageViewInterface
     public function getMessageId(): string;
 
     /**
-     * Get the message body.
+     * Get the topic name.
      *
-     * @return string Topic resource string
+     * @return string Topic name
      */
     public function getTopic(): string;
 

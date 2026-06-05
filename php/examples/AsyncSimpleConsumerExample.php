@@ -29,12 +29,14 @@ $endpoints = $config->getEndpoints();
 $topic = $config->getTopic('normal');
 $consumerGroup = $config->getConsumerGroup();
 $credentials = $config->getCredentials();
+$sslEnabled = $config->isSslEnabled();
 
 // Display configuration
 $config->display();
 
 $consumer = new SimpleConsumer($endpoints, $consumerGroup, [
     'credentials' => $credentials,
+    'sslEnabled' => $sslEnabled,
     'awaitDuration' => 30,
 ]);
 

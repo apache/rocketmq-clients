@@ -32,6 +32,7 @@ $config = ExampleConfig::getInstance();
 $endpoints = $config->getEndpoints();
 $topic = $config->getTopic('delay');
 $credentials = $config->getCredentials();
+$sslEnabled = $config->isSslEnabled();
 
 // Display configuration
 $config->display();
@@ -39,6 +40,7 @@ $config->display();
 $producer = new Producer($endpoints, [
     'topics' => [$topic],
     'credentials' => $credentials,
+    'sslEnabled' => $sslEnabled,
     'maxAttempts' => 3,
     'requestTimeout' => 3000,
 ]);

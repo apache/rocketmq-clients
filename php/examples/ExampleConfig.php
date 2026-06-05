@@ -60,6 +60,7 @@ class ExampleConfig
     private readonly ?string $tlsCaCert;
     private readonly ?string $tlsClientCent;
     private readonly ?string $tlsClientKey;
+    private readonly bool $sslEnabled;
     
     /**
      * Private constructor - use getInstance() instead
@@ -101,6 +102,10 @@ class ExampleConfig
         $this->tlsCaCert = getenv('ROCKETMQ_PHP_TLS_CA_CERT') ?: null;
         $this->tlsClientCent = getenv('ROCKETMQ_PHP_TLS_CLIENT_CERT') ?: null;
         $this->tlsClientKey = getenv('ROCKETMQ_PHP_TLS_CLIENT_KEY') ?: null;
+        
+        // SSL enabled (default: true for secure connections)
+        $sslEnv = getenv('ROCKETMQ_PHP_SSL_ENABLED');
+        $this->sslEnabled = $sslEnv !== false ? filter_var($sslEnv, FILTER_VALIDATE_BOOLEAN) : true;
     }
 
     /**
@@ -244,6 +249,16 @@ class ExampleConfig
     }
     
     /**
+     * Get SSL enabled flag
+     * 
+     * @return bool
+     */
+    public function isSslEnabled(): bool
+    {
+        return $this->sslEnabled;
+    }
+    
+    /**
      * Display current configuration (for debugging)
      */
     public function display()
@@ -256,6 +271,7 @@ class ExampleConfig
         echo "Consumer Group: {$this->consumerGroup}\n";
         echo "Tag: {$this->tag}\n";
         echo "Credentials: " . ($this->hasCredentials() ? 'Configured' : 'Not configured') . "\n";
+        echo "SSL Enabled: " . ($this->sslEnabled ? 'true' : 'false') . "\n";
         echo "\nTopics:\n";
         foreach ($this->topics as $type => $topic) {
             echo "  {$type}: {$topic}\n";

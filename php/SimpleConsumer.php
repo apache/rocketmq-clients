@@ -895,9 +895,9 @@ class SimpleConsumer
                 return false;
             }
             // Update receipt handle with the new one returned by server
-            if (method_exists($response, 'getReceiptHandle') && $response->getReceiptHandle() !== '') {
+            if ($response->getReceiptHandle() !== '') {
                 $sysProps = $message->getSystemProperties();
-                if ($sysProps !== null && method_exists($sysProps, 'setReceiptHandle')) {
+                if ($sysProps !== null) {
                     $sysProps->setReceiptHandle($response->getReceiptHandle());
                 }
             }

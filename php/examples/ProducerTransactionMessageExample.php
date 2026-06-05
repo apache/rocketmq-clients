@@ -30,10 +30,12 @@ $config = ExampleConfig::getInstance();
 $endpoints = $config->getEndpoints();
 $topic = $config->getTopic('transaction');
 $credentials = $config->getCredentials();
+$sslEnabled = $config->isSslEnabled();
 
 $producer = new Producer($endpoints, [
     'topics' => [$topic],
     'credentials' => $credentials,
+    'sslEnabled' => $sslEnabled,
     'maxAttempts' => 3,
     'requestTimeout' => 3000,
 ]);

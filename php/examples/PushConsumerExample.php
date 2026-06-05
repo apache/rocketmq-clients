@@ -31,6 +31,7 @@ $endpoints = $config->getEndpoints();
 $consumerGroup = $config->getConsumerGroup();
 $topic = $config->getTopic('normal');
 $credentials = $config->getCredentials();
+$sslEnabled = $config->isSslEnabled();
 
 // Display configuration
 $config->display();
@@ -38,6 +39,7 @@ $config->display();
 $consumer = new PushConsumer($endpoints, $consumerGroup, [
     'subscriptionExpressions' => [$topic => '*'],
     'credentials' => $credentials,
+    'sslEnabled' => $sslEnabled,
     'messageListener' => function($messageView) {
         $body = $messageView->getBody() ?? '';
         echo "Consume message: " . $body . "\n";

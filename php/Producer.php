@@ -452,7 +452,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         }
 
         return [
-            'messageId' => method_exists($response, 'getMessageId') ? $response->getMessageId() : '',
+            'messageId' => $response->getMessageId() ?? '',
             'status' => $response->getStatus(),
         ];
     }

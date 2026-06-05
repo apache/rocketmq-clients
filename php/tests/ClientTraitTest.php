@@ -22,13 +22,14 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../ClientTrait.php';
 require_once __DIR__ . '/../autoload.php';
 
+use Apache\Rocketmq\MessageViewInterface;
 use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\SystemProperties;
 
 /**
  * Fake message view for ClientTrait extraction tests.
  */
-class FakeMessageViewForTrait {
+class FakeMessageViewForTrait implements MessageViewInterface {
     private $systemProperties;
     private $topic;
 
@@ -42,15 +43,25 @@ class FakeMessageViewForTrait {
         }
     }
 
-    public function getSystemProperties(): ?SystemProperties
+    public function getSystemProperties(): ?object
     {
         return $this->systemProperties;
     }
 
-    public function getTopic(): ?Resource
+    public function getMessageId(): string
     {
-        return $this->topic;
+        return $this->systemProperties?->getMessageId() ?? '';
     }
+
+    public function getTopic(): string
+    {
+        return $this->topic?->getName() ?? '';
+    }
+
+    public function getDeliveryAttempt(): int { return 1; }
+    public function incrementDeliveryAttempt(): void {}
+    public function isCorrupted(): bool { return false; }
+    public function getEndpoints(): ?object { return null; }
 }
 
 /**

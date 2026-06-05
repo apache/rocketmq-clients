@@ -31,9 +31,11 @@ $endpoints = $config->getEndpoints();
 $consumerGroup = $config->getConsumerGroup();
 $parentTopic = $config->getLiteParentTopic();
 $credentials = $config->getCredentials();
+$sslEnabled = $config->isSslEnabled();
 
 $consumer = new LitePushConsumer($endpoints, $consumerGroup, $parentTopic, [
     'credentials' => $credentials,
+    'sslEnabled' => $sslEnabled,
     'enableFifoConsumeAccelerator' => true,
 ]);
 

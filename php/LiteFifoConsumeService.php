@@ -56,11 +56,9 @@ class LiteFifoConsumeService extends FifoConsumeService
             return;
         }
         $targetLiteTopic = null;
-        if (method_exists($messageView, 'getSystemProperties')) {
-            $sysProps = $messageView->getSystemProperties();
-            if ($sysProps !== null && $sysProps->hasLiteTopic()) {
-                $targetLiteTopic = $sysProps->getLiteTopic();
-            }
+        $sysProps = $messageView->getSystemProperties();
+        if ($sysProps !== null && $sysProps->hasLiteTopic()) {
+            $targetLiteTopic = $sysProps->getLiteTopic();
         }
         $suspendSec = (int)ceil($suspendResult->getSuspendTimeMs() / 1000);
         $cachedMessages = $pq->getCachedMessages();
@@ -68,11 +66,9 @@ class LiteFifoConsumeService extends FifoConsumeService
         foreach ($cachedMessages as $msg) {
             if ($targetLiteTopic !== null) {
                 $msgLiteTopic = null;
-                if (method_exists($msg, 'getSystemProperties')) {
-                    $msgSysProps = $msg->getSystemProperties();
-                    if ($msgSysProps !== null && $msgSysProps->hasLiteTopic()) {
-                        $msgLiteTopic = $msgSysProps->getLiteTopic();
-                    }
+                $msgSysProps = $msg->getSystemProperties();
+                if ($msgSysProps !== null && $msgSysProps->hasLiteTopic()) {
+                    $msgLiteTopic = $msgSysProps->getLiteTopic();
                 }
                 if ($msgLiteTopic === $targetLiteTopic) {
                     $this->nackMessage($msg, 1, $suspendSec);

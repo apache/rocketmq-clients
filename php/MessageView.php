@@ -253,7 +253,7 @@ class MessageView implements MessageViewInterface
             if ($keys === null) {
                 return [];
             }
-            if (is_object($keys) && method_exists($keys, 'getIterator')) {
+            if ($keys instanceof \Traversable) {
                 return iterator_to_array($keys);
             }
             return (array)$keys;
@@ -317,7 +317,7 @@ class MessageView implements MessageViewInterface
         if ($props === null) {
             return [];
         }
-        if (is_object($props) && method_exists($props, 'getIterator')) {
+        if ($props instanceof \Traversable) {
             return iterator_to_array($props);
         }
         return (array)$props;
