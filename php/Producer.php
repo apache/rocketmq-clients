@@ -73,7 +73,6 @@ class Producer implements TransactionCommitter, ClientTraitProvider
     private readonly ?TlsCredentials $tlsCredentials;
     private readonly bool $sslEnabled;
     private readonly HeartbeatManager $heartbeatManager;
-    private $stateLock = null;
 
     /**
      * @param string $endpoints gRPC server endpoint
@@ -119,76 +118,57 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
         $this->routeManager = new PublishingRouteManager($this->client, $endpoints, $this);
         $this->heartbeatManager = new HeartbeatManager($this->routeManager, $this->client, $this, $this->tlsCredentials, $this->sslEnabled);
-
-        if (class_exists('\Mutex', false)) {
-            $this->stateLock = \Mutex::create();
-        } elseif (class_exists('\Swoole\Coroutine\Channel', false)) {
-            $this->stateLock = new \Swoole\Coroutine\Channel(1);
-            $this->stateLock->push(1);
-        }
     }
 
     // ==================== Lifecycle ====================
 
     public function start(): void
     {
-        // Acquire lock to prevent concurrent start
-        $this->acquireLock();
+        if ($this->isRunning) {
+            return;
+        }
+
         try {
-            try {
-                if ($this->isRunning) {
-                    return;
-                }
+            Logger::getInstance('Producer')->info("Begin to start the rocketmq producer, clientId={$this->clientId}");
+            $this->establishTelemetrySession();
+            $this->registerSettingsCallback();
+            $this->registerTransactionCheckerCallback();
 
-                Logger::getInstance('Producer')->info("Begin to start the rocketmq producer, clientId={$this->clientId}");
-                $this->establishTelemetrySession();
-                $this->registerSettingsCallback();
-                $this->registerTransactionCheckerCallback();
+            $this->routeManager->warmUp($this->topics);
 
-                $this->routeManager->warmUp($this->topics);
+            $this->isRunning = true;
+            $this->heartbeatManager->start();
 
-                $this->isRunning = true;
-                $this->heartbeatManager->start();
-
-                Logger::getInstance('Producer')->info("The rocketmq producer starts successfully, clientId={$this->clientId}");
-            } catch (\Exception $e) {
-                Logger::getInstance('Producer')->error("Failed to start: " . $e->getMessage());
-                $this->shutdown();
-                throw $e;
-            }
-        } finally {
-            $this->releaseLock();
+            Logger::getInstance('Producer')->info("The rocketmq producer starts successfully, clientId={$this->clientId}");
+        } catch (\Exception $e) {
+            Logger::getInstance('Producer')->error("Failed to start: " . $e->getMessage());
+            $this->shutdown();
+            throw $e;
         }
     }
 
     public function shutdown(): void
     {
-        // Acquire lock to prevent concurrent start
-        $this->acquireLock();
-        try {
-            if (!$this->isRunning) {
-                return;
-            }
-
-            $this->shutdownRequested = true;
-            $this->logger->info("Begin to shutdown the rocketmq producer, clientId={$this->clientId}");
-
-            if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
-                \Swoole\Coroutine::sleep(1);
-            }
-
-            $this->heartbeatManager->stop();
-            $this->heartbeatManager->notifyClientTermination();
-
-            if ($this->telemetrySession) {
-                $this->telemetrySession->close();
-            }
-
-            $this->isRunning = false;
-            $this->logger->info("Shutdown the rocketmq producer successfully, clientId={$this->clientId}");
-        } finally {
-            $this->releaseLock();
+        if (!$this->isRunning) {
+            return;
         }
+
+        $this->shutdownRequested = true;
+        $this->logger->info("Begin to shutdown the rocketmq producer, clientId={$this->clientId}");
+
+        if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
+            \Swoole\Coroutine::sleep(1);
+        }
+
+        $this->heartbeatManager->stop();
+        $this->heartbeatManager->notifyClientTermination();
+
+        if ($this->telemetrySession) {
+            $this->telemetrySession->close();
+        }
+
+        $this->isRunning = false;
+        $this->logger->info("Shutdown the rocketmq producer successfully, clientId={$this->clientId}");
     }
 
     public function __destruct()
@@ -547,40 +527,6 @@ class Producer implements TransactionCommitter, ClientTraitProvider
             } catch (\Exception $e) {
                 $this->logger->warning("Interceptor failed at {$hookPoint}: " . $e->getMessage());
             }
-        }
-    }
-
-    /**
-     * Acquire lock
-     * @return void
-     */
-    private function acquireLock(): void
-    {
-        if ($this->stateLock === null) {
-            return;
-        }
-
-        if (class_exists('\Mutex', false) && is_resource($this->stateLock)) {
-            \Mutex::lock($this->stateLock);
-        } elseif ($this->stateLock instanceof \Swoole\Coroutine\Channel) {
-            $this->stateLock->pop();
-        }
-    }
-
-    /**
-     * Release lock
-     * @return void
-     */
-    private function releaseLock(): void
-    {
-        if ($this->stateLock === null) {
-            return;
-        }
-
-        if (class_exists('\Mutex', false) && is_resource($this->stateLock)) {
-            \Mutex::unlock($this->stateLock);
-        } elseif ($this->stateLock instanceof \Swoole\Coroutine\Channel) {
-            $this->stateLock->push(1);
         }
     }
 

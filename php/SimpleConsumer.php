@@ -71,10 +71,6 @@ class SimpleConsumer
     private readonly bool $sslEnabled;
     private bool $heartbeatInProgress = false;
     private int $heartbeatTimerId = -1;
-    // Concurrency protection
-    private $cacheLock = null;
-
-    private $routeDataLock = null;
 
     /**
      * Constructor
@@ -122,19 +118,6 @@ class SimpleConsumer
         // Initialize Telemetry Session (singleton)
         $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
         $this->logger = Logger::getInstance('SimpleConsumer');
-
-        // Initialize cache lock
-        if (class_exists('\Mutex', false)) {
-            // pthreads extension
-            $this->cacheLock = \Mutex::create();
-            $this->routeDataLock = \Mutex::create();
-        } elseif (class_exists('\Swoole\Coroutine\Channel', false)) {
-            // Swoole environment
-            $this->cacheLock = new \Swoole\Coroutine\Channel(1);
-            $this->cacheLock->push(1);
-            $this->routeDataLock = new \Swoole\Coroutine\Channel(1);
-            $this->routeDataLock->push(1);
-        }
     }
 
     /**
@@ -637,58 +620,12 @@ class SimpleConsumer
      */
     private function getSubscriptionLoadBalancer($topic)
     {
-        // Check cache without lock first
-        if (isset($this->subscriptionRouteDataCache[$topic])) {
-            return $this->subscriptionRouteDataCache[$topic];
-        }
-
-        // Acquire lock for cache update
-        $this->acquireRouteLock();
-        try {
-            // Double-check cache after lock
-            if (isset($this->subscriptionRouteDataCache[$topic])) {
-                return $this->subscriptionRouteDataCache[$topic];
-            }
+        if (!isset($this->subscriptionRouteDataCache[$topic])) {
             $routeData = $this->getRouteData($topic);
             $this->subscriptionRouteDataCache[$topic] = new SubscriptionLoadBalancer($routeData);
-            return $this->subscriptionRouteDataCache[$topic];
-        } finally {
-            $this->releaseRouteLock();
-        }
-    }
-
-    /**
-     * Acquire route data lock.
-     * @return void
-     */
-    private function acquireRouteLock(): void
-    {
-        if ($this->routeDataLock === null) {
-            return;
         }
 
-        if (class_exists('\Mutex', false) && is_resource($this->routeDataLock)) {
-            \Mutex::lock($this->routeDataLock);
-        } elseif ($this->routeDataLock instanceof \Swoole\Coroutine\Channel) {
-            $this->routeDataLock->pop();
-        }
-    }
-
-    /**
-     * Release route data lock.
-     * @return void
-     */
-    private function releaseRouteLock(): void
-    {
-        if ($this->routeDataLock === null) {
-            return;
-        }
-
-        if (class_exists('\Mutex', false) && is_resource($this->routeDataLock)) {
-            \Mutex::unlock($this->routeDataLock);
-        } elseif ($this->routeDataLock instanceof \Swoole\Coroutine\Channel) {
-            $this->routeDataLock->push(1);
-        }
+        return $this->subscriptionRouteDataCache[$topic];
     }
 
     /**
