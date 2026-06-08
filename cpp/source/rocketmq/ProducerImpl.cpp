@@ -235,12 +235,14 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
   auto callback =
       [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) mutable {
     ec = code;
-    auto& receipt_mut = const_cast<SendReceipt&>(receipt);
-    send_receipt.target = std::move(receipt_mut.target);
-    send_receipt.message_id = std::move(receipt_mut.message_id);
-    send_receipt.message = std::move(receipt_mut.message);
-    send_receipt.transaction_id = std::move(receipt_mut.transaction_id);
-    send_receipt.recall_handle = std::move(receipt_mut.recall_handle);
+    // SendReceipt contains a unique_ptr (MessageConstPtr) and is non-copyable.
+    // The receipt here is always a local temporary in SendContext, so const_cast + move is safe.
+    auto& mutable_receipt = const_cast<SendReceipt&>(receipt);
+    send_receipt.target = std::move(mutable_receipt.target);
+    send_receipt.message_id = std::move(mutable_receipt.message_id);
+    send_receipt.message = std::move(mutable_receipt.message);
+    send_receipt.transaction_id = std::move(mutable_receipt.transaction_id);
+    send_receipt.recall_handle = std::move(mutable_receipt.recall_handle);
     {
       absl::MutexLock lk(mtx.get());
       completed = true;

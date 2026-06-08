@@ -87,9 +87,9 @@ void FifoProducerPartition::onComplete(const std::error_code& ec, const SendRece
     return;
   }
 
-  // Put the message back to the front of the list
-  SendReceipt& receipt_mut = const_cast<SendReceipt&>(receipt);
-  FifoContext retry_context(std::move(receipt_mut.message), callback);
+  // Put the message back to the front of the list.
+  // receipt is a local temporary in SendContext — const_cast + move is safe here.
+  FifoContext retry_context(std::move(const_cast<SendReceipt&>(receipt).message), callback);
   {
     absl::MutexLock lk(&messages_mtx_);
     messages_.emplace_front(std::move(retry_context));

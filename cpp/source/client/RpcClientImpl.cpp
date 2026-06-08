@@ -48,10 +48,8 @@ void RpcClientImpl::asyncCallback(std::weak_ptr<RpcClient> client, BaseInvocatio
   std::shared_ptr<ClientManager> manager = client_manager.lock();
   if (!manager) {
     SPDLOG_WARN("ClientManager has destructed. Response ignored");
-    // TODO: execute orphan callback in event-loop thread?
-    // invocation_context->onCompletion(false);
-    // or
     delete invocation_context;
+    return;
   }
 
   auto task = [invocation_context, client] {

@@ -119,17 +119,16 @@ void SchedulerImpl::shutdown0() {
 
 std::uint32_t SchedulerImpl::schedule(const std::function<void(void)>& functor, const std::string& task_name,
                                       std::chrono::milliseconds delay, std::chrono::milliseconds interval) {
-  static std::uint32_t task_id = 0;
+  static std::atomic<std::uint32_t> task_id{0};
 
   auto task = std::make_shared<TimerTask>();
   task->task_name = task_name;
   task->callback = functor;
   task->interval = interval;
 
-  std::uint32_t id;
+  std::uint32_t id = ++task_id;
   {
     absl::MutexLock lk(&tasks_mtx_);
-    id = ++task_id;
     tasks_.insert({id, task});
   }
   task->task_id = id;
