@@ -2,8 +2,8 @@ name: CPP Build
 on:
   workflow_call:
 jobs:
-  build:
-    name: "${{ matrix.os }}"
+  cmake-build:
+    name: "CMake ${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -72,3 +72,32 @@ jobs:
         working-directory: ./cpp/build
         shell: bash
         run: ctest --output-on-failure -j4 -C Release
+
+  bazel-build:
+    name: "Bazel ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-2022]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Setup Bazel
+        uses: bazelbuild/setup-bazel@v5
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-bazel-${{ matrix.os }}
+          repository-cache: true
+
+      - name: Build
+        working-directory: ./cpp
+        shell: bash
+        run: bazel build //...
+
+      - name: Test
+        working-directory: ./cpp
+        shell: bash
+        run: bazel test //...
