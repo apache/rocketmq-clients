@@ -1,0 +1,4 @@
+add_executable(countdown_latch_test CountdownLatchTest.cpp)
+target_include_directories(countdown_latch_test PRIVATE ${ROCKETMQ_INTERNAL_INCLUDE_DIRS})
+target_link_libraries(countdown_latch_test PRIVATE ${ROCKETMQ_TEST_LINK_LIBS} absl::memory)
+add_test(NAME countdown_latch_test COMMAND countdown_latch_test)

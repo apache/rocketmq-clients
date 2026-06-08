@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include "ProducerImpl.h"
+#include "FmtEnumFormatter.h"
 
 #include <algorithm>
 #include <cassert>

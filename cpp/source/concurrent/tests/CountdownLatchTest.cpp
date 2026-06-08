@@ -19,6 +19,7 @@
 #include <mutex>
 #include <thread>
 
+#include "absl/memory/memory.h"
 #include "CountdownLatch.h"
 #include "gtest/gtest.h"
 #include "rocketmq/RocketMQ.h"

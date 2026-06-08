@@ -1,0 +1,4 @@
+add_executable(admin_server_test AdminServerTest.cpp)
+target_include_directories(admin_server_test PRIVATE ${ROCKETMQ_INTERNAL_INCLUDE_DIRS})
+target_link_libraries(admin_server_test PRIVATE ${ROCKETMQ_TEST_LINK_LIBS})
+add_test(NAME admin_server_test COMMAND admin_server_test)

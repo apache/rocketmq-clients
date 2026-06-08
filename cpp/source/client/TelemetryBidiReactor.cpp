@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include "TelemetryBidiReactor.h"
+#include "FmtEnumFormatter.h"
 
 #include <memory>
 #include <utility>

@@ -48,6 +48,7 @@ header:
     - 'cpp/WORKSPACE'
     - 'cpp/.gitignore'
     - 'cpp/third_party'
+    - 'cpp/proto/**'
     - 'cpp/cmake'
     - 'cpp/source/exports.map'
     - 'php/grpc/**/*.php'

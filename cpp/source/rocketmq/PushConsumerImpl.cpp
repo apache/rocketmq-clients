@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include "PushConsumerImpl.h"
+#include "FmtEnumFormatter.h"
 
 #include <cassert>
 #include <chrono>
