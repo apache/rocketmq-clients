@@ -38,6 +38,12 @@ build:macos --host_per_file_copt=external/zlib/.*@-Dfdopen=fdopen
 # extension error. Suppress for old upb bundled with gRPC 1.46.3.
 build:macos --per_file_copt=external/upb/.*@-Wno-c23-extensions
 build:macos --host_per_file_copt=external/upb/.*@-Wno-c23-extensions
+# Xcode 16+ clang treats deprecated builtins (__has_trivial_*) as errors.
+# Old absl bundled with gRPC 1.46.3 still uses them in type_traits.h.
+build:macos --per_file_copt=external/com_google_absl/.*@-Wno-deprecated-builtins
+build:macos --host_per_file_copt=external/com_google_absl/.*@-Wno-deprecated-builtins
+build:macos --per_file_copt=external/upb/.*@-Wno-deprecated-builtins
+build:macos --host_per_file_copt=external/upb/.*@-Wno-deprecated-builtins
 
 # Enable position independent code (this is the default on macOS and Windows)
 # (Workaround for https://github.com/bazelbuild/rules_foreign_cc/issues/421)
