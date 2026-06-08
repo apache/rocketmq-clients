@@ -24,6 +24,6 @@
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-using SendCallback = std::function<void(const std::error_code&, const SendReceipt&)>;
+using SendCallback = std::function<void(const std::error_code&, SendReceipt&)>;
 
 ROCKETMQ_NAMESPACE_END

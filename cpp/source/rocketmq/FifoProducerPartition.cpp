@@ -56,7 +56,7 @@ void FifoProducerPartition::trySend() {
     SendCallback send_callback = ctx.callback;
 
     std::shared_ptr<FifoProducerPartition> partition = shared_from_this();
-    auto fifo_callback = [=](const std::error_code& ec, const SendReceipt& receipt) mutable {
+    auto fifo_callback = [=](const std::error_code& ec, SendReceipt& receipt) mutable {
       partition->onComplete(ec, receipt, send_callback);
     };
     SPDLOG_DEBUG("Sending FIFO message from {}", name_);
@@ -68,7 +68,7 @@ void FifoProducerPartition::trySend() {
   }
 }
 
-void FifoProducerPartition::onComplete(const std::error_code& ec, const SendReceipt& receipt, SendCallback& callback) {
+void FifoProducerPartition::onComplete(const std::error_code& ec, SendReceipt& receipt, SendCallback& callback) {
   if (ec) {
     SPDLOG_INFO("{} completed with a failure: {}", name_, ec.message());
   } else {
