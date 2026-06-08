@@ -188,7 +188,8 @@ class LitePushConsumer extends PushConsumer
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
             try {
                 $assignments = $this->queryLiteAssignment();
-                if ($assignments !== null && count($assignments->getAssignments()) > 0) {
+                $assignmentList = $assignments ? ($assignments->getAssignments() ?? []) : [];
+                if (!empty($assignmentList)) {
                     $this->logger->info("Lite subscription active after " . ($attempt + 500) . "ms" . count($assignments->getAssignments()) . " assignments");
                     return;
                 }

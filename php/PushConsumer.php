@@ -723,7 +723,7 @@ class PushConsumer implements ConsumerInterface
         foreach ($subscriptions as $topic => $expression) {
             try {
                 $assignments = $this->queryAssignment($topic);
-                $newAssignments = $assignments ? $assignments->getAssignments() : [];
+                $newAssignments = $assignments ? ($assignments->getAssignments() ?? []) : [];
 
                 $oldAssignments = isset($this->cacheAssignments[$topic]) ? $this->cacheAssignments[$topic] : null;
                 $newIsEmpty = empty($newAssignments);
@@ -826,7 +826,8 @@ class PushConsumer implements ConsumerInterface
             throw new \RuntimeException("QueryAssignment failed for topic={$topic}: " . $status->details);
         }
 
-        $this->logger->debug("PushConsumer QueryAssignment for {$topic}: " . count($response->getAssignments()) . " assignments");
+        $assignmentCount = $response->getAssignments() ? count($response->getAssignments()) : 0;
+        $this->logger->debug("PushConsumer QueryAssignment for {$topic}:  {$assignmentCount} assignments");
 
         return $response;
     }
