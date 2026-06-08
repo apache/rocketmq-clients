@@ -226,7 +226,7 @@ class TestableStandardConsumeService extends StandardConsumeService
         // Not used in these tests
     }
 
-    public function consumeMessage($messageView)
+    public function consumeMessage($messageView): mixed
     {
         return parent::consumeMessage($messageView);
     }
@@ -254,7 +254,7 @@ class TestableFifoConsumeService extends FifoConsumeService
         // Not used in these tests
     }
 
-    public function consumeMessage($messageView)
+    public function consumeMessage(object $messageView): mixed
     {
         return parent::consumeMessage($messageView);
     }

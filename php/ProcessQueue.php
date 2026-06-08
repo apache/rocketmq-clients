@@ -180,7 +180,7 @@ class ProcessQueue
      * @param object $message Protobuf message received from stream
      * @return void
      */
-    private function consumeStreamedMessage($message)
+    private function consumeStreamedMessage(object $message): void
     {
         if ($this->consumer->getConsumeService() === null) {
             return;
@@ -231,7 +231,7 @@ class ProcessQueue
      *
      * @return object|null Broker endpoints object or null
      */
-    private function getBrokerEndpoint()
+    private function getBrokerEndpoint(): ?object
     {
         $broker = $this->messageQueue->getBroker();
         if ($broker && $broker->hasEndpoints()) {
@@ -247,7 +247,7 @@ class ProcessQueue
      * @param array $messages Protobuf messages to cache
      * @return void
      */
-    private function cacheMessages($messages)
+    private function cacheMessages(array $messages): void
     {
         $endpoint = $this->getBrokerEndpoint();
         foreach ($messages as $msg) {
@@ -283,7 +283,7 @@ class ProcessQueue
      * @param array $messages
      * @return void
      */
-    public function testCacheMessages($messages)
+    public function testCacheMessages(array $messages): void
     {
         $this->cacheMessages($messages);
     }
@@ -293,7 +293,7 @@ class ProcessQueue
      *
      * @return array
      */
-    public function getCachedMessages()
+    public function getCachedMessages(): array
     {
         return $this->cachedMessages;
     }
@@ -305,7 +305,7 @@ class ProcessQueue
      * @param object $messageView Message to evict
      * @return void
      */
-    public function evictMessage($messageView)
+    public function evictMessage(object $messageView): void
     {
         $objId = spl_object_id($messageView);
         if (isset($this->evictedMessageIds[$objId])) {
@@ -360,7 +360,7 @@ class ProcessQueue
      * @param int|null $suspendSeconds Optional suspend time in seconds (for SUSPEND result)
      * @return void
      */
-    public function eraseMessage($messageView, $consumeResult, ?int $suspendSeconds = null)
+    public function eraseMessage(object $messageView, int $consumeResult, ?int $suspendSeconds = null): void
     {
         if ($consumeResult === \Apache\Rocketmq\ConsumeResult::SUCCESS) {
             $this->consumer->ackMessage($messageView);
@@ -381,7 +381,8 @@ class ProcessQueue
      * @param MessageViewInterface $messageView
      * @return void
      */
-    public function discardMessage(MessageViewInterface $messageView) {
+    public function discardMessage(MessageViewInterface $messageView): void
+    {
         $messageId = $messageView->getMessageId() ?: 'unknown';
         $this->logger->debug("ProcessQueue Discarding message $messageId");
         $this->consumer->nackMessage($messageView);
@@ -394,7 +395,7 @@ class ProcessQueue
      * @param MessageViewInterface $messageView
      * @return void
      */
-    public function discardFifoMessage(MessageViewInterface $messageView)
+    public function discardFifoMessage(MessageViewInterface $messageView): void
     {
         $messageId = $messageView->getMessageId() ?: 'unknown';
         $this->logger->debug("ProcessQueue discardFifoMessage message $messageId");
@@ -409,7 +410,7 @@ class ProcessQueue
      *
      * @return bool
      */
-    public function isCacheFull()
+    public function isCacheFull(): bool
     {
         $countThreshold = $this->consumer->getCacheMessageCountThresholdPerQueue();
         $bytesThreshold = $this->consumer->getCacheMessageBytesThresholdPerQueue();
@@ -428,7 +429,7 @@ class ProcessQueue
      *
      * @return void
      */
-    public function drop()
+    public function drop(): void
     {
         $this->dropped = true;
         $this->evictedMessageIds = [];
@@ -440,7 +441,7 @@ class ProcessQueue
      *
      * @return bool
      */
-    public function isDropped()
+    public function isDropped(): bool
     {
         return $this->dropped;
     }
@@ -450,7 +451,7 @@ class ProcessQueue
      *
      * @return bool
      */
-    public function expired()
+    public function expired(): bool
     {
         $now = hrtime(true);
         $longPollingTimeoutNs = $this->consumer->getAwaitDuration() * 1000000000;
@@ -470,7 +471,7 @@ class ProcessQueue
      *
      * @return int
      */
-    public function cachedMessagesCount()
+    public function cachedMessagesCount(): int
     {
         return count($this->cachedMessages);
     }
@@ -480,7 +481,7 @@ class ProcessQueue
      *
      * @return int
      */
-    public function cachedMessageBytes()
+    public function cachedMessageBytes(): int
     {
         return $this->cachedMessagesBytes;
     }
@@ -490,7 +491,7 @@ class ProcessQueue
      *
      * @return MessageQueue
      */
-    public function getMessageQueue()
+    public function getMessageQueue(): object
     {
         return $this->messageQueue;
     }
@@ -500,7 +501,7 @@ class ProcessQueue
      *
      * @return int
      */
-    private function getBatchSize()
+    private function getBatchSize(): int
     {
         return $this->consumer->getReceiveBatchSize();
     }
@@ -511,7 +512,7 @@ class ProcessQueue
      * @param int|float $seconds
      * @return Duration
      */
-    private function createDuration($seconds)
+    private function createDuration(int|float $seconds): \Google\Protobuf\Duration
     {
         $duration = new Duration();
         $secs = intval($seconds);
@@ -539,7 +540,7 @@ class ProcessQueue
      * @param mixed $consumeResult ConsumeResult::SUCCESS, ConsumeResultSuspend, or ConsumeResult::FAILURE
      * @return void
      */
-    public function eraseFifoMessage($messageView, $consumeResult)
+    public function eraseFifoMessage(object $messageView, mixed $consumeResult): void
     {
         if ($consumeResult === ConsumeResult::SUCCESS) {
             $this->consumer->ackMessage($messageView);
@@ -557,7 +558,7 @@ class ProcessQueue
      *
      * @return void
      */
-    public function doStats()
+    public function doStats(): void
     {
         $reception = $this->receptionTimes;
         $received = $this->receivedMessagesQuantity;

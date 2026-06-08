@@ -231,7 +231,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
      * @param Message $message to send
      * @return \Generator|mixed|null | void
      */
-    public function sendAsync(Message $message)
+    public function sendAsync(Message $message): array|\Generator
     {
         if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
             $channel = new \Swoole\Coroutine\Channel(1);
@@ -333,7 +333,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
      * @param array $messages to send
      * @return \Generator|mixed|null | void
      */
-    public function sendBatchAsync(array $messages)
+    public function sendBatchAsync(array $messages): array|\Generator
     {
         if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
             $channel = new \Swoole\Coroutine\Channel(1);
@@ -379,7 +379,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
      * @return array Send result containing:
      * @throws \Exception if producer is not running
      */
-    public function sendPriorityMessage($topic, $body, $priority, $tag = ''): array
+    public function sendPriorityMessage(string $topic, string $body, int $priority, string $tag = ''): array
     {
         return $this->send($this->buildConvenienceMessage($topic, $body, $tag, function (SystemProperties $sp) use ($priority) {
             $sp->setPriority($priority);
@@ -395,7 +395,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
      * @return array Send result containing:
      * @throws \Exception if producer is not running
      */
-    public function sendDelayedMessage($topic, $body, $deliveryTimestampUnixSec, $tag = ''): array
+    public function sendDelayedMessage(string $topic, string $body, int $deliveryTimestampUnixSec, string $tag = ''): array
     {
         $ts = new Timestamp();
         $ts->setSeconds($deliveryTimestampUnixSec);
@@ -416,7 +416,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
      * @return array Send result containing:
      * @throws \Exception if producer is not running
      */
-    public function sendFifoMessage($topic, $body, $messageGroup, $tag = ''): array
+    public function sendFifoMessage(string $topic, string $body, string $messageGroup, string $tag = ''): array
     {
         return $this->send($this->buildConvenienceMessage($topic, $body, $tag, function (SystemProperties $sp) use ($messageGroup) {
             $sp->setMessageGroup($messageGroup);
@@ -431,7 +431,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
      * @param $recallHandle recall handle
      * @return array recall result containing:
      */
-    public function recallMessage($topic, $recallHandle): array
+    public function recallMessage(string $topic, string $recallHandle): array
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -457,7 +457,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         ];
     }
 
-    public function recallMessageAsync($topic, $recallHandle)
+    public function recallMessageAsync(string $topic, string $recallHandle): array|\Generator
     {
         if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
             $channel = new \Swoole\Coroutine\Channel(1);
@@ -488,7 +488,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
      * @param string $recallHandle
      * @return \Generator
      */
-    private function recallMessageSyncFallback($topic, $recallHandle): \Generator
+    private function recallMessageSyncFallback(string $topic, string $recallHandle): \Generator
     {
         yield $this->recallMessage($topic, $recallHandle);
     }
@@ -513,7 +513,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
      * @param $context
      * @return void
      */
-    public function executeInterceptors($hookPoint, $context = [])
+    public function executeInterceptors(string $hookPoint, array $context = []): void
     {
         if (empty($this->interceptors)) {
             return;
@@ -540,7 +540,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
     // ==================== Private: Telemetry & Settings ====================
 
-    private function establishTelemetrySession()
+    private function establishTelemetrySession(): void
     {
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
@@ -569,7 +569,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         SwooleCompat::sleep(500000);
     }
 
-    private function registerSettingsCallback()
+    private function registerSettingsCallback(): void
     {
         $self = $this;
         $this->telemetrySession->setOnSettingsChange(function ($settings) use ($self) {
@@ -577,7 +577,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         });
     }
 
-    private function onServerSettings($settings)
+    private function onServerSettings(object $settings): void
     {
         $this->logger->info("Processing server settings");
 
@@ -607,7 +607,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
     // ==================== Private: Message Validation & Building ====================
 
-    private function validateMessage(Message $message)
+    private function validateMessage(Message $message): void
     {
         if (!$message->hasTopic() || empty(trim($message->getTopic()->getName()))) {
             throw new \InvalidArgumentException("Message topic is required");
@@ -663,7 +663,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         };
     }
 
-    private function createTimestamp()
+    private function createTimestamp(): \Google\Protobuf\Timestamp
     {
         $now = microtime(true);
         $timestamp = new Timestamp();
@@ -672,7 +672,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         return $timestamp;
     }
 
-    private function toProtobufMessage(Message $msg, $messageQueue, $txEnabled = false)
+    private function toProtobufMessage(Message $msg, object $messageQueue, bool $txEnabled = false): Message
     {
         $messageId = MessageIdCodec::getInstance()->nextMessageId()->toString();
 
@@ -739,7 +739,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         return $protoMsg;
     }
 
-    private function wrapSendMessageRequest($messages, $messageQueue)
+    private function wrapSendMessageRequest(array $messages, object $messageQueue): SendMessageRequest
     {
         $enriched = [];
         foreach ($messages as $msg) {
@@ -750,7 +750,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         return $request;
     }
 
-    private function wrapTransactionMessageRequest($messages, $messageQueue)
+    private function wrapTransactionMessageRequest(array $messages, object $messageQueue): SendMessageRequest
     {
         $enriched = [];
         foreach ($messages as $msg) {
@@ -763,7 +763,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
     // ==================== Private: Retry Logic ====================
 
-    private function sendMessageWithRetry($request, $message, $candidates, $maxAttempts)
+    private function sendMessageWithRetry(SendMessageRequest $request, Message $message, array $candidates, int $maxAttempts): array
     {
         $lastException = null;
         $startTime = microtime(true);
@@ -868,7 +868,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         throw $lastException;
     }
 
-    private function sendBatchWithRetry($request, $messages, $candidates, $maxAttempts)
+    private function sendBatchWithRetry(SendMessageRequest $request, array $messages, array $candidates, int $maxAttempts): array
     {
         $lastException = null;
         $startTime = microtime(true);

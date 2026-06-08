@@ -64,7 +64,7 @@ class PublishingLoadBalancer
      * @param object $routeData New TopicRouteData
      * @return PublishingLoadBalancer New instance with updated queues and preserved index
      */
-    public function update($routeData): PublishingLoadBalancer
+    public function update(object $routeData): PublishingLoadBalancer
     {
         $updated = new self($routeData);
         $updated->index = $this->index;

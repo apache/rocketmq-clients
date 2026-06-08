@@ -72,7 +72,7 @@ class SimpleConsumerTest extends TestCase
         ]);
 
         $this->expectException(\RuntimeException::class);
-        $consumer->ack(new \stdClass());
+        $consumer->ack([new \stdClass()]);
     }
 
     /**

@@ -85,7 +85,7 @@ class LitePushConsumer extends PushConsumer
      * @param callable|null $listener Optional per-lite-topic callback
      * @return $this
      */
-    public function subscribeLite($liteTopic, $listener = null)
+    public function subscribeLite(string $liteTopic, ?callable $listener = null): self
     {
         $this->checkNotRunning();
 
@@ -118,7 +118,7 @@ class LitePushConsumer extends PushConsumer
      * @param string $liteTopic Lite topic name to remove
      * @return $this
      */
-    public function unsubscribeLite($liteTopic)
+    public function unsubscribeLite(string $liteTopic): self
     {
         $this->checkNotRunning();
         unset($this->liteTopics[$liteTopic]);
@@ -130,7 +130,7 @@ class LitePushConsumer extends PushConsumer
      *
      * @return array
      */
-    public function getLiteTopics()
+    public function getLiteTopics(): array
     {
         return array_keys($this->liteTopics);
     }
@@ -141,7 +141,7 @@ class LitePushConsumer extends PushConsumer
      * @param callable $listener Callback invoked for messages with no per-lite-topic listener
      * @return $this
      */
-    public function setLiteMessageListener(callable $listener)
+    public function setLiteMessageListener(callable $listener): self
     {
         $this->liteMessageListener = $listener;
         return $this;
@@ -173,7 +173,7 @@ class LitePushConsumer extends PushConsumer
     /**
      * Setup before the main scan loop: sync lite subscriptions and wait for assignments.
      */
-    protected function onStartBeforeLoop()
+    protected function onStartBeforeLoop(): void
     {
         $self = $this;
         $this->telemetrySession->setOnNotifyUnsubscribeLite(function ($notifyCmd) use ($self) {
@@ -207,7 +207,7 @@ class LitePushConsumer extends PushConsumer
      * @param string $liteTopic Lite topic name to remove from subscriptions
      * @return void
      */
-    public function handleUnsubscribeLite($liteTopic)
+    public function handleUnsubscribeLite(string $liteTopic): void
     {
         if (array_key_exists($liteTopic, $this->liteTopics)) {
             unset($this->liteTopics[$liteTopic]);
@@ -218,7 +218,7 @@ class LitePushConsumer extends PushConsumer
     /**
      * Hook called after each scan cycle to perform periodic lite sync.
      */
-    protected function onScanCycleComplete()
+    protected function onScanCycleComplete(): void
     {
         $now = time();
         if (!empty($this->liteTopics) && ($now - $this->lastSyncTime) >= $this->syncLiteSubscriptionInterval) {
@@ -230,7 +230,7 @@ class LitePushConsumer extends PushConsumer
     /**
      * Sync lite subscriptions to server via SyncLiteSubscription gRPC.
      */
-    public function syncLiteSubscriptions()
+    public function syncLiteSubscriptions(): void
     {
         if (empty($this->liteTopics)) {
             return;
@@ -268,7 +268,7 @@ class LitePushConsumer extends PushConsumer
      * @param string $liteTopic
      * @return callable|null
      */
-    public function getLiteMessageListener($liteTopic)
+    public function getLiteMessageListener(string $liteTopic): ?callable
     {
         if (isset($this->liteTopics[$liteTopic])) {
             $listener = $this->liteTopics[$liteTopic];
@@ -284,7 +284,7 @@ class LitePushConsumer extends PushConsumer
      *
      * @return bool
      */
-    public function isLiteConsumer()
+    public function isLiteConsumer(): bool
     {
         return true;
     }
@@ -294,7 +294,7 @@ class LitePushConsumer extends PushConsumer
      *
      * @return object|null Assignment response or null on failure
      */
-    private function queryLiteAssignment()
+    private function queryLiteAssignment(): ?object
     {
         $topicResource = new \Apache\Rocketmq\V2\Resource();
         $topicResource->setName($this->parentTopic);

@@ -59,7 +59,7 @@ trait TransactionTrait
     /**
      * Send a transaction message (half-message + local transaction + commit/rollback).
      */
-    public function sendWithTransaction(Message $message, $transaction, ?LocalTransactionExecuter $executor = null)
+    public function sendWithTransaction(Message $message, Transaction $transaction, ?LocalTransactionExecuter $executor = null): array
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -117,7 +117,7 @@ trait TransactionTrait
     /**
      * Begin a new transaction.
      */
-    public function beginTransaction()
+    public function beginTransaction(): Transaction
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -148,7 +148,7 @@ trait TransactionTrait
     /**
      * End (commit or rollback) a transaction via gRPC.
      */
-    private function endTransaction($messageId, $transactionId, $topic, $resolution, ?Endpoints $endpoints = null, $source = TransactionSource::SOURCE_CLIENT)
+    private function endTransaction(string $messageId, string $transactionId, string $topic, int $resolution, ?Endpoints $endpoints = null, int $source = TransactionSource::SOURCE_CLIENT): void
     {
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
@@ -211,7 +211,7 @@ trait TransactionTrait
     /**
      * Register TransactionChecker callback on TelemetrySession.
      */
-    private function registerTransactionCheckerCallback()
+    private function registerTransactionCheckerCallback(): void
     {
         if ($this->transactionChecker === null) {
             return;
@@ -226,7 +226,7 @@ trait TransactionTrait
     /**
      * Handle an orphaned transaction command from the server.
      */
-    private function handleOrphanedTransaction($command)
+    private function handleOrphanedTransaction(object $command): void
     {
         if ($this->transactionChecker === null) {
             $this->logger->warning("Received orphaned transaction command but no TransactionChecker registered");

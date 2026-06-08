@@ -184,7 +184,7 @@ class TestConsumeService extends ConsumeService
     }
 
     // Expose protected method for testing
-    public function consumeMessage($messageView)
+    public function consumeMessage(object $messageView): mixed
     {
         return parent::consumeMessage($messageView);
     }

@@ -70,7 +70,7 @@ abstract class ConsumeService
      * @param object $messageView
      * @return mixed ConsumeResult::SUCCESS, ConsumeResult::FAILURE, ConsumeResultSuspend::SUSPEND, or the ConsumeResultSuspend instance
      */
-    public function consumeMessage($messageView)
+    public function consumeMessage(object $messageView): mixed
     {
         try {
             $result = call_user_func($this->messageListener, $messageView);
@@ -115,7 +115,7 @@ abstract class ConsumeService
      * @return bool true if successful, false if skipped or all retries exhausted
      * @throws \RuntimeException If gRPC call fails after all retries
      */
-    public function ackMessage($messageView): bool
+    public function ackMessage(object $messageView): bool
     {
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
@@ -196,7 +196,7 @@ abstract class ConsumeService
      * @return bool true if NACK succeeded, false if skipped or all retries exhausted
      * @throws \RuntimeException If gRPC call fails after all retries
      */
-    public function nackMessage($messageView, $deliveryAttempt = 1, ?int $invisibleDuration = null): bool
+    public function nackMessage(object $messageView, int $deliveryAttempt = 1, ?int $invisibleDuration = null): bool
     {
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
@@ -291,7 +291,7 @@ abstract class ConsumeService
      * @return bool true if DLQ forward succeeded, false if skipped or all retries exhausted
      * @throws \RuntimeException If gRPC call fails after all retries
      */
-    public function forwardToDeadLetterQueue($messageView, $deliveryAttempt = null): bool
+    public function forwardToDeadLetterQueue(object $messageView, ?int $deliveryAttempt = null): bool
     {
         $receiptHandle = $this->extractReceiptHandle($messageView);
         $messageId = $this->extractMessageId($messageView);
@@ -356,7 +356,7 @@ abstract class ConsumeService
      * @param int $delaySeconds Delay in seconds before next delivery
      * @return void
      */
-    protected function executeNackInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
+    protected function executeNackInterceptor(bool $success, string $messageId, string $topic, int $deliveryAttempt, int $delaySeconds): void
     {
 
     }
@@ -371,7 +371,7 @@ abstract class ConsumeService
      * @param int $delaySeconds Delay in seconds before DLQ forwarding
      * @return void
      */
-    protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt = null, $delaySeconds = null):  void
+    protected function executeDLQInterceptor(bool $success, string $messageId, string $topic, ?int $deliveryAttempt = null, ?int $delaySeconds = null): void
     {
 
     }
@@ -382,7 +382,7 @@ abstract class ConsumeService
      * @param object $messageView
      * @return object gRPC client instance
      */
-    private function getBrokerClient($messageView)
+    private function getBrokerClient(object $messageView): object
     {
         $endpoints = $messageView->getEndpoints();
         if ($endpoints !== null) {
@@ -410,7 +410,7 @@ abstract class ConsumeService
      * @param string $topic Topic name
      * @return void
      */
-    private function executeAckInterceptor($success, $messageId, $topic)
+    private function executeAckInterceptor(bool $success, string $messageId, string $topic): void
     {
         $this->consumer->executeInterceptors(MessageHookPoints::ACK, [
             'success' => $success,
@@ -537,7 +537,7 @@ class FifoConsumeService extends ConsumeService
      * @param object $messageView
      * @return string
      */
-    protected function getMessageGroupKey($messageView)
+    protected function getMessageGroupKey(object $messageView): string
     {
         $sysProps = $messageView->getSystemProperties();
         if ($sysProps !== null && $sysProps->hasMessageGroup()) {
@@ -577,7 +577,7 @@ class FifoConsumeService extends ConsumeService
      * @param array $messages Array of message views
      * @return void
      */
-    private function consumeSequentially(ProcessQueue $pq, $messages)
+    private function consumeSequentially(ProcessQueue $pq, array $messages): void
     {
         // Only consume the first message (head of queue) to preserve FIFO order
         $messageView = reset($messages);
@@ -607,7 +607,7 @@ class FifoConsumeService extends ConsumeService
      * @param array $messages Array of message views
      * @return void
      */
-    private function consumeWithAccelerator(ProcessQueue $pq, $messages)
+    private function consumeWithAccelerator(ProcessQueue $pq, array $messages): void
     {
         // Group messages by their group key
         $groupedMessages = [];
@@ -677,7 +677,7 @@ class FifoConsumeService extends ConsumeService
      * @param int $deliveryAttempt Current delivery attempt number
      * @return void
      */
-    private function handleFailure(ProcessQueue $pq, $messageView, $deliveryAttempt)
+    private function handleFailure(ProcessQueue $pq, object $messageView, int $deliveryAttempt): void
     {
         if ($pq->isDropped()) {
             return;
@@ -712,7 +712,7 @@ class FifoConsumeService extends ConsumeService
      * @param int $delaySeconds Delay in seconds before next delivery
      * @return void
      */
-    protected function executeNackInterceptor($success, $messageId, $topic, $deliveryAttempt, $delaySeconds):  void
+    protected function executeNackInterceptor(bool $success, string $messageId, string $topic, int $deliveryAttempt, int $delaySeconds): void
     {
         $this->consumer->executeInterceptors(MessageHookPoints::CHANGE_INVISIBLE_DURATION, [
             'success' => $success,
@@ -733,7 +733,7 @@ class FifoConsumeService extends ConsumeService
      * @param int $delaySeconds Delay in seconds before DLQ forwarding
      * @return void
      */
-    protected function executeDLQInterceptor($success, $messageId, $topic, $deliveryAttempt = null, $delaySeconds = null):  void
+    protected function executeDLQInterceptor(bool $success, string $messageId, string $topic, ?int $deliveryAttempt = null, ?int $delaySeconds = null): void
     {
         $this->consumer->executeInterceptors(MessageHookPoints::FORWARD_TO_DLQ, [
             'success' => $success,
@@ -750,7 +750,7 @@ class FifoConsumeService extends ConsumeService
      * @param ConsumeResultSuspend $suspendResult
      * @return void
      */
-    protected function handleSuspend(ProcessQueue $pq, $messageView, ConsumeResultSuspend $suspendResult)
+    protected function handleSuspend(ProcessQueue $pq, object $messageView, ConsumeResultSuspend $suspendResult): void
     {
         if ($pq->isDropped()) {
             return;
@@ -769,7 +769,7 @@ class FifoConsumeService extends ConsumeService
      * @param int $deliveryAttempt Current delivery attempt number
      * @return void
      */
-    private function consumeFifoIteratively(ProcessQueue $pq, $messageView, $deliveryAttempt)
+    private function consumeFifoIteratively(ProcessQueue $pq, object $messageView, int $deliveryAttempt): void
     {
         if ($pq->isDropped()) {
             return;

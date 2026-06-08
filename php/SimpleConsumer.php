@@ -251,7 +251,7 @@ class SimpleConsumer
      * @return void
      * @throws \RuntimeException If settings sync fails
      */
-    private function establishTelemetrySession()
+    private function establishTelemetrySession(): void
     {
         // Create UserAgent
         $ua = new UA();
@@ -309,7 +309,7 @@ class SimpleConsumer
      * @param MessageInterceptor $interceptor
      * @return $this
      */
-    public function addInterceptor(MessageInterceptor $interceptor)
+    public function addInterceptor(MessageInterceptor $interceptor): self
     {
         $this->interceptors[] = $interceptor;
         return $this;
@@ -322,7 +322,7 @@ class SimpleConsumer
      * @param array $context Context data for the hook point
      * @return void
      */
-    public function executeInterceptors($hookPoint, $context = [])
+    public function executeInterceptors(string $hookPoint, array $context = []): void
     {
         if (empty($this->interceptors)) {
             return;
@@ -347,7 +347,7 @@ class SimpleConsumer
      * @throws \RuntimeException If consumer not started
      * @throws \InvalidArgumentException If maxMessages <= 0
      */
-    public function receive($maxMessages = 10, $invisibleDuration = 30)
+    public function receive(int $maxMessages = 10, int $invisibleDuration = 30): array
     {
         if (!$this->isStarted) {
             throw new \RuntimeException("Consumer not started");
@@ -403,7 +403,7 @@ class SimpleConsumer
      * @param int $invisibleDuration Invisible duration in seconds for received messages
      * @return array List of received Message objects
      */
-    private function receiveFromAllQueues($maxMessages, $invisibleDuration)
+    private function receiveFromAllQueues(int $maxMessages, int $invisibleDuration): array
     {
         $allMessages = [];
         $topics = array_keys($this->subscriptions);
@@ -502,7 +502,7 @@ class SimpleConsumer
      * @param int|null $longPollingTimeout Long polling timeout in seconds
      * @return array List of received Message objects
      */
-    private function receiveFromTopic($topic, $expression, $maxMessages, $invisibleDuration, $longPollingTimeout = null)
+    private function receiveFromTopic(string $topic, string $expression, int $maxMessages, int $invisibleDuration, ?int $longPollingTimeout = null): array
     {
         // Query route to get MessageQueue first
         $messageQueue = $this->getMessageQueue($topic);
@@ -525,7 +525,7 @@ class SimpleConsumer
      * @param int|null $longPollingTimeout Long polling timeout in seconds
      * @return array List of received Message objects
      */
-    private function receiveFromSpecificQueue($topic, $expression, $messageQueue, $maxMessages, $invisibleDuration, $longPollingTimeout = null)
+    private function receiveFromSpecificQueue(string $topic, string $expression, object $messageQueue, int $maxMessages, int $invisibleDuration, ?int $longPollingTimeout = null): array
     {
         $filterExpression = new FilterExpression();
         $filterExpression->setExpression($expression);
@@ -605,7 +605,7 @@ class SimpleConsumer
      * @param string $topic Topic name
      * @return \Apache\Rocketmq\V2\MessageQueue|null
      */
-    private function getMessageQueue($topic)
+    private function getMessageQueue(string $topic): ?object
     {
         $loadBalancer = $this->getSubscriptionLoadBalancer($topic);
         return $loadBalancer->takeMessageQueue();
@@ -618,7 +618,7 @@ class SimpleConsumer
      * @param string $topic Topic name
      * @return SubscriptionLoadBalancer
      */
-    private function getSubscriptionLoadBalancer($topic)
+    private function getSubscriptionLoadBalancer(string $topic): SubscriptionLoadBalancer
     {
         if (!isset($this->subscriptionRouteDataCache[$topic])) {
             $routeData = $this->getRouteData($topic);
@@ -634,7 +634,7 @@ class SimpleConsumer
      * @param string $topic Topic name
      * @return \Apache\Rocketmq\V2\QueryRouteResponse|null
      */
-    private function getRouteData($topic)
+    private function getRouteData(string $topic): ?object
     {
         $topicResource = new Resource();
         $topicResource->setName($topic);
@@ -672,7 +672,7 @@ class SimpleConsumer
      * @return void
      * @throws \RuntimeException If consumer is not started
      */
-    public function ack($messages)
+    public function ack(array $messages): void
     {
         if (!$this->isStarted) {
             throw new \RuntimeException("Consumer not started");
@@ -707,7 +707,7 @@ class SimpleConsumer
      * @param array $messages List of message objects to acknowledge
      * @return void
      */
-    private function ackMessagesForTopic($topic, $messages)
+    private function ackMessagesForTopic(string $topic, array $messages): void
     {
         $entries = [];
         foreach ($messages as $message) {
@@ -846,7 +846,7 @@ class SimpleConsumer
      * @return bool true if operation succeeded, false if skipped or failed
      * @throws \RuntimeException If consumer is not started
      */
-    public function changeInvisibleDuration($message, $invisibleDurationSeconds)
+    public function changeInvisibleDuration(object $message, int $invisibleDurationSeconds): bool
     {
         if (!$this->isStarted) {
             throw new \RuntimeException("Consumer not started");
@@ -913,7 +913,7 @@ class SimpleConsumer
      *
      * @return void
      */
-    private function notifyClientTermination()
+    private function notifyClientTermination(): void
     {
         $request = new NotifyClientTerminationRequest();
         $groupResource = new Resource();
@@ -968,7 +968,7 @@ class SimpleConsumer
      *
      * @return void
      */
-    public function startHeartbeat()
+    public function startHeartbeat(): void
     {
         $this->doHeartbeat();
         $this->lastHeartbeatTime = time();
@@ -1027,7 +1027,7 @@ class SimpleConsumer
      *
      * @return void
      */
-    private function scheduleNextHeartbeat()
+    private function scheduleNextHeartbeat(): void
     {
         if (function_exists('pcntl_alarm')) {
             pcntl_alarm(10);
@@ -1039,7 +1039,7 @@ class SimpleConsumer
      *
      * @return void
      */
-    public function stopHeartbeat()
+    public function stopHeartbeat(): void
     {
         if ($this->heartbeatTimerId > 0) {
             SwooleCompat::clearTimer($this->heartbeatTimerId);
@@ -1083,7 +1083,7 @@ class SimpleConsumer
      * @param int $invisibleDuration Invisible duration in seconds
      * @return array|\Generator Array of messages when Swoole available, Generator otherwise
      */
-    public function receiveAsync($maxMessages = 10, $invisibleDuration = 30)
+    public function receiveAsync(int $maxMessages = 10, int $invisibleDuration = 30): array|\Generator
     {
         if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
             $self = $this;
@@ -1116,7 +1116,7 @@ class SimpleConsumer
      * @param int $invisibleDuration
      * @return \Generator
      */
-    private function receiveSyncFallback($maxMessages, $invisibleDuration): \Generator
+    private function receiveSyncFallback(int $maxMessages, int $invisibleDuration): \Generator
     {
         yield $this->receive($maxMessages, $invisibleDuration);
     }
@@ -1127,7 +1127,7 @@ class SimpleConsumer
      * @param array $messages Messages to ack
      * @return bool|\Generator True on success when Swoole available, Generator otherwise
      */
-    public function ackAsync($messages)
+    public function ackAsync(array $messages): bool|\Generator
     {
         if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
             $self = $this;
@@ -1159,7 +1159,7 @@ class SimpleConsumer
      * @param array $messages
      * @return \Generator
      */
-    private function ackSyncFallback($messages): \Generator
+    private function ackSyncFallback(array $messages): \Generator
     {
         yield $this->ack($messages);
     }
@@ -1171,7 +1171,7 @@ class SimpleConsumer
      * @param int $invisibleDurationSeconds New invisible duration
      * @return bool|\Generator True on success when Swoole available, Generator otherwise
      */
-    public function changeInvisibleDurationAsync($message, $invisibleDurationSeconds)
+    public function changeInvisibleDurationAsync(object $message, int $invisibleDurationSeconds): bool|\Generator
     {
         if (SwooleCompat::isAvailable() && !SwooleCompat::inCoroutine()) {
             $self = $this;
@@ -1204,7 +1204,7 @@ class SimpleConsumer
      * @param int $invisibleDurationSeconds
      * @return \Generator
      */
-    private function changeInvisibleDurationSyncFallback($message, $invisibleDurationSeconds): \Generator
+    private function changeInvisibleDurationSyncFallback(object $message, int $invisibleDurationSeconds): \Generator
     {
         yield $this->changeInvisibleDuration($message, $invisibleDurationSeconds);
     }
@@ -1224,7 +1224,7 @@ class SimpleConsumer
      *
      * @return string
      */
-    public function getConsumerGroup()
+    public function getConsumerGroup(): string
     {
         return $this->consumerGroup;
     }
@@ -1244,7 +1244,7 @@ class SimpleConsumer
      *
      * @return string
      */
-    public function getNamespace()
+    public function getNamespace(): string
     {
         return $this->namespace;
     }
@@ -1255,7 +1255,7 @@ class SimpleConsumer
      * @param string $namespace
      * @return $this
      */
-    public function setNamespace(string $namespace)
+    public function setNamespace(string $namespace): self
     {
         $this->namespace = $namespace;
         return $this;
@@ -1267,7 +1267,7 @@ class SimpleConsumer
      * @param SessionCredentials $credentials
      * @return $this
      */
-    public function setCredentials(SessionCredentials $credentials)
+    public function setCredentials(SessionCredentials $credentials): self
     {
         $this->credentials = $credentials;
         return $this;
@@ -1278,7 +1278,7 @@ class SimpleConsumer
      *
      * @return \Apache\Rocketmq\V2\Endpoints
      */
-    public function getParsedEndpoints()
+    public function getParsedEndpoints(): \Apache\Rocketmq\V2\Endpoints
     {
         if ($this->parsedEndpoints === null) {
             $this->parsedEndpoints = $this->parseEndpoints($this->endpoints);
@@ -1291,7 +1291,7 @@ class SimpleConsumer
      *
      * @return int Long polling timeout in seconds
      */
-    public function getAwaitDuration()
+    public function getAwaitDuration(): int
     {
         return $this->awaitDuration;
     }
@@ -1304,7 +1304,7 @@ class SimpleConsumer
      * @param MessageQueue $messageQueue
      * @return MessagingServiceClient
      */
-    public function getBrokerClient($messageQueue)
+    public function getBrokerClient(object $messageQueue): \Apache\Rocketmq\V2\MessagingServiceClient
     {
         $broker = $messageQueue->getBroker();
         if (!$broker || !$broker->hasEndpoints()) {
@@ -1344,7 +1344,7 @@ class SimpleConsumer
      *
      * @return MessagingServiceClient
      */
-    public function getClient()
+    public function getClient(): \Apache\Rocketmq\V2\MessagingServiceClient
     {
         return $this->client;
     }
@@ -1440,7 +1440,7 @@ class SimpleConsumer
      * @return array Entries that should be retried
      * @deprecated This method is no longer used. Logic moved to ackMessage().
      */
-    private function filterRetryableEntries($entries, $responseEntries)
+    private function filterRetryableEntries(array $entries, array $responseEntries): array
     {
         $responseCodes = [];
         foreach ($responseEntries as $i => $resultEntry) {

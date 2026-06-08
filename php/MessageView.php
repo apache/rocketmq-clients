@@ -55,7 +55,7 @@ class MessageView implements MessageViewInterface
     public function __construct(Message $message, ?string $receiptHandle = null, ?Endpoints $endpoints = null, int $deliveryAttempt = 1)
     {
         $this->message = $message;
-        if ($receiptHandle == null) {
+        if ($receiptHandle === null) {
             $sysProps = $message->getSystemProperties();
             $receiptHandle = $sysProps?->getReceiptHandle() ?: null;
         }

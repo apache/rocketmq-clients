@@ -225,7 +225,7 @@ class PushConsumer implements ConsumerInterface
      * @param callable $listener function($messageView): int
      * @return $this
      */
-    public function setMessageListener(callable $listener)
+    public function setMessageListener(callable $listener): self
     {
         $this->checkNotRunning();
         $this->messageListener = $listener;
@@ -332,7 +332,7 @@ class PushConsumer implements ConsumerInterface
      * @return void
      * @throws \RuntimeException If messageListener or subscriptions are not set
      */
-    public function startWithTimeout(int $seconds)
+    public function startWithTimeout(int $seconds): void
     {
         if ($this->isRunning()) {
             return;
@@ -410,7 +410,7 @@ class PushConsumer implements ConsumerInterface
      *
      * @return void
      */
-    protected function onStartBeforeLoop()
+    protected function onStartBeforeLoop(): void
     {
 
     }
@@ -420,7 +420,7 @@ class PushConsumer implements ConsumerInterface
      *
      * @return void
      */
-    protected function onStop()
+    protected function onStop(): void
     {
 
     }
@@ -430,7 +430,7 @@ class PushConsumer implements ConsumerInterface
      *
      * @return HeartbeatRequest
      */
-    private function wrapHeartbeatRequest()
+    private function wrapHeartbeatRequest(): \Apache\Rocketmq\V2\HeartbeatRequest
     {
         $request = new HeartbeatRequest();
         $request->setClientType($this->getClientType());
@@ -443,7 +443,7 @@ class PushConsumer implements ConsumerInterface
      *
      * @return void
      */
-    private function fetchMessageInterleavedHeartbeat()
+    private function fetchMessageInterleavedHeartbeat(): void
     {
         $processQueues = $this->processQueueTable;
         foreach ($processQueues as $key => $pq) {
@@ -463,7 +463,7 @@ class PushConsumer implements ConsumerInterface
      * Drain in-flight messages before shutdown. Waits up to 30s for cached messages
      * to be consumed, preventing message loss on abrupt termination.
      */
-    private function drainInFlightMessages()
+    private function drainInFlightMessages(): void
     {
         $drainStart = microtime(true);
         $drainTimeout = 30; // seconds
@@ -564,7 +564,7 @@ class PushConsumer implements ConsumerInterface
     /**
      * Request graceful shutdown.
      */
-    public function shutdown()
+    public function shutdown(): void
     {
         if (!$this->isRunning) {
             return;
@@ -594,7 +594,7 @@ class PushConsumer implements ConsumerInterface
     /**
      * Signal handler for graceful shutdown.
      */
-    public function requestShutdown()
+    public function requestShutdown(): void
     {
         $this->shutdownRequested = true;
     }
@@ -645,7 +645,7 @@ class PushConsumer implements ConsumerInterface
     /**
      * Register SIGTERM/SIGINT signal handlers.
      */
-    protected function registerSignalHandlers()
+    protected function registerSignalHandlers(): void
     {
         if (function_exists('pcntl_signal')) {
             $self = $this;
@@ -665,7 +665,7 @@ class PushConsumer implements ConsumerInterface
      * @return void
      * @throws \RuntimeException If session establishment fails
      */
-    protected function establishTelemetrySession()
+    protected function establishTelemetrySession(): void
     {
         $ua = new UA();
         $ua->setLanguage(Language::PHP);
@@ -715,7 +715,7 @@ class PushConsumer implements ConsumerInterface
     /**
      * Scan assignments for all subscribed topics.
      */
-    private function scanAssignments()
+    private function scanAssignments(): void
     {
         $this->logger->debug("PushConsumer scanning assignments");
 
@@ -748,7 +748,7 @@ class PushConsumer implements ConsumerInterface
      * @param string $expression Filter expression for the topic
      * @return void
      */
-    private function syncProcessQueues($topic, $newAssignments, $expression)
+    private function syncProcessQueues(string $topic, array $newAssignments, string $expression): void
     {
         $latestMQKeys = [];
         foreach ($newAssignments as $assignment) {
@@ -805,7 +805,7 @@ class PushConsumer implements ConsumerInterface
      * @param string $topic
      * @return QueryAssignmentResponse|null
      */
-    private function queryAssignment($topic)
+    private function queryAssignment(string $topic): ?\Apache\Rocketmq\V2\QueryAssignmentResponse
     {
         $topicResource = new Resource();
         $topicResource->setName($topic);
@@ -837,7 +837,7 @@ class PushConsumer implements ConsumerInterface
      * @param MessageQueue $mq
      * @return string
      */
-    private function getMqKey($mq)
+    private function getMqKey(object $mq): string
     {
         $topicName = $mq->hasTopic() ? $mq->getTopic()->getName() : 'unknown';
         $queueId = $mq->getId() ?? 0;
@@ -854,7 +854,7 @@ class PushConsumer implements ConsumerInterface
      *
      * @return bool
      */
-    public function isRunning()
+    public function isRunning(): bool
     {
         return $this->isRunning;
     }
@@ -864,7 +864,7 @@ class PushConsumer implements ConsumerInterface
      *
      * @return array ['topic' => 'expression', ...]
      */
-    public function getSubscriptionExpressions()
+    public function getSubscriptionExpressions(): array
     {
         return $this->subscriptionExpressions;
     }
@@ -894,7 +894,7 @@ class PushConsumer implements ConsumerInterface
      *
      * @return Resource
      */
-    public function getGroupResource()
+    public function getGroupResource(): Resource
     {
         $resource = new Resource();
         $resource->setName($this->consumerGroup);
@@ -907,7 +907,7 @@ class PushConsumer implements ConsumerInterface
      * @param string $topic Topic name
      * @return Resource
      */
-    public function getTopicResource($topic): Resource
+    public function getTopicResource(string $topic): Resource
     {
         $resource = new Resource();
         if ($this->namespace !== '') {
@@ -945,7 +945,7 @@ class PushConsumer implements ConsumerInterface
     /**
      * Hook called after each scan cycle. Override in subclasses for periodic tasks.
      */
-    protected function onScanCycleComplete()
+    protected function onScanCycleComplete(): void
     {
         // No-op in base class
     }
