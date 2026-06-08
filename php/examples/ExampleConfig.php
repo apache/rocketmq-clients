@@ -33,6 +33,7 @@
  */
 
 use Apache\Rocketmq\TlsCredentials;
+use Apache\Rocketmq\SessionCredentials;
 
 require_once __DIR__ . '/../SessionCredentials.php';
 require_once __DIR__ . '/../TlsCredentials.php';
@@ -58,7 +59,7 @@ class ExampleConfig
     // Lite consumer configuration
     private readonly array $liteTopicConfig;
     private readonly ?string $tlsCaCert;
-    private readonly ?string $tlsClientCent;
+    private readonly ?string $tlsClientCert;
     private readonly ?string $tlsClientKey;
     private readonly bool $sslEnabled;
     
@@ -100,7 +101,7 @@ class ExampleConfig
         ];
         // TLS configuration
         $this->tlsCaCert = getenv('ROCKETMQ_PHP_TLS_CA_CERT') ?: null;
-        $this->tlsClientCent = getenv('ROCKETMQ_PHP_TLS_CLIENT_CERT') ?: null;
+        $this->tlsClientCert = getenv('ROCKETMQ_PHP_TLS_CLIENT_CERT') ?: null;
         $this->tlsClientKey = getenv('ROCKETMQ_PHP_TLS_CLIENT_KEY') ?: null;
         
         // SSL enabled (default: true for secure connections)
@@ -112,10 +113,10 @@ class ExampleConfig
      * Get TLS credentials
      * @return void
      */
-    public function getTlsCredentials()
+    public function getTlsCredentials(): ?TlsCredentials
     {
-        if (!empty($this->tlsClientCent) && !empty($this->tlsClientKey)) {
-            return TlsCredentials::createMtls($this->tlsCaCert, $this->tlsClientCent, $this->tlsClientKey);
+        if (!empty($this->tlsClientCert) && !empty($this->tlsClientKey)) {
+            return TlsCredentials::createMtls($this->tlsClientCert, $this->tlsClientKey, $this->tlsCaCert);
         }
 
         if (!empty($this->tlsCaCert)) {
@@ -129,7 +130,7 @@ class ExampleConfig
      * 
      * @return ExampleConfig
      */
-    public static function getInstance()
+    public static function getInstance(): self
     {
         if (self::$instance === null) {
             self::$instance = new self();
@@ -140,7 +141,7 @@ class ExampleConfig
     /**
      * Reset instance (useful for testing)
      */
-    public static function reset()
+    public static function reset(): void
     {
         self::$instance = null;
     }
@@ -152,7 +153,7 @@ class ExampleConfig
      * 
      * @return string
      */
-    public function getEndpoints()
+    public function getEndpoints(): string
     {
         return $this->endpoints;
     }
@@ -162,7 +163,7 @@ class ExampleConfig
      * 
      * @return string
      */
-    public function getNamespace()
+    public function getNamespace(): string
     {
         return $this->namespace;
     }
@@ -173,7 +174,7 @@ class ExampleConfig
      * @param string $type Topic type: normal, fifo, delay, transaction, priority
      * @return string
      */
-    public function getTopic($type = 'normal')
+    public function getTopic(string $type = 'normal'): string
     {
         return isset($this->topics[$type]) ? $this->topics[$type] : $this->topics['normal'];
     }
@@ -183,7 +184,7 @@ class ExampleConfig
      * 
      * @return array
      */
-    public function getTopics()
+    public function getTopics(): array
     {
         return $this->topics;
     }
@@ -193,7 +194,7 @@ class ExampleConfig
      * 
      * @return string
      */
-    public function getConsumerGroup()
+    public function getConsumerGroup(): string
     {
         return $this->consumerGroup;
     }
@@ -203,7 +204,7 @@ class ExampleConfig
      * 
      * @return string
      */
-    public function getTag()
+    public function getTag(): string
     {
         return $this->tag;
     }
@@ -213,7 +214,7 @@ class ExampleConfig
      * 
      * @return SessionCredentials|null
      */
-    public function getCredentials()
+    public function getCredentials(): ?SessionCredentials
     {
         return $this->credentials;
     }
@@ -223,7 +224,7 @@ class ExampleConfig
      * 
      * @return bool
      */
-    public function hasCredentials()
+    public function hasCredentials(): bool
     {
         return $this->credentials !== null;
     }
@@ -233,7 +234,7 @@ class ExampleConfig
      * 
      * @return array
      */
-    public function getLiteTopicConfig()
+    public function getLiteTopicConfig(): array
     {
         return $this->liteTopicConfig;
     }
@@ -243,7 +244,7 @@ class ExampleConfig
      * 
      * @return string
      */
-    public function getLiteParentTopic()
+    public function getLiteParentTopic(): string
     {
         return $this->liteTopicConfig['parentTopic'];
     }
@@ -261,7 +262,7 @@ class ExampleConfig
     /**
      * Display current configuration (for debugging)
      */
-    public function display()
+    public function display(): void
     {
         echo "========================================\n";
         echo "RocketMQ PHP Client Configuration\n";
@@ -278,9 +279,10 @@ class ExampleConfig
         }
         echo "\nLite Topic:\n";
         echo "  Parent Topic: {$this->liteTopicConfig['parentTopic']}\n";
-        echo "  TLS: " . ($this->tlsCaCert ? 'Enabled' : 'Disabled') . "\n";
-        echo "  TLS CA Cert: " . ($this->tlsCaCert ? 'Configured' : 'Not configured') . "\n";
-        echo "  TLS Client Key: ". ($this->tlsClientKey ?? 'Not configured') . "\n";
+        echo "\nTLS:\n";
+        echo "  CA Cert: " . ($this->tlsCaCert ? 'Configured' : 'Not configured') . "\n";
+        echo "  Client Cert: " . ($this->tlsClientCert ? 'Configured' : 'Not configured') . "\n";
+        echo "  Client Key: " . ($this->tlsClientKey ? 'Configured' : 'Not configured') . "\n";
         echo "========================================\n";
     }
 }
