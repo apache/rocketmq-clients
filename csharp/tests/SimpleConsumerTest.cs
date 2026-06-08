@@ -58,45 +58,40 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public async Task TestReceiveWithoutStart()
         {
             var consumer = CreateSimpleConsumer();
-            await consumer.Receive(16, TimeSpan.FromSeconds(15));
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await consumer.Receive(16, TimeSpan.FromSeconds(15)));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public async Task TestAckWithoutStart()
         {
             var consumer = CreateSimpleConsumer();
             var messageView = MessageView.FromProtobuf(CreateMessage());
-            await consumer.Ack(messageView);
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await consumer.Ack(messageView));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public async Task TestSubscribeWithoutStart()
         {
             var consumer = CreateSimpleConsumer();
-            await consumer.Subscribe("testTopic", new FilterExpression("*"));
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await consumer.Subscribe("testTopic", new FilterExpression("*")));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void TestUnsubscribeWithoutStart()
         {
             var consumer = CreateSimpleConsumer();
-            consumer.Unsubscribe("testTopic");
+            Assert.ThrowsExactly<InvalidOperationException>(() => consumer.Unsubscribe("testTopic"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InternalErrorException))]
         public async Task TestReceiveWithZeroMaxMessageNum()
         {
             var consumer = CreateSimpleConsumer();
             consumer.State = State.Running;
-            await consumer.Receive(0, TimeSpan.FromSeconds(15));
+            await Assert.ThrowsExactlyAsync<InternalErrorException>(async () => await consumer.Receive(0, TimeSpan.FromSeconds(15)));
         }
 
         [TestMethod]

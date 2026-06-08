@@ -32,7 +32,6 @@ namespace tests
     public class ProducerTest
     {
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public async Task TestSendBeforeStartup()
         {
             var clientConfig = new ClientConfig.Builder().SetEndpoints("127.0.0.1:9876").Build();
@@ -40,7 +39,7 @@ namespace tests
             publishingTopics.TryAdd("testTopic", true);
             var producer = new Producer(clientConfig, publishingTopics, 1, null);
             var message = new Message.Builder().SetTopic("testTopic").SetBody(Encoding.UTF8.GetBytes("foobar")).Build();
-            await producer.Send(message);
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await producer.Send(message));
         }
 
         [TestMethod]
@@ -79,7 +78,6 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public async Task TestSendFailureWithTopic()
         {
             var producer = CreateTestClient();
@@ -90,7 +88,7 @@ namespace tests
             var exception = new ArgumentException();
             mockClientManager.Setup(cm => cm.SendMessage(It.IsAny<Endpoints>(),
                 It.IsAny<Proto.SendMessageRequest>(), It.IsAny<TimeSpan>())).Throws(exception);
-            await producer.Send(message);
+            await Assert.ThrowsExactlyAsync<ArgumentException>(async () => await producer.Send(message));
             var maxAttempts = producer.PublishingSettings.GetRetryPolicy().GetMaxAttempts();
             mockClientManager.Verify(cm => cm.SendMessage(It.IsAny<Endpoints>(),
                 It.IsAny<Proto.SendMessageRequest>(), It.IsAny<TimeSpan>()), Times.Exactly(maxAttempts));
@@ -123,7 +121,6 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public async Task TestRecallFailure()
         {
             var producer = CreateTestClient();
@@ -133,7 +130,7 @@ namespace tests
             var exception = new ArgumentException();
             mockClientManager.Setup(cm => cm.RecallMessage(It.IsAny<Endpoints>(),
                 It.IsAny<Proto.RecallMessageRequest>(), It.IsAny<TimeSpan>())).Throws(exception);
-            await producer.RecallMessage("testTopic", "handle");
+            await Assert.ThrowsExactlyAsync<ArgumentException>(async () => await producer.RecallMessage("testTopic", "handle"));
             mockClientManager.Verify(cm => cm.RecallMessage(It.IsAny<Endpoints>(),
                 It.IsAny<Proto.RecallMessageRequest>(), It.IsAny<TimeSpan>()), Times.Once);
         }
