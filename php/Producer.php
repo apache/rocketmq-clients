@@ -799,7 +799,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                     throw new \RuntimeException("Send message failed: " . $status->details);
                 }
 
-                $entries = $response->getEntries() ?? [];
+                $entries = $response->getEntries() ? ProtobufUtil::repeatedFieldToArray($response->getEntries()) : [];
 
                 if ($response->hasStatus()) {
                     $respStatus = $response->getStatus();
@@ -905,7 +905,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                     throw new \RuntimeException("Batch send failed: " . $status->details);
                 }
 
-                $entries = $response->getEntries() ?? [];
+                $entries = $response->getEntries() ? ProtobufUtil::repeatedFieldToArray($response->getEntries()) : [];
 
                 if ($response->hasStatus()) {
                     $respStatus = $response->getStatus();

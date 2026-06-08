@@ -760,7 +760,7 @@ class SimpleConsumer
                 if ($status->code !== 0) {
                     $this->logger->warning("AckMessage attempt {$attempt}: gRPC status error: " . $status->details);
                 } else {
-                    $responseEntries = $response->getEntries() ?? [];
+                    $responseEntries = $response->getEntries() ? ProtobufUtil::repeatedFieldToArray($response->getEntries()) : [];
                     if (!ProtobufUtil::isRepeatedFieldEmpty($responseEntries)) {
                         // Collect indices to remove (successful or permanent failure entries)
                         $indicesToRemove = [];

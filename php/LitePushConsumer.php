@@ -188,9 +188,9 @@ class LitePushConsumer extends PushConsumer
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
             try {
                 $assignments = $this->queryLiteAssignment();
-                $assignmentList = $assignments ? ($assignments->getAssignments() ?? []) : [];
+                $assignmentList = $assignments ? ProtobufUtil::repeatedFieldToArray($assignments->getAssignments()) : [];
                 if (!empty($assignmentList)) {
-                    $this->logger->info("Lite subscription active after " . ($attempt + 500) . "ms" . count($assignments->getAssignments()) . " assignments");
+                    $this->logger->info("Lite subscription active after " . ($attempt + 500) . "ms" . count($assignmentList) . " assignments");
                     return;
                 }
             } catch (\Exception $e) {
