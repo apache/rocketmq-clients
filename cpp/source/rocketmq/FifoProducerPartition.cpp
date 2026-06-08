@@ -56,7 +56,7 @@ void FifoProducerPartition::trySend() {
     SendCallback send_callback = ctx.callback;
 
     std::shared_ptr<FifoProducerPartition> partition = shared_from_this();
-    auto fifo_callback = [=](const std::error_code& ec, SendReceipt& receipt) mutable {
+    auto fifo_callback = [=](const std::error_code& ec, const SendReceipt& receipt) mutable {
       partition->onComplete(ec, receipt, send_callback);
     };
     SPDLOG_DEBUG("Sending FIFO message from {}", name_);
@@ -68,7 +68,7 @@ void FifoProducerPartition::trySend() {
   }
 }
 
-void FifoProducerPartition::onComplete(const std::error_code& ec, SendReceipt& receipt, SendCallback& callback) {
+void FifoProducerPartition::onComplete(const std::error_code& ec, const SendReceipt& receipt, SendCallback& callback) {
   if (ec) {
     SPDLOG_INFO("{} completed with a failure: {}", name_, ec.message());
   } else {
@@ -87,9 +87,9 @@ void FifoProducerPartition::onComplete(const std::error_code& ec, SendReceipt& r
     return;
   }
 
-  // Put the message back to the front of the list
-  SendReceipt& receipt_mut = const_cast<SendReceipt&>(receipt);
-  FifoContext retry_context(std::move(receipt_mut.message), callback);
+  // Put the message back to the front of the list.
+  // receipt is a local temporary in SendContext — const_cast + move is safe here.
+  FifoContext retry_context(std::move(const_cast<SendReceipt&>(receipt).message), callback);
   {
     absl::MutexLock lk(&messages_mtx_);
     messages_.emplace_front(std::move(retry_context));

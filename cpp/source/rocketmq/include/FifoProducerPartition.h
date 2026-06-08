@@ -42,7 +42,7 @@ public:
 
   void trySend() LOCKS_EXCLUDED(messages_mtx_);
 
-  void onComplete(const std::error_code& ec, SendReceipt& receipt, SendCallback& callback);
+  void onComplete(const std::error_code& ec, const SendReceipt& receipt, SendCallback& callback);
 
 private:
   std::shared_ptr<ProducerImpl> producer_;
