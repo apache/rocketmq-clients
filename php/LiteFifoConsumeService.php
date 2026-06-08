@@ -33,7 +33,7 @@ class LiteFifoConsumeService extends FifoConsumeService
      * @param object $messageView The message view to extract the lite topic from
      * @return string The lite topic name or 'default' if not set
      */
-    protected function getMessageGroupKey($messageView): string
+    protected function getMessageGroupKey(object $messageView): string
     {
         $sysProps = $messageView->getSystemProperties();
         if ($sysProps !== null && $sysProps->hasLiteTopic()) {
@@ -50,7 +50,7 @@ class LiteFifoConsumeService extends FifoConsumeService
      * @param ConsumeResultSuspend $suspendResult The suspend result with duration
      * @return void
      */
-    protected function handleSuspend(ProcessQueue $pq, $messageView, ConsumeResultSuspend $suspendResult): void
+    protected function handleSuspend(ProcessQueue $pq, object $messageView, ConsumeResultSuspend $suspendResult): void
     {
         if ($pq->isDropped()) {
             return;
