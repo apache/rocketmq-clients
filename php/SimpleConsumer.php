@@ -60,7 +60,7 @@ class SimpleConsumer
     private string $namespace = '';
     private int $requestTimeout = 3000; // ms
     private array $interceptors = [];
-    private ?array $parsedEndpoints = null;
+    private ?\Apache\Rocketmq\V2\Endpoints $parsedEndpoints = null;
     private int $awaitDuration = 30; // seconds
     private int $lastHeartbeatTime = 0;
     private array $brokerClients = [];
