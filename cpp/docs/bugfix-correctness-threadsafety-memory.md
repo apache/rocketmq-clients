@@ -16,7 +16,7 @@ and memory management issues found in the C++ client SDK.
 | 5 | Thread Safety | Static `task_id` data race | Major | SchedulerImpl.cpp |
 | 6 | Thread Safety | `state_` read without lock | Major | TelemetryBidiReactor.cpp |
 | 7 | Thread Safety | Use-after-free in `asyncCallback` | Critical | RpcClientImpl.cpp |
-| 8 | Memory | `const_cast` to move from const ref | Major | SendCallback.h, ProducerImpl.cpp, FifoProducerPartition.cpp/.h, SendContextTest.cpp |
+| 8 | Memory | `const_cast` to move from const ref — add safety comments | Major | ProducerImpl.cpp, FifoProducerPartition.cpp |
 
 ## 1. `onVerifyMessage` switch fall-through
 
@@ -226,30 +226,26 @@ the early return, the deleted pointer is never captured by the lambda, so the
 `onCompletion()` → `delete this` path cannot be reached for an already-freed
 object.
 
-## 8. `const_cast` to move from const reference
+## 8. `const_cast` to move from const reference — add safety comments
 
-**Files:** `include/rocketmq/SendCallback.h`, `source/rocketmq/ProducerImpl.cpp`,
-`source/rocketmq/FifoProducerPartition.cpp`, `source/rocketmq/include/FifoProducerPartition.h`,
-`source/rocketmq/tests/SendContextTest.cpp`
+**Files:** `source/rocketmq/ProducerImpl.cpp`, `source/rocketmq/FifoProducerPartition.cpp`
 
-`SendCallback` was defined as:
+The synchronous `ProducerImpl::send()` uses `const_cast` to move fields out of
+the `const SendReceipt&` callback parameter. The root cause is that `SendReceipt`
+contains a `MessageConstPtr` (`unique_ptr<const Message>`), making it non-copyable.
+Meanwhile, `SendCallback` is a public API type (`include/rocketmq/SendCallback.h`)
+and its signature must remain `const SendReceipt&` — users implementing async
+callbacks should not be exposed to internal move semantics.
 
-```cpp
-using SendCallback = std::function<void(const std::error_code&, const SendReceipt&)>;
-```
+The `const_cast` is safe in practice because the receipt is always a local
+temporary created in `SendContext::onSuccess`/`onFailure`, and is destroyed
+immediately after the callback returns. No other code holds a reference to it.
 
-The synchronous `ProducerImpl::send()` needed to move fields out of the receipt
-for efficiency, so it used `const_cast` to strip the const qualifier — undefined
-behavior if the object is truly const.
-
-**Fix:** Changed the callback signature from `const SendReceipt&` to
-`SendReceipt&`. The receipt is always a mutable temporary created by the send
-path, so there is no semantic reason for it to be const. Updated all call sites:
-
-- `ProducerImpl::send()` — removed `const_cast`, moves directly from `receipt`
-- `FifoProducerPartition::onComplete()` — parameter changed to `SendReceipt&`
-- `FifoProducerPartition::trySend()` — lambda signature updated
-- `SendContextTest` — test lambda updated
+**Fix:** Kept the public `SendCallback` signature as `const SendReceipt&`
+unchanged. Added comments at the two internal `const_cast` sites
+(`ProducerImpl::send` and `FifoProducerPartition::onComplete`) explaining why
+the cast is safe, so future maintainers do not remove it or introduce a second
+reference to the receipt.
 
 ## Verification
 
@@ -280,7 +276,7 @@ path, so there is no semantic reason for it to be const. Updated all call sites:
 | 5 | 线程安全 | 静态 `task_id` 数据竞争 | 重要 | SchedulerImpl.cpp |
 | 6 | 线程安全 | `state_` 无锁读取 | 重要 | TelemetryBidiReactor.cpp |
 | 7 | 线程安全 | `asyncCallback` 中 use-after-free | 严重 | RpcClientImpl.cpp |
-| 8 | 内存管理 | 通过 `const_cast` 从 const 引用 move | 重要 | SendCallback.h、ProducerImpl.cpp、FifoProducerPartition.cpp/.h、SendContextTest.cpp |
+| 8 | 内存管理 | 通过 `const_cast` 从 const 引用 move —— 添加安全性注释 | 重要 | ProducerImpl.cpp、FifoProducerPartition.cpp |
 
 ## 1. `onVerifyMessage` switch 穿透
 
@@ -475,28 +471,22 @@ if (!manager) {
 不会被 lambda 捕获，因此 `onCompletion()` → `delete this` 路径不可能在已释放的
 对象上触发。
 
-## 8. 通过 `const_cast` 从 const 引用 move
+## 8. 通过 `const_cast` 从 const 引用 move —— 添加安全性注释
 
-**文件：** `include/rocketmq/SendCallback.h`、`source/rocketmq/ProducerImpl.cpp`、
-`source/rocketmq/FifoProducerPartition.cpp`、`source/rocketmq/include/FifoProducerPartition.h`、
-`source/rocketmq/tests/SendContextTest.cpp`
+**文件：** `source/rocketmq/ProducerImpl.cpp`、`source/rocketmq/FifoProducerPartition.cpp`
 
-`SendCallback` 原定义为：
+同步 `ProducerImpl::send()` 使用 `const_cast` 从 `const SendReceipt&` 回调参数中
+move 出字段。根本原因是 `SendReceipt` 包含 `MessageConstPtr`
+（`unique_ptr<const Message>`），不可拷贝。而 `SendCallback` 是公共 API 类型
+（`include/rocketmq/SendCallback.h`），其签名必须保持 `const SendReceipt&` ——
+用户实现异步回调时不应被暴露内部的 move 语义。
 
-```cpp
-using SendCallback = std::function<void(const std::error_code&, const SendReceipt&)>;
-```
+`const_cast` 在实际中是安全的，因为 receipt 始终是 `SendContext::onSuccess`/
+`onFailure` 中创建的局部临时对象，回调返回后立即销毁，没有其他代码持有对它的引用。
 
-同步 `ProducerImpl::send()` 需要从 receipt 中 move 字段以提高效率，因此使用
-`const_cast` 去除 const 限定符——如果对象确实是 const 的，这是未定义行为。
-
-**修复：** 将回调签名从 `const SendReceipt&` 改为 `SendReceipt&`。Receipt 始终是
-发送路径中创建的可变临时对象，语义上没有理由要求 const。更新了所有调用点：
-
-- `ProducerImpl::send()` — 移除 `const_cast`，直接从 `receipt` move
-- `FifoProducerPartition::onComplete()` — 参数改为 `SendReceipt&`
-- `FifoProducerPartition::trySend()` — lambda 签名更新
-- `SendContextTest` — 测试 lambda 更新
+**修复：** 保持公共 `SendCallback` 签名 `const SendReceipt&` 不变。在内部两处
+`const_cast` 调用点（`ProducerImpl::send` 和 `FifoProducerPartition::onComplete`）
+添加注释说明为何该 cast 是安全的，防止未来维护者误删或引入对 receipt 的第二引用。
 
 ## 验证
 
