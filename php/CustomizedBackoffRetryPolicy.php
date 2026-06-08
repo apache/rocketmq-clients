@@ -52,7 +52,7 @@ class CustomizedBackoffRetryPolicy extends ExponentialBackoffRetryPolicy
      * @param int $attempt Current attempt number (1-based)
      * @return int Delay in milliseconds
      */
-    public function getNextDelayMs($attempt): int
+    public function getNextDelayMs(int $attempt): int
     {
         if ($attempt >= $this->maxAttempts) {
             return 0;
@@ -84,7 +84,7 @@ class CustomizedBackoffRetryPolicy extends ExponentialBackoffRetryPolicy
      * @return self
      * @throws \InvalidArgumentException if not a customized backoff
      */
-    public static function fromProtobuf($protobuf): self
+    public static function fromProtobuf(V2\RetryPolicy $protobuf): self
     {
         if (!$protobuf->hasCustomizedBackoff()) {
             throw new \InvalidArgumentException(
@@ -106,7 +106,7 @@ class CustomizedBackoffRetryPolicy extends ExponentialBackoffRetryPolicy
      *
      * @return \Apache\Rocketmq\V2\RetryPolicy
      */
-    public function toProtobuf()
+    public function toProtobuf(): V2\RetryPolicy
     {
         $customizedBackoff = new \Apache\Rocketmq\V2\CustomizedBackoff();
         $nextDurations = [];
@@ -132,7 +132,7 @@ class CustomizedBackoffRetryPolicy extends ExponentialBackoffRetryPolicy
      * @return self New policy with inherited durations
      * @throws \InvalidArgumentException if server policy is not customized backoff
      */
-    public function inheritBackoff($serverPolicy): self
+    public function inheritBackoff(V2\RetryPolicy $serverPolicy): self
     {
         if (!$serverPolicy->hasCustomizedBackoff()) {
             throw new \InvalidArgumentException(

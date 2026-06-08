@@ -525,7 +525,7 @@ class FifoConsumeService extends ConsumeService
      * @param object $consumer Reference to PushConsumer
      * @param bool $enableFifoConsumeAccelerator Whether to enable FIFO consume accelerator
      */
-    public function __construct($logger, $messageListener, $consumer, $enableFifoConsumeAccelerator = false)
+    public function __construct(Logger $logger, callable $messageListener, ConsumerInterface $consumer, $enableFifoConsumeAccelerator = false)
     {
         parent::__construct($logger, $messageListener, $consumer);
         $this->enableFifoConsumeAccelerator = $enableFifoConsumeAccelerator;

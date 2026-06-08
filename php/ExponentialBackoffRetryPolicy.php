@@ -69,7 +69,7 @@ class ExponentialBackoffRetryPolicy
      * @param int $attempt Current attempt number (1-based)
      * @return int Delay in milliseconds
      */
-    public function getNextDelayMs($attempt): int
+    public function getNextDelayMs(int $attempt): int
     {
         if ($attempt >= $this->maxAttempts) {
             return 0;
@@ -86,7 +86,7 @@ class ExponentialBackoffRetryPolicy
      * @param int $attempt Current attempt number (1-based)
      * @return int Delay in milliseconds with jitter
      */
-    public function getNextDelayWithJitterMs($attempt): int
+    public function getNextDelayWithJitterMs(int $attempt): int
     {
         $delay = $this->getNextDelayMs($attempt);
         if ($delay <= 0) {

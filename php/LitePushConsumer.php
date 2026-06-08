@@ -56,7 +56,7 @@ class LitePushConsumer extends PushConsumer
      * @param string $parentTopic Parent (bound) topic
      * @param array $options Configuration options
      */
-    public function __construct($endpoints, $consumerGroup, $parentTopic, $options = [])
+    public function __construct(string $endpoints, string $consumerGroup, $parentTopic, array $options = [])
     {
         if (empty(trim($parentTopic))) {
             throw new \InvalidArgumentException("LitePushConsumer parentTopic cannot be empty");
