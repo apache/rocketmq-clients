@@ -8,11 +8,13 @@
 # Startup options cannot be selected via config.
 startup --host_jvm_args=-Xmx2g
 
+# gRPC 1.46.3's upb uses @bazel_tools//platforms which was removed in Bazel 6.
+# Re-enable the old behavior until gRPC is upgraded.
+common --noincompatible_use_platforms_repo_for_constraints
+
 run --color=yes
 
 build --color=yes
-
-build --host_force_python=PY3
 
 # https://docs.bazel.build/versions/main/command-line-reference.html#flag--enable_platform_specific_config
 # If true, Bazel picks up host-OS-specific config lines from bazelrc files. For example, if the host OS is Linux and
@@ -28,6 +30,20 @@ build:macos --strip=never
 build:macos --copt -g
 # Workaround, see https://github.com/grpc/grpc/issues/19645
 build:macos --copt -DGRPC_BAZEL_BUILD
+# Xcode 16+ predefines TARGET_OS_MAC, causing old zlib's zutil.h to
+# redefine fdopen as NULL, which breaks system headers.
+build:macos --per_file_copt=external/zlib/.*@-Dfdopen=fdopen
+build:macos --host_per_file_copt=external/zlib/.*@-Dfdopen=fdopen
+# Xcode 16+ clang treats defining types in __builtin_offsetof as C23
+# extension error. Suppress for old upb bundled with gRPC 1.46.3.
+build:macos --per_file_copt=external/upb/.*@-Wno-c23-extensions
+build:macos --host_per_file_copt=external/upb/.*@-Wno-c23-extensions
+# Xcode 16+ clang treats deprecated builtins (__has_trivial_*) as errors.
+# Old absl bundled with gRPC 1.46.3 still uses them in type_traits.h.
+build:macos --per_file_copt=external/com_google_absl/.*@-Wno-deprecated-builtins
+build:macos --host_per_file_copt=external/com_google_absl/.*@-Wno-deprecated-builtins
+build:macos --per_file_copt=external/upb/.*@-Wno-deprecated-builtins
+build:macos --host_per_file_copt=external/upb/.*@-Wno-deprecated-builtins
 
 # Enable position independent code (this is the default on macOS and Windows)
 # (Workaround for https://github.com/bazelbuild/rules_foreign_cc/issues/421)
@@ -131,22 +147,4 @@ build:coverage --instrumentation_filter="//source[/:],//include[/:],-//source/ba
 
 test --test_output=errors
 
-# RBE
-build:remote --bes_results_url=https://app.buildbuddy.io/invocation/
-build:remote --bes_backend=grpcs://remote.buildbuddy.io
-build:remote --remote_cache=grpcs://remote.buildbuddy.io
-build:remote --remote_timeout=3600
-build:remote --grpc_keepalive_time=360s
-build:remote --grpc_keepalive_timeout=360s
-build:remote --remote_executor=grpcs://remote.buildbuddy.io
-build:remote --host_platform=@buildbuddy_toolchain//:platform
-build:remote --platforms=@buildbuddy_toolchain//:platform
-build:remote --extra_execution_platforms=@buildbuddy_toolchain//:platform
-build:remote --crosstool_top=@buildbuddy_toolchain//:toolchain
-build:remote --extra_toolchains=@buildbuddy_toolchain//:cc_toolchain
-build:remote --jobs=250
-build:remote --remote_download_minimal
-build:remote --experimental_remote_cache_compression
-build:remote --experimental_remote_cache_async
-build:remote --spawn_strategy=remote
 # try-import %workspace%/user.bazelrc
