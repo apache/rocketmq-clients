@@ -22,6 +22,8 @@ jobs:
       nodejs: ${{ steps.nodejs.outputs.nodejs }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Get changed files (Push/Pull Request)
         id: changed_files
         env:
@@ -32,85 +34,84 @@ jobs:
             REPO_OWNER=${{ github.repository_owner }}
             REPO_NAME=${{ github.event.repository.name }}
 
-            # calling GitHub API for changed files in PR, the result is in string format.
             CHANGED_FILES=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
               "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER/files" | \
               jq -r '.[].filename' | tr '\n' ' ')
           else
             CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
           fi
-          echo "::set-output name=files::$CHANGED_FILES"
+          echo "files=$CHANGED_FILES" >> "$GITHUB_OUTPUT"
 
       - name: Check Java changes
         id: java
         run: |
           if echo "${{ steps.changed_files.outputs.files }}" | tr  ' ' '\n'| grep -qE '^(java/|pom.xml)'; then
-            echo "::set-output name=java::true"
+            echo "java=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=java::false"
+            echo "java=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check C++ changes
         id: cpp
         run: |
           if echo "${{ steps.changed_files.outputs.files }}" | tr  ' ' '\n'| grep -qE '^cpp/'; then
-            echo "::set-output name=cpp::true"
+            echo "cpp=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=cpp::false"
+            echo "cpp=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check Golang changes
         id: golang
         run: |
           if echo "${{ steps.changed_files.outputs.files }}" | tr  ' ' '\n' | grep -qE '^golang/'; then
-            echo "::set-output name=golang::true"
+            echo "golang=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=golang::false"
+            echo "golang=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check C# changes
         id: csharp
         run: |
           if echo "${{ steps.changed_files.outputs.files }}" | tr  ' ' '\n' | grep -qE '^csharp/'; then
-            echo "::set-output name=csharp::true"
+            echo "csharp=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=csharp::false"
+            echo "csharp=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check PHP changes
         id: php
         run: |
           if echo "${{ steps.changed_files.outputs.files }}" | tr  ' ' '\n' | grep -qE '^php/'; then
-            echo "::set-output name=php::true"
+            echo "php=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=php::false"
+            echo "php=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check Rust changes
         id: rust
         run: |
           if echo "${{ steps.changed_files.outputs.files }}" | tr  ' ' '\n' | grep -qE '^rust/'; then
-            echo "::set-output name=rust::true"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=rust::false"
+            echo "rust=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check Python changes
         id: python
         run: |
           if echo "${{ steps.changed_files.outputs.files }}" | tr  ' ' '\n' | grep -qE '^python/'; then
-            echo "::set-output name=python::true"
+            echo "python=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=python::false"
+            echo "python=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check Node.js changes
         id: nodejs
         run: |
           if echo "${{ steps.changed_files.outputs.files }}" | tr  ' ' '\n' | grep -qE '^nodejs/'; then
-            echo "::set-output name=nodejs::true"
+            echo "nodejs=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=nodejs::false"
+            echo "nodejs=false" >> "$GITHUB_OUTPUT"
           fi
   java-build:
     needs: [paths-filter]

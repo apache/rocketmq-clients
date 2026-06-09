@@ -62,6 +62,7 @@ jobs:
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
         with:
+          token: ${{ secrets.CODECOV_ACTION_KEY }}
           file: ./cpp/coverage.info
           flags: cpp
           fail_ci_if_error: true
