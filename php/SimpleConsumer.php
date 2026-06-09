@@ -594,7 +594,16 @@ class SimpleConsumer
             }
         }
 
-        return $messages;
+        $brokerEndpoint = null;
+        $broker = $messageQueue->getBroker();
+        if ($broker && $broker->hasEndpoints()) {
+            $brokerEndpoint = $broker->getEndpoints();
+        }
+        $messageViews = [];
+        foreach ($messages as $msg) {
+            $messageViews[] = new MessageView($msg, null, $brokerEndpoint);
+        }
+        return $messageViews;
     }
 
     /**
@@ -682,22 +691,59 @@ class SimpleConsumer
             return;
         }
 
-        // Group messages by topic for batch ack
-        $messagesByTopic = [];
+        // Group messages by topic and broker endpoint for ack
+        $messagesByGroup = [];
         foreach ($messages as $message) {
             $topic = $this->extractTopic($message);
             if (!$topic) {
                 continue;
             }
-            if (!isset($messagesByTopic[$topic])) {
-                $messagesByTopic[$topic] = [];
+            $brokerKey = $this->getMessageBrokerKey($message);
+            $groupKey = $topic . '|'. $brokerKey;
+            if (!isset($messagesByGroup[$groupKey])) {
+                $messagesByGroup[$groupKey] = [
+                    'topic' => $topic,
+                    'brokerClient' => $this->getBrokerClientForMessageView($message),
+                    'messages' => [],
+                ];
+                $messagesByGroup[$groupKey]['messages'][] = $message;
             }
-            $messagesByTopic[$topic][] = $message;
+            $messagesByGroup[$topic][] = $message;
         }
 
-        foreach ($messagesByTopic as $topic => $topicMessages) {
-            $this->ackMessagesForTopic($topic, $topicMessages);
+        foreach ($messagesByGroup as $group) {
+            $this->ackMessagesForTopic($group['topic'], $group['messages'], $group['brokerClient']);
         }
+    }
+
+    /**
+     * Get the gRPC broker client for a message view endpoints.
+     * Creates a new client if one does not exist for the given endpoints.
+     *
+     * @throws \RuntimeException If message view does not have endpoints
+     *
+     * @param object $messageView MessageView object
+     * @return MessagingServiceClient gRPC client instance
+     */
+    private function getBrokerClientForMessageView(object $messageView): MessagingServiceClient
+    {
+        if ($messageView instanceof MessageViewInterface) {
+            $endpoints = $messageView->getEndpoints();
+            if ($endpoints !== null) {
+                $addresses = $endpoints->getAddresses();
+                $addressesArray = ProtobufUtil::repeatedFieldToArray($addresses);
+                if (!empty($addressesArray) && $addressesArray[0] !== null) {
+                    $address = $addressesArray[0];
+                    $brokerKey = $address->getHost() . ':' . $address->getPort();
+                    return RpcClientManager::getInstance()->getClient($brokerKey, [
+                        'tlsCredentials' => $this->tlsCredentials,
+                        'sslEnabled' => $this->sslEnabled,
+                    ]);
+                }
+            }
+        }
+        $this->logger->debug("SimpleConsumer: no broker endpoints in message, falling back to proxy client");
+        return $this->clientId;
     }
 
     /**
@@ -705,9 +751,10 @@ class SimpleConsumer
      *
      * @param string $topic Topic name
      * @param array $messages List of message objects to acknowledge
+     * @param MessagingServiceClient $brokerClient gRPC client instance
      * @return void
      */
-    private function ackMessagesForTopic(string $topic, array $messages): void
+    private function ackMessagesForTopic(string $topic, array $messages, MessagingServiceClient $brokerClient): void
     {
         $entries = [];
         foreach ($messages as $message) {
@@ -756,7 +803,7 @@ class SimpleConsumer
 
         while ($attempt < $maxRetries) {
             try {
-                list($response, $status) = $this->client->AckMessage($request, $metadata, $callOptions)->wait();
+                list($response, $status) = $brokerClient->AckMessage($request, $metadata, $callOptions)->wait();
                 if ($status->code !== 0) {
                     $this->logger->warning("AckMessage attempt {$attempt}: gRPC status error: " . $status->details);
                 } else {
@@ -838,6 +885,29 @@ class SimpleConsumer
         $this->logger->error("AckMessage exceeded max retries {$maxRetries}, giving up. Remaining entries: {$remainingCount}, Total failures: {$failureCount}");
     }
 
+
+    /**
+     * Get a unique broker key from a message view for grouping purposes.
+     *
+     * @param object $messageView Message to extract key from
+     * @return string Message broker key
+     */
+    private function getMessageBrokerKey(object $messageView): string
+    {
+        if ($messageView instanceof MessageViewInterface) {
+            $endpoints = $messageView->getEndpoints();
+            if ($endpoints !== null) {
+                $addresses = $endpoints->getAddresses();
+                $addressesArray = ProtobufUtil::repeatedFieldToArray($addresses);
+                if (!empty($addressesArray) && $addressesArray[0] !== null) {
+                    $address = $addressesArray[0];
+                    return $address->getHost() . ':' . $address->getPort();
+                }
+            }
+        }
+        return 'proxy';
+    }
+
     /**
      * Change message visibility duration
      *
@@ -888,8 +958,10 @@ class SimpleConsumer
         // Also set client-side timeout as safety net
         $callOptions = ['timeout' => $grpcTimeoutUs];
 
+        $brokerClient = $this->getBrokerClientForMessageView($message);
+
         try {
-            list($response, $status) = $this->client->ChangeInvisibleDuration($request, $metadata, $callOptions)->wait();
+            list($response, $status) = $brokerClient->ChangeInvisibleDuration($request, $metadata, $callOptions)->wait();
             if ($status->code !== 0) {
                 $this->logger->warning("SimpleConsumer changeInvisibleDuration failed: " . $status->details);
                 return false;
