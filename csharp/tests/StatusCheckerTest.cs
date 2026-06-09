@@ -73,7 +73,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<BadRequestException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<BadRequestException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -83,7 +83,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<UnauthorizedException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<UnauthorizedException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -93,7 +93,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<PaymentRequiredException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<PaymentRequiredException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -103,7 +103,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<ForbiddenException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<ForbiddenException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -113,7 +113,7 @@ namespace tests
             var request = new Proto.SendMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<NotFoundException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<NotFoundException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -123,7 +123,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<NotFoundException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<NotFoundException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -133,7 +133,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<PayloadTooLargeException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<PayloadTooLargeException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -143,7 +143,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<TooManyRequestsException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<TooManyRequestsException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -153,7 +153,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<RequestHeaderFieldsTooLargeException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<RequestHeaderFieldsTooLargeException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -163,7 +163,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<InternalErrorException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<InternalErrorException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -173,7 +173,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<ProxyTimeoutException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<ProxyTimeoutException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -183,7 +183,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<UnsupportedException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<UnsupportedException>(() => StatusChecker.Check(status, request, requestId));
         }
 
         [TestMethod]
@@ -193,7 +193,7 @@ namespace tests
             var request = new Proto.ReceiveMessageRequest();
             var requestId = "requestId";
 
-            Assert.ThrowsException<UnsupportedException>(() => StatusChecker.Check(status, request, requestId));
+            Assert.ThrowsExactly<UnsupportedException>(() => StatusChecker.Check(status, request, requestId));
         }
     }
 }

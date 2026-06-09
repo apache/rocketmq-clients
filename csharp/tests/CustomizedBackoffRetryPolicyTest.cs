@@ -40,10 +40,9 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestConstructWithEmptyDurations()
         {
-            new CustomizedBackoffRetryPolicy(new List<TimeSpan>(), 3);
+            Assert.ThrowsExactly<ArgumentException>(() => new CustomizedBackoffRetryPolicy(new List<TimeSpan>(), 3));
         }
 
         [TestMethod]
@@ -59,19 +58,17 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestGetNextAttemptDelayWithInvalidAttempt()
         {
             var policy = new CustomizedBackoffRetryPolicy(new List<TimeSpan> { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2) }, 3);
-            policy.GetNextAttemptDelay(0);
+            Assert.ThrowsExactly<ArgumentException>(() => policy.GetNextAttemptDelay(0));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestGetNextAttemptDelayWithNegativeAttempt()
         {
             var policy = new CustomizedBackoffRetryPolicy(new List<TimeSpan> { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2) }, 3);
-            policy.GetNextAttemptDelay(-1);
+            Assert.ThrowsExactly<ArgumentException>(() => policy.GetNextAttemptDelay(-1));
         }
 
         [TestMethod]
@@ -95,7 +92,6 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestFromProtobufWithInvalidRetryPolicy()
         {
             var retryPolicy = new RetryPolicy
@@ -108,7 +104,7 @@ namespace tests
                     Multiplier = 1.0f
                 }
             };
-            CustomizedBackoffRetryPolicy.FromProtobuf(retryPolicy);
+            Assert.ThrowsExactly<ArgumentException>(() => CustomizedBackoffRetryPolicy.FromProtobuf(retryPolicy));
         }
 
         [TestMethod]
@@ -152,7 +148,6 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void TestInheritBackoffWithInvalidPolicy()
         {
             var policy = new CustomizedBackoffRetryPolicy(new List<TimeSpan>
@@ -165,7 +160,7 @@ namespace tests
             {
                 ExponentialBackoff = new ExponentialBackoff()
             };
-            policy.InheritBackoff(retryPolicy);
+            Assert.ThrowsExactly<InvalidOperationException>(() => policy.InheritBackoff(retryPolicy));
         }
     }
 }

@@ -31,19 +31,17 @@ namespace tests
     public class PushConsumerTest
     {
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public async Task TestSubscribeBeforeStartup()
         {
             var pushConsumer = CreatePushConsumer();
-            await pushConsumer.Subscribe("testTopic", new FilterExpression("*"));
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await pushConsumer.Subscribe("testTopic", new FilterExpression("*")));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void TestUnsubscribeBeforeStartup()
         {
             var pushConsumer = CreatePushConsumer();
-            pushConsumer.Unsubscribe("testTopic");
+            Assert.ThrowsExactly<InvalidOperationException>(() => pushConsumer.Unsubscribe("testTopic"));
         }
 
         [TestMethod]

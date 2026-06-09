@@ -22,7 +22,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Schedulers;
 using Apache.Rocketmq.V2;
 using Google.Protobuf.WellKnownTypes;
 using Proto = Apache.Rocketmq.V2;
@@ -92,7 +91,8 @@ namespace Org.Apache.Rocketmq
             _scanAssignmentCts = new CancellationTokenSource();
 
             _processQueueTable = new ConcurrentDictionary<MessageQueue, ProcessQueue>();
-            _consumptionTaskScheduler = new LimitedConcurrencyLevelTaskScheduler(consumptionThreadCount);
+            _consumptionTaskScheduler =
+                new ConcurrentExclusiveSchedulerPair(TaskScheduler.Default, consumptionThreadCount).ConcurrentScheduler;
             _consumptionCts = new CancellationTokenSource();
 
             _receiveMsgCts = new CancellationTokenSource();
@@ -726,14 +726,6 @@ namespace Org.Apache.Rocketmq
             {
                 throw new InvalidOperationException("Push consumer is not running");
             }
-        }
-
-        /// <summary>
-        /// Get the client ID.
-        /// </summary>
-        internal string GetClientId()
-        {
-            return ClientId;
         }
 
         /// <summary>

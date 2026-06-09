@@ -26,27 +26,24 @@ namespace tests
     public class ProducerBuilderTest
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetClientConfigurationWithNull()
         {
             var builder = new Producer.Builder();
-            builder.SetClientConfig(null);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetClientConfig(null));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(NullReferenceException))]
         public void TestSetTopicWithNull()
         {
             var builder = new Producer.Builder();
-            builder.SetTopics(null);
+            Assert.ThrowsExactly<NullReferenceException>(() => builder.SetTopics(null));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetIllegalTopic()
         {
             var builder = new Producer.Builder();
-            builder.SetTopics("\t");
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetTopics("\t"));
         }
 
         [TestMethod]
@@ -57,11 +54,10 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetNegativeMaxAttempts()
         {
             var builder = new Producer.Builder();
-            builder.SetMaxAttempts(-1);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetMaxAttempts(-1));
         }
 
         [TestMethod]
@@ -72,11 +68,10 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetTransactionCheckerWithNull()
         {
             var builder = new Producer.Builder();
-            builder.SetTransactionChecker(null);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetTransactionChecker(null));
         }
 
         [TestMethod]
@@ -87,11 +82,10 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public async Task TestBuildWithoutClientConfiguration()
         {
             var builder = new Producer.Builder();
-            await builder.Build();
+            await Assert.ThrowsExactlyAsync<ArgumentException>(async () => await builder.Build());
         }
 
         [TestMethod]

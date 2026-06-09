@@ -27,75 +27,66 @@ namespace tests
     public class PushConsumerBuilderTest
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetClientConfigWithNull()
         {
             var builder = new PushConsumer.Builder();
-            builder.SetClientConfig(null);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetClientConfig(null));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetConsumerGroupWithNull()
         {
             var builder = new PushConsumer.Builder();
-            builder.SetConsumerGroup(null);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetConsumerGroup(null));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetConsumerGroupWithSpecialChar()
         {
             var builder = new PushConsumer.Builder();
-            builder.SetConsumerGroup("#.testGroup#");
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetConsumerGroup("#.testGroup#"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestBuildWithoutExpressions()
         {
             var builder = new PushConsumer.Builder();
-            builder.SetSubscriptionExpression(null);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetSubscriptionExpression(null));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestBuildWithEmptyExpressions()
         {
             var builder = new PushConsumer.Builder();
-            builder.SetSubscriptionExpression(new Dictionary<string, FilterExpression>());
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetSubscriptionExpression(new Dictionary<string, FilterExpression>()));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestBuildWithNullMessageListener()
         {
             var builder = new PushConsumer.Builder();
-            builder.SetMessageListener(null);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetMessageListener(null));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestNegativeMaxCacheMessageCount()
         {
             var builder = new PushConsumer.Builder();
-            builder.SetMaxCacheMessageCount(-1);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetMaxCacheMessageCount(-1));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestNegativeMaxCacheMessageSizeInBytes()
         {
             var builder = new PushConsumer.Builder();
-            builder.SetMaxCacheMessageSizeInBytes(-1);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetMaxCacheMessageSizeInBytes(-1));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestNegativeConsumptionThreadCount()
         {
             var builder = new PushConsumer.Builder();
-            builder.SetMaxCacheMessageCount(-1);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetMaxCacheMessageCount(-1));
         }
 
         [TestMethod]

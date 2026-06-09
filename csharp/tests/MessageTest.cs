@@ -27,96 +27,83 @@ namespace tests
     public class MessageTest
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalTopic0()
         {
             const string topic = null;
-            new Message.Builder().SetTopic(topic);
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetTopic(topic));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalTopic1()
         {
             const string topic = "";
-            new Message.Builder().SetTopic(topic);
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetTopic(topic));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalTag0()
         {
-            new Message.Builder().SetTag(null);
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetTag(null));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalTag1()
         {
-            new Message.Builder().SetTag("");
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetTag(""));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalTag2()
         {
-            new Message.Builder().SetTag("\t");
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetTag("\t"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalTag3()
         {
-            new Message.Builder().SetTag("\t\n");
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetTag("\t\n"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalTag4()
         {
-            new Message.Builder().SetTag("abc|cde");
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetTag("abc|cde"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalMessageGroup0()
         {
-            new Message.Builder().SetMessageGroup(null);
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetMessageGroup(null));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalMessageGroup1()
         {
-            new Message.Builder().SetMessageGroup("");
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetMessageGroup(""));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalMessageGroup2()
         {
-            new Message.Builder().SetMessageGroup("\t");
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetMessageGroup("\t"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalMessageGroup3()
         {
-            new Message.Builder().SetMessageGroup("\t\n");
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetMessageGroup("\t\n"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalProperty0()
         {
-            new Message.Builder().AddProperty(null, "b");
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().AddProperty(null, "b"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalProperty1()
         {
-            new Message.Builder().AddProperty("a", null);
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().AddProperty("a", null));
         }
 
         [TestMethod]
@@ -136,10 +123,9 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalKey()
         {
-            new Message.Builder().SetKeys("\t");
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetKeys("\t"));
         }
 
         [TestMethod]
@@ -174,20 +160,18 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetDeliveryTimestampAndMessageGroup()
         {
-            new Message.Builder().SetDeliveryTimestamp(DateTime.UtcNow + TimeSpan.FromSeconds(30))
-                .SetMessageGroup("messageGroup").Build();
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetDeliveryTimestamp(DateTime.UtcNow + TimeSpan.FromSeconds(30))
+                .SetMessageGroup("messageGroup").Build());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetMessageGroupAndDeliveryTimestamp()
         {
-            new Message.Builder().SetMessageGroup("messageGroup")
+            Assert.ThrowsExactly<ArgumentException>(() => new Message.Builder().SetMessageGroup("messageGroup")
                 .SetDeliveryTimestamp(DateTime.UtcNow + TimeSpan.FromSeconds(30))
-                .Build();
+                .Build());
         }
     }
 }

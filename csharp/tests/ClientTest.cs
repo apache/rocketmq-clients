@@ -100,7 +100,7 @@ namespace tests
                 await testClient.OnTopicRouteDataFetched("testTopic", topicRouteData);
                 Assert.Fail();
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 mockClientManager.Verify(cm => cm.Telemetry(It.IsAny<Endpoints>()), Times.Once);
             }
