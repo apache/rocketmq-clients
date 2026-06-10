@@ -173,6 +173,7 @@ trait ClientTrait
             'HEARTBEAT' => ClientConstants::GRPC_HEARTBEAT_TIMEOUT,
             'END_TRANSACTION' => ClientConstants::GRPC_END_TRANSACTION_TIMEOUT,
             'CHANGE_INVISIBLE' => ClientConstants::GRPC_CHANGE_INVISIBLE_TIMEOUT,
+            'RECALL_MESSAGE' => ClientConstants::GRPC_RECALL_MESSAGE_TIMEOUT,
             default => ClientConstants::GRPC_DEFAULT_TIMEOUT,
         };
     }

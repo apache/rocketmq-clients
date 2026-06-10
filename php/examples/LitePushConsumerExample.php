@@ -17,9 +17,6 @@
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../LitePushConsumer.php';
-require_once __DIR__ . '/../ConsumeResult.php';
-require_once __DIR__ . '/../Logger.php';
 require_once __DIR__ . '/ExampleConfig.php';
 
 use Apache\Rocketmq\LitePushConsumer;

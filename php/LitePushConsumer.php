@@ -38,10 +38,10 @@ use Apache\Rocketmq\V2\ClientType;
  */
 class LitePushConsumer extends PushConsumer
 {
-    private string $parentTopic = '';
+    private readonly string $parentTopic;
     private array $liteTopics = [];
-    private int $liteSubscriptionQuota = 0;
-    private int $maxLiteTopicSize = 64;
+    private readonly int $liteSubscriptionQuota;
+    private readonly int $maxLiteTopicSize;
     private int $syncLiteSubscriptionInterval = 30;
     /** @var callable|null per-lite-topic callback */
     private ?\Closure $liteMessageListener = null;

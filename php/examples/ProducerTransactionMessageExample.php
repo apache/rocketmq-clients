@@ -17,8 +17,7 @@
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../Producer.php';
-require_once __DIR__ . '/../Logger.php';
+require_once __DIR__ . '/ExampleConfig.php';
 
 use Apache\Rocketmq\Producer;
 use Apache\Rocketmq\SessionCredentials;

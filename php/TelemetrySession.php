@@ -53,6 +53,14 @@ class TelemetrySession
     // Settings sync state
     private bool $settingsSynced = false;
     private ?string $settingsError = null;
+    /**
+     * Maximum number of consecutive errors before giving up.
+     */
+    private const MAX_CONSECUTIVE_ERRORS = 10;
+    /**
+     * Read timeout in seconds.
+     */
+    private const READ_TIMEOUT_SECONDS = 30.0;
     private float $settingsTimeout = 3.0; // seconds, matching Java's SETTINGS_INITIALIZATION_TIMEOUT
 
     // Credentials for AK/SK signing
@@ -537,6 +545,11 @@ class TelemetrySession
     /**
      * Continuously read and handle telemetry responses in a loop.
      *
+     * Optimizations over a row while(true):
+     *      - Checks isClosing flag for graceful shutdown
+     *      - Yields to the Swoole scheduler each iteration to prevent starvation
+     *      - Applies timeout protection on each stream read (Swoole mode)
+     *      - Tracks consecutive read errors and aborts after MAX_CONSECUTIVE_ERRORS
      * @return void
      */
     private function readResponsesInBackground()
@@ -546,37 +559,92 @@ class TelemetrySession
             return;
         }
 
-        try {
-            $this->logger->debug("Background reader started, listening for responses...");
+        $consecutiveErrors = 0;
+        $this->logger->debug("Background reader started, listening for responses...");
 
-            while (true) {
-                if (!$this->stream) {
-                    $this->logger->warning("Stream closed during background reading");
-                    break;
-                }
-
-                $response = $this->stream->read();
-                if ($response === null) {
-                    $this->logger->debug("Background reader received null response");
-                    break;
-                }
-
-                $this->handleResponse($response);
+        while (true) {
+            // exit condition: session is closing
+            if ($this->isClosing) {
+                $this->logger->info("Background reader exiting : session closure");
+                break;
             }
 
-            $this->logger->debug("Background reader finished");
-
-        } catch (\Exception $e) {
-            $this->logger->error("Error in background reader: " . $e->getMessage());
-
-            if (!$this->settingsSynced) {
-                $this->settingsError = $e->getMessage();
+            if (!$this->stream) {
+                $this->logger->warning("Stream closed during background reading");
+                break;
+            }
+            try {
+                // Read with timeout protection in Swoole mode
+                $response = $this->readWithTimeout();
+                if (SwooleCompat::isAvailable()) {
+                    \Swoole\Coroutine::sleep(0);
+                }
+                if ($this->isClosing) {
+                    $this->logger->info("Background reader exiting : session is closing (post-read)");
+                    break;
+                }
+                if ($response === null) {
+                    $this->logger->debug("Stream closed during background reading, stream ended");
+                    break;
+                }
+                $consecutiveErrors = 0;
+                $this->handleResponse($response);
+            } catch (\Throwable $e) {
+                $consecutiveErrors++;
+                $this->logger->error("Error in background reader (#{$consecutiveErrors}) : " . $e->getMessage());
+                if (!$this->settingsSynced) {
+                    $this->settingsError = $e->getMessage();
+                }
+                if ($consecutiveErrors >= self::MAX_CONSECUTIVE_ERRORS) {
+                    $this->logger->warning("Exceeded max consecutive errors (" . self::MAX_CONSECUTIVE_ERRORS . "), aborting background reader");
+                    break;
+                }
+                SwooleCompat::sleep(100000);
             }
         }
+        $this->logger->debug("Background reader finished");
         if (!$this->isClosing && $this->lastSettingsCommand !== null) {
             $this->logger->warning("Telemetry stream lost, attempting reconnection");
             $this->scheduleReconnect($this->lastSettingsCommand);
         }
+    }
+
+    /**
+     * Read a single response from the stream with timeout protection.
+     *
+     * In Swoole coroutine mode, the read is wrapped in a chel-based.
+     * timeout so a hung stream cannot block the coroutine forever.
+     * In non-Swoole mode, the read is performed manually with a timeout.
+     *
+     * @return mixed Response object, or null on stream end
+     */
+    private function readWithTimeout()
+    {
+        if (!SwooleCompat::isAvailable() || !SwooleCompat::inCoroutine()) {
+            return $this->stream->read();
+        }
+
+        // Swoole coroutine mode: use a channel to enforce read timeout
+        $channel = new \Swoole\Coroutine\Channel(1);
+        $stream = $this->stream;
+
+        \Swoole\Coroutine::create(function () use ($channel, $stream) {
+            try {
+                $result = $stream->read();
+                $channel->push(['status' => 'ok', 'data' => $result]);
+            } catch (\Throwable $e) {
+                $channel->push(['status' => 'error', 'exception' => $e]);
+            }
+        });
+        $result = $channel->pop(self::READ_TIMEOUT_SECONDS);
+        if ($result === false) {
+            $this->logger->error("Stream timeout while ". self::READ_TIMEOUT_SECONDS);
+            return null;
+        }
+        if ($result['status'] === 'error') {
+            throw $result['exception'];
+        }
+        return $result['data'];
     }
 
     /**

@@ -46,9 +46,10 @@
     </coverage>
 
     <php>
-        <env name="ROCKETMQ_ENDPOINTS" value="127.0.0.1:8080"/>
-        <env name="ROCKETMQ_ACCESS_KEY" value=""/>
-        <env name="ROCKETMQ_SECRET_KEY" value=""/>
+        <!-- Default environment variables for integration tests.force = false allows actual environment variables ti override these default.-->
+        <env name="ROCKETMQ_ENDPOINTS" value="127.0.0.1:8080" force="false"/>
+        <env name="ROCKETMQ_ACCESS_KEY" value="" force="false"/>
+        <env name="ROCKETMQ_SECRET_KEY" value="" force="false"/>
         <!-- Suppress gRPC C-core stderr output on Windows CI -->
         <env name="GRPC_VERBOSITY" value="ERROR"/>
         <env name="GRPC_TRACE" value="-all"/>

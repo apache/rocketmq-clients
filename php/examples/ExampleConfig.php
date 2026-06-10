@@ -35,9 +35,6 @@
 use Apache\Rocketmq\TlsCredentials;
 use Apache\Rocketmq\SessionCredentials;
 
-require_once __DIR__ . '/../SessionCredentials.php';
-require_once __DIR__ . '/../TlsCredentials.php';
-
 class ExampleConfig
 {
     private static ?self $instance = null;

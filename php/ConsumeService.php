@@ -38,7 +38,7 @@ abstract class ConsumeService
 {
     use ClientTrait;
 
-    protected Logger $logger;
+    protected readonly Logger $logger;
     /** @var callable */
     protected \Closure $messageListener;
     protected ConsumerInterface $consumer;
