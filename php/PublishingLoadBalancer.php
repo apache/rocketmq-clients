@@ -179,12 +179,12 @@ class PublishingLoadBalancer
      */
     public function validateMessageTypeAgainstQueue(object $messageQueue, int $messageType, string $topic): void
     {
-        if (!method_exists($messageQueue, 'getAcceptMessageTypes')) {
+        if (!$messageQueue instanceof \Apache\Rocketmq\V2\MessageQueue) {
             return;
         }
 
         $acceptTypes = $messageQueue->getAcceptMessageTypes();
-        if (is_object($acceptTypes) && method_exists($acceptTypes, 'getIterator')) {
+        if ($acceptTypes instanceof \Traversable) {
             $acceptTypes = iterator_to_array($acceptTypes);
         }
 

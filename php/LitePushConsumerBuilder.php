@@ -19,8 +19,74 @@
 namespace Apache\Rocketmq;
 
 /**
- * LitePushConsumerBuilder - Fluent builder for LitePushConsumer.
- * Referencing Java LitePushConsumerBuilder.java
+ * LitePushConsumerBuilder — Fluent builder for constructing and starting a {@see LitePushConsumer}.
+ *
+ * LitePushConsumer is a lightweight push-based consumer designed for the Lite
+ * messaging model. It binds to a single parent topic and subscribes to one or
+ * more lite (child) topics within it. Messages are delivered via a registered
+ * listener callback, with optional per-lite-topic filtering.
+ *
+ * Required settings:
+ *   - endpoints        (via setEndpoints() or setClientConfiguration())
+ *   - consumerGroup    (via setConsumerGroup())
+ *   - parentTopic      (via bindTopic())
+ *   - messageListener  (via setMessageListener())
+ *   - liteTopics       (via subscriptionLite())
+ *
+ * Optional settings with defaults:
+ *   - maxCacheMessageCount: 4096        Max number of messages buffered in memory
+ *   - maxCacheMessageSizeInBytes: 67108864  Max total size of buffered messages (64 MB)
+ *   - consumptionThreadCount: 1        Thread count (no-op in PHP, stored for API parity)
+ *   - enableFifoConsumeAccelerator: true   Parallel processing by messageGroup (default on)
+ *   - namespace: ''                     Resource namespace prefix
+ *   - credentials: null                 AK/SK SessionCredentials for authentication
+ *   - tlsCredentials: null              TlsCredentials for custom TLS configuration
+ *
+ * Usage example — basic lite push consumer:
+ * ```php
+ * $consumer = (new LitePushConsumerBuilder())
+ *     ->setEndpoints('127.0.0.1:8081')
+ *     ->setConsumerGroup('lite-group')
+ *     ->bindTopic('ParentTopic')
+ *     ->subscriptionLite('lite-topic-a')
+ *     ->subscriptionLite('lite-topic-b')
+ *     ->setMessageListener(function (MessageView $mv): int {
+ *         echo $mv->getBody();
+ *         return ConsumeResult::SUCCESS;
+ *     })
+ *     ->build();
+ * ```
+ *
+ * Usage example — bounded run with startFor():
+ * ```php
+ * (new LitePushConsumerBuilder())
+ *     ->setEndpoints('127.0.0.1:8081')
+ *     ->setConsumerGroup('lite-group')
+ *     ->bindTopic('ParentTopic')
+ *     ->subscriptionLite('lite-topic-a')
+ *     ->setMessageListener(fn(MessageView $mv) => ConsumeResult::SUCCESS)
+ *     ->startFor(120); // run for 120 seconds, then shutdown
+ * ```
+ *
+ * Usage example — with ClientConfiguration and async start:
+ * ```php
+ * $config = (new ClientConfigurationBuilder())
+ *     ->setEndpoints('127.0.0.1:8081')
+ *     ->setSessionCredentialsProvider(new SessionCredentials('ak', 'sk'))
+ *     ->build();
+ *
+ * $consumer = (new LitePushConsumerBuilder())
+ *     ->setClientConfiguration($config)
+ *     ->setConsumerGroup('lite-group')
+ *     ->bindTopic('ParentTopic')
+ *     ->subscriptionLite('lite-topic-a')
+ *     ->setMessageListener(fn(MessageView $mv) => ConsumeResult::SUCCESS)
+ *     ->buildAsync();
+ * ```
+ *
+ * @see LitePushConsumer
+ * @see ClientConfiguration
+ * @see ConsumeResult
  */
 class LitePushConsumerBuilder
 {
@@ -39,10 +105,14 @@ class LitePushConsumerBuilder
     private ?TlsCredentials $tlsCredentials = null;
 
     /**
-     * Set client configuration.
+     * Bulk-import settings from a {@see ClientConfiguration} instance.
      *
-     * @param ClientConfiguration $config
-     * @return $this
+     * Copies endpoints, credentials, namespace, and tlsCredentials from the
+     * config object. Individual setter calls made **after** this method will
+     * override the imported values.
+     *
+     * @param ClientConfiguration $config Pre-built client configuration
+     * @return $this For method chaining
      */
     public function setClientConfiguration(ClientConfiguration $config): self
     {
@@ -56,10 +126,20 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Subscribe to a lite topic.
+     * Subscribe to a lite (child) topic within the parent topic.
      *
-     * @param string $liteTopic
-     * @return $this
+     * Lite topics are lightweight sub-topics within a parent topic. Messages
+     * sent to a lite topic are stored in the parent topic's queue but tagged
+     * with the lite topic name, enabling fine-grained subscription filtering.
+     * Multiple lite topics can be subscribed; each call adds to the list.
+     *
+     * At least one lite topic must be subscribed; buildWithoutStart() throws
+     * if the list is empty.
+     *
+     * @param string $liteTopic Lite topic name to subscribe to
+     * @return $this For method chaining
+     * @default [] (no lite topics)
+     * @see bindTopic() for setting the parent topic
      */
     public function subscriptionLite(string $liteTopic): self
     {
@@ -68,10 +148,16 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Set the consumer group.
+     * Set the consumer group name.
      *
-     * @param string $consumerGroup
-     * @return $this
+     * The consumer group identifies this consumer on the server side. All
+     * consumers sharing the same group name will load-balance messages;
+     * consumers in different groups each receive a full copy of every message.
+     * This is a required setting.
+     *
+     * @param string $consumerGroup Consumer group name (must match server-side group config)
+     * @return $this For method chaining
+     * @default '' (empty — buildWithoutStart() will throw)
      */
     public function setConsumerGroup(string $consumerGroup): self
     {
@@ -80,10 +166,18 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Bind a single parent topic.
+     * Bind a single parent topic for lite messaging.
      *
-     * @param string $parentTopic
-     * @return $this
+     * The parent topic is the physical storage topic on the broker. All lite
+     * (child) topics subscribed via subscriptionLite() are logically partitioned
+     * within this parent topic. Only one parent topic can be bound; calling
+     * bindTopic() again overwrites the previous value.
+     *
+     * This is a required setting — buildWithoutStart() throws if not set.
+     *
+     * @param string $parentTopic Parent topic name on the broker
+     * @return $this For method chaining
+     * @default '' (empty — buildWithoutStart() will throw)
      */
     public function bindTopic(string $parentTopic): self
     {
@@ -92,10 +186,19 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Set the message listener callback.
+     * Set the message listener callback invoked for each received message.
      *
-     * @param callable $listener
-     * @return $this
+     * The listener receives a {@see MessageView} and must return a ConsumeResult:
+     *   - ConsumeResult::SUCCESS — message processed, will be acknowledged
+     *   - ConsumeResult::FAILURE — processing failed, message will be retried
+     *
+     * This listener serves as the default handler for all lite topics.
+     * Per-lite-topic listeners can be registered via subscribeLite() on the
+     * consumer after buildWithoutStart(). This is a required setting.
+     *
+     * @param callable $listener Signature: function(MessageView $mv): int
+     * @return $this For method chaining
+     * @default null (buildWithoutStart() will throw)
      */
     public function setMessageListener(callable $listener): self
     {
@@ -104,11 +207,17 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Set max cached message count.
+     * Set max number of messages buffered in memory awaiting listener dispatch.
      *
-     * @param int $count Must be > 0
-     * @return $this
-     * @throws \InvalidArgumentException if count <= 0
+     * Controls the prefetch buffer size. A larger value increases throughput
+     * at the cost of higher memory usage and potential message redelivery on
+     * consumer crash.
+     *
+     * @param int $count Max cached message count
+     * @return $this For method chaining
+     * @default 4096
+     * @valid-range Must be > 0
+     * @throws \InvalidArgumentException if $count <= 0
      */
     public function setMaxCacheMessageCount(int $count): self
     {
@@ -120,11 +229,17 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Set max cached message size in bytes.
+     * Set max total size of messages buffered in memory (in bytes).
      *
-     * @param int $bytes Must be > 0
-     * @return $this
-     * @throws \InvalidArgumentException if bytes <= 0
+     * Secondary flow-control limit alongside maxCacheMessageCount. When the
+     * cumulative body size of cached messages exceeds this threshold, the
+     * consumer pauses prefetching until messages are consumed.
+     *
+     * @param int $bytes Max cached message size in bytes
+     * @return $this For method chaining
+     * @default 67108864 (64 MB)
+     * @valid-range Must be > 0
+     * @throws \InvalidArgumentException if $bytes <= 0
      */
     public function setMaxCacheMessageSizeInBytes(int $bytes): self
     {
@@ -136,10 +251,15 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Set consumption thread count (no-op in PHP).
+     * Set consumption thread count (stored for API parity, no-op in PHP).
      *
-     * @param int $count
-     * @return $this
+     * In the Java/Go SDK this controls the thread pool size for concurrent
+     * message dispatch. PHP uses an event-loop model, so this value is stored
+     * but does not create OS threads.
+     *
+     * @param int $count Thread count hint
+     * @return $this For method chaining
+     * @default 1
      */
     public function setConsumptionThreadCount(int $count): self
     {
@@ -148,10 +268,16 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Enable FIFO consume accelerator.
+     * Enable FIFO consume accelerator for parallel processing by messageGroup.
      *
-     * @param bool $enable
-     * @return $this
+     * When enabled (default for LitePushConsumer), messages from different
+     * messageGroups are dispatched concurrently while maintaining order within
+     * each group. This is the default for LitePushConsumer because lite topics
+     * typically involve many concurrent message groups.
+     *
+     * @param bool $enable true to enable parallel group processing
+     * @return $this For method chaining
+     * @default true (enabled by default for LitePushConsumer)
      */
     public function setEnableFifoConsumeAccelerator(bool $enable): self
     {
@@ -160,10 +286,11 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Set namespace.
+     * Set the resource namespace prefix.
      *
-     * @param string $namespace
-     * @return $this
+     * @param string $namespace Namespace string (empty string = no namespace)
+     * @return $this For method chaining
+     * @default '' (no namespace)
      */
     public function setNamespace(string $namespace): self
     {
@@ -172,10 +299,11 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Set TLS credentials for the gRPC connection.
+     * Set custom TLS credentials for the gRPC connection.
      *
-     * @param TlsCredentials $tlsCredentials
-     * @return $this
+     * @param TlsCredentials $tlsCredentials TLS certificate configuration
+     * @return $this For method chaining
+     * @default null (use system trust store)
      */
     public function setTlsCredentials(TlsCredentials $tlsCredentials): self
     {
@@ -184,10 +312,22 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Build and start the LitePushConsumer.
+     * Build the LitePushConsumer without starting it.
      *
-     * @return LitePushConsumer
-     * @throws \RuntimeException if required fields not set
+     * Validates all required fields and constructs a LitePushConsumer instance.
+     * All lite topics registered via subscriptionLite() are bound to the consumer.
+     * The returned consumer is NOT running — call start(), startAsync(), or
+     * startWithTimeout() separately.
+     *
+     * Validation rules (all throw \RuntimeException):
+     *   - endpoints must be set (non-empty)
+     *   - consumerGroup must be set (non-empty)
+     *   - messageListener must be set (non-null callable)
+     *   - parentTopic must be bound via bindTopic()
+     *   - at least one lite topic must be subscribed via subscriptionLite()
+     *
+     * @return LitePushConsumer A configured but unstarted LitePushConsumer
+     * @throws \RuntimeException If any required field is missing
      */
     public function buildWithoutStart(): LitePushConsumer
     {
@@ -228,10 +368,18 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Build and start the LitePushConsumer.
+     * Build and start the LitePushConsumer synchronously (blocking).
      *
-     * @return LitePushConsumer
-     * @throws \RuntimeException if required fields not set
+     * Equivalent to:
+     *   $consumer = $builder->buildWithoutStart();
+     *   $consumer->start();  // blocks until TelemetrySession is established
+     *   return $consumer;
+     *
+     * The returned consumer is actively receiving and dispatching lite messages.
+     *
+     * @return LitePushConsumer A started, message-receiving LitePushConsumer
+     * @throws \RuntimeException If any required field is missing
+     * @throws \RuntimeException If start() fails (e.g. gRPC connection refused)
      */
     public function build(): LitePushConsumer
     {
@@ -241,10 +389,16 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Build, start, run for a given duration, then shutdown.
+     * Build, start, run for a fixed duration, then shutdown — all in one call.
      *
-     * @param int $seconds Duration in seconds to consume
-     * @throws \RuntimeException if required fields not set
+     * Convenient for short-lived consumers, CLI tools, and integration tests.
+     * Blocks the current thread for the specified duration, then gracefully
+     * shuts down the consumer.
+     *
+     * @param int $seconds Duration in seconds to consume messages
+     * @return void
+     * @throws \RuntimeException If any required field is missing
+     * @throws \RuntimeException If startWithTimeout() fails
      */
     public function startFor(int $seconds):  void
     {
@@ -254,11 +408,16 @@ class LitePushConsumerBuilder
     }
 
     /**
-     * Build and start the LitePushConsumer asynchronously.
+     * Build and start the LitePushConsumer asynchronously (non-blocking).
      *
-     * @param callable|null $onDone Optional callback invoked after start completes
-     * @return LitePushConsumer
-     * @throws \RuntimeException if required fields not set
+     * Starts the consumer in a Swoole coroutine (when available) or returns
+     * immediately. The optional $onDone callback is invoked once the startup
+     * sequence completes.
+     *
+     * @param callable|null $onDone Optional callback invoked after start completes.
+     *                              Signature: function(): void
+     * @return LitePushConsumer The consumer (may not be fully started yet)
+     * @throws \RuntimeException If any required field is missing
      */
     public function buildAsync(?callable $onDone = null): LitePushConsumer
     {

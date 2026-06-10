@@ -26,18 +26,27 @@ use Apache\Rocketmq\V2\HeartbeatResponse;
 use Apache\Rocketmq\V2\ForwardMessageToDeadLetterQueueResponse;
 use Apache\Rocketmq\V2\SendResultEntry;
 use Apache\Rocketmq\V2\AckMessageResultEntry;
+use Apache\Rocketmq\V2\QueryRouteResponse;
+use Apache\Rocketmq\V2\ReceiveMessageResponse;
+use Apache\Rocketmq\V2\EndTransactionResponse;
+use Apache\Rocketmq\V2\QueryAssignmentResponse;
+use Apache\Rocketmq\V2\MessageQueue;
+use Apache\Rocketmq\V2\Assignment;
+use Apache\Rocketmq\V2\Message;
+use Apache\Rocketmq\V2\Resource;
+use Apache\Rocketmq\V2\Broker;
 
 /**
- * gRPC Mock 工厂类
+ * gRPC Mock Factory Class
  * 
- * 提供统一的 gRPC 响应对象创建方法，用于单元测试和集成测试
+ * Provides unified gRPC response object creation methods for unit and integration tests
  */
 class GrpcMocks
 {
     /**
-     * 创建成功的 Status 对象
+     * Create a successful Status  object
      *
-     * @param string $message 可选的成功消息
+     * @param string $message Optional success message
      * @return Status
      */
     public static function successStatus(string $message = 'OK'): Status
@@ -50,10 +59,10 @@ class GrpcMocks
     }
 
     /**
-     * 创建失败的 Status 对象
+     * Create a failed Status  object
      *
-     * @param int $code 错误代码
-     * @param string $message 错误消息
+     * @param int $code Error code
+     * @param string $message Error message
      * @return Status
      */
     public static function errorStatus(int $code = Code::INTERNAL_ERROR, string $message = 'Internal Error'): Status
@@ -66,10 +75,10 @@ class GrpcMocks
     }
 
     /**
-     * 创建 SendMessageResponse Mock 对象（成功）
+     * Create SendMessageResponse Mock  object (success)
      *
-     * @param array $entries 发送结果条目数组
-     * @param string $message 成功消息
+     * @param array $entries Array of send result entries
+     * @param string $message Success message
      * @return SendMessageResponse
      */
     public static function mockSendMessageSuccess(array $entries = [], string $message = 'OK'): SendMessageResponse
@@ -85,10 +94,10 @@ class GrpcMocks
     }
 
     /**
-     * 创建 SendMessageResponse Mock 对象（失败）
+     * Create SendMessageResponse Mock  object (failure)
      *
-     * @param int $code 错误代码
-     * @param string $message 错误消息
+     * @param int $code Error code
+     * @param string $message Error message
      * @return SendMessageResponse
      */
     public static function mockSendMessageError(int $code = Code::INTERNAL_ERROR, string $message = 'Failed to send message'): SendMessageResponse
@@ -101,12 +110,12 @@ class GrpcMocks
     }
 
     /**
-     * 创建单个 SendResultEntry
+     * Create a single SendResultEntry
      *
-     * @param string $messageId 消息 ID
-     * @param string $transactionId 事务 ID（可选）
-     * @param int $code 状态码
-     * @param string $errorMessage 错误消息（可选）
+     * @param string $messageId Message ID
+     * @param string $transactionId Transaction ID (optional)
+     * @param int $code Status code
+     * @param string $errorMessage Error message (optional)
      * @return SendResultEntry
      */
     public static function mockSendResultEntry(
@@ -131,10 +140,10 @@ class GrpcMocks
     }
 
     /**
-     * 创建 AckMessageResponse Mock 对象（成功）
+     * Create AckMessageResponse Mock  object (success)
      *
-     * @param array $entries ACK 结果条目数组
-     * @param string $message 成功消息
+     * @param array $entries Array of ACK result entries
+     * @param string $message Success message
      * @return AckMessageResponse
      */
     public static function mockAckMessageSuccess(array $entries = [], string $message = 'OK'): AckMessageResponse
@@ -150,10 +159,10 @@ class GrpcMocks
     }
 
     /**
-     * 创建 AckMessageResponse Mock 对象（失败）
+     * Create AckMessageResponse Mock  object (failure)
      *
-     * @param int $code 错误代码
-     * @param string $message 错误消息
+     * @param int $code Error code
+     * @param string $message Error message
      * @return AckMessageResponse
      */
     public static function mockAckMessageError(int $code = Code::INVALID_RECEIPT_HANDLE, string $message = 'Failed to ack message'): AckMessageResponse
@@ -166,11 +175,11 @@ class GrpcMocks
     }
 
     /**
-     * 创建单个 AckMessageResultEntry
+     * Create a single AckMessageResultEntry
      *
-     * @param string $receiptHandle 接收句柄
-     * @param int $code 状态码
-     * @param string $errorMessage 错误消息（可选）
+     * @param string $receiptHandle Receipt handle
+     * @param int $code Status code
+     * @param string $errorMessage Error message (optional)
      * @return AckMessageResultEntry
      */
     public static function mockAckMessageResultEntry(
@@ -190,10 +199,10 @@ class GrpcMocks
     }
 
     /**
-     * 创建 ChangeInvisibleDurationResponse Mock 对象（成功）
+     * Create ChangeInvisibleDurationResponse Mock  object (success)
      *
-     * @param string $receiptHandle 新的接收句柄
-     * @param string $message 成功消息
+     * @param string $receiptHandle newReceipt handle
+     * @param string $message Success message
      * @return ChangeInvisibleDurationResponse
      */
     public static function mockChangeInvisibleDurationSuccess(string $receiptHandle = '', string $message = 'OK'): ChangeInvisibleDurationResponse
@@ -209,10 +218,10 @@ class GrpcMocks
     }
 
     /**
-     * 创建 ChangeInvisibleDurationResponse Mock 对象（失败）
+     * Create ChangeInvisibleDurationResponse Mock  object (failure)
      *
-     * @param int $code 错误代码
-     * @param string $message 错误消息
+     * @param int $code Error code
+     * @param string $message Error message
      * @return ChangeInvisibleDurationResponse
      */
     public static function mockChangeInvisibleDurationError(int $code = Code::INVALID_RECEIPT_HANDLE, string $message = 'Failed to change invisible duration'): ChangeInvisibleDurationResponse
@@ -224,9 +233,9 @@ class GrpcMocks
     }
 
     /**
-     * 创建 HeartbeatResponse Mock 对象（成功）
+     * Create HeartbeatResponse Mock  object (success)
      *
-     * @param string $message 成功消息
+     * @param string $message Success message
      * @return HeartbeatResponse
      */
     public static function mockHeartbeatSuccess(string $message = 'OK'): HeartbeatResponse
@@ -238,10 +247,10 @@ class GrpcMocks
     }
 
     /**
-     * 创建 HeartbeatResponse Mock 对象（失败）
+     * Create HeartbeatResponse Mock  object (failure)
      *
-     * @param int $code 错误代码
-     * @param string $message 错误消息
+     * @param int $code Error code
+     * @param string $message Error message
      * @return HeartbeatResponse
      */
     public static function mockHeartbeatError(int $code = Code::UNRECOGNIZED_CLIENT_TYPE, string $message = 'Heartbeat failed'): HeartbeatResponse
@@ -253,9 +262,9 @@ class GrpcMocks
     }
 
     /**
-     * 创建 ForwardMessageToDeadLetterQueueResponse Mock 对象（成功）
+     * Create ForwardMessageToDeadLetterQueueResponse Mock  object (success)
      *
-     * @param string $message 成功消息
+     * @param string $message Success message
      * @return ForwardMessageToDeadLetterQueueResponse
      */
     public static function mockForwardToDlqSuccess(string $message = 'OK'): ForwardMessageToDeadLetterQueueResponse
@@ -267,10 +276,10 @@ class GrpcMocks
     }
 
     /**
-     * 创建 ForwardMessageToDeadLetterQueueResponse Mock 对象（失败）
+     * Create ForwardMessageToDeadLetterQueueResponse Mock  object (failure)
      *
-     * @param int $code 错误代码
-     * @param string $message 错误消息
+     * @param int $code Error code
+     * @param string $message Error message
      * @return ForwardMessageToDeadLetterQueueResponse
      */
     public static function mockForwardToDlqError(int $code = Code::MESSAGE_NOT_FOUND, string $message = 'Failed to forward to DLQ'): ForwardMessageToDeadLetterQueueResponse
@@ -282,10 +291,10 @@ class GrpcMocks
     }
 
     /**
-     * 批量创建成功的 SendResultEntry
+     * Batch create successful SendResultEntry entries
      *
-     * @param int $count 需要创建的条目数量
-     * @param string $messageIdPrefix 消息 ID 前缀
+     * @param int $count Number of entries to create
+     * @param string $messageIdPrefix Message ID prefix
      * @return array
      */
     public static function mockMultipleSendResultEntries(int $count = 3, string $messageIdPrefix = 'msg-'): array
@@ -299,10 +308,10 @@ class GrpcMocks
     }
 
     /**
-     * 批量创建成功的 AckMessageResultEntry
+     * Batch create successful AckMessageResultEntry entries
      *
-     * @param int $count 需要创建的条目数量
-     * @param string $receiptHandlePrefix 接收句柄前缀
+     * @param int $count Number of entries to create
+     * @param string $receiptHandlePrefix Receipt handleprefix
      * @return array
      */
     public static function mockMultipleAckResultEntries(int $count = 3, string $receiptHandlePrefix = 'receipt-'): array
@@ -313,5 +322,221 @@ class GrpcMocks
         }
         
         return $entries;
+    }
+
+    /**
+     * Create QueryRouteResponse Mock  object (success)
+     *
+     * @param array $messageQueues Array of MessageQueue objects
+     * @param string $message Success message
+     * @return QueryRouteResponse
+     */
+    public static function mockQueryRouteSuccess(array $messageQueues = [], string $message = 'OK'): QueryRouteResponse
+    {
+        $response = new QueryRouteResponse();
+        $response->setStatus(self::successStatus($message));
+
+        if (!empty($messageQueues)) {
+            $response->setMessageQueues($messageQueues);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Create QueryRouteResponse Mock  object (failure)
+     *
+     * @param int $code Error code
+     * @param string $message Error message
+     * @return QueryRouteResponse
+     */
+    public static function mockQueryRouteError(int $code = Code::NOT_FOUND, string $message = 'Topic not found'): QueryRouteResponse
+    {
+        $response = new QueryRouteResponse();
+        $response->setStatus(self::errorStatus($code, $message));
+
+        return $response;
+    }
+
+    /**
+     * Create a single MessageQueue  object
+     *
+     * @param string $topicName Topic name
+     * @param int $queueId Queue ID
+     * @param string $brokerName Broker name
+     * @param string $brokerEndpoint Broker endpoint address
+     * @return MessageQueue
+     */
+    public static function mockMessageQueue(
+        string $topicName,
+        int $queueId = 0,
+        string $brokerName = 'broker-0',
+        string $brokerEndpoint = '127.0.0.1:8080'
+    ): MessageQueue {
+        $topic = new Resource();
+        $topic->setName($topicName);
+
+        $broker = new Broker();
+        $broker->setName($brokerName);
+
+        $mq = new MessageQueue();
+        $mq->setTopic($topic);
+        $mq->setId($queueId);
+        $mq->setBroker($broker);
+
+        return $mq;
+    }
+
+    /**
+     * Create a ReceiveMessageResponse Mock object (success, with message)
+     *
+     * NOTE: ReceiveMessageResponse uses oneof, status and message are mutually exclusive.
+     * The actual broker sends multiple responses: first status, then message, then delivery_timestamp.
+     * This mock returns a response containing the message.
+     *
+     * @param Message|null $message Protobuf Message object
+     * @return ReceiveMessageResponse
+     */
+    public static function mockReceiveMessageSuccess(?Message $message = null): ReceiveMessageResponse
+    {
+        $response = new ReceiveMessageResponse();
+
+        if ($message !== null) {
+            // oneof: setting message clears status
+            $response->setMessage($message);
+        } else {
+            $response->setStatus(self::successStatus());
+        }
+
+        return $response;
+    }
+
+    /**
+     * Create a ReceiveMessageResponse Mock object (no message)
+     *
+     * @return ReceiveMessageResponse
+     */
+    public static function mockReceiveMessageEmpty(): ReceiveMessageResponse
+    {
+        $response = new ReceiveMessageResponse();
+        $response->setStatus(self::successStatus());
+
+        return $response;
+    }
+
+    /**
+     * Create ReceiveMessageResponse Mock  object (failure)
+     *
+     * @param int $code Error code
+     * @param string $message Error message
+     * @return ReceiveMessageResponse
+     */
+    public static function mockReceiveMessageError(int $code = Code::INTERNAL_ERROR, string $message = 'Receive failed'): ReceiveMessageResponse
+    {
+        $response = new ReceiveMessageResponse();
+        $response->setStatus(self::errorStatus($code, $message));
+
+        return $response;
+    }
+
+    /**
+     * Create a Protobuf Message object
+     *
+     * @param string $topicName Topic name
+     * @param string $body Message body
+     * @param string $messageId Message ID
+     * @return Message
+     */
+    public static function mockProtobufMessage(string $topicName, string $body, string $messageId = ''): Message
+    {
+        $topic = new Resource();
+        $topic->setName($topicName);
+
+        $message = new Message();
+        $message->setTopic($topic);
+        $message->setBody($body);
+
+        return $message;
+    }
+
+    /**
+     * Create EndTransactionResponse Mock  object (success)
+     *
+     * @param string $message Success message
+     * @return EndTransactionResponse
+     */
+    public static function mockEndTransactionSuccess(string $message = 'OK'): EndTransactionResponse
+    {
+        $response = new EndTransactionResponse();
+        $response->setStatus(self::successStatus($message));
+
+        return $response;
+    }
+
+    /**
+     * Create EndTransactionResponse Mock  object (failure)
+     *
+     * @param int $code Error code
+     * @param string $message Error message
+     * @return EndTransactionResponse
+     */
+    public static function mockEndTransactionError(int $code = Code::INVALID_TRANSACTION_ID, string $message = 'Transaction failed'): EndTransactionResponse
+    {
+        $response = new EndTransactionResponse();
+        $response->setStatus(self::errorStatus($code, $message));
+
+        return $response;
+    }
+
+    /**
+     * Create QueryAssignmentResponse Mock  object (success)
+     *
+     * @param array $assignments Array of Assignment objects
+     * @param string $message Success message
+     * @return QueryAssignmentResponse
+     */
+    public static function mockQueryAssignmentSuccess(array $assignments = [], string $message = 'OK'): QueryAssignmentResponse
+    {
+        $response = new QueryAssignmentResponse();
+        $response->setStatus(self::successStatus($message));
+
+        if (!empty($assignments)) {
+            $response->setAssignments($assignments);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Create QueryAssignmentResponse Mock  object (failure)
+     *
+     * @param int $code Error code
+     * @param string $message Error message
+     * @return QueryAssignmentResponse
+     */
+    public static function mockQueryAssignmentError(int $code = Code::NOT_FOUND, string $message = 'Assignment not found'): QueryAssignmentResponse
+    {
+        $response = new QueryAssignmentResponse();
+        $response->setStatus(self::errorStatus($code, $message));
+
+        return $response;
+    }
+
+    /**
+     * Create a single Assignment  object
+     *
+     * @param string $topicName Topic name
+     * @param int $queueId Queue ID
+     * @param string $brokerName Broker name
+     * @return Assignment
+     */
+    public static function mockAssignment(string $topicName, int $queueId = 0, string $brokerName = 'broker-0'): Assignment
+    {
+        $mq = self::mockMessageQueue($topicName, $queueId, $brokerName);
+
+        $assignment = new Assignment();
+        $assignment->setMessageQueue($mq);
+
+        return $assignment;
     }
 }

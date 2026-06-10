@@ -74,7 +74,7 @@ class PushConsumer implements ConsumerInterface
 
     // Builder options
     /** @var callable|null */
-    protected $messageListener = null;
+    protected mixed $messageListener = null;
     private int $maxCacheMessageCount = 4096;
     private int $maxCacheMessageSizeInBytes = 67108864; // 64MB
     private int $awaitDuration = 5; // seconds
@@ -98,19 +98,21 @@ class PushConsumer implements ConsumerInterface
      * @param string $endpoints gRPC server endpoint
      * @param string $consumerGroup Consumer group name
      * @param array $options Configuration options
-     *  - messageListener Message listener
-     *  - subscriptionExpressions Subscription expressions
-     *  - maxCacheMessageCount Maximum number of cached messages
-     *  - maxCacheMessageSizeInBytes Maximum size of cached messages
-     *  - awaitDuration Await duration for message listener
-     *  - scanIntervalSeconds Interval between assignment scans
-     *  - fifo mode
-     *  - receiveBatchSize Batch size for receiving messages
-     *  - enableFifoConsumeAccelerator Enable FIFO consume accelerator
-     *  - isLiteConsumer Lite consumer mode
-     *  - credentials for authentication
-     *  - namespace for consumer
-     *  - tlsCredentials TLS credentials
+     *  - clientId: string, custom client identifier (default: 'php-push-consumer-{pid}-{time}')
+     *  - messageListener: callable|null, message consumption callback
+     *  - subscriptionExpressions: array<string,string>, topic subscription map (topic => expression)
+     *  - maxCacheMessageCount: int, max cached messages in memory (default: 4096)
+     *  - maxCacheMessageSizeInBytes: int, max cached message total size (default: 67108864, 64MB)
+     *  - awaitDuration: int, long polling timeout in seconds (default: 5)
+     *  - scanIntervalSeconds: int, assignment scan interval in seconds (default: 5)
+     *  - fifo: bool, enable FIFO message consumption mode (default: false)
+     *  - receiveBatchSize: int, max messages per receive batch (default: 32)
+     *  - enableFifoConsumeAccelerator: bool, enable FIFO consume accelerator (default: false)
+     *  - isLiteConsumer: bool, enable lite consumer mode (default: false)
+     *  - credentials: SessionCredentials|null, AK/SK authentication credentials
+     *  - namespace: string, resource namespace prefix (default: '')
+     *  - tlsCredentials: TlsCredentials|null, TLS/SSL configuration
+     *  - sslEnabled: bool, enable SSL for gRPC channel (default: true)
      */
     public function __construct(
         protected readonly string $endpoints,

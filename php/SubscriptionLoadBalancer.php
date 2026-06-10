@@ -38,7 +38,7 @@ class SubscriptionLoadBalancer
      */
     public function __construct($routeData)
     {
-        if ($routeData && method_exists($routeData, 'getMessageQueues')) {
+        if ($routeData instanceof \Apache\Rocketmq\V2\QueryRouteResponse) {
             $allQueues = $routeData->getMessageQueues();
             $readableCount = 0;
             $masterCount = 0;

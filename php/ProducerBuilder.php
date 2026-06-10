@@ -19,8 +19,72 @@
 namespace Apache\Rocketmq;
 
 /**
- * ProducerBuilder - Fluent builder for Producer.
- * Referencing Java ProducerBuilder.java
+ * ProducerBuilder — Fluent builder for constructing and starting a {@see Producer}.
+ *
+ * Provides a type-safe, chainable API to configure all producer options before
+ * building and starting the underlying Producer instance. Using this builder is
+ * the recommended way to create a Producer; constructing Producer directly with
+ * raw $options arrays is deprecated.
+ *
+ * Required settings:
+ *   - endpoints (via setEndpoints() or setClientConfiguration())
+ *
+ * Optional settings with defaults:
+ *   - topics: []                        Topics to pre-warm publishing routes for
+ *   - maxAttempts: 3                    Max retry attempts on transient send failures
+ *   - requestTimeout: 3000              gRPC request timeout in milliseconds
+ *   - namespace: ''                     Resource namespace prefix
+ *   - credentials: null                 AK/SK SessionCredentials for authentication
+ *   - validateMessageType: true         Validate message type against route accept types
+ *   - maxBodySizeBytes: 4194304         Max allowed message body size (4 MB)
+ *   - tlsCredentials: null              TlsCredentials for custom TLS configuration
+ *   - sslEnabled: true                  Enable SSL/TLS on the gRPC channel
+ *   - transactionChecker: null          TransactionChecker for orphaned-tx recovery
+ *   - localTransactionExecuter: null     Executor for auto commit/rollback in sendWithTransaction()
+ *
+ * Usage example — basic producer:
+ * ```php
+ * $producer = (new ProducerBuilder())
+ *     ->setEndpoints('127.0.0.1:8081')
+ *     ->setTopics('TopicA', 'TopicB')
+ *     ->setMaxAttempts(5)
+ *     ->build();
+ *
+ * $producer->send($message);
+ * $producer->shutdown();
+ * ```
+ *
+ * Usage example — transaction producer:
+ * ```php
+ * $producer = (new ProducerBuilder())
+ *     ->setEndpoints('127.0.0.1:8081')
+ *     ->setTopics('TxTopic')
+ *     ->setTransactionChecker(new MyTxChecker())
+ *     ->setLocalTransactionExecuter(new MyTxExecutor())
+ *     ->build();
+ *
+ * $tx = $producer->beginTransaction();
+ * $producer->sendWithTransaction($message, $tx);
+ * $tx->commit();
+ * ```
+ *
+ * Usage example — with ClientConfiguration:
+ * ```php
+ * $config = (new ClientConfigurationBuilder())
+ *     ->setEndpoints('127.0.0.1:8081')
+ *     ->setSessionCredentialsProvider(new SessionCredentials('ak', 'sk'))
+ *     ->build();
+ *
+ * $producer = (new ProducerBuilder())
+ *     ->setClientConfiguration($config)
+ *     ->setTopics('TopicA')
+ *     ->build();
+ * ```
+ *
+ * @see Producer
+ * @see ClientConfiguration
+ * @see TransactionChecker
+ * @see LocalTransactionExecuter
  */
 class ProducerBuilder
 {
@@ -38,10 +102,14 @@ class ProducerBuilder
     private bool $sslEnabled = true;
 
     /**
-     * Set client configuration.
+     * Bulk-import settings from a {@see ClientConfiguration} instance.
      *
-     * @param ClientConfiguration $config
-     * @return $this
+     * Copies endpoints, credentials, requestTimeout, namespace, sslEnabled, and
+     * tlsCredentials from the config object.  Individual setter calls made
+     * **after** this method will override the imported values.
+     *
+     * @param ClientConfiguration $config Pre-built client configuration
+     * @return $this For method chaining
      */
     public function setClientConfiguration(ClientConfiguration $config): self
     {
@@ -59,8 +127,12 @@ class ProducerBuilder
     /**
      * Set the gRPC endpoint address.
      *
-     * @param string $endpoints e.g. "127.0.0.1:8080"
-     * @return $this
+     * Format: "host:port" or comma-separated list "host1:port1,host2:port2".
+     * This is a required setting; build() will throw if not set (and not
+     * provided via setClientConfiguration()).
+     *
+     * @param string $endpoints gRPC endpoint, e.g. "127.0.0.1:8081"
+     * @return $this For method chaining
      */
     public function setEndpoints(string $endpoints): self
     {
@@ -69,10 +141,15 @@ class ProducerBuilder
     }
 
     /**
-     * Set AK/SK credentials.
+     * Set AK/SK authentication credentials.
      *
-     * @param SessionCredentials $credentials
-     * @return $this
+     * When set, every gRPC request is signed with the provided Access Key and
+     * Secret Key. Pass null to disable authentication (only suitable for
+     * development/testing environments).
+     *
+     * @param SessionCredentials $credentials AK/SK credential pair
+     * @return $this For method chaining
+     * @default null (no authentication)
      */
     public function setCredentials(SessionCredentials $credentials): self
     {
@@ -81,10 +158,15 @@ class ProducerBuilder
     }
 
     /**
-     * Declare topics to send messages to.
+     * Declare topics to pre-warm publishing routes for.
      *
-     * @param string ...$topics
-     * @return $this
+     * On start(), the producer fetches routing information for each declared
+     * topic so the first send() does not pay a route-lookup penalty.
+     * Topics can also be omitted here and resolved lazily on first send.
+     *
+     * @param string ...$topics One or more topic names (variadic)
+     * @return $this For method chaining
+     * @default [] (no pre-warming)
      */
     public function setTopics(string ...$topics): self
     {
@@ -93,10 +175,17 @@ class ProducerBuilder
     }
 
     /**
-     * Set max retry attempts for send failures.
+     * Set max retry attempts for transient send failures.
      *
-     * @param int $maxAttempts Default 3
-     * @return $this
+     * Controls how many times the producer retries when SendMessage fails due
+     * to transient errors (network timeout, broker unavailability, etc.).
+     * Each retry may target a different broker queue via round-robin.
+     *
+     * @param int $maxAttempts Max retry count
+     * @return $this For method chaining
+     * @default 3
+     * @valid-range Must be > 0
+     * @throws \InvalidArgumentException if $maxAttempts <= 0
      */
     public function setMaxAttempts(int $maxAttempts): self
     {
@@ -108,10 +197,16 @@ class ProducerBuilder
     }
 
     /**
-     * Set transaction checker for orphaned transaction recovery.
+     * Set transaction checker for orphaned transaction recovery (2PC Phase 4).
      *
-     * @param TransactionChecker $checker
-     * @return $this
+     * Required when using beginTransaction() / sendWithTransaction().
+     * The server sends a RecoverOrphanedTransaction telemetry command when it
+     * detects an unresolved half-message; the checker inspects the local
+     * transaction state and returns COMMIT or ROLLBACK.
+     *
+     * @param TransactionChecker $checker Implementation of TransactionChecker
+     * @return $this For method chaining
+     * @default null (transaction messaging disabled)
      */
     public function setTransactionChecker(TransactionChecker $checker): self
     {
@@ -120,10 +215,17 @@ class ProducerBuilder
     }
 
     /**
-     * Set local transaction executer for auto commit/rollback.
+     * Set local transaction executor for auto commit/rollback (2PC Phase 2).
      *
-     * @param LocalTransactionExecuter $executer
-     * @return $this
+     * When provided, sendWithTransaction() will automatically execute the local
+     * transaction after the half-message is sent, and commit or rollback based
+     * on the executor's return value (TransactionResolution::COMMIT or ROLLBACK).
+     * If not set, the caller must manually call $transaction->commit() or
+     * $transaction->rollback() after sendWithTransaction() returns.
+     *
+     * @param LocalTransactionExecuter $executer Implementation of LocalTransactionExecuter
+     * @return $this For method chaining
+     * @default null (manual commit/rollback required)
      */
     public function setLocalTransactionExecuter(LocalTransactionExecuter $executer): self
     {
@@ -132,10 +234,17 @@ class ProducerBuilder
     }
 
     /**
-     * Set whether to validate message type against route accept types.
+     * Set whether to validate message type against route accept types before send.
      *
-     * @param bool $validate
-     * @return $this
+     * When enabled, send() / sendBatch() / sendWithTransaction() will check that
+     * the detected message type (NORMAL, FIFO, DELAY, PRIORITY, TRANSACTION, LITE)
+     * is accepted by the target broker queue. A mismatch throws before the gRPC
+     * call is made. This setting can also be toggled dynamically by the server
+     * via TelemetrySession settings push.
+     *
+     * @param bool $validate true to enable validation, false to skip
+     * @return $this For method chaining
+     * @default true
      */
     public function setValidateMessageType(bool $validate): self
     {
@@ -144,10 +253,19 @@ class ProducerBuilder
     }
 
     /**
-     * Set max message body size in bytes.
+     * Set max allowed message body size in bytes.
      *
-     * @param int $bytes
-     * @return $this
+     * Messages exceeding this limit are rejected with \InvalidArgumentException
+     * before any network call. The server may push a different limit via
+     * TelemetrySession settings (publishing.maxBodySize); the larger of the
+     * client-side and server-side values does NOT apply — the server value
+     * overwrites the client value when received.
+     *
+     * @param int $bytes Max body size in bytes
+     * @return $this For method chaining
+     * @default 4194304 (4 MB)
+     * @valid-range Must be > 0
+     * @throws \InvalidArgumentException if $bytes <= 0
      */
     public function setMaxBodySizeBytes(int $bytes): self
     {
@@ -159,10 +277,17 @@ class ProducerBuilder
     }
 
     /**
-     * Set request timeout in milliseconds.
+     * Set gRPC request timeout in milliseconds.
      *
-     * @param int $timeoutMs Request timeout in milliseconds
-     * @return $this
+     * Applies to all unary gRPC calls (SendMessage, RecallMessage,
+     * EndTransaction, etc.). For SendMessage specifically, the actual deadline
+     * is derived from getOperationTimeout('SEND_MESSAGE') which may differ.
+     *
+     * @param int $timeoutMs Timeout in milliseconds
+     * @return $this For method chaining
+     * @default 3000 (3 seconds)
+     * @valid-range Must be > 0
+     * @throws \InvalidArgumentException if $timeoutMs <= 0
      */
     public function setRequestTimeout(int $timeoutMs): self
     {
@@ -174,10 +299,15 @@ class ProducerBuilder
     }
 
     /**
-     * Set namespace.
+     * Set the resource namespace prefix.
      *
-     * @param string $namespace
-     * @return $this
+     * When set, all topic and consumer-group resource names are prefixed with
+     * this namespace on the server side. Used in multi-tenant deployments to
+     * isolate resources across environments (e.g. "dev", "staging", "prod").
+     *
+     * @param string $namespace Namespace string (empty string = no namespace)
+     * @return $this For method chaining
+     * @default '' (no namespace)
      */
     public function setNamespace(string $namespace): self
     {
@@ -186,10 +316,15 @@ class ProducerBuilder
     }
 
     /**
-     * Set TLS credentials for the gRPC connection.
+     * Set custom TLS credentials for the gRPC connection.
      *
-     * @param TlsCredentials $tlsCredentials
-     * @return $this
+     * When provided, the gRPC channel uses the specified CA certificate (and
+     * optional client cert/key) instead of the system default trust store.
+     * sslEnabled must be true for TLS to take effect.
+     *
+     * @param TlsCredentials $tlsCredentials TLS certificate configuration
+     * @return $this For method chaining
+     * @default null (use system trust store)
      */
     public function setTlsCredentials(TlsCredentials $tlsCredentials): self
     {
@@ -198,10 +333,26 @@ class ProducerBuilder
     }
 
     /**
-     * Build and start the Producer.
+     * Build, configure, and start the Producer.
      *
-     * @return Producer
-     * @throws \RuntimeException if endpoints not set
+     * Behavior:
+     *   1. Validates that endpoints is set (throws \RuntimeException if empty).
+     *   2. Constructs a Producer with all accumulated settings.
+     *   3. Attaches TransactionChecker and LocalTransactionExecuter if set.
+     *   4. Calls Producer::start() which establishes the TelemetrySession,
+     *      registers settings/transaction callbacks, warms up topic routes,
+     *      and starts the HeartbeatManager.
+     *   5. Returns a fully started, ready-to-send Producer.
+     *
+     * After build(), the builder instance should NOT be reused — create a new
+     * builder for each Producer.
+     *
+     * @return Producer A started Producer instance
+     * @throws \RuntimeException If endpoints is not set (empty string)
+     * @throws \RuntimeException If Producer::start() fails (e.g. TelemetrySession
+     *         cannot be established, gRPC connection refused)
+     * @throws \InvalidArgumentException If maxAttempts, requestTimeout, or
+     *         maxBodySizeBytes was set to an invalid value
      */
     public function build(): Producer
     {

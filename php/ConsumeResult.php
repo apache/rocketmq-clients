@@ -20,9 +20,31 @@ namespace Apache\Rocketmq;
 
 /**
  * ConsumeResult - Result returned by the user message listener callback.
+ *
+ * PHP 8.1 backed enum replacing class constants.
  */
-class ConsumeResult
+enum ConsumeResult: int
 {
-    const SUCCESS = 0;
-    const FAILURE = 1;
+    case SUCCESS = 0;
+    case FAILURE = 1;
+
+    /**
+     * Normalize a callback result to a ConsumeResult enum case.
+     *
+     * Accepts int (0=SUCCESS, 1=FAILURE) or ConsumeResult enum.
+     *
+     * @param mixed $result Integer or ConsumeResult enum
+     * @return self
+     */
+    public static function fromMixed(mixed $result): self
+    {
+        if ($result instanceof self) {
+            return $result;
+        }
+        if (is_int($result)) {
+            return self::from($result);
+        }
+        // Default to SUCCESS for truthy, FAILURE for falsy
+        return $result ? self::SUCCESS : self::FAILURE;
+    }
 }

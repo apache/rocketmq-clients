@@ -55,69 +55,56 @@ class Producer implements TransactionCommitter, ClientTraitProvider
     use TransactionTrait;
 
     private readonly MessagingServiceClient $client;
-    private readonly string $clientId;
     private readonly TelemetrySession $telemetrySession;
     private readonly PublishingRouteManager $routeManager;
+    private readonly ProducerSettings $settings;
+    protected MessageValidator $validator;
     private bool $isRunning = false;
     private bool $shutdownRequested = false;
-    private int $maxAttempts = 3;
-    private int $requestTimeout = 3000;
-    private array $topics = [];
-    private readonly string $namespace;
-    private readonly Logger $logger;
-    private ?SessionCredentials $credentials = null;
-    private bool $validateMessageType = true;
-    private int $maxBodySizeBytes = 4194304;
     private array $interceptors = [];
-    private ?ExponentialBackoffRetryPolicy $retryPolicy = null;
-    private readonly ?TlsCredentials $tlsCredentials;
-    private readonly bool $sslEnabled;
+    private readonly Logger $logger;
     private readonly HeartbeatManager $heartbeatManager;
 
     /**
      * @param string $endpoints gRPC server endpoint
      * @param array $options Configuration options (use ProducerBuilder instead)
-     *                      - clientId: clientId for this client
-     *                      - maxAttempts: max retry attempts
-     *                      - requestTimeout: request timeout
-     *                      - topics: topics to publish
-     *                      - namespace: namespace
-     *                      - interceptors: interceptors
-     *                      - tlsCredentials: tlsCredentials
-     *                      - sslEnabled: sslEnabled
-     *                      - stateLock: stateLock
-     *                      - logger: logger
+     *                      - clientId: string, custom client identifier (default: 'php-producer-{pid}-{time}')
+     *                      - maxAttempts: int, max retry attempts on send failure (default: 3)
+     *                      - requestTimeout: int, gRPC request timeout in ms (default: 3000)
+     *                      - topics: string[], topics to publish messages to (default: [])
+     *                      - namespace: string, resource namespace prefix (default: '')
+     *                      - credentials: SessionCredentials|null, AK/SK authentication credentials
+     *                      - validateMessageType: bool, validate message type against route (default: true)
+     *                      - maxBodySizeBytes: int, max message body size in bytes (default: 4194304)
+     *                      - tlsCredentials: TlsCredentials|null, TLS/SSL configuration
+     *                      - sslEnabled: bool, enable SSL for gRPC channel (default: true)
      * @deprecated Use ProducerBuilder instead for better type safety and IDE support.
      */
     public function __construct(
         private readonly string $endpoints,
         array $options = []
     ) {
-        $this->clientId = $options['clientId'] ?? ('php-producer-' . getmypid() . '-' . time());
-        $this->maxAttempts = $options['maxAttempts'] ?? 3;
-        $this->requestTimeout = $options['requestTimeout'] ?? 3000;
-        $this->topics = $options['topics'] ?? [];
-        $this->namespace = $options['namespace'] ?? '';
-        $this->validateMessageType = $options['validateMessageType'] ?? true;
-        $this->maxBodySizeBytes = $options['maxBodySizeBytes'] ?? 4194304;
-        $this->tlsCredentials = $options['tlsCredentials'] ?? null;
-        $this->sslEnabled = $options['sslEnabled'] ?? true;
-
-        if (isset($options['credentials']) && $options['credentials'] instanceof SessionCredentials) {
-            $this->credentials = $options['credentials'];
-        }
-
-        $this->retryPolicy = new ExponentialBackoffRetryPolicy($this->maxAttempts, 1000, 30000, 2.0);
+        $this->settings = new ProducerSettings($endpoints, $options);
+        $this->validator = new MessageValidator(
+            $options['maxBodySizeBytes'] ?? 4194304,
+            $options['validateMessageType'] ?? true
+        );
         $this->logger = Logger::getInstance('Producer');
 
         $this->client = RpcClientManager::getInstance()->getClient($endpoints, [
-            'tlsCredentials' => $this->tlsCredentials,
-            'sslEnabled' => $options['sslEnabled'] ?? true,
+            'tlsCredentials' => $this->settings->getTlsCredentials(),
+            'sslEnabled' => $this->settings->isSslEnabled(),
         ]);
 
-        $this->telemetrySession = TelemetrySession::getInstance($this->client, $endpoints, $this->clientId, $this->credentials, $this->namespace);
+        $this->telemetrySession = TelemetrySession::getInstance(
+            $this->client, $endpoints, $this->settings->getClientId(),
+            $this->settings->getCredentials(), $this->settings->getNamespace()
+        );
         $this->routeManager = new PublishingRouteManager($this->client, $endpoints, $this);
-        $this->heartbeatManager = new HeartbeatManager($this->routeManager, $this->client, $this, $this->tlsCredentials, $this->sslEnabled);
+        $this->heartbeatManager = new HeartbeatManager(
+            $this->routeManager, $this->client, $this,
+            $this->settings->getTlsCredentials(), $this->settings->isSslEnabled()
+        );
     }
 
     // ==================== Lifecycle ====================
@@ -129,17 +116,17 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         }
 
         try {
-            Logger::getInstance('Producer')->info("Begin to start the rocketmq producer, clientId={$this->clientId}");
+            Logger::getInstance('Producer')->info("Begin to start the rocketmq producer, clientId={$this->settings->getClientId()}");
             $this->establishTelemetrySession();
             $this->registerSettingsCallback();
             $this->registerTransactionCheckerCallback();
 
-            $this->routeManager->warmUp($this->topics);
+            $this->routeManager->warmUp($this->settings->getTopics());
 
             $this->isRunning = true;
             $this->heartbeatManager->start();
 
-            Logger::getInstance('Producer')->info("The rocketmq producer starts successfully, clientId={$this->clientId}");
+            Logger::getInstance('Producer')->info("The rocketmq producer starts successfully, clientId={$this->settings->getClientId()}");
         } catch (\Exception $e) {
             Logger::getInstance('Producer')->error("Failed to start: " . $e->getMessage());
             $this->shutdown();
@@ -154,7 +141,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         }
 
         $this->shutdownRequested = true;
-        $this->logger->info("Begin to shutdown the rocketmq producer, clientId={$this->clientId}");
+        $this->logger->info("Begin to shutdown the rocketmq producer, clientId={$this->settings->getClientId()}");
 
         if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
             \Swoole\Coroutine::sleep(1);
@@ -168,7 +155,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         }
 
         $this->isRunning = false;
-        $this->logger->info("Shutdown the rocketmq producer successfully, clientId={$this->clientId}");
+        $this->logger->info("Shutdown the rocketmq producer successfully, clientId={$this->settings->getClientId()}");
     }
 
     public function __destruct()
@@ -197,7 +184,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
             throw new \RuntimeException("Producer is not running now");
         }
 
-        $this->validateMessage($message);
+        $this->validator->validateMessage($message);
 
         $topic = $message->getTopic()->getName();
         $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
@@ -211,19 +198,19 @@ class Producer implements TransactionCommitter, ClientTraitProvider
             }
             $candidates = [$messageQueue];
         } else {
-            $candidates = $loadBalancer->takeMessageQueue($this->routeManager->getIsolatedBrokerNames(), $this->maxAttempts);
+            $candidates = $loadBalancer->takeMessageQueue($this->routeManager->getIsolatedBrokerNames(), $this->settings->getMaxAttempts());
             if (empty($candidates)) {
                 throw new \RuntimeException("No available message queue for topic: {$topic}");
             }
         }
 
-        if ($this->validateMessageType) {
-            $msgType = $this->detectMessageType($message, false);
+        if ($this->validator->isValidateMessageType()) {
+            $msgType = $this->validator->detectMessageType($message, false);
             $loadBalancer->validateMessageTypeAgainstQueue($candidates[0], $msgType, $topic);
         }
 
         $request = $this->wrapSendMessageRequest([$message], $candidates[0]);
-        return $this->sendMessageWithRetry($request, $message, $candidates, $this->maxAttempts);
+        return $this->sendMessageWithRetry($request, $message, $candidates, $this->settings->getMaxAttempts());
     }
 
     /**
@@ -243,9 +230,9 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                     $channel->push(['success' => false, 'exception' => $e]);
                 }
             });
-            $data = $channel->pop($this->requestTimeout / 1000.0);
+            $data = $channel->pop($this->settings->getRequestTimeout() / 1000.0);
             if ($data === false) {
-                throw new \RuntimeException("Send async Request timeout {$this->requestTimeout}ms");
+                throw new \RuntimeException("Send async Request timeout {$this->settings->getRequestTimeout()}ms");
             }
             if (isset($data['exception'])) {
                 throw $data['exception'];
@@ -292,9 +279,9 @@ class Producer implements TransactionCommitter, ClientTraitProvider
             if ($msg->getTopic()->getName() !== $topic) {
                 throw new \InvalidArgumentException("All messages in a batch must have the same topic");
             }
-            $this->validateMessage($msg);
-            if ($this->validateMessageType) {
-                $messageTypes[] = $this->detectMessageType($msg, false);
+            $this->validator->validateMessage($msg);
+            if ($this->validator->isValidateMessageType()) {
+                $messageTypes[] = $this->validator->detectMessageType($msg, false);
             }
             $sysProps = $msg->getSystemProperties();
             if ($sysProps !== null && $sysProps->hasMessageGroup()) {
@@ -302,7 +289,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                 $messageGroups[] = $sysProps->getMessageGroup();
             }
         }
-        if ($this->validateMessageType && count(array_unique($messageTypes)) > 1) {
+        if ($this->validator->isValidateMessageType() && count(array_unique($messageTypes)) > 1) {
             throw new \InvalidArgumentException('Messages to send different message types , please check');
         }
         if ($hasFifoMessage && count(array_unique($messageGroups)) > 1) {
@@ -317,14 +304,14 @@ class Producer implements TransactionCommitter, ClientTraitProvider
             $mq = $loadBalancer->takeMessageQueueByMessageGroup($messageGroup);
             $messageQueue = $mq !== null ? [$mq] : [];
         } else {
-            $messageQueue = $loadBalancer->takeMessageQueue($isolatedBroker, $this->maxAttempts);
+            $messageQueue = $loadBalancer->takeMessageQueue($isolatedBroker, $this->settings->getMaxAttempts());
         }
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
         }
 
         $request = $this->wrapSendMessageRequest($messages, $messageQueue[0]);
-        return $this->sendBatchWithRetry($request, $messages, $messageQueue, $this->maxAttempts);
+        return $this->sendBatchWithRetry($request, $messages, $messageQueue, $this->settings->getMaxAttempts());
     }
 
 
@@ -345,9 +332,9 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                     $channel->push(['success' => false, 'exception' => $e]);
                 }
             });
-            $data = $channel->pop($this->requestTimeout / 1000.0);
+            $data = $channel->pop($this->settings->getRequestTimeout() / 1000.0);
             if ($data === false) {
-                throw new \RuntimeException("Send batch async Request timeout {$this->requestTimeout}ms");
+                throw new \RuntimeException("Send batch async Request timeout {$this->settings->getRequestTimeout()}ms");
             }
             if (isset($data['exception'])) {
                 throw $data['exception'];
@@ -444,7 +431,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         $request->setTopic($topicResource);
         $request->setRecallHandle($recallHandle);
 
-        $metadata = $this->buildMetadata($this->requestTimeout);
+        $metadata = $this->buildMetadata($this->settings->getRequestTimeout());
         list($response, $status) = $this->client->RecallMessage($request, $metadata, $this->getCallOptions())->wait();
 
         if ($status->code !== 0) {
@@ -469,9 +456,9 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                     $channel->push(['success' => false, 'exception' => $e]);
                 }
             });
-            $data = $channel->pop($this->requestTimeout / 1000.0);
+            $data = $channel->pop($this->settings->getRequestTimeout() / 1000.0);
             if ($data === false) {
-                throw new \RuntimeException("Recall message async Request timeout {$this->requestTimeout}ms");
+                throw new \RuntimeException("Recall message async Request timeout {$this->settings->getRequestTimeout()}ms");
             }
             if (isset($data['exception'])) {
                 throw $data['exception'];
@@ -529,14 +516,14 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
     // ==================== Getters ====================
 
-    public function getClientId(): string { return $this->clientId; }
+    public function getClientId(): string { return $this->settings->getClientId(); }
     public function isRunning(): bool { return $this->isRunning; }
 
     // ==================== ClientTrait Required Methods ====================
 
-    protected function getCredentials(): ?SessionCredentials { return $this->credentials; }
-    protected function getClientIdValue(): string { return $this->clientId; }
-    protected function getNamespaceValue(): string { return $this->namespace; }
+    protected function getCredentials(): ?SessionCredentials { return $this->settings->getCredentials(); }
+    protected function getClientIdValue(): string { return $this->settings->getClientId(); }
+    protected function getNamespaceValue(): string { return $this->settings->getNamespace(); }
 
     // ==================== Private: Telemetry & Settings ====================
 
@@ -548,7 +535,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
 
         $publishing = new Publishing();
         $topicResources = [];
-        foreach ($this->topics as $topicName) {
+        foreach ($this->settings->getTopics() as $topicName) {
             $topicResource = new Resource();
             $topicResource->setName($topicName);
             $topicResources[] = $topicResource;
@@ -584,41 +571,26 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         if ($settings->hasPublishing()) {
             $publishing = $settings->getPublishing();
             if ($publishing->getMaxBodySize() > 0) {
-                $this->maxBodySizeBytes = $publishing->getMaxBodySize();
-                $this->logger->info("Updated maxBodySize from server: {$this->maxBodySizeBytes}");
+                $this->validator->setMaxBodySizeBytes($publishing->getMaxBodySize());
+                $this->logger->info("Updated maxBodySize from server: {$this->validator->getMaxBodySizeBytes()}");
             }
-            $this->validateMessageType = $publishing->getValidateMessageType();
-            $this->logger->info("Updated validateMessageType from server: " . ($this->validateMessageType ? 'true' : 'false'));
+            $this->validator->setValidateMessageType($publishing->getValidateMessageType());
+            $this->logger->info("Updated validateMessageType from server: " . ($this->validator->isValidateMessageType() ? 'true' : 'false'));
         }
 
-        if ($settings->hasBackoffPolicy()) {
-            $serverPolicy = $settings->getBackoffPolicy();
-            $this->logger->info("Received backoff policy from server");
-
-            if ($serverPolicy->hasCustomizedBackoff()) {
-                $customizedBackoff = $serverPolicy->getCustomizedBackoff();
-                if ($customizedBackoff !== null && !ProtobufUtil::isRepeatedFieldEmpty($customizedBackoff->getNext())) {
-                    $this->retryPolicy = CustomizedBackoffRetryPolicy::fromProtobuf($serverPolicy);
-                    $this->logger->info("Updated retry policy from server backoff");
-                }
-            }
-        }
+        $this->settings->applyServerBackoffPolicy($settings, $this->logger);
     }
 
-    // ==================== Private: Message Validation & Building ====================
+    // ==================== Private: Message Building ====================
 
     private function validateMessage(Message $message): void
     {
-        if (!$message->hasTopic() || empty(trim($message->getTopic()->getName()))) {
-            throw new \InvalidArgumentException("Message topic is required");
-        }
-        if (empty($message->getBody())) {
-            throw new \InvalidArgumentException("Message body is required");
-        }
-        if (strlen($message->getBody()) > $this->maxBodySizeBytes) {
-            $mb = $this->maxBodySizeBytes / (1024 * 1024);
-            throw new \InvalidArgumentException("Message size exceeds limit ({$mb}MB)");
-        }
+        $this->validator->validateMessage($message);
+    }
+
+    private function detectMessageType(Message $msg, bool $txEnabled = false): int
+    {
+        return $this->validator->detectMessageType($msg, $txEnabled);
     }
 
     private function buildConvenienceMessage(string $topic, string $body, string $tag, callable $configurator): Message
@@ -642,25 +614,6 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         $message->setSystemProperties($sysProps);
 
         return $message;
-    }
-
-    private function detectMessageType(Message $msg, bool $txEnabled = false): int
-    {
-        $sysProps = $msg->getSystemProperties();
-        $hasMessageGroup = $sysProps !== null && $sysProps->hasMessageGroup();
-        $hasLiteTopic = $sysProps !== null && $sysProps->hasLiteTopic();
-        $hasPriority = $sysProps !== null && $sysProps->hasPriority();
-        $hasDeliveryTimestamp = $sysProps !== null && $sysProps->hasDeliveryTimestamp();
-
-        return match (true) {
-            $txEnabled && !$hasMessageGroup && !$hasLiteTopic && !$hasPriority && !$hasDeliveryTimestamp
-                => V2MessageType::TRANSACTION,
-            !$txEnabled && $hasMessageGroup => V2MessageType::FIFO,
-            !$txEnabled && $hasLiteTopic => V2MessageType::LITE,
-            !$txEnabled && $hasDeliveryTimestamp => V2MessageType::DELAY,
-            !$txEnabled && $hasPriority => V2MessageType::PRIORITY,
-            default => V2MessageType::NORMAL,
-        };
     }
 
     private function createTimestamp(): \Google\Protobuf\Timestamp
@@ -849,7 +802,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                 }
 
                 if ($attempt < $maxAttempts) {
-                    $delayMs = $this->retryPolicy->getNextDelayWithJitterMs($attempt);
+                    $delayMs = $this->settings->getRetryPolicy()->getNextDelayWithJitterMs($attempt);
                     if ($delayMs > 0) {
                         SwooleCompat::sleep($delayMs * 1000);
                     }
@@ -964,7 +917,7 @@ class Producer implements TransactionCommitter, ClientTraitProvider
                 }
 
                 if ($attempt < $maxAttempts) {
-                    $delayMs = $this->retryPolicy->getNextDelayWithJitterMs($attempt);
+                    $delayMs = $this->settings->getRetryPolicy()->getNextDelayWithJitterMs($attempt);
                     if ($delayMs > 0) {
                         SwooleCompat::sleep($delayMs * 1000);
                     }

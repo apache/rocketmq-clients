@@ -68,10 +68,10 @@ trait TransactionTrait
         $this->validateMessage($message);
 
         $sysProps = $message->getSystemProperties();
-        $hasMessageGroup = $sysProps && method_exists($sysProps, 'hasMessageGroup') && $sysProps->hasMessageGroup();
-        $hasLiteTopic = $sysProps && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic();
-        $hasDeliveryTimestamp = $sysProps && method_exists($sysProps, 'hasDeliveryTimestamp') && $sysProps->hasDeliveryTimestamp();
-        $hasPriority = $sysProps && method_exists($sysProps, 'hasPriority') && $sysProps->hasPriority();
+        $hasMessageGroup = $sysProps && $sysProps->hasMessageGroup();
+        $hasLiteTopic = $sysProps && $sysProps->hasLiteTopic();
+        $hasDeliveryTimestamp = $sysProps && $sysProps->hasDeliveryTimestamp();
+        $hasPriority = $sysProps && $sysProps->hasPriority();
 
         if ($hasMessageGroup || $hasLiteTopic || $hasDeliveryTimestamp || $hasPriority) {
             throw new \InvalidArgumentException(
@@ -81,19 +81,19 @@ trait TransactionTrait
 
         $topic = $message->getTopic()->getName();
         $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
-        $messageQueue = $loadBalancer->takeMessageQueue($this->routeManager->getIsolatedBrokerNames(), $this->maxAttempts);
+        $messageQueue = $loadBalancer->takeMessageQueue($this->routeManager->getIsolatedBrokerNames(), $this->settings->getMaxAttempts());
 
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
         }
 
-        if ($this->validateMessageType) {
+        if ($this->validator->isValidateMessageType()) {
             $msgType = $this->detectMessageType($message, true);
             $loadBalancer->validateMessageTypeAgainstQueue($messageQueue[0], $msgType, $topic);
         }
 
         $request = $this->wrapTransactionMessageRequest([$message], $messageQueue[0]);
-        $result = $this->sendMessageWithRetry($request, $message, $messageQueue, $this->maxAttempts);
+        $result = $this->sendMessageWithRetry($request, $message, $messageQueue, $this->settings->getMaxAttempts());
 
         if (isset($result['transactionId'])) {
             $transaction->tryAddMessage($message);
@@ -185,8 +185,8 @@ trait TransactionTrait
             if (!empty($address) && $address[0] !== null) {
                 $brokerKey = $address[0]->getHost() . ':' . $address[0]->getPort();
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
-                    'tlsCredentials' => $this->tlsCredentials,
-                    'sslEnabled' => $this->sslEnabled ?? true,
+                    'tlsCredentials' => $this->settings->getTlsCredentials(),
+                    'sslEnabled' => $this->settings->isSslEnabled(),
                 ]);
                 list($response, $status) = $brokerClient->EndTransaction($request, $metadata, $callOptions)->wait();
             } else {
@@ -235,8 +235,10 @@ trait TransactionTrait
 
         try {
             $message = null;
-            if (method_exists($command, 'getMessage')) {
+            try {
                 $message = $command->getMessage();
+            } catch (\Throwable $e) {
+                // getMessage not available
             }
 
             if ($message === null) {

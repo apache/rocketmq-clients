@@ -19,14 +19,18 @@ namespace Tests\Mocks;
 
 use PHPUnit\Framework\TestCase;
 use Apache\Rocketmq\V2\Code;
+use Apache\Rocketmq\V2\QueryRouteResponse;
+use Apache\Rocketmq\V2\ReceiveMessageResponse;
+use Apache\Rocketmq\V2\EndTransactionResponse;
+use Apache\Rocketmq\V2\QueryAssignmentResponse;
 
 /**
- * GrpcMocks 工厂类的单元测试
+ * Unit tests for GrpcMocks factory class
  */
 class GrpcMocksTest extends TestCase
 {
     /**
-     * 测试创建成功的 Status 对象
+     * Test creating a successful Status object
      */
     public function testSuccessStatus(): void
     {
@@ -37,7 +41,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建带自定义消息的成功 Status
+     * Test creating successful Status with custom message
      */
     public function testSuccessStatusWithCustomMessage(): void
     {
@@ -48,7 +52,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建失败的 Status 对象
+     * Test creating a failed Status object
      */
     public function testErrorStatus(): void
     {
@@ -59,7 +63,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建成功的 SendMessageResponse
+     * Test creating a successful SendMessageResponse
      */
     public function testMockSendMessageSuccess(): void
     {
@@ -71,7 +75,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建带条目的成功 SendMessageResponse
+     * Test creating successful with entries SendMessageResponse
      */
     public function testMockSendMessageSuccessWithEntries(): void
     {
@@ -88,7 +92,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建失败的 SendMessageResponse
+     * Test creating a failed SendMessageResponse
      */
     public function testMockSendMessageError(): void
     {
@@ -103,7 +107,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建 SendResultEntry
+     * Test creating SendResultEntry
      */
     public function testMockSendResultEntry(): void
     {
@@ -114,7 +118,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建带错误的 SendResultEntry
+     * Test creating with error SendResultEntry
      */
     public function testMockSendResultEntryWithError(): void
     {
@@ -132,7 +136,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建成功的 AckMessageResponse
+     * Test creating a successful AckMessageResponse
      */
     public function testMockAckMessageSuccess(): void
     {
@@ -143,7 +147,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建带条目的成功 AckMessageResponse
+     * Test creating successful with entries AckMessageResponse
      */
     public function testMockAckMessageSuccessWithEntries(): void
     {
@@ -159,7 +163,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建失败的 AckMessageResponse
+     * Test creating a failed AckMessageResponse
      */
     public function testMockAckMessageError(): void
     {
@@ -172,7 +176,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建 AckMessageResultEntry
+     * Test creating AckMessageResultEntry
      */
     public function testMockAckMessageResultEntry(): void
     {
@@ -182,7 +186,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建带错误的 AckMessageResultEntry
+     * Test creating with error AckMessageResultEntry
      */
     public function testMockAckMessageResultEntryWithError(): void
     {
@@ -198,7 +202,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建成功的 ChangeInvisibleDurationResponse
+     * Test creating a successful ChangeInvisibleDurationResponse
      */
     public function testMockChangeInvisibleDurationSuccess(): void
     {
@@ -209,7 +213,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建失败的 ChangeInvisibleDurationResponse
+     * Test creating a failed ChangeInvisibleDurationResponse
      */
     public function testMockChangeInvisibleDurationError(): void
     {
@@ -222,7 +226,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建成功的 HeartbeatResponse
+     * Test creating a successful HeartbeatResponse
      */
     public function testMockHeartbeatSuccess(): void
     {
@@ -233,7 +237,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建失败的 HeartbeatResponse
+     * Test creating a failed HeartbeatResponse
      */
     public function testMockHeartbeatError(): void
     {
@@ -246,7 +250,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建成功的 ForwardMessageToDeadLetterQueueResponse
+     * Test creating a successful ForwardMessageToDeadLetterQueueResponse
      */
     public function testMockForwardToDlqSuccess(): void
     {
@@ -257,7 +261,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试创建失败的 ForwardMessageToDeadLetterQueueResponse
+     * Test creating a failed ForwardMessageToDeadLetterQueueResponse
      */
     public function testMockForwardToDlqError(): void
     {
@@ -270,7 +274,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试批量创建 SendResultEntry
+     * Test batch creating SendResultEntry
      */
     public function testMockMultipleSendResultEntries(): void
     {
@@ -282,7 +286,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试批量创建 AckMessageResultEntry
+     * Test batch creating AckMessageResultEntry
      */
     public function testMockMultipleAckResultEntries(): void
     {
@@ -294,7 +298,7 @@ class GrpcMocksTest extends TestCase
     }
 
     /**
-     * 测试默认错误代码
+     * Test defaultError code
      */
     public function testDefaultErrorCodes(): void
     {
@@ -309,5 +313,217 @@ class GrpcMocksTest extends TestCase
         
         $dlqResponse = GrpcMocks::mockForwardToDlqError();
         $this->assertEquals(Code::MESSAGE_NOT_FOUND, $dlqResponse->getStatus()->getCode());
+    }
+
+    // ==================== QueryRouteResponse Tests ====================
+
+    /**
+     * Test creating a successful QueryRouteResponse
+     */
+    public function testMockQueryRouteSuccess(): void
+    {
+        $response = GrpcMocks::mockQueryRouteSuccess();
+
+        $this->assertTrue($response->hasStatus());
+        $this->assertEquals(Code::OK, $response->getStatus()->getCode());
+        $this->assertEmpty(iterator_to_array($response->getMessageQueues()));
+    }
+
+    /**
+     * Test creating a successful QueryRouteResponse with MessageQueue
+     */
+    public function testMockQueryRouteSuccessWithQueues(): void
+    {
+        $queues = [
+            GrpcMocks::mockMessageQueue('test-topic', 0, 'broker-0', '127.0.0.1:8080'),
+            GrpcMocks::mockMessageQueue('test-topic', 1, 'broker-1', '127.0.0.1:8081'),
+        ];
+
+        $response = GrpcMocks::mockQueryRouteSuccess($queues);
+
+        $this->assertEquals(Code::OK, $response->getStatus()->getCode());
+        $mqList = iterator_to_array($response->getMessageQueues());
+        $this->assertCount(2, $mqList);
+        /** @var \Apache\Rocketmq\V2\MessageQueue $mq0 */
+        $mq0 = $mqList[0];
+        /** @var \Apache\Rocketmq\V2\MessageQueue $mq1 */
+        $mq1 = $mqList[1];
+        $this->assertEquals(0, $mq0->getId());
+        $this->assertEquals(1, $mq1->getId());
+    }
+
+    /**
+     * Test creating a failed QueryRouteResponse
+     */
+    public function testMockQueryRouteError(): void
+    {
+        $response = GrpcMocks::mockQueryRouteError(Code::NOT_FOUND, 'Topic not found');
+
+        $this->assertEquals(Code::NOT_FOUND, $response->getStatus()->getCode());
+        $this->assertEquals('Topic not found', $response->getStatus()->getMessage());
+    }
+
+    /**
+     * Test creating a MessageQueue object
+     */
+    public function testMockMessageQueue(): void
+    {
+        $mq = GrpcMocks::mockMessageQueue('my-topic', 3, 'broker-x', '10.0.0.1:8080');
+
+        $this->assertTrue($mq->hasTopic());
+        $this->assertEquals('my-topic', $mq->getTopic()->getName());
+        $this->assertEquals(3, $mq->getId());
+        $this->assertTrue($mq->hasBroker());
+        $this->assertEquals('broker-x', $mq->getBroker()->getName());
+    }
+
+    // ==================== ReceiveMessageResponse Tests ====================
+
+    /**
+     * Test creating a successful ReceiveMessageResponse (with message)
+     * NOTE: oneof field, setting message clears status
+     */
+    public function testMockReceiveMessageSuccessWithMessage(): void
+    {
+        $msg = GrpcMocks::mockProtobufMessage('test-topic', 'hello world');
+        $response = GrpcMocks::mockReceiveMessageSuccess($msg);
+
+        // oneof: hasStatus=false when hasMessage=true
+        $this->assertTrue($response->hasMessage());
+        $this->assertFalse($response->hasStatus());
+        $this->assertEquals('hello world', $response->getMessage()->getBody());
+    }
+
+    /**
+     * Test creating a successful ReceiveMessageResponse (no message, only status)
+     */
+    public function testMockReceiveMessageEmpty(): void
+    {
+        $response = GrpcMocks::mockReceiveMessageEmpty();
+
+        $this->assertTrue($response->hasStatus());
+        $this->assertEquals(Code::OK, $response->getStatus()->getCode());
+        $this->assertFalse($response->hasMessage());
+    }
+
+    /**
+     * Test creating a failed ReceiveMessageResponse
+     */
+    public function testMockReceiveMessageError(): void
+    {
+        $response = GrpcMocks::mockReceiveMessageError(Code::INTERNAL_ERROR, 'Broker unavailable');
+
+        $this->assertEquals(Code::INTERNAL_ERROR, $response->getStatus()->getCode());
+        $this->assertEquals('Broker unavailable', $response->getStatus()->getMessage());
+    }
+
+    /**
+     * Test creating Protobuf Message object
+     */
+    public function testMockProtobufMessage(): void
+    {
+        $msg = GrpcMocks::mockProtobufMessage('order-topic', 'order data');
+
+        $this->assertTrue($msg->hasTopic());
+        $this->assertEquals('order-topic', $msg->getTopic()->getName());
+        $this->assertEquals('order data', $msg->getBody());
+    }
+
+    // ==================== EndTransactionResponse Tests ====================
+
+    /**
+     * Test creating a successful EndTransactionResponse
+     */
+    public function testMockEndTransactionSuccess(): void
+    {
+        $response = GrpcMocks::mockEndTransactionSuccess();
+
+        $this->assertTrue($response->hasStatus());
+        $this->assertEquals(Code::OK, $response->getStatus()->getCode());
+        $this->assertEquals('OK', $response->getStatus()->getMessage());
+    }
+
+    /**
+     * Test creating a failed EndTransactionResponse
+     */
+    public function testMockEndTransactionError(): void
+    {
+        $response = GrpcMocks::mockEndTransactionError(Code::INVALID_TRANSACTION_ID, 'Invalid transaction');
+
+        $this->assertEquals(Code::INVALID_TRANSACTION_ID, $response->getStatus()->getCode());
+        $this->assertEquals('Invalid transaction', $response->getStatus()->getMessage());
+    }
+
+    /**
+     * Test default EndTransaction Error code
+     */
+    public function testMockEndTransactionDefaultErrorCode(): void
+    {
+        $response = GrpcMocks::mockEndTransactionError();
+
+        $this->assertEquals(Code::INVALID_TRANSACTION_ID, $response->getStatus()->getCode());
+    }
+
+    // ==================== QueryAssignmentResponse Tests ====================
+
+    /**
+     * Test creating a successful QueryAssignmentResponse
+     */
+    public function testMockQueryAssignmentSuccess(): void
+    {
+        $response = GrpcMocks::mockQueryAssignmentSuccess();
+
+        $this->assertTrue($response->hasStatus());
+        $this->assertEquals(Code::OK, $response->getStatus()->getCode());
+        $this->assertEmpty(iterator_to_array($response->getAssignments()));
+    }
+
+    /**
+     * Test creating successful QueryAssignmentResponse with Assignments
+     */
+    public function testMockQueryAssignmentSuccessWithAssignments(): void
+    {
+        $assignments = [
+            GrpcMocks::mockAssignment('test-topic', 0, 'broker-0'),
+            GrpcMocks::mockAssignment('test-topic', 1, 'broker-1'),
+        ];
+
+        $response = GrpcMocks::mockQueryAssignmentSuccess($assignments);
+
+        $this->assertEquals(Code::OK, $response->getStatus()->getCode());
+        $list = iterator_to_array($response->getAssignments());
+        $this->assertCount(2, $list);
+        /** @var \Apache\Rocketmq\V2\Assignment $a0 */
+        $a0 = $list[0];
+        /** @var \Apache\Rocketmq\V2\Assignment $a1 */
+        $a1 = $list[1];
+        $this->assertTrue($a0->hasMessageQueue());
+        $this->assertEquals(0, $a0->getMessageQueue()->getId());
+        $this->assertEquals(1, $a1->getMessageQueue()->getId());
+    }
+
+    /**
+     * Test creating a failed QueryAssignmentResponse
+     */
+    public function testMockQueryAssignmentError(): void
+    {
+        $response = GrpcMocks::mockQueryAssignmentError(Code::NOT_FOUND, 'No assignment');
+
+        $this->assertEquals(Code::NOT_FOUND, $response->getStatus()->getCode());
+        $this->assertEquals('No assignment', $response->getStatus()->getMessage());
+    }
+
+    /**
+     * Test creating an Assignment object
+     */
+    public function testMockAssignment(): void
+    {
+        $assignment = GrpcMocks::mockAssignment('my-topic', 5, 'broker-y');
+
+        $this->assertTrue($assignment->hasMessageQueue());
+        $mq = $assignment->getMessageQueue();
+        $this->assertEquals('my-topic', $mq->getTopic()->getName());
+        $this->assertEquals(5, $mq->getId());
+        $this->assertEquals('broker-y', $mq->getBroker()->getName());
     }
 }

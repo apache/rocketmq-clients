@@ -132,10 +132,10 @@ class ProducerValidationTest extends TestCase
             'maxAttempts' => 3,
         ]);
 
-        $ref = new \ReflectionProperty($producer, 'maxAttempts');
+        $ref = new \ReflectionProperty($producer, 'settings');
         $ref->setAccessible(true);
-        $actual = $ref->getValue($producer);
-        $this->assertEquals(3, $actual, "maxAttempts should be 3");
+        $settings = $ref->getValue($producer);
+        $this->assertEquals(3, $settings->getMaxAttempts(), "maxAttempts should be 3");
     }
 
     /**

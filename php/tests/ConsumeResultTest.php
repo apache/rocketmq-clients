@@ -25,13 +25,25 @@ use Apache\Rocketmq\ConsumeResult;
 
 class ConsumeResultTest extends TestCase
 {
-    public function testConstants()
+    public function testEnumValues()
     {
-        $this->assertEquals(0, ConsumeResult::SUCCESS, "SUCCESS should be 0");
-        $this->assertEquals(1, ConsumeResult::FAILURE, "FAILURE should be 1");
+        $this->assertEquals(0, ConsumeResult::SUCCESS->value, "SUCCESS should be 0");
+        $this->assertEquals(1, ConsumeResult::FAILURE->value, "FAILURE should be 1");
         $this->assertTrue(
             ConsumeResult::SUCCESS !== ConsumeResult::FAILURE,
             "SUCCESS and FAILURE should be different"
         );
+    }
+
+    public function testFromMixedInt()
+    {
+        $this->assertSame(ConsumeResult::SUCCESS, ConsumeResult::fromMixed(0));
+        $this->assertSame(ConsumeResult::FAILURE, ConsumeResult::fromMixed(1));
+    }
+
+    public function testFromMixedEnum()
+    {
+        $this->assertSame(ConsumeResult::SUCCESS, ConsumeResult::fromMixed(ConsumeResult::SUCCESS));
+        $this->assertSame(ConsumeResult::FAILURE, ConsumeResult::fromMixed(ConsumeResult::FAILURE));
     }
 }

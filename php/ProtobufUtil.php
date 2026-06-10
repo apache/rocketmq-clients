@@ -44,8 +44,8 @@ class ProtobufUtil
         if (is_array($repeatedField)) {
             return $repeatedField;
         }
-        // Use iterator to avoid direct offsetGet on RepeatedField
-        if (is_object($repeatedField) && method_exists($repeatedField, 'getIterator')) {
+        // Use iterator — RepeatedField implements \IteratorAggregate
+        if ($repeatedField instanceof \Traversable) {
             $result = [];
             foreach ($repeatedField as $key => $value) {
                 $result[$key] = $value;
@@ -70,7 +70,7 @@ class ProtobufUtil
         if (is_array($repeatedField)) {
             return empty($repeatedField);
         }
-        if (is_object($repeatedField) && method_exists($repeatedField, 'count')) {
+        if ($repeatedField instanceof \Countable) {
             return $repeatedField->count() === 0;
         }
         return true;
@@ -91,7 +91,7 @@ class ProtobufUtil
         if (is_array($repeatedField)) {
             return count($repeatedField);
         }
-        if (is_object($repeatedField) && method_exists($repeatedField, 'count')) {
+        if ($repeatedField instanceof \Countable) {
             return $repeatedField->count();
         }
         return 0;
@@ -111,7 +111,7 @@ class ProtobufUtil
         if (is_array($mapField)) {
             return $mapField;
         }
-        if (is_object($mapField) && method_exists($mapField, 'getIterator')) {
+        if ($mapField instanceof \Traversable) {
             $result = [];
             foreach ($mapField as $key => $value) {
                 $result[$key] = $value;
@@ -135,7 +135,7 @@ class ProtobufUtil
         if (is_array($mapField)) {
             return empty($mapField);
         }
-        if (is_object($mapField) && method_exists($mapField, 'count')) {
+        if ($mapField instanceof \Countable) {
             return $mapField->count() === 0;
         }
         return true;

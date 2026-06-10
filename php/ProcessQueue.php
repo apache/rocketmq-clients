@@ -356,13 +356,17 @@ class ProcessQueue
      * Post-consume handling: ack or nack based on result, then evict.
      *
      * @param object $messageView Message to erase
-     * @param int $consumeResult ConsumeResult::SUCCESS, FAILURE, or ConsumeResultSuspend::SUSPEND
+     * @param mixed $consumeResult ConsumeResult enum, int (0=SUCCESS, 1=FAILURE), or ConsumeResultSuspend
      * @param int|null $suspendSeconds Optional suspend time in seconds (for SUSPEND result)
      * @return void
      */
-    public function eraseMessage(object $messageView, int $consumeResult, ?int $suspendSeconds = null): void
+    public function eraseMessage(object $messageView, mixed $consumeResult, ?int $suspendSeconds = null): void
     {
-        if ($consumeResult === \Apache\Rocketmq\ConsumeResult::SUCCESS) {
+        $normalized = ($consumeResult instanceof ConsumeResult)
+            ? $consumeResult
+            : ConsumeResult::fromMixed($consumeResult);
+
+        if ($normalized === ConsumeResult::SUCCESS) {
             $this->consumer->ackMessage($messageView);
         } else {
             // SUSPEND uses the provided suspendSeconds; FAILURE uses default
@@ -542,13 +546,18 @@ class ProcessQueue
      */
     public function eraseFifoMessage(object $messageView, mixed $consumeResult): void
     {
-        if ($consumeResult === ConsumeResult::SUCCESS) {
-            $this->consumer->ackMessage($messageView);
-        } elseif ($consumeResult instanceof ConsumeResultSuspend) {
+        if ($consumeResult instanceof ConsumeResultSuspend) {
             $suspendSec = (int)ceil($consumeResult->getSuspendTimeMs() / 1000);
             $this->consumer->nackMessage($messageView, 1, $suspendSec);
         } else {
-            $this->consumer->getConsumeService()->forwardToDeadLetterQueue($messageView);
+            $normalized = ($consumeResult instanceof ConsumeResult)
+                ? $consumeResult
+                : ConsumeResult::fromMixed($consumeResult);
+            if ($normalized === ConsumeResult::SUCCESS) {
+                $this->consumer->ackMessage($messageView);
+            } else {
+                $this->consumer->getConsumeService()->forwardToDeadLetterQueue($messageView);
+            }
         }
         $this->evictMessage($messageView);
     }

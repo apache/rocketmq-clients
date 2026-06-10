@@ -44,7 +44,7 @@ class LitePushConsumer extends PushConsumer
     private int $maxLiteTopicSize = 64;
     private int $syncLiteSubscriptionInterval = 30;
     /** @var callable|null per-lite-topic callback */
-    private $liteMessageListener = null;
+    private ?\Closure $liteMessageListener = null;
     private int $lastSyncTime = 0;
     private ?ProcessQueue $virtualProcessQueue = null; // ProcessQueue|null
 
@@ -55,6 +55,20 @@ class LitePushConsumer extends PushConsumer
      * @param string $consumerGroup Consumer group name
      * @param string $parentTopic Parent (bound) topic
      * @param array $options Configuration options
+     *  - clientId: string, custom client identifier (default: 'php-push-consumer-{pid}-{time}')
+     *  - messageListener: callable|null, message consumption callback
+     *  - maxCacheMessageCount: int, max cached messages in memory (default: 4096)
+     *  - maxCacheMessageSizeInBytes: int, max cached message total size (default: 67108864, 64MB)
+     *  - awaitDuration: int, long polling timeout in seconds (default: 5)
+     *  - scanIntervalSeconds: int, assignment scan interval in seconds (default: 5)
+     *  - receiveBatchSize: int, max messages per receive batch (default: 32)
+     *  - enableFifoConsumeAccelerator: bool, enable FIFO consume accelerator (default: true for Lite)
+     *  - credentials: SessionCredentials|null, AK/SK authentication credentials
+     *  - namespace: string, resource namespace prefix (default: '')
+     *  - tlsCredentials: TlsCredentials|null, TLS/SSL configuration
+     *  - sslEnabled: bool, enable SSL for gRPC channel (default: true)
+     *  - liteSubscriptionQuota: int, max number of lite topic subscriptions (default: 0 = unlimited)
+     *  - maxLiteTopicSize: int, max length of lite topic name (default: 64)
      */
     public function __construct(string $endpoints, string $consumerGroup, $parentTopic, array $options = [])
     {
@@ -62,7 +76,10 @@ class LitePushConsumer extends PushConsumer
             throw new \InvalidArgumentException("LitePushConsumer parentTopic cannot be empty");
         }
         $this->parentTopic = $parentTopic;
-        $this->liteMessageListener = $options['messageListener'] ?? null;
+        $listener = $options['messageListener'] ?? null;
+        $this->liteMessageListener = $listener !== null
+            ? ($listener instanceof \Closure ? $listener : \Closure::fromCallable($listener))
+            : null;
 
         $liteOptions = array_merge($options, [
             'subscriptionExpressions' => [$parentTopic => '*'],
@@ -143,7 +160,9 @@ class LitePushConsumer extends PushConsumer
      */
     public function setLiteMessageListener(callable $listener): self
     {
-        $this->liteMessageListener = $listener;
+        $this->liteMessageListener = $listener instanceof \Closure
+            ? $listener
+            : \Closure::fromCallable($listener);
         return $this;
     }
 

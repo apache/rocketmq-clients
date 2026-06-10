@@ -78,12 +78,13 @@ class SimpleConsumer
      * @param string $endpoints gRPC server endpoint
      * @param string $consumerGroup Consumer group name
      * @param array $options Configuration options:
-     *                        - clientId: string, custom client identifier
-     *                        - namespace: string, resource namespace
-     *                        - requestTimeout: int, gRPC request timeout in ms (default 3000)
-     *                        - awaitDuration: int, long polling timeout in seconds (default 30)
-     *                        - tlsCredentials: TlsCredentials|null, TLS configuration
-     *                        - credentials: SessionCredentials|null, AK/SK credentials
+     *                        - clientId: string, custom client identifier (default: 'php-consumer-{pid}-{time}')
+     *                        - namespace: string, resource namespace prefix (default: '')
+     *                        - requestTimeout: int, gRPC request timeout in ms (default: 3000)
+     *                        - awaitDuration: int, long polling timeout in seconds (default: 30)
+     *                        - tlsCredentials: TlsCredentials|null, TLS/SSL configuration
+     *                        - sslEnabled: bool, enable SSL for gRPC channel (default: true)
+     *                        - credentials: SessionCredentials|null, AK/SK authentication credentials
      *                        - subscriptionExpressions: array<string,string>, pre-populated subscriptions (topic => expression)
      */
     public function __construct(
@@ -706,9 +707,8 @@ class SimpleConsumer
                     'brokerClient' => $this->getBrokerClientForMessageView($message),
                     'messages' => [],
                 ];
-                $messagesByGroup[$groupKey]['messages'][] = $message;
             }
-            $messagesByGroup[$topic][] = $message;
+            $messagesByGroup[$groupKey]['messages'][] = $message;
         }
 
         foreach ($messagesByGroup as $group) {

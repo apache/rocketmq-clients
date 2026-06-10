@@ -259,12 +259,10 @@ class TelemetrySession
             return true;
         }
         try {
-            if (method_exists($this->stream, 'getStatus')) {
-                $status = $this->stream->getStatus();
-                $code = is_object($status) ? ($status->code ?? -1) : (is_array($status) ? ($status['code'] ?? -1) : -1);
-                if ($code !== 0) {
-                    return true;
-                }
+            $status = $this->stream->getStatus();
+            $code = is_object($status) ? ($status->code ?? -1) : (is_array($status) ? ($status['code'] ?? -1) : -1);
+            if ($code !== 0) {
+                return true;
             }
         } catch (\Exception $e) {
             return true;
@@ -401,12 +399,14 @@ class TelemetrySession
                     $subscription = $settings->getSubscription();
                     if ($subscription->hasGroup()) {
                         $group = $subscription->getGroup();
-                        if (method_exists($group, 'getResourceNamespace')) {
+                        try {
                             $ns = $group->getResourceNamespace();
                             if (!empty($ns)) {
                                 $this->namespace = $ns;
                                 $this->logger->info("Extracted namespace from settings command: {$ns}");
                             }
+                        } catch (\Throwable $e) {
+                            // resourceNamespace not available in this protobuf version
                         }
                     }
                 }
@@ -665,8 +665,10 @@ class TelemetrySession
                 return false;
             }
 
-            if (method_exists($this->stream, 'flush')) {
+            try {
                 $this->stream->flush();
+            } catch (\Throwable $e) {
+                // flush not supported or failed, non-fatal
             }
 
             return true;
@@ -705,16 +707,18 @@ class TelemetrySession
         if ($this->stream) {
             // Signal that we're done writing
              if (SwooleCompat::isAvailable() && SwooleCompat::inCoroutine()) {
-                 // Swoole coroutine context: ise channel-based timeout
+            // Swoole coroutine context: use channel-based timeout
                  $channel = new \Swoole\Coroutine\Channel(1);
                  $stream = $this->stream;
                  $logger = $this->logger;
                  \Swoole\Coroutine::create(function () use ($channel, $stream, $logger) {
                      try {
-                        if (method_exists($stream, 'writesDone')) {
+                        try {
                             $stream->writesDone();
+                        } catch (\Throwable $e) {
+                            // writesDone not supported, skip
                         }
-                         $stream->canel();
+                         $stream->cancel();
                          $channel->push(true);
                      } catch (\Throwable $e) {
                          $logger->error("Error closing stream coroutine: " . $e->getMessage());
@@ -733,8 +737,10 @@ class TelemetrySession
              } else {
                  // Non-Swoole context: call directly(cancel is typically non-blocking)
                  try {
-                     if (method_exists($this->stream, 'writesDone')) {
+                     try {
                          $this->stream->writesDone();
+                     } catch (\Throwable $e) {
+                         // writesDone not supported, skip
                      }
                      $this->stream->cancel();
                  } catch (\Throwable $e) {

@@ -40,7 +40,7 @@ abstract class ConsumeService
 
     protected Logger $logger;
     /** @var callable */
-    protected $messageListener;
+    protected \Closure $messageListener;
     protected ConsumerInterface $consumer;
     protected int $maxAttempts = 5;
 
@@ -52,7 +52,9 @@ abstract class ConsumeService
     public function __construct(Logger $logger, callable $messageListener, ConsumerInterface $consumer)
     {
         $this->logger = $logger;
-        $this->messageListener = $messageListener;
+        $this->messageListener = $messageListener instanceof \Closure
+            ? $messageListener
+            : \Closure::fromCallable($messageListener);
         $this->consumer = $consumer;
     }
 
@@ -86,7 +88,9 @@ abstract class ConsumeService
                 return $result;
             }
 
-            $success = $result !== ConsumeResult::FAILURE;
+            // Normalize int/enum to ConsumeResult enum
+            $consumeResult = ConsumeResult::fromMixed($result);
+            $success = $consumeResult !== ConsumeResult::FAILURE;
 
             $this->consumer->executeInterceptors(MessageHookPoints::CONSUME, [
                 'success' => $success,
@@ -94,7 +98,7 @@ abstract class ConsumeService
                 'topic' => $this->extractTopic($messageView),
             ]);
 
-            return $result === ConsumeResult::FAILURE ? ConsumeResult::FAILURE : ConsumeResult::SUCCESS;
+            return $consumeResult;
         } catch (\Throwable $e) {
             $this->logger->warning("ConsumeService listener threw exception: " . $e->getMessage());
 

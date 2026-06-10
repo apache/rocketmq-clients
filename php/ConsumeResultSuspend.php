@@ -20,10 +20,11 @@ namespace Apache\Rocketmq;
 
 /**
  * ConsumeResultSuspend - Signals the consumer to retry after a delay.
- * Extends ConsumeResult with a suspend time for server-driven retry delays.
- * Referencing Java ConsumeResultSuspend.java
+ *
+ * Returned from message listeners to indicate the consumer should
+ * retry after a specified delay, rather than immediately succeeding or failing.
  */
-class ConsumeResultSuspend extends ConsumeResult
+class ConsumeResultSuspend
 {
     const SUSPEND = 2;
     const MIN_SUSPEND_TIME_MS = 50;
@@ -69,7 +70,6 @@ class ConsumeResultSuspend extends ConsumeResult
 
     /**
      * Get the suspend time as a named constant (SUSPEND=2).
-     *
      * @return int The suspend constant value (SUSPEND = 2)
      */
     public function getValue(): int

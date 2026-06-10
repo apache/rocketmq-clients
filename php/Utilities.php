@@ -59,13 +59,10 @@ class Utilities
      */
     public static function encodingToProtobuf($encoding): int
     {
-        switch ($encoding) {
-            case self::ENCODING_GZIP_STR:
-            case self::ENCODING_GZIP:
-                return self::ENCODING_GZIP;
-            default:
-                return self::ENCODING_IDENTITY;
-        }
+        return match ($encoding) {
+            self::ENCODING_GZIP_STR, self::ENCODING_GZIP => self::ENCODING_GZIP,
+            default => self::ENCODING_IDENTITY,
+        };
     }
 
     /**
