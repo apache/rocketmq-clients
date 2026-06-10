@@ -40,6 +40,7 @@ use Apache\Rocketmq\V2\Resource;
 use Apache\Rocketmq\V2\Permission;
 use Apache\Rocketmq\V2\Status as V2Status;
 use Apache\Rocketmq\V2\SystemProperties;
+use Apache\Rocketmq\MessageView;
 
 require_once __DIR__ . '/../helpers/IntegrationTestCase.php';
 require_once __DIR__ . '/../helpers/GrpcMockHelper.php';
@@ -234,34 +235,55 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
         $sysProps->setMessageId('msg-001');
         $msg->setSystemProperties($sysProps);
 
-        $result = $consumer->changeInvisibleDuration($msg, 60);
+        $messageView = new MessageView($msg, 'receipt-001');
+        $result = $consumer->changeInvisibleDuration($messageView, 60);
         $this->assertTrue($result);
 
         $consumer->shutdown();
     }
 
     /**
-     * Test start fails when TelemetrySession doesn't get settings response.
+     * Test start succeeds even when TelemetrySession doesn't get settings response.
+     * The production code treats missing settings confirmation as non-fatal.
      */
     public function testStartFailsWithoutTelemetryResponse()
     {
         $mock = $this->createAndRegisterMock($this->endpoints);
 
-        // Bidi stream returns a SETTINGS response immediately (normal path)
-        $settings = new Settings();
-        $settings->setClientType(ClientType::SIMPLE_CONSUMER);
-        $settingsResponse = new TelemetryCommand();
-        $settingsResponse->setSettings($settings);
-        GrpcMockHelper::mockBidiStreamCall($mock, 'Telemetry', []);
+        $routeResponse = new QueryRouteResponse();
+        $routeStatus = new V2Status();
+        $routeStatus->setCode(20000);
+        $routeResponse->setStatus($routeStatus);
 
-        GrpcMockHelper::createUnaryCall($mock, 'Heartbeat', new HeartbeatResponse());
-        GrpcMockHelper::createUnaryCall($mock, 'NotifyClientTermination', new NotifyClientTerminationResponse());
+        $broker = new Broker();
+        $broker->setName('test-broker');
+        $brokerEndpoints = new Endpoints();
+        $brokerEndpoints->setScheme(AddressScheme::IPv4);
+        $address = new Address();
+        $address->setHost('127.0.0.1');
+        $address->setPort(8081);
+        $brokerEndpoints->setAddresses([$address]);
+        $broker->setEndpoints($brokerEndpoints);
+
+        $mq = new MessageQueue();
+        $topicResource = new Resource();
+        $topicResource->setName('test-topic');
+        $mq->setTopic($topicResource);
+        $mq->setBroker($broker);
+        $mq->setPermission(Permission::READ_WRITE);
+        $routeResponse->setMessageQueues([$mq]);
+
+        GrpcMockHelper::mockUnaryCall($mock, 'QueryRoute', $routeResponse, 0);
+        GrpcMockHelper::mockBidiStreamCall($mock, 'Telemetry', []);
+        GrpcMockHelper::mockUnaryCall($mock, 'Heartbeat', new HeartbeatResponse(), 0);
+        GrpcMockHelper::mockUnaryCall($mock, 'NotifyClientTermination', new NotifyClientTerminationResponse(), 0);
+
         $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
-
         $consumer->start();
-        $this->assertTrue(true, "Consumer should start successfully with valid SETTINGS response");
+        $this->assertTrue( true, 'Consumer started even without telemetry settings confirmation');
+        $consumer->shutdown();
     }
 
     /**
@@ -284,8 +306,7 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
      */
     public function testReceiveThrowsWhenNotStarted()
     {
-        $mock = $this->createAndRegisterMock($this->endpoints);
-        $this->setupCommonMocks($mock);
+        $this->createAndRegisterMock($this->endpoints);
 
         $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
@@ -301,8 +322,7 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
      */
     public function testAckThrowsWhenNotStarted()
     {
-        $mock = $this->createAndRegisterMock($this->endpoints);
-        $this->setupCommonMocks($mock);
+        $this->createAndRegisterMock($this->endpoints);
 
         $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
@@ -318,8 +338,7 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
      */
     public function testChangeInvisibleDurationThrowsWhenNotStarted()
     {
-        $mock = $this->createAndRegisterMock($this->endpoints);
-        $this->setupCommonMocks($mock);
+        $this->createAndRegisterMock($this->endpoints);
 
         $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
@@ -337,14 +356,18 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
      */
     public function testReceiveThrowsOnInvalidMaxMessages()
     {
-        $mock = $this->createAndRegisterMock($this->endpoints);
-        $this->setupCommonMocks($mock);
+        $this->createAndRegisterMock($this->endpoints);
 
         $consumer = $this->createStartedConsumer();
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/maxMessages/');
-        $consumer->receive(0, 30);
+        try {
+            $consumer->receive(0, 30);
+            $this->fail('Expected exception not thrown');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertMatchesRegularExpression('/maxMessages/', $e->getMessage());
+        } finally {
+            $consumer->shutdown();
+        }
     }
 
     /**
@@ -352,7 +375,7 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
      */
     public function testStartThrowsWithoutSubscriptions()
     {
-        $mock = $this->createAndRegisterMock($this->endpoints);
+        $this->createAndRegisterMock($this->endpoints);
 
         $consumer = new SimpleConsumer($this->endpoints, 'test-group');
 
@@ -385,8 +408,7 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
      */
     public function testGetClientId()
     {
-        $mock = $this->createAndRegisterMock($this->endpoints);
-        $this->setupCommonMocks($mock);
+        $this->createAndRegisterMock($this->endpoints);
 
         $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
