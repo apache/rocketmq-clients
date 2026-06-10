@@ -487,6 +487,31 @@ class TelemetrySessionTest extends TestCase
         $this->assertNotSame($session1, $session2, "After close, new getInstance should create fresh instance");
     }
 
+    /**
+     * Test that sessions exceeding TTL are evicted even if stream appears alive.
+     */
+    public function testTtlExpiredSessionEvicted()
+    {
+        $fakeClient = new FakeMessagingClientForSession();
+        $session1 = TelemetrySession::getInstance($fakeClient, 'ttl-ep', 'ttl-client');
+
+        // Fake the timestamp to 31 minutes ago (TTL is 30 min)
+        $ref = new \ReflectionProperty(TelemetrySession::class, 'instanceTimestamps');
+        $ref->setAccessible(true);
+        $timestamps = $ref->getValue();
+        foreach ($timestamps as $key => $ts) {
+            if (str_contains($key, 'ttl-ep')) {
+                $timestamps[$key] = time() - 1860; // 31 minutes ago
+                break;
+            }
+        }
+        $ref->setValue(null, $timestamps);
+
+        $session2 = TelemetrySession::getInstance($fakeClient, 'ttl-ep', 'ttl-client');
+
+        $this->assertNotSame($session1, $session2, "After TTL expires, getInstance should create a fresh instance");
+    }
+
     // ========================
     // ClientId
     // ========================

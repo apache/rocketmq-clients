@@ -24,6 +24,9 @@ namespace Apache\Rocketmq;
  */
 class ClientConfigurationBuilder
 {
+    /** @var bool Ensures the TLS-disabled warning fires only once per process. */
+    private static bool $tlsWarningIssued = false;
+
     private ?string $endpoints = null;
     private ?SessionCredentials $sessionCredentialsProvider = null;
     private int $requestTimeoutMs = 3000; // default 3s
@@ -175,21 +178,33 @@ class ClientConfigurationBuilder
      */
     public function disableTlsVerification(): self
     {
-        trigger_error(
-            "SECURITY WARNING: ClientConfigurationBuilder::disableTlsVerification() is deprecated and will be removed. " .
-            "This method bypasses TLS certificate verification and allows man-in-the-middle attacks. " .
-            "For development/testing, use TlsCredentials::createInsecureDev() explicitly with full awareness of security risks. " .
-            "NEVER use this in production!",
-            E_USER_DEPRECATED
-        );
-        
-        Logger::getInstance('ClientConfiguration')->error(
-            "CRITICAL SECURITY WARNING: TLS certificate verification is being disabled! " .
-            "This makes the connection vulnerable to man-in-the-middle attacks. " .
-            "This should ONLY be used in isolated development/testing environments. " .
-            "DO NOT use this in production under any circumstances!"
-        );
-        
+        // Multi-channel runtime warning (fires only once per process)
+        if (!self::$tlsWarningIssued) {
+            self::$tlsWarningIssued = true;
+
+            $msg = "SECURITY WARNING: ClientConfigurationBuilder::disableTlsVerification() " .
+                   "disables TLS certificate verification. This is vulnerable to MITM attacks. " .
+                   "NEVER use in production. Use TlsCredentials::createInsecureDev() instead.";
+
+            // 1. PHP deprecation notice (visible in error handlers / PHPUnit)
+            trigger_error($msg, E_USER_DEPRECATED);
+
+            // 2. stderr output (visible in CLI / Docker / systemd logs)
+            if (defined('STDERR')) {
+                fwrite(STDERR, "\033[31m[ROCKETMQ] {$msg}\033[0m\n");
+            }
+
+            // 3. Application logger at ERROR level (highest available)
+            Logger::getInstance('ClientConfiguration')->error(
+                "TLS certificate verification DISABLED. " .
+                "Connection is vulnerable to man-in-the-middle attacks. " .
+                "This must ONLY be used in isolated dev/test environments."
+            );
+
+            // 4. PHP error_log (SAPI log / syslog / web server error log)
+            error_log("[RocketMQ] {$msg}");
+        }
+
         $this->tlsCredentials = TlsCredentials::createInsecureDev();
         $this->sslEnabled = true;
         return $this;

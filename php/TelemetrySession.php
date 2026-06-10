@@ -41,6 +41,8 @@ class TelemetrySession
     private static array $instances = [];
     private static array $instanceTimestamps = [];
     private const MAX_INSTANCES = 10;
+    /** Session TTL in seconds; sessions older than this are evicted even if stream appears alive. */
+    private const SESSION_TTL_SECONDS = 1800; // 30 minutes
     private object $client;
     private string $endpoints;
     /** @var object|null gRPC stream */
@@ -210,8 +212,12 @@ class TelemetrySession
 
         if (isset(self::$instances[$key])) {
             $existing = self::$instances[$key];
-            if (!$existing->isAlive()) {
-                Logger::getInstance('TelemetrySession')->info("Evicting stale session for endpoints: {$endpoints}");
+            $age = time() - (self::$instanceTimestamps[$key] ?? 0);
+
+            if (!$existing->isAlive() || $age > self::SESSION_TTL_SECONDS) {
+                $reason = !$existing->isAlive() ? 'dead stream' : "TTL expired ({$age}s > " . self::SESSION_TTL_SECONDS . "s)";
+                Logger::getInstance('TelemetrySession')->info("Evicting stale session for endpoints: {$endpoints}, reason: {$reason}");
+                $existing->close();
                 unset(self::$instances[$key]);
                 unset(self::$instanceTimestamps[$key]);
             }
@@ -231,8 +237,13 @@ class TelemetrySession
     }
 
     /**
-     * Check if this session is still alive (stream was created and is valid).
-     * A session that never had a stream is not stale - it just not yet started.
+     * Check if this session is still alive.
+     *
+     * Health check hierarchy:
+     *   1. isClosing flag → immediately stale
+     *   2. Stream was created but is now closed → stale
+     *   3. Stream exists but write probe fails → stale
+     *   4. Session never started (no stream yet) → considered alive (pending start)
      *
      * @return bool
      */
@@ -242,10 +253,38 @@ class TelemetrySession
             return false;
         }
 
-        if ($this->stream !== null && $this->isStreamClosed()) {
-            return false;
+        if ($this->stream !== null) {
+            if ($this->isStreamClosed()) {
+                return false;
+            }
+            // Probe write capability: if write fails, the stream is stale
+            if (!$this->probeStreamWritable()) {
+                return false;
+            }
         }
         return true;
+    }
+
+    /**
+     * Non-destructive probe to check if the stream is still writable.
+     * Sends a zero-length write which gRPC treats as a keepalive check.
+     *
+     * @return bool true if stream accepts writes
+     */
+    private function probeStreamWritable(): bool
+    {
+        if ($this->stream === null) {
+            return false;
+        }
+        try {
+            // Attempt flush as a lightweight connectivity probe.
+            // gRPC flush will throw if the underlying channel is broken.
+            $this->stream->flush();
+            return true;
+        } catch (\Throwable $e) {
+            $this->logger->debug("Stream write probe failed: " . $e->getMessage());
+            return false;
+        }
     }
 
     /**

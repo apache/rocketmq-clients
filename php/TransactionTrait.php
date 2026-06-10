@@ -254,27 +254,22 @@ trait TransactionTrait
                 return;
             }
 
-            $transactionId = '';
-            if (method_exists($command, 'getTransactionId')) {
-                $transactionId = $command->getTransactionId();
-            }
+            $transactionId = $command->getTransactionId() ?? '';
 
             $messageId = '';
             $topicName = '';
             $sysProps = $message->getSystemProperties();
-            if ($sysProps && method_exists($sysProps, 'getMessageId')) {
-                $messageId = $sysProps->getMessageId();
+            if ($sysProps !== null) {
+                $messageId = $sysProps->getMessageId() ?? '';
             }
-            if (method_exists($message, 'getTopic') && method_exists($message->getTopic(), 'getName')) {
+            if ($message->hasTopic()) {
                 $topicName = $message->getTopic()->getName();
             }
 
-            $endpoints = null;
-            if (method_exists($message, 'getEndpoints') && $message->hasEndpoints()) {
-                $endpoints = $message->getEndpoints();
-            }
+            // Note: Message protobuf does not have getEndpoints();
+            // endpoint routing is handled by the broker-side recovery mechanism.
             if (!empty($messageId) && !empty($topicName)) {
-                $this->endTransaction($messageId, $transactionId, $topicName, $resolution, $endpoints, TransactionSource::SOURCE_SERVER_CHECK);
+                $this->endTransaction($messageId, $transactionId, $topicName, $resolution, null, TransactionSource::SOURCE_SERVER_CHECK);
             }
         } catch (\Exception $e) {
             $this->logger->error("TransactionChecker threw exception: " . $e->getMessage());
