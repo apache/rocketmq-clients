@@ -24,10 +24,13 @@ use Apache\Rocketmq\FifoConsumeService;
 use Apache\Rocketmq\ProcessQueue;
 use Apache\Rocketmq\ConsumeResult;
 use Apache\Rocketmq\ConsumeResultSuspend;
+use Apache\Rocketmq\ConsumerInterface;
+use Apache\Rocketmq\ExponentialBackoffRetryPolicy;
+use Apache\Rocketmq\MessageView;
+use Apache\Rocketmq\SessionCredentials;
 use Apache\Rocketmq\Test\Helpers\IntegrationTestCase;
 use Apache\Rocketmq\Test\Helpers\GrpcMockHelper;
 use Apache\Rocketmq\Logger;
-use Apache\Rocketmq\SimpleConsumer;
 use Apache\Rocketmq\V2\AckMessageResponse;
 use Apache\Rocketmq\V2\AckMessageResultEntry;
 use Apache\Rocketmq\V2\ChangeInvisibleDurationResponse;
@@ -51,7 +54,7 @@ require_once __DIR__ . '/../helpers/IntegrationTestCase.php';
 require_once __DIR__ . '/../helpers/GrpcMockHelper.php';
 require_once __DIR__ . '/../../ConsumeService.php';
 require_once __DIR__ . '/../../ProcessQueue.php';
-require_once __DIR__ . '/../../SimpleConsumer.php';
+require_once __DIR__ . '/../../ConsumerInterface.php';
 require_once __DIR__ . '/../../Logger.php';
 
 class ConsumeServiceIntegrationTest extends IntegrationTestCase
@@ -61,45 +64,32 @@ class ConsumeServiceIntegrationTest extends IntegrationTestCase
     /**
      * Helper to create a consumer object that ConsumeService can use.
      *
-     * ConsumeService's ackMessage, nackMessage, and forwardToDeadLetterQueue
-     * methods call getGroupResourceWithNamespace() and getTopicResource() on
-     * the consumer. SimpleConsumer does not provide these methods (they are
-     * from PushConsumer), so we extend SimpleConsumer anonymously to add them.
+     * Implements ConsumerInterface with all methods required by ConsumeService
+     * for ack, nack, forwardToDeadLetterQueue, and consume operations.
      *
      * @param string $endpoints Server endpoint for mock registration
-     * @return object Consumer with all methods ConsumeService requires
+     * @return ConsumerInterface Consumer with all methods ConsumeService requires
      */
-    private function createTestConsumer(string $endpoints): object
+    private function createTestConsumer(string $endpoints): ConsumerInterface
     {
         $mock = GrpcMockHelper::createMockClient();
         RpcClientManager::getInstance()->registerMock($endpoints, $mock);
 
-        return new class($endpoints, 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-            'namespace' => 'test-ns',
-        ]) extends SimpleConsumer {
-            /**
-             * Get the group resource with namespace prefix.
-             * Required by ConsumeService::ackMessage/nackMessage/forwardToDeadLetterQueue.
-             *
-             * @return Resource
-             */
-            public function getGroupResourceWithNamespace(): Resource
+        return new class($endpoints) implements ConsumerInterface {
+            private string $endpoints;
+            private string $group = 'test-group';
+            private string $namespace = 'test-ns';
+
+            public function __construct(string $endpoints)
             {
-                $resource = new Resource();
-                $ns = $this->getNamespace();
-                $name = $ns ? $ns . '%test-group' : 'test-group';
-                $resource->setName($name);
-                return $resource;
+                $this->endpoints = $endpoints;
             }
 
-            /**
-             * Get the topic resource for the given topic name.
-             * Required by ConsumeService::ackMessage/nackMessage/forwardToDeadLetterQueue.
-             *
-             * @param string $topic Topic name
-             * @return Resource
-             */
+            public function getClientId(): string
+            {
+                return 'test-client-id';
+            }
+
             public function getTopicResource(string $topic): Resource
             {
                 $resource = new Resource();
@@ -107,24 +97,71 @@ class ConsumeServiceIntegrationTest extends IntegrationTestCase
                 return $resource;
             }
 
-            /**
-             * Get session credentials (null for tests without auth).
-             * Required by ClientTrait::buildMetadata.
-             *
-             * @return \Apache\Rocketmq\SessionCredentials|null
-             */
-            public function getSessionCredentials()
+            public function getNamespace(): string
+            {
+                return $this->namespace;
+            }
+
+            public function getGroupResourceWithNamespace(): Resource
+            {
+                $resource = new Resource();
+                $ns = $this->namespace;
+                $name = $ns ? $ns . '%' . $this->group : $this->group;
+                $resource->setName($name);
+                return $resource;
+            }
+
+            public function getSessionCredentials(): ?SessionCredentials
             {
                 return null;
             }
 
-            /**
-             * Get the retry policy (null for tests without custom retry policy).
-             * Required by ConsumeService::nackMessage for delay calculation.
-             *
-             * @return \Apache\Rocketmq\RetryPolicyInterface|null
-             */
-            public function getRetryPolicy()
+            public function buildMetadata(?int $timeoutMs = null): array
+            {
+                return ['x-rocketmq-client-id' => 'test-client-id'];
+            }
+
+            public function ackMessage(MessageView $messageView): bool
+            {
+                return true;
+            }
+
+            public function nackMessage(MessageView $messageView, int $deliveryAttempt = 1, ?int $invisibleDuration = null): bool
+            {
+                return true;
+            }
+
+            public function getAwaitDuration(): int
+            {
+                return 30;
+            }
+
+            public function getReceiveBatchSize(): int
+            {
+                return 32;
+            }
+
+            public function getCacheMessageCountThresholdPerQueue(): int
+            {
+                return 1000;
+            }
+
+            public function getCacheMessageBytesThresholdPerQueue(): int
+            {
+                return 1048576;
+            }
+
+            public function executeInterceptors(string $hookPoint, array $context): void
+            {
+                // no-op for tests
+            }
+
+            public function getRetryPolicy(): ?ExponentialBackoffRetryPolicy
+            {
+                return null;
+            }
+
+            public function getConsumeService(): ?ConsumeService
             {
                 return null;
             }
@@ -134,9 +171,9 @@ class ConsumeServiceIntegrationTest extends IntegrationTestCase
     /**
      * Helper to create a consumer object (legacy alias).
      *
-     * @return object Consumer with all methods ConsumeService requires
+     * @return ConsumerInterface Consumer with all methods ConsumeService requires
      */
-    private function createMockConsumer(): object
+    private function createMockConsumer(): ConsumerInterface
     {
         return $this->createTestConsumer($this->endpoints);
     }

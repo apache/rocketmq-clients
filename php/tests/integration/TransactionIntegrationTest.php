@@ -18,28 +18,39 @@
 namespace Apache\Rocketmq\Test\Integration;
 
 use Apache\Rocketmq\Transaction;
+use Apache\Rocketmq\TransactionCommitter;
 use Apache\Rocketmq\Test\Helpers\IntegrationTestCase;
+use Apache\Rocketmq\V2\Endpoints;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\Resource;
 
 require_once __DIR__ . '/../helpers/IntegrationTestCase.php';
 require_once __DIR__ . '/../../Transaction.php';
+require_once __DIR__ . '/../../TransactionCommitter.php';
 
 class TransactionIntegrationTest extends IntegrationTestCase
 {
     /**
      * Create a mock producer with commitTransaction and rollbackTransaction stubs.
      */
-    private function createMockProducer(): object
+    private function createMockProducer(): TransactionCommitter
     {
-        return new class {
-            public function commitTransaction($messageId, $transactionId, $topic, $endpoints = null): void
-            {
+        return new class implements TransactionCommitter {
+            public function commitTransaction(
+                string $messageId,
+                string $transactionId,
+                string $topic,
+                ?Endpoints $endpoints = null
+            ): void {
                 // no-op
             }
 
-            public function rollbackTransaction($messageId, $transactionId, $topic, $endpoints = null): void
-            {
+            public function rollbackTransaction(
+                string $messageId,
+                string $transactionId,
+                string $topic,
+                ?Endpoints $endpoints = null
+            ): void {
                 // no-op
             }
         };

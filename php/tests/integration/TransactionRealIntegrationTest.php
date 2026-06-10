@@ -59,6 +59,13 @@ class TransactionRealIntegrationTest extends IntegrationTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Skip all tests if real RocketMQ broker is not available
+        $socket = @fsockopen('127.0.0.1', 8081, $errno, $errstr, 1);
+        if ($socket === false) {
+            $this->markTestSkipped('RocketMQ broker not available at 127.0.0.1:8081 (real-broker integration test)');
+        }
+        fclose($socket);
     }
 
     protected function tearDown(): void

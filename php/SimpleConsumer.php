@@ -743,7 +743,7 @@ class SimpleConsumer
             }
         }
         $this->logger->debug("SimpleConsumer: no broker endpoints in message, falling back to proxy client");
-        return $this->clientId;
+        return $this->client;
     }
 
     /**

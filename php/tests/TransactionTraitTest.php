@@ -70,12 +70,8 @@ class FakeProducerForTrait implements TransactionCommitter
     use TransactionTrait;
 
     public bool $isRunning = true;
-    public int $maxAttempts = 1;
-    public bool $validateMessageType = false;
     public ?object $routeManager = null;
     public ?object $client = null;
-    public ?object $tlsCredentials = null;
-    public bool $sslEnabled = true;
     public ?object $telemetrySession = null;
     public ?object $logger = null;
     public ?object $settings = null;
@@ -95,6 +91,8 @@ class FakeProducerForTrait implements TransactionCommitter
         $this->settings = new FakeProducerSettingsForTrait();
         $this->validator = new \Apache\Rocketmq\MessageValidator(4194304, false);
     }
+
+    // ==================== Send Delegation ====================
 
     public function validateMessage(Message $message): void
     {
@@ -118,6 +116,48 @@ class FakeProducerForTrait implements TransactionCommitter
             'transactionId' => 'fake-tx-id-' . uniqid(),
             'recallHandle' => null,
         ];
+    }
+
+    // ==================== Infrastructure Delegation ====================
+
+    protected function getPublishingLoadBalancer(string $topic): object
+    {
+        return $this->routeManager->getPublishingLoadBalancer($topic);
+    }
+
+    protected function getIsolatedBrokerNames(): array
+    {
+        return $this->routeManager->getIsolatedBrokerNames();
+    }
+
+    protected function getSettingsMaxAttempts(): int
+    {
+        return $this->settings->getMaxAttempts();
+    }
+
+    protected function getSettingsTlsCredentials(): ?object
+    {
+        return $this->settings->getTlsCredentials();
+    }
+
+    protected function isSettingsSslEnabled(): bool
+    {
+        return $this->settings->isSslEnabled();
+    }
+
+    protected function getClientForRpc(): object
+    {
+        return $this->client;
+    }
+
+    protected function getTelemetrySession(): object
+    {
+        return $this->telemetrySession;
+    }
+
+    protected function getLogger(): Logger
+    {
+        return $this->logger;
     }
 
     public function getOperationTimeout(string $operation): int

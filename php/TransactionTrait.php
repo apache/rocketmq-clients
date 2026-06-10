@@ -29,9 +29,14 @@ use Apache\Rocketmq\V2\Message;
  * TransactionTrait — Transaction (half-message) send, commit, rollback, and orphaned recovery.
  *
  * Extracted from Producer. The using class must provide:
- * - ClientTrait methods (buildMetadata, getOperationTimeout, etc.)
- * - sendMessageWithRetry()
- * - Core send infrastructure (validateMessage, detectMessageType, getPublishingLoadBalancer, etc.)
+ * - Properties: $isRunning, $validator (MessageValidator, protected)
+ * - ClientTrait methods: buildMetadata(), getOperationTimeout()
+ * - Send delegation: validateMessage(), detectMessageType(),
+ *   wrapTransactionMessageRequest(), sendMessageWithRetry()
+ * - Route delegation: getPublishingLoadBalancer(), getIsolatedBrokerNames()
+ * - Infrastructure: getClientForRpc(), getTelemetrySession(), getLogger(),
+ *   getSettingsMaxAttempts(), getSettingsTlsCredentials(), isSettingsSslEnabled()
+ * - Interceptors: executeInterceptors()
  */
 trait TransactionTrait
 {
@@ -80,8 +85,8 @@ trait TransactionTrait
         }
 
         $topic = $message->getTopic()->getName();
-        $loadBalancer = $this->routeManager->getPublishingLoadBalancer($topic);
-        $messageQueue = $loadBalancer->takeMessageQueue($this->routeManager->getIsolatedBrokerNames(), $this->settings->getMaxAttempts());
+        $loadBalancer = $this->getPublishingLoadBalancer($topic);
+        $messageQueue = $loadBalancer->takeMessageQueue($this->getIsolatedBrokerNames(), $this->getSettingsMaxAttempts());
 
         if (empty($messageQueue)) {
             throw new \RuntimeException("No available message queue for topic: {$topic}");
@@ -93,7 +98,7 @@ trait TransactionTrait
         }
 
         $request = $this->wrapTransactionMessageRequest([$message], $messageQueue[0]);
-        $result = $this->sendMessageWithRetry($request, $message, $messageQueue, $this->settings->getMaxAttempts());
+        $result = $this->sendMessageWithRetry($request, $message, $messageQueue, $this->getSettingsMaxAttempts());
 
         if (isset($result['transactionId'])) {
             $transaction->tryAddMessage($message);
@@ -185,15 +190,15 @@ trait TransactionTrait
             if (!empty($address) && $address[0] !== null) {
                 $brokerKey = $address[0]->getHost() . ':' . $address[0]->getPort();
                 $brokerClient = RpcClientManager::getInstance()->getClient($brokerKey, [
-                    'tlsCredentials' => $this->settings->getTlsCredentials(),
-                    'sslEnabled' => $this->settings->isSslEnabled(),
+                    'tlsCredentials' => $this->getSettingsTlsCredentials(),
+                    'sslEnabled' => $this->isSettingsSslEnabled(),
                 ]);
                 list($response, $status) = $brokerClient->EndTransaction($request, $metadata, $callOptions)->wait();
             } else {
-                list($response, $status) = $this->client->EndTransaction($request, $metadata, $callOptions)->wait();
+                list($response, $status) = $this->getClientForRpc()->EndTransaction($request, $metadata, $callOptions)->wait();
             }
         } else {
-            list($response, $status) = $this->client->EndTransaction($request, $metadata, $callOptions)->wait();
+            list($response, $status) = $this->getClientForRpc()->EndTransaction($request, $metadata, $callOptions)->wait();
         }
 
         if ($status->code !== 0) {
@@ -218,7 +223,7 @@ trait TransactionTrait
         }
 
         $self = $this;
-        $this->telemetrySession->setOnRecoverOrphanedTransaction(function ($command) use ($self) {
+        $this->getTelemetrySession()->setOnRecoverOrphanedTransaction(function ($command) use ($self) {
             $self->handleOrphanedTransaction($command);
         });
     }
@@ -229,7 +234,7 @@ trait TransactionTrait
     private function handleOrphanedTransaction(object $command): void
     {
         if ($this->transactionChecker === null) {
-            $this->logger->warning("Received orphaned transaction command but no TransactionChecker registered");
+            $this->getLogger()->warning("Received orphaned transaction command but no TransactionChecker registered");
             return;
         }
 
@@ -242,7 +247,7 @@ trait TransactionTrait
             }
 
             if ($message === null) {
-                $this->logger->warning("Orphaned transaction command has no message");
+                $this->getLogger()->warning("Orphaned transaction command has no message");
                 return;
             }
 
@@ -250,7 +255,7 @@ trait TransactionTrait
             $resolution = $this->transactionChecker->check($messageView);
 
             if ($resolution === null || $resolution === TransactionResolution::TRANSACTION_RESOLUTION_UNSPECIFIED) {
-                $this->logger->debug("Transaction checker returned TRANSACTION_RESOLUTION_UNSPECIFIED, leaving transaction unresolved.");
+                $this->getLogger()->debug("Transaction checker returned TRANSACTION_RESOLUTION_UNSPECIFIED, leaving transaction unresolved.");
                 return;
             }
 
@@ -272,7 +277,7 @@ trait TransactionTrait
                 $this->endTransaction($messageId, $transactionId, $topicName, $resolution, null, TransactionSource::SOURCE_SERVER_CHECK);
             }
         } catch (\Exception $e) {
-            $this->logger->error("TransactionChecker threw exception: " . $e->getMessage());
+            $this->getLogger()->error("TransactionChecker threw exception: " . $e->getMessage());
         }
     }
 }

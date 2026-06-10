@@ -17,8 +17,13 @@
  */
 namespace Apache\Rocketmq\Test\Integration;
 
+use Apache\Rocketmq\ConsumeService;
+use Apache\Rocketmq\ConsumerInterface;
+use Apache\Rocketmq\ExponentialBackoffRetryPolicy;
+use Apache\Rocketmq\MessageView;
 use Apache\Rocketmq\ProcessQueue;
-use Apache\Rocketmq\SimpleConsumer;
+use Apache\Rocketmq\RpcClientManager;
+use Apache\Rocketmq\SessionCredentials;
 use Apache\Rocketmq\Test\Helpers\IntegrationTestCase;
 use Apache\Rocketmq\Test\Helpers\GrpcMockHelper;
 use Apache\Rocketmq\V2\MessageQueue;
@@ -36,11 +41,46 @@ use Apache\Rocketmq\V2\FilterType;
 require_once __DIR__ . '/../helpers/IntegrationTestCase.php';
 require_once __DIR__ . '/../helpers/GrpcMockHelper.php';
 require_once __DIR__ . '/../../ProcessQueue.php';
-require_once __DIR__ . '/../../SimpleConsumer.php';
+require_once __DIR__ . '/../../ConsumerInterface.php';
+require_once __DIR__ . '/../../RpcClientManager.php';
 
 class ProcessQueueIntegrationTest extends IntegrationTestCase
 {
     private $endpoints = 'localhost:8080';
+
+    private function createTestConsumer(): ConsumerInterface
+    {
+        $mock = GrpcMockHelper::createMockClient();
+        RpcClientManager::getInstance()->registerMock($this->endpoints, $mock);
+
+        return new class implements ConsumerInterface {
+            public function getClientId(): string { return 'test-client-id'; }
+            public function getTopicResource(string $topic): Resource
+            {
+                $r = new Resource();
+                $r->setName($topic);
+                return $r;
+            }
+            public function getNamespace(): string { return ''; }
+            public function getGroupResourceWithNamespace(): Resource
+            {
+                $r = new Resource();
+                $r->setName('test-group');
+                return $r;
+            }
+            public function getSessionCredentials(): ?SessionCredentials { return null; }
+            public function buildMetadata(?int $timeoutMs = null): array { return ['x-rocketmq-client-id' => 'test-client-id']; }
+            public function ackMessage(MessageView $messageView): bool { return true; }
+            public function nackMessage(MessageView $messageView, int $deliveryAttempt = 1, ?int $invisibleDuration = null): bool { return true; }
+            public function getAwaitDuration(): int { return 30; }
+            public function getReceiveBatchSize(): int { return 32; }
+            public function getCacheMessageCountThresholdPerQueue(): int { return 1000; }
+            public function getCacheMessageBytesThresholdPerQueue(): int { return 1048576; }
+            public function executeInterceptors(string $hookPoint, array $context): void {}
+            public function getRetryPolicy(): ?ExponentialBackoffRetryPolicy { return null; }
+            public function getConsumeService(): ?ConsumeService { return null; }
+        };
+    }
 
     private function createMessageQueue(): MessageQueue
     {
@@ -64,9 +104,7 @@ class ProcessQueueIntegrationTest extends IntegrationTestCase
 
     public function testConstructorCreatesProcessQueue()
     {
-        $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-        ]);
+        $consumer = $this->createTestConsumer();
 
         $mq = $this->createMessageQueue();
 
@@ -81,9 +119,7 @@ class ProcessQueueIntegrationTest extends IntegrationTestCase
 
     public function testConstructorWithDefaultFilterExpression()
     {
-        $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-        ]);
+        $consumer = $this->createTestConsumer();
 
         $mq = $this->createMessageQueue();
 
@@ -95,9 +131,7 @@ class ProcessQueueIntegrationTest extends IntegrationTestCase
 
     public function testFetchMessageImmediately()
     {
-        $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-        ]);
+        $consumer = $this->createTestConsumer();
 
         $mq = $this->createMessageQueue();
 
@@ -110,9 +144,7 @@ class ProcessQueueIntegrationTest extends IntegrationTestCase
 
     public function testGetMessageQueue()
     {
-        $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-        ]);
+        $consumer = $this->createTestConsumer();
 
         $mq = $this->createMessageQueue();
 
@@ -125,9 +157,7 @@ class ProcessQueueIntegrationTest extends IntegrationTestCase
 
     public function testCacheMessages()
     {
-        $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-        ]);
+        $consumer = $this->createTestConsumer();
 
         $mq = $this->createMessageQueue();
         $pq = new ProcessQueue($consumer, $mq, '*');
@@ -150,9 +180,7 @@ class ProcessQueueIntegrationTest extends IntegrationTestCase
 
     public function testDropAndIsDropped()
     {
-        $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
-            'subscriptionExpressions' => ['test-topic' => '*'],
-        ]);
+        $consumer = $this->createTestConsumer();
 
         $mq = $this->createMessageQueue();
         $pq = new ProcessQueue($consumer, $mq, '*');
