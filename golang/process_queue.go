@@ -177,10 +177,10 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueueLater(mv *MessageView, a
 			if err := recover(); err != nil {
 				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message change invisible duration request, mq=%s, messageId=%s, "+
 					"clientId=%s", dpq.mqstr, messageId, clientId)
-				dpq.ackMessageLater(mv, 1+attempt, callback)
+				dpq.forwardToDeadLetterQueueLater(mv, 1+attempt, callback)
 			}
 		}()
-		dpq.ackMessage0(mv, attempt, callback)
+		dpq.forwardToDeadLetterQueue0(mv, attempt, callback)
 	})
 }
 
