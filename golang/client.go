@@ -144,8 +144,7 @@ func (cs *defaultClientSession) startUp() {
 				// we assume that the list of the servers hasn't changed, so the server that sent the message is still present.
 				hearbeat_response, err := cs.cli.clientManager.HeartBeat(context.TODO(), cs.endpoints, &v2.HeartbeatRequest{}, 10*time.Second)
 				if err == nil && hearbeat_response.Status.Code == v2.Code_OK {
-					cs.cli.log.Info("Managed to recover, executing message")
-					cs._execute_server_telemetry_command(response)
+					cs.cli.log.Info("Managed to recover")
 				} else {
 					cs.cli.log.Errorf("Failed to recover, Some of the servers are unhealthy, Heartbeat err=%w", err)
 					cs.release()
