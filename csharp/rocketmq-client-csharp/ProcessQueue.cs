@@ -400,6 +400,7 @@ namespace Org.Apache.Rocketmq
                                         $" attempt={attempt}, mq={_mq}, endpoints={endpoints}, requestId={requestId}," +
                                         $" status message={status.Message}");
                         tcs.SetException(new BadRequestException((int)statusCode, requestId, status.Message));
+                        return;
                     }
 
                     if (statusCode != Code.Ok)
@@ -498,6 +499,7 @@ namespace Org.Apache.Rocketmq
                                         $" messageId={messageId}, attempt={attempt}, mq={_mq}, endpoints={endpoints}," +
                                         $" requestId={requestId}, status message={status.Message}");
                         tcs.SetException(new BadRequestException((int)statusCode, requestId, status.Message));
+                        return;
                     }
 
                     if (statusCode != Code.Ok)
