@@ -154,6 +154,7 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueue0(mv *MessageView, attem
 			" clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
 			endpoints, requestId, status.GetMessage())
 		dpq.forwardToDeadLetterQueueLater(mv, 1+attempt, callback)
+		return
 	}
 	// Set result if succeed in changing invisible time.
 	callback(nil)
@@ -237,6 +238,7 @@ func (dpq *defaultProcessQueue) changeInvisibleDuration(mv *MessageView, duratio
 			" clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
 			endpoints, requestId, status.GetMessage())
 		dpq.changeInvisibleDurationLater(mv, duration, 1+attempt, callback)
+		return
 	}
 	// Set result if succeed in changing invisible time.
 	callback(nil)
@@ -303,6 +305,7 @@ func (dpq *defaultProcessQueue) ackMessage0(mv *MessageView, attempt int, callba
 			" clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
 			endpoints, requestId, status.GetMessage())
 		dpq.ackMessageLater(mv, 1+attempt, callback)
+		return
 	}
 	// Set result if succeed in changing invisible time.
 	callback(nil)
