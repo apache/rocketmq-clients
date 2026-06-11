@@ -581,13 +581,14 @@ func (pc *defaultPushConsumer) Ack(ctx context.Context, messageView *MessageView
 	resp, err := pc.ack0(ctx, messageView)
 	duration := time.Since(watchTime)
 
-	messageHookPointsStatus := MessageHookPointsStatus_ERROR
+	messageHookPointsStatus := MessageHookPointsStatus_OK
 	if err != nil {
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 		pc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
 		return err
 	}
 	if resp.GetStatus().GetCode() != v2.Code_OK {
-		messageHookPointsStatus = MessageHookPointsStatus_OK
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 	}
 	pc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
 	return nil
@@ -632,13 +633,14 @@ func (pc *defaultPushConsumer) ForwardMessageToDeadLetterQueue(ctx context.Conte
 	resp, err := pc.forwardMessageToDeadLetterQueue0(ctx, messageView)
 	duration := time.Since(watchTime)
 
-	messageHookPointsStatus := MessageHookPointsStatus_ERROR
+	messageHookPointsStatus := MessageHookPointsStatus_OK
 	if err != nil {
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 		pc.cli.doAfter(MessageHookPoints_FORWARD_TO_DLQ, messageCommons, duration, messageHookPointsStatus)
 		return err
 	}
 	if resp.GetStatus().GetCode() != v2.Code_OK {
-		messageHookPointsStatus = MessageHookPointsStatus_OK
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 	}
 	pc.cli.doAfter(MessageHookPoints_FORWARD_TO_DLQ, messageCommons, duration, messageHookPointsStatus)
 	return nil
