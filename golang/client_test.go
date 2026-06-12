@@ -268,7 +268,7 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:3]
 	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover, err=EOF", commandExecutionLog[0].Message)
-	assert.Equal(t, "Managed to recover, executing message", commandExecutionLog[1].Message)
+	assert.Equal(t, "Managed to recover", commandExecutionLog[1].Message)
 	assert.Equal(t, "Executed command successfully", commandExecutionLog[2].Message)
 }
 
