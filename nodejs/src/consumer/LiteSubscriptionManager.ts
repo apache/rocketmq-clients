@@ -62,6 +62,8 @@ export class LiteSubscriptionManager {
    * Start periodic sync of lite subscriptions.
    */
   public startUp() {
+    // syncAll after startup for subscribeLite("*")
+    this.syncAllLiteSubscription();
     this.syncTimer = setInterval(
       () => this.syncAllLiteSubscription(),
       SYNC_LITE_SUBSCRIPTION_INTERVAL,
