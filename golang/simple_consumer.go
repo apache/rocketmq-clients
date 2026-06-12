@@ -210,7 +210,6 @@ func (sc *defaultSimpleConsumer) GetGroupName() string {
 }
 
 func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest, messageQueue *v2.MessageQueue, timeout time.Duration) ([]*MessageView, error) {
-	var err error
 	ctx = sc.cli.Sign(ctx)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -219,36 +218,38 @@ func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2
 	if err != nil {
 		return nil, err
 	}
-	done := make(chan bool, 1)
+	type receiveResult struct {
+		responses []*v2.ReceiveMessageResponse
+		err       error
+	}
+	done := make(chan receiveResult, 1)
 
-	resps := make([]*v2.ReceiveMessageResponse, 0)
 	go func() {
+		var resps []*v2.ReceiveMessageResponse
+		var recvErr error
 		for {
 			var resp *v2.ReceiveMessageResponse
-			resp, err = receiveMessageClient.Recv()
-			if err == io.EOF {
-				done <- true
-				defer close(done)
+			resp, recvErr = receiveMessageClient.Recv()
+			if recvErr == io.EOF {
+				done <- receiveResult{responses: resps}
 				break
 			}
-			if err != nil {
-				sc.cli.log.Errorf("simpleConsumer recv msg err=%v, requestId=%s", err, utils.GetRequestID(ctx))
-				done <- true
-				defer close(done)
+			if recvErr != nil {
+				sc.cli.log.Errorf("simpleConsumer recv msg err=%v, requestId=%s", recvErr, utils.GetRequestID(ctx))
+				done <- receiveResult{err: recvErr}
 				break
 			}
 			sugarBaseLogger.Debugf("receiveMessage response: %v", resp)
 			resps = append(resps, resp)
 		}
-		cancel()
 	}()
 	select {
 	case <-ctx.Done():
 		// timeout
 		return nil, fmt.Errorf("[error] CODE=DEADLINE_EXCEEDED")
-	case <-done:
-		if err != nil && err != io.EOF {
-			return nil, err
+	case result := <-done:
+		if result.err != nil {
+			return nil, result.err
 		}
 		messageViewList := make([]*MessageView, 0)
 		status := &v2.Status{
@@ -257,7 +258,7 @@ func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2
 		}
 		var deliveryTimestamp *timestamppb.Timestamp
 		messageList := make([]*v2.Message, 0)
-		for _, resp := range resps {
+		for _, resp := range result.responses {
 			switch r := resp.GetContent().(type) {
 			case *v2.ReceiveMessageResponse_Status:
 				status = r.Status
