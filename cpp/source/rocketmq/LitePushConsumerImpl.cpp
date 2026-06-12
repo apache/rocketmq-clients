@@ -45,8 +45,8 @@ void LitePushConsumerImpl::start() {
   PushConsumerImpl::start();
 
   // Create LiteSubscriptionManager lazily here (client_manager_ is ready after parent start)
-  lite_subscription_manager_ = std::make_unique<LiteSubscriptionManager>(
-      client_manager_, client_config_, bind_topic_, client_config_.subscriber.group);
+  lite_subscription_manager_.reset(new LiteSubscriptionManager(
+      client_manager_, client_config_, bind_topic_, client_config_.subscriber.group));
 
   // Set endpoints provider so LiteSubscriptionManager can get current route endpoints
   lite_subscription_manager_->setEndpointsProvider([this]() -> absl::flat_hash_set<std::string> {
