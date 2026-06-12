@@ -90,5 +90,7 @@ cc_test(
     srcs = [
         "LiteSubscriptionManagerTest.cpp",
     ],
-    deps = base_deps,
+    deps = base_deps + [
+        "//source/client/mocks:client_mocks",
+    ],
 )
