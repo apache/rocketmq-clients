@@ -90,7 +90,5 @@ cc_test(
     srcs = [
         "LiteSubscriptionManagerTest.cpp",
     ],
-    deps = base_deps + [
-        "@com_google_googletest//:gmock",
-    ]
+    deps = base_deps,
 )
