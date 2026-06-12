@@ -18,6 +18,9 @@
 package org.apache.rocketmq.client.apis;
 
 import java.time.Duration;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -30,19 +33,22 @@ public class ClientConfiguration {
     private final boolean sslEnabled;
     private final String namespace;
     private final int maxStartupAttempts;
+    private final Map<String, String> clientProperties;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exceptions or
      * logging warnings already, so we avoid repeating args check here.
      */
     ClientConfiguration(String endpoints, SessionCredentialsProvider sessionCredentialsProvider,
-        Duration requestTimeout, boolean sslEnabled, String namespace, int maxStartupAttempts) {
+        Duration requestTimeout, boolean sslEnabled, String namespace, int maxStartupAttempts,
+        Map<String, String> clientProperties) {
         this.endpoints = endpoints;
         this.sessionCredentialsProvider = sessionCredentialsProvider;
         this.requestTimeout = requestTimeout;
         this.sslEnabled = sslEnabled;
         this.namespace = namespace;
         this.maxStartupAttempts = maxStartupAttempts;
+        this.clientProperties = Collections.unmodifiableMap(new LinkedHashMap<>(clientProperties));
     }
 
     public static ClientConfigurationBuilder newBuilder() {
@@ -71,5 +77,9 @@ public class ClientConfiguration {
 
     public int getMaxStartupAttempts() {
         return maxStartupAttempts;
+    }
+
+    public Map<String, String> getClientProperties() {
+        return clientProperties;
     }
 }
