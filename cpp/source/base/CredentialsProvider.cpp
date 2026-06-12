@@ -88,7 +88,7 @@ ConfigFileCredentialsProvider::ConfigFileCredentialsProvider() {
       config_file_stream.read(&content[0], size);
       config_file_stream.close();
       google::protobuf::Struct root;
-      google::protobuf::util::Status status = google::protobuf::util::JsonStringToMessage(content, &root);
+      auto status = google::protobuf::util::JsonStringToMessage(content, &root);
       if (status.ok()) {
         auto&& fields = root.fields();
         if (fields.contains(ACCESS_KEY_FIELD_NAME)) {
@@ -100,7 +100,7 @@ ConfigFileCredentialsProvider::ConfigFileCredentialsProvider() {
         }
         SPDLOG_DEBUG("Credentials for access_key={} loaded", access_key_);
       } else {
-        SPDLOG_WARN("Failed to parse credential JSON config file. Message: {}", status.message().data());
+        SPDLOG_WARN("Failed to parse credential JSON config file. Message: {}", status.ToString());
       }
     } else {
       SPDLOG_WARN("Failed to open file: {}", config_file);

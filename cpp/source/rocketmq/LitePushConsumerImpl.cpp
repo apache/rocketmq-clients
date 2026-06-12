@@ -31,18 +31,9 @@
 ROCKETMQ_NAMESPACE_BEGIN
 
 LitePushConsumerImpl::LitePushConsumerImpl(absl::string_view group_name, const std::string& bind_topic)
-    : PushConsumerImpl(group_name), bind_topic_(bind_topic) {
+    : ClientImpl(group_name), PushConsumerImpl(group_name), bind_topic_(bind_topic) {
   // Subscribe to bind topic with SUB_ALL expression
   subscribe(bind_topic_, "*", ExpressionType::TAG);
-
-  // Create LiteSubscriptionManager
-  lite_subscription_manager_ = std::make_unique<LiteSubscriptionManager>(
-      client_manager_, client_config_, bind_topic_, client_config_.subscriber.group);
-
-  // Set endpoints provider so LiteSubscriptionManager can get current route endpoints
-  lite_subscription_manager_->setEndpointsProvider([this]() -> absl::flat_hash_set<std::string> {
-    return getCurrentEndpoints();
-  });
 }
 
 LitePushConsumerImpl::~LitePushConsumerImpl() {
@@ -53,10 +44,17 @@ void LitePushConsumerImpl::start() {
   // Call parent start
   PushConsumerImpl::start();
 
+  // Create LiteSubscriptionManager lazily here (client_manager_ is ready after parent start)
+  lite_subscription_manager_ = std::make_unique<LiteSubscriptionManager>(
+      client_manager_, client_config_, bind_topic_, client_config_.subscriber.group);
+
+  // Set endpoints provider so LiteSubscriptionManager can get current route endpoints
+  lite_subscription_manager_->setEndpointsProvider([this]() -> absl::flat_hash_set<std::string> {
+    return getCurrentEndpoints();
+  });
+
   // Start LiteSubscriptionManager (initial full sync + periodic sync)
-  if (lite_subscription_manager_) {
-    lite_subscription_manager_->startUp();
-  }
+  lite_subscription_manager_->startUp();
 
   SPDLOG_INFO("LitePushConsumer started, group={}, bindTopic={}",
               client_config_.subscriber.group.name(), bind_topic_);
@@ -87,10 +85,9 @@ void LitePushConsumerImpl::buildClientSettings(rmq::Settings& settings) {
   auto subscription = settings.mutable_subscription();
   subscription->mutable_group()->CopyFrom(client_config_.subscriber.group);
 
-  auto polling_timeout = google::protobuf::util::TimeUtil::MillisecondsToDuration(
-      absl::ToInt64Milliseconds(client_config_.subscriber.polling_timeout));
-  subscription->mutable_long_polling_timeout()->set_seconds(polling_timeout.seconds());
-  subscription->mutable_long_polling_timeout()->set_nanos(polling_timeout.nanos());
+  auto polling_timeout_ms = absl::ToInt64Milliseconds(client_config_.subscriber.polling_timeout);
+  subscription->mutable_long_polling_timeout()->set_seconds(polling_timeout_ms / 1000);
+  subscription->mutable_long_polling_timeout()->set_nanos((polling_timeout_ms % 1000) * 1000000);
   subscription->set_receive_batch_size(client_config_.subscriber.receive_batch_size);
 
   // Add bind topic subscription

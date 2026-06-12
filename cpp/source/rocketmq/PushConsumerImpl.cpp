@@ -31,7 +31,6 @@
 #include "RpcClient.h"
 #include "Signature.h"
 #include "Tag.h"
-#include "google/protobuf/util/time_util.h"
 #include "opencensus/stats/stats.h"
 #include "rocketmq/MQClientException.h"
 #include "rocketmq/MessageListener.h"
@@ -416,8 +415,9 @@ void PushConsumerImpl::nack(const Message& message, const std::function<void(con
   if (!message.liteTopic().empty()) {
     request.set_lite_topic(message.liteTopic());
   }
-  request.mutable_invisible_duration()->CopyFrom(
-      google::protobuf::util::TimeUtil::MillisecondsToDuration(duration.count()));
+  auto duration_ms = duration.count();
+  request.mutable_invisible_duration()->set_seconds(duration_ms / 1000);
+  request.mutable_invisible_duration()->set_nanos((duration_ms % 1000) * 1000000);
 
   auto cb =
       [callback](const std::error_code& ec, const ChangeInvisibleDurationResponse& response) {
@@ -540,10 +540,9 @@ void PushConsumerImpl::buildClientSettings(rmq::Settings& settings) {
   settings.set_client_type(rmq::ClientType::PUSH_CONSUMER);
   auto subscription = settings.mutable_subscription();
   subscription->mutable_group()->CopyFrom(client_config_.subscriber.group);
-  auto polling_timeout = google::protobuf::util::TimeUtil::MillisecondsToDuration(
-      absl::ToInt64Milliseconds(client_config_.subscriber.polling_timeout));
-  subscription->mutable_long_polling_timeout()->set_seconds(polling_timeout.seconds());
-  subscription->mutable_long_polling_timeout()->set_nanos(polling_timeout.nanos());
+  auto polling_timeout_ms = absl::ToInt64Milliseconds(client_config_.subscriber.polling_timeout);
+  subscription->mutable_long_polling_timeout()->set_seconds(polling_timeout_ms / 1000);
+  subscription->mutable_long_polling_timeout()->set_nanos((polling_timeout_ms % 1000) * 1000000);
   subscription->set_receive_batch_size(client_config_.subscriber.receive_batch_size);
 
   {
