@@ -76,3 +76,21 @@ cc_test(
     ],
     deps = base_deps
 )
+
+cc_test(
+    name = "lite_message_test",
+    srcs = [
+        "LiteMessageTest.cpp",
+    ],
+    deps = base_deps
+)
+
+cc_test(
+    name = "lite_subscription_manager_test",
+    srcs = [
+        "LiteSubscriptionManagerTest.cpp",
+    ],
+    deps = base_deps + [
+        "//source/client/mocks:client_mocks",
+    ],
+)

@@ -16,12 +16,20 @@
  */
 #include "rocketmq/Message.h"
 
+#include <algorithm>
 #include <chrono>
 #include <memory>
+#include <stdexcept>
 
 #include "UniqueIdGenerator.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
+
+namespace {
+bool isBlank(const std::string& s) {
+  return std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c); });
+}
+} // namespace
 
 Message::Message() {
   id_ = UniqueIdGenerator::instance().next();
@@ -60,11 +68,49 @@ MessageBuilder& MessageBuilder::withBody(std::string body) {
 }
 
 MessageBuilder& MessageBuilder::withGroup(std::string group) {
+  if (message_->delivery_timestamp_.time_since_epoch().count()) {
+    throw std::invalid_argument("messageGroup and deliveryTimestamp should not be set at same time");
+  }
+  if (!message_->lite_topic_.empty()) {
+    throw std::invalid_argument("messageGroup and liteTopic should not be set at same time");
+  }
+  if (message_->priority_ >= 0) {
+    throw std::invalid_argument("messageGroup and priority should not be set at same time");
+  }
+  if (group.empty() || isBlank(group)) {
+    throw std::invalid_argument("messageGroup should not be blank");
+  }
   message_->group_.swap(group);
   return *this;
 }
 
+MessageBuilder& MessageBuilder::withLiteTopic(std::string lite_topic) {
+  if (message_->delivery_timestamp_.time_since_epoch().count()) {
+    throw std::invalid_argument("liteTopic and deliveryTimestamp should not be set at same time");
+  }
+  if (!message_->group_.empty()) {
+    throw std::invalid_argument("liteTopic and messageGroup should not be set at same time");
+  }
+  if (message_->priority_ >= 0) {
+    throw std::invalid_argument("liteTopic and priority should not be set at same time");
+  }
+  if (lite_topic.empty() || isBlank(lite_topic)) {
+    throw std::invalid_argument("liteTopic should not be blank");
+  }
+  message_->lite_topic_.swap(lite_topic);
+  return *this;
+}
+
 MessageBuilder& MessageBuilder::withPriority(std::int32_t priority) {
+  if (message_->delivery_timestamp_.time_since_epoch().count()) {
+    throw std::invalid_argument("priority and deliveryTimestamp should not be set at same time");
+  }
+  if (!message_->group_.empty()) {
+    throw std::invalid_argument("priority and messageGroup should not be set at same time");
+  }
+  if (!message_->lite_topic_.empty()) {
+    throw std::invalid_argument("priority and liteTopic should not be set at same time");
+  }
   message_->priority_ = priority;
   return *this;
 }
@@ -75,6 +121,15 @@ MessageBuilder& MessageBuilder::withProperties(std::unordered_map<std::string, s
 }
 
 MessageBuilder& MessageBuilder::availableAfter(std::chrono::system_clock::time_point delivery_timepoint) {
+  if (!message_->group_.empty()) {
+    throw std::invalid_argument("deliveryTimestamp and messageGroup should not be set at same time");
+  }
+  if (!message_->lite_topic_.empty()) {
+    throw std::invalid_argument("deliveryTimestamp and liteTopic should not be set at same time");
+  }
+  if (message_->priority_ >= 0) {
+    throw std::invalid_argument("deliveryTimestamp and priority should not be set at same time");
+  }
   message_->delivery_timestamp_ = delivery_timepoint;
   return *this;
 }

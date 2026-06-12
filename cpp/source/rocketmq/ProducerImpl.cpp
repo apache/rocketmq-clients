@@ -166,6 +166,8 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
     system_properties->set_priority(message.priority());
   } else if (message.extension().transactional) {
     system_properties->set_message_type(rmq::MessageType::TRANSACTION);
+  } else if (!message.liteTopic().empty()) {
+    system_properties->set_message_type(rmq::MessageType::LITE);
   } else {
     system_properties->set_message_type(rmq::MessageType::NORMAL);
   }
@@ -182,6 +184,11 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
 
   if (!message.group().empty()) {
     system_properties->set_message_group(message.group());
+  }
+
+  // Lite Topic
+  if (!message.liteTopic().empty()) {
+    system_properties->set_lite_topic(message.liteTopic());
   }
 
   system_properties->set_message_id(message.id());

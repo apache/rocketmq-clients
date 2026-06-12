@@ -9,6 +9,16 @@ find_package(gRPC CONFIG REQUIRED)
 find_package(absl REQUIRED)
 find_package(OpenSSL REQUIRED)
 
+# Thread safety annotation macros
+# Map legacy names to ABSL_-prefixed names (newer abseil >= 20230125)
+# so that existing code using GUARDED_BY, LOCKS_EXCLUDED, etc. continues to work.
+# Function-style macros cannot be passed via -D on the command line, so we
+# force-include a compatibility header that defines them instead.
+add_compile_options(
+    "-include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/base/include/thread_annotations_compat.h"
+)
+
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/proto/apache/rocketmq/v2/definition.proto")
     message(FATAL_ERROR "Proto files not found. Run: git submodule update --init --recursive")
 endif()

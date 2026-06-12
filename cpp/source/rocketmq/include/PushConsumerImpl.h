@@ -177,10 +177,11 @@ protected:
 
   void onVerifyMessage(MessageConstSharedPtr, std::function<void(TelemetryCommand)>) override;
 
-private:
   absl::flat_hash_map<std::string, FilterExpression> topic_filter_expression_table_
       GUARDED_BY(topic_filter_expression_table_mtx_);
   mutable absl::Mutex topic_filter_expression_table_mtx_;
+
+private:
 
   /**
    * Consume message thread pool size.
