@@ -412,6 +412,10 @@ void PushConsumerImpl::nack(const Message& message, const std::function<void(con
   request.mutable_topic()->set_name(message.topic());
   request.set_receipt_handle(message.extension().receipt_handle);
   request.set_message_id(message.id());
+  // Set lite_topic if present
+  if (!message.liteTopic().empty()) {
+    request.set_lite_topic(message.liteTopic());
+  }
   request.mutable_invisible_duration()->CopyFrom(
       google::protobuf::util::TimeUtil::MillisecondsToDuration(duration.count()));
 
@@ -442,6 +446,11 @@ void PushConsumerImpl::forwardToDeadLetterQueue(const Message& message,
   request.set_delivery_attempt(message.extension().delivery_attempt);
   request.set_max_delivery_attempts(max_delivery_attempts_);
 
+  // Set lite_topic if present
+  if (!message.liteTopic().empty()) {
+    request.set_lite_topic(message.liteTopic());
+  }
+
   client_manager_->forwardMessageToDeadLetterQueue(target_host, metadata, request,
                                                    absl::ToChronoMilliseconds(client_config_.request_timeout), cb);
 }
@@ -454,6 +463,10 @@ void PushConsumerImpl::wrapAckMessageRequest(const Message& msg, AckMessageReque
   auto entry = new rmq::AckMessageEntry();
   entry->set_message_id(msg.id());
   entry->set_receipt_handle(msg.extension().receipt_handle);
+  // Set lite_topic if present
+  if (!msg.liteTopic().empty()) {
+    entry->set_lite_topic(msg.liteTopic());
+  }
   request.mutable_entries()->AddAllocated(entry);
 }
 

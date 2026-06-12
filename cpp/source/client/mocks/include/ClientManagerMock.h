@@ -94,6 +94,11 @@ public:
   MOCK_METHOD(State, state, (), (const override));
 
   MOCK_METHOD(void, submit, (std::function<void()>), (override));
+
+  MOCK_METHOD(void, syncLiteSubscription,
+              (const std::string&, const Metadata&, const SyncLiteSubscriptionRequest&, std::chrono::milliseconds,
+               (const std::function<void(const std::error_code&, const SyncLiteSubscriptionResponse&)>&)),
+              (override));
 };
 
 ROCKETMQ_NAMESPACE_END
