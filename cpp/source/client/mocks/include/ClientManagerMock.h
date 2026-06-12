@@ -49,9 +49,6 @@ public:
                (const std::function<void(const std::error_code&, const HeartbeatResponse&)>&)),
               (override));
 
-  MOCK_METHOD(std::shared_ptr<TelemetryBidiReactor>, telemetry, (const std::string&, std::weak_ptr<Client>),
-              (override));
-
   MOCK_METHOD(MessageConstSharedPtr, wrapMessage, (const rmq::Message&), (override));
 
   MOCK_METHOD(void, ack,
