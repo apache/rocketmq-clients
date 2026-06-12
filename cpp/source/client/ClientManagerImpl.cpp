@@ -596,6 +596,19 @@ void ClientManagerImpl::resolveRoute(const std::string& target_host,
       case rmq::Code::OK: {
         std::vector<rmq::MessageQueue> message_queues;
         for (const auto& item : invocation_context->response.message_queues()) {
+          // Filter out MessageQueue whose broker endpoint has no valid host
+          bool has_valid_host = false;
+          for (const auto& addr : item.broker().endpoints().addresses()) {
+            if (!addr.host().empty()) {
+              has_valid_host = true;
+              break;
+            }
+          }
+          if (!has_valid_host) {
+            SPDLOG_WARN("Filtered out MessageQueue with empty broker host: topic={}, queueId={}, brokerName={}",
+                        item.topic().name(), item.id(), item.broker().name());
+            continue;
+          }
           message_queues.push_back(item);
         }
         auto ptr = std::make_shared<TopicRouteData>(std::move(message_queues));

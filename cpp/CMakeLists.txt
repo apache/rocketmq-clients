@@ -12,17 +12,11 @@ find_package(OpenSSL REQUIRED)
 # Thread safety annotation macros
 # Map legacy names to ABSL_-prefixed names (newer abseil >= 20230125)
 # so that existing code using GUARDED_BY, LOCKS_EXCLUDED, etc. continues to work.
-add_compile_definitions(
-    "GUARDED_BY(x)=ABSL_GUARDED_BY(x)"
-    "LOCKS_EXCLUDED(...)=ABSL_LOCKS_EXCLUDED(__VA_ARGS__)"
-    "EXCLUSIVE_LOCKS_REQUIRED(...)=ABSL_EXCLUSIVE_LOCKS_REQUIRED(__VA_ARGS__)"
-    "SHARED_LOCKS_REQUIRED(...)=ABSL_SHARED_LOCKS_REQUIRED(__VA_ARGS__)"
-    "NO_THREAD_SAFETY_ANALYSIS=ABSL_NO_THREAD_SAFETY_ANALYSIS"
-    "ACQUIRED_BEFORE(...)=ABSL_ACQUIRED_BEFORE(__VA_ARGS__)"
-    "ACQUIRED_AFTER(...)=ABSL_ACQUIRED_AFTER(__VA_ARGS__)"
-    "LOCK_RETURNED(x)=ABSL_LOCK_RETURNED(x)"
-    "LOCKS_SHARED=ABSL_LOCKS_SHARED"
-    "LOCKS_EXCLUSIVE=ABSL_LOCKS_EXCLUSIVE"
+# Function-style macros cannot be passed via -D on the command line, so we
+# force-include a compatibility header that defines them instead.
+add_compile_options(
+    "-include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/base/include/thread_annotations_compat.h"
 )
 
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/proto/apache/rocketmq/v2/definition.proto")
