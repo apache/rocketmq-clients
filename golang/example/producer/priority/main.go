@@ -67,7 +67,8 @@ func main() {
 
 	// Send priority messages with different levels
 	fmt.Println("Sending priority messages...")
-	fmt.Println("Note: Higher priority value = higher priority\n")
+	fmt.Println("Note: Higher priority value = higher priority")
+	fmt.Println()
 
 	// Low priority message (priority = 1)
 	lowPriorityMsg := &rmq_client.Message{

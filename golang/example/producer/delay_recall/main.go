@@ -67,7 +67,8 @@ func main() {
 
 	// Send delay messages with recall capability
 	fmt.Println("Sending delay messages that can be recalled...")
-	fmt.Println("Messages will be delivered after 10 minutes if not recalled\n")
+	fmt.Println("Messages will be delivered after 10 minutes if not recalled")
+	fmt.Println()
 
 	var recallHandles []string
 
