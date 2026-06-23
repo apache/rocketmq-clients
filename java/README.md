@@ -14,6 +14,25 @@ to [quick start](https://rocketmq.apache.org/docs/quickStart/02quickstart/)).
 1. Java 8+ for runtime, Java 11+ for the build;
 2. Setup namesrv, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
 
+## Build from Source
+
+The `rocketmq-proto` module is compiled from the `protos/` submodule ([rocketmq-apis](https://github.com/apache/rocketmq-apis)) rather than downloaded from Maven Central. Before building, initialize the submodule:
+
+```bash
+git submodule update --init protos
+```
+
+Then build with Maven:
+
+```bash
+cd java
+mvn -B package -DskipTests
+```
+
+The build order is: `proto` (from submodule) → `client-apis` → `client` → `client-shade` → `test`.
+
+The proto version is defined in `protos/java/VERSION` and must match the `<version>` in `java/proto/pom.xml`. When updating proto, advance the submodule and update both files accordingly.
+
 ## Getting Started
 
 Dependencies must be included in accordance with your build automation tools, and replace the `${rocketmq.version}` with the [latest version](https://search.maven.org/search?q=g:org.apache.rocketmq%20AND%20a:rocketmq-client-java).

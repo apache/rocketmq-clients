@@ -13,6 +13,25 @@
 1. 准备 Java 环境。Java 8 是确保客户端运行的最小版本，Java 11 是确保客户端编译的最小版本；
 2. 部署 namesrv，broker 以及 [proxy](https://github.com/apache/rocketmq/tree/develop/proxy) 组件。
 
+## 从源码构建
+
+`rocketmq-proto` 模块从 `protos/` 子模块（[rocketmq-apis](https://github.com/apache/rocketmq-apis)）编译，而非从 Maven Central 下载。构建前需要先初始化子模块：
+
+```bash
+git submodule update --init protos
+```
+
+然后使用 Maven 构建：
+
+```bash
+cd java
+mvn -B package -DskipTests
+```
+
+构建顺序为：`proto`（从子模块编译）→ `client-apis` → `client` → `client-shade` → `test`。
+
+Proto 的版本号定义在 `protos/java/VERSION` 中，需要与 `java/proto/pom.xml` 的 `<version>` 保持一致。更新 proto 时，推进子模块并同步更新这两个文件。
+
 ## 快速开始
 
 根据构建系统增加对应的客户端依赖，并将 `${rocketmq.version}` 替换成中央仓库中[最新的版本](https://search.maven.org/search?q=g:org.apache.rocketmq%20AND%20a:rocketmq-client-java)。
