@@ -114,3 +114,25 @@ cc_binary(
         "@com_github_gflags_gflags//:gflags",
     ]
 )
+
+cc_binary(
+    name = "example_lite_push_consumer",
+    srcs = [
+        "ExampleLitePushConsumer.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
+    ],
+)
+
+cc_binary(
+    name = "example_lite_producer",
+    srcs = [
+        "ExampleLiteProducer.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
+    ],
+)

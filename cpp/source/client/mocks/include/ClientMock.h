@@ -45,6 +45,8 @@ public:
 
   MOCK_METHOD(void, notifyClientTermination, (), (override));
 
+  MOCK_METHOD(void, onNotifyUnsubscribeLiteCommand, (const std::string&), (override));
+
   MOCK_METHOD(void, verify, (MessageConstSharedPtr, (std::function<void(TelemetryCommand)>)), (override));
 
   MOCK_METHOD(void, recoverOrphanedTransaction, (MessageConstSharedPtr), (override));
