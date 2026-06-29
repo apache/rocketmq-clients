@@ -34,17 +34,22 @@ func (m *MockLitePushConsumer) EXPECT() *MockLitePushConsumerMockRecorder {
 }
 
 // SubscribeLite mocks base method.
-func (m *MockLitePushConsumer) SubscribeLite(liteTopic string) error {
+func (m *MockLitePushConsumer) SubscribeLite(liteTopic string, offsetOption ...OffsetOption) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribeLite", liteTopic)
+	varargs := []interface{}{liteTopic}
+	for _, a := range offsetOption {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SubscribeLite", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SubscribeLite indicates an expected call of SubscribeLite.
-func (mr *MockLitePushConsumerMockRecorder) SubscribeLite(liteTopic interface{}) *gomock.Call {
+func (mr *MockLitePushConsumerMockRecorder) SubscribeLite(liteTopic interface{}, offsetOption ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeLite", reflect.TypeOf((*MockLitePushConsumer)(nil).SubscribeLite), liteTopic)
+	varargs := append([]interface{}{liteTopic}, offsetOption...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeLite", reflect.TypeOf((*MockLitePushConsumer)(nil).SubscribeLite), varargs...)
 }
 
 // UnSubscribeLite mocks base method.

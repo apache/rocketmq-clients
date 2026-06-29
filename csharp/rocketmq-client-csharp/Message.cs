@@ -112,7 +112,7 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetBody(byte[] body)
             {
-                Preconditions.CheckArgument(null != body || body.Length == 0, "body should not be empty");
+                Preconditions.CheckArgument(null != body && body.Length > 0, "body should not be empty");
                 _body = body;
                 return this;
             }
