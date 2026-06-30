@@ -93,8 +93,8 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
         if (getSettings().isFifo()) {
             log.info("Create Lite FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
                 getConsumerGroup(), clientId, enableFifoConsumeAccelerator);
-            return new LiteFifoConsumeService(clientId, messageListener, consumptionExecutor, this,
-                scheduler, enableFifoConsumeAccelerator);
+            return new LiteFifoConsumeService(clientId, getConsumerGroup(), messageListener,
+                    consumptionExecutor, this, scheduler, enableFifoConsumeAccelerator);
         }
         log.info("Create Lite standard consume service, consumerGroup={}, clientId={}", getConsumerGroup(), clientId);
         return new LiteStandardConsumeService(clientId, getConsumerGroup(),

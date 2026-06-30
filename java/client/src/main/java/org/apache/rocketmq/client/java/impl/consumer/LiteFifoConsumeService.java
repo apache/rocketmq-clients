@@ -35,10 +35,10 @@ import org.apache.rocketmq.client.java.misc.ClientId;
 
 public class LiteFifoConsumeService extends FifoConsumeService {
 
-    public LiteFifoConsumeService(ClientId clientId, MessageListener messageListener,
+    public LiteFifoConsumeService(ClientId clientId, String consumerGroup, MessageListener messageListener,
         ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
         ScheduledExecutorService scheduler, boolean enableFifoConsumeAccelerator) {
-        super(clientId, messageListener, consumptionExecutor,
+        super(clientId, consumerGroup, messageListener, consumptionExecutor,
             messageInterceptor, scheduler, enableFifoConsumeAccelerator);
     }
 
