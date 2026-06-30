@@ -388,8 +388,8 @@ class TelemetrySession
                 return false;
             }
             
-            // In non-Swoole mode, poll for responses
-            if (!SwooleCompat::isAvailable()) {
+            // In non-Swoole mode or outside coroutine,  poll for responses
+            if (!SwooleCompat::inCoroutine()) {
                 $this->pollTelemetryManual();
             }
             
