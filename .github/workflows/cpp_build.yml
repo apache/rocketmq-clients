@@ -1,40 +1,96 @@
 name: CPP Build
-on: 
+on:
   workflow_call:
 jobs:
-  build:
-    name: "${{ matrix.os }}"
+  cmake-build:
+    name: "CMake ${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # Disable VS 2022 before https://github.com/bazelbuild/bazel/issues/18592 issue is solved
-        # Remove macos-11 since there is no such runner available
-        # os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019, windows-2022]
-        os: [ubuntu-22.04]
+        os: [ubuntu-22.04, macos-latest, windows-2022]
     steps:
-      - uses: actions/checkout@v2
-      - name: Compile On Linux
-        working-directory: ./cpp
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
-        run: bazel build //...
-      - name: Compile On Windows
-        working-directory: ./cpp
-        if: runner.os == 'Windows'
-        run: bazel build //...
-      - name: Compile On macOS
-        working-directory: ./cpp
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev zlib1g-dev
+
+      - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
-        run: bazel build //...
-      - name: Run Unit Tests On Linux
+        run: brew install openssl zlib
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install nasm
+
+      - name: Cache gRPC
+        id: cache-grpc
+        uses: actions/cache@v3
+        with:
+          path: ${{ runner.temp }}/grpc-install
+          key: grpc-1.46.3-${{ matrix.os }}
+
+      - name: Build gRPC from source
+        if: steps.cache-grpc.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          TEMP_DIR="${{ runner.temp }}"
+          TEMP_DIR="${TEMP_DIR//\\//}"
+          ZLIB_PROVIDER=package
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            ZLIB_PROVIDER=module
+          fi
+          git clone --recurse-submodules -b v1.46.3 --depth 1 https://github.com/grpc/grpc.git "$TEMP_DIR/grpc-src"
+          cmake -S "$TEMP_DIR/grpc-src" -B "$TEMP_DIR/grpc-build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$TEMP_DIR/grpc-install" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DgRPC_INSTALL=ON \
+            -DgRPC_BUILD_TESTS=OFF \
+            -DgRPC_SSL_PROVIDER=package \
+            -DgRPC_ZLIB_PROVIDER=$ZLIB_PROVIDER
+          cmake --build "$TEMP_DIR/grpc-build" --parallel 4 --config Release
+          cmake --install "$TEMP_DIR/grpc-build" --config Release
+
+      - name: Build
         working-directory: ./cpp
-        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          TEMP_DIR="${{ runner.temp }}"
+          TEMP_DIR="${TEMP_DIR//\\//}"
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$TEMP_DIR/grpc-install" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_EXAMPLES=OFF
+          cmake --build build --parallel 4 --config Release
+
+      - name: Run Unit Tests
+        working-directory: ./cpp/build
+        shell: bash
+        run: ctest --output-on-failure -j4 -C Release
+
+  bazel-build:
+    name: "Bazel ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-2022]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Build
+        working-directory: ./cpp
+        shell: bash
+        run: bazel build //...
+
+      - name: Test
+        working-directory: ./cpp
+        shell: bash
         run: bazel test //...
-      - name: Run Unit Tests On Windows
-        working-directory: ./cpp  
-        if: runner.os == 'Windows'
-        run: bazel test --test_output=streamed //...
-      - name: Run Unit Tests On macOS
-        working-directory: ./cpp
-        if: runner.os == 'macOS'
-        run: bazel test --test_output=errors //...

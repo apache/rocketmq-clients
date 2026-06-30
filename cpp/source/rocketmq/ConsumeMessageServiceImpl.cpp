@@ -163,6 +163,28 @@ void ConsumeMessageServiceImpl::forward(const Message& message, std::function<vo
 }
 
 void ConsumeMessageServiceImpl::schedule(std::shared_ptr<ConsumeTask> task, std::chrono::milliseconds delay) {
+  auto consumer = consumer_.lock();
+  if (!consumer) {
+    return;
+  }
+
+  auto scheduler = consumer->manager()->getScheduler();
+  if (!scheduler) {
+    SPDLOG_WARN("Scheduler is not available, submitting task immediately");
+    submit(task);
+    return;
+  }
+
+  std::weak_ptr<ConsumeMessageServiceImpl> self(shared_from_this());
+  scheduler->schedule(
+      [self, task]() {
+        auto svc = self.lock();
+        if (!svc) {
+          return;
+        }
+        svc->submit(task);
+      },
+      "consume-retry", delay, std::chrono::milliseconds(0));
 }
 
 std::size_t ConsumeMessageServiceImpl::maxDeliveryAttempt() {

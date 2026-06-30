@@ -206,7 +206,6 @@ func (pc *defaultPushConsumer) GetGroupName() string {
 }
 
 func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest, messageQueue *v2.MessageQueue, timeout time.Duration) ([]*MessageView, error) {
-	var err error
 	ctx = pc.cli.Sign(ctx)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -215,34 +214,38 @@ func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.R
 	if err != nil {
 		return nil, err
 	}
-	done := make(chan bool, 1)
+	type receiveResult struct {
+		responses []*v2.ReceiveMessageResponse
+		err       error
+	}
+	done := make(chan receiveResult, 1)
 
-	resps := make([]*v2.ReceiveMessageResponse, 0)
 	go func() {
+		var resps []*v2.ReceiveMessageResponse
+		var recvErr error
 		for {
 			var resp *v2.ReceiveMessageResponse
-			resp, err = receiveMessageClient.Recv()
-			if err == io.EOF {
-				done <- true
-				defer close(done)
+			resp, recvErr = receiveMessageClient.Recv()
+			if recvErr == io.EOF {
+				done <- receiveResult{responses: resps}
 				break
 			}
-			if err != nil {
-				pc.cli.log.Errorf("pushConsumer recv msg err=%v, requestId=%s", err, utils.GetRequestID(ctx))
+			if recvErr != nil {
+				pc.cli.log.Errorf("pushConsumer recv msg err=%v, requestId=%s", recvErr, utils.GetRequestID(ctx))
+				done <- receiveResult{err: recvErr}
 				break
 			}
 			sugarBaseLogger.Debugf("receiveMessage response: %v", resp)
 			resps = append(resps, resp)
 		}
-		cancel()
 	}()
 	select {
 	case <-ctx.Done():
 		// timeout
 		return nil, fmt.Errorf("[error] CODE=DEADLINE_EXCEEDED")
-	case <-done:
-		if err != nil && err != io.EOF {
-			return nil, err
+	case result := <-done:
+		if result.err != nil {
+			return nil, result.err
 		}
 		messageViewList := make([]*MessageView, 0)
 		status := &v2.Status{
@@ -251,7 +254,7 @@ func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.R
 		}
 		var deliveryTimestamp *timestamppb.Timestamp
 		messageList := make([]*v2.Message, 0)
-		for _, resp := range resps {
+		for _, resp := range result.responses {
 			switch r := resp.GetContent().(type) {
 			case *v2.ReceiveMessageResponse_Status:
 				status = r.Status
@@ -581,13 +584,14 @@ func (pc *defaultPushConsumer) Ack(ctx context.Context, messageView *MessageView
 	resp, err := pc.ack0(ctx, messageView)
 	duration := time.Since(watchTime)
 
-	messageHookPointsStatus := MessageHookPointsStatus_ERROR
+	messageHookPointsStatus := MessageHookPointsStatus_OK
 	if err != nil {
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 		pc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
 		return err
 	}
 	if resp.GetStatus().GetCode() != v2.Code_OK {
-		messageHookPointsStatus = MessageHookPointsStatus_OK
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 	}
 	pc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
 	return nil
@@ -632,13 +636,14 @@ func (pc *defaultPushConsumer) ForwardMessageToDeadLetterQueue(ctx context.Conte
 	resp, err := pc.forwardMessageToDeadLetterQueue0(ctx, messageView)
 	duration := time.Since(watchTime)
 
-	messageHookPointsStatus := MessageHookPointsStatus_ERROR
+	messageHookPointsStatus := MessageHookPointsStatus_OK
 	if err != nil {
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 		pc.cli.doAfter(MessageHookPoints_FORWARD_TO_DLQ, messageCommons, duration, messageHookPointsStatus)
 		return err
 	}
 	if resp.GetStatus().GetCode() != v2.Code_OK {
-		messageHookPointsStatus = MessageHookPointsStatus_OK
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 	}
 	pc.cli.doAfter(MessageHookPoints_FORWARD_TO_DLQ, messageCommons, duration, messageHookPointsStatus)
 	return nil

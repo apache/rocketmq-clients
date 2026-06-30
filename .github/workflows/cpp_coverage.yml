@@ -3,19 +3,67 @@ on:
   push:
     branches:
       - master
-# mainly refer to: https://github.com/merkrafter/Merkompiler/blob/development/.github/workflows/quality_assurance.yml
 jobs:
   calculate-coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
-      - name: Generate coverage report
-        working-directory: ./cpp
-        run: bazel coverage  //...
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v3
+      - uses: actions/checkout@v4
         with:
-          file: ./cpp/bazel-out/_coverage/_coverage_report.dat
+          submodules: true
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev zlib1g-dev lcov
+
+      - name: Cache gRPC
+        id: cache-grpc
+        uses: actions/cache@v3
+        with:
+          path: ${{ runner.temp }}/grpc-install
+          key: grpc-1.46.3-ubuntu-22.04
+
+      - name: Build gRPC from source
+        if: steps.cache-grpc.outputs.cache-hit != 'true'
+        run: |
+          git clone --recurse-submodules -b v1.46.3 --depth 1 https://github.com/grpc/grpc.git "${{ runner.temp }}/grpc-src"
+          cmake -S "${{ runner.temp }}/grpc-src" -B "${{ runner.temp }}/grpc-build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${{ runner.temp }}/grpc-install" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DgRPC_INSTALL=ON \
+            -DgRPC_BUILD_TESTS=OFF \
+            -DgRPC_SSL_PROVIDER=package \
+            -DgRPC_ZLIB_PROVIDER=package
+          cmake --build "${{ runner.temp }}/grpc-build" --parallel 4 --config Release
+          cmake --install "${{ runner.temp }}/grpc-build" --config Release
+
+      - name: Build with coverage
+        working-directory: ./cpp
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_PREFIX_PATH="${{ runner.temp }}/grpc-install" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_C_FLAGS="--coverage" \
+            -DCMAKE_CXX_FLAGS="--coverage" \
+            -DBUILD_EXAMPLES=OFF
+          cmake --build build --parallel 4
+
+      - name: Run tests
+        working-directory: ./cpp/build
+        run: ctest --output-on-failure -j4
+
+      - name: Collect coverage
+        working-directory: ./cpp
+        run: |
+          lcov --capture --directory build --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' '*/build/_deps/*' '*/proto/*' --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_ACTION_KEY }}
+          file: ./cpp/coverage.info
           flags: cpp
           fail_ci_if_error: true
           verbose: true

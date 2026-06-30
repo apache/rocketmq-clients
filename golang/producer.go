@@ -345,6 +345,7 @@ func (p *defaultProducer) Send(ctx context.Context, msg *Message) ([]*SendReceip
 func (p *defaultProducer) SendAsync(ctx context.Context, msg *Message, f func(context.Context, []*SendReceipt, error)) {
 	if !p.isOn() {
 		f(ctx, nil, fmt.Errorf("producer is not running"))
+		return
 	}
 	go func() {
 		msgs := []*UnifiedMessage{{

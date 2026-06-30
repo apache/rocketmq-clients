@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include "ClientImpl.h"
+#include "FmtEnumFormatter.h"
 
 #include <algorithm>
 #include <atomic>

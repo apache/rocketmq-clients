@@ -4,250 +4,213 @@
 
 ## Introduction
 
-Apache RocketMQ supports two styles of APIs to acknowledge messages once they are successfully processed.
+This is the C++ client for [Apache RocketMQ](https://rocketmq.apache.org/) 5.x, built on top of [gRPC](https://grpc.io/) and [Protocol Buffers](https://developers.google.com/protocol-buffers). It follows the [rocketmq-apis](https://github.com/apache/rocketmq-apis) specification and provides Producer, FifoProducer, PushConsumer and SimpleConsumer APIs.
 
-1. Selective Acknowledgement
-   For each logical message queue(aka, topic partition), SDK manages offsets locally and periodically syncs committed offset to brokers in charge.
-2. Per Message Acknowledgement
-   On consumption of each message, SDK acknowledge it to the broker instantly. Broker is responsible of managing consuming progress.
+The proto definitions are shared via the `protos/` git submodule at the repository root. Make sure to clone with `--recursive` or run `git submodule update --init` before building.
 
-Either of them is widely adopted by products. Per message acknowledgement simplifies SDK implementation while selective approach is more performant considering that fewer RPCs are required.
+## Prerequisites
 
-## Transport Layer
+- C++ compiler supporting C++11
+- CMake 3.13+ or Bazel 5.2.0
+- gRPC — RPC communication framework, also brings in protobuf (serialization), abseil (base library), and re2 (regex)
+- OpenSSL development headers — TLS encrypted communication
+- zlib development headers — message body compression
 
-This SDK is built on top of [gRPC](https://grpc.io/). [Protocol Buffers](https://developers.google.com/protocol-buffers) is used to serialize application messages.
+## How To Build
 
-## Type Hierarchy
+### Build with CMake (Recommended)
 
-Classes of this project are designed to be interface oriented.
-![Basic class hierarchy](docs/assets/BasicMode.png)
-This paradigm makes dependency injection possible. DI is especially helpful when writing unit tests.
-
-## Core Concepts
-
-![Class Diagram](docs/assets/class_diagram.png)
-
-## Code Style
-
-Generally, we follow [Google C++ Code Style](https://google.github.io/styleguide/cppguide.html). A few exceptions are made to maintain API compatibility.
-
-1. C++ exception is only allowed in the outer wrapper classes, for example, DefaultMQProducer, DefaultMQConsumer.
-2. C++ --std=c++11 is preferred. We intend to maintain the same compiler compatibility matrix to [those of gRPC](https://github.com/grpc/grpc/blob/master/BUILDING.md)
-3. Smart pointers are preferred where it makes sense. Use raw pointers only when it is really necessary.
-
-## Dependency Management
-
-Considering SDK built on top of gRPC, ensure it is really necessary before introducing a third-party library. Check [gRPC deps](https://github.com/grpc/grpc/blob/master/bazel/grpc_deps.bzl) and [gRPC extra deps](https://github.com/grpc/grpc/blob/master/bazel/grpc_extra_deps.bzl) first!
-
-When introducing a third-party dependency or raising version of a dependency, make sure it is back-off friendly. For example,
-
-```starlark
-if "com_google_googletest" not in native.existing_rules():
-   http_archive(
-         name = "com_google_googletest",
-         sha256 = "b4870bf121ff7795ba20d20bcdd8627b8e088f2d1dab299a031c1034eddc93d5",
-         strip_prefix = "googletest-release-1.11.0",
-         urls = [
-            "https://github.com/google/googletest/archive/refs/tags/release-1.11.0.tar.gz",
-         ],
-   )
-```
-
-### How To Build
-
-#### Build with Bazel
-
-[Google Bazel](https://bazel.build/) is the primary build tool we supported, Please follow [bazel installation guide](https://docs.bazel.build/versions/main/install.html).
-
-1. Build
-   From the workspace,
-
-   ```starlark
-   bazel build //...
-   ```
-
-2. Run Unit Tests
-   From the workspace,
-
-   ```starlark
-   bazel test //...
-   ```
-
-#### Build with CMake
-
-1. Make sure you have installed a modern CMake 3.13+ and C++ compilation toolchain that at least supports C++11;
-
-2. Following [gRPC installation instructions](https://grpc.io/docs/languages/cpp/quickstart/) to install grpc.
-
-   Note:
-      * Remember to `export MY_INSTALL_DIR=$HOME/grpc` as our primary CMakeLists.txt hints
-
-         ```cmake
-         list(APPEND CMAKE_PREFIX_PATH $ENV{HOME}/grpc)
-         ```
-
-         If your grpc is installed somewhere else yet non-standard, please adjust accordingly.
-
-      * When configure grpc, use your pre-installed system package if possible;
-
-         ```shell
-         cmake -DCMAKE_INSTALL_PREFIX=$HOME/grpc -DgRPC_SSL_PROVIDER=package -DgRPC_ZLIB_PROVIDER=package
-         ```
-
-         A few more options are involved. Check CMakeLists.txt of grpc
-
-         ```cmake
-         # Providers for third-party dependencies (gRPC_*_PROVIDER properties):
-         # "module": build the dependency using sources from git submodule (under third_party)
-         # "package": use cmake's find_package functionality to locate a pre-installed dependency
-
-         set(gRPC_ZLIB_PROVIDER "module" CACHE STRING "Provider of zlib library")
-         set_property(CACHE gRPC_ZLIB_PROVIDER PROPERTY STRINGS "module" "package")
-
-         set(gRPC_CARES_PROVIDER "module" CACHE STRING "Provider of c-ares library")
-         set_property(CACHE gRPC_CARES_PROVIDER PROPERTY STRINGS "module" "package")
-
-         set(gRPC_RE2_PROVIDER "module" CACHE STRING "Provider of re2 library")
-         set_property(CACHE gRPC_RE2_PROVIDER PROPERTY STRINGS "module" "package")
-
-         set(gRPC_SSL_PROVIDER "module" CACHE STRING "Provider of ssl library")
-         set_property(CACHE gRPC_SSL_PROVIDER PROPERTY STRINGS "module" "package")
-
-         set(gRPC_PROTOBUF_PROVIDER "module" CACHE STRING "Provider of protobuf library")
-         set_property(CACHE gRPC_PROTOBUF_PROVIDER PROPERTY STRINGS "module" "package")
-
-         set(gRPC_PROTOBUF_PACKAGE_TYPE "" CACHE STRING "Algorithm for searching protobuf package")
-         set_property(CACHE gRPC_PROTOBUF_PACKAGE_TYPE PROPERTY STRINGS "CONFIG" "MODULE")
-
-         if(gRPC_BUILD_TESTS)
-         set(gRPC_BENCHMARK_PROVIDER "module" CACHE STRING "Provider of benchmark library")
-         set_property(CACHE gRPC_BENCHMARK_PROVIDER PROPERTY STRINGS "module" "package")
-         else()
-         set(gRPC_BENCHMARK_PROVIDER "none")
-         endif()
-
-         set(gRPC_ABSL_PROVIDER "module" CACHE STRING "Provider of absl library")
-         set_property(CACHE gRPC_ABSL_PROVIDER PROPERTY STRINGS "module" "package")
-         ```
-
-3. Example programs uses [gflags](https://github.com/gflags/gflags) to parse command arguments. Please install it to $HOME/gflags
-   as CMakeLists.txt has the following find package statements
-
-   ```cmake
-    # Assume gflags is install in $HOME/gflags
-    list(APPEND CMAKE_PREFIX_PATH $ENV{HOME}/gflags)
-    find_package(gflags REQUIRED)
-   ```
-
-4. OpenSSL development package is also required.
-
-5. Run the following commands to build from ${YOUR_GIT_REPOSITORY}/cpp directory
+1. Install gRPC (v1.46.3) and its dependencies:
 
    ```shell
-   mkdir build && cd build
-   cmake -DOPENSSL_ROOT_DIR=/usr/local/Cellar/openssl@1.1/1.1.1q ..
+   # Install system dependencies (pick your distro)
+   sudo apt install -y libssl-dev zlib1g-dev       # Debian/Ubuntu
+   sudo yum install -y openssl-devel zlib-devel    # CentOS/RHEL/Alibaba Cloud Linux
+
+   # Clone gRPC source with submodules
+   git clone --recurse-submodules -b v1.46.3 --depth 1 \
+     https://github.com/grpc/grpc.git /tmp/grpc
+
+   # Build and install to /usr/local (system default)
+   cd /tmp/grpc && mkdir build && cd build
+   cmake -DCMAKE_BUILD_TYPE=Release \
+         -DgRPC_INSTALL=ON \
+         -DgRPC_BUILD_TESTS=OFF \
+         -DgRPC_SSL_PROVIDER=package \
+         -DgRPC_ZLIB_PROVIDER=package \
+         ..
+   make -j $(nproc)
+   sudo make install
+   ```
+
+   Or install to a custom location (no sudo required):
+
+   ```shell
+   cmake -DCMAKE_INSTALL_PREFIX=$HOME/grpc ...
+   make -j $(nproc) && make install
+   ```
+
+2. Install gflags (required for example programs):
+
+   ```shell
+   git clone -b v2.2.2 --depth 1 https://github.com/gflags/gflags.git /tmp/gflags
+   cd /tmp/gflags && mkdir build && cd build
+   cmake -DCMAKE_BUILD_TYPE=Release ..
+   make -j $(nproc)
+   sudo make install
+   ```
+
+   If you don't need examples, skip this step and pass `-DBUILD_EXAMPLES=OFF` when building.
+
+3. Build the project:
+
+   ```shell
+   cd cpp && mkdir build && cd build
+   cmake ..
    make -j $(nproc)
    ```
 
-6. Static archive and dynamic linked libraries are found in the build directory.
+   If gRPC is installed to a non-default location, pass the path explicitly:
 
-### Run Examples
-
-   All follow-up commands should run from the workspace directory.
-
-#### Publish messages to broker servers
-
-   Publish standard messages to your topic synchronously
-
-   ```starlark
-   bazel run //examples:example_producer -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
+   ```shell
+   cmake -DCMAKE_PREFIX_PATH=/path/to/grpc ..
    ```
 
-   where `1024` is size of the message body to publish in bytes
+4. Run unit tests (from the build directory):
 
-   ---
-
-   Publish standard messages to your topic asynchronously
-
-   ```starlark
-   bazel run //examples:example_producer_with_async -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
+   ```shell
+   cd build
+   ctest --output-on-failure -j$(nproc)
    ```
 
-   where `1024` is size of the message body to publish in bytes
+5. CMake options:
 
-   ---
+   | Option           | Default | Description                                          |
+   | ---------------- | ------- | ---------------------------------------------------- |
+   | `BUILD_TESTS`    | ON      | Build unit tests (requires googletest, auto-fetched) |
+   | `BUILD_EXAMPLES` | ON      | Build example programs (requires gflags)             |
 
-   Publish FIFO messages to your topic
+   To skip tests and examples:
 
-   ```starlark
-   bazel run //examples:example_producer_with_fifo_message -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
+   ```shell
+   cmake -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF ..
    ```
 
-   where `1024` is size of the message body to publish in bytes
+### Build with Bazel
 
-   ---
+```shell
+cd cpp
+bazel build //...
+bazel test //...
+```
 
-   Publish transactional messages
+## Testing
 
-   ```starlark
-   bazel run //examples:example_producer_with_transactional_message -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
+### Run a single test case
+
+1. List all test cases:
+
+   ```shell
+   ./build/your_test --gtest_list_tests
    ```
 
-   where `1024` is size of the message body to publish in bytes
+2. Run a specific test case:
 
-#### Subscribe messages from broker servers
-
-   Consume messages through Message Listener
-
-   ```starlark
-   bazel run //examples:example_push_consumer -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
+   ```shell
+   ./build/your_test --gtest_filter=TestSuite.TestName
    ```
 
-   ---
-   Consume messages through raw, atomic API
+### Run tests multiple times
 
-   ```starlark
-   bazel run //examples:example_simple_consumer -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
-   ```
+```shell
+bazel test --runs_per_test=10 //...
+```
 
-### IDE
+### Test Coverage
 
-[Visual Studio Code](https://code.visualstudio.com/) + [Clangd](https://clangd.llvm.org/) is the recommended development toolset.
+Generate coverage data and HTML report:
 
-1. VSCode + Clangd
+```shell
+bazel coverage -s \
+  --instrument_test_targets \
+  --experimental_cc_coverage \
+  --combined_report=lcov \
+  --coverage_report_generator=@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main \
+  //source/...
 
-   [Clangd](https://clangd.llvm.org/) is a really nice code completion tool. Clangd requires compile_commands.json to work properly.
-   To generate the file, run the following command:
+genhtml bazel-out/_coverage/_coverage_report.dat \
+  --output-directory coverage_html
+```
 
-   ```sh
-    ./tools/gen_compile_commands.sh
-   ```
+## Run Examples
 
-   Once the script completes, you should have compile_commands.json file in the workspace directory, aka, ${repository}/cpp.
+All commands should run from the `cpp/` directory.
 
-   LLVM project has an extension for [clangd](https://marketplace.visualstudio.com/items?itemName=llvm-vs-code-extensions.vscode-clangd). Please install it from the extension market.
+### Publish messages
 
-   The following configuration entries should be appended to your VSC settings file.
+```shell
+# Standard messages (sync)
+bazel run //examples:example_producer -- \
+  --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
 
-   ```text
-      "C_Cpp.intelliSenseEngine": "Disabled",
-      "C_Cpp.autocomplete": "Disabled", // So you don't get autocomplete from both extensions.
-      "C_Cpp.errorSquiggles": "Disabled", // So you don't get error squiggles from both extensions (clangd's seem to be more reliable anyway).
-      "clangd.path": "/usr/bin/clangd",
-      "clangd.arguments": [
-         "-log=verbose",
-         "-pretty",
-         "--background-index",
-         "--header-insertion=never",
-         "--compile-commands-dir=${workspaceFolder}/",
-         "--query-driver=**"
-      ],
-      "clangd.onConfigChanged": "restart",
-   ```
+# Standard messages (async)
+bazel run //examples:example_producer_with_async -- \
+  --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
 
-2. CLion + Bazel Plugin
+# FIFO messages
+bazel run //examples:example_producer_with_fifo_message -- \
+  --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
 
-   Bazel also has a plugin for CLion.
+# Transactional messages
+bazel run //examples:example_producer_with_transactional_message -- \
+  --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
+```
+
+### Consume messages
+
+```shell
+# Push consumer (message listener)
+bazel run //examples:example_push_consumer -- \
+  --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
+
+# Simple consumer (pull-based)
+bazel run //examples:example_simple_consumer -- \
+  --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
+```
+
+## Code Style
+
+Based on [Google C++ Code Style](https://google.github.io/styleguide/cppguide.html), enforced by `.clang-format` and `.clang-tidy`.
+
+- C++11 standard, compatible with [gRPC's compiler matrix](https://github.com/grpc/grpc/blob/master/BUILDING.md)
+- Exceptions only in public API wrapper classes; internal code uses `std::error_code`
+- Smart pointers preferred; raw pointers only when necessary
+
+Format code:
+
+```shell
+./tools/format.sh
+```
+
+## Dependency Management
+
+This SDK is built on top of gRPC. Before introducing a new third-party dependency, check [gRPC deps](https://github.com/grpc/grpc/blob/master/bazel/grpc_deps.bzl) and [gRPC extra deps](https://github.com/grpc/grpc/blob/master/bazel/grpc_extra_deps.bzl) first.
+
+All Bazel dependencies should use `maybe()` to ensure back-off compatibility.
+
+## IDE Setup
+
+### VSCode + Clangd
+
+Generate `compile_commands.json` for clangd:
+
+```shell
+./tools/gen_compile_commands.sh
+```
+
+### CLion + Bazel Plugin
+
+CLion is supported via the [Bazel plugin](https://plugins.jetbrains.com/plugin/8609-bazel).
 
 [codecov-cpp-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov
 [codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients

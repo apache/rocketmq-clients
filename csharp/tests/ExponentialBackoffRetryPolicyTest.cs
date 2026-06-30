@@ -42,11 +42,10 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestGetNextAttemptDelayWithIllegalAttempt()
         {
             var retryPolicy = new ExponentialBackoffRetryPolicy(maxAttempts, initialBackoff, maxBackoff, backoffMultiplier);
-            retryPolicy.GetNextAttemptDelay(0);
+            Assert.ThrowsExactly<ArgumentException>(() => retryPolicy.GetNextAttemptDelay(0));
         }
 
         [TestMethod]
@@ -87,7 +86,6 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestFromProtobufWithoutExponentialBackoff()
         {
             var customizedBackoff = new CustomizedBackoff();
@@ -96,7 +94,7 @@ namespace tests
                 MaxAttempts = maxAttempts,
                 CustomizedBackoff = customizedBackoff
             };
-            ExponentialBackoffRetryPolicy.FromProtobuf(retryPolicyProto);
+            Assert.ThrowsExactly<ArgumentException>(() => ExponentialBackoffRetryPolicy.FromProtobuf(retryPolicyProto));
         }
 
         [TestMethod]
@@ -149,7 +147,6 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void TestInheritBackoffWithoutExponentialBackoff()
         {
             var customizedBackoff = new CustomizedBackoff();
@@ -160,7 +157,7 @@ namespace tests
             };
 
             var exponentialBackoffRetryPolicy = new ExponentialBackoffRetryPolicy(maxAttempts, initialBackoff, maxBackoff, backoffMultiplier);
-            exponentialBackoffRetryPolicy.InheritBackoff(retryPolicyProto);
+            Assert.ThrowsExactly<InvalidOperationException>(() => exponentialBackoffRetryPolicy.InheritBackoff(retryPolicyProto));
         }
     }
 

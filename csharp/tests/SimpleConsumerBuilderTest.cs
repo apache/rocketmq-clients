@@ -26,19 +26,17 @@ namespace tests
     public class SimpleConsumerBuilderTest
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetClientConfigurationWithNull()
         {
             var builder = new SimpleConsumer.Builder();
-            builder.SetClientConfig(null);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetClientConfig(null));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSetConsumerGroupWithNull()
         {
             var builder = new SimpleConsumer.Builder();
-            builder.SetConsumerGroup(null);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetConsumerGroup(null));
         }
 
         [TestMethod]
@@ -49,19 +47,17 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestBuildWithEmptyExpressions()
         {
             var builder = new SimpleConsumer.Builder();
-            builder.SetSubscriptionExpression(new Dictionary<string, FilterExpression>());
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetSubscriptionExpression(new Dictionary<string, FilterExpression>()));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestBuildWithoutExpressions()
         {
             var builder = new SimpleConsumer.Builder();
-            builder.SetSubscriptionExpression(null);
+            Assert.ThrowsExactly<ArgumentException>(() => builder.SetSubscriptionExpression(null));
         }
 
         [TestMethod]

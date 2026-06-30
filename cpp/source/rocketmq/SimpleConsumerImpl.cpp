@@ -199,7 +199,10 @@ void SimpleConsumerImpl::updateAssignments(const std::string& topic, const std::
         changed = true;
         absl::MutexLock lk(&assignments_mtx_);
         for (const auto& item : to_remove) {
-          std::remove_if(assignments_.begin(), assignments_.end(), [&](const rmq::Assignment& e) { return e == item; });
+          assignments_.erase(
+              std::remove_if(assignments_.begin(), assignments_.end(),
+                             [&](const rmq::Assignment& e) { return e == item; }),
+              assignments_.end());
         }
 
         for (const auto& item : to_add) {

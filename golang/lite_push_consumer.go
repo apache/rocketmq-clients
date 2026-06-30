@@ -30,7 +30,7 @@ import (
 
 type LitePushConsumer interface {
 	PushConsumer
-	SubscribeLite(liteTopic string) error
+	SubscribeLite(liteTopic string, offsetOption ...OffsetOption) error
 	UnSubscribeLite(liteTopic string) error
 }
 
@@ -107,11 +107,18 @@ func (lpc *defaultLitePushConsumer) notifyUnsubscribeLite(command *v2.NotifyUnsu
 	lpc.litePushConsumerSettings.liteTopicSet.Delete(liteTopic)
 }
 
-func (lpc *defaultLitePushConsumer) SubscribeLite(liteTopic string) error {
+func (lpc *defaultLitePushConsumer) SubscribeLite(liteTopic string, offsetOption ...OffsetOption) error {
 	if err := lpc.checkRunning(); err != nil {
 		return err
 	}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{liteTopic}); err != nil {
+	if len(offsetOption) > 1 {
+		return errors.New("only one offset option is supported")
+	}
+	var option *OffsetOption
+	if len(offsetOption) == 1 {
+		option = &offsetOption[0]
+	}
+	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{liteTopic}, option); err != nil {
 		sugarBaseLogger.Errorf("LitePushConsumer SubscribeLite liteTopic:%s err:%v", liteTopic, err)
 		return err
 	}
@@ -123,7 +130,7 @@ func (lpc *defaultLitePushConsumer) UnSubscribeLite(liteTopic string) error {
 	if err := lpc.checkRunning(); err != nil {
 		return err
 	}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_REMOVE, []string{liteTopic}); err != nil {
+	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_REMOVE, []string{liteTopic}, nil); err != nil {
 		sugarBaseLogger.Errorf("LitePushConsumer UnSubscribeLite liteTopic:%s err:%v", liteTopic, err)
 		return err
 	}
@@ -151,12 +158,12 @@ func (lpc *defaultLitePushConsumer) syncAllLiteSubscription() {
 	//if len(liteTopicSet) == 0 {
 	//	return
 	//}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_COMPLETE_ADD, liteTopicSet); err != nil {
+	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_COMPLETE_ADD, liteTopicSet, nil); err != nil {
 		sugarBaseLogger.Errorf("LitePushConsumer syncAllLiteSubscription:%v,  err:%v", liteTopicSet, err)
 	}
 }
 
-func (lpc *defaultLitePushConsumer) syncLiteSubscription(context context.Context, action v2.LiteSubscriptionAction, diff []string) error {
+func (lpc *defaultLitePushConsumer) syncLiteSubscription(context context.Context, action v2.LiteSubscriptionAction, diff []string, offsetOption *OffsetOption) error {
 	topic := lpc.litePushConsumerSettings.bindTopic
 	group := lpc.litePushConsumerSettings.groupName
 	clientId := lpc.litePushConsumerSettings.clientId
@@ -170,6 +177,9 @@ func (lpc *defaultLitePushConsumer) syncLiteSubscription(context context.Context
 		},
 		Group:        group,
 		LiteTopicSet: diff,
+	}
+	if offsetOption != nil {
+		request.OffsetOption = offsetOption.toProtobuf()
 	}
 
 	if action == v2.LiteSubscriptionAction_COMPLETE_ADD {

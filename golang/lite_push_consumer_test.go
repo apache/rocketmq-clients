@@ -206,6 +206,73 @@ func TestLitePushConsumer_SubscribeLite(t *testing.T) {
 	}
 }
 
+func TestLitePushConsumer_SubscribeLite_WithOffset(t *testing.T) {
+	setupTest(t)
+	defer teardownTest()
+
+	dlpc, err := createTestLitePushConsumer(t)
+	if err != nil {
+		t.Fatalf("failed to create test lite push consumer: %v", err)
+	}
+
+	offsetOption, err := NewOffsetOptionWithOffset(100)
+	if err != nil {
+		t.Fatalf("failed to create offset option: %v", err)
+	}
+
+	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, req *v2.SyncLiteSubscriptionRequest) (*v2.SyncLiteSubscriptionResponse, error) {
+		if req.GetAction() != v2.LiteSubscriptionAction_PARTIAL_ADD {
+			t.Errorf("expected action PARTIAL_ADD, got %v", req.GetAction())
+		}
+		if len(req.GetLiteTopicSet()) != 1 || req.GetLiteTopicSet()[0] != "lite-topic-1" {
+			t.Errorf("expected lite topic set ['lite-topic-1'], got %v", req.GetLiteTopicSet())
+		}
+		if req.GetOffsetOption() == nil {
+			t.Fatal("expected offset option to be set")
+		}
+		if _, ok := req.GetOffsetOption().GetOffsetType().(*v2.OffsetOption_Offset); !ok {
+			t.Fatalf("expected offset option type OFFSET, got %T", req.GetOffsetOption().GetOffsetType())
+		}
+		if req.GetOffsetOption().GetOffset() != 100 {
+			t.Errorf("expected offset 100, got %d", req.GetOffsetOption().GetOffset())
+		}
+		return setupSuccessResponse(), nil
+	}).Times(1)
+
+	err = dlpc.SubscribeLite("lite-topic-1", offsetOption)
+	if err != nil {
+		t.Fatalf("expected no error for SubscribeLite with offset, got %v", err)
+	}
+}
+
+func TestLitePushConsumer_SubscribeLite_WithLastOffset(t *testing.T) {
+	setupTest(t)
+	defer teardownTest()
+
+	dlpc, err := createTestLitePushConsumer(t)
+	if err != nil {
+		t.Fatalf("failed to create test lite push consumer: %v", err)
+	}
+
+	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, req *v2.SyncLiteSubscriptionRequest) (*v2.SyncLiteSubscriptionResponse, error) {
+		if req.GetOffsetOption() == nil {
+			t.Fatal("expected offset option to be set")
+		}
+		if _, ok := req.GetOffsetOption().GetOffsetType().(*v2.OffsetOption_Policy_); !ok {
+			t.Fatalf("expected offset option type POLICY, got %T", req.GetOffsetOption().GetOffsetType())
+		}
+		if req.GetOffsetOption().GetPolicy() != v2.OffsetOption_LAST {
+			t.Errorf("expected policy LAST, got %v", req.GetOffsetOption().GetPolicy())
+		}
+		return setupSuccessResponse(), nil
+	}).Times(1)
+
+	err = dlpc.SubscribeLite("lite-topic-1", LastOffset)
+	if err != nil {
+		t.Fatalf("expected no error for SubscribeLite with last offset, got %v", err)
+	}
+}
+
 func TestLitePushConsumer_SubscribeLite_NotRunning(t *testing.T) {
 	setupTest(t)
 	defer teardownTest()
@@ -335,7 +402,7 @@ func TestLitePushConsumer_syncLiteSubscription_StatusError(t *testing.T) {
 
 	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(setupErrorResponse(v2.Code_INTERNAL_SERVER_ERROR, "internal error"), nil)
 
-	err = dlpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{"test"})
+	err = dlpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{"test"}, nil)
 	if err == nil {
 		t.Fatal("expected error for non-OK status code")
 	}

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include "MetricBidiReactor.h"
+#include "FmtEnumFormatter.h"
 
 #include <chrono>
 

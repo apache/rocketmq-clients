@@ -21,7 +21,6 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Schedulers;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -97,7 +96,7 @@ namespace tests
         private TestConsumeService CreateService(IMessageListener messageListener)
         {
             return new TestConsumeService("testClientId", messageListener,
-                new CurrentThreadTaskScheduler(), new CancellationToken());
+                new InlineTaskScheduler(), new CancellationToken());
         }
 
         private class TestSuccessMessageListener : IMessageListener
@@ -122,6 +121,24 @@ namespace tests
                 : base(clientId, messageListener, consumptionTaskScheduler, consumptionCtsToken) { }
 
             public override void Consume(ProcessQueue pq, List<MessageView> messageViews) => Task.FromResult(0);
+        }
+
+        private sealed class InlineTaskScheduler : TaskScheduler
+        {
+            protected override IEnumerable<Task> GetScheduledTasks()
+            {
+                return Enumerable.Empty<Task>();
+            }
+
+            protected override void QueueTask(Task task)
+            {
+                TryExecuteTask(task);
+            }
+
+            protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued)
+            {
+                return TryExecuteTask(task);
+            }
         }
     }
 

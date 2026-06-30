@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include "TelemetryBidiReactor.h"
+#include "FmtEnumFormatter.h"
 
 #include <memory>
 #include <utility>
@@ -287,28 +288,25 @@ void TelemetryBidiReactor::write(TelemetryCommand command) {
 
 void TelemetryBidiReactor::tryWriteNext() {
   SPDLOG_DEBUG("{}#tryWriteNext", peer_address_);
-  absl::MutexLock lk(&writes_mtx_);
-  if (StreamState::Ready != state_) {
-    SPDLOG_WARN("Further write to {} is not allowed due to stream-state={}", peer_address_,
-                static_cast<std::uint8_t>(state_));
-    return;
+
+  {
+    absl::MutexLock state_lk(&state_mtx_);
+    if (StreamState::Ready != state_) {
+      SPDLOG_WARN("Further write to {} is not allowed due to stream-state={}", peer_address_,
+                  static_cast<std::uint8_t>(state_));
+      return;
+    }
   }
 
+  absl::MutexLock lk(&writes_mtx_);
   if (writes_.empty()) {
     SPDLOG_DEBUG("No pending TelemetryCommand to write. Peer={}", peer_address_);
     return;
   }
 
-  if (!writes_.empty()) {
-    SPDLOG_DEBUG("Writing TelemetryCommand to {}: {}", peer_address_, writes_.front().ShortDebugString());
-    if (StreamState::Ready == state_) {
-      AddHold();
-      StartWrite(&(writes_.front()));
-    } else {
-      SPDLOG_WARN("Writing TelemetryCommand error due to unexpected state. State={}, Peer={}",
-                  static_cast<uint8_t>(state_), peer_address_);
-    }
-  }
+  SPDLOG_DEBUG("Writing TelemetryCommand to {}: {}", peer_address_, writes_.front().ShortDebugString());
+  AddHold();
+  StartWrite(&(writes_.front()));
 }
 
 void TelemetryBidiReactor::signalClose() {

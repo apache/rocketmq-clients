@@ -53,10 +53,14 @@ target_link_libraries(rocketmq_shared
             opencensus::stats
             opencensus_proto
             spdlog)
-set(VERSION_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${VERSION_SCRIPT}")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(VERSION_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${VERSION_SCRIPT}")
+    set_target_properties(rocketmq_shared
+            PROPERTIES
+                LINK_DEPENDS ${VERSION_SCRIPT})
+endif()
 set_target_properties(rocketmq_shared
         PROPERTIES
-            LINK_DEPENDS ${VERSION_SCRIPT}
             LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
             LIBRARY_OUTPUT_NAME rocketmq)

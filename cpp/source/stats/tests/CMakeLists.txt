@@ -1,0 +1,4 @@
+add_executable(publish_stats_test PublishStatsTest.cpp)
+target_include_directories(publish_stats_test PRIVATE ${ROCKETMQ_INTERNAL_INCLUDE_DIRS})
+target_link_libraries(publish_stats_test PRIVATE ${ROCKETMQ_TEST_LINK_LIBS})
+add_test(NAME publish_stats_test COMMAND publish_stats_test)

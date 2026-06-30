@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include "PushConsumerImpl.h"
+#include "FmtEnumFormatter.h"
 
 #include <cassert>
 #include <chrono>
@@ -580,10 +581,12 @@ void PushConsumerImpl::onVerifyMessage(MessageConstSharedPtr message, std::funct
           case ConsumeResult::SUCCESS: {
             cmd.mutable_status()->set_code(rmq::Code::OK);
             cmd.mutable_status()->set_message("OK");
+            break;
           }
           case ConsumeResult::FAILURE: {
             cmd.mutable_status()->set_code(rmq::Code::FAILED_TO_CONSUME_MESSAGE);
             cmd.mutable_status()->set_message("Consume message failed");
+            break;
           }
         }
       } catch (const std::exception& e) {
@@ -601,6 +604,7 @@ void PushConsumerImpl::onVerifyMessage(MessageConstSharedPtr message, std::funct
     cmd.mutable_status()->set_code(rmq::Code::MESSAGE_CORRUPTED);
     cmd.mutable_status()->set_message("Checksum Mismatch");
   }
+  cb(cmd);
 }
 
 void PushConsumerImpl::collectCacheStats() {

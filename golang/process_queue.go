@@ -154,6 +154,7 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueue0(mv *MessageView, attem
 			" clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
 			endpoints, requestId, status.GetMessage())
 		dpq.forwardToDeadLetterQueueLater(mv, 1+attempt, callback)
+		return
 	}
 	// Set result if succeed in changing invisible time.
 	callback(nil)
@@ -177,10 +178,10 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueueLater(mv *MessageView, a
 			if err := recover(); err != nil {
 				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message change invisible duration request, mq=%s, messageId=%s, "+
 					"clientId=%s", dpq.mqstr, messageId, clientId)
-				dpq.ackMessageLater(mv, 1+attempt, callback)
+				dpq.forwardToDeadLetterQueueLater(mv, 1+attempt, callback)
 			}
 		}()
-		dpq.ackMessage0(mv, attempt, callback)
+		dpq.forwardToDeadLetterQueue0(mv, attempt, callback)
 	})
 }
 
@@ -237,6 +238,7 @@ func (dpq *defaultProcessQueue) changeInvisibleDuration(mv *MessageView, duratio
 			" clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
 			endpoints, requestId, status.GetMessage())
 		dpq.changeInvisibleDurationLater(mv, duration, 1+attempt, callback)
+		return
 	}
 	// Set result if succeed in changing invisible time.
 	callback(nil)
@@ -303,6 +305,7 @@ func (dpq *defaultProcessQueue) ackMessage0(mv *MessageView, attempt int, callba
 			" clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
 			endpoints, requestId, status.GetMessage())
 		dpq.ackMessageLater(mv, 1+attempt, callback)
+		return
 	}
 	// Set result if succeed in changing invisible time.
 	callback(nil)
@@ -468,8 +471,8 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 					dpq.mqstr, endpoints, clientId)
 			} else {
 				dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, MessageHookPointsStatus_ERROR)
-				dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%d, "+
-					"nextAttemptId=%s, clientId=%s, err=%w", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
+				dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%s, "+
+					"nextAttemptId=%s, clientId=%s, err=%v", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
 					clientId, err)
 			}
 			dpq.onReceiveMessageException(err, nextAttemptId)

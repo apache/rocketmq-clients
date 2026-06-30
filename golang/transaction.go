@@ -61,31 +61,47 @@ var NewTransactionImpl = func(producerImpl Producer) *transactionImpl {
 }
 
 func (t *transactionImpl) Commit() error {
+	isEmpty := true
+	var commitErr error
 	t.messageSendReceiptMap.Range(func(_, value interface{}) bool {
+		isEmpty = false
 		pubMessage := value.([]interface{})[0].(*PublishingMessage)
 		sendReceipt := value.([]interface{})[1].(*SendReceipt)
 		err := t.producerImpl.(*defaultProducer).endTransaction(context.TODO(), sendReceipt.Endpoints,
 			pubMessage.msg.GetMessageCommon(), sendReceipt.MessageID, sendReceipt.TransactionId, COMMIT)
 		if err != nil {
-			sugarBaseLogger.Errorf("transaction message commit failed, err=%w", err)
+			commitErr = fmt.Errorf("transaction message commit failed: %w", err)
+			sugarBaseLogger.Errorf("%v", commitErr)
+			return false
 		}
 		return true
 	})
-	return nil
+	if isEmpty {
+		return fmt.Errorf("transactional message has not been sent yet")
+	}
+	return commitErr
 }
 
 func (t *transactionImpl) RollBack() error {
+	isEmpty := true
+	var rollbackErr error
 	t.messageSendReceiptMap.Range(func(_, value interface{}) bool {
+		isEmpty = false
 		pubMessage := value.([]interface{})[0].(*PublishingMessage)
 		sendReceipt := value.([]interface{})[1].(*SendReceipt)
 		err := t.producerImpl.(*defaultProducer).endTransaction(context.TODO(), sendReceipt.Endpoints,
 			pubMessage.msg.GetMessageCommon(), sendReceipt.MessageID, sendReceipt.TransactionId, ROLLBACK)
 		if err != nil {
-			sugarBaseLogger.Errorf("transaction message rollback failed, err=%w", err)
+			rollbackErr = fmt.Errorf("transaction message rollback failed: %w", err)
+			sugarBaseLogger.Errorf("%v", rollbackErr)
+			return false
 		}
 		return true
 	})
-	return nil
+	if isEmpty {
+		return fmt.Errorf("transactional message has not been sent yet")
+	}
+	return rollbackErr
 }
 
 func (t *transactionImpl) tryAddMessage(message *Message, namespace string) (*PublishingMessage, error) {

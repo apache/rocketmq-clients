@@ -57,13 +57,12 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestTryAddExceededMessages()
         {
             var transaction = new Transaction(_producer);
             var message = CreateMessage();
             transaction.TryAddMessage(message);
-            transaction.TryAddMessage(message);
+            Assert.ThrowsExactly<ArgumentException>(() => transaction.TryAddMessage(message));
         }
 
         [TestMethod]
@@ -79,7 +78,6 @@ namespace tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestTryAddReceiptNotContained()
         {
             var transaction = new Transaction(_producer);
@@ -90,23 +88,21 @@ namespace tests
             var mq0 = CreateMessageQueue();
 
             var sendReceipt = CreateSendReceipt(mq0);
-            transaction.TryAddReceipt(publishingMessage, sendReceipt.First());
+            Assert.ThrowsExactly<ArgumentException>(() => transaction.TryAddReceipt(publishingMessage, sendReceipt.First()));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public async Task TestCommitWithNoReceipts()
         {
             var transaction = new Transaction(_producer);
-            await transaction.Commit();
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await transaction.Commit());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public async Task TestRollbackWithNoReceipts()
         {
             var transaction = new Transaction(_producer);
-            await transaction.Rollback();
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await transaction.Rollback());
         }
 
         [TestMethod]

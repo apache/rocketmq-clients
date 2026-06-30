@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include "ClientManagerImpl.h"
+#include "FmtEnumFormatter.h"
 
 #include <atomic>
 #include <cassert>
