@@ -19,6 +19,8 @@ package org.apache.rocketmq.client.java.impl.consumer;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.Attribute;
@@ -30,9 +32,6 @@ import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 import org.mockito.Mockito;
-
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class ConsumeTaskTest extends TestBase {
 
@@ -79,6 +78,7 @@ public class ConsumeTaskTest extends TestBase {
                     capturedGroup.set(attr.get());
                 }
             }
+
             @Override
             public void doAfter(MessageInterceptorContext context, List<GeneralMessage> messages) {
             }

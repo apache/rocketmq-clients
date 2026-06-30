@@ -66,7 +66,8 @@ public abstract class ConsumeService {
 
     public ListenableFuture<ConsumeResult> consume(MessageViewImpl messageView, Duration delay) {
         final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(consumptionExecutor);
-        final ConsumeTask task = new ConsumeTask(clientId, consumerGroup, messageListener, messageView, messageInterceptor);
+        final ConsumeTask task = new ConsumeTask(clientId, consumerGroup,
+                messageListener, messageView, messageInterceptor);
         // Consume message with no delay.
         if (Duration.ZERO.compareTo(delay) >= 0) {
             return executorService.submit(task);
