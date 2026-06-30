@@ -105,9 +105,10 @@ trait TransactionTrait
             $transaction->tryAddReceipt($message, $result, PublishingRouteManager::extractMessageQueueEndpoint($messageQueue[0]));
         }
 
-        if ($executor !== null) {
+        $resolvedExecutor = $executor ?? $this->localTransactionExecuter;
+        if ($resolvedExecutor !== null) {
             $messageView = new MessageView($message, $result['recallHandle'] ?? null, null, 1);
-            $resolution = $executor->execute($messageView);
+            $resolution = $resolvedExecutor->execute($messageView);
 
             if ($resolution === TransactionResolution::COMMIT) {
                 $transaction->commit();

@@ -265,6 +265,9 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         if (!$this->isRunning) {
             throw new \RuntimeException("Producer is not running now");
         }
+        if ($priority < 1 || $priority > 9) {
+            throw new \InvalidArgumentException("Priority must be between 1 and 9");
+        }
         return $this->send($this->sendHandler->buildConvenienceMessage($topic, $body, $tag, function (SystemProperties $sp) use ($priority) {
             $sp->setPriority($priority);
         }));

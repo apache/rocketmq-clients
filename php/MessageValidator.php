@@ -51,7 +51,8 @@ class MessageValidator
         if (!$message->hasTopic() || empty(trim($message->getTopic()->getName()))) {
             throw new \InvalidArgumentException("Message topic is required");
         }
-        if (empty($message->getBody())) {
+        $body = $message->getBody();
+        if ($body === null || $body === '') {
             throw new \InvalidArgumentException("Message body is required");
         }
         if (strlen($message->getBody()) > $this->maxBodySizeBytes) {

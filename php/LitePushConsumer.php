@@ -273,12 +273,13 @@ class LitePushConsumer extends PushConsumer
         try {
             list($response, $status) = $this->getClient()->SyncLiteSubscription($request, $metadata, $this->getCallOptions())->wait();
             if ($status->code !== 0) {
-                $this->logger->error("SyncLiteSubscription failed: " . $status->details);
-            } else {
-                $this->logger->info("SyncLiteSubscription success for " . count($this->liteTopics) . " lite topics");
+                throw new \RuntimeException("SyncLiteSubscription failed: " . $status->details);
             }
+            $this->logger->info("SyncLiteSubscription success for " . count($this->liteTopics) . " lite topics");
+        } catch (\RuntimeException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            $this->logger->warning("SyncLiteSubscription exception: " . $e->getMessage());
+            throw new \RuntimeException("SyncLiteSubscription exception: " . $e->getMessage(), 0, $e);
         }
     }
 

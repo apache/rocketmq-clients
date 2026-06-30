@@ -384,8 +384,8 @@ class TelemetrySession
             }
             
             if ($this->settingsError !== null) {
-                $this->logger->warning("Settings sync issue (non-fatal): " . $this->settingsError);
-                return true;
+                $this->logger->error("Settings stream error: " . $this->settingsError);
+                return false;
             }
             
             // In non-Swoole mode, poll for responses
@@ -398,8 +398,8 @@ class TelemetrySession
         }
         
         // Timeout
-        $this->logger->info("Settings confirmation not received within {$this->settingsTimeout}s (non-fatal, proceeding)");
-        return true;
+        $this->logger->error("Settings confirmation not received within {$this->settingsTimeout}s");
+        return false;
     }
     
     /**
