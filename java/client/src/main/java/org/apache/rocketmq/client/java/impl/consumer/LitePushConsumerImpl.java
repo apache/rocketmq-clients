@@ -97,7 +97,8 @@ public class LitePushConsumerImpl extends PushConsumerImpl implements LitePushCo
                 scheduler, enableFifoConsumeAccelerator);
         }
         log.info("Create Lite standard consume service, consumerGroup={}, clientId={}", getConsumerGroup(), clientId);
-        return new LiteStandardConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
+        return new LiteStandardConsumeService(clientId, getConsumerGroup(),
+                messageListener, consumptionExecutor, this, scheduler);
     }
 
 }

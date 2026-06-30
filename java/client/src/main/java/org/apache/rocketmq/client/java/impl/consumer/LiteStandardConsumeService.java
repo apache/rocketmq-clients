@@ -35,10 +35,10 @@ import org.slf4j.LoggerFactory;
 public class LiteStandardConsumeService extends ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(LiteStandardConsumeService.class);
 
-    public LiteStandardConsumeService(ClientId clientId, MessageListener messageListener,
+    public LiteStandardConsumeService(ClientId clientId, String consumerGroup, MessageListener messageListener,
         ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
         ScheduledExecutorService scheduler) {
-        super(clientId, messageListener, consumptionExecutor, messageInterceptor, scheduler);
+        super(clientId, consumerGroup, messageListener, consumptionExecutor, messageInterceptor, scheduler);
     }
 
     @Override
