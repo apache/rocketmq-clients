@@ -40,17 +40,20 @@ public class ConsumeTask implements Callable<ConsumeResult> {
     static final AttributeKey<MessageViewImpl> MESSAGE_VIEW_CONTEXT_KEY = AttributeKey.create("messageView");
     static final AttributeKey<String> REMOTE_ADDR_CONTEXT_KEY = AttributeKey.create("remoteAddr");
     static final AttributeKey<Throwable> CONSUME_ERROR_CONTEXT_KEY = AttributeKey.create("consumeError");
+    static final AttributeKey<String> CONSUMER_GROUP_CONTEXT_KEY = AttributeKey.create("consumerGroup");
 
     private static final Logger log = LoggerFactory.getLogger(ConsumeTask.class);
 
     private final ClientId clientId;
+    private final String consumerGroup;
     private final MessageListener messageListener;
     private final MessageViewImpl messageView;
     private final MessageInterceptor messageInterceptor;
 
-    public ConsumeTask(ClientId clientId, MessageListener messageListener, MessageViewImpl messageView,
-        MessageInterceptor messageInterceptor) {
+    public ConsumeTask(ClientId clientId,  String consumerGroup, MessageListener messageListener,
+                       MessageViewImpl messageView, MessageInterceptor messageInterceptor) {
         this.clientId = clientId;
+        this.consumerGroup = consumerGroup;
         this.messageListener = messageListener;
         this.messageView = messageView;
         this.messageInterceptor = messageInterceptor;
@@ -72,6 +75,8 @@ public class ConsumeTask implements Callable<ConsumeResult> {
         context.putAttribute(REMOTE_ADDR_CONTEXT_KEY, Attribute.create(remoteAddr));
         // Add message view to context.
         context.putAttribute(MESSAGE_VIEW_CONTEXT_KEY, Attribute.create(messageView));
+        // Add consumer group to context.
+        context.putAttribute(CONSUMER_GROUP_CONTEXT_KEY, Attribute.create(consumerGroup));
 
         messageInterceptor.doBefore(context, generalMessages);
         Throwable throwable = null;

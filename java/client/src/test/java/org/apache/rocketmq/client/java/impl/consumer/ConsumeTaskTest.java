@@ -21,12 +21,18 @@ import static org.junit.Assert.assertEquals;
 
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
+import org.apache.rocketmq.client.java.hook.Attribute;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
+import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 import org.mockito.Mockito;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ConsumeTaskTest extends TestBase {
 
@@ -37,7 +43,8 @@ public class ConsumeTaskTest extends TestBase {
         final MessageListener messageListener = Mockito.mock(MessageListener.class);
         Mockito.when(messageListener.consume(messageView)).thenReturn(ConsumeResult.SUCCESS);
         final MessageInterceptor messageInterceptor = Mockito.mock(MessageInterceptor.class);
-        final ConsumeTask consumeTask = new ConsumeTask(clientId, messageListener, messageView, messageInterceptor);
+        final ConsumeTask consumeTask = new ConsumeTask(clientId, "testConsumerGroup",
+                messageListener, messageView, messageInterceptor);
         final ConsumeResult consumeResult = consumeTask.call();
         assertEquals(ConsumeResult.SUCCESS, consumeResult);
     }
@@ -49,8 +56,36 @@ public class ConsumeTaskTest extends TestBase {
         final MessageListener messageListener = Mockito.mock(MessageListener.class);
         Mockito.when(messageListener.consume(messageView)).thenThrow(new RuntimeException());
         final MessageInterceptor messageInterceptor = Mockito.mock(MessageInterceptor.class);
-        final ConsumeTask consumeTask = new ConsumeTask(clientId, messageListener, messageView, messageInterceptor);
+        final ConsumeTask consumeTask = new ConsumeTask(clientId, "testConsumerGroup",
+                messageListener, messageView, messageInterceptor);
         final ConsumeResult consumeResult = consumeTask.call();
         assertEquals(ConsumeResult.FAILURE, consumeResult);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testConsumerGroupInContext() {
+        final String expectedGroup = "myConsumerGroup";
+        ClientId clientId = new ClientId();
+        final MessageViewImpl messageView = fakeMessageViewImpl();
+        final MessageListener messageListener = Mockito.mock(MessageListener.class);
+        Mockito.when(messageListener.consume(messageView)).thenReturn(ConsumeResult.SUCCESS);
+        final AtomicReference<String> capturedGroup = new AtomicReference<>();
+        final MessageInterceptor messageInterceptor = new MessageInterceptor() {
+            @Override
+            public void doBefore(MessageInterceptorContext context, List<GeneralMessage> messages) {
+                Attribute<String> attr = context.getAttribute(ConsumeTask.CONSUMER_GROUP_CONTEXT_KEY);
+                if (attr != null) {
+                    capturedGroup.set(attr.get());
+                }
+            }
+            @Override
+            public void doAfter(MessageInterceptorContext context, List<GeneralMessage> messages) {
+            }
+        };
+        final ConsumeTask consumeTask = new ConsumeTask(clientId, expectedGroup, messageListener,
+                messageView, messageInterceptor);
+        consumeTask.call();
+        assertEquals(expectedGroup, capturedGroup.get());
     }
 }

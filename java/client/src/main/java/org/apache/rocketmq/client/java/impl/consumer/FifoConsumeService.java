@@ -39,10 +39,10 @@ class FifoConsumeService extends ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(FifoConsumeService.class);
     private final boolean enableFifoConsumeAccelerator;
 
-    public FifoConsumeService(ClientId clientId, MessageListener messageListener,
+    public FifoConsumeService(ClientId clientId, String consumerGroup, MessageListener messageListener,
         ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
         ScheduledExecutorService scheduler, boolean enableFifoConsumeAccelerator) {
-        super(clientId, messageListener, consumptionExecutor, messageInterceptor, scheduler);
+        super(clientId, consumerGroup, messageListener, consumptionExecutor, messageInterceptor, scheduler);
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
     }
 
