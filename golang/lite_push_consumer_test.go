@@ -389,7 +389,7 @@ func TestLitePushConsumer_WrapReceiveMessageRequest(t *testing.T) {
 		t.Errorf("expected batch size 5, got %d", req.GetBatchSize())
 	}
 
-	if req.GetAutoRenew() {
+	if !req.GetAutoRenew() {
 		t.Error("expected auto renew to be true for lite push consumer")
 	}
 
