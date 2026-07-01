@@ -24,8 +24,6 @@ import (
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
-	"github.com/google/uuid"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type LitePushConsumer interface {
@@ -206,22 +204,6 @@ func (lpc *defaultLitePushConsumer) syncLiteSubscription(context context.Context
 
 var _ = PushConsumerExtension(&defaultLitePushConsumer{})
 
-func (lpc *defaultLitePushConsumer) WrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, longPollingTimeout time.Duration) *v2.ReceiveMessageRequest {
-	attemptId := uuid.New().String()
-
-	return &v2.ReceiveMessageRequest{
-		Group: &v2.Resource{
-			Name:              lpc.groupName,
-			ResourceNamespace: lpc.cli.config.NameSpace,
-		},
-		MessageQueue:       messageQueue,
-		LongPollingTimeout: durationpb.New(longPollingTimeout),
-		BatchSize:          int32(batchSize),
-		AutoRenew:          false,
-		AttemptId:          &attemptId,
-		InvisibleDuration:  durationpb.New(lpc.litePushConsumerSettings.invisibleDuration),
-	}
-}
 
 func (lpc *defaultLitePushConsumer) WrapHeartbeatRequest() *v2.HeartbeatRequest {
 	return &v2.HeartbeatRequest{

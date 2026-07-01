@@ -421,53 +421,6 @@ func TestLitePushConsumer_syncLiteSubscription_StatusError(t *testing.T) {
 	}
 }
 
-func TestLitePushConsumer_WrapReceiveMessageRequest(t *testing.T) {
-	setupTest(t)
-	defer teardownTest()
-
-	dlpc, err := createTestLitePushConsumer(t)
-	if err != nil {
-		t.Fatalf("failed to create test lite push consumer: %v", err)
-	}
-
-	messageQueue := &v2.MessageQueue{
-		Topic: &v2.Resource{
-			Name:              "bind-topic",
-			ResourceNamespace: "test-namespace",
-		},
-		Id: 1,
-		Broker: &v2.Broker{
-			Name:      "test-broker",
-			Endpoints: fakeEndpoints(),
-		},
-	}
-
-	req := dlpc.WrapReceiveMessageRequest(5, messageQueue, SUB_ALL, time.Second*10)
-
-	if req.GetGroup().GetName() != "test-group" {
-		t.Errorf("expected group name 'test-group', got %s", req.GetGroup().GetName())
-	}
-
-	if req.GetGroup().GetResourceNamespace() != "test-namespace" {
-		t.Errorf("expected namespace 'test-namespace', got %s", req.GetGroup().GetResourceNamespace())
-	}
-
-	if req.GetBatchSize() != 5 {
-		t.Errorf("expected batch size 5, got %d", req.GetBatchSize())
-	}
-
-	if req.GetAutoRenew() {
-		t.Error("expected auto renew to be true for lite push consumer")
-	}
-
-	if req.GetAttemptId() == "" {
-		t.Error("expected attempt id to be set")
-	}
-
-	if req.GetLongPollingTimeout().GetSeconds() != int64(10) {
-		t.Errorf("expected polling timeout 10s, got %v", req.GetLongPollingTimeout().GetSeconds())
-	}
-}
 
 func TestLitePushConsumer_WrapHeartbeatRequest(t *testing.T) {
 	setupTest(t)
