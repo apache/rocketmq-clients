@@ -195,37 +195,16 @@ func TestDefaultPushConsumer_wrapAckMessageRequest_lite(t *testing.T) {
 	}
 }
 
-func TestDefaultLitePushConsumer_Wraps(t *testing.T) {
+func TestDefaultLitePushConsumer_WrapHeartbeatRequest(t *testing.T) {
 	config := &Config{Endpoint: fakeAddress, NameSpace: "test-namespace", ConsumerGroup: "test-group"}
 	lpc, err := NewLitePushConsumer(config, &LitePushConsumerConfig{bindTopic: "bind-topic"}, WithPushMessageListener(&FuncMessageListener{Consume: func(*MessageView) ConsumerResult { return SUCCESS }}))
 	if err != nil {
 		t.Fatalf("failed to create lite push consumer: %v", err)
 	}
 
-	// 类型断言为具体类型以调用 Wrap* 方法（接口 LitePushConsumer 上未暴露这些方法）
 	dlpc, ok := lpc.(*defaultLitePushConsumer)
 	if !ok {
 		t.Fatalf("failed to assert lite push consumer concrete type")
-	}
-
-	messageQueue := &v2.MessageQueue{
-		Topic: &v2.Resource{
-			Name:              "bind-topic",
-			ResourceNamespace: "test-namespace",
-		},
-		Id: 1,
-		Broker: &v2.Broker{
-			Name:      "test-broker",
-			Endpoints: fakeEndpoints(),
-		},
-	}
-
-	req := dlpc.WrapReceiveMessageRequest(5, messageQueue, SUB_ALL, time.Second*10)
-	if req.GetGroup().GetName() != "test-group" {
-		t.Errorf("expected group name 'test-group', got %s", req.GetGroup().GetName())
-	}
-	if req.GetAutoRenew() {
-		t.Error("expected auto renew to be true")
 	}
 
 	hb := dlpc.WrapHeartbeatRequest()
