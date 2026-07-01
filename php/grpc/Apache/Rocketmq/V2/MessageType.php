@@ -38,6 +38,18 @@ class MessageType
      * Generated from protobuf enum <code>TRANSACTION = 4;</code>
      */
     const TRANSACTION = 4;
+    /**
+     * lite topic
+     *
+     * Generated from protobuf enum <code>LITE = 5;</code>
+     */
+    const LITE = 5;
+    /**
+     * Messages that lower prioritised ones may need to wait for higher priority messages to be processed first
+     *
+     * Generated from protobuf enum <code>PRIORITY = 6;</code>
+     */
+    const PRIORITY = 6;
 
     private static $valueToName = [
         self::MESSAGE_TYPE_UNSPECIFIED => 'MESSAGE_TYPE_UNSPECIFIED',
@@ -45,6 +57,8 @@ class MessageType
         self::FIFO => 'FIFO',
         self::DELAY => 'DELAY',
         self::TRANSACTION => 'TRANSACTION',
+        self::LITE => 'LITE',
+        self::PRIORITY => 'PRIORITY',
     ];
 
     public static function name($value)
