@@ -24,6 +24,10 @@ import { LitePushConsumer } from './LitePushConsumer';
 import { OffsetOption } from './OffsetOption';
 import { LiteSubscriptionManager } from './LiteSubscriptionManager';
 import { FilterExpression } from './FilterExpression';
+import { LiteFifoConsumeService } from './LiteFifoConsumeService';
+import { LiteStandardConsumeService } from './LiteStandardConsumeService';
+import { ConsumeService } from './ConsumeService';
+import { MessageListener } from './MessageListener';
 
 export interface LitePushConsumerOptions extends PushConsumerOptions {
   bindTopic: string;
@@ -50,6 +54,8 @@ export interface LitePushConsumerOptions extends PushConsumerOptions {
 export class LitePushConsumerImpl extends PushConsumer implements LitePushConsumer {
   private readonly liteSubscriptionManager: LiteSubscriptionManager;
   private readonly bindTopic: Resource;
+  readonly #messageListener: MessageListener;
+  readonly #enableFifoConsumeAccelerator: boolean;
 
   constructor(options: LitePushConsumerOptions) {
     // Create subscription expressions with bind topic
@@ -61,6 +67,9 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
       subscriptions,
     } as PushConsumerOptions);
 
+    this.#messageListener = options.messageListener;
+    this.#enableFifoConsumeAccelerator = options.enableFifoConsumeAccelerator ?? false;
+
     this.bindTopic = new Resource(options.namespace, options.bindTopic);
 
     const groupResource = new Resource(options.namespace, options.consumerGroup);
@@ -69,6 +78,27 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
       this.bindTopic,
       groupResource,
     );
+  }
+
+  /**
+   * Create the consume service for lite push consumer.
+   *
+   * <p>Lite push consumer uses lite-topic-specific consume services to ensure
+   * correct grouping and retry behavior.</p>
+   */
+  protected createConsumeService(): ConsumeService {
+    if (!this.#messageListener) {
+      throw new Error('messageListener should not be null');
+    }
+    if (this.getPushConsumerSettings().isFifo()) {
+      this.logger.info(
+        'Create lite FIFO consume service, consumerGroup=%s, clientId=%s, enableFifoConsumeAccelerator=%s',
+        this.consumerGroup, this.clientId, this.#enableFifoConsumeAccelerator,
+      );
+      return new LiteFifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator);
+    }
+    this.logger.info('Create lite standard consume service, consumerGroup=%s, clientId=%s', this.consumerGroup, this.clientId);
+    return new LiteStandardConsumeService(this.clientId, this.#messageListener);
   }
 
   /**
@@ -137,6 +167,9 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
   async subscribeLite(liteTopic: string, offsetOption: OffsetOption): Promise<void>;
 
   async subscribeLite(liteTopic: string, offsetOption?: OffsetOption): Promise<void> {
+    if (!liteTopic || liteTopic.trim().length === 0) {
+      throw new Error('liteTopic should not be blank');
+    }
     await this.liteSubscriptionManager.subscribeLite(liteTopic, offsetOption ?? null);
   }
 
@@ -149,6 +182,9 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    * @param liteTopic - The name of the lite topic to unsubscribe from
    */
   async unsubscribeLite(liteTopic: string): Promise<void> {
+    if (!liteTopic || liteTopic.trim().length === 0) {
+      throw new Error('liteTopic should not be blank');
+    }
     await this.liteSubscriptionManager.unsubscribeLite(liteTopic);
   }
 

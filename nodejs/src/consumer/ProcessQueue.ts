@@ -20,7 +20,7 @@ import { Code } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { MessageView } from '../message';
 import { MessageQueue } from '../route';
 import { TooManyRequestsException } from '../exception';
-import { ConsumeResult } from './ConsumeResult';
+import { ConsumeResult, ConsumeResultSuspend } from './ConsumeResult';
 import { FilterExpression } from './FilterExpression';
 import type { PushConsumer } from './PushConsumer';
 
@@ -73,6 +73,9 @@ export class ProcessQueue {
   }
 
   cacheMessages(messageList: MessageView[]): void {
+    if (!messageList || messageList.length === 0) {
+      return;
+    }
     for (const messageView of messageList) {
       this.#cachedMessages.push(messageView);
       this.#cachedMessagesBytes += messageView.body.length;
@@ -187,6 +190,11 @@ export class ProcessQueue {
   }
 
   eraseMessage(messageView: MessageView, consumeResult: ConsumeResult): void {
+    if (!messageView) {
+      return;
+    }
+    consumeResult = this.#convertSuspendResultIfNeeded(consumeResult);
+    this.#statsConsumptionResult(consumeResult);
     const task = consumeResult === ConsumeResult.SUCCESS
       ? this.#ackMessage(messageView)
       : this.#nackMessage(messageView);
@@ -256,22 +264,51 @@ export class ProcessQueue {
   }
 
   async eraseFifoMessage(messageView: MessageView, consumeResult: ConsumeResult): Promise<void> {
+    if (!messageView) {
+      return;
+    }
+    consumeResult = this.#convertSuspendResultIfNeeded(consumeResult);
+    this.#statsConsumptionResult(consumeResult);
     const retryPolicy = this.#consumer.getRetryPolicy();
     const maxAttempts = retryPolicy?.getMaxAttempts() ?? 1;
     const attempt = messageView.deliveryAttempt ?? 1;
+    const messageId = messageView.messageId;
+    const clientId = (this.#consumer as any).clientId;
 
     if (consumeResult === ConsumeResult.FAILURE && attempt < maxAttempts) {
       const nextAttemptDelay = retryPolicy?.getNextAttemptDelay(attempt) ?? 0;
+      // Increment delivery attempt before redelivering
+      messageView.incrementAndGetDeliveryAttempt();
+      (this.#consumer as any).logger?.debug(
+        'Prepare to redeliver the fifo message because of the consumption failure, maxAttempts=%d, '
+        + 'attempt=%d, mq=%s, messageId=%s, nextAttemptDelay=%d, clientId=%s',
+        maxAttempts, messageView.deliveryAttempt, this.#mq, messageId, nextAttemptDelay, clientId,
+      );
       // Redeliver the fifo message
       const result = await this.#consumer.getConsumeService().consumeMessage(messageView, nextAttemptDelay);
       await this.eraseFifoMessage(messageView, result);
-    } else {
-      const task = consumeResult === ConsumeResult.SUCCESS
-        ? this.#ackMessage(messageView)
-        : this.#forwardToDeadLetterQueue(messageView);
-      await task;
-      this.#evictCache(messageView);
+      return;
     }
+
+    if (consumeResult === ConsumeResult.SUCCESS) {
+      await this.#ackMessage(messageView);
+    } else if (consumeResult instanceof ConsumeResultSuspend) {
+      const suspendTimeMs = consumeResult.suspendTimeMs;
+      (this.#consumer as any).logger?.info(
+        'Suspend consumption, consumerGroup=%s, topic=%s, liteTopic=%s, messageId=%s, result=%s',
+        this.#consumer.getConsumerGroup(), messageView.topic, messageView.liteTopic ?? '',
+        messageId, consumeResult,
+      );
+      await this.#changeInvisibleDuration(messageView, suspendTimeMs);
+    } else {
+      (this.#consumer as any).logger?.info(
+        'Failed to consume fifo message finally, run out of attempt times, maxAttempts=%d, attempt=%d, '
+        + 'mq=%s, messageId=%s, clientId=%s',
+        maxAttempts, attempt, this.#mq, messageId, clientId,
+      );
+      await this.#forwardToDeadLetterQueue(messageView);
+    }
+    this.#evictCache(messageView);
   }
 
   async #forwardToDeadLetterQueue(messageView: MessageView, attempt = 1): Promise<void> {
@@ -323,6 +360,28 @@ export class ProcessQueue {
       this.#cachedMessages.splice(index, 1);
       this.#cachedMessagesBytes -= messageView.body.length;
     }
+  }
+
+  #convertSuspendResultIfNeeded(consumeResult: ConsumeResult): ConsumeResult {
+    if (consumeResult instanceof ConsumeResultSuspend) {
+      if (!(this.#consumer as any).isLiteConsumer?.()) {
+        (this.#consumer as any).logger?.warn(
+          'Only LitePushConsumer support ConsumeResultSuspend! Convert to ConsumeResult.FAILURE, '
+          + 'consumerGroup=%s, consumerType=%s',
+          this.#consumer.getConsumerGroup(), this.#consumer.constructor.name,
+        );
+        return ConsumeResult.FAILURE;
+      }
+    }
+    return consumeResult;
+  }
+
+  #statsConsumptionResult(consumeResult: ConsumeResult): void {
+    if (consumeResult === ConsumeResult.SUCCESS) {
+      this.#consumer.incrementConsumptionOkQuantity();
+      return;
+    }
+    this.#consumer.incrementConsumptionErrorQuantity();
   }
 
   cachedMessagesCount(): number {

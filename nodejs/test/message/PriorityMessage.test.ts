@@ -64,7 +64,7 @@ describe('Priority Message', () => {
         priority: 1,
         deliveryTimestamp: new Date(Date.now() + 60000),
       });
-    }, /priority and deliveryTimestamp should not be set at same time/);
+    }, /priority is mutually exclusive with/);
   });
 
   it('should throw error when priority and messageGroup are set together', () => {
@@ -75,7 +75,7 @@ describe('Priority Message', () => {
         priority: 1,
         messageGroup: 'test-group',
       });
-    }, /priority and messageGroup should not be set at same time/);
+    }, /priority is mutually exclusive with/);
   });
 
   it('should accept priority = 0', () => {

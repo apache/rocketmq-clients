@@ -103,7 +103,7 @@ export class PushConsumer extends Consumer {
     await super.startup();
     this.logger.info('Super startup completed, clientId=%s', this.clientId);
     try {
-      this.#consumeService = this.#createConsumeService();
+      this.#consumeService = this.createConsumeService();
       // Start scanning assignments periodically
       this.startAssignmentScanning();
       this.logger.info('Push consumer started successfully, clientId=%s', this.clientId);
@@ -181,7 +181,7 @@ export class PushConsumer extends Consumer {
     // No-op for push consumer; assignments are queried separately
   }
 
-  #createConsumeService(): ConsumeService {
+  protected createConsumeService(): ConsumeService {
     if (this.#pushSubscriptionSettings.isFifo()) {
       return new FifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator);
     }
@@ -323,9 +323,10 @@ export class PushConsumer extends Consumer {
       .setInvisibleDuration(createDuration(invisibleDuration))
       .setMessageId(messageView.messageId);
 
-    // For lite consumers, must set liteTopic in request
+    // For lite consumers, must set liteTopic and suspend in request
     if (this.isLiteConsumer() && messageView.liteTopic) {
       request.setLiteTopic(messageView.liteTopic);
+      request.setSuspend(true);
     }
 
     return request;

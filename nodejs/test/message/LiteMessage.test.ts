@@ -54,7 +54,7 @@ describe('Lite Message', () => {
         liteTopic: 'lite-topic-name',
         priority: 5,
       });
-    }, /priority and liteTopic should not be set at same time/);
+    }, /priority is mutually exclusive with/);
   });
 
   it('should throw error when liteTopic and messageGroup are set together', () => {
@@ -65,7 +65,7 @@ describe('Lite Message', () => {
         liteTopic: 'lite-topic-name',
         messageGroup: 'test-group',
       });
-    }, /liteTopic and messageGroup should not be set at same time/);
+    }, /liteTopic is mutually exclusive with/);
   });
 
   it('should throw error when liteTopic and deliveryTimestamp are set together', () => {
@@ -76,7 +76,7 @@ describe('Lite Message', () => {
         liteTopic: 'lite-topic-name',
         deliveryTimestamp: new Date(Date.now() + 60000),
       });
-    }, /liteTopic and deliveryTimestamp should not be set at same time/);
+    }, /liteTopic is mutually exclusive with/);
   });
 
   it('should accept empty string liteTopic', () => {

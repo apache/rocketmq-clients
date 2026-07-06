@@ -91,6 +91,10 @@ export interface LitePushConsumerOptions extends BaseClientOptions {
   consumerGroup: string;
   bindTopic: string;
   messageListener: MessageListener;
+  maxCacheMessageCount?: number;
+  maxCacheMessageSizeInBytes?: number;
+  consumptionThreadCount?: number;
+  enableFifoConsumeAccelerator?: boolean;
 }
 
 const CONSUMER_GROUP_PATTERN = /^[a-zA-Z0-9_-]+$/;
@@ -178,7 +182,7 @@ export class LitePushConsumerBuilder {
     if (maxCacheMessageCount <= 0) {
       throw new Error('maxCacheMessageCount should be positive');
     }
-    // TODO: Will be used when implementing full consumer
+    this.options.maxCacheMessageCount = maxCacheMessageCount;
     return this;
   }
 
@@ -193,7 +197,7 @@ export class LitePushConsumerBuilder {
     if (maxCacheMessageSizeInBytes <= 0) {
       throw new Error('maxCacheMessageSizeInBytes should be positive');
     }
-    // TODO: Will be used when implementing full consumer
+    this.options.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
     return this;
   }
 
@@ -208,7 +212,25 @@ export class LitePushConsumerBuilder {
     if (consumptionThreadCount <= 0) {
       throw new Error('consumptionThreadCount should be positive');
     }
-    // TODO: Will be used when implementing full consumer
+    // Note: Node.js uses a single-threaded event loop model, so this configuration
+    // has no effect on actual consumption concurrency. It is retained solely for
+    // API compatibility with the other clients. Consumption concurrency in Node.js
+    // is naturally managed by the event loop and Promise-based async scheduling.
+    this.options.consumptionThreadCount = consumptionThreadCount;
+    return this;
+  }
+
+  /**
+   * Set enable fifo consume accelerator.
+   *
+   * <p>If enabled, messages with different messageGroups are consumed in parallel
+   * while messages within the same messageGroup are consumed sequentially.</p>
+   *
+   * @param enableFifoConsumeAccelerator - Whether to enable FIFO consume accelerator
+   * @return This builder instance
+   */
+  setEnableFifoConsumeAccelerator(enableFifoConsumeAccelerator: boolean): LitePushConsumerBuilder {
+    this.options.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
     return this;
   }
 
@@ -247,6 +269,10 @@ export class LitePushConsumerBuilder {
       sessionCredentials: this.options.sessionCredentials,
       requestTimeout: this.options.requestTimeout,
       logger: this.options.logger,
+      maxCacheMessageCount: this.options.maxCacheMessageCount,
+      maxCacheMessageSizeInBytes: this.options.maxCacheMessageSizeInBytes,
+      consumptionThreadCount: this.options.consumptionThreadCount,
+      enableFifoConsumeAccelerator: this.options.enableFifoConsumeAccelerator,
     };
 
     const litePushConsumer = new LitePushConsumerImpl(options);

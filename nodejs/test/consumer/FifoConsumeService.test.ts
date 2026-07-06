@@ -20,7 +20,7 @@
  */
 
 import { describe, it } from 'node:test';
-import assert = require('node:assert');
+import * as assert from 'node:assert';
 import { FifoConsumeService } from '../../src/consumer/FifoConsumeService';
 import { MessageListener } from '../../src/consumer/MessageListener';
 import { ConsumeResult } from '../../src/consumer/ConsumeResult';

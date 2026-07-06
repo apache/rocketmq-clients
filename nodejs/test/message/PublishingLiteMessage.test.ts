@@ -54,6 +54,6 @@ describe('PublishingMessage with LITE type', () => {
         liteTopic: 'lite-topic-name',
         priority: 5,
       });
-    }, /priority and liteTopic should not be set at same time/);
+    }, /priority is mutually exclusive with/);
   });
 });
