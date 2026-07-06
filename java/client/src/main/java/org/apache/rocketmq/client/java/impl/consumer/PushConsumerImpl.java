@@ -250,11 +250,12 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         if (getSettings().isFifo()) {
             log.info("Create FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
                 getConsumerGroup(), clientId, enableFifoConsumeAccelerator);
-            return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this,
-                scheduler, enableFifoConsumeAccelerator);
+            return new FifoConsumeService(clientId, getConsumerGroup(), messageListener,
+                    consumptionExecutor, this, scheduler, enableFifoConsumeAccelerator);
         }
         log.info("Create standard consume service, consumerGroup={}, clientId={}", getConsumerGroup(), clientId);
-        return new StandardConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
+        return new StandardConsumeService(clientId, getConsumerGroup(),
+                messageListener, consumptionExecutor, this, scheduler);
     }
 
     /**

@@ -51,8 +51,8 @@ public class ConsumeServiceTest extends TestBase {
     @Test
     public void testConsumeSuccess() throws ExecutionException, InterruptedException, TimeoutException {
         final MessageListener messageListener = messageView -> ConsumeResult.SUCCESS;
-        final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
-            consumptionExecutor, interceptor, scheduler) {
+        final ConsumeService consumeService = new ConsumeService(clientId, "testConsumerGroup",
+                messageListener, consumptionExecutor, interceptor, scheduler) {
             @Override
             public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
             }
@@ -66,8 +66,8 @@ public class ConsumeServiceTest extends TestBase {
     @Test
     public void testConsumeFailure() throws ExecutionException, InterruptedException, TimeoutException {
         final MessageListener messageListener = messageView -> ConsumeResult.FAILURE;
-        final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
-            consumptionExecutor, interceptor, scheduler) {
+        final ConsumeService consumeService = new ConsumeService(clientId, "testConsumerGroup",
+                messageListener, consumptionExecutor, interceptor, scheduler) {
             @Override
             public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
             }
@@ -83,8 +83,8 @@ public class ConsumeServiceTest extends TestBase {
         final MessageListener messageListener = messageView -> {
             throw new RuntimeException();
         };
-        final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
-            consumptionExecutor, interceptor, scheduler) {
+        final ConsumeService consumeService = new ConsumeService(clientId, "testConsumerGroup",
+                messageListener, consumptionExecutor, interceptor, scheduler) {
             @Override
             public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
 
@@ -99,8 +99,8 @@ public class ConsumeServiceTest extends TestBase {
     @Test
     public void testConsumeWithDelay() throws ExecutionException, InterruptedException {
         final MessageListener messageListener = messageView -> ConsumeResult.SUCCESS;
-        final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
-            consumptionExecutor, interceptor, scheduler) {
+        final ConsumeService consumeService = new ConsumeService(clientId, "testConsumerGroup",
+                messageListener, consumptionExecutor, interceptor, scheduler) {
 
             @Override
             public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
