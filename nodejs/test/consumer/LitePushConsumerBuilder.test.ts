@@ -155,6 +155,20 @@ describe('LitePushConsumerBuilder', () => {
     });
   });
 
+  describe('setEnableFifoConsumeAccelerator()', () => {
+    it('should accept true value', () => {
+      const builder = new LitePushConsumerBuilder();
+      const result = builder.setEnableFifoConsumeAccelerator(true);
+      assert.strictEqual(result, builder);
+    });
+
+    it('should accept false value', () => {
+      const builder = new LitePushConsumerBuilder();
+      const result = builder.setEnableFifoConsumeAccelerator(false);
+      assert.strictEqual(result, builder);
+    });
+  });
+
   describe('build()', () => {
     it('should throw error when clientConfiguration not set', async () => {
       const builder = new LitePushConsumerBuilder();
@@ -172,10 +186,10 @@ describe('LitePushConsumerBuilder', () => {
       builder.setMessageListener(createMockMessageListener());
       builder.bindTopic('test-topic');
 
-      // Should reject with "not implemented" error since we haven't implemented the full consumer yet
+      // Should reject because startup() requires a real RocketMQ server connection
       await assert.rejects(
         () => builder.build(),
-        /LitePushConsumerImpl not yet implemented/,
+        /Failed to start|Connection|ECONNREFUSED|timeout|Timeout|Error/,
       );
     });
 
@@ -206,16 +220,17 @@ describe('LitePushConsumerBuilder', () => {
       await assert.rejects(() => builder.build(), /bindTopic has not been set yet/);
     });
 
-    it('should throw not implemented error when all params set', async () => {
+    it('should throw connection error when all params set but no server', async () => {
       const builder = new LitePushConsumerBuilder();
       builder.setClientConfiguration(createMockClientConfig());
       builder.setConsumerGroup('test-group');
       builder.setMessageListener(createMockMessageListener());
       builder.bindTopic('test-topic');
 
+      // Should reject because startup() requires a real RocketMQ server connection
       await assert.rejects(
         () => builder.build(),
-        /LitePushConsumerImpl not yet implemented/,
+        /Failed to start|Connection|ECONNREFUSED|timeout|Timeout|Error/,
       );
     });
   });

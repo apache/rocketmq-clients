@@ -29,6 +29,8 @@ export * from './ConsumeTask';
 export * from './ConsumeService';
 export * from './StandardConsumeService';
 export * from './FifoConsumeService';
+export * from './LiteFifoConsumeService';
+export * from './LiteStandardConsumeService';
 export * from './ProcessQueue';
 export * from './PushConsumer';
 export * from './LitePushConsumer';

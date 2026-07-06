@@ -36,7 +36,7 @@ export class MessageView {
   readonly keys: string[];
   readonly bornHost: string;
   readonly bornTimestamp?: Date;
-  readonly deliveryAttempt?: number;
+  deliveryAttempt?: number;
   readonly endpoints: Endpoints;
   readonly receiptHandle: string;
   readonly offset?: number;
@@ -216,6 +216,17 @@ export class MessageView {
    * @return delivery attempt.
    */
   getDeliveryAttempt(): number | undefined {
+    return this.deliveryAttempt;
+  }
+
+  /**
+   * Increment the delivery attempt and return the new value.
+   * Used by FIFO retry logic to track redelivery attempts.
+   *
+   * @return the incremented delivery attempt
+   */
+  incrementAndGetDeliveryAttempt(): number {
+    this.deliveryAttempt = (this.deliveryAttempt ?? 0) + 1;
     return this.deliveryAttempt;
   }
 }

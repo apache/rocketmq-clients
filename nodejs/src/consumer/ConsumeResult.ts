@@ -15,7 +15,66 @@
  * limitations under the License.
  */
 
-export enum ConsumeResult {
-  SUCCESS = 'SUCCESS',
-  FAILURE = 'FAILURE',
+/**
+ * Consume result for push consumer.
+ *
+ * <p>Designed for push consumer specifically. This is a class-based result
+ * (matching the Java client) so that it can be extended with suspend results.</p>
+ */
+export class ConsumeResult {
+  /**
+   * Consume message successfully.
+   */
+  static readonly SUCCESS = new ConsumeResult('SUCCESS');
+
+  /**
+   * Failed to consume message.
+   */
+  static readonly FAILURE = new ConsumeResult('FAILURE');
+
+  readonly name: string;
+
+  protected constructor(name: string) {
+    this.name = name;
+  }
+
+  toString(): string {
+    return this.name;
+  }
+}
+
+const MIN_SUSPEND_TIME_MS = 50;
+
+/**
+ * Suspend consume result.
+ *
+ * <p>When returned by the message listener, the consumer will suspend
+ * consumption of the current message (and related messages in FIFO mode)
+ * for the specified duration by changing the invisible duration.</p>
+ */
+export class ConsumeResultSuspend extends ConsumeResult {
+  readonly suspendTimeMs: number;
+
+  private constructor(suspendTimeMs: number) {
+    super('SUSPEND');
+    if (suspendTimeMs < MIN_SUSPEND_TIME_MS) {
+      throw new Error(`suspend time cannot be less than ${MIN_SUSPEND_TIME_MS}ms, got ${suspendTimeMs}ms`);
+    }
+    this.suspendTimeMs = suspendTimeMs;
+  }
+
+  /**
+   * Create a suspend result with the given suspend time in milliseconds.
+   *
+   * @param suspendTimeMs - Suspend time in milliseconds
+   * @return {ConsumeResultSuspend} ConsumeResultSuspend instance
+   * @throws {Error} if suspendTimeMs is less than 50ms
+   */
+  static of(suspendTimeMs: number): ConsumeResultSuspend {
+    return new ConsumeResultSuspend(suspendTimeMs);
+  }
+
+  toString(): string {
+    return `SUSPEND(${this.suspendTimeMs}ms)`;
+  }
 }
