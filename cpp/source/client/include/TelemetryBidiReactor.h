@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "Client.h"
 #include "RpcClient.h"
 #include "absl/base/thread_annotations.h"
@@ -131,6 +132,10 @@ private:
   absl::CondVar state_cv_;
 
   std::promise<bool> sync_settings_promise_;
+  std::atomic<bool> settings_received_{false};
+
+  /// Set to true when close() is called intentionally. Suppresses reconnection in OnDone().
+  std::atomic<bool> intentional_close_{false};
 
   void applySettings(const rmq::Settings& settings);
 
