@@ -73,3 +73,15 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "telemetry_bidi_reactor_test",
+    srcs = [
+        "TelemetryBidiReactorTest.cpp",
+    ],
+    deps = [
+        "//source/client:client_library",
+        "//source/client/mocks:client_mocks",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
