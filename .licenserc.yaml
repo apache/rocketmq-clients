@@ -47,6 +47,7 @@ header:
     - 'cpp/.clang-tidy'
     - 'cpp/WORKSPACE'
     - 'cpp/.gitignore'
+    - 'cpp/.bazelignore'
     - 'cpp/third_party'
     - 'cpp/proto/**'
     - 'cpp/cmake'
