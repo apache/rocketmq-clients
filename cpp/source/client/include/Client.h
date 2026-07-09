@@ -58,6 +58,8 @@ public:
 
   virtual void notifyClientTermination() = 0;
 
+  virtual void onNotifyUnsubscribeLiteCommand(const std::string& lite_topic) {}
+
   virtual void withCredentialsProvider(std::shared_ptr<CredentialsProvider> credentials_provider) = 0;
 
   virtual std::shared_ptr<ClientManager> manager() const = 0;

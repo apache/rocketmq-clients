@@ -64,6 +64,9 @@ public:
                InvocationContext<ForwardMessageToDeadLetterQueueResponse>*),
               (override));
 
+  MOCK_METHOD(void, asyncSyncLiteSubscription,
+              (const SyncLiteSubscriptionRequest&, InvocationContext<SyncLiteSubscriptionResponse>*), (override));
+
   MOCK_METHOD(std::shared_ptr<TelemetryBidiReactor>, asyncTelemetry, (std::weak_ptr<Client>), (override));
 
   MOCK_METHOD(grpc::Status, notifyClientTermination,

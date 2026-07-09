@@ -58,6 +58,10 @@ using ForwardMessageToDeadLetterQueueRequest = rmq::ForwardMessageToDeadLetterQu
 using ForwardMessageToDeadLetterQueueResponse = rmq::ForwardMessageToDeadLetterQueueResponse;
 using NotifyClientTerminationRequest = rmq::NotifyClientTerminationRequest;
 using NotifyClientTerminationResponse = rmq::NotifyClientTerminationResponse;
+using SyncLiteSubscriptionRequest = rmq::SyncLiteSubscriptionRequest;
+using SyncLiteSubscriptionResponse = rmq::SyncLiteSubscriptionResponse;
+using NotifyUnsubscribeLiteCommand = rmq::NotifyUnsubscribeLiteCommand;
+using LiteSubscriptionAction = rmq::LiteSubscriptionAction;
 
 const char* protocolVersion();
 

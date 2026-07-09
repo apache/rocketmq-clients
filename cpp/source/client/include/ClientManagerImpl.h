@@ -201,6 +201,12 @@ public:
 
   void submit(std::function<void()> task) override;
 
+  void syncLiteSubscription(const std::string& target_host,
+                            const Metadata& metadata,
+                            const SyncLiteSubscriptionRequest& request,
+                            std::chrono::milliseconds timeout,
+                            const std::function<void(const std::error_code&, const SyncLiteSubscriptionResponse&)>& cb) override;
+
 private:
   void doHeartbeat();
 

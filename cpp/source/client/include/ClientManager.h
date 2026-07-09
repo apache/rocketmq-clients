@@ -106,6 +106,12 @@ public:
   virtual State state() const = 0;
 
   virtual void submit(std::function<void()> task) = 0;
+
+  virtual void syncLiteSubscription(const std::string& target_host,
+                                    const Metadata& metadata,
+                                    const SyncLiteSubscriptionRequest& request,
+                                    std::chrono::milliseconds timeout,
+                                    const std::function<void(const std::error_code&, const SyncLiteSubscriptionResponse&)>& cb) = 0;
 };
 
 using ClientManagerPtr = std::shared_ptr<ClientManager>;

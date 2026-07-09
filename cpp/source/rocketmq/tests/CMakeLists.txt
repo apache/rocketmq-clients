@@ -12,6 +12,8 @@ endmacro()
 
 add_rocketmq_test(client_impl_test ClientImplTest.cpp)
 add_rocketmq_test(consume_message_service_test ConsumeMessageServiceTest.cpp)
+add_rocketmq_test(lite_message_test LiteMessageTest.cpp)
+add_rocketmq_test(lite_subscription_manager_test LiteSubscriptionManagerTest.cpp)
 add_rocketmq_test(optional_test OptionalTest.cpp)
 add_rocketmq_test(priority_message_test PriorityMessageTest.cpp)
 add_rocketmq_test(send_context_test SendContextTest.cpp)

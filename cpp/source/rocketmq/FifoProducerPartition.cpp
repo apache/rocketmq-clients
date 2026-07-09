@@ -16,8 +16,6 @@
  */
 #include "FifoProducerPartition.h"
 
-#include "absl/synchronization/mutex.h"
-
 #include <atomic>
 #include <memory>
 #include <system_error>

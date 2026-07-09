@@ -42,6 +42,9 @@ struct SubscriberConfig {
   bool fifo_consume_accelerator{false};
   std::uint32_t receive_batch_size{32};
   absl::Duration polling_timeout{absl::Seconds(30)};
+  // Lite push consumer specific fields
+  std::int32_t lite_subscription_quota{0};
+  std::int32_t max_lite_topic_size{64};
 };
 
 struct Metric {

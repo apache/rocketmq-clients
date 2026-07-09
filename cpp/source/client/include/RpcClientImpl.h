@@ -69,6 +69,9 @@ public:
   void asyncRecallMessage(const RecallMessageRequest& request,
                           InvocationContext<RecallMessageResponse>* invocation_context) override;
 
+  void asyncSyncLiteSubscription(const SyncLiteSubscriptionRequest& request,
+                                 InvocationContext<SyncLiteSubscriptionResponse>* invocation_context) override;
+
   std::shared_ptr<TelemetryBidiReactor> asyncTelemetry(std::weak_ptr<Client> client) override;
 
   void asyncForwardMessageToDeadLetterQueue(

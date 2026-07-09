@@ -87,6 +87,11 @@ enum class ErrorCode : int {
   InvalidReceiptHandle = 40011,
 
   /**
+   * @brief Format of lite topic is illegal.
+   */
+  IllegalLiteTopic = 40020,
+
+  /**
    * @brief Message property conflicts with its type.
    */
   MessagePropertyConflictWithType = 40012,
@@ -163,6 +168,16 @@ enum class ErrorCode : int {
    *
    */
   TooManyRequests = 42900,
+
+  /**
+   * @brief Lite topic quota exceeded.
+   */
+  LiteTopicQuotaExceeded = 42901,
+
+  /**
+   * @brief Lite subscription quota exceeded.
+   */
+  LiteSubscriptionQuotaExceeded = 42902,
 
   /**
    * @brief The server is unwilling to process the request because either an

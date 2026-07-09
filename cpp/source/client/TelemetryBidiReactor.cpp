@@ -164,6 +164,13 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
       break;
     }
 
+    case rmq::TelemetryCommand::kNotifyUnsubscribeLiteCommand: {
+      const auto& lite_topic = read_.notify_unsubscribe_lite_command().lite_topic();
+      SPDLOG_INFO("Received NotifyUnsubscribeLiteCommand from {}, liteTopic={}", peer_address_, lite_topic);
+      client->onNotifyUnsubscribeLiteCommand(lite_topic);
+      break;
+    }
+
     default: {
       SPDLOG_WARN("Telemetry command receive unsupported command");
       break;
@@ -267,6 +274,14 @@ void TelemetryBidiReactor::applySubscriptionConfig(const rmq::Settings& settings
       google::protobuf::util::TimeUtil::DurationToMilliseconds(settings.subscription().long_polling_timeout());
   client->config().subscriber.polling_timeout = absl::Milliseconds(polling_timeout);
   client->config().subscriber.receive_batch_size = settings.subscription().receive_batch_size();
+
+  // Lite push consumer specific settings
+  if (settings.subscription().has_lite_subscription_quota()) {
+    client->config().subscriber.lite_subscription_quota = settings.subscription().lite_subscription_quota();
+  }
+  if (settings.subscription().has_max_lite_topic_size()) {
+    client->config().subscriber.max_lite_topic_size = settings.subscription().max_lite_topic_size();
+  }
 }
 
 void TelemetryBidiReactor::write(TelemetryCommand command) {

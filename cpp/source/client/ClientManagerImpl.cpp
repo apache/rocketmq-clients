@@ -596,6 +596,19 @@ void ClientManagerImpl::resolveRoute(const std::string& target_host,
       case rmq::Code::OK: {
         std::vector<rmq::MessageQueue> message_queues;
         for (const auto& item : invocation_context->response.message_queues()) {
+          // Filter out MessageQueue whose broker endpoint has no valid host
+          bool has_valid_host = false;
+          for (const auto& addr : item.broker().endpoints().addresses()) {
+            if (!addr.host().empty()) {
+              has_valid_host = true;
+              break;
+            }
+          }
+          if (!has_valid_host) {
+            SPDLOG_WARN("Filtered out MessageQueue with empty broker host: topic={}, queueId={}, brokerName={}",
+                        item.topic().name(), item.id(), item.broker().name());
+            continue;
+          }
           message_queues.push_back(item);
         }
         auto ptr = std::make_shared<TopicRouteData>(std::move(message_queues));
@@ -817,6 +830,11 @@ MessageConstSharedPtr ClientManagerImpl::wrapMessage(const rmq::Message& item) {
   // Priority
   if (system_properties.has_priority()) {
     builder.withPriority(system_properties.priority());
+  }
+
+  // Lite Topic
+  if (system_properties.has_lite_topic()) {
+    builder.withLiteTopic(system_properties.lite_topic());
   }
 
   // Message-Id
@@ -1588,5 +1606,91 @@ void ClientManagerImpl::submit(std::function<void()> task) {
 
 const char* ClientManagerImpl::HEARTBEAT_TASK_NAME = "heartbeat-task";
 const char* ClientManagerImpl::STATS_TASK_NAME = "stats-task";
+
+void ClientManagerImpl::syncLiteSubscription(
+    const std::string& target_host,
+    const Metadata& metadata,
+    const SyncLiteSubscriptionRequest& request,
+    std::chrono::milliseconds timeout,
+    const std::function<void(const std::error_code&, const SyncLiteSubscriptionResponse&)>& cb) {
+
+  SPDLOG_DEBUG("SyncLiteSubscription Request: {}", request.ShortDebugString());
+
+  RpcClientSharedPtr client = getRpcClient(target_host);
+  if (!client) {
+    SPDLOG_WARN("No RPC client for {}", target_host);
+    SyncLiteSubscriptionResponse response;
+    std::error_code ec = ErrorCode::BadRequest;
+    cb(ec, response);
+    return;
+  }
+
+  auto invocation_context = new InvocationContext<SyncLiteSubscriptionResponse>();
+  invocation_context->task_name = fmt::format("SyncLiteSubscription, topic={}, group={}, action={} to {}",
+                                              request.topic().name(), request.group().name(),
+                                              static_cast<int>(request.action()), target_host);
+  invocation_context->remote_address = target_host;
+  for (const auto& item : metadata) {
+    invocation_context->context.AddMetadata(item.first, item.second);
+  }
+  invocation_context->context.set_deadline(std::chrono::system_clock::now() + timeout);
+
+  auto callback =
+      [target_host, cb](const InvocationContext<SyncLiteSubscriptionResponse>* invocation_context) {
+
+    std::error_code ec;
+    if (!invocation_context->status.ok()) {
+      SPDLOG_WARN("Failed to SyncLiteSubscription. gRPC-code: {}, gRPC-message: {}, host={}",
+                  invocation_context->status.error_code(), invocation_context->status.error_message(),
+                  invocation_context->remote_address);
+      ec = ErrorCode::BadRequest;
+      cb(ec, invocation_context->response);
+      return;
+    }
+
+    auto&& status = invocation_context->response.status();
+    switch (status.code()) {
+      case rmq::Code::OK: {
+        SPDLOG_DEBUG("SyncLiteSubscription OK. host={}", target_host);
+        break;
+      }
+
+      case rmq::Code::LITE_SUBSCRIPTION_QUOTA_EXCEEDED: {
+        SPDLOG_WARN("LiteSubscriptionQuotaExceeded: {}, host={}", status.message(), target_host);
+        ec = ErrorCode::NotSupported; // Reuse NotSupported; can add specific code if needed
+        break;
+      }
+
+      case rmq::Code::UNAUTHORIZED: {
+        SPDLOG_WARN("Unauthorized: {}, host={}", status.message(), target_host);
+        ec = ErrorCode::Unauthorized;
+        break;
+      }
+
+      case rmq::Code::FORBIDDEN: {
+        SPDLOG_WARN("Forbidden: {}, host={}", status.message(), target_host);
+        ec = ErrorCode::Forbidden;
+        break;
+      }
+
+      case rmq::Code::INTERNAL_SERVER_ERROR: {
+        SPDLOG_WARN("InternalServerError: {}, host={}", status.message(), target_host);
+        ec = ErrorCode::InternalServerError;
+        break;
+      }
+
+      default: {
+        SPDLOG_WARN("SyncLiteSubscription failed with code: {}, message: {}, host={}",
+                    static_cast<int>(status.code()), status.message(), target_host);
+        ec = ErrorCode::NotSupported;
+        break;
+      }
+    }
+    cb(ec, invocation_context->response);
+  };
+
+  invocation_context->callback = callback;
+  client->asyncSyncLiteSubscription(request, invocation_context);
+}
 
 ROCKETMQ_NAMESPACE_END

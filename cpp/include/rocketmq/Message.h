@@ -100,6 +100,10 @@ public:
     return group_;
   }
 
+  const std::string& liteTopic() const {
+    return lite_topic_;
+  }
+
   std::int32_t priority() const {
     return priority_;
   }
@@ -135,6 +139,7 @@ private:
   std::string body_;
   std::unordered_map<std::string, std::string> properties_;
   std::string group_;
+  std::string lite_topic_;
   std::int32_t priority_{-1};
   Extension extension_;
 };
@@ -159,6 +164,8 @@ public:
   MessageBuilder& withBody(std::string body);
 
   MessageBuilder& withGroup(std::string group);
+
+  MessageBuilder& withLiteTopic(std::string lite_topic);
 
   MessageBuilder& withPriority(std::int32_t priority);
 
