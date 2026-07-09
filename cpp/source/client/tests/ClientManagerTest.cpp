@@ -21,7 +21,9 @@
 
 #include "ClientManagerImpl.h"
 #include "RpcClientMock.h"
+#include "SendResult.h"
 #include "gtest/gtest.h"
+#include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -221,6 +223,127 @@ TEST_F(ClientManagerTest, testEndTransaction) {
   }
   EXPECT_TRUE(completed);
   EXPECT_TRUE(callback_invoked);
+}
+
+TEST_F(ClientManagerTest, sendSuccessTest) {
+  bool completed = false;
+  absl::Mutex mtx;
+  absl::CondVar cv;
+  SendResult captured_result;
+
+  auto mock_send = [&](const SendMessageRequest& request, InvocationContext<SendMessageResponse>* invocation_context) {
+    auto* entry = invocation_context->response.add_entries();
+    entry->set_message_id("msg-id-001");
+    entry->set_transaction_id("txn-id-001");
+    entry->set_recall_handle("recall-handle-001");
+    invocation_context->response.mutable_status()->set_code(rmq::Code::OK);
+    invocation_context->onCompletion(true);
+  };
+
+  EXPECT_CALL(*rpc_client_, asyncSend).Times(1).WillOnce(testing::Invoke(mock_send));
+
+  SendMessageRequest request;
+  auto* msg = request.add_messages();
+  msg->mutable_topic()->set_name(topic_);
+  msg->set_body(message_body_);
+
+  auto callback = [&](const SendResult& result) {
+    absl::MutexLock lk(&mtx);
+    completed = true;
+    captured_result = result;
+    cv.SignalAll();
+  };
+
+  client_manager_->send(target_host_, metadata_, request, callback);
+
+  {
+    absl::MutexLock lk(&mtx);
+    if (!completed) {
+      cv.WaitWithDeadline(&mtx, absl::Now() + absl::Seconds(3));
+    }
+  }
+
+  EXPECT_TRUE(completed);
+  EXPECT_FALSE(captured_result.ec);
+  EXPECT_EQ("msg-id-001", captured_result.message_id);
+  EXPECT_EQ("txn-id-001", captured_result.transaction_id);
+  EXPECT_EQ("recall-handle-001", captured_result.recall_handle);
+  EXPECT_EQ(target_host_, captured_result.target);
+}
+
+TEST_F(ClientManagerTest, sendReturnsErrorOnBadRequestTest) {
+  bool completed = false;
+  absl::Mutex mtx;
+  absl::CondVar cv;
+  SendResult captured_result;
+
+  auto mock_send = [&](const SendMessageRequest& request, InvocationContext<SendMessageResponse>* invocation_context) {
+    invocation_context->response.mutable_status()->set_code(rmq::Code::ILLEGAL_TOPIC);
+    invocation_context->response.mutable_status()->set_message("Illegal topic");
+    invocation_context->onCompletion(true);
+  };
+
+  EXPECT_CALL(*rpc_client_, asyncSend).Times(1).WillOnce(testing::Invoke(mock_send));
+
+  SendMessageRequest request;
+  auto* msg = request.add_messages();
+  msg->mutable_topic()->set_name(topic_);
+  msg->set_body(message_body_);
+
+  auto callback = [&](const SendResult& result) {
+    absl::MutexLock lk(&mtx);
+    completed = true;
+    captured_result = result;
+    cv.SignalAll();
+  };
+
+  client_manager_->send(target_host_, metadata_, request, callback);
+
+  {
+    absl::MutexLock lk(&mtx);
+    if (!completed) {
+      cv.WaitWithDeadline(&mtx, absl::Now() + absl::Seconds(3));
+    }
+  }
+
+  EXPECT_TRUE(completed);
+  EXPECT_TRUE(static_cast<bool>(captured_result.ec));
+  EXPECT_EQ(ErrorCode::IllegalTopic, captured_result.ec);
+  EXPECT_TRUE(captured_result.message_id.empty());
+}
+
+TEST_F(ClientManagerTest, cleanOfflineRpcClientsRemovesDeadChannelsTest) {
+  std::string live_host = "ipv4:10.0.0.1:10911";
+  std::string dead_host = "ipv4:10.0.0.2:10911";
+
+  auto live_rpc_client = std::make_shared<testing::NiceMock<RpcClientMock>>();
+  ON_CALL(*live_rpc_client, ok).WillByDefault(testing::Return(true));
+  ON_CALL(*live_rpc_client, needHeartbeat()).WillByDefault(testing::Return(false));
+
+  auto dead_rpc_client = std::make_shared<testing::NiceMock<RpcClientMock>>();
+  ON_CALL(*dead_rpc_client, ok).WillByDefault(testing::Return(false));
+  ON_CALL(*dead_rpc_client, needHeartbeat()).WillByDefault(testing::Return(false));
+
+  client_manager_->addRpcClient(live_host, live_rpc_client);
+  client_manager_->addRpcClient(dead_host, dead_rpc_client);
+
+  std::vector<std::string> removed = client_manager_->cleanOfflineRpcClients();
+
+  // Dead channel should be removed; live channel should be retained.
+  EXPECT_EQ(1u, removed.size());
+  EXPECT_EQ(dead_host, removed[0]);
+
+  // Live host's mock should still be returned from the map.
+  auto live_client = client_manager_->getRpcClient(live_host);
+  EXPECT_EQ(live_rpc_client, live_client);
+
+  // Dead host's mock was removed; getRpcClient creates a new real client instead.
+  auto dead_client = client_manager_->getRpcClient(dead_host);
+  EXPECT_NE(dead_rpc_client, dead_client);
+}
+
+TEST_F(ClientManagerTest, stateReturnsStartedTest) {
+  EXPECT_EQ(State::STARTED, client_manager_->state());
 }
 
 ROCKETMQ_NAMESPACE_END

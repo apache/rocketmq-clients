@@ -53,9 +53,10 @@ public:
     client_manager_ = std::move(client_manager);
   }
 
-  virtual void start();
+  void start();
 
-  virtual void shutdown();
+  /// Must be noexcept — called from destructors (Bug 21 fix).
+  void shutdown() noexcept;
 
   void getRouteFor(const std::string& topic, const std::function<void(const std::error_code&, TopicRouteDataPtr)>& cb)
       LOCKS_EXCLUDED(inflight_route_requests_mtx_, topic_route_table_mtx_);
@@ -71,8 +72,7 @@ public:
   void heartbeat() override;
 
   bool active() override {
-    State state = state_.load(std::memory_order_relaxed);
-    return State::STARTING == state || State::STARTED == state;
+    return State::STARTED == state_.load(std::memory_order_relaxed);
   }
 
   void onRemoteEndpointRemoval(const std::vector<std::string>& hosts) override LOCKS_EXCLUDED(isolated_endpoints_mtx_);
@@ -152,6 +152,7 @@ protected:
   ClientManagerPtr client_manager_;
 
   std::atomic<State> state_;
+  std::atomic<bool> shutdown_requested_{false};
 
   absl::flat_hash_map<std::string, TopicRouteDataPtr> topic_route_table_ GUARDED_BY(topic_route_table_mtx_);
   absl::Mutex topic_route_table_mtx_ ACQUIRED_AFTER(inflight_route_requests_mtx_); // protects topic_route_table_
@@ -181,6 +182,22 @@ protected:
   absl::Mutex session_map_mtx_;
 
   virtual void topicsOfInterest(std::vector<std::string> &topics) {
+  }
+
+  /// Validate subclass-specific parameters before any resource allocation.
+  /// Throw std::runtime_error on validation failure.
+  /// Called during start(), before any sessions/routes/timers are created.
+  virtual void validateBeforeStart() {
+  }
+
+  /// Perform subclass-specific initialization after common startup is complete.
+  /// Called during start(), after sessions, routes, and timers are established.
+  virtual void initSubclass() {
+  }
+
+  /// Perform subclass-specific cleanup during shutdown.
+  /// Called during shutdown(), before sessions/timers/ClientManager are torn down.
+  virtual void shutdownSubclass() {
   }
 
   void updateRouteInfo() LOCKS_EXCLUDED(topic_route_table_mtx_);

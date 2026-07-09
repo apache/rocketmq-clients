@@ -1,13 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
-project(rocketmq)
+project(rocketmq VERSION 5.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-find_package(protobuf CONFIG REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
+# Minimum versions aligned with the gRPC 1.46.x dependency chain (gRPC 1.46 bundles protobuf 3.19)
+find_package(protobuf 3.19 CONFIG REQUIRED)
+find_package(gRPC 1.46 CONFIG REQUIRED)
 find_package(absl REQUIRED)
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL 1.1 REQUIRED)
 
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/proto/apache/rocketmq/v2/definition.proto")
     message(FATAL_ERROR "Proto files not found. Run: git submodule update --init --recursive")
@@ -28,7 +30,7 @@ if (BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif ()
 
-option(BUILD_TESTS "Build unit tests or not" ON)
+option(BUILD_TESTS "Build unit tests or not" OFF)
 if (BUILD_TESTS)
     enable_testing()
     include(FetchContent)
@@ -68,3 +70,57 @@ if (BUILD_TESTS)
     add_subdirectory(source/scheduler/tests)
     add_subdirectory(source/stats/tests)
 endif ()
+
+# Install targets
+
+include(CMakePackageConfigHelpers)
+
+# Shared library: self-contained, exported for downstream find_package()
+# Note: static library (rocketmq) is not installed — on Windows its .lib
+# would collide with the shared library's import library (also .lib).
+install(TARGETS rocketmq_shared
+    EXPORT rocketmq-targets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/rocketmq
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING PATTERN "*.h"
+    PATTERN "Tracing.h" EXCLUDE
+)
+
+install(EXPORT rocketmq-targets
+    FILE rocketmq-targets.cmake
+    NAMESPACE rocketmq::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rocketmq
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/rocketmq-config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/rocketmq-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rocketmq
+)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/rocketmq-config-version.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/rocketmq-config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/rocketmq-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rocketmq
+)
+
+# Uninstall target
+if(NOT TARGET uninstall)
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+        IMMEDIATE @ONLY
+    )
+    add_custom_target(uninstall
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
+    )
+endif()

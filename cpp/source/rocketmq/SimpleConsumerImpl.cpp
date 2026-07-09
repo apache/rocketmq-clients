@@ -76,43 +76,29 @@ void SimpleConsumerImpl::topicsOfInterest(std::vector<std::string> &topics) {
   }
 }
 
-/**
- * @brief Start SimpleConsumer
- *
- * During start, we need synchronously fetch routes and query assignments
- */
-void SimpleConsumerImpl::start() {
-  ClientImpl::start();
-  State expected = State::STARTING;
-  if (state_.compare_exchange_strong(expected, State::STARTED, std::memory_order_relaxed)) {
-    client_config_.subscriber.group.set_resource_namespace(resourceNamespace());
-    refreshAssignments();
+void SimpleConsumerImpl::initSubclass() {
+  client_config_.subscriber.group.set_resource_namespace(resourceNamespace());
+  refreshAssignments();
 
-    std::weak_ptr<SimpleConsumerImpl> consumer(shared_from_this());
-    auto refresh_assignment_task = [consumer]() {
-      auto simple_consumer = consumer.lock();
-      if (simple_consumer) {
-        simple_consumer->refreshAssignments0();
-      }
-    };
+  std::weak_ptr<SimpleConsumerImpl> consumer(shared_from_this());
+  auto refresh_assignment_task = [consumer]() {
+    auto simple_consumer = consumer.lock();
+    if (simple_consumer) {
+      simple_consumer->refreshAssignments0();
+    }
+  };
 
-    // refer java sdk: set refresh interval to 5 seconds
-    // org.apache.rocketmq.client.java.impl.ClientImpl#startUp
-    refresh_assignment_task_ = manager()->getScheduler()->schedule(
-        refresh_assignment_task, "RefreshAssignmentTask",
-        std::chrono::seconds(5), std::chrono::seconds(5));
+  // refer java sdk: set refresh interval to 5 seconds
+  // org.apache.rocketmq.client.java.impl.ClientImpl#startUp
+  refresh_assignment_task_ = manager()->getScheduler()->schedule(
+      refresh_assignment_task, "RefreshAssignmentTask",
+      std::chrono::seconds(5), std::chrono::seconds(5));
 
-    client_manager_->addClientObserver(shared_from_this());
-  }
+  client_manager_->addClientObserver(shared_from_this());
 }
 
-void SimpleConsumerImpl::shutdown() {
-  State expected = State::STARTED;
-
-  if (state_.compare_exchange_strong(expected, State::STOPPING, std::memory_order_relaxed)) {
-    manager()->getScheduler()->cancel(refresh_assignment_task_);
-    ClientImpl::shutdown();
-  }
+void SimpleConsumerImpl::shutdownSubclass() {
+  manager()->getScheduler()->cancel(refresh_assignment_task_);
 }
 
 void SimpleConsumerImpl::subscribe(std::string topic, FilterExpression expression) {
@@ -245,6 +231,10 @@ void SimpleConsumerImpl::refreshAssignment(const std::string& topic, std::functi
   std::weak_ptr<SimpleConsumerImpl> consumer(shared_from_this());
   auto callback = [consumer, topic, cb](const std::error_code& ec, const rmq::QueryAssignmentResponse& response) {
     auto simple_consumer = consumer.lock();
+    if (!simple_consumer) {
+      SPDLOG_WARN("SimpleConsumer has been destructed, dropping assignment response");
+      return;
+    }
     const auto& assignments = response.assignments();
     if (assignments.empty()) {
       cb(ec);
@@ -441,7 +431,7 @@ void SimpleConsumerImpl::ackAsync(const Message& message, AckCallback callback) 
 
 void SimpleConsumerImpl::changeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                                  std::chrono::milliseconds duration,
-                                                 const ChangeInvisibleDurationCallback callback) {
+                                                 ChangeInvisibleDurationCallback callback) {
   Metadata metadata;
   Signature::sign(client_config_, metadata);
 

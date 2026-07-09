@@ -52,32 +52,16 @@ ProducerImpl::~ProducerImpl() {
   shutdown();
 }
 
-void ProducerImpl::start() {
-  ClientImpl::start();
-
-  State expecting = State::STARTING;
-  if (!state_.compare_exchange_strong(expecting, State::STARTED)) {
-    SPDLOG_ERROR("Producer started with an unexpected state. Expecting: {}, Actual: {}", State::STARTING,
-                 state_.load(std::memory_order_relaxed));
-    return;
-  }
-
+void ProducerImpl::initSubclass() {
   client_manager_->addClientObserver(shared_from_this());
 }
 
-void ProducerImpl::shutdown() {
-  State expected = State::STARTED;
-  if (!state_.compare_exchange_strong(expected, State::STOPPING)) {
-    SPDLOG_ERROR("Shutdown with unexpected state. Expecting: {}, Actual: {}", State::STOPPING,
-                 state_.load(std::memory_order_relaxed));
-    return;
+void ProducerImpl::shutdownSubclass() {
+  {
+    absl::MutexLock lock(&topic_publish_info_mtx_);
+    topic_publish_info_table_.clear();
   }
-
-  notifyClientTermination();
-
-  ClientImpl::shutdown();
-  assert(State::STOPPED == state_.load());
-  SPDLOG_INFO("Producer instance stopped");
+  SPDLOG_INFO("ProducerImpl stopped");
 }
 
 void ProducerImpl::notifyClientTermination() {
@@ -138,14 +122,11 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
 
   // Delivery Timestamp
   if (message.deliveryTimestamp().time_since_epoch().count()) {
-    auto delivery_timestamp = message.deliveryTimestamp();
-    if (delivery_timestamp.time_since_epoch().count()) {
-      auto duration = delivery_timestamp.time_since_epoch();
-      system_properties->set_delivery_attempt(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
-      auto mutable_delivery_timestamp = system_properties->mutable_delivery_timestamp();
-      mutable_delivery_timestamp->set_seconds(std::chrono::duration_cast<std::chrono::seconds>(duration).count());
-      mutable_delivery_timestamp->set_nanos(std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() % 1000000000);
-    }
+    auto duration = message.deliveryTimestamp().time_since_epoch();
+    system_properties->set_delivery_attempt(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
+    auto mutable_delivery_timestamp = system_properties->mutable_delivery_timestamp();
+    mutable_delivery_timestamp->set_seconds(std::chrono::duration_cast<std::chrono::seconds>(duration).count());
+    mutable_delivery_timestamp->set_nanos(std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() % 1000000000);
   }
 
   // Born-time
@@ -233,16 +214,13 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
 
   // Define callback
   auto callback =
-      [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) mutable {
+      [&, mtx, cv](const std::error_code& code, SendReceipt&& receipt) mutable {
     ec = code;
-    // SendReceipt contains a unique_ptr (MessageConstPtr) and is non-copyable.
-    // The receipt here is always a local temporary in SendContext, so const_cast + move is safe.
-    auto& mutable_receipt = const_cast<SendReceipt&>(receipt);
-    send_receipt.target = std::move(mutable_receipt.target);
-    send_receipt.message_id = std::move(mutable_receipt.message_id);
-    send_receipt.message = std::move(mutable_receipt.message);
-    send_receipt.transaction_id = std::move(mutable_receipt.transaction_id);
-    send_receipt.recall_handle = std::move(mutable_receipt.recall_handle);
+    send_receipt.target = std::move(receipt.target);
+    send_receipt.message_id = std::move(receipt.message_id);
+    send_receipt.message = std::move(receipt.message);
+    send_receipt.transaction_id = std::move(receipt.transaction_id);
+    send_receipt.recall_handle = std::move(receipt.recall_handle);
     {
       absl::MutexLock lk(mtx.get());
       completed = true;
@@ -268,7 +246,8 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
   if (ec) {
     SendReceipt send_receipt;
     send_receipt.message = std::move(message);
-    cb(ec, send_receipt);
+    cb(ec, std::move(send_receipt));
+    return;
   }
 
   std::string topic = message->topic();
@@ -282,7 +261,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
     if (ec) {
       SendReceipt send_receipt;
       send_receipt.message = std::move(ptr);
-      cb(ec, send_receipt);
+      cb(ec, std::move(send_receipt));
       return;
     }
 
@@ -290,7 +269,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
       std::error_code ec = ErrorCode::NotFound;
       SendReceipt     send_receipt;
       send_receipt.message = std::move(ptr);
-      cb(ec, send_receipt);
+      cb(ec, std::move(send_receipt));
       return;
     }
 
@@ -300,7 +279,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
       std::error_code ec = ErrorCode::NotFound;
       SendReceipt     send_receipt;
       send_receipt.message = std::move(ptr);
-      cb(ec, send_receipt);
+      cb(ec, std::move(send_receipt));
       return;
     }
 
@@ -375,14 +354,14 @@ void ProducerImpl::send0(MessageConstPtr message, const SendCallback& callback, 
   validate(*message, ec);
   if (ec) {
     send_receipt.message = std::move(message);
-    callback(ec, send_receipt);
+    callback(ec, std::move(send_receipt));
     return;
   }
 
   if (list.empty()) {
     ec = ErrorCode::NotFound;
     send_receipt.message = std::move(message);
-    callback(ec, send_receipt);
+    callback(ec, std::move(send_receipt));
     return;
   }
 
@@ -682,11 +661,11 @@ void ProducerImpl::topicsOfInterest(std::vector<std::string> &topics) {
   }
 }
 
-void ProducerImpl::withTopics(const std::vector<std::string> &topics) {
+void ProducerImpl::withTopics(std::vector<std::string> topics) {
   absl::MutexLock lk(&topics_mtx_);
-  for (auto &topic: topics) {
+  for (auto& topic : topics) {
     if (std::find(topics_.begin(), topics_.end(), topic) == topics_.end()) {
-      topics_.push_back(topic);
+      topics_.push_back(std::move(topic));
     }
   }
 }

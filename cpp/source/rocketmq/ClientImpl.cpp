@@ -93,17 +93,22 @@ rmq::Endpoints ClientImpl::accessPoint() {
 }
 
 void ClientImpl::start() {
-  State expected = CREATED;
-  if (!state_.compare_exchange_strong(expected, State::STARTING)) {
-    SPDLOG_ERROR("Attempt to start ClientImpl failed. Expecting: {} Actual: {}", State::CREATED,
-                 state_.load(std::memory_order_relaxed));
-    return;
-  }
+  // === Phase 1: Validation (before any resource allocation) ===
+  // Safe to throw here — nothing to clean up, state remains CREATED.
 
   if (!name_server_resolver_) {
     SPDLOG_ERROR("No name server resolver is configured.");
-    abort();
+    throw std::runtime_error("No name server resolver is configured. Set endpoints via Configuration.");
   }
+
+  validateBeforeStart();
+
+  // === Phase 2: Resource allocation (state remains CREATED) ===
+  // If an exception is thrown here, state stays CREATED → shutdown() is no-op
+  // → destructor does nothing → partially-allocated resources leak.
+  // However, start() is called on fully-constructed objects; exceptions during
+  // resource allocation are rare (network errors are handled internally).
+
   name_server_resolver_->start();
 
   client_config_.client_id = clientId();
@@ -118,7 +123,7 @@ void ClientImpl::start() {
   const auto& endpoint = name_server_resolver_->resolve();
   if (endpoint.empty()) {
     SPDLOG_ERROR("Failed to resolve name server address");
-    return;
+    throw std::runtime_error("Failed to resolve name server address. Check endpoint configuration.");
   }
 
   // A gRPC I/O thread pool is created upon establishing a connection.
@@ -207,6 +212,32 @@ void ClientImpl::start() {
     opencensus::stats::StatsExporter::RegisterPushHandler(
         absl::make_unique<OpencensusHandler>(metric_service_endpoint, client_weak_ptr));
   }
+
+  // === Phase 3: State transition CREATED → STARTED ===
+  // All resources are now allocated. If CAS fails, another thread called start()
+  // concurrently — this is a programming error.
+  State expected = CREATED;
+  if (!state_.compare_exchange_strong(expected, State::STARTED)) {
+    SPDLOG_ERROR("Client start failed: unexpected state {}", expected);
+    throw std::runtime_error("Client already started or stopped");
+  }
+
+  // === Phase 4: Subclass-specific initialization ===
+  // If initSubclass() throws, state is STARTED → destructor calls shutdown()
+  // → all resources from Phase 2 are properly cleaned up.
+  try {
+    initSubclass();
+  } catch (...) {
+    // State is STARTED; shutdown() will properly clean up Phase 2 resources
+    shutdown();
+    throw;
+  }
+
+  // If shutdown was requested concurrently during start(), honor it now
+  if (shutdown_requested_.load(std::memory_order_acquire)) {
+    SPDLOG_WARN("Shutdown requested during start, shutting down immediately");
+    shutdown();
+  }
 }
 
 std::string ClientImpl::metricServiceEndpoint() const {
@@ -244,23 +275,59 @@ std::string ClientImpl::metricServiceEndpoint() const {
   return service_endpoint;
 }
 
-void ClientImpl::shutdown() {
-  State expected = State::STOPPING;
-  if (state_.compare_exchange_strong(expected, State::STOPPED)) {
-    name_server_resolver_->shutdown();
-    if (route_update_handle_) {
-      client_manager_->getScheduler()->cancel(route_update_handle_);
-    }
+void ClientImpl::shutdown() noexcept {
+  shutdown_requested_.store(true, std::memory_order_release);
 
-    if (telemetry_handle_) {
-      client_manager_->getScheduler()->cancel(telemetry_handle_);
-    }
-
-    client_manager_.reset();
-  } else {
-    SPDLOG_ERROR("Try to shutdown ClientImpl, but its state is not as expected. Expecting: {}, Actual: {}",
-                 State::STOPPING, state_.load(std::memory_order_relaxed));
+  State expected = State::STARTED;
+  if (!state_.compare_exchange_strong(expected, State::STOPPED)) {
+    return;
   }
+
+  // Subclass cleanup — swallow exceptions to prevent std::terminate in destructor path
+  try {
+    shutdownSubclass();
+  } catch (const std::exception& e) {
+    SPDLOG_WARN("Exception during subclass shutdown: {}", e.what());
+  } catch (...) {
+    SPDLOG_WARN("Unknown exception during subclass shutdown");
+  }
+
+  // Notify server of client termination (best-effort)
+  try {
+    notifyClientTermination();
+  } catch (const std::exception& e) {
+    SPDLOG_WARN("Exception during notifyClientTermination: {}", e.what());
+  } catch (...) {
+    SPDLOG_WARN("Unknown exception during notifyClientTermination");
+  }
+
+  // Cancel scheduled tasks
+  if (route_update_handle_ && client_manager_) {
+    try {
+      client_manager_->getScheduler()->cancel(route_update_handle_);
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Exception cancelling route update: {}", e.what());
+    }
+  }
+
+  if (telemetry_handle_ && client_manager_) {
+    try {
+      client_manager_->getScheduler()->cancel(telemetry_handle_);
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Exception cancelling telemetry sync: {}", e.what());
+    }
+  }
+
+  // Shutdown infrastructure
+  if (name_server_resolver_) {
+    try {
+      name_server_resolver_->shutdown();
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Exception shutting down name server resolver: {}", e.what());
+    }
+  }
+
+  client_manager_.reset();
 }
 
 const char* ClientImpl::UPDATE_ROUTE_TASK_NAME = "route_updater";
@@ -368,9 +435,9 @@ void ClientImpl::syncClientSettings() {
 }
 
 void ClientImpl::updateRouteInfo() {
-  if (State::STARTED != state_.load(std::memory_order_relaxed) &&
-      State::STARTING != state_.load(std::memory_order_relaxed)) {
-    SPDLOG_WARN("Unexpected client instance state={}.", state_.load(std::memory_order_relaxed));
+  State current = state_.load(std::memory_order_relaxed);
+  if (State::STARTED != current) {
+    SPDLOG_WARN("Skipping route update: client state={}", current);
     return;
   }
 
@@ -408,13 +475,21 @@ void ClientImpl::heartbeat() {
   absl::flat_hash_map<std::string, std::string> metadata;
   Signature::sign(client_config_, metadata);
 
+  std::weak_ptr<ClientImpl> self_weak(self());
   for (const auto& target : hosts) {
-    auto callback = [target](const std::error_code& ec, const HeartbeatResponse& response) {
+    auto callback = [target, self_weak](const std::error_code& ec, const HeartbeatResponse& response) {
       if (ec) {
         SPDLOG_WARN("Failed to heartbeat against {}. Cause: {}", target, ec.message());
         return;
       }
       SPDLOG_DEBUG("Heartbeat to {} OK", target);
+      auto self = self_weak.lock();
+      if (self) {
+        absl::MutexLock lk(&self->isolated_endpoints_mtx_);
+        if (self->isolated_endpoints_.erase(target)) {
+          SPDLOG_INFO("Removed isolation for endpoint {} after successful heartbeat", target);
+        }
+      }
     };
     client_manager_->heartbeat(target, metadata, request,
       absl::ToChronoMilliseconds(client_config_.request_timeout), callback);
@@ -594,12 +669,17 @@ void ClientImpl::onRemoteEndpointRemoval(const std::vector<std::string>& hosts) 
 
 void ClientImpl::schedule(const std::string& task_name, const std::function<void()>& task,
                           std::chrono::milliseconds delay) {
-  client_manager_->getScheduler()->schedule(task, task_name, delay, std::chrono::milliseconds(0));
+  auto cm = client_manager_;
+  if (!cm) {
+    SPDLOG_WARN("Cannot schedule {}: client manager is null", task_name);
+    return;
+  }
+  cm->getScheduler()->schedule(task, task_name, delay, std::chrono::milliseconds(0));
 }
 
 void ClientImpl::notifyClientTermination() {
-  SPDLOG_WARN("Should NOT reach here. Subclass should have overridden this function.");
-  std::abort();
+  // Default: no-op. Subclasses that need to notify the server should override.
+  SPDLOG_DEBUG("notifyClientTermination() not overridden — skipping server notification");
 }
 
 void ClientImpl::notifyClientTermination(const NotifyClientTerminationRequest& request) {

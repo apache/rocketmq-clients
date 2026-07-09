@@ -42,7 +42,9 @@ cc_test(
     srcs = [
         "ClientImplTest.cpp",
     ],
-    deps = base_deps,
+    deps = base_deps + [
+        "//source/rocketmq/mocks:rocketmq_mocks",
+    ],
 )
 
 cc_test(
@@ -75,4 +77,71 @@ cc_test(
         "PriorityMessageTest.cpp",
     ],
     deps = base_deps
+)
+
+cc_test(
+    name = "topic_publish_info_test",
+    srcs = [
+        "TopicPublishInfoTest.cpp",
+    ],
+    deps = base_deps,
+)
+
+cc_test(
+    name = "fifo_producer_partition_test",
+    srcs = [
+        "FifoProducerPartitionTest.cpp",
+    ],
+    deps = base_deps + [
+        "//source/rocketmq/mocks:rocketmq_mocks",
+    ],
+)
+cc_test(
+    name = "producer_impl_test",
+    srcs = [
+        "ProducerImplTest.cpp",
+    ],
+    deps = base_deps + [
+        "//source/rocketmq/mocks:rocketmq_mocks",
+    ],
+)
+
+cc_test(
+    name = "process_queue_impl_test",
+    srcs = [
+        "ProcessQueueImplTest.cpp",
+    ],
+    deps = base_deps + [
+        "//source/rocketmq/mocks:rocketmq_mocks",
+    ],
+)
+
+cc_test(
+    name = "consume_task_test",
+    srcs = [
+        "ConsumeTaskTest.cpp",
+    ],
+    deps = base_deps + [
+        "//source/rocketmq/mocks:rocketmq_mocks",
+    ],
+)
+
+cc_test(
+    name = "simple_consumer_impl_test",
+    srcs = [
+        "SimpleConsumerImplTest.cpp",
+    ],
+    deps = base_deps + [
+        "//source/rocketmq/mocks:rocketmq_mocks",
+    ],
+)
+
+cc_test(
+    name = "push_consumer_impl_test",
+    srcs = [
+        "PushConsumerImplTest.cpp",
+    ],
+    deps = base_deps + [
+        "//source/rocketmq/mocks:rocketmq_mocks",
+    ],
 )

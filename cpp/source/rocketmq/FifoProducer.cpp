@@ -20,6 +20,8 @@
 #include <cstddef>
 #include <memory>
 
+#include <spdlog/spdlog.h>
+
 #include "FifoProducerImpl.h"
 #include "ProducerImpl.h"
 #include "StaticNameServerResolver.h"
@@ -46,8 +48,8 @@ FifoProducerBuilder& FifoProducerBuilder::withConfiguration(Configuration config
   return *this;
 }
 
-FifoProducerBuilder& FifoProducerBuilder::withTopics(const std::vector<std::string>& topics) {
-  producer_impl_->withTopics(topics);
+FifoProducerBuilder& FifoProducerBuilder::withTopics(std::vector<std::string> topics) {
+  producer_impl_->withTopics(std::move(topics));
   return *this;
 }
 
@@ -66,8 +68,15 @@ void FifoProducer::start() {
   impl_->internalProducer()->start();
 }
 
-void FifoProducer::send(MessageConstPtr message, SendCallback callback) {
-  impl_->send(std::move(message), callback);
+void FifoProducer::send(MessageConstPtr message, SendCallback callback) noexcept {
+  try {
+    impl_->send(std::move(message), callback);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in FifoProducer::send: {}", e.what());
+    std::error_code ec = std::make_error_code(std::errc::io_error);
+    SendReceipt empty;
+    callback(ec, std::move(empty));
+  }
 }
 
 ROCKETMQ_NAMESPACE_END

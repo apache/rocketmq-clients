@@ -47,12 +47,17 @@ target_link_libraries(rocketmq_shared
         PUBLIC
             absl::base
             gRPC::grpc++
+            $<BUILD_INTERFACE:opencensus::trace>
+        PRIVATE
             fmt
             proto
-            opencensus::trace
             opencensus::stats
             opencensus_proto
             spdlog)
+target_include_directories(rocketmq_shared
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(VERSION_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${VERSION_SCRIPT}")
@@ -62,5 +67,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 set_target_properties(rocketmq_shared
         PROPERTIES
+            VERSION ${PROJECT_VERSION}
+            SOVERSION ${PROJECT_VERSION_MAJOR}
             LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
             LIBRARY_OUTPUT_NAME rocketmq)

@@ -54,9 +54,11 @@ public:
 
   void topicsOfInterest(std::vector<std::string> &topics) override LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
 
-  void start() override;
+  void validateBeforeStart() override;
 
-  void shutdown() override;
+  void initSubclass() override;
+
+  void shutdownSubclass() override;
 
   void subscribe(const std::string& topic,
                  const std::string& expression,

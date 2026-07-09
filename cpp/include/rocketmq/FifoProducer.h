@@ -35,7 +35,7 @@ class FifoProducer {
 public:
   static FifoProducerBuilder newBuilder();
 
-  void send(MessageConstPtr message, SendCallback callback);
+  void send(MessageConstPtr message, SendCallback callback) noexcept;
 
 private:
   std::shared_ptr<FifoProducerImpl> impl_;
@@ -54,7 +54,7 @@ public:
 
   FifoProducerBuilder& withConfiguration(Configuration configuration);
 
-  FifoProducerBuilder& withTopics(const std::vector<std::string>& topics);
+  FifoProducerBuilder& withTopics(std::vector<std::string> topics);
 
   FifoProducerBuilder& withConcurrency(std::size_t concurrency);
 

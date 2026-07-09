@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <memory>
 
 #include "Client.h"
@@ -97,7 +98,7 @@ private:
   std::string peer_address_;
   std::unique_ptr<rmq::MessagingService::Stub> stub_;
   std::chrono::milliseconds connect_timeout_{3000};
-  bool need_heartbeat_{true};
+  std::atomic<bool> need_heartbeat_{true};
 };
 
 using RpcClientSharedPtr = std::shared_ptr<RpcClient>;

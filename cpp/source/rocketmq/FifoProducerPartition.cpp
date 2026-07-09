@@ -56,19 +56,32 @@ void FifoProducerPartition::trySend() {
     SendCallback send_callback = ctx.callback;
 
     std::shared_ptr<FifoProducerPartition> partition = shared_from_this();
-    auto fifo_callback = [=](const std::error_code& ec, const SendReceipt& receipt) mutable {
-      partition->onComplete(ec, receipt, send_callback);
+    auto fifo_callback = [=](const std::error_code& ec, SendReceipt&& receipt) mutable {
+      partition->onComplete(ec, std::move(receipt), send_callback);
     };
     SPDLOG_DEBUG("Sending FIFO message from {}", name_);
-    producer_->send(std::move(message), fifo_callback);
-    messages_.pop_front();
+    try {
+      producer_->send(std::move(message), fifo_callback);
+      messages_.pop_front();
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Exception in FifoProducerPartition::trySend: {}", e.what());
+      // Message is lost (consumed by the throwing send call via unique_ptr move).
+      // Invoke user callback directly to avoid:
+      //   1) deadlock from fifo_callback -> onComplete trying to re-lock messages_mtx_
+      //   2) null deref from retrying with empty SendReceipt that has no message
+      messages_.pop_front();
+      std::error_code ec = std::make_error_code(std::errc::operation_canceled);
+      SendReceipt empty;
+      send_callback(ec, std::move(empty));
+      inflight_.store(false, std::memory_order_release);
+    }
     SPDLOG_DEBUG("In addition to the inflight one, there is {} messages pending in {}", messages_.size(), name_);
   } else {
     SPDLOG_DEBUG("There is an inflight message");
   }
 }
 
-void FifoProducerPartition::onComplete(const std::error_code& ec, const SendReceipt& receipt, SendCallback& callback) {
+void FifoProducerPartition::onComplete(const std::error_code& ec, SendReceipt&& receipt, SendCallback& callback) {
   if (ec) {
     SPDLOG_INFO("{} completed with a failure: {}", name_, ec.message());
   } else {
@@ -76,7 +89,7 @@ void FifoProducerPartition::onComplete(const std::error_code& ec, const SendRece
   }
 
   if (!ec) {
-    callback(ec, receipt);
+    callback(ec, std::move(receipt));
     // update inflight status
     bool expected = true;
     if (inflight_.compare_exchange_strong(expected, false, std::memory_order_relaxed)) {
@@ -88,8 +101,7 @@ void FifoProducerPartition::onComplete(const std::error_code& ec, const SendRece
   }
 
   // Put the message back to the front of the list.
-  // receipt is a local temporary in SendContext — const_cast + move is safe here.
-  FifoContext retry_context(std::move(const_cast<SendReceipt&>(receipt).message), callback);
+  FifoContext retry_context(std::move(receipt.message), callback);
   {
     absl::MutexLock lk(&messages_mtx_);
     messages_.emplace_front(std::move(retry_context));

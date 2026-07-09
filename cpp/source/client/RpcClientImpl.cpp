@@ -130,7 +130,11 @@ void RpcClientImpl::asyncRecallMessage(const RecallMessageRequest& request,
 }
 
 bool RpcClientImpl::ok() const {
-  return channel_ && grpc_connectivity_state::GRPC_CHANNEL_SHUTDOWN != channel_->GetState(false);
+  if (!channel_) {
+    return false;
+  }
+  auto state = channel_->GetState(false);
+  return state != grpc_connectivity_state::GRPC_CHANNEL_SHUTDOWN;
 }
 
 void RpcClientImpl::addMetadata(grpc::ClientContext& context,
