@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #include "Configuration.h"
 #include "CredentialsProvider.h"
@@ -36,9 +37,9 @@ class PushConsumer {
 public:
   static PushConsumerBuilder newBuilder();
 
-  void subscribe(std::string topic, FilterExpression filter_expression);
+  void subscribe(std::string topic, FilterExpression filter_expression) noexcept;
 
-  void unsubscribe(const std::string& topic);
+  void unsubscribe(const std::string& topic) noexcept;
 
 private:
   friend class PushConsumerBuilder;

@@ -47,7 +47,7 @@ public:
 
   void start() override;
 
-  void shutdown() override;
+  void shutdown() noexcept override;
 
   /**
    * Note we require application to transfer ownership of the message
@@ -128,7 +128,7 @@ public:
 
   void topicsOfInterest(std::vector<std::string> &topics) override LOCKS_EXCLUDED(topics_mtx_);
 
-  void withTopics(const std::vector<std::string> &topics) LOCKS_EXCLUDED(topics_mtx_);
+  void withTopics(std::vector<std::string> topics) LOCKS_EXCLUDED(topics_mtx_);
 
   const PublishStats& stats() const {
     return stats_;

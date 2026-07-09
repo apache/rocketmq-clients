@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
 
   std::unique_ptr<Semaphore> semaphore(new Semaphore(FLAGS_concurrency));
 
-  auto send_callback = [&](const std::error_code& ec, const SendReceipt& receipt) {
+  auto send_callback = [&](const std::error_code& ec, SendReceipt&& receipt) {
     std::unique_lock<std::mutex> lk(mtx);
     semaphore->release();
     completed++;

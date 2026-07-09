@@ -56,7 +56,7 @@ public:
 
   void start() override;
 
-  void shutdown() override;
+  void shutdown() noexcept override;
 
   void subscribe(const std::string& topic,
                  const std::string& expression,

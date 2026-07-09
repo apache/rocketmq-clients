@@ -47,10 +47,9 @@ public:
                (const std::function<void(const std::error_code&, const HeartbeatResponse&)>&)),
               (override));
 
-  MOCK_METHOD(std::shared_ptr<TelemetryBidiReactor>, telemetry, (const std::string&, std::weak_ptr<Client>),
-              (override));
+  MOCK_METHOD(std::shared_ptr<RpcClient>, getRpcClient, (const std::string&, bool), (override));
 
-  MOCK_METHOD(bool, wrapMessage, (const rmq::Message&, MessageExt&), (override));
+  MOCK_METHOD(MessageConstSharedPtr, wrapMessage, (const rmq::Message&), (override));
 
   MOCK_METHOD(void, ack,
               (const std::string&, const Metadata&, const AckMessageRequest&, std::chrono::milliseconds,
@@ -59,18 +58,23 @@ public:
 
   MOCK_METHOD(void, changeInvisibleDuration,
               (const std::string&, const Metadata&, const ChangeInvisibleDurationRequest&, std::chrono::milliseconds,
-               (const std::function<void(const std::error_code&)>&)),
+               (const std::function<void(const std::error_code&, const ChangeInvisibleDurationResponse&)>&)),
               (override));
 
   MOCK_METHOD(void, forwardMessageToDeadLetterQueue,
               (const std::string&, const Metadata&, const ForwardMessageToDeadLetterQueueRequest&,
                std::chrono::milliseconds,
-               (const std::function<void(const InvocationContext<ForwardMessageToDeadLetterQueueResponse>*)>&)),
+               (const std::function<void(const std::error_code&)>&)),
               (override));
 
   MOCK_METHOD(void, endTransaction,
               (const std::string&, const Metadata&, const EndTransactionRequest&, std::chrono::milliseconds,
                (const std::function<void(const std::error_code&, const EndTransactionResponse&)>&)),
+              (override));
+
+  MOCK_METHOD(void, recallMessage,
+              (const std::string&, const Metadata&, const RecallMessageRequest&, std::chrono::milliseconds,
+               (const std::function<void(const std::error_code&, const RecallMessageResponse&)>&)),
               (override));
 
   MOCK_METHOD(void, addClientObserver, (std::weak_ptr<Client>), (override));
@@ -85,7 +89,7 @@ public:
                ReceiveMessageCallback),
               (override));
 
-  MOCK_METHOD(bool, send, (const std::string&, const Metadata&, SendMessageRequest&, SendCallback), (override));
+  MOCK_METHOD(bool, send, (const std::string&, const Metadata&, SendMessageRequest&, SendResultCallback), (override));
 
   MOCK_METHOD(std::error_code, notifyClientTermination,
               (const std::string&, const Metadata&, const NotifyClientTerminationRequest&, std::chrono::milliseconds),
