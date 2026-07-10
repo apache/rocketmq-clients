@@ -17,6 +17,8 @@
 #include "TelemetryBidiReactor.h"
 #include "FmtEnumFormatter.h"
 
+#include <algorithm>
+#include <chrono>
 #include <memory>
 #include <utility>
 
@@ -37,6 +39,14 @@ TelemetryBidiReactor::TelemetryBidiReactor(std::weak_ptr<Client> client,
       peer_address_(std::move(peer_address)),
       state_(StreamState::Ready) {
   auto ptr = client_.lock();
+  if (!ptr) {
+    SPDLOG_WARN("Client already destructed when creating telemetry stream to {}", peer_address_);
+    {
+      absl::MutexLock lk(&state_mtx_);
+      state_ = StreamState::Closed;
+    }
+    return;
+  }
   auto deadline = std::chrono::system_clock::now() + std::chrono::hours(1);
   context_.set_deadline(deadline);
   Metadata metadata;
@@ -63,10 +73,26 @@ bool TelemetryBidiReactor::awaitApplyingSettings() {
       return true;
     }
   }
+
+  // Settings exchange failed — initiate proper stream closure.
+  // Transition to Closing (not directly to Closed) so that gRPC's OnDone
+  // callback fires normally and handles cleanup. Suppress reconnection
+  // since this is an intentional shutdown of a failed session.
+  intentional_close_.store(true, std::memory_order_release);
   {
     absl::MutexLock lk(&state_mtx_);
-    state_ = StreamState::Closed;
-    state_cv_.SignalAll();
+    if (state_ == StreamState::Ready) {
+      state_ = StreamState::Closing;
+    }
+  }
+  context_.TryCancel();
+
+  // Wait for OnDone to set state to Closed
+  {
+    absl::MutexLock lk(&state_mtx_);
+    while (state_ != StreamState::Closed) {
+      state_cv_.WaitWithTimeout(&state_mtx_, absl::Seconds(1));
+    }
   }
   return false;
 }
@@ -78,7 +104,12 @@ void TelemetryBidiReactor::OnWriteDone(bool ok) {
   RemoveHold();
 
   if (!ok) {
-    SPDLOG_WARN("Failed to write telemetry command {} to {}", writes_.front().ShortDebugString(), peer_address_);
+    {
+      absl::MutexLock lk(&writes_mtx_);
+      if (!writes_.empty()) {
+        SPDLOG_WARN("Failed to write telemetry command {} to {}", writes_.front().ShortDebugString(), peer_address_);
+      }
+    }
     signalClose();
     return;
   }
@@ -107,6 +138,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
   {
     absl::MutexLock lk(&state_mtx_);
     if (StreamState::Ready != state_) {
+      RemoveHold();
       return;
     }
   }
@@ -115,6 +147,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
   auto client = client_.lock();
   if (!client) {
     SPDLOG_INFO("Client for {} has destructed", peer_address_);
+    RemoveHold();
     signalClose();
     return;
   }
@@ -124,7 +157,10 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
       auto settings = read_.settings();
       SPDLOG_INFO("Receive settings from {}: {}", peer_address_, settings.ShortDebugString());
       applySettings(settings);
-      sync_settings_promise_.set_value(true);
+      bool expected = false;
+      if (settings_received_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+        sync_settings_promise_.set_value(true);
+      }
       break;
     }
 
@@ -175,6 +211,8 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
     if (StreamState::Ready == state_) {
       SPDLOG_DEBUG("Spawn new read op, state={}", static_cast<std::uint8_t>(state_));
       StartRead(&read_);
+    } else {
+      RemoveHold();
     }
   }
 }
@@ -281,7 +319,7 @@ void TelemetryBidiReactor::write(TelemetryCommand command) {
 
   {
     absl::MutexLock lk(&writes_mtx_);
-    writes_.push_back(command);
+    writes_.push_back(std::move(command));
   }
   tryWriteNext();
 }
@@ -317,7 +355,10 @@ void TelemetryBidiReactor::signalClose() {
 }
 
 void TelemetryBidiReactor::close() {
-  SPDLOG_DEBUG("{}#fireClose", peer_address_);
+  SPDLOG_DEBUG("{}#close", peer_address_);
+
+  // Mark as intentional close to suppress reconnection in OnDone
+  intentional_close_.store(true, std::memory_order_release);
 
   {
     absl::MutexLock lk(&state_mtx_);
@@ -326,19 +367,27 @@ void TelemetryBidiReactor::close() {
     }
   }
 
+  // Do NOT clear writes_ here — gRPC may hold raw pointers to elements in
+  // writes_ from a prior StartWrite(&writes_.front()). Clearing now would cause
+  // use-after-free when gRPC finishes the in-flight write.
+
+  context_.TryCancel();
+
+  // Wait for OnDone: all gRPC callbacks complete, all holds removed.
+  {
+    absl::MutexLock lk(&state_mtx_);
+    while (StreamState::Closed != state_) {
+      if (state_cv_.WaitWithTimeout(&state_mtx_, absl::Seconds(1))) {
+        SPDLOG_WARN("StreamState CondVar timed out before getting signalled: state={}",
+                    static_cast<uint8_t>(state_));
+      }
+    }
+  }
+
+  // Safe to clear now — gRPC has released all references to writes_ elements.
   {
     absl::MutexLock lk(&writes_mtx_);
     writes_.clear();
-  }
-  context_.TryCancel();
-
-  // Acquire state lock
-  while (StreamState::Closed != state_) {
-    absl::MutexLock lk(&state_mtx_);
-    if (state_cv_.WaitWithTimeout(&state_mtx_, absl::Seconds(1))) {
-      SPDLOG_WARN("StreamState CondVar timed out before getting signalled: state={}",
-                  static_cast<uint8_t>(state_));
-    }
   }
 }
 
@@ -366,8 +415,18 @@ void TelemetryBidiReactor::OnDone(const grpc::Status& status) {
     return;
   }
 
-  if (client->active()) {
-    client->createSession(peer_address_, true);
+  // Only reconnect if this was an unexpected disconnection, not an intentional close
+  if (client->active() && !intentional_close_.load(std::memory_order_acquire)) {
+    constexpr auto kReconnectDelay = std::chrono::seconds(1);
+    auto address = peer_address_;
+    auto weak_client = client_;  // client_ is already a weak_ptr member
+    client->schedule("session-reconnect", [weak_client, address]() {
+      auto c = weak_client.lock();
+      if (c && c->active()) {
+        c->createSession(address, true);
+      }
+    }, kReconnectDelay);
+    SPDLOG_INFO("Scheduled session reconnect to {} after {}ms", peer_address_, kReconnectDelay.count() * 1000);
   }
 }
 

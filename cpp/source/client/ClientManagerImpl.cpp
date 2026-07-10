@@ -90,12 +90,11 @@ ClientManagerImpl::~ClientManagerImpl() {
 }
 
 void ClientManagerImpl::start() {
-  if (State::CREATED != state_.load(std::memory_order_relaxed)) {
-    SPDLOG_WARN("Unexpected client instance state: {}", state_.load(std::memory_order_relaxed));
+  State expected = State::CREATED;
+  if (!state_.compare_exchange_strong(expected, State::STARTED)) {
+    SPDLOG_WARN("ClientManager start skipped: state={}", expected);
     return;
   }
-
-  state_.store(State::STARTING, std::memory_order_relaxed);
 
   callback_thread_pool_->start();
   scheduler_->start();
@@ -110,17 +109,14 @@ void ClientManagerImpl::start() {
   heartbeat_task_id_ = scheduler_->schedule(
       heartbeat_functor, HEARTBEAT_TASK_NAME, std::chrono::seconds(1), std::chrono::seconds(10));
   SPDLOG_DEBUG("Heartbeat task-id={}", heartbeat_task_id_);
-
-  state_.store(State::STARTED, std::memory_order_relaxed);
 }
 
 void ClientManagerImpl::shutdown() {
   SPDLOG_INFO("Client manager shutdown");
-  if (State::STARTED != state_.load(std::memory_order_relaxed)) {
-    SPDLOG_WARN("Unexpected client instance state: {}", state_.load(std::memory_order_relaxed));
+  State expected = State::STARTED;
+  if (!state_.compare_exchange_strong(expected, State::STOPPED)) {
     return;
   }
-  state_.store(STOPPING, std::memory_order_relaxed);
 
   callback_thread_pool_->shutdown();
 
@@ -136,7 +132,6 @@ void ClientManagerImpl::shutdown() {
     SPDLOG_DEBUG("rpc_clients_ is clear");
   }
 
-  state_.store(State::STOPPED, std::memory_order_relaxed);
   SPDLOG_DEBUG("ClientManager stopped");
 }
 
@@ -158,7 +153,18 @@ std::vector<std::string> ClientManagerImpl::cleanOfflineRpcClients() {
     absl::MutexLock lk(&rpc_clients_mtx_);
     for (auto it = rpc_clients_.begin(); it != rpc_clients_.end();) {
       std::string host = it->first;
-      if (it->second->needHeartbeat() && !hosts.contains(host)) {
+      auto& rpc_client = it->second;
+
+      if (!rpc_client->needHeartbeat()) {
+        // Non-heartbeat clients (e.g. name server) are only removed when their channel is dead
+        if (!rpc_client->ok()) {
+          SPDLOG_INFO("Removed RPC client for dead non-heartbeat peer. RemoteHost={}", host);
+          removed.push_back(host);
+          rpc_clients_.erase(it++);
+        } else {
+          it++;
+        }
+      } else if (!hosts.contains(host)) {
         SPDLOG_INFO("Removed RPC client whose peer is offline. RemoteHost={}", host);
         removed.push_back(host);
         rpc_clients_.erase(it++);
@@ -206,6 +212,7 @@ void ClientManagerImpl::heartbeat(const std::string& target_host,
       case rmq::Code::ILLEGAL_CONSUMER_GROUP: {
         SPDLOG_ERROR("IllegalConsumerGroup: {}. Host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::IllegalConsumerGroup;
+        cb(ec, invocation_context->response);
         break;
       }
 
@@ -260,9 +267,7 @@ void ClientManagerImpl::heartbeat(const std::string& target_host,
 }
 
 void ClientManagerImpl::doHeartbeat() {
-  if (State::STARTED != state_.load(std::memory_order_relaxed) &&
-      State::STARTING != state_.load(std::memory_order_relaxed)) {
-    SPDLOG_WARN("Unexpected client manager state={}.", state_.load(std::memory_order_relaxed));
+  if (State::STARTED != state_.load(std::memory_order_relaxed)) {
     return;
   }
 
@@ -275,6 +280,9 @@ void ClientManagerImpl::doHeartbeat() {
       }
     }
   }
+
+  // Periodically clean up stale RPC clients (including non-heartbeat name server clients)
+  cleanOfflineRpcClients();
 }
 
 bool ClientManagerImpl::send(const std::string& target_host,
@@ -302,7 +310,10 @@ bool ClientManagerImpl::send(const std::string& target_host,
     }
 
     if (State::STARTED != client_manager_ptr->state()) {
-      // TODO: Would this leak some memory?
+      SendResult send_result = {};
+      send_result.target = target_host;
+      send_result.ec = ErrorCode::IllegalState;
+      cb(send_result);
       return;
     }
 
@@ -1579,8 +1590,7 @@ std::error_code ClientManagerImpl::notifyClientTermination(const std::string& ta
 }
 
 void ClientManagerImpl::submit(std::function<void()> task) {
-  State current_state = state();
-  if (current_state == State::STOPPING || current_state == State::STOPPED) {
+  if (State::STARTED != state_.load(std::memory_order_relaxed)) {
     return;
   }
   callback_thread_pool_->submit(task);

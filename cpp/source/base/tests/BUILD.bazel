@@ -86,3 +86,38 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "naming_scheme_test",
+    srcs = [
+        "NamingSchemeTest.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "filter_expression_test",
+    srcs = [
+        "FilterExpressionTest.cpp",
+    ],
+    deps = base_deps,
+)
+
+cc_test(
+    name = "util_all_test",
+    srcs = [
+        "UtilAllTest.cpp",
+    ],
+    deps = base_deps,
+)
+
+cc_test(
+    name = "protocol_test",
+    srcs = [
+        "ProtocolTest.cpp",
+    ],
+    deps = base_deps,
+)

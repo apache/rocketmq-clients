@@ -11,7 +11,7 @@ The proto definitions are shared via the `protos/` git submodule at the reposito
 ## Prerequisites
 
 - C++ compiler supporting C++11
-- CMake 3.13+ or Bazel 5.2.0
+- CMake 3.16+ or Bazel 6.6.0
 - gRPC — RPC communication framework, also brings in protobuf (serialization), abseil (base library), and re2 (regex)
 - OpenSSL development headers — TLS encrypted communication
 - zlib development headers — message body compression
@@ -87,13 +87,36 @@ The proto definitions are shared via the `protos/` git submodule at the reposito
 
    | Option           | Default | Description                                          |
    | ---------------- | ------- | ---------------------------------------------------- |
-   | `BUILD_TESTS`    | ON      | Build unit tests (requires googletest, auto-fetched) |
+   | `BUILD_TESTS`    | OFF     | Build unit tests (requires googletest, auto-fetched) |
    | `BUILD_EXAMPLES` | ON      | Build example programs (requires gflags)             |
 
    To skip tests and examples:
 
    ```shell
    cmake -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF ..
+   ```
+
+6. Install (optional):
+
+   ```shell
+   # Install to /usr/local (default)
+   sudo cmake --install .
+
+   # Or install to a custom prefix
+   cmake --install . --prefix /opt/rocketmq
+   ```
+
+   After installation, downstream projects can use `find_package(rocketmq)` in their CMakeLists.txt:
+
+   ```cmake
+   find_package(rocketmq REQUIRED)
+   target_link_libraries(my_app PRIVATE rocketmq)
+   ```
+
+   To uninstall:
+
+   ```shell
+   sudo make uninstall
    ```
 
 ### Build with Bazel
@@ -144,36 +167,35 @@ genhtml bazel-out/_coverage/_coverage_report.dat \
 
 ## Run Examples
 
-All commands should run from the `cpp/` directory.
+Examples are built to `build/examples/` (CMake) or run directly via `bazel run` (Bazel).
 
 ### Publish messages
 
 ```shell
-# Standard messages (sync)
+# CMake (from build/examples/)
+./example_producer --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
+./example_producer_with_async --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
+./example_fifo_producer --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
+
+# Bazel (from cpp/)
 bazel run //examples:example_producer -- \
   --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
-
-# Standard messages (async)
 bazel run //examples:example_producer_with_async -- \
   --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
-
-# FIFO messages
 bazel run //examples:example_producer_with_fifo_message -- \
-  --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
-
-# Transactional messages
-bazel run //examples:example_producer_with_transactional_message -- \
   --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --total=16
 ```
 
 ### Consume messages
 
 ```shell
-# Push consumer (message listener)
+# CMake (from build/examples/)
+./example_push_consumer --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
+./example_simple_consumer --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
+
+# Bazel (from cpp/)
 bazel run //examples:example_push_consumer -- \
   --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
-
-# Simple consumer (pull-based)
 bazel run //examples:example_simple_consumer -- \
   --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
 ```
