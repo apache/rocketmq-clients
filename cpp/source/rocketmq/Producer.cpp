@@ -20,6 +20,8 @@
 #include <system_error>
 #include <utility>
 
+#include <spdlog/spdlog.h>
+
 #include "ProducerImpl.h"
 #include "StaticNameServerResolver.h"
 #include "rocketmq/ErrorCode.h"
@@ -34,42 +36,67 @@ void Producer::start() {
 }
 
 SendReceipt Producer::send(MessageConstPtr message, std::error_code& ec) noexcept {
-  if (!message) {
-    ec = ErrorCode::BadRequest;
+  try {
+    if (!message) {
+      ec = ErrorCode::BadRequest;
+      return {};
+    }
+
+    return impl_->send(std::move(message), ec);
+  } catch (const std::exception& e) {
+    ec = std::make_error_code(std::errc::io_error);
+    SPDLOG_ERROR("Exception in send: {}", e.what());
     return {};
   }
-
-  return impl_->send(std::move(message), ec);
 }
 
-void Producer::send(MessageConstPtr message, const SendCallback& callback) noexcept {
-  if (!message) {
-    std::error_code ec = ErrorCode::BadRequest;
-    SendReceipt send_receipt = {};
-    callback(ec, send_receipt);
-    return;
-  }
+void Producer::send(MessageConstPtr message, SendCallback callback) noexcept {
+  try {
+    if (!message) {
+      std::error_code ec = ErrorCode::BadRequest;
+      SendReceipt send_receipt = {};
+      callback(ec, std::move(send_receipt));
+      return;
+    }
 
-  if (!message->group().empty()) {
-    SendReceipt     empty;
-    std::error_code ec = ErrorCode::BadRequestAsyncPubFifoMessage;
-    callback(ec, empty);
-    return;
-  }
+    if (!message->group().empty()) {
+      SendReceipt     empty;
+      std::error_code ec = ErrorCode::BadRequestAsyncPubFifoMessage;
+      callback(ec, std::move(empty));
+      return;
+    }
 
-  impl_->send(std::move(message), callback);
+    impl_->send(std::move(message), callback);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in async send: {}", e.what());
+    std::error_code ec = std::make_error_code(std::errc::io_error);
+    SendReceipt empty;
+    callback(ec, std::move(empty));
+  }
 }
 
 std::unique_ptr<Transaction> Producer::beginTransaction() {
   return impl_->beginTransaction();
 }
 
-SendReceipt Producer::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
-  return impl_->send(std::move(message), ec, transaction);
+SendReceipt Producer::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) noexcept {
+  try {
+    return impl_->send(std::move(message), ec, transaction);
+  } catch (const std::exception& e) {
+    ec = std::make_error_code(std::errc::io_error);
+    SPDLOG_ERROR("Exception in transactional send: {}", e.what());
+    return {};
+  }
 }
 
 RecallReceipt Producer::recall(std::string& topic, std::string& recall_handle, std::error_code& ec) noexcept {
-  return impl_->recall(topic, recall_handle, ec);
+  try {
+    return impl_->recall(topic, recall_handle, ec);
+  } catch (const std::exception& e) {
+    ec = std::make_error_code(std::errc::io_error);
+    SPDLOG_ERROR("Exception in recall: {}", e.what());
+    return {};
+  }
 }
 
 ProducerBuilder Producer::newBuilder() {
@@ -78,7 +105,7 @@ ProducerBuilder Producer::newBuilder() {
 
 ProducerBuilder::ProducerBuilder() : impl_(std::make_shared<ProducerImpl>()){}
 
-ProducerBuilder& ProducerBuilder::withConfiguration(const Configuration& configuration) {
+ProducerBuilder& ProducerBuilder::withConfiguration(Configuration configuration) {
   auto name_server_resolver = std::make_shared<StaticNameServerResolver>(configuration.endpoints());
   impl_->withNameServerResolver(std::move(name_server_resolver));
   impl_->withResourceNamespace(configuration.resourceNamespace());
@@ -89,13 +116,13 @@ ProducerBuilder& ProducerBuilder::withConfiguration(const Configuration& configu
   return *this;
 }
 
-ProducerBuilder& ProducerBuilder::withTopics(const std::vector<std::string>& topics) {
-  impl_->withTopics(topics);
+ProducerBuilder& ProducerBuilder::withTopics(std::vector<std::string> topics) {
+  impl_->withTopics(std::move(topics));
   return *this;
 }
 
-ProducerBuilder& ProducerBuilder::withTransactionChecker(const TransactionChecker& checker) {
-  impl_->transaction_checker_ = checker;
+ProducerBuilder& ProducerBuilder::withTransactionChecker(TransactionChecker checker) {
+  impl_->transaction_checker_ = std::move(checker);
   return *this;
 }
 

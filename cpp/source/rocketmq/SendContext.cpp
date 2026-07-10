@@ -59,7 +59,7 @@ void SendContext::onSuccess(const SendResult& send_result) noexcept {
   send_receipt.transaction_id = send_result.transaction_id;
   send_receipt.recall_handle = send_result.recall_handle;
   send_receipt.message = std::move(message_);
-  callback_(send_result.ec, send_receipt);
+  callback_(send_result.ec, std::move(send_receipt));
 }
 
 void SendContext::onFailure(const std::error_code& ec) noexcept {
@@ -90,7 +90,7 @@ void SendContext::onFailure(const std::error_code& ec) noexcept {
     SPDLOG_WARN("Retried {} times, which exceeds the limit: {}", attempt_times_, producer->maxAttemptTimes());
     SendReceipt receipt{};
     receipt.message = std::move(message_);
-    callback_(ec, receipt);
+    callback_(ec, std::move(receipt));
     return;
   }
 
@@ -98,8 +98,17 @@ void SendContext::onFailure(const std::error_code& ec) noexcept {
     SPDLOG_WARN("No alternative hosts to perform additional retries");
     SendReceipt receipt{};
     receipt.message = std::move(message_);
-    callback_(ec, receipt);
+    callback_(ec, std::move(receipt));
     return;
+  }
+
+  // Isolate the failed endpoint to avoid retrying on the same broken broker
+  {
+    auto& failed_queue = candidates_[(attempt_times_ - 1) % candidates_.size()];
+    auto target = failed_queue.broker().endpoints().addresses(0).host() + ":" +
+                  std::to_string(failed_queue.broker().endpoints().addresses(0).port());
+    producer->isolateEndpoint(target);
+    SPDLOG_INFO("Isolated endpoint {} after send failure", target);
   }
 
   auto message_queue = candidates_[attempt_times_ % candidates_.size()];

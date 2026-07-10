@@ -22,7 +22,6 @@
 #include "rocketmq/FilterExpression.h"
 #include "rocketmq/SimpleConsumer.h"
 
-using namespace std::chrono;
 ROCKETMQ_NAMESPACE_BEGIN
 
 class SimpleConsumerImpl : virtual public ClientImpl, public std::enable_shared_from_this<SimpleConsumerImpl> {
@@ -41,7 +40,7 @@ public:
 
   void start() override;
 
-  void shutdown() override;
+  void shutdown() noexcept override;
 
   void subscribe(std::string topic, FilterExpression expression) LOCKS_EXCLUDED(subscriptions_mtx_);
 
@@ -55,7 +54,7 @@ public:
 
   void changeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                std::chrono::milliseconds duration,
-                               const ChangeInvisibleDurationCallback callback);
+                               ChangeInvisibleDurationCallback callback);
 
   void withReceiveMessageTimeout(std::chrono::milliseconds receive_timeout) {
     long_polling_duration_ = receive_timeout;

@@ -17,18 +17,28 @@
 #include <chrono>
 #include <memory>
 
+#include <spdlog/spdlog.h>
+
 #include "PushConsumerImpl.h"
 #include "StaticNameServerResolver.h"
 #include "rocketmq/PushConsumer.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-void PushConsumer::subscribe(std::string topic, FilterExpression filter_expression) {
-  impl_->subscribe(std::move(topic), filter_expression.content_, filter_expression.type_);
+void PushConsumer::subscribe(std::string topic, FilterExpression filter_expression) noexcept {
+  try {
+    impl_->subscribe(std::move(topic), filter_expression.content_, filter_expression.type_);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in subscribe: {}", e.what());
+  }
 }
 
-void PushConsumer::unsubscribe(const std::string& topic) {
-  impl_->unsubscribe(topic);
+void PushConsumer::unsubscribe(const std::string& topic) noexcept {
+  try {
+    impl_->unsubscribe(topic);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in unsubscribe: {}", e.what());
+  }
 }
 
 PushConsumerBuilder PushConsumer::newBuilder() {

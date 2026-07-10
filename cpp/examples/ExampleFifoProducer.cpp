@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
                          .withBody(body)
                          .build();
       std::error_code ec;
-      auto callback = [&](const std::error_code& ec, const SendReceipt& receipt) mutable {
+      auto callback = [&](const std::error_code& ec, SendReceipt&& receipt) mutable {
         completed++;
         count++;
         semaphore->release();

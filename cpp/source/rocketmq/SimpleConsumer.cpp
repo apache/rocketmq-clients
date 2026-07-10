@@ -17,6 +17,8 @@
 
 #include "rocketmq/SimpleConsumer.h"
 
+#include <spdlog/spdlog.h>
+
 #include "SimpleConsumerImpl.h"
 #include "StaticNameServerResolver.h"
 #include "rocketmq/ErrorCode.h"
@@ -37,92 +39,135 @@ void SimpleConsumer::start() {
   impl_->start();
 }
 
-void SimpleConsumer::subscribe(std::string topic, FilterExpression filter_expression) {
-  impl_->subscribe(topic, filter_expression);
+void SimpleConsumer::subscribe(std::string topic, FilterExpression filter_expression) noexcept {
+  try {
+    impl_->subscribe(topic, filter_expression);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in subscribe: {}", e.what());
+  }
 }
 
-void SimpleConsumer::unsubscribe(const std::string& topic) {
-  impl_->unsubscribe(topic);
+void SimpleConsumer::unsubscribe(const std::string& topic) noexcept {
+  try {
+    impl_->unsubscribe(topic);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in unsubscribe: {}", e.what());
+  }
 }
 
 void SimpleConsumer::receive(std::size_t limit,
                              std::chrono::milliseconds invisible_duration,
                              std::error_code& ec,
-                             std::vector<MessageConstSharedPtr>& messages) {
-  auto mtx = std::make_shared<absl::Mutex>();
-  auto cv = std::make_shared<absl::CondVar>();
-  bool completed = false;
-  auto callback = [&, mtx, cv](const std::error_code& code, const std::vector<MessageConstSharedPtr>& result) {
+                             std::vector<MessageConstSharedPtr>& messages) noexcept {
+  try {
+    auto mtx = std::make_shared<absl::Mutex>();
+    auto cv = std::make_shared<absl::CondVar>();
+    bool completed = false;
+    auto callback = [&, mtx, cv](const std::error_code& code, const std::vector<MessageConstSharedPtr>& result) {
+      {
+        absl::MutexLock lk(mtx.get());
+        if (code && code != ErrorCode::NoContent) {
+          ec = code;
+          SPDLOG_WARN("Failed to receive message. Cause: {}", code.message());
+        }
+        completed = true;
+        messages.insert(messages.end(), result.begin(), result.end());
+      }
+      cv->SignalAll();
+    };
+
+    impl_->receive(limit, invisible_duration, callback);
+
     {
       absl::MutexLock lk(mtx.get());
-      if (code && code != ErrorCode::NoContent) {
-        ec = code;
-        SPDLOG_WARN("Failed to receive message. Cause: {}", code.message());
+      while (!completed) {
+        cv->Wait(mtx.get());
       }
-      completed = true;
-      messages.insert(messages.end(), result.begin(), result.end());
     }
-    cv->SignalAll();
-  };
-
-  impl_->receive(limit, invisible_duration, callback);
-
-  {
-    absl::MutexLock lk(mtx.get());
-    while (!completed) {
-      cv->Wait(mtx.get());
-    }
+  } catch (const std::exception& e) {
+    ec = std::make_error_code(std::errc::io_error);
+    SPDLOG_ERROR("Exception in receive: {}", e.what());
   }
 }
 
 void SimpleConsumer::asyncReceive(std::size_t limit,
                                   std::chrono::milliseconds invisible_duration,
-                                  ReceiveCallback callback) {
-  impl_->receive(limit, invisible_duration, callback);
+                                  ReceiveCallback callback) noexcept {
+  try {
+    impl_->receive(limit, invisible_duration, callback);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in asyncReceive: {}", e.what());
+    std::error_code ec = std::make_error_code(std::errc::io_error);
+    std::vector<MessageConstSharedPtr> empty;
+    callback(ec, empty);
+  }
 }
 
-void SimpleConsumer::ack(const Message& message, std::error_code& ec) {
-  impl_->ack(message, ec);
+void SimpleConsumer::ack(const Message& message, std::error_code& ec) noexcept {
+  try {
+    impl_->ack(message, ec);
+  } catch (const std::exception& e) {
+    ec = std::make_error_code(std::errc::io_error);
+    SPDLOG_ERROR("Exception in ack: {}", e.what());
+  }
 }
 
-void SimpleConsumer::asyncAck(const Message& message, AckCallback callback) {
-  impl_->ackAsync(message, callback);
+void SimpleConsumer::asyncAck(const Message& message, AckCallback callback) noexcept {
+  try {
+    impl_->ackAsync(message, callback);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in asyncAck: {}", e.what());
+    std::error_code ec = std::make_error_code(std::errc::io_error);
+    callback(ec);
+  }
 }
 
 void SimpleConsumer::changeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                              std::chrono::milliseconds duration,
-                                             std::error_code& ec) {
-  auto mtx = std::make_shared<absl::Mutex>();
-  auto cv = std::make_shared<absl::CondVar>();
-  bool completed = false;
+                                             std::error_code& ec) noexcept {
+  try {
+    auto mtx = std::make_shared<absl::Mutex>();
+    auto cv = std::make_shared<absl::CondVar>();
+    bool completed = false;
 
-  auto callback =
-      [&, mtx, cv](const std::error_code& code, std::string& server_receipt_handle) {
+    auto callback =
+        [&, mtx, cv](const std::error_code& code, std::string& server_receipt_handle) {
+      {
+        absl::MutexLock lk(mtx.get());
+        completed = true;
+        ec = code;
+        if (!ec) {
+          receipt_handle = server_receipt_handle;
+        }
+      }
+      cv->Signal();
+    };
+
+    impl_->changeInvisibleDuration(message, receipt_handle, duration, callback);
+
     {
       absl::MutexLock lk(mtx.get());
-      completed = true;
-      ec = code;
-      if (!ec) {
-        receipt_handle = server_receipt_handle;
+      if (!completed) {
+        cv->Wait(mtx.get());
       }
     }
-    cv->Signal();
-  };
-
-  impl_->changeInvisibleDuration(message, receipt_handle, duration, callback);
-
-  {
-    absl::MutexLock lk(mtx.get());
-    if (!completed) {
-      cv->Wait(mtx.get());
-    }
+  } catch (const std::exception& e) {
+    ec = std::make_error_code(std::errc::io_error);
+    SPDLOG_ERROR("Exception in changeInvisibleDuration: {}", e.what());
   }
 }
 
 void SimpleConsumer::asyncChangeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                                   std::chrono::milliseconds duration,
-                                                  ChangeInvisibleDurationCallback callback) {
-  impl_->changeInvisibleDuration(message, receipt_handle, duration, callback);
+                                                  ChangeInvisibleDurationCallback callback) noexcept {
+  try {
+    impl_->changeInvisibleDuration(message, receipt_handle, duration, callback);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in asyncChangeInvisibleDuration: {}", e.what());
+    std::error_code ec = std::make_error_code(std::errc::io_error);
+    std::string handle;
+    callback(ec, handle);
+  }
 }
 
 SimpleConsumer SimpleConsumerBuilder::build() {

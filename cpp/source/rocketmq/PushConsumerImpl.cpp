@@ -54,18 +54,18 @@ void PushConsumerImpl::topicsOfInterest(std::vector<std::string> &topics) {
 }
 
 void PushConsumerImpl::start() {
-  ClientImpl::start();
-
-  State expecting = State::STARTING;
-  if (!state_.compare_exchange_strong(expecting, State::STARTED)) {
-    SPDLOG_ERROR("Unexpected consumer state. Expecting: {}, Actual: {}", State::STARTING,
-                 state_.load(std::memory_order_relaxed));
-    return;
-  }
-
   if (!message_listener_) {
     SPDLOG_ERROR("Required message listener is missing");
     abort();
+  }
+
+  ClientImpl::start();
+
+  State expected = State::CREATED;
+  if (!state_.compare_exchange_strong(expected, State::STARTED)) {
+    SPDLOG_ERROR("PushConsumer started with unexpected state. Expecting: {}, Actual: {}", State::CREATED,
+                 state_.load(std::memory_order_relaxed));
+    return;
   }
 
   client_config_.subscriber.group.set_resource_namespace(resourceNamespace());
@@ -109,36 +109,33 @@ void PushConsumerImpl::start() {
 const char* PushConsumerImpl::SCAN_ASSIGNMENT_TASK_NAME = "scan-assignment-task";
 const char* PushConsumerImpl::COLLECT_STATS_TASK_NAME = "collect-stats-task";
 
-void PushConsumerImpl::shutdown() {
-  State expecting = State::STARTED;
-  if (state_.compare_exchange_strong(expecting, State::STOPPING)) {
-    if (scan_assignment_handle_) {
-      client_manager_->getScheduler()->cancel(scan_assignment_handle_);
-      SPDLOG_DEBUG("Scan assignment periodic task cancelled");
-    }
-
-    if (collect_stats_handle_) {
-      client_manager_->getScheduler()->cancel(collect_stats_handle_);
-      SPDLOG_DEBUG("Collect cache stats periodic task cancelled");
-    }
-
-    {
-      absl::MutexLock lock(&process_queue_table_mtx_);
-      process_queue_table_.clear();
-    }
-
-    if (consume_message_service_) {
-      consume_message_service_->shutdown();
-    }
-
-    // Shutdown services started by parent
-    ClientImpl::shutdown();
-
-    SPDLOG_INFO("PushConsumerImpl stopped");
-  } else {
-    SPDLOG_ERROR("Shutdown with unexpected state. Expecting: {}, Actual: {}", State::STARTED,
-                 state_.load(std::memory_order_relaxed));
+void PushConsumerImpl::shutdown() noexcept {
+  State expected = State::STARTED;
+  if (!state_.compare_exchange_strong(expected, State::STOPPED)) {
+    return;
   }
+
+  if (scan_assignment_handle_) {
+    client_manager_->getScheduler()->cancel(scan_assignment_handle_);
+    SPDLOG_DEBUG("Scan assignment periodic task cancelled");
+  }
+
+  if (collect_stats_handle_) {
+    client_manager_->getScheduler()->cancel(collect_stats_handle_);
+    SPDLOG_DEBUG("Collect cache stats periodic task cancelled");
+  }
+
+  {
+    absl::MutexLock lock(&process_queue_table_mtx_);
+    process_queue_table_.clear();
+  }
+
+  if (consume_message_service_) {
+    consume_message_service_->shutdown();
+  }
+
+  ClientImpl::shutdown();
+  SPDLOG_INFO("PushConsumerImpl stopped");
 }
 
 void PushConsumerImpl::subscribe(const std::string& topic, const std::string& expression,

@@ -62,11 +62,11 @@ public:
    * @param message  Message to send. Note the pointer, std::unique_ptr<const Message>, is 'moved' into.
    * @param callback Callback to execute on completion.
    */
-  void send(MessageConstPtr message, const SendCallback& callback) noexcept;
+  void send(MessageConstPtr message, SendCallback callback) noexcept;
 
   std::unique_ptr<Transaction> beginTransaction();
 
-  SendReceipt send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
+  SendReceipt send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) noexcept;
 
   /**
    * @brief Attempts to cancel a scheduled message based on the provided topic and recall handle.
@@ -94,11 +94,11 @@ class ProducerBuilder {
 public:
   ProducerBuilder();
 
-  ProducerBuilder& withConfiguration(const Configuration& configuration);
+  ProducerBuilder& withConfiguration(Configuration configuration);
 
-  ProducerBuilder& withTopics(const std::vector<std::string>& topics);
+  ProducerBuilder& withTopics(std::vector<std::string> topics);
 
-  ProducerBuilder& withTransactionChecker(const TransactionChecker& checker);
+  ProducerBuilder& withTransactionChecker(TransactionChecker checker);
 
   Producer build();
 

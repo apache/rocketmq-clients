@@ -45,26 +45,26 @@ class SimpleConsumer {
 public:
   static SimpleConsumerBuilder newBuilder();
 
-  void subscribe(std::string topic, FilterExpression filter_expression);
+  void subscribe(std::string topic, FilterExpression filter_expression) noexcept;
 
-  void unsubscribe(const std::string& topic);
+  void unsubscribe(const std::string& topic) noexcept;
 
   void receive(std::size_t limit,
                std::chrono::milliseconds invisible_duration,
                std::error_code& ec,
-               std::vector<MessageConstSharedPtr>& messages);
+               std::vector<MessageConstSharedPtr>& messages) noexcept;
 
-  void asyncReceive(std::size_t limit, std::chrono::milliseconds invisible_duration, ReceiveCallback callback);
+  void asyncReceive(std::size_t limit, std::chrono::milliseconds invisible_duration, ReceiveCallback callback) noexcept;
 
-  void ack(const Message& message, std::error_code& ec);
+  void ack(const Message& message, std::error_code& ec) noexcept;
 
-  void asyncAck(const Message& message, AckCallback callback);
+  void asyncAck(const Message& message, AckCallback callback) noexcept;
 
-  void changeInvisibleDuration(const Message& message, std::string& receipt_handle, std::chrono::milliseconds duration, std::error_code& ec);
+  void changeInvisibleDuration(const Message& message, std::string& receipt_handle, std::chrono::milliseconds duration, std::error_code& ec) noexcept;
 
   void asyncChangeInvisibleDuration(const Message& message, std::string& receipt_handle,
                                     std::chrono::milliseconds duration,
-                                    ChangeInvisibleDurationCallback callback);
+                                    ChangeInvisibleDurationCallback callback) noexcept;
 
 private:
   std::shared_ptr<SimpleConsumerImpl> impl_;
