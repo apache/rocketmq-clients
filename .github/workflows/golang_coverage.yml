@@ -12,17 +12,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up Golang ${{ matrix.go }}
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
       - name: Generate coverage report
         working-directory: ./golang
         run: go test -coverprofile coverage.out
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
+          token: ${{ secrets.CODECOV_ACTION_KEY }}
           file: ./golang/coverage.out
           flags: golang
           fail_ci_if_error: true
