@@ -36,13 +36,22 @@ import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 public class PublishingMessageImpl extends MessageImpl {
     private final MessageId messageId;
     private final MessageType messageType;
+    private final Encoding encoding;
+    private final byte[] transportBody;
 
     public PublishingMessageImpl(Message message, PublishingSettings publishingSettings, boolean txEnabled)
         throws IOException {
         super(message);
-        final int length = message.getBody().remaining();
+        // Compress the message body if it reaches the compression threshold.
+        if (body.length >= publishingSettings.getCompressBodyThresholdBytes()) {
+            this.encoding = Encoding.GZIP;
+            this.transportBody = Utilities.compressBytesGZIP(body);
+        } else {
+            this.encoding = Encoding.IDENTITY;
+            this.transportBody = body;
+        }
         final int maxBodySizeBytes = publishingSettings.getMaxBodySizeBytes();
-        if (length > maxBodySizeBytes) {
+        if (transportBody.length > maxBodySizeBytes) {
             throw new IOException("Message body size exceeds the threshold, max size=" + maxBodySizeBytes + " bytes");
         }
         // Generate message id.
@@ -114,7 +123,7 @@ public class PublishingMessageImpl extends MessageImpl {
                 // Born host
                 .setBornHost(Utilities.hostName())
                 // Body encoding
-                .setBodyEncoding(Encoding.toProtobuf(Encoding.IDENTITY))
+                .setBodyEncoding(Encoding.toProtobuf(encoding))
                 // Queue id
                 .setQueueId(mq.getQueueId())
                 // Message type
@@ -136,7 +145,7 @@ public class PublishingMessageImpl extends MessageImpl {
             // Topic
             .setTopic(topicResource)
             // Message body
-            .setBody(ByteString.copyFrom(getBody()))
+            .setBody(ByteString.copyFrom(transportBody))
             // System properties
             .setSystemProperties(systemProperties)
             // User properties

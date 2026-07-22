@@ -45,6 +45,10 @@ public class PublishingSettings extends Settings {
      */
     private volatile int maxBodySizeBytes = 4 * 1024 * 1024;
     private volatile boolean validateMessageType = true;
+    /**
+     * If message body size reaches this threshold, it is compressed with GZIP before sending. Disabled by default.
+     */
+    private volatile int compressBodyThresholdBytes = Integer.MAX_VALUE;
 
     public PublishingSettings(String namespace, ClientId clientId, Endpoints accessPoint,
         ExponentialBackoffRetryPolicy retryPolicy, Duration requestTimeout, Set<String> topics,
@@ -55,6 +59,14 @@ public class PublishingSettings extends Settings {
 
     public int getMaxBodySizeBytes() {
         return maxBodySizeBytes;
+    }
+
+    public int getCompressBodyThresholdBytes() {
+        return compressBodyThresholdBytes;
+    }
+
+    public void setCompressBodyThresholdBytes(int compressBodyThresholdBytes) {
+        this.compressBodyThresholdBytes = compressBodyThresholdBytes;
     }
 
     public boolean isValidateMessageType() {

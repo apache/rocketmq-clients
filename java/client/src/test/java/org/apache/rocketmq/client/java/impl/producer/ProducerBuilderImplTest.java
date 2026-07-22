@@ -76,6 +76,18 @@ public class ProducerBuilderImplTest {
         builder.setTransactionChecker(messageView -> TransactionResolution.COMMIT);
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetNegativeCompressBodyThresholdBytes() {
+        final ProducerBuilderImpl builder = new ProducerBuilderImpl();
+        builder.setCompressBodyThresholdBytes(-1);
+    }
+
+    @Test
+    public void testSetCompressBodyThresholdBytes() {
+        final ProducerBuilderImpl builder = new ProducerBuilderImpl();
+        builder.setCompressBodyThresholdBytes(4096);
+    }
+
     @Test(expected = NullPointerException.class)
     public void testBuildWithoutClientConfiguration() {
         final ProducerBuilderImpl builder = new ProducerBuilderImpl();
