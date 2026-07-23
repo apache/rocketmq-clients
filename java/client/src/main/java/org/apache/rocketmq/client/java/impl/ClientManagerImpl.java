@@ -279,14 +279,12 @@ public class ClientManagerImpl extends ClientManager {
         final AtomicLong previousRecoveryNanoTime = heartbeatRecoveryNanoTime.putIfAbsent(
             endpoints, recoveryNanoTime);
         if (null != previousRecoveryNanoTime) {
-            while (true) {
-                final long previous = previousRecoveryNanoTime.get();
-                if (now - previous < HEART_BEAT_RECOVERY_COOLDOWN.toNanos()) {
-                    return;
-                }
-                if (previousRecoveryNanoTime.compareAndSet(previous, now)) {
-                    break;
-                }
+            final long previous = previousRecoveryNanoTime.get();
+            if (now - previous < HEART_BEAT_RECOVERY_COOLDOWN.toNanos()) {
+                return;
+            }
+            if (!previousRecoveryNanoTime.compareAndSet(previous, now)) {
+                return;
             }
         }
         log.warn("Try to recover transport after heartbeat failure, endpoints={}, statusCode={}, clientId={}",
