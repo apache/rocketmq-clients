@@ -46,6 +46,7 @@ import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.ClientInterceptor;
+import io.grpc.ConnectivityState;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
@@ -125,6 +126,11 @@ public class RpcClientImpl implements RpcClient {
     @Override
     public void enterIdle() {
         channel.enterIdle();
+    }
+
+    @Override
+    public ConnectivityState getState(boolean requestConnection) {
+        return channel.getState(requestConnection);
     }
 
     @Override

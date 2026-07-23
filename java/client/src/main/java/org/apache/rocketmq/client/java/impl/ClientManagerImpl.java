@@ -47,6 +47,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.grpc.ConnectivityState;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -253,7 +254,10 @@ public class ClientManagerImpl extends ClientManager {
             public void onFailure(Throwable t) {
                 final Status.Code code = Status.fromThrowable(t).getCode();
                 if (Status.Code.UNAVAILABLE == code) {
-                    recoverTransport(endpoints, rpcClient, code);
+                    heartbeatFailureAttempts.remove(endpoints);
+                    if (ConnectivityState.READY == rpcClient.getState(false)) {
+                        recoverTransport(endpoints, rpcClient, code);
+                    }
                     return;
                 }
                 if (Status.Code.DEADLINE_EXCEEDED != code) {

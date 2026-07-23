@@ -31,6 +31,7 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
 import com.google.common.util.concurrent.Futures;
+import io.grpc.ConnectivityState;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import java.time.Duration;
@@ -191,11 +192,28 @@ public class ClientManagerImplTest extends TestBase {
     public void testHeartbeatUnavailableTriggersRecoveryImmediately() {
         final ClientManagerImpl clientManager = createClientManager();
         final RpcClient rpcClient = Mockito.mock(RpcClient.class);
+        Mockito.when(rpcClient.getState(false)).thenReturn(ConnectivityState.READY);
 
         clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
             Futures.immediateFailedFuture(Status.UNAVAILABLE.asRuntimeException()));
 
         Mockito.verify(rpcClient, Mockito.times(1)).enterIdle();
+    }
+
+    @Test
+    public void testHeartbeatUnavailableDoesNotRecoverNonReadyChannel() {
+        final ClientManagerImpl clientManager = createClientManager();
+        final RpcClient rpcClient = Mockito.mock(RpcClient.class);
+        Mockito.when(rpcClient.getState(false)).thenReturn(ConnectivityState.TRANSIENT_FAILURE);
+
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFailedFuture(Status.DEADLINE_EXCEEDED.asRuntimeException()));
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFailedFuture(Status.UNAVAILABLE.asRuntimeException()));
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFailedFuture(Status.DEADLINE_EXCEEDED.asRuntimeException()));
+
+        Mockito.verify(rpcClient, Mockito.never()).enterIdle();
     }
 
     @Test
