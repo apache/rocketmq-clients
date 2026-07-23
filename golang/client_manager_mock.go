@@ -268,3 +268,15 @@ func (mr *MockClientManagerMockRecorder) UnRegisterClient(client interface{}) *g
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnRegisterClient", reflect.TypeOf((*MockClientManager)(nil).UnRegisterClient), client)
 }
+
+// shutdown mocks base method.
+func (m *MockClientManager) shutdown() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "shutdown")
+}
+
+// shutdown indicates an expected call of shutdown.
+func (mr *MockClientManagerMockRecorder) shutdown() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "shutdown", reflect.TypeOf((*MockClientManager)(nil).shutdown))
+}

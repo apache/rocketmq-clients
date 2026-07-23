@@ -19,6 +19,7 @@ package golang
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -46,57 +47,113 @@ var (
 	clientIdTag, _         = tag.NewKey("client_id")
 	invocationStatusTag, _ = tag.NewKey("invocation_status")
 	consumerGroupTag, _    = tag.NewKey("consumer_group")
-
-	PublishMLatencyMs         = stats.Int64("publish_latency", "Publish latency in milliseconds", "ms")
-	ConsumeDeliveryMLatencyMs = stats.Int64("delivery_latency", "Time spent delivering messages from servers to clients", "ms")
-	ConsumeAwaitMLatencyMs    = stats.Int64("await_time", "Client side queuing time of messages before getting processed", "ms")
-	ConsumeProcessMLatencyMs  = stats.Int64("process_time", "Process message time", "ms")
-
-	PublishLatencyView = view.View{
-		Name:        "rocketmq_send_cost_time",
-		Description: "Publish latency",
-		Measure:     PublishMLatencyMs,
-		Aggregation: view.Distribution(1, 5, 10, 20, 50, 200, 500),
-		TagKeys:     []tag.Key{topicTag, clientIdTag, invocationStatusTag},
-	}
-
-	ConsumeDeliveryLatencyView = view.View{
-		Name:        "rocketmq_delivery_latency",
-		Description: "Message delivery latency",
-		Measure:     ConsumeDeliveryMLatencyMs,
-		Aggregation: view.Distribution(1, 5, 10, 20, 50, 200, 500),
-		TagKeys:     []tag.Key{topicTag, clientIdTag, consumerGroupTag},
-	}
-
-	ConsumeAwaitTimeView = view.View{
-		Name:        "rocketmq_await_time",
-		Description: "Message await time",
-		Measure:     ConsumeAwaitMLatencyMs,
-		Aggregation: view.Distribution(1, 5, 20, 100, 1000, 5000, 10000),
-		TagKeys:     []tag.Key{topicTag, clientIdTag, consumerGroupTag},
-	}
-
-	ConsumeProcessTimeView = view.View{
-		Name:        "rocketmq_process_time",
-		Description: "Message process time",
-		Measure:     ConsumeProcessMLatencyMs,
-		Aggregation: view.Distribution(1, 5, 10, 100, 1000, 10000, 60000),
-		TagKeys:     []tag.Key{topicTag, clientIdTag, consumerGroupTag, invocationStatusTag},
-	}
 )
 
-func init() {
-	if err := view.Register(&PublishLatencyView, &ConsumeDeliveryLatencyView, &ConsumeAwaitTimeView, &ConsumeProcessTimeView); err != nil {
-		sugarBaseLogger.Fatalf("failed to register views: %v", err)
-	}
-	view.SetReportingPeriod(time.Minute)
-}
+type meterType int
+
+const (
+	meterPublishLatency meterType = iota
+	meterDeliveryLatency
+	meterAwaitTime
+	meterProcessTime
+)
 
 type defaultClientMeter struct {
 	enabled     atomic.Bool
 	endpoints   *v2.Endpoints
 	ocaExporter view.Exporter
 	mutex       sync.Mutex
+
+	meter           view.Meter
+	publishMeasure  *stats.Int64Measure
+	deliveryMeasure *stats.Int64Measure
+	awaitMeasure    *stats.Int64Measure
+	processMeasure  *stats.Int64Measure
+	registeredViews []*view.View
+}
+
+func newDefaultClientMeter(enabled bool, exporter view.Exporter, endpoints *v2.Endpoints, clientID string) *defaultClientMeter {
+	dcm := &defaultClientMeter{
+		enabled:     *atomic.NewBool(enabled),
+		endpoints:   endpoints,
+		ocaExporter: exporter,
+	}
+	if enabled {
+		dcm.initPerClientResources(clientID)
+	}
+	return dcm
+}
+
+func (dcm *defaultClientMeter) initPerClientResources(clientID string) {
+	dcm.meter = view.NewMeter()
+
+	prefix := fmt.Sprintf("rocketmq_%s", clientID)
+	dcm.publishMeasure = stats.Int64(prefix+"_publish_latency", "Publish latency in milliseconds", "ms")
+	dcm.deliveryMeasure = stats.Int64(prefix+"_delivery_latency", "Time spent delivering messages from servers to clients", "ms")
+	dcm.awaitMeasure = stats.Int64(prefix+"_await_time", "Client side queuing time of messages before getting processed", "ms")
+	dcm.processMeasure = stats.Int64(prefix+"_process_time", "Process message time", "ms")
+
+	dcm.registeredViews = []*view.View{
+		{
+			Name:        "rocketmq_send_cost_time",
+			Description: "Publish latency",
+			Measure:     dcm.publishMeasure,
+			Aggregation: view.Distribution(1, 5, 10, 20, 50, 200, 500),
+			TagKeys:     []tag.Key{topicTag, clientIdTag, invocationStatusTag},
+		},
+		{
+			Name:        "rocketmq_delivery_latency",
+			Description: "Message delivery latency",
+			Measure:     dcm.deliveryMeasure,
+			Aggregation: view.Distribution(1, 5, 10, 20, 50, 200, 500),
+			TagKeys:     []tag.Key{topicTag, clientIdTag, consumerGroupTag},
+		},
+		{
+			Name:        "rocketmq_await_time",
+			Description: "Message await time",
+			Measure:     dcm.awaitMeasure,
+			Aggregation: view.Distribution(1, 5, 20, 100, 1000, 5000, 10000),
+			TagKeys:     []tag.Key{topicTag, clientIdTag, consumerGroupTag},
+		},
+		{
+			Name:        "rocketmq_process_time",
+			Description: "Message process time",
+			Measure:     dcm.processMeasure,
+			Aggregation: view.Distribution(1, 5, 10, 100, 1000, 10000, 60000),
+			TagKeys:     []tag.Key{topicTag, clientIdTag, consumerGroupTag, invocationStatusTag},
+		},
+	}
+
+	dcm.meter.Start()
+	if err := dcm.meter.Register(dcm.registeredViews...); err != nil {
+		sugarBaseLogger.Errorf("failed to register per-client views: %v", err)
+	}
+}
+
+func (dcm *defaultClientMeter) record(mt meterType, mutators []tag.Mutator, val int64) {
+	if !dcm.enabled.Load() || dcm.meter == nil {
+		return
+	}
+	var measure *stats.Int64Measure
+	switch mt {
+	case meterPublishLatency:
+		measure = dcm.publishMeasure
+	case meterDeliveryLatency:
+		measure = dcm.deliveryMeasure
+	case meterAwaitTime:
+		measure = dcm.awaitMeasure
+	case meterProcessTime:
+		measure = dcm.processMeasure
+	default:
+		return
+	}
+	ctx, err := tag.New(context.Background(), mutators...)
+	if err != nil {
+		sugarBaseLogger.Errorf("failed to create tag map: %v", err)
+		return
+	}
+	tagMap := tag.FromContext(ctx)
+	dcm.meter.Record(tagMap, []stats.Measurement{measure.M(val)}, nil)
 }
 
 func (dcm *defaultClientMeter) shutdown() {
@@ -105,31 +162,38 @@ func (dcm *defaultClientMeter) shutdown() {
 	}
 	dcm.mutex.Lock()
 	defer dcm.mutex.Unlock()
-	view.UnregisterExporter(dcm.ocaExporter)
+
+	if dcm.meter != nil {
+		if dcm.ocaExporter != nil {
+			dcm.meter.UnregisterExporter(dcm.ocaExporter)
+		}
+		dcm.meter.Unregister(dcm.registeredViews...)
+		dcm.meter.Stop()
+		dcm.meter = nil
+	}
+
 	if dcm.ocaExporter != nil {
-		exporter, ok := dcm.ocaExporter.(*ocagent.Exporter)
-		if ok {
-			err := exporter.Stop()
-			if err != nil {
+		if exporter, ok := dcm.ocaExporter.(*ocagent.Exporter); ok {
+			if err := exporter.Stop(); err != nil {
 				sugarBaseLogger.Errorf("ocExporter stop failed, err=%w", err)
 			}
 		}
+		dcm.ocaExporter = nil
 	}
+	dcm.enabled.Store(false)
 }
 
 func (dcm *defaultClientMeter) start() {
 	if !dcm.enabled.Load() {
 		return
 	}
-	view.RegisterExporter(dcm.ocaExporter)
+	if dcm.meter != nil && dcm.ocaExporter != nil {
+		dcm.meter.RegisterExporter(dcm.ocaExporter)
+	}
 }
 
 var NewDefaultClientMeter = func(exporter view.Exporter, on bool, endpoints *v2.Endpoints, clientID string) *defaultClientMeter {
-	return &defaultClientMeter{
-		enabled:     *atomic.NewBool(on),
-		endpoints:   endpoints,
-		ocaExporter: exporter,
-	}
+	return newDefaultClientMeter(on, exporter, endpoints, clientID)
 }
 
 type MessageMeterInterceptor interface {
@@ -145,6 +209,7 @@ type ClientMeterProvider interface {
 	isEnabled() bool
 	getClientID() string
 	getClientImpl() isClient
+	record(mt meterType, tags []tag.Mutator, val int64)
 }
 
 var _ = ClientMeterProvider(&defaultClientMeterProvider{})
@@ -153,6 +218,10 @@ type defaultClientMeterProvider struct {
 	client      Client
 	clientMeter *defaultClientMeter
 	globalMutex sync.Mutex
+}
+
+func (dcmp *defaultClientMeterProvider) record(mt meterType, tags []tag.Mutator, val int64) {
+	dcmp.clientMeter.record(mt, tags, val)
 }
 
 func (dcmp *defaultClientMeterProvider) getClientImpl() isClient {
@@ -195,10 +264,9 @@ func (dmmi *defaultMessageMeterInterceptor) doBeforeConsumeMessage(messageCommon
 			continue
 		}
 		duration := time.Since(*messageCommon.decodeStopwatch)
-		err := stats.RecordWithTags(context.Background(), []tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, dmmi.clientMeterProvider.getClientID()), tag.Insert(consumerGroupTag, consumerGroup)}, ConsumeAwaitMLatencyMs.M(duration.Milliseconds()))
-		if err != nil {
-			return err
-		}
+		dmmi.clientMeterProvider.record(meterAwaitTime,
+			[]tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, clientId), tag.Insert(consumerGroupTag, consumerGroup)},
+			duration.Milliseconds())
 	}
 
 	return nil
@@ -230,10 +298,9 @@ func (dmmi *defaultMessageMeterInterceptor) doAfterConsumeMessage(messageCommons
 		invocationStatus = InvocationStatus_SUCCESS
 	}
 	for _, messageCommon := range messageCommons {
-		err := stats.RecordWithTags(context.Background(), []tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, dmmi.clientMeterProvider.getClientID()), tag.Insert(consumerGroupTag, consumerGroup), tag.Insert(invocationStatusTag, string(invocationStatus))}, ConsumeProcessMLatencyMs.M(duration.Milliseconds()))
-		if err != nil {
-			return err
-		}
+		dmmi.clientMeterProvider.record(meterProcessTime,
+			[]tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, clientId), tag.Insert(consumerGroupTag, consumerGroup), tag.Insert(invocationStatusTag, string(invocationStatus))},
+			duration.Milliseconds())
 	}
 
 	return nil
@@ -265,10 +332,9 @@ func (dmmi *defaultMessageMeterInterceptor) doAfterReceiveMessage(messageCommons
 			continue
 		}
 		latency := time.Since(*messageCommon.deliveryTimestamp)
-		err := stats.RecordWithTags(context.Background(), []tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, dmmi.clientMeterProvider.getClientID()), tag.Insert(consumerGroupTag, consumerGroup)}, ConsumeDeliveryMLatencyMs.M(latency.Milliseconds()))
-		if err != nil {
-			return err
-		}
+		dmmi.clientMeterProvider.record(meterDeliveryLatency,
+			[]tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, clientId), tag.Insert(consumerGroupTag, consumerGroup)},
+			latency.Milliseconds())
 	}
 
 	return nil
@@ -292,11 +358,11 @@ func (dmmi *defaultMessageMeterInterceptor) doAfterSendMessage(messageCommons []
 	if status == MessageHookPointsStatus_OK {
 		invocationStatus = InvocationStatus_SUCCESS
 	}
+	clientId := dmmi.clientMeterProvider.getClientID()
 	for _, messageCommon := range messageCommons {
-		err := stats.RecordWithTags(context.Background(), []tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, dmmi.clientMeterProvider.getClientID()), tag.Insert(invocationStatusTag, string(invocationStatus))}, PublishMLatencyMs.M(duration.Milliseconds()))
-		if err != nil {
-			return err
-		}
+		dmmi.clientMeterProvider.record(meterPublishLatency,
+			[]tag.Mutator{tag.Insert(topicTag, messageCommon.topic), tag.Insert(clientIdTag, clientId), tag.Insert(invocationStatusTag, string(invocationStatus))},
+			duration.Milliseconds())
 	}
 	return nil
 }

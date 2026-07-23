@@ -181,6 +181,8 @@ func (m *mockedClientManager) RecallMessage(ctx context.Context, endpoints *v2.E
 	return nil, nil
 }
 
+func (m *mockedClientManager) shutdown() {}
+
 func TestLitePushConsumer_SubscribeLite(t *testing.T) {
 	setupTest(t)
 	defer teardownTest()
