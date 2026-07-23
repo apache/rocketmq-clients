@@ -65,7 +65,8 @@ public class PublishingSettings extends Settings {
         return compressBodyThresholdBytes;
     }
 
-    public void setCompressBodyThresholdBytes(int compressBodyThresholdBytes) {
+    // Client-only setting: configured via ProducerBuilder and never synced from the server, see sync().
+    void setCompressBodyThresholdBytes(int compressBodyThresholdBytes) {
         this.compressBodyThresholdBytes = compressBodyThresholdBytes;
     }
 

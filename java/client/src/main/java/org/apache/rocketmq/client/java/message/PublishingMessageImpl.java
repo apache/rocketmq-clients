@@ -42,14 +42,20 @@ public class PublishingMessageImpl extends MessageImpl {
     public PublishingMessageImpl(Message message, PublishingSettings publishingSettings, boolean txEnabled)
         throws IOException {
         super(message);
-        // Compress the message body if it reaches the compression threshold.
+        // Compress the message body if it reaches the compression threshold. Fall back to the
+        // original body when compression does not reduce the size (e.g. already-compressed or
+        // encrypted payloads), which avoids inflating the transport body.
+        byte[] candidateBody = body;
+        Encoding candidateEncoding = Encoding.IDENTITY;
         if (body.length >= publishingSettings.getCompressBodyThresholdBytes()) {
-            this.encoding = Encoding.GZIP;
-            this.transportBody = Utilities.compressBytesGZIP(body);
-        } else {
-            this.encoding = Encoding.IDENTITY;
-            this.transportBody = body;
+            final byte[] compressedBody = Utilities.compressBytesGZIP(body);
+            if (compressedBody.length < body.length) {
+                candidateBody = compressedBody;
+                candidateEncoding = Encoding.GZIP;
+            }
         }
+        this.encoding = candidateEncoding;
+        this.transportBody = candidateBody;
         final int maxBodySizeBytes = publishingSettings.getMaxBodySizeBytes();
         if (transportBody.length > maxBodySizeBytes) {
             throw new IOException("Message body size exceeds the threshold, max size=" + maxBodySizeBytes + " bytes");

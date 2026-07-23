@@ -24,8 +24,10 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Random;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.java.impl.producer.PublishingSettings;
+import org.apache.rocketmq.client.java.impl.producer.PublishingSettingsTestHelper;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -53,7 +55,7 @@ public class PublishingMessageImplTest extends TestBase {
         Arrays.fill(body, (byte) 'x');
         final Message message = new MessageBuilderImpl().setTopic(topic).setBody(body).build();
         final PublishingSettings settings = fakeProducerSettings();
-        settings.setCompressBodyThresholdBytes(1024);
+        PublishingSettingsTestHelper.setCompressBodyThresholdBytes(settings, 1024);
         final PublishingMessageImpl publishingMessage = new PublishingMessageImpl(message, settings, false);
         final MessageQueueImpl mq = fakeMessageQueueImpl(topic);
         final apache.rocketmq.v2.Message pb = publishingMessage.toProtobuf(FAKE_NAMESPACE, mq);
@@ -69,11 +71,73 @@ public class PublishingMessageImplTest extends TestBase {
         byte[] body = "foobar".getBytes(StandardCharsets.UTF_8);
         final Message message = new MessageBuilderImpl().setTopic(topic).setBody(body).build();
         final PublishingSettings settings = fakeProducerSettings();
-        settings.setCompressBodyThresholdBytes(1024);
+        PublishingSettingsTestHelper.setCompressBodyThresholdBytes(settings, 1024);
         final PublishingMessageImpl publishingMessage = new PublishingMessageImpl(message, settings, false);
         final MessageQueueImpl mq = fakeMessageQueueImpl(topic);
         final apache.rocketmq.v2.Message pb = publishingMessage.toProtobuf(FAKE_NAMESPACE, mq);
         assertEquals(apache.rocketmq.v2.Encoding.IDENTITY, pb.getSystemProperties().getBodyEncoding());
         assertArrayEquals(body, pb.getBody().toByteArray());
+    }
+
+    @Test
+    public void testBodyCompressedAtExactThreshold() throws IOException {
+        String topic = "testTopic";
+        byte[] body = new byte[1024];
+        Arrays.fill(body, (byte) 'x');
+        final Message message = new MessageBuilderImpl().setTopic(topic).setBody(body).build();
+        final PublishingSettings settings = fakeProducerSettings();
+        PublishingSettingsTestHelper.setCompressBodyThresholdBytes(settings, 1024);
+        final PublishingMessageImpl publishingMessage = new PublishingMessageImpl(message, settings, false);
+        final MessageQueueImpl mq = fakeMessageQueueImpl(topic);
+        final apache.rocketmq.v2.Message pb = publishingMessage.toProtobuf(FAKE_NAMESPACE, mq);
+        assertEquals(apache.rocketmq.v2.Encoding.GZIP, pb.getSystemProperties().getBodyEncoding());
+        assertArrayEquals(body, Utilities.decompressBytes(pb.getBody().toByteArray()));
+    }
+
+    @Test
+    public void testBodyNotCompressedWhenGzipInflates() throws IOException {
+        String topic = "testTopic";
+        // Incompressible pseudo-random body: GZIP output is larger than the input,
+        // so the implementation must fall back to the identity encoding.
+        byte[] body = new byte[4096];
+        new Random(42).nextBytes(body);
+        final Message message = new MessageBuilderImpl().setTopic(topic).setBody(body).build();
+        final PublishingSettings settings = fakeProducerSettings();
+        PublishingSettingsTestHelper.setCompressBodyThresholdBytes(settings, 1024);
+        final PublishingMessageImpl publishingMessage = new PublishingMessageImpl(message, settings, false);
+        final MessageQueueImpl mq = fakeMessageQueueImpl(topic);
+        final apache.rocketmq.v2.Message pb = publishingMessage.toProtobuf(FAKE_NAMESPACE, mq);
+        assertEquals(apache.rocketmq.v2.Encoding.IDENTITY, pb.getSystemProperties().getBodyEncoding());
+        assertArrayEquals(body, pb.getBody().toByteArray());
+    }
+
+    @Test(expected = IOException.class)
+    public void testIncompressibleBodyExceedingMaxSizeRejected() throws IOException {
+        String topic = "testTopic";
+        // Larger than the default 4 MiB limit and incompressible: the transport body
+        // stays over the limit after the compression fallback, so it must be rejected.
+        byte[] body = new byte[5 * 1024 * 1024];
+        new Random(42).nextBytes(body);
+        final Message message = new MessageBuilderImpl().setTopic(topic).setBody(body).build();
+        final PublishingSettings settings = fakeProducerSettings();
+        PublishingSettingsTestHelper.setCompressBodyThresholdBytes(settings, 1024);
+        new PublishingMessageImpl(message, settings, false);
+    }
+
+    @Test
+    public void testCompressibleBodyOverMaxSizeAcceptedWhenCompressedFits() throws IOException {
+        String topic = "testTopic";
+        // Original body exceeds the 4 MiB limit, but the compressed body fits: the
+        // limit is validated against the transport (compressed) body by design.
+        byte[] body = new byte[5 * 1024 * 1024];
+        Arrays.fill(body, (byte) 'x');
+        final Message message = new MessageBuilderImpl().setTopic(topic).setBody(body).build();
+        final PublishingSettings settings = fakeProducerSettings();
+        PublishingSettingsTestHelper.setCompressBodyThresholdBytes(settings, 1024);
+        final PublishingMessageImpl publishingMessage = new PublishingMessageImpl(message, settings, false);
+        final MessageQueueImpl mq = fakeMessageQueueImpl(topic);
+        final apache.rocketmq.v2.Message pb = publishingMessage.toProtobuf(FAKE_NAMESPACE, mq);
+        assertEquals(apache.rocketmq.v2.Encoding.GZIP, pb.getSystemProperties().getBodyEncoding());
+        assertArrayEquals(body, Utilities.decompressBytes(pb.getBody().toByteArray()));
     }
 }
