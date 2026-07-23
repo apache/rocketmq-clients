@@ -70,6 +70,11 @@ public interface RpcClient {
     void shutdown() throws InterruptedException;
 
     /**
+     * Move the channel into idle mode so that new RPCs create a new transport.
+     */
+    void enterIdle();
+
+    /**
      * Query topic route asynchronously.
      *
      * @param metadata gRPC request header metadata.

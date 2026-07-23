@@ -123,6 +123,11 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
+    public void enterIdle() {
+        channel.enterIdle();
+    }
+
+    @Override
     public ListenableFuture<QueryRouteResponse> queryRoute(Metadata metadata,
         QueryRouteRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();

@@ -42,9 +42,13 @@ import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
 import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
 import apache.rocketmq.v2.TelemetryCommand;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.grpc.Metadata;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.time.Duration;
@@ -52,12 +56,15 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
@@ -94,6 +101,9 @@ public class ClientManagerImpl extends ClientManager {
     public static final Duration SYNC_SETTINGS_DELAY = Duration.ofSeconds(1);
     public static final Duration SYNC_SETTINGS_PERIOD = Duration.ofMinutes(5);
 
+    static final int HEART_BEAT_FAILURE_THRESHOLD = 2;
+    static final Duration HEART_BEAT_RECOVERY_COOLDOWN = Duration.ofSeconds(30);
+
     private static final Logger log = LoggerFactory.getLogger(ClientManagerImpl.class);
 
     private final Client client;
@@ -101,6 +111,8 @@ public class ClientManagerImpl extends ClientManager {
     @GuardedBy("rpcClientTableLock")
     private final Map<Endpoints, RpcClient> rpcClientTable;
     private final ReadWriteLock rpcClientTableLock;
+    private final ConcurrentMap<Endpoints, Integer> heartbeatFailureAttempts;
+    private final ConcurrentMap<Endpoints, AtomicLong> heartbeatRecoveryNanoTime;
 
     /**
      * In charge of all scheduled tasks.
@@ -116,6 +128,8 @@ public class ClientManagerImpl extends ClientManager {
         this.client = client;
         this.rpcClientTable = new HashMap<>();
         this.rpcClientTableLock = new ReentrantReadWriteLock();
+        this.heartbeatFailureAttempts = new ConcurrentHashMap<>();
+        this.heartbeatRecoveryNanoTime = new ConcurrentHashMap<>();
         final long clientIndex = client.getClientId().getIndex();
         this.scheduler = new ScheduledThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
@@ -148,6 +162,8 @@ public class ClientManagerImpl extends ClientManager {
                 final Duration idleDuration = rpcClient.idleDuration();
                 if (idleDuration.compareTo(RPC_CLIENT_MAX_IDLE_DURATION) > 0) {
                     it.remove();
+                    heartbeatFailureAttempts.remove(endpoints);
+                    heartbeatRecoveryNanoTime.remove(endpoints);
                     rpcClient.shutdown();
                     log.info("Rpc client has been idle for a long time, endpoints={}, idleDuration={}, " +
                             "rpcClientMaxIdleDuration={}, clientId={}", endpoints, idleDuration,
@@ -219,9 +235,63 @@ public class ClientManagerImpl extends ClientManager {
             final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             ListenableFuture<HeartbeatResponse> future = rpcClient.heartbeat(metadata, request, asyncWorker, duration);
+            monitorHeartbeat(endpoints, rpcClient, future);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
             return new RpcFuture<>(t);
+        }
+    }
+
+    void monitorHeartbeat(Endpoints endpoints, RpcClient rpcClient, ListenableFuture<HeartbeatResponse> future) {
+        Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
+            @Override
+            public void onSuccess(HeartbeatResponse result) {
+                heartbeatFailureAttempts.remove(endpoints);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                final Status.Code code = Status.fromThrowable(t).getCode();
+                if (Status.Code.UNAVAILABLE == code) {
+                    recoverTransport(endpoints, rpcClient, code);
+                    return;
+                }
+                if (Status.Code.DEADLINE_EXCEEDED != code) {
+                    heartbeatFailureAttempts.remove(endpoints);
+                    return;
+                }
+                final int attempts = heartbeatFailureAttempts.merge(endpoints, 1, Integer::sum);
+                if (attempts >= HEART_BEAT_FAILURE_THRESHOLD) {
+                    recoverTransport(endpoints, rpcClient, code);
+                }
+            }
+        }, MoreExecutors.directExecutor());
+    }
+
+    private void recoverTransport(Endpoints endpoints, RpcClient rpcClient, Status.Code code) {
+        heartbeatFailureAttempts.remove(endpoints);
+        final long now = System.nanoTime();
+        final AtomicLong recoveryNanoTime = new AtomicLong(now);
+        final AtomicLong previousRecoveryNanoTime = heartbeatRecoveryNanoTime.putIfAbsent(
+            endpoints, recoveryNanoTime);
+        if (null != previousRecoveryNanoTime) {
+            while (true) {
+                final long previous = previousRecoveryNanoTime.get();
+                if (now - previous < HEART_BEAT_RECOVERY_COOLDOWN.toNanos()) {
+                    return;
+                }
+                if (previousRecoveryNanoTime.compareAndSet(previous, now)) {
+                    break;
+                }
+            }
+        }
+        log.warn("Try to recover transport after heartbeat failure, endpoints={}, statusCode={}, clientId={}",
+            endpoints, code, client.getClientId());
+        try {
+            rpcClient.enterIdle();
+        } catch (RuntimeException e) {
+            log.warn("Failed to recover transport, endpoints={}, statusCode={}, clientId={}",
+                endpoints, code, client.getClientId(), e);
         }
     }
 

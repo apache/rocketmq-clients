@@ -22,6 +22,7 @@ import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.EndTransactionRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.HeartbeatRequest;
+import apache.rocketmq.v2.HeartbeatResponse;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryRouteRequest;
@@ -29,9 +30,12 @@ import apache.rocketmq.v2.RecallMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
+import com.google.common.util.concurrent.Futures;
 import io.grpc.Metadata;
+import io.grpc.Status;
 import java.time.Duration;
 import org.apache.rocketmq.client.java.misc.ClientId;
+import org.apache.rocketmq.client.java.rpc.RpcClient;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -152,6 +156,76 @@ public class ClientManagerImplTest extends TestBase {
         CLIENT_MANAGER.syncLiteSubscription(fakeEndpoints(), request, Duration.ofSeconds(1));
         CLIENT_MANAGER.syncLiteSubscription(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
+    }
+
+    @Test
+    public void testHeartbeatDeadlineExceededTriggersRecoveryAfterThreshold() {
+        final ClientManagerImpl clientManager = createClientManager();
+        final RpcClient rpcClient = Mockito.mock(RpcClient.class);
+
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFailedFuture(Status.DEADLINE_EXCEEDED.asRuntimeException()));
+        Mockito.verify(rpcClient, Mockito.never()).enterIdle();
+
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFailedFuture(Status.DEADLINE_EXCEEDED.asRuntimeException()));
+        Mockito.verify(rpcClient, Mockito.times(1)).enterIdle();
+    }
+
+    @Test
+    public void testHeartbeatSuccessResetsFailureAttempts() {
+        final ClientManagerImpl clientManager = createClientManager();
+        final RpcClient rpcClient = Mockito.mock(RpcClient.class);
+
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFailedFuture(Status.DEADLINE_EXCEEDED.asRuntimeException()));
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFuture(HeartbeatResponse.getDefaultInstance()));
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFailedFuture(Status.DEADLINE_EXCEEDED.asRuntimeException()));
+
+        Mockito.verify(rpcClient, Mockito.never()).enterIdle();
+    }
+
+    @Test
+    public void testHeartbeatUnavailableTriggersRecoveryImmediately() {
+        final ClientManagerImpl clientManager = createClientManager();
+        final RpcClient rpcClient = Mockito.mock(RpcClient.class);
+
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFailedFuture(Status.UNAVAILABLE.asRuntimeException()));
+
+        Mockito.verify(rpcClient, Mockito.times(1)).enterIdle();
+    }
+
+    @Test
+    public void testHeartbeatResourceExhaustedDoesNotTriggerRecovery() {
+        final ClientManagerImpl clientManager = createClientManager();
+        final RpcClient rpcClient = Mockito.mock(RpcClient.class);
+
+        clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+            Futures.immediateFailedFuture(Status.RESOURCE_EXHAUSTED.asRuntimeException()));
+
+        Mockito.verify(rpcClient, Mockito.never()).enterIdle();
+    }
+
+    @Test
+    public void testHeartbeatRecoveryHasCooldown() {
+        final ClientManagerImpl clientManager = createClientManager();
+        final RpcClient rpcClient = Mockito.mock(RpcClient.class);
+
+        for (int i = 0; i < 2 * ClientManagerImpl.HEART_BEAT_FAILURE_THRESHOLD; i++) {
+            clientManager.monitorHeartbeat(fakeEndpoints(), rpcClient,
+                Futures.immediateFailedFuture(Status.DEADLINE_EXCEEDED.asRuntimeException()));
+        }
+
+        Mockito.verify(rpcClient, Mockito.times(1)).enterIdle();
+    }
+
+    private ClientManagerImpl createClientManager() {
+        final Client client = Mockito.mock(Client.class);
+        Mockito.when(client.getClientId()).thenReturn(FAKE_CLIENT_ID);
+        return new ClientManagerImpl(client);
     }
 
 }
