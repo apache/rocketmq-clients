@@ -46,6 +46,7 @@ type ClientManager interface {
 	ForwardMessageToDeadLetterQueue(ctx context.Context, endpoints *v2.Endpoints, request *v2.ForwardMessageToDeadLetterQueueRequest, duration time.Duration) (*v2.ForwardMessageToDeadLetterQueueResponse, error)
 	SyncLiteSubscription(ctx context.Context, endpoints *v2.Endpoints, request *v2.SyncLiteSubscriptionRequest, duration time.Duration) (*v2.SyncLiteSubscriptionResponse, error)
 	RecallMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.RecallMessageRequest, duration time.Duration) (*v2.RecallMessageResponse, error)
+	shutdown()
 }
 
 type clientManagerOptions struct {

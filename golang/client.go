@@ -181,10 +181,12 @@ func (cs *defaultClientSession) handleTelemetryCommand(response *v2.TelemetryCom
 func (cs *defaultClientSession) release() {
 	cs.observerLock.Lock()
 	defer cs.observerLock.Unlock()
-	if err := cs.observer.CloseSend(); err != nil {
-		cs.cli.log.Errorf("release defaultClientSession err=%v", err)
+	if cs.observer != nil {
+		if err := cs.observer.CloseSend(); err != nil {
+			cs.cli.log.Errorf("release defaultClientSession err=%v", err)
+		}
+		cs.observer = nil
 	}
-	cs.observer = nil
 }
 func (cs *defaultClientSession) publish(ctx context.Context, common *v2.TelemetryCommand) error {
 	var err error
@@ -646,8 +648,14 @@ func (cli *defaultClient) GracefulStop() error {
 		return fmt.Errorf("client has been closed")
 	}
 	cli.notifyClientTermination()
+	cli.endpointsTelemetryClientsLock.Lock()
+	for _, session := range cli.endpointsTelemetryClientTable {
+		session.release()
+	}
+	cli.endpointsTelemetryClientTable = make(map[string]*defaultClientSession)
+	cli.endpointsTelemetryClientsLock.Unlock()
 	if cli.clientManager != nil {
-		cli.clientManager.UnRegisterClient(cli)
+		cli.clientManager.shutdown()
 	}
 	cli.done <- struct{}{}
 	close(cli.done)
