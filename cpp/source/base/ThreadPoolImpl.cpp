@@ -88,6 +88,21 @@ void ThreadPoolImpl::shutdown() {
   }
 }
 
+void ThreadPoolImpl::gracefulShutdown() {
+  State expected = State::STARTED;
+  if (state_.compare_exchange_strong(expected, State::STOPPING, std::memory_order_relaxed)) {
+    // Release work guard so io_context::run() returns once all pending handlers complete.
+    // Do NOT call context_.stop() — let queued tasks drain naturally.
+    work_guard_->reset();
+    for (auto& thread : threads_) {
+      if (thread.joinable()) {
+        thread.join();
+      }
+    }
+    state_.store(State::STOPPED, std::memory_order_relaxed);
+  }
+}
+
 void ThreadPoolImpl::submit(std::function<void()> task) {
   if (State::STARTED == state_.load(std::memory_order_relaxed)) {
     asio::post(context_, task);

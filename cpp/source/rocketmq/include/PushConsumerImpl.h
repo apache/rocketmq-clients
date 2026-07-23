@@ -128,6 +128,22 @@ public:
   // only for test
   std::size_t getProcessQueueTableSize() LOCKS_EXCLUDED(process_queue_table_mtx_);
 
+  /**
+   * Number of in-flight receive message requests. Used during graceful
+   * shutdown to wait for all pending receives to complete.
+   */
+  int64_t inflightReceiveRequestCount() const {
+    return inflight_receive_requests_.load(std::memory_order_acquire);
+  }
+
+  void incrementInflightReceiveRequests() {
+    inflight_receive_requests_.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void decrementInflightReceiveRequests() {
+    inflight_receive_requests_.fetch_sub(1, std::memory_order_relaxed);
+  }
+
   void setCustomExecutor(const Executor& executor) {
     custom_executor_ = executor;
   }
@@ -215,6 +231,23 @@ private:
   ConsumeStats stats_;
   std::uintptr_t collect_stats_handle_{0};
   static const char* COLLECT_STATS_TASK_NAME;
+
+  /**
+   * Tracks the number of in-flight receive message gRPC requests.
+   * Incremented before sending a receive request, decremented when the
+   * response callback fires.
+   */
+  std::atomic<int64_t> inflight_receive_requests_{0};
+
+  /**
+   * Wait until all in-flight receive requests complete or timeout.
+   */
+  void awaitInflightReceiveRequests();
+
+  /**
+   * Wait until all cached messages in process queues are consumed or timeout.
+   */
+  void awaitCachedMessagesDrained() LOCKS_EXCLUDED(process_queue_table_mtx_);
 
   void fetchRoutes() LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
 

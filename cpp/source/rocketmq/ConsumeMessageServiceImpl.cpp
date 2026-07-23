@@ -54,6 +54,14 @@ void ConsumeMessageServiceImpl::shutdown() {
   }
 }
 
+void ConsumeMessageServiceImpl::gracefulShutdown() {
+  State expected = State::STARTED;
+  if (state_.compare_exchange_strong(expected, State::STOPPING, std::memory_order_relaxed)) {
+    pool_->gracefulShutdown();
+    state_.store(State::STOPPED, std::memory_order_relaxed);
+  }
+}
+
 State ConsumeMessageServiceImpl::state() const {
   return state_.load(std::memory_order_relaxed);
 }

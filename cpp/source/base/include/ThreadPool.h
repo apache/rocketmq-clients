@@ -30,6 +30,13 @@ public:
 
   virtual void shutdown() = 0;
 
+  /**
+   * Gracefully shutdown: stop accepting new tasks, wait for all pending tasks
+   * to complete, then join worker threads. Unlike shutdown(), this does NOT
+   * forcefully stop the io_context.
+   */
+  virtual void gracefulShutdown() = 0;
+
   virtual void submit(std::function<void(void)> task) = 0;
 };
 

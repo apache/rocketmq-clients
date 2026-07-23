@@ -42,6 +42,8 @@ public:
 
   void shutdown() override;
 
+  void gracefulShutdown() override;
+
   void submit(std::function<void(void)> task) override;
 
 private:

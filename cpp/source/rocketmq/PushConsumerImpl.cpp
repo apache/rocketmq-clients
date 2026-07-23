@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <string>
 #include <system_error>
+#include <thread>
 
 #include "AsyncReceiveMessageCallback.h"
 #include "ConsumeMessageServiceImpl.h"
@@ -115,6 +116,9 @@ void PushConsumerImpl::shutdown() noexcept {
     return;
   }
 
+  SPDLOG_INFO("Begin to shutdown the rocketmq push consumer, clientId={}", client_config_.client_id);
+
+  // Step 1: Cancel periodic tasks so no new receive requests or process queues are created.
   if (scan_assignment_handle_) {
     client_manager_->getScheduler()->cancel(scan_assignment_handle_);
     SPDLOG_DEBUG("Scan assignment periodic task cancelled");
@@ -125,17 +129,77 @@ void PushConsumerImpl::shutdown() noexcept {
     SPDLOG_DEBUG("Collect cache stats periodic task cancelled");
   }
 
+  // Step 2: Wait for all in-flight receive requests to complete.
+  SPDLOG_INFO("Waiting for inflight receive requests to finish, clientId={}", client_config_.client_id);
+  awaitInflightReceiveRequests();
+
+  // Step 3: Wait for cached messages in process queues to be consumed.
+  SPDLOG_INFO("Waiting for cached messages to be consumed, clientId={}", client_config_.client_id);
+  awaitCachedMessagesDrained();
+
+  // Step 4: Gracefully shutdown the consume message service so queued tasks drain instead of being cancelled.
+  SPDLOG_INFO("Begin to shutdown consumption executor, clientId={}", client_config_.client_id);
+  if (consume_message_service_) {
+    consume_message_service_->gracefulShutdown();
+  }
+
+  // Step 5: Grace period for async ack/nack requests to complete before closing the connection.
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+
+  // Step 6: Clear process queues and shutdown client infrastructure.
   {
     absl::MutexLock lock(&process_queue_table_mtx_);
     process_queue_table_.clear();
   }
 
-  if (consume_message_service_) {
-    consume_message_service_->shutdown();
+  ClientImpl::shutdown();
+  SPDLOG_INFO("Shutdown the rocketmq push consumer successfully, clientId={}", client_config_.client_id);
+}
+
+void PushConsumerImpl::awaitInflightReceiveRequests() {
+  auto max_waiting_time = client_config_.request_timeout + client_config_.subscriber.polling_timeout;
+  auto deadline = std::chrono::steady_clock::now()
+      + std::chrono::milliseconds(absl::ToInt64Milliseconds(max_waiting_time));
+
+  while (inflight_receive_requests_.load(std::memory_order_acquire) > 0) {
+    if (std::chrono::steady_clock::now() > deadline) {
+      SPDLOG_WARN("Timeout waiting for inflight receive requests to finish. Remaining={}, clientId={}",
+                  inflight_receive_requests_.load(std::memory_order_relaxed), client_config_.client_id);
+      return;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  ClientImpl::shutdown();
-  SPDLOG_INFO("PushConsumerImpl stopped");
+  SPDLOG_INFO("All inflight receive requests finished, clientId={}", client_config_.client_id);
+}
+
+void PushConsumerImpl::awaitCachedMessagesDrained() {
+  auto max_waiting_time = client_config_.request_timeout + client_config_.subscriber.polling_timeout;
+  auto deadline = std::chrono::steady_clock::now()
+      + std::chrono::milliseconds(absl::ToInt64Milliseconds(max_waiting_time));
+
+  while (true) {
+    uint64_t total_cached = 0;
+    {
+      absl::MutexLock lock(&process_queue_table_mtx_);
+      for (const auto& entry : process_queue_table_) {
+        total_cached += entry.second->cachedMessageQuantity();
+      }
+    }
+
+    if (total_cached == 0) {
+      SPDLOG_INFO("All cached messages have been consumed, clientId={}", client_config_.client_id);
+      return;
+    }
+
+    if (std::chrono::steady_clock::now() > deadline) {
+      SPDLOG_WARN("Timeout waiting for cached messages to drain. Remaining={}, clientId={}", total_cached,
+                  client_config_.client_id);
+      return;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
 }
 
 void PushConsumerImpl::subscribe(const std::string& topic, const std::string& expression,

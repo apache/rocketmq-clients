@@ -43,6 +43,7 @@ class ConsumeTaskServiceMock : public ConsumeMessageService {
 public:
   MOCK_METHOD(void, start, (), (override));
   MOCK_METHOD(void, shutdown, (), (override));
+  MOCK_METHOD(void, gracefulShutdown, (), (override));
   MOCK_METHOD(void, dispatch, (std::shared_ptr<ProcessQueue>, std::vector<MessageConstSharedPtr>), (override));
   MOCK_METHOD(void, submit, (std::shared_ptr<ConsumeTask>), (override));
   MOCK_METHOD(MessageListener&, listener, (), (override));

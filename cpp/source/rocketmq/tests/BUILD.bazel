@@ -145,3 +145,13 @@ cc_test(
         "//source/rocketmq/mocks:rocketmq_mocks",
     ],
 )
+
+cc_test(
+    name = "graceful_shutdown_test",
+    srcs = [
+        "GracefulShutdownTest.cpp",
+    ],
+    deps = base_deps + [
+        "//source/rocketmq/mocks:rocketmq_mocks",
+    ],
+)

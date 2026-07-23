@@ -118,13 +118,24 @@ void ProcessQueueImpl::popMessage(std::string& attempt_id) {
   SPDLOG_DEBUG("Receive message from={}, attemptId={}", simpleNameOf(message_queue_), attempt_id);
 
   std::weak_ptr<AsyncReceiveMessageCallback> cb{receive_callback_};
+  std::weak_ptr<PushConsumerImpl> consumer_weak{consumer_client};
   auto callback =
-      [cb, attempt_id](const std::error_code& ec, const ReceiveMessageResult& result) {
+      [cb, attempt_id, consumer_weak](const std::error_code& ec, const ReceiveMessageResult& result) {
+    // Decrement inflight receive request count so PushConsumerImpl::shutdown()
+    // can drain in-flight receives during graceful shutdown.
+    auto consumer = consumer_weak.lock();
+    if (consumer) {
+      consumer->decrementInflightReceiveRequests();
+    }
+
     std::shared_ptr<AsyncReceiveMessageCallback> receive_cb = cb.lock();
     if (receive_cb) {
       receive_cb->onCompletion(ec, attempt_id, result);
     }
   };
+
+  // Increment inflight receive request count before sending the RPC.
+  consumer_client->incrementInflightReceiveRequests();
 
   auto timeout = absl::ToChronoMilliseconds(
       consumer_client->config().subscriber.polling_timeout + consumer_client->config().request_timeout);

@@ -30,6 +30,8 @@ public:
 
   MOCK_METHOD(void, shutdown, (), (override));
 
+  MOCK_METHOD(void, gracefulShutdown, (), (override));
+
   MOCK_METHOD(void, submitConsumeTask, (const std::weak_ptr<ProcessQueue>&), (override));
 
   MOCK_METHOD(void, signalDispatcher, (), (override));

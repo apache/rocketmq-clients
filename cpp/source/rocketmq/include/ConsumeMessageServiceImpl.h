@@ -50,6 +50,8 @@ public:
 
   void shutdown() override;
 
+  void gracefulShutdown() override;
+
   MessageListener &listener() override { return message_listener_; }
 
   bool preHandle(const Message &message) override;

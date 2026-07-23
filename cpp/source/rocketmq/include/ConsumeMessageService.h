@@ -42,6 +42,12 @@ public:
    */
   virtual void shutdown() = 0;
 
+  /**
+   * Gracefully stop: wait for all dispatched consume tasks to finish before
+   * returning. Does not forcefully discard queued tasks.
+   */
+  virtual void gracefulShutdown() = 0;
+
   virtual void dispatch(std::shared_ptr<ProcessQueue> process_queue, std::vector<MessageConstSharedPtr> messages) = 0;
 
   virtual void submit(std::shared_ptr<ConsumeTask> task) = 0;
