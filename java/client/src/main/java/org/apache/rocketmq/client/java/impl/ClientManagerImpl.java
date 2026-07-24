@@ -114,8 +114,7 @@ public class ClientManagerImpl extends ClientManager {
     private final Map<Endpoints, RpcClient> rpcClientTable;
     private final ReadWriteLock rpcClientTableLock;
     private final ConcurrentMap<Endpoints, Integer> heartbeatFailureAttempts;
-    private final ConcurrentMap<Endpoints, AtomicLong> transportRecoveryNanoTime;
-    private final ConcurrentMap<Endpoints, AtomicBoolean> transportRecovering;
+    private final ConcurrentMap<Endpoints, TransportRecoveryState> transportRecoveryStates;
 
     /**
      * In charge of all scheduled tasks.
@@ -132,8 +131,7 @@ public class ClientManagerImpl extends ClientManager {
         this.rpcClientTable = new HashMap<>();
         this.rpcClientTableLock = new ReentrantReadWriteLock();
         this.heartbeatFailureAttempts = new ConcurrentHashMap<>();
-        this.transportRecoveryNanoTime = new ConcurrentHashMap<>();
-        this.transportRecovering = new ConcurrentHashMap<>();
+        this.transportRecoveryStates = new ConcurrentHashMap<>();
         final long clientIndex = client.getClientId().getIndex();
         this.scheduler = new ScheduledThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
@@ -167,8 +165,7 @@ public class ClientManagerImpl extends ClientManager {
                 if (idleDuration.compareTo(RPC_CLIENT_MAX_IDLE_DURATION) > 0) {
                     it.remove();
                     heartbeatFailureAttempts.remove(endpoints);
-                    transportRecoveryNanoTime.remove(endpoints);
-                    transportRecovering.remove(endpoints);
+                    transportRecoveryStates.remove(endpoints);
                     rpcClient.shutdown();
                     log.info("Rpc client has been idle for a long time, endpoints={}, idleDuration={}, " +
                             "rpcClientMaxIdleDuration={}, clientId={}", endpoints, idleDuration,
@@ -302,20 +299,17 @@ public class ClientManagerImpl extends ClientManager {
 
     private void recoverTransport(Endpoints endpoints, RpcClient rpcClient, String reason,
         boolean respectHeartbeatCooldown) {
-        final AtomicBoolean recovering = transportRecovering.computeIfAbsent(
-            endpoints, ignored -> new AtomicBoolean());
-        if (!recovering.compareAndSet(false, true)) {
+        final TransportRecoveryState recoveryState = transportRecoveryStates.computeIfAbsent(
+            endpoints, ignored -> new TransportRecoveryState());
+        if (!recoveryState.recovering.compareAndSet(false, true)) {
             log.info("Skip concurrent transport recovery, endpoints={}, reason={}, clientId={}",
                 endpoints, reason, client.getClientId());
             return;
         }
         try {
             final long now = System.nanoTime();
-            final AtomicLong recoveryNanoTime = new AtomicLong(now);
-            final AtomicLong previousRecoveryNanoTime = transportRecoveryNanoTime.putIfAbsent(
-                endpoints, recoveryNanoTime);
-            if (null != previousRecoveryNanoTime) {
-                final long previous = previousRecoveryNanoTime.get();
+            final long previous = recoveryState.lastRecoveryNanoTime.get();
+            if (TransportRecoveryState.NO_RECOVERY_NANO_TIME != previous) {
                 if (respectHeartbeatCooldown
                     && now - previous < TRANSPORT_RECOVERY_COOLDOWN.toNanos()) {
                     log.info("Skip transport recovery during heartbeat cooldown, endpoints={}, reason={}, "
@@ -323,8 +317,8 @@ public class ClientManagerImpl extends ClientManager {
                         client.getClientId());
                     return;
                 }
-                previousRecoveryNanoTime.set(now);
             }
+            recoveryState.lastRecoveryNanoTime.set(now);
             heartbeatFailureAttempts.remove(endpoints);
             log.warn("Try to recover transport, endpoints={}, reason={}, clientId={}",
                 endpoints, reason, client.getClientId());
@@ -341,7 +335,19 @@ public class ClientManagerImpl extends ClientManager {
                     + "clientId={}", endpoints, reason, client.getClientId(), e);
             }
         } finally {
-            recovering.set(false);
+            recoveryState.recovering.set(false);
+        }
+    }
+
+    private static final class TransportRecoveryState {
+        private static final long NO_RECOVERY_NANO_TIME = Long.MIN_VALUE;
+
+        private final AtomicLong lastRecoveryNanoTime;
+        private final AtomicBoolean recovering;
+
+        private TransportRecoveryState() {
+            this.lastRecoveryNanoTime = new AtomicLong(NO_RECOVERY_NANO_TIME);
+            this.recovering = new AtomicBoolean();
         }
     }
 
