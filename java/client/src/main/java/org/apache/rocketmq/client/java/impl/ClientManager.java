@@ -63,6 +63,13 @@ public abstract class ClientManager extends AbstractIdleService {
     public abstract ScheduledExecutorService getScheduler();
 
     /**
+     * Reconnect to the specified endpoints.
+     *
+     * @param endpoints endpoints to reconnect.
+     */
+    public abstract void reconnect(Endpoints endpoints);
+
+    /**
      * Query topic route asynchronously, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.

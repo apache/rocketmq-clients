@@ -27,9 +27,11 @@ import apache.rocketmq.v2.VerifyMessageCommand;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
 import org.apache.rocketmq.client.java.misc.ClientId;
@@ -48,6 +50,8 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     private final ClientSessionHandler sessionHandler;
     private final Endpoints endpoints;
     private final SettableFuture<Settings> settingsInitFuture;
+    private final Object requestObserverLock;
+    private final AtomicBoolean reconnecting;
     private volatile StreamObserver<TelemetryCommand> requestObserver;
 
     @SuppressWarnings("UnstableApiUsage")
@@ -56,6 +60,8 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
         this.sessionHandler = sessionHandler;
         this.endpoints = endpoints;
         this.settingsInitFuture = SettableFuture.create();
+        this.requestObserverLock = new Object();
+        this.reconnecting = new AtomicBoolean();
         Futures.withTimeout(settingsInitFuture, SETTINGS_INITIALIZATION_TIMEOUT.plus(tolerance).toMillis(),
             TimeUnit.MILLISECONDS, sessionHandler.getScheduler());
         this.requestObserver = sessionHandler.telemetry(endpoints, this);
@@ -71,7 +77,11 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                 return;
             }
             log.info("Try to renew requestObserver, endpoints={}, clientId={}", endpoints, clientId);
-            this.requestObserver = sessionHandler.telemetry(endpoints, this);
+            final StreamObserver<TelemetryCommand> requestObserver = sessionHandler.telemetry(endpoints, this);
+            synchronized (requestObserverLock) {
+                this.requestObserver = requestObserver;
+                reconnecting.set(false);
+            }
         } catch (Throwable t) {
             log.error("Failed to renew requestObserver, attempt to renew later, endpoints={}, delay={}, clientId={}",
                 endpoints, REQUEST_OBSERVER_RENEW_BACKOFF_DELAY, clientId, t);
@@ -99,26 +109,54 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
      */
     public void release() {
         final ClientId clientId = sessionHandler.getClientId();
-        if (null == requestObserver) {
-            log.error("[Bug] request observer does not exist, no need to release, endpoints={}, clientId={}",
-                endpoints, clientId);
-            return;
-        }
-        log.info("Begin to release client session, endpoints={}, clientId={}", endpoints, clientId);
-        try {
-            requestObserver.onCompleted();
-        } catch (Throwable ignore) {
-            // Ignore exception on purpose.
+        synchronized (requestObserverLock) {
+            if (null == requestObserver) {
+                log.error("[Bug] request observer does not exist, no need to release, endpoints={}, clientId={}",
+                    endpoints, clientId);
+                return;
+            }
+            log.info("Begin to release client session, endpoints={}, clientId={}", endpoints, clientId);
+            try {
+                requestObserver.onCompleted();
+            } catch (Throwable ignore) {
+                // Ignore exception on purpose.
+            }
         }
     }
 
     void write(TelemetryCommand command) {
-        if (null == requestObserver) {
-            log.error("[Bug] Request observer does not exist, ignore current command, endpoints={}, command={}, "
-                + "clientId={}", endpoints, command, sessionHandler.getClientId());
+        synchronized (requestObserverLock) {
+            if (null == requestObserver) {
+                log.error("[Bug] Request observer does not exist, ignore current command, endpoints={}, command={}, "
+                    + "clientId={}", endpoints, command, sessionHandler.getClientId());
+                return;
+            }
+            requestObserver.onNext(command);
+        }
+    }
+
+    void reconnect() {
+        final ClientId clientId = sessionHandler.getClientId();
+        if (!reconnecting.compareAndSet(false, true)) {
+            log.info("Telemetry is already reconnecting, endpoints={}, clientId={}", endpoints, clientId);
             return;
         }
-        requestObserver.onNext(command);
+        synchronized (requestObserverLock) {
+            if (null == requestObserver) {
+                reconnecting.set(false);
+                log.error("[Bug] request observer does not exist, failed to reconnect telemetry, endpoints={}, "
+                    + "clientId={}", endpoints, clientId);
+                return;
+            }
+            try {
+                requestObserver.onError(Status.CANCELLED.withDescription(
+                    "Reconnect telemetry on transport recovery").asRuntimeException());
+            } catch (Throwable t) {
+                reconnecting.set(false);
+                log.warn("Failed to cancel telemetry while reconnecting, endpoints={}, clientId={}",
+                    endpoints, clientId, t);
+            }
+        }
     }
 
     @Override
@@ -187,9 +225,13 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     @Override
     public void onError(Throwable throwable) {
         final ClientId clientId = sessionHandler.getClientId();
-        log.error("Exception raised from stream response observer, clientId={}, endpoints={}", clientId, endpoints,
-            throwable);
-        release();
+        if (reconnecting.get()) {
+            log.info("Telemetry stream is cancelled for reconnecting, clientId={}, endpoints={}", clientId, endpoints);
+        } else {
+            log.error("Exception raised from stream response observer, clientId={}, endpoints={}", clientId, endpoints,
+                throwable);
+            release();
+        }
         if (!sessionHandler.isRunning()) {
             // first time to sync settings, forward the exception to upper layer
             settingsInitFuture.setException(throwable);
@@ -205,7 +247,9 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     public void onCompleted() {
         final ClientId clientId = sessionHandler.getClientId();
         log.info("Receive completion for stream response observer, clientId={}, endpoints={}", clientId, endpoints);
-        release();
+        if (!reconnecting.get()) {
+            release();
+        }
         if (!sessionHandler.isRunning()) {
             log.info("Session handler is not running, forgive to renew request observer, clientId={}, "
                 + "endpoints={}", clientId, endpoints);

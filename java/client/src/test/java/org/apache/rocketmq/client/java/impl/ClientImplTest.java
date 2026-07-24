@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.java.impl;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -33,6 +34,7 @@ import apache.rocketmq.v2.MessageType;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.Permission;
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
+import apache.rocketmq.v2.ReconnectEndpointsCommand;
 import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
@@ -115,6 +117,20 @@ public class ClientImplTest extends TestBase {
         client.onVerifyMessageCommand(endpoints, command);
         verify(client, times(1)).telemetry(any(Endpoints.class), any(StreamObserver.class));
         verify(observer, times(1)).onNext(any(TelemetryCommand.class));
+    }
+
+    @Test
+    public void testOnReconnectEndpointsCommand() {
+        final Endpoints endpoints = fakeEndpoints();
+        final ReconnectEndpointsCommand command = ReconnectEndpointsCommand.newBuilder().build();
+        final ClientManager clientManager = Mockito.mock(ClientManager.class);
+        final ClientImpl client = createClient();
+        doReturn(clientManager).when(client).getClientManager();
+
+        client.onReconnectEndpointsCommand(endpoints, command);
+
+        assertTrue(client.isReceiveReconnect());
+        verify(clientManager, times(1)).reconnect(eq(endpoints));
     }
 
     @Test

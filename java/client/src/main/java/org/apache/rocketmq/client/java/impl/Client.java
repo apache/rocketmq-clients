@@ -56,6 +56,13 @@ public interface Client {
     boolean isSslEnabled();
 
     /**
+     * Reconnect telemetry to the specified endpoints.
+     *
+     * @param endpoints endpoints to reconnect.
+     */
+    void reconnectTelemetry(Endpoints endpoints);
+
+    /**
      * Send Heartbeat
      *
      * <p> Send a heartbeat to the remote endpoint.

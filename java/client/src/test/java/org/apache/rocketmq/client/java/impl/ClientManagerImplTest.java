@@ -35,10 +35,16 @@ import io.grpc.ConnectivityState;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.java.misc.ClientId;
+import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.RpcClient;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -238,6 +244,43 @@ public class ClientManagerImplTest extends TestBase {
         }
 
         Mockito.verify(rpcClient, Mockito.times(1)).enterIdle();
+    }
+
+    @Test
+    public void testConcurrentReconnectOnlyRecoversOnce() throws InterruptedException {
+        final Client client = Mockito.mock(Client.class);
+        Mockito.when(client.getClientId()).thenReturn(FAKE_CLIENT_ID);
+        final ClientManagerImpl clientManager = new ClientManagerImpl(client);
+        final RpcClient rpcClient = Mockito.mock(RpcClient.class);
+        final Endpoints endpoints = fakeEndpoints();
+        final int threadCount = 8;
+        final CountDownLatch ready = new CountDownLatch(threadCount);
+        final CountDownLatch start = new CountDownLatch(1);
+        final CountDownLatch done = new CountDownLatch(threadCount);
+        final ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        try {
+            for (int i = 0; i < threadCount; i++) {
+                executor.execute(() -> {
+                    ready.countDown();
+                    try {
+                        start.await();
+                        clientManager.reconnect(endpoints, rpcClient);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+            Assert.assertTrue(ready.await(5, TimeUnit.SECONDS));
+            start.countDown();
+            Assert.assertTrue(done.await(5, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+
+        Mockito.verify(rpcClient, Mockito.times(1)).enterIdle();
+        Mockito.verify(client, Mockito.times(1)).reconnectTelemetry(Mockito.eq(endpoints));
     }
 
     private ClientManagerImpl createClientManager() {
