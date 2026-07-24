@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
 import org.apache.rocketmq.client.apis.SessionCredentialsProvider;
@@ -87,6 +88,7 @@ public class ProducerHalfOpenTcpRecoveryIntegrationTest extends GrpcServerIntegr
 
         try {
             producer.send(message);
+            proxy.assertHealthy();
             final int initialConnectionCount = proxy.getAcceptedConnectionCount();
             Assert.assertTrue(initialConnectionCount > 0);
             proxy.blackholeExistingConnections();
@@ -96,6 +98,7 @@ public class ProducerHalfOpenTcpRecoveryIntegrationTest extends GrpcServerIntegr
             Assert.assertEquals(0, proxy.getClosedConnectionCount());
 
             while (Duration.ofNanos(System.nanoTime() - blackholeStartNanoTime).compareTo(MAX_RECOVERY_TIME) < 0) {
+                proxy.assertHealthy();
                 try {
                     producer.send(message);
                 } catch (Exception ignore) {
@@ -105,6 +108,7 @@ public class ProducerHalfOpenTcpRecoveryIntegrationTest extends GrpcServerIntegr
                 Assert.assertTrue(proxy.getAcceptedConnectionCount() > initialConnectionCount);
                 return;
             }
+            proxy.assertHealthy();
             Assert.fail("Producer did not recover from the half-open TCP connection within " + MAX_RECOVERY_TIME);
         } finally {
             producer.close();
@@ -152,6 +156,7 @@ public class ProducerHalfOpenTcpRecoveryIntegrationTest extends GrpcServerIntegr
         private final AtomicInteger acceptedConnectionCount;
         private final AtomicInteger closedConnectionCount;
         private final AtomicInteger blackholeThroughConnectionId;
+        private final AtomicReference<IOException> acceptFailure;
         private final List<SocketPair> connections;
 
         private BlackholeTcpProxy(int backendPort) throws IOException {
@@ -167,6 +172,7 @@ public class ProducerHalfOpenTcpRecoveryIntegrationTest extends GrpcServerIntegr
             this.acceptedConnectionCount = new AtomicInteger();
             this.closedConnectionCount = new AtomicInteger();
             this.blackholeThroughConnectionId = new AtomicInteger();
+            this.acceptFailure = new AtomicReference<>();
             this.connections = new CopyOnWriteArrayList<>();
             this.executor.execute(this::acceptConnections);
         }
@@ -187,6 +193,16 @@ public class ProducerHalfOpenTcpRecoveryIntegrationTest extends GrpcServerIntegr
             blackholeThroughConnectionId.set(acceptedConnectionCount.get());
         }
 
+        private void assertHealthy() {
+            final IOException failure = acceptFailure.get();
+            if (null == failure) {
+                return;
+            }
+            final AssertionError error = new AssertionError("TCP proxy stopped accepting connections");
+            error.initCause(failure);
+            throw error;
+        }
+
         private void acceptConnections() {
             while (running.get()) {
                 try {
@@ -202,7 +218,8 @@ public class ProducerHalfOpenTcpRecoveryIntegrationTest extends GrpcServerIntegr
                     executor.execute(() -> forward(connection, upstream, downstream));
                 } catch (IOException e) {
                     if (running.get()) {
-                        throw new IllegalStateException("Failed to accept proxied connection", e);
+                        acceptFailure.compareAndSet(null, e);
+                        return;
                     }
                 }
             }

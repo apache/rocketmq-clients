@@ -343,6 +343,51 @@ public class ClientSessionImplTest extends TestBase {
 
     @Test
     @SuppressWarnings("unchecked")
+    public void testReconnectCanRetryAfterSessionHandlerStops() throws ClientException {
+        final Endpoints endpoints = fakeEndpoints();
+        final ClientSessionHandler sessionHandler = Mockito.mock(ClientSessionHandler.class);
+        Mockito.doReturn(SCHEDULER).when(sessionHandler).getScheduler();
+        final StreamObserver<TelemetryCommand> requestObserver = Mockito.mock(StreamObserver.class);
+        Mockito.doReturn(requestObserver).when(sessionHandler).telemetry(any(Endpoints.class),
+            any(StreamObserver.class));
+        Mockito.doReturn(FAKE_CLIENT_ID).when(sessionHandler).getClientId();
+        Mockito.doReturn(false).when(sessionHandler).isRunning();
+        final ClientSessionImpl clientSession = new ClientSessionImpl(sessionHandler, Duration.ofSeconds(3), endpoints);
+
+        clientSession.reconnect();
+        clientSession.onError(Status.CANCELLED.asRuntimeException());
+        clientSession.reconnect();
+
+        Mockito.verify(requestObserver, times(2)).onError(any(Throwable.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testReconnectCanRetryAfterEndpointsAreDeprecated() throws ClientException {
+        final Endpoints endpoints = fakeEndpoints();
+        final ClientSessionHandler sessionHandler = Mockito.mock(ClientSessionHandler.class);
+        Mockito.doReturn(SCHEDULER).when(sessionHandler).getScheduler();
+        final StreamObserver<TelemetryCommand> requestObserver = Mockito.mock(StreamObserver.class);
+        Mockito.doReturn(requestObserver).when(sessionHandler).telemetry(any(Endpoints.class),
+            any(StreamObserver.class));
+        Mockito.doReturn(FAKE_CLIENT_ID).when(sessionHandler).getClientId();
+        Mockito.doReturn(true).when(sessionHandler).isRunning();
+        Mockito.doReturn(true).when(sessionHandler).isEndpointsDeprecated(endpoints);
+        final ClientSessionImpl clientSession = new ClientSessionImpl(sessionHandler, Duration.ofSeconds(3), endpoints);
+
+        clientSession.reconnect();
+        clientSession.onError(Status.CANCELLED.asRuntimeException());
+
+        await().atMost(ClientSessionImpl.REQUEST_OBSERVER_RENEW_BACKOFF_DELAY.plus(Durations.ONE_SECOND))
+            .untilAsserted(() -> Mockito.verify(sessionHandler, times(1))
+                .removeClientSession(eq(endpoints), eq(clientSession)));
+        clientSession.reconnect();
+
+        Mockito.verify(requestObserver, times(2)).onError(any(Throwable.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     public void testOnNextWithReconnectEndpointsCommand() throws ClientException {
         final Endpoints endpoints = fakeEndpoints();
         final ClientSessionHandler sessionHandler = Mockito.mock(ClientSessionHandler.class);

@@ -74,6 +74,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                 log.info("Endpoints is deprecated, no longer to renew requestObserver, endpoints={}, clientId={}",
                     endpoints, clientId);
                 sessionHandler.removeClientSession(endpoints, this);
+                reconnecting.set(false);
                 return;
             }
             log.info("Try to renew requestObserver, endpoints={}, clientId={}", endpoints, clientId);
@@ -226,13 +227,20 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     public void onError(Throwable throwable) {
         final ClientId clientId = sessionHandler.getClientId();
         if (reconnecting.get()) {
-            log.info("Telemetry stream is cancelled for reconnecting, clientId={}, endpoints={}", clientId, endpoints);
+            if (Status.Code.CANCELLED == Status.fromThrowable(throwable).getCode()) {
+                log.info("Telemetry stream is cancelled for reconnecting, clientId={}, endpoints={}",
+                    clientId, endpoints);
+            } else {
+                log.warn("Telemetry stream failed while reconnecting, clientId={}, endpoints={}",
+                    clientId, endpoints, throwable);
+            }
         } else {
             log.error("Exception raised from stream response observer, clientId={}, endpoints={}", clientId, endpoints,
                 throwable);
             release();
         }
         if (!sessionHandler.isRunning()) {
+            reconnecting.set(false);
             // first time to sync settings, forward the exception to upper layer
             settingsInitFuture.setException(throwable);
             log.info("Session handler is not running, forgive to renew request observer, clientId={}, "
@@ -251,6 +259,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
             release();
         }
         if (!sessionHandler.isRunning()) {
+            reconnecting.set(false);
             log.info("Session handler is not running, forgive to renew request observer, clientId={}, "
                 + "endpoints={}", clientId, endpoints);
             return;

@@ -65,6 +65,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -114,6 +115,7 @@ public class ClientManagerImpl extends ClientManager {
     private final ReadWriteLock rpcClientTableLock;
     private final ConcurrentMap<Endpoints, Integer> heartbeatFailureAttempts;
     private final ConcurrentMap<Endpoints, AtomicLong> transportRecoveryNanoTime;
+    private final ConcurrentMap<Endpoints, AtomicBoolean> transportRecovering;
 
     /**
      * In charge of all scheduled tasks.
@@ -131,6 +133,7 @@ public class ClientManagerImpl extends ClientManager {
         this.rpcClientTableLock = new ReentrantReadWriteLock();
         this.heartbeatFailureAttempts = new ConcurrentHashMap<>();
         this.transportRecoveryNanoTime = new ConcurrentHashMap<>();
+        this.transportRecovering = new ConcurrentHashMap<>();
         final long clientIndex = client.getClientId().getIndex();
         this.scheduler = new ScheduledThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
@@ -165,6 +168,7 @@ public class ClientManagerImpl extends ClientManager {
                     it.remove();
                     heartbeatFailureAttempts.remove(endpoints);
                     transportRecoveryNanoTime.remove(endpoints);
+                    transportRecovering.remove(endpoints);
                     rpcClient.shutdown();
                     log.info("Rpc client has been idle for a long time, endpoints={}, idleDuration={}, " +
                             "rpcClientMaxIdleDuration={}, clientId={}", endpoints, idleDuration,
@@ -234,7 +238,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     void reconnect(Endpoints endpoints, RpcClient rpcClient) {
-        recoverTransport(endpoints, rpcClient, "server reconnect command");
+        recoverTransport(endpoints, rpcClient, "server reconnect command", false);
     }
 
     @Override
@@ -280,7 +284,7 @@ public class ClientManagerImpl extends ClientManager {
                 if (Status.Code.UNAVAILABLE == code) {
                     heartbeatFailureAttempts.remove(endpoints);
                     if (ConnectivityState.READY == rpcClient.getState(false)) {
-                        recoverTransport(endpoints, rpcClient, "heartbeat failure, statusCode=" + code);
+                        recoverTransport(endpoints, rpcClient, "heartbeat failure, statusCode=" + code, true);
                     }
                     return;
                 }
@@ -290,40 +294,54 @@ public class ClientManagerImpl extends ClientManager {
                 }
                 final int attempts = heartbeatFailureAttempts.merge(endpoints, 1, Integer::sum);
                 if (attempts >= HEART_BEAT_FAILURE_THRESHOLD) {
-                    recoverTransport(endpoints, rpcClient, "heartbeat failure, statusCode=" + code);
+                    recoverTransport(endpoints, rpcClient, "heartbeat failure, statusCode=" + code, true);
                 }
             }
         }, MoreExecutors.directExecutor());
     }
 
-    private void recoverTransport(Endpoints endpoints, RpcClient rpcClient, String reason) {
-        heartbeatFailureAttempts.remove(endpoints);
-        final long now = System.nanoTime();
-        final AtomicLong recoveryNanoTime = new AtomicLong(now);
-        final AtomicLong previousRecoveryNanoTime = transportRecoveryNanoTime.putIfAbsent(
-            endpoints, recoveryNanoTime);
-        if (null != previousRecoveryNanoTime) {
-            final long previous = previousRecoveryNanoTime.get();
-            if (now - previous < TRANSPORT_RECOVERY_COOLDOWN.toNanos()) {
-                return;
-            }
-            if (!previousRecoveryNanoTime.compareAndSet(previous, now)) {
-                return;
-            }
-        }
-        log.warn("Try to recover transport, endpoints={}, reason={}, clientId={}",
-            endpoints, reason, client.getClientId());
-        try {
-            rpcClient.enterIdle();
-        } catch (RuntimeException e) {
-            log.warn("Failed to enter idle mode while recovering transport, endpoints={}, reason={}, clientId={}",
-                endpoints, reason, client.getClientId(), e);
+    private void recoverTransport(Endpoints endpoints, RpcClient rpcClient, String reason,
+        boolean respectHeartbeatCooldown) {
+        final AtomicBoolean recovering = transportRecovering.computeIfAbsent(
+            endpoints, ignored -> new AtomicBoolean());
+        if (!recovering.compareAndSet(false, true)) {
+            log.info("Skip concurrent transport recovery, endpoints={}, reason={}, clientId={}",
+                endpoints, reason, client.getClientId());
+            return;
         }
         try {
-            client.reconnectTelemetry(endpoints);
-        } catch (RuntimeException e) {
-            log.warn("Failed to rebuild telemetry while recovering transport, endpoints={}, reason={}, clientId={}",
-                endpoints, reason, client.getClientId(), e);
+            final long now = System.nanoTime();
+            final AtomicLong recoveryNanoTime = new AtomicLong(now);
+            final AtomicLong previousRecoveryNanoTime = transportRecoveryNanoTime.putIfAbsent(
+                endpoints, recoveryNanoTime);
+            if (null != previousRecoveryNanoTime) {
+                final long previous = previousRecoveryNanoTime.get();
+                if (respectHeartbeatCooldown
+                    && now - previous < TRANSPORT_RECOVERY_COOLDOWN.toNanos()) {
+                    log.info("Skip transport recovery during heartbeat cooldown, endpoints={}, reason={}, "
+                            + "cooldown={}, clientId={}", endpoints, reason, TRANSPORT_RECOVERY_COOLDOWN,
+                        client.getClientId());
+                    return;
+                }
+                previousRecoveryNanoTime.set(now);
+            }
+            heartbeatFailureAttempts.remove(endpoints);
+            log.warn("Try to recover transport, endpoints={}, reason={}, clientId={}",
+                endpoints, reason, client.getClientId());
+            try {
+                rpcClient.enterIdle();
+            } catch (RuntimeException e) {
+                log.warn("Failed to enter idle mode while recovering transport, endpoints={}, reason={}, clientId={}",
+                    endpoints, reason, client.getClientId(), e);
+            }
+            try {
+                client.reconnectTelemetry(endpoints);
+            } catch (RuntimeException e) {
+                log.warn("Failed to rebuild telemetry while recovering transport, endpoints={}, reason={}, "
+                    + "clientId={}", endpoints, reason, client.getClientId(), e);
+            }
+        } finally {
+            recovering.set(false);
         }
     }
 

@@ -247,6 +247,21 @@ public class ClientManagerImplTest extends TestBase {
     }
 
     @Test
+    public void testServerReconnectIgnoresHeartbeatCooldown() {
+        final ClientManagerImpl clientManager = createClientManager();
+        final RpcClient rpcClient = Mockito.mock(RpcClient.class);
+        final Endpoints endpoints = fakeEndpoints();
+
+        for (int i = 0; i < ClientManagerImpl.HEART_BEAT_FAILURE_THRESHOLD; i++) {
+            clientManager.monitorHeartbeat(endpoints, rpcClient,
+                Futures.immediateFailedFuture(Status.DEADLINE_EXCEEDED.asRuntimeException()));
+        }
+        clientManager.reconnect(endpoints, rpcClient);
+
+        Mockito.verify(rpcClient, Mockito.times(2)).enterIdle();
+    }
+
+    @Test
     public void testConcurrentReconnectOnlyRecoversOnce() throws InterruptedException {
         final Client client = Mockito.mock(Client.class);
         Mockito.when(client.getClientId()).thenReturn(FAKE_CLIENT_ID);
@@ -256,8 +271,15 @@ public class ClientManagerImplTest extends TestBase {
         final int threadCount = 8;
         final CountDownLatch ready = new CountDownLatch(threadCount);
         final CountDownLatch start = new CountDownLatch(1);
+        final CountDownLatch recoveryStarted = new CountDownLatch(1);
+        final CountDownLatch allowRecoveryToComplete = new CountDownLatch(1);
         final CountDownLatch done = new CountDownLatch(threadCount);
         final ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        Mockito.doAnswer(invocation -> {
+            recoveryStarted.countDown();
+            Assert.assertTrue(allowRecoveryToComplete.await(5, TimeUnit.SECONDS));
+            return null;
+        }).when(rpcClient).enterIdle();
         try {
             for (int i = 0; i < threadCount; i++) {
                 executor.execute(() -> {
@@ -274,8 +296,16 @@ public class ClientManagerImplTest extends TestBase {
             }
             Assert.assertTrue(ready.await(5, TimeUnit.SECONDS));
             start.countDown();
+            Assert.assertTrue(recoveryStarted.await(5, TimeUnit.SECONDS));
+            final long waitDeadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (done.getCount() > 1 && System.nanoTime() < waitDeadlineNanos) {
+                Thread.yield();
+            }
+            Assert.assertEquals(1, done.getCount());
+            allowRecoveryToComplete.countDown();
             Assert.assertTrue(done.await(5, TimeUnit.SECONDS));
         } finally {
+            allowRecoveryToComplete.countDown();
             executor.shutdownNow();
         }
 
