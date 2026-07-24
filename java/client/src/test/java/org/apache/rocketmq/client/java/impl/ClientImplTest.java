@@ -18,7 +18,6 @@
 package org.apache.rocketmq.client.java.impl;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -129,7 +128,6 @@ public class ClientImplTest extends TestBase {
 
         client.onReconnectEndpointsCommand(endpoints, command);
 
-        assertTrue(client.isReceiveReconnect());
         verify(clientManager, times(1)).reconnect(eq(endpoints));
     }
 

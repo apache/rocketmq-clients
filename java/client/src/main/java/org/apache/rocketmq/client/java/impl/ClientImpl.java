@@ -130,7 +130,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private final ReadWriteLock sessionsLock;
 
     private final CompositedMessageInterceptor compositedMessageInterceptor;
-    private volatile boolean receiveReconnect = false;
 
     public ClientImpl(ClientConfiguration clientConfiguration, Set<String> topics) {
         this.clientConfiguration = checkNotNull(clientConfiguration, "clientConfiguration should not be null");
@@ -294,7 +293,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     @Override
     public void onReconnectEndpointsCommand(Endpoints endpoints, ReconnectEndpointsCommand command) {
-        receiveReconnect = true;
         getClientManager().reconnect(endpoints);
     }
 
@@ -546,14 +544,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     public ClientId getClientId() {
         return clientId;
-    }
-
-    public boolean isReceiveReconnect() {
-        return receiveReconnect;
-    }
-
-    public void setReceiveReconnect(boolean receiveReconnect) {
-        this.receiveReconnect = receiveReconnect;
     }
 
     @Override
