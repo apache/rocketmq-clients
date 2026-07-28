@@ -18,11 +18,9 @@
 package golang
 
 import (
-	"context"
 	"errors"
 	"time"
 
-	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 )
 
@@ -30,6 +28,7 @@ type LitePushConsumer interface {
 	PushConsumer
 	SubscribeLite(liteTopic string, offsetOption ...OffsetOption) error
 	UnSubscribeLite(liteTopic string) error
+	GetLiteTopicSet() []string
 }
 
 var _ = LitePushConsumer(&defaultLitePushConsumer{})
@@ -37,6 +36,7 @@ var _ = LitePushConsumer(&defaultLitePushConsumer{})
 type defaultLitePushConsumer struct {
 	*defaultPushConsumer
 	litePushConsumerSettings *litePushConsumerSettings
+	liteSubscriptionManager  *liteSubscriptionManager
 }
 
 type LitePushConsumerConfig struct {
@@ -75,135 +75,36 @@ var NewLitePushConsumer = func(config *Config, liteConfig *LitePushConsumerConfi
 			defaultPushConsumer:      pushConsumer,
 			litePushConsumerSettings: lpcSetting,
 		}
-
+		lpc.liteSubscriptionManager = newLiteSubscriptionManager(lpc,
+			liteConfig.bindTopic, lpcSetting.groupName, pushConsumer.cli.config.NameSpace)
+		lpcSetting.liteSubscriptionManager = lpc.liteSubscriptionManager
 		pushConsumer.pushConsumerExtension = lpc
 		return lpc, nil
 	}
 }
 
 func (lpc *defaultLitePushConsumer) Start() error {
-	if err := lpc.startPushConsumer(); err != nil {
+	if err := lpc.defaultPushConsumer.Start(); err != nil {
 		return err
 	}
-	lpc.defaultPushConsumer.cli.notifyUnsubscribeLiteFunc = lpc.notifyUnsubscribeLite
-	//todo
-	lpc.syncAllLiteSubscription()
-	ticker.Tick(lpc.syncAllLiteSubscription, time.Second*30, lpc.defaultPushConsumer.cli.done)
+	lpc.defaultPushConsumer.cli.notifyUnsubscribeLiteFunc = lpc.liteSubscriptionManager.onNotifyUnsubscribeLiteCommand
+	lpc.liteSubscriptionManager.startUp()
 	return nil
-}
-
-func (lpc *defaultLitePushConsumer) startPushConsumer() error {
-	return lpc.defaultPushConsumer.Start()
-}
-
-func (lpc *defaultLitePushConsumer) notifyUnsubscribeLite(command *v2.NotifyUnsubscribeLiteCommand) {
-	liteTopic := command.LiteTopic
-	sugarBaseLogger.Infof("LitePushConsumer notifyUnsubscribeLite liteTopic:%s", liteTopic)
-	if liteTopic == "" {
-		return
-	}
-	lpc.litePushConsumerSettings.liteTopicSet.Delete(liteTopic)
 }
 
 func (lpc *defaultLitePushConsumer) SubscribeLite(liteTopic string, offsetOption ...OffsetOption) error {
-	if err := lpc.checkRunning(); err != nil {
-		return err
-	}
-	if len(offsetOption) > 1 {
-		return errors.New("only one offset option is supported")
-	}
-	var option *OffsetOption
-	if len(offsetOption) == 1 {
-		option = &offsetOption[0]
-	}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{liteTopic}, option); err != nil {
-		sugarBaseLogger.Errorf("LitePushConsumer SubscribeLite liteTopic:%s err:%v", liteTopic, err)
-		return err
-	}
-	lpc.litePushConsumerSettings.liteTopicSet.Store(liteTopic, struct{}{})
-	return nil
+	return lpc.liteSubscriptionManager.subscribeLite(liteTopic, offsetOption...)
 }
 
 func (lpc *defaultLitePushConsumer) UnSubscribeLite(liteTopic string) error {
-	if err := lpc.checkRunning(); err != nil {
-		return err
-	}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_REMOVE, []string{liteTopic}, nil); err != nil {
-		sugarBaseLogger.Errorf("LitePushConsumer UnSubscribeLite liteTopic:%s err:%v", liteTopic, err)
-		return err
-	}
-	lpc.litePushConsumerSettings.liteTopicSet.Delete(liteTopic)
-	return nil
+	return lpc.liteSubscriptionManager.unsubscribeLite(liteTopic)
 }
 
-func (lpc *defaultLitePushConsumer) checkRunning() error {
-	if !lpc.defaultPushConsumer.isRunning() {
-		sugarBaseLogger.Errorf("[bug] LitePushConsumer not running. clientId: %s", lpc.litePushConsumerSettings.clientId)
-		return errors.New("consumer is not running")
-	}
-	return nil
-}
-
-func (lpc *defaultLitePushConsumer) syncAllLiteSubscription() {
-	liteTopicSet := make([]string, 0, lpc.litePushConsumerSettings.maxLiteTopicSize)
-	lpc.litePushConsumerSettings.liteTopicSet.Range(func(key, value interface{}) bool {
-		if liteTopic, ok := key.(string); ok {
-			liteTopicSet = append(liteTopicSet, liteTopic)
-		}
-		return true
-	})
-	// Sync subscription even when liteTopicSet is empty to keep server state consistent
-	//if len(liteTopicSet) == 0 {
-	//	return
-	//}
-	if err := lpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_COMPLETE_ADD, liteTopicSet, nil); err != nil {
-		sugarBaseLogger.Errorf("LitePushConsumer syncAllLiteSubscription:%v,  err:%v", liteTopicSet, err)
-	}
-}
-
-func (lpc *defaultLitePushConsumer) syncLiteSubscription(context context.Context, action v2.LiteSubscriptionAction, diff []string, offsetOption *OffsetOption) error {
-	topic := lpc.litePushConsumerSettings.bindTopic
-	group := lpc.litePushConsumerSettings.groupName
-	clientId := lpc.litePushConsumerSettings.clientId
-
-	endpoints := lpc.cli.accessPoint
-	request := v2.SyncLiteSubscriptionRequest{
-		Action: action,
-		Topic: &v2.Resource{
-			Name:              topic,
-			ResourceNamespace: lpc.cli.config.NameSpace,
-		},
-		Group:        group,
-		LiteTopicSet: diff,
-	}
-	if offsetOption != nil {
-		request.OffsetOption = offsetOption.toProtobuf()
-	}
-
-	if action == v2.LiteSubscriptionAction_COMPLETE_ADD {
-		sugarBaseLogger.Infof("syncLiteSubscription action:%s, topic:%s, group:%s, clientId:%s, liteTopicCount:%d",
-			action, topic, group, clientId, len(diff))
-	} else {
-		sugarBaseLogger.Infof("syncLiteSubscription action:%s, topic:%s, group:%s, clientId:%s, liteTopics:%v",
-			action, topic, group, clientId, diff)
-	}
-
-	context = lpc.cli.Sign(context)
-	if v, err := lpc.defaultPushConsumer.cli.clientManager.SyncLiteSubscription(context, endpoints, &request, lpc.pcSettings.requestTimeout); err != nil {
-		return err
-	} else {
-		if v.GetStatus().GetCode() != v2.Code_OK {
-			return &ErrRpcStatus{
-				Code:    int32(v.Status.GetCode()),
-				Message: v.GetStatus().GetMessage(),
-			}
-		}
-		return nil
-	}
+func (lpc *defaultLitePushConsumer) GetLiteTopicSet() []string {
+	return lpc.liteSubscriptionManager.getLiteTopicSet()
 }
 
 var _ = PushConsumerExtension(&defaultLitePushConsumer{})
-
 
 func (lpc *defaultLitePushConsumer) WrapHeartbeatRequest() *v2.HeartbeatRequest {
 	return &v2.HeartbeatRequest{

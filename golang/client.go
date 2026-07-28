@@ -51,6 +51,9 @@ type isClient interface {
 	onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) error
 	onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error
 	IsEndpointUpdated() bool
+	isRunning() bool
+	getClient() *defaultClient
+	getRequestTimeout() time.Duration
 }
 type defaultClientSession struct {
 	endpoints        *v2.Endpoints
@@ -581,14 +584,15 @@ func (cli *defaultClient) startUp() error {
 						impl.publishingRouteDataResultCache.Store(topic, existing.(PublishingLoadBalancer).CopyAndUpdate(newRoute))
 					}
 				case *defaultSimpleConsumer:
+					filteredRoute := impl.filterTopicRouteData(newRoute)
 					existing, ok := impl.subTopicRouteDataResultCache.Load(topic)
 					if !ok {
-						slb, err := NewSubscriptionLoadBalancer(newRoute)
+						slb, err := NewSubscriptionLoadBalancer(filteredRoute)
 						if err == nil {
 							impl.subTopicRouteDataResultCache.Store(topic, slb)
 						}
 					} else {
-						impl.subTopicRouteDataResultCache.Store(topic, existing.(SubscriptionLoadBalancer).CopyAndUpdate(newRoute))
+						impl.subTopicRouteDataResultCache.Store(topic, existing.(SubscriptionLoadBalancer).CopyAndUpdate(filteredRoute))
 					}
 				}
 			}

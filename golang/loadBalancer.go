@@ -133,6 +133,14 @@ type SubscriptionLoadBalancer interface {
 	CopyAndUpdate([]*v2.MessageQueue) SubscriptionLoadBalancer
 }
 
+// isReadableMasterQueue checks if the message queue is readable and belongs to the master broker.
+func isReadableMasterQueue(mq *v2.MessageQueue) bool {
+	permission := mq.GetPermission()
+	readable := permission == v2.Permission_READ || permission == v2.Permission_READ_WRITE
+	// master broker id is 0
+	return readable && mq.GetBroker().GetId() == 0
+}
+
 type subscriptionLoadBalancer struct {
 	messageQueues []*v2.MessageQueue
 

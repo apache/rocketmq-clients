@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -203,7 +204,7 @@ func TestLitePushConsumer_SubscribeLite(t *testing.T) {
 		t.Fatalf("expected no error for SubscribeLite, got %v", err)
 	}
 
-	if _, exists := dlpc.litePushConsumerSettings.liteTopicSet.Load("lite-topic-1"); !exists {
+	if _, exists := dlpc.liteSubscriptionManager.liteTopicSet.Load("lite-topic-1"); !exists {
 		t.Error("expected lite topic to be added to set")
 	}
 }
@@ -291,9 +292,9 @@ func TestLitePushConsumer_SubscribeLite_NotRunning(t *testing.T) {
 		t.Fatal("expected error when consumer not running")
 	}
 
-	expectedError := "consumer is not running"
-	if err.Error() != expectedError {
-		t.Errorf("expected error '%s', got '%s'", expectedError, err.Error())
+	expectedErrorPrefix := "client not running, clientId="
+	if !strings.HasPrefix(err.Error(), expectedErrorPrefix) {
+		t.Errorf("expected error prefix '%s', got '%s'", expectedErrorPrefix, err.Error())
 	}
 }
 
@@ -313,7 +314,7 @@ func TestLitePushConsumer_SubscribeLite_RpcError(t *testing.T) {
 		t.Fatal("expected rpc error")
 	}
 
-	if _, exists := dlpc.litePushConsumerSettings.liteTopicSet.Load("lite-topic-1"); exists {
+	if _, exists := dlpc.liteSubscriptionManager.liteTopicSet.Load("lite-topic-1"); exists {
 		t.Error("lite topic should not be added when rpc fails")
 	}
 }
@@ -327,7 +328,7 @@ func TestLitePushConsumer_UnSubscribeLite(t *testing.T) {
 		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
 
-	dlpc.litePushConsumerSettings.liteTopicSet.Store("lite-topic-1", struct{}{})
+	dlpc.liteSubscriptionManager.liteTopicSet.Store("lite-topic-1", struct{}{})
 
 	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, req *v2.SyncLiteSubscriptionRequest) (*v2.SyncLiteSubscriptionResponse, error) {
 		if req.Action != v2.LiteSubscriptionAction_PARTIAL_REMOVE {
@@ -344,7 +345,7 @@ func TestLitePushConsumer_UnSubscribeLite(t *testing.T) {
 		t.Fatalf("expected no error for UnSubscribeLite, got %v", err)
 	}
 
-	if _, exists := dlpc.litePushConsumerSettings.liteTopicSet.Load("lite-topic-1"); exists {
+	if _, exists := dlpc.liteSubscriptionManager.liteTopicSet.Load("lite-topic-1"); exists {
 		t.Error("expected lite topic to be removed from set")
 	}
 }
@@ -358,15 +359,15 @@ func TestLitePushConsumer_notifyUnsubscribeLite(t *testing.T) {
 		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
 
-	dlpc.litePushConsumerSettings.liteTopicSet.Store("lite-topic-notify", struct{}{})
+	dlpc.liteSubscriptionManager.liteTopicSet.Store("lite-topic-notify", struct{}{})
 
 	cmd := &v2.NotifyUnsubscribeLiteCommand{
 		LiteTopic: "lite-topic-notify",
 	}
 
-	dlpc.notifyUnsubscribeLite(cmd)
+	dlpc.liteSubscriptionManager.onNotifyUnsubscribeLiteCommand(cmd)
 
-	if _, exists := dlpc.litePushConsumerSettings.liteTopicSet.Load("lite-topic-notify"); exists {
+	if _, exists := dlpc.liteSubscriptionManager.liteTopicSet.Load("lite-topic-notify"); exists {
 		t.Error("expected lite topic to be removed from set after notify")
 	}
 }
@@ -380,15 +381,15 @@ func TestLitePushConsumer_notifyUnsubscribeLite_EmptyLiteTopic(t *testing.T) {
 		t.Fatalf("failed to create test lite push consumer: %v", err)
 	}
 
-	dlpc.litePushConsumerSettings.liteTopicSet.Store("lite-topic-keep", struct{}{})
+	dlpc.liteSubscriptionManager.liteTopicSet.Store("lite-topic-keep", struct{}{})
 
 	cmd := &v2.NotifyUnsubscribeLiteCommand{
 		LiteTopic: "",
 	}
 
-	dlpc.notifyUnsubscribeLite(cmd)
+	dlpc.liteSubscriptionManager.onNotifyUnsubscribeLiteCommand(cmd)
 
-	if _, exists := dlpc.litePushConsumerSettings.liteTopicSet.Load("lite-topic-keep"); !exists {
+	if _, exists := dlpc.liteSubscriptionManager.liteTopicSet.Load("lite-topic-keep"); !exists {
 		t.Error("lite topic should not be removed when command has empty lite topic")
 	}
 }
@@ -404,7 +405,7 @@ func TestLitePushConsumer_syncLiteSubscription_StatusError(t *testing.T) {
 
 	mockRpcClient.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(setupErrorResponse(v2.Code_INTERNAL_SERVER_ERROR, "internal error"), nil)
 
-	err = dlpc.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{"test"}, nil)
+	err = dlpc.liteSubscriptionManager.syncLiteSubscription(context.TODO(), v2.LiteSubscriptionAction_PARTIAL_ADD, []string{"test"}, nil)
 	if err == nil {
 		t.Fatal("expected error for non-OK status code")
 	}
@@ -422,7 +423,6 @@ func TestLitePushConsumer_syncLiteSubscription_StatusError(t *testing.T) {
 		t.Errorf("expected message 'internal error', got '%s'", rpcErr.Message)
 	}
 }
-
 
 func TestLitePushConsumer_WrapHeartbeatRequest(t *testing.T) {
 	setupTest(t)
@@ -488,12 +488,12 @@ func TestLitePushConsumerSettings_applySettingsCommand(t *testing.T) {
 		t.Fatalf("applySettingsCommand failed: %v", err)
 	}
 
-	if settings.liteSubscriptionQuota != liteQuota {
-		t.Errorf("expected lite subscription quota %d, got %d", liteQuota, settings.liteSubscriptionQuota)
+	if dlpc.liteSubscriptionManager.liteSubscriptionQuota != liteQuota {
+		t.Errorf("expected lite subscription quota %d, got %d", liteQuota, dlpc.liteSubscriptionManager.liteSubscriptionQuota)
 	}
 
-	if settings.maxLiteTopicSize != maxSize {
-		t.Errorf("expected max lite topic size %d, got %d", maxSize, settings.maxLiteTopicSize)
+	if dlpc.liteSubscriptionManager.maxLiteTopicSize != maxSize {
+		t.Errorf("expected max lite topic size %d, got %d", maxSize, dlpc.liteSubscriptionManager.maxLiteTopicSize)
 	}
 
 	if !settings.isFifo {
@@ -512,8 +512,8 @@ func TestLitePushConsumerSettings_toProtobuf(t *testing.T) {
 
 	settings := dlpc.litePushConsumerSettings
 
-	settings.liteSubscriptionQuota = 50
-	settings.maxLiteTopicSize = 512
+	dlpc.liteSubscriptionManager.liteSubscriptionQuota = 50
+	dlpc.liteSubscriptionManager.maxLiteTopicSize = 512
 
 	protobuf := settings.toProtobuf()
 
@@ -531,12 +531,13 @@ func TestLitePushConsumerSettings_toProtobuf(t *testing.T) {
 		t.Fatal("expected subscription to be set")
 	}
 
-	if subscription.Subscription.GetLiteSubscriptionQuota() != 50 {
-		t.Errorf("expected lite subscription quota 50, got %d", subscription.Subscription.GetLiteSubscriptionQuota())
+	// quota and maxLiteTopicSize are server-pushed only, never reported back
+	if subscription.Subscription.LiteSubscriptionQuota != nil {
+		t.Errorf("expected lite subscription quota to be unset, got %d", subscription.Subscription.GetLiteSubscriptionQuota())
 	}
 
-	if subscription.Subscription.GetMaxLiteTopicSize() != 512 {
-		t.Errorf("expected max lite topic size 512, got %d", subscription.Subscription.GetMaxLiteTopicSize())
+	if subscription.Subscription.MaxLiteTopicSize != nil {
+		t.Errorf("expected max lite topic size to be unset, got %d", subscription.Subscription.GetMaxLiteTopicSize())
 	}
 
 	entry := subscription.Subscription.GetSubscriptions()[0]

@@ -83,6 +83,22 @@ func (pc *defaultPushConsumer) isOn() bool {
 	return pc.cli.on.Load()
 }
 
+func (pc *defaultPushConsumer) isRunning() bool {
+	// graceful stop in pushConsumer
+	if pc.stopping.Load() {
+		return false
+	}
+	return pc.cli.isRunning()
+}
+
+func (pc *defaultPushConsumer) getClient() *defaultClient {
+	return pc.cli
+}
+
+func (pc *defaultPushConsumer) getRequestTimeout() time.Duration {
+	return pc.pcSettings.requestTimeout
+}
+
 func (pc *defaultPushConsumer) changeInvisibleDuration0(context context.Context, messageView *MessageView, invisibleDuration time.Duration) (*v2.ChangeInvisibleDurationResponse, error) {
 	endpoints := messageView.endpoints
 	if endpoints == nil {
@@ -654,14 +670,6 @@ func (pc *defaultPushConsumer) forwardMessageToDeadLetterQueue0(ctx context.Cont
 	request := pc.wrapForwardMessageToDeadLetterQueueRequest(messageView)
 	ctx = pc.cli.Sign(ctx)
 	return pc.cli.clientManager.ForwardMessageToDeadLetterQueue(ctx, endpoints, request, pc.cli.opts.timeout)
-}
-
-func (pc *defaultPushConsumer) isRunning() bool {
-	// graceful stop in pushConsumer
-	if pc.stopping.Load() {
-		return false
-	}
-	return pc.cli.isRunning()
 }
 
 func (pc *defaultPushConsumer) getQueueSize() int32 {
