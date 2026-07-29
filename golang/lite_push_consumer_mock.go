@@ -66,6 +66,20 @@ func (mr *MockLitePushConsumerMockRecorder) UnSubscribeLite(liteTopic interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnSubscribeLite", reflect.TypeOf((*MockLitePushConsumer)(nil).UnSubscribeLite), liteTopic)
 }
 
+// GetLiteTopicSet mocks base method.
+func (m *MockLitePushConsumer) GetLiteTopicSet() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLiteTopicSet")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// GetLiteTopicSet indicates an expected call of GetLiteTopicSet.
+func (mr *MockLitePushConsumerMockRecorder) GetLiteTopicSet() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLiteTopicSet", reflect.TypeOf((*MockLitePushConsumer)(nil).GetLiteTopicSet))
+}
+
 // Start mocks base method.
 func (m *MockLitePushConsumer) Start() error {
 	m.ctrl.T.Helper()

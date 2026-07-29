@@ -19,7 +19,6 @@ package golang
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
@@ -30,22 +29,16 @@ var _ = ClientSettings(&litePushConsumerSettings{})
 
 type litePushConsumerSettings struct {
 	*pushConsumerSettings
-	bindTopic             string
-	liteTopicSet          *sync.Map
-	liteSubscriptionQuota int32
-	maxLiteTopicSize      int32
-	invisibleDuration     time.Duration
+	bindTopic               string
+	invisibleDuration       time.Duration
+	liteSubscriptionManager *liteSubscriptionManager
 }
 
 func newLitePushConsumerSettings(settings *pushConsumerSettings, bindTopic string, invisibleDuration time.Duration) *litePushConsumerSettings {
 	return &litePushConsumerSettings{
 		pushConsumerSettings: settings,
 		bindTopic:            bindTopic,
-		liteTopicSet:         &sync.Map{},
 		invisibleDuration:    invisibleDuration,
-		// default value
-		liteSubscriptionQuota: 2000,
-		maxLiteTopicSize:      64,
 	}
 }
 
@@ -82,16 +75,9 @@ func (lpc *litePushConsumerSettings) applySettingsCommand(settings *v2.Settings)
 	}
 	// force fifo to true
 	lpc.pushConsumerSettings.isFifo = true
-	var subscription = settings.GetSubscription()
-	if subscription == nil {
-		sugarBaseLogger.Warnf("onSettingsCommand err = subscription is nil")
-		return fmt.Errorf("onSettingsCommand err = subscription is nil")
-	}
-	if subscription.LiteSubscriptionQuota != nil {
-		lpc.liteSubscriptionQuota = *subscription.LiteSubscriptionQuota
-	}
-	if subscription.MaxLiteTopicSize != nil {
-		lpc.maxLiteTopicSize = *subscription.MaxLiteTopicSize
+	// Delegate subscription settings (quota, max topic size) to the manager
+	if lpc.liteSubscriptionManager != nil {
+		lpc.liteSubscriptionManager.sync(settings.GetSubscription())
 	}
 	return nil
 }
@@ -126,11 +112,9 @@ func (lpc *litePushConsumerSettings) toProtobuf() *v2.Settings {
 	})
 	subSetting := &v2.Settings_Subscription{
 		Subscription: &v2.Subscription{
-			Group:                 lpc.groupName,
-			Subscriptions:         subscriptions,
-			LongPollingTimeout:    durationpb.New(lpc.longPollingTimeout),
-			LiteSubscriptionQuota: &lpc.liteSubscriptionQuota,
-			MaxLiteTopicSize:      &lpc.maxLiteTopicSize,
+			Group:              lpc.groupName,
+			Subscriptions:      subscriptions,
+			LongPollingTimeout: durationpb.New(lpc.longPollingTimeout),
 		},
 	}
 	settings := &v2.Settings{

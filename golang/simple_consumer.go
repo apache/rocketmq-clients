@@ -71,6 +71,18 @@ func (sc *defaultSimpleConsumer) isOn() bool {
 	return sc.cli.on.Load()
 }
 
+func (sc *defaultSimpleConsumer) isRunning() bool {
+	return sc.cli.isRunning()
+}
+
+func (sc *defaultSimpleConsumer) getClient() *defaultClient {
+	return sc.cli
+}
+
+func (sc *defaultSimpleConsumer) getRequestTimeout() time.Duration {
+	return sc.scSettings.requestTimeout
+}
+
 func (sc *defaultSimpleConsumer) changeInvisibleDuration0(messageView *MessageView, invisibleDuration time.Duration) (*v2.ChangeInvisibleDurationResponse, error) {
 	endpoints := messageView.endpoints
 	if endpoints == nil {
@@ -93,6 +105,14 @@ func (sc *defaultSimpleConsumer) changeInvisibleDuration0(messageView *MessageVi
 		InvisibleDuration: durationpb.New(invisibleDuration),
 		MessageId:         messageView.GetMessageId(),
 	}
+
+	// Set LiteTopic only for lite consumer
+	if messageView.GetLiteTopic() != "" && sc.scSettings.GetClientType() == v2.ClientType_LITE_SIMPLE_CONSUMER {
+		request.LiteTopic = &messageView.liteTopic
+		suspend := true
+		request.Suspend = &suspend
+	}
+
 	watchTime := time.Now()
 	resp, err := sc.cli.clientManager.ChangeInvisibleDuration(ctx, endpoints, request, sc.scSettings.requestTimeout)
 	duration := time.Since(watchTime)
@@ -190,18 +210,23 @@ func (sc *defaultSimpleConsumer) wrapReceiveMessageRequest(batchSize int, messag
 }
 
 func (sc *defaultSimpleConsumer) wrapAckMessageRequest(messageView *MessageView) *v2.AckMessageRequest {
+	entry := &v2.AckMessageEntry{
+		MessageId:     messageView.GetMessageId(),
+		ReceiptHandle: messageView.GetReceiptHandle(),
+	}
+
+	// Set LiteTopic only for lite consumer
+	if messageView.GetLiteTopic() != "" && sc.scSettings.GetClientType() == v2.ClientType_LITE_SIMPLE_CONSUMER {
+		entry.LiteTopic = &messageView.liteTopic
+	}
+
 	return &v2.AckMessageRequest{
 		Group: sc.scSettings.groupName,
 		Topic: &v2.Resource{
 			Name:              messageView.GetTopic(),
 			ResourceNamespace: sc.cli.config.NameSpace,
 		},
-		Entries: []*v2.AckMessageEntry{
-			{
-				MessageId:     messageView.GetMessageId(),
-				ReceiptHandle: messageView.GetReceiptHandle(),
-			},
-		},
+		Entries: []*v2.AckMessageEntry{entry},
 	}
 }
 
@@ -347,11 +372,15 @@ func (sc *defaultSimpleConsumer) onVerifyMessageCommand(endpoints *v2.Endpoints,
 func (sc *defaultSimpleConsumer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 	return &v2.HeartbeatRequest{
 		Group:      sc.scSettings.groupName,
-		ClientType: v2.ClientType_SIMPLE_CONSUMER,
+		ClientType: sc.scSettings.clientType,
 	}
 }
 
 var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (SimpleConsumer, error) {
+	return newSimpleConsumer(config, opts...)
+}
+
+var newSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (*defaultSimpleConsumer, error) {
 	copyOpt := defaultSimpleConsumerOptions
 	scOpts := &copyOpt
 	for _, opt := range opts {
@@ -430,12 +459,27 @@ func (sc *defaultSimpleConsumer) getSubscriptionTopicRouteResult(ctx context.Con
 	if err != nil {
 		return nil, err
 	}
+	route = sc.filterTopicRouteData(route)
 	slb, err := NewSubscriptionLoadBalancer(route)
 	if err != nil {
 		return nil, err
 	}
 	sc.subTopicRouteDataResultCache.Store(topic, slb)
 	return slb, nil
+}
+
+// filterTopicRouteData keeps only the first readable master queue for lite consumers,
+// since lite consumers only need routes to brokers.
+func (sc *defaultSimpleConsumer) filterTopicRouteData(messageQueues []*v2.MessageQueue) []*v2.MessageQueue {
+	if sc.scSettings.GetClientType() != v2.ClientType_LITE_SIMPLE_CONSUMER {
+		return messageQueues
+	}
+	for _, mq := range messageQueues {
+		if isReadableMasterQueue(mq) {
+			return []*v2.MessageQueue{mq}
+		}
+	}
+	return []*v2.MessageQueue{}
 }
 
 // Ack implements SimpleConsumer

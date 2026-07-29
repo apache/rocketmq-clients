@@ -73,6 +73,18 @@ func (p *defaultProducer) isOn() bool {
 	return p.cli.on.Load()
 }
 
+func (p *defaultProducer) isRunning() bool {
+	return p.cli.isRunning()
+}
+
+func (p *defaultProducer) getClient() *defaultClient {
+	return p.cli
+}
+
+func (p *defaultProducer) getRequestTimeout() time.Duration {
+	return p.pSetting.requestTimeout
+}
+
 func (p *defaultProducer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 	return &v2.HeartbeatRequest{
 		ClientType: v2.ClientType_PRODUCER,
