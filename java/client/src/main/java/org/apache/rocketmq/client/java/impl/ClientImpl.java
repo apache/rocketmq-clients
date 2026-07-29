@@ -130,7 +130,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private final ReadWriteLock sessionsLock;
 
     private final CompositedMessageInterceptor compositedMessageInterceptor;
-    private boolean receiveReconnect = false;
 
     public ClientImpl(ClientConfiguration clientConfiguration, Set<String> topics) {
         this.clientConfiguration = checkNotNull(clientConfiguration, "clientConfiguration should not be null");
@@ -294,7 +293,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     @Override
     public void onReconnectEndpointsCommand(Endpoints endpoints, ReconnectEndpointsCommand command) {
-        receiveReconnect = true;
+        getClientManager().reconnect(endpoints);
     }
 
     /**
@@ -547,12 +546,21 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         return clientId;
     }
 
-    public boolean isReceiveReconnect() {
-        return receiveReconnect;
-    }
-
-    public void setReceiveReconnect(boolean receiveReconnect) {
-        this.receiveReconnect = receiveReconnect;
+    @Override
+    public void reconnectTelemetry(Endpoints endpoints) {
+        final ClientSessionImpl clientSession;
+        sessionsLock.readLock().lock();
+        try {
+            clientSession = sessionsTable.get(endpoints);
+        } finally {
+            sessionsLock.readLock().unlock();
+        }
+        if (null == clientSession) {
+            log.warn("Failed to rebuild telemetry because client session does not exist, endpoints={}, clientId={}",
+                endpoints, clientId);
+            return;
+        }
+        clientSession.reconnect();
     }
 
     /**

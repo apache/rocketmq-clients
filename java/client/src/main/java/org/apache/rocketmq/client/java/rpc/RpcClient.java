@@ -43,6 +43,7 @@ import apache.rocketmq.v2.SyncLiteSubscriptionRequest;
 import apache.rocketmq.v2.SyncLiteSubscriptionResponse;
 import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.grpc.ConnectivityState;
 import io.grpc.Metadata;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
@@ -68,6 +69,19 @@ public interface RpcClient {
      * @throws InterruptedException if thread has been interrupted.
      */
     void shutdown() throws InterruptedException;
+
+    /**
+     * Move the channel into idle mode so that new RPCs create a new transport.
+     */
+    void enterIdle();
+
+    /**
+     * Get the current connectivity state.
+     *
+     * @param requestConnection if true, the channel will try to connect if it is currently idle.
+     * @return current connectivity state.
+     */
+    ConnectivityState getState(boolean requestConnection);
 
     /**
      * Query topic route asynchronously.

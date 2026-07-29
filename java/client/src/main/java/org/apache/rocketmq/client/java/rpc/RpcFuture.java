@@ -17,12 +17,17 @@
 
 package org.apache.rocketmq.client.java.rpc;
 
+import apache.rocketmq.v2.Code;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
 
 @SuppressWarnings("NullableProblems")
 public class RpcFuture<R, T> implements ListenableFuture<T> {
@@ -33,7 +38,7 @@ public class RpcFuture<R, T> implements ListenableFuture<T> {
     public RpcFuture(Context context, R request, ListenableFuture<T> responseFuture) {
         this.request = request;
         this.context = context;
-        this.responseFuture = responseFuture;
+        this.responseFuture = normalizeTransportException(context, responseFuture);
     }
 
     public RpcFuture(Throwable t) {
@@ -48,6 +53,25 @@ public class RpcFuture<R, T> implements ListenableFuture<T> {
 
     public Context getContext() {
         return context;
+    }
+
+    private static <T> ListenableFuture<T> normalizeTransportException(Context context,
+        ListenableFuture<T> responseFuture) {
+        if (null == responseFuture) {
+            return null;
+        }
+        return Futures.catchingAsync(responseFuture, StatusRuntimeException.class, exception -> {
+            if (Status.Code.RESOURCE_EXHAUSTED != exception.getStatus().getCode()) {
+                return Futures.immediateFailedFuture(exception);
+            }
+            final String requestId = null == context ? null : context.getRequestId();
+            final String description = null == exception.getStatus().getDescription()
+                ? exception.getMessage() : exception.getStatus().getDescription();
+            final TooManyRequestsException tooManyRequestsException = new TooManyRequestsException(
+                Code.TOO_MANY_REQUESTS.getNumber(), requestId, description);
+            tooManyRequestsException.initCause(exception);
+            return Futures.immediateFailedFuture(tooManyRequestsException);
+        }, MoreExecutors.directExecutor());
     }
 
     @Override
