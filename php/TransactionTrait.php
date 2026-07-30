@@ -98,11 +98,16 @@ trait TransactionTrait
         }
 
         $request = $this->wrapTransactionMessageRequest([$message], $messageQueue[0]);
-        $result = $this->sendMessageWithRetry($request, $message, $messageQueue, $this->getSettingsMaxAttempts());
+        // txEnabled=true so retries rebuild the request as a transaction (half) message
+        $result = $this->sendMessageWithRetry($request, $message, $messageQueue, $this->getSettingsMaxAttempts(), true);
 
         if (isset($result['transactionId'])) {
             $transaction->tryAddMessage($message);
-            $transaction->tryAddReceipt($message, $result, PublishingRouteManager::extractMessageQueueEndpoint($messageQueue[0]));
+            // Track the endpoint of the queue that actually succeeded (retries may
+            // rotate away from $messageQueue[0])
+            $successEndpoints = $result['endpoints']
+                ?? PublishingRouteManager::extractMessageQueueEndpoint($messageQueue[0]);
+            $transaction->tryAddReceipt($message, $result, $successEndpoints);
         }
 
         $resolvedExecutor = $executor ?? $this->localTransactionExecuter;

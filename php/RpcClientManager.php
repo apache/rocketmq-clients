@@ -69,13 +69,14 @@ class RpcClientManager
     /**
      * Get or create a MessagingServiceClient for the given endpoints.
      *
-     * Clients are cached and reused based on endpoint + TLS configuration.
+     * Clients are cached and reused based on endpoint + resolved transport/TLS mode.
      * Idle clients are automatically cleaned up every 60 seconds if unused for 30 minutes.
      *
      * @param string $endpoints Server endpoint in format "host:port"
      * @param array $options Optional configuration:
      *                       - 'tlsCredentials': TlsCredentials instance for TLS/mTLS
      *                       - 'credentials': Pre-created ChannelCredentials
+     *                       - 'sslEnabled': bool, default TLS on/off when no credentials given
      * @return MessagingServiceClient gRPC client instance
      */
     public function getClient(string $endpoints, array $options = []): MessagingServiceClient
@@ -84,14 +85,14 @@ class RpcClientManager
             throw new \InvalidArgumentException('endpoints must not be empty');
         }
 
+        // Check mock registry first; mocks match by endpoint regardless of TLS options
+        if (isset($this->mocks[$endpoints])) {
+            $this->clientLastUsedTime[$endpoints] = time();
+            return $this->mocks[$endpoints];
+        }
+
         $credentials = $this->resolveCredentials($options);
         $key = $this->makeKey($endpoints, $options);
-
-        // Check mock registry first
-        if (isset($this->mocks[$key])) {
-            $this->clientLastUsedTime[$key] = time();
-            return $this->mocks[$key];
-        }
 
         if (!isset($this->clients[$key])) {
             $this->logger->info("Creating new RPC client for: {$endpoints}");
@@ -124,7 +125,8 @@ class RpcClientManager
 
     /**
      * Register a mock MessagingServiceClient for the given endpoints.
-     * Subsequent calls to getClient() with matching endpoints will return this mock.
+     * Subsequent calls to getClient() with matching endpoints will return this mock,
+     * regardless of the TLS options passed to getClient().
      *
      * @param string $endpoints Server endpoint in format "host:port"
      * @param MessagingServiceClient $mock The mock client to return
@@ -132,9 +134,8 @@ class RpcClientManager
      */
     public function registerMock(string $endpoints, MessagingServiceClient $mock): void
     {
-        $key = $this->makeKey($endpoints, []);
-        $this->mocks[$key] = $mock;
-        $this->logger->info("Registered mock client for: {$key}");
+        $this->mocks[$endpoints] = $mock;
+        $this->logger->info("Registered mock client for: {$endpoints}");
     }
 
     /**
@@ -220,11 +221,17 @@ class RpcClientManager
     }
 
     /**
-     * Generate a unique cache key based on endpoint and TLS configuration.
+     * Generate a unique cache key based on endpoint and the resolved transport/TLS mode.
+     *
+     * The key mirrors resolveCredentials(): when neither tlsCredentials nor a
+     * pre-created credentials option is present, the default TLS configuration
+     * and sslEnabled=false must produce different keys so a TLS client can never
+     * silently reuse a plaintext channel (or vice versa).
      *
      * Key format: "{endpoint}:{tlsFingerprint}"
      * Examples:
-     *   - "localhost:8080:insecure"
+     *   - "localhost:8080:tls|default"    (no options, SSL on by default)
+     *   - "localhost:8080:insecure"       (sslEnabled=false or insecure TlsCredentials)
      *   - "localhost:8080:tls|ca:/path/to/ca.pem"
      *   - "localhost:8080:mtls:/path/to/client.pem|no-verify"
      *
@@ -234,7 +241,6 @@ class RpcClientManager
      */
     private function makeKey(string $endpoints, array $options): string
     {
-        $tlsFingerprint = 'insecure';
         if (isset($options['tlsCredentials']) && $options['tlsCredentials'] instanceof TlsCredentials) {
             $tls = $options['tlsCredentials'];
             $parts = [];
@@ -251,6 +257,10 @@ class RpcClientManager
             $tlsFingerprint = implode('|', $parts);
         } elseif (isset($options['credentials'])) {
             $tlsFingerprint = 'secure';
+        } else {
+            // Mirror resolveCredentials(): default TLS unless sslEnabled=false
+            $sslEnabled = $options['sslEnabled'] ?? true;
+            $tlsFingerprint = $sslEnabled ? 'tls|default' : 'insecure';
         }
         return $endpoints . ':' . $tlsFingerprint;
     }

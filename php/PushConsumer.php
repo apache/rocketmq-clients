@@ -708,7 +708,10 @@ class PushConsumer implements ConsumerInterface
         $command = new TelemetryCommand();
         $command->setSettings($settings);
 
-        $success = $this->telemetrySession->createStreamAndSync($command);
+        // syncSettings() waits for the server's Settings response (with timeout)
+        // instead of only creating the stream, so consumption never starts before
+        // the server has accepted the settings and returned backoff policies.
+        $success = $this->telemetrySession->syncSettings($command);
         if (!$success) {
             throw new \RuntimeException("Failed to establish Telemetry Session");
         }
@@ -759,11 +762,13 @@ class PushConsumer implements ConsumerInterface
             $latestMQKeys[$mqKey] = $mq;
         }
         if (empty($newAssignments)) {
+            // An empty assignment set is a valid rebalance result (e.g. all queues were
+            // reassigned to other consumers); fall through so the removal loop below
+            // drops every ProcessQueue that belongs to this topic.
             $existingCount = count($this->processQueueTable);
             if ($existingCount > 0) {
-                $this->logger->warning("Broker returned 0 assignments for topics={$topic}, keeping {$existingCount} existing ProcessQueues");
+                $this->logger->warning("Broker returned 0 assignments for topic={$topic}, dropping this topic's existing ProcessQueues");
             }
-            return;
         }
 
         // Drop ProcessQueues no longer in the latest assignments

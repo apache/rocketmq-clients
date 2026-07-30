@@ -407,14 +407,17 @@ class SendMessageHandler
      * @param Message $message The original user message (for interceptor context)
      * @param array $candidates Candidate message queues for rotation
      * @param int $maxAttempts Maximum number of attempts
-     * @return array{messageId: string, transactionId: string, recallHandle: string, code: int, message: string}
+     * @param bool $txEnabled Whether the request carries a transaction (half) message;
+     *                        preserved when the request is rebuilt for a retry
+     * @return array{messageId: string, transactionId: string, recallHandle: string, code: int, message: string, endpoints: ?object}
      * @throws \RuntimeException If deadline exceeded or all attempts fail
      */
     public function sendMessageWithRetry(
         SendMessageRequest $request,
         Message $message,
         array $candidates,
-        int $maxAttempts
+        int $maxAttempts,
+        bool $txEnabled = false
     ): array {
         $lastException = null;
         $startTime = microtime(true);
@@ -436,7 +439,11 @@ class SendMessageHandler
             if ($attempt > 1 && $candidateCount > 1) {
                 $queueIndex = IntMath::mod($attempt, $candidateCount);
                 $currentMessageQueue = $candidates[$queueIndex];
-                $request = $this->wrapSendMessageRequest([$message], $currentMessageQueue);
+                // Rebuild with the original message type: a transaction (half) message
+                // must not be retried as a normal, immediately visible message
+                $request = $txEnabled
+                    ? $this->wrapTransactionMessageRequest([$message], $currentMessageQueue)
+                    : $this->wrapSendMessageRequest([$message], $currentMessageQueue);
             }
             try {
                 $remainingTimeUs = max(1000000, ($deadlineMicroseconds - microtime(true)) * 1000000);
@@ -481,7 +488,7 @@ class SendMessageHandler
                         'success' => true,
                         'latencyMs' => $latencyMs,
                         'topic' => $message->getTopic()->getName(),
-                        'messageType' => $this->detectMessageType($message, false),
+                        'messageType' => $this->detectMessageType($message, $txEnabled),
                         'sendReceipts' => [
                             'messageId' => $entry->getMessageId(),
                             'transactionId' => $entry->getTransactionId(),
@@ -494,6 +501,9 @@ class SendMessageHandler
                         'recallHandle' => $entry->getRecallHandle() ?? '',
                         'code' => $resultStatus->getCode(),
                         'message' => $resultStatus->getMessage(),
+                        // Endpoint of the queue that actually succeeded (may differ from
+                        // $candidates[0] after retries); used for transaction tracking
+                        'endpoints' => PublishingRouteManager::extractMessageQueueEndpoint($currentMessageQueue),
                     ];
                 }
 
@@ -522,7 +532,7 @@ class SendMessageHandler
             'success' => false,
             'latencyMs' => $latencyMs,
             'topic' => $message->getTopic()->getName(),
-            'messageType' => $this->detectMessageType($message, false),
+            'messageType' => $this->detectMessageType($message, $txEnabled),
             'sendException' => $lastException ? $lastException->getMessage() : '',
         ]);
         throw $lastException;

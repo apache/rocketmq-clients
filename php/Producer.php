@@ -460,9 +460,9 @@ class Producer implements TransactionCommitter, ClientTraitProvider
         return $this->sendHandler->wrapTransactionMessageRequest($messages, $messageQueue);
     }
 
-    private function sendMessageWithRetry(V2\SendMessageRequest $request, Message $message, array $candidates, int $maxAttempts): array
+    private function sendMessageWithRetry(V2\SendMessageRequest $request, Message $message, array $candidates, int $maxAttempts, bool $txEnabled = false): array
     {
-        return $this->sendHandler->sendMessageWithRetry($request, $message, $candidates, $maxAttempts);
+        return $this->sendHandler->sendMessageWithRetry($request, $message, $candidates, $maxAttempts, $txEnabled);
     }
 
     // ==================== TransactionTrait Infrastructure Delegation ====================

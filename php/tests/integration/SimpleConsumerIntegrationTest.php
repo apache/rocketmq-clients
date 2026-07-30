@@ -243,8 +243,8 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
     }
 
     /**
-     * Test start succeeds even when TelemetrySession doesn't get settings response.
-     * The production code treats missing settings confirmation as non-fatal.
+     * Test start fails when TelemetrySession doesn't get a server settings response.
+     * Startup must not be treated as successful without server-accepted settings.
      */
     public function testStartFailsWithoutTelemetryResponse()
     {
@@ -281,9 +281,9 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
         $consumer = new SimpleConsumer($this->endpoints, 'test-group', [
             'subscriptionExpressions' => ['test-topic' => '*'],
         ]);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/Telemetry/');
         $consumer->start();
-        $this->assertTrue( true, 'Consumer started even without telemetry settings confirmation');
-        $consumer->shutdown();
     }
 
     /**
@@ -356,7 +356,8 @@ class SimpleConsumerIntegrationTest extends IntegrationTestCase
      */
     public function testReceiveThrowsOnInvalidMaxMessages()
     {
-        $this->createAndRegisterMock($this->endpoints);
+        $mock = $this->createAndRegisterMock($this->endpoints);
+        $this->setupCommonMocks($mock);
 
         $consumer = $this->createStartedConsumer();
 

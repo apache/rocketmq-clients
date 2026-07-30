@@ -81,6 +81,8 @@ class FakeProducerForTrait implements TransactionCommitter
     public array $rollbackCalls = [];
     public array $interceptorCalls = [];
     public array $endTransactionCalls = [];
+    public array $sendRetryCalls = [];
+    public ?Endpoints $sendResultEndpoints = null;
 
     public function __construct()
     {
@@ -109,12 +111,14 @@ class FakeProducerForTrait implements TransactionCommitter
         return new \stdClass();
     }
 
-    public function sendMessageWithRetry($request, Message $message, array $messageQueue, int $maxAttempts): array
+    public function sendMessageWithRetry($request, Message $message, array $messageQueue, int $maxAttempts, bool $txEnabled = false): array
     {
+        $this->sendRetryCalls[] = ['txEnabled' => $txEnabled, 'maxAttempts' => $maxAttempts];
         return [
             'messageId' => 'fake-msg-id-' . uniqid(),
             'transactionId' => 'fake-tx-id-' . uniqid(),
             'recallHandle' => null,
+            'endpoints' => $this->sendResultEndpoints,
         ];
     }
 
@@ -460,6 +464,74 @@ class TransactionTraitTest extends TestCase
         $producer->sendWithTransaction($message, $transaction);
 
         $this->assertCount(1, $transaction->getReceipts(), "Transaction should have 1 receipt");
+    }
+
+    /**
+     * Test that sendWithTransaction requests the transaction message type on the
+     * retry path, so a half message is never retried as a normal message.
+     */
+    public function testSendWithTransactionPreservesTransactionTypeOnRetry()
+    {
+        $producer = new FakeProducerForTrait();
+        $message = $this->buildMessage();
+        $transaction = new Transaction($producer);
+
+        $producer->sendWithTransaction($message, $transaction);
+
+        $this->assertCount(1, $producer->sendRetryCalls);
+        $this->assertTrue(
+            $producer->sendRetryCalls[0]['txEnabled'],
+            "sendMessageWithRetry should be invoked with txEnabled=true for half messages"
+        );
+    }
+
+    /**
+     * Test that the receipt records the endpoint of the queue that actually
+     * succeeded, as reported by sendMessageWithRetry.
+     */
+    public function testSendWithTransactionRecordsSuccessfulQueueEndpoints()
+    {
+        $producer = new FakeProducerForTrait();
+
+        $address = new Address();
+        $address->setHost('retry-broker');
+        $address->setPort(12345);
+        $successEndpoints = new Endpoints();
+        $successEndpoints->setAddresses([$address]);
+        $producer->sendResultEndpoints = $successEndpoints;
+
+        $message = $this->buildMessage();
+        $transaction = new Transaction($producer);
+
+        $producer->sendWithTransaction($message, $transaction);
+
+        $receipts = $transaction->getReceipts();
+        $this->assertCount(1, $receipts);
+        $this->assertSame(
+            $successEndpoints,
+            array_values($receipts)[0]['endpoints'],
+            "Receipt should track the endpoint of the queue that actually succeeded"
+        );
+    }
+
+    /**
+     * Test that without endpoints in the send result, the receipt falls back to
+     * the first candidate queue's endpoint.
+     */
+    public function testSendWithTransactionFallsBackToFirstQueueEndpoints()
+    {
+        $producer = new FakeProducerForTrait();
+        // sendResultEndpoints stays null -> trait falls back to messageQueue[0]
+        $message = $this->buildMessage();
+        $transaction = new Transaction($producer);
+
+        $producer->sendWithTransaction($message, $transaction);
+
+        $receipts = $transaction->getReceipts();
+        $this->assertCount(1, $receipts);
+        $endpoints = array_values($receipts)[0]['endpoints'];
+        $this->assertNotNull($endpoints, "Receipt should fall back to the first candidate queue endpoint");
+        $this->assertEquals('localhost', $endpoints->getAddresses()[0]->getHost());
     }
 
     // ========================

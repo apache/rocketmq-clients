@@ -108,7 +108,22 @@ class MessageView implements MessageViewInterface
             return '';
         }
 
-        // Step 1: Decompress if encoding is GZIP
+        // Step 1: Verify body integrity via digest.
+        // The digest covers the encoded (raw) body bytes, so it must be checked
+        // before any decompression.
+        if ($sysProps !== null) {
+            $bodyDigest = $sysProps->getBodyDigest();
+            if ($bodyDigest !== null && $bodyDigest !== '') {
+                // getBodyDigest returns a Digest object, extract type and checksum
+                $digestType = is_object($bodyDigest) ? $bodyDigest->getType() : null;
+                $digestChecksum = is_object($bodyDigest) ? $bodyDigest->getChecksum() : (string)$bodyDigest;
+                if ($digestChecksum !== '' && $digestChecksum !== null) {
+                    $this->verifyBodyDigest($body, $digestChecksum, $digestType);
+                }
+            }
+        }
+
+        // Step 2: Decompress if encoding is GZIP
         $encoding = Encoding::IDENTITY;
         if ($sysProps !== null) {
             $encoding = $sysProps->getBodyEncoding();
@@ -122,19 +137,6 @@ class MessageView implements MessageViewInterface
                 return null;
             }
             $body = $decompressed;
-        }
-
-        // Step 2: Verify body integrity via digest
-        if ($sysProps !== null) {
-            $bodyDigest = $sysProps->getBodyDigest();
-            if ($bodyDigest !== null && $bodyDigest !== '') {
-                // getBodyDigest returns a Digest object, extract type and checksum
-                $digestType = is_object($bodyDigest) ? $bodyDigest->getType() : null;
-                $digestChecksum = is_object($bodyDigest) ? $bodyDigest->getChecksum() : (string)$bodyDigest;
-                if ($digestChecksum !== '' && $digestChecksum !== null) {
-                    $this->verifyBodyDigest($body, $digestChecksum, $digestType);
-                }
-            }
         }
 
         return $body;
@@ -154,7 +156,7 @@ class MessageView implements MessageViewInterface
     /**
      * Verify body integrity using the given digest type and checksum.
      *
-     * @param string $body The message body string to verify
+     * @param string $body The raw (encoded) message body bytes to verify
      * @param string $checksum The expected checksum
      * @param int|null $digestType The digest type (CRC32, MD5, SHA1)
      * @return void
@@ -163,7 +165,7 @@ class MessageView implements MessageViewInterface
     {
         $computed = '';
         if ($digestType === \Apache\Rocketmq\V2\DigestType::CRC32) {
-            $computed = sprintf('%u', crc32($body));
+            $computed = Utilities::crc32CheckSum($body);
         } elseif ($digestType === \Apache\Rocketmq\V2\DigestType::MD5) {
             $computed = strtoupper(md5($body));
         } elseif ($digestType === \Apache\Rocketmq\V2\DigestType::SHA1) {

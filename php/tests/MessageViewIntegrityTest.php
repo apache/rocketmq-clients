@@ -23,8 +23,10 @@ require_once __DIR__ . '/../autoload.php';
 
 require_once __DIR__ . '/../MessageView.php';
 require_once __DIR__ . '/../Logger.php';
+require_once __DIR__ . '/../Utilities.php';
 
 use Apache\Rocketmq\MessageView;
+use Apache\Rocketmq\Utilities;
 use Apache\Rocketmq\V2\Message;
 use Apache\Rocketmq\V2\SystemProperties;
 use Apache\Rocketmq\V2\Encoding;
@@ -42,7 +44,8 @@ class MessageViewIntegrityTest extends TestCase
     public function testCorrectCrc32Digest()
     {
         $body = 'foobar';
-        $crc32 = sprintf('%u', crc32($body));
+        // RocketMQ CRC32 digests are zero-padded uppercase hex (see Utilities::crc32CheckSum)
+        $crc32 = Utilities::crc32CheckSum($body);
 
         $message = $this->buildMessage($body, Encoding::IDENTITY, DigestType::CRC32, $crc32);
         $view = new MessageView($message);
@@ -127,7 +130,8 @@ class MessageViewIntegrityTest extends TestCase
     {
         $body = 'hello world';
         $compressed = gzencode($body);
-        $crc32 = sprintf('%u', crc32($body));
+        // The digest covers the encoded (compressed) body bytes, not the decoded payload
+        $crc32 = Utilities::crc32CheckSum($compressed);
 
         $message = $this->buildMessage($compressed, Encoding::GZIP, DigestType::CRC32, $crc32);
         $view = new MessageView($message);
@@ -148,6 +152,24 @@ class MessageViewIntegrityTest extends TestCase
         $view = new MessageView($message);
 
         $this->assertTrue($view->isCorrupted(), "GZIP message should be corrupted with wrong CRC32");
+    }
+
+    /**
+     * A digest computed over the decoded payload must NOT match: the digest
+     * covers the encoded (compressed) body bytes and is verified before
+     * decompression.
+     */
+    public function testGzipBodyDigestOverDecodedBodyIsCorrupted()
+    {
+        $body = 'hello world';
+        $compressed = gzencode($body);
+        $wrongCrc32 = Utilities::crc32CheckSum($body);
+
+        $message = $this->buildMessage($compressed, Encoding::GZIP, DigestType::CRC32, $wrongCrc32);
+        $view = new MessageView($message);
+
+        $this->assertTrue($view->isCorrupted(), "Digest over decoded body should not match encoded body digest");
+        $this->assertEquals($body, $view->getBody(), "Body should still be decompressed");
     }
 
     /**

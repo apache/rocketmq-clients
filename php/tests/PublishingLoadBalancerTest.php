@@ -50,6 +50,38 @@ class FakeRouteData {
 
 class PublishingLoadBalancerTest extends TestCase
 {
+    /**
+     * Build $count writable master-broker queues named broker-0..broker-{count-1}.
+     */
+    private function buildQueues(int $count): array
+    {
+        $queues = [];
+        for ($i = 0; $i < $count; $i++) {
+            $address = new Address();
+            $address->setHost('127.0.0.1');
+            $address->setPort(8080 + $i);
+
+            $endpoints = new V2Endpoints();
+            $endpoints->setScheme(AddressScheme::IPv4);
+            $endpoints->setAddresses([$address]);
+
+            $broker = new Broker();
+            $broker->setName("broker-{$i}");
+            $broker->setEndpoints($endpoints);
+
+            $topic = new Resource();
+            $topic->setName('test-topic');
+
+            $queue = new MessageQueue();
+            $queue->setTopic($topic);
+            $queue->setBroker($broker);
+            $queue->setPermission(Permission::READ_WRITE);
+
+            $queues[] = $queue;
+        }
+        return $queues;
+    }
+
     private function fakePbMessageQueue0()
     {
         $address = new Address();
@@ -84,6 +116,47 @@ class PublishingLoadBalancerTest extends TestCase
 
         $result = $loadBalancer->takeMessageQueueByMessageGroup('test');
         $this->assertNotNull($result, "Should return a message queue");
+    }
+
+    /**
+     * Cross-client FIFO queue selection: expected indices equal Java's
+     * LongMath.mod(Hashing.sipHash24().hashBytes(group.getBytes(UTF_8)).asLong(), queueCount)
+     * (and the Node.js client's siphash24-based selection), so the same message
+     * group must map to the same queue in every language client.
+     */
+    public function testTakeMessageQueueByMessageGroupMatchesJavaAndNodeClients()
+    {
+        $expectedByQueueCount = [
+            3 => [
+                'message-group-0' => 1,
+                'message-group-1' => 1,
+                'fifo-group' => 2,
+                'order-12345' => 2,
+                'RocketMQ' => 0,
+            ],
+            5 => [
+                'message-group-0' => 0,
+                'message-group-1' => 1,
+                'fifo-group' => 4,
+                'order-12345' => 3,
+                'RocketMQ' => 0,
+            ],
+        ];
+
+        foreach ($expectedByQueueCount as $queueCount => $expectations) {
+            $loadBalancer = new PublishingLoadBalancer(new FakeRouteData($this->buildQueues($queueCount)));
+            foreach ($expectations as $group => $expectedIndex) {
+                $selected = $loadBalancer->takeMessageQueueByMessageGroup($group);
+                $this->assertSame(
+                    "broker-{$expectedIndex}",
+                    $selected->getBroker()->getName(),
+                    "Group '{$group}' with {$queueCount} queues should select queue {$expectedIndex}"
+                );
+                // Deterministic: repeated selection must return the same queue
+                $again = $loadBalancer->takeMessageQueueByMessageGroup($group);
+                $this->assertSame($selected, $again);
+            }
+        }
     }
 
     public function testTakeTwoMessageQueuesWithSingleQueue()

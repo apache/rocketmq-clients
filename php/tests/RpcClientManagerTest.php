@@ -185,16 +185,16 @@ class RpcClientManagerTest extends TestCase
     {
         $manager = RpcClientManager::getInstance();
         
-        // Both use insecure credentials, so they should be the same
+        // Explicit insecure credentials
         $insecureCreds = TlsCredentials::createInsecure();
         $client1 = $manager->getClient('localhost:8080', ['tlsCredentials' => $insecureCreds]);
         
-        // No options defaults to insecure as well
+        // No options defaults to TLS (SSL enabled by default)
         $client2 = $manager->getClient('localhost:8080');
         
-        // Both resolve to insecure, so they are the same client
-        $this->assertSame($client1, $client2);
-        $this->assertEquals(1, $manager->getConnectionCount());
+        // Different transport modes must never share a channel
+        $this->assertNotSame($client1, $client2);
+        $this->assertEquals(2, $manager->getConnectionCount());
     }
 
     /**
@@ -531,8 +531,33 @@ class RpcClientManagerTest extends TestCase
         $key1 = $makeKeyMethod->invoke($manager, 'localhost:8080', ['tlsCredentials' => $insecure]);
         $key2 = $makeKeyMethod->invoke($manager, 'localhost:8080', []);
         
-        // Both default to insecure, so keys are the same
-        $this->assertEquals($key1, $key2);
+        // No options resolves to default TLS, which must not collide with insecure
+        $this->assertNotEquals($key1, $key2);
+    }
+
+    /**
+     * Test makeKey reflects the resolved transport mode for sslEnabled
+     */
+    public function testMakeKeyIncludesSslEnabledMode()
+    {
+        $manager = RpcClientManager::getInstance();
+        
+        $reflection = new \ReflectionClass($manager);
+        $makeKeyMethod = $reflection->getMethod('makeKey');
+        $makeKeyMethod->setAccessible(true);
+        
+        $defaultKey = $makeKeyMethod->invoke($manager, 'localhost:8080', []);
+        $sslOnKey = $makeKeyMethod->invoke($manager, 'localhost:8080', ['sslEnabled' => true]);
+        $sslOffKey = $makeKeyMethod->invoke($manager, 'localhost:8080', ['sslEnabled' => false]);
+        
+        // Default equals explicit sslEnabled=true (both resolve to default TLS)
+        $this->assertEquals($defaultKey, $sslOnKey);
+        // Plaintext mode must get its own cache key
+        $this->assertNotEquals($defaultKey, $sslOffKey);
+        // sslEnabled=false shares the key with explicit insecure TlsCredentials
+        $insecure = TlsCredentials::createInsecure();
+        $insecureKey = $makeKeyMethod->invoke($manager, 'localhost:8080', ['tlsCredentials' => $insecure]);
+        $this->assertEquals($insecureKey, $sslOffKey);
     }
 
     /**

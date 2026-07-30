@@ -25,7 +25,11 @@ namespace Apache\Rocketmq;
  * - 64-bit PHP: Native integer operations
  * - 32-bit PHP: Split into high/low 32-bit parts
  *
- * Default key (0, 0) matches Guava's Hashing.sipHash24() behavior.
+ * The default key matches Guava's Hashing.sipHash24(): the fixed key bytes
+ * 00 01 .. 0f, i.e. k0 = 0x0706050403020100 and k1 = 0x0f0e0d0c0b0a0908
+ * (SipHash key words are little-endian). Input words are also read in
+ * little-endian order, per the SipHash specification, so hashes are
+ * byte-for-byte identical with the Java and Node.js clients.
  *
  * Note: On 32-bit platforms, hash values may exceed PHP_INT_MAX and be
  * represented as floats. Use with caution in array keys or strict comparisons.
@@ -40,13 +44,19 @@ class SipHash24
     // 64-bit mask constant (avoid float conversion)
     private const MASK_64 = -1; // All bits set to 1 in two's complement
 
+    // Guava's fixed sipHash24() key: bytes 00..0f read as two little-endian longs
+    public const GUAVA_K0 = 0x0706050403020100;
+    public const GUAVA_K1 = 0x0f0e0d0c0b0a0908;
+
     /**
      * Constructor - initializes SipHash-2-4 with given key.
+     *
+     * Defaults to Guava's Hashing.sipHash24() fixed key (bytes 00..0f).
      *
      * @param int $k0 Key part 0 (will be masked to 64 bits)
      * @param int $k1 Key part 1 (will be masked to 64 bits)
      */
-    public function __construct(int $k0 = 0, int $k1 = 0)
+    public function __construct(int $k0 = self::GUAVA_K0, int $k1 = self::GUAVA_K1)
     {
         $this->k0 = (int)$k0 & self::MASK_64;
         $this->k1 = (int)$k1 & self::MASK_64;
@@ -74,10 +84,11 @@ class SipHash24
     {
         $length = strlen($data);
 
-        // Initialize state
+        // Initialize state with the standard SipHash constants
+        // ("somepseudorandomlygeneratedbytes" split into four 64-bit words)
         $v0 = (int)($this->k0 ^ 0x736f6d6570736575);
         $v1 = (int)($this->k1 ^ 0x646f72616e646f6d);
-        $v2 = (int)($this->k0 ^ 0x6c6f6e67746f6163);
+        $v2 = (int)($this->k0 ^ 0x6c7967656e657261);
         $v3 = (int)($this->k1 ^ 0x7465646279746573);
 
         // Process full 8-byte blocks
@@ -90,13 +101,13 @@ class SipHash24
             $v0 = self::xor64($v0, $m);
         }
 
-        // Build last block
+        // Build last block: length in the top byte, remaining input bytes
+        // packed little-endian (byte i of the tail goes to bits i*8..i*8+7)
         $b = (int)(($length & 0xFF) << 56);
         $offset = $blocks * 8;
-        for ($j = 7; $j >= 1; $j--) {
-            if ($length - $offset > 7 - $j) {
-                $b |= (ord($data[$offset + (7 - $j)]) & 0xFF) << ($j * 8);
-            }
+        $left = $length - $offset;
+        for ($i = 0; $i < $left; $i++) {
+            $b |= (ord($data[$offset + $i]) & 0xFF) << ($i * 8);
         }
 
         $v3 = self::xor64($v3, $b);
@@ -125,10 +136,10 @@ class SipHash24
     private function readLong(string $data, int $offset): int
     {
         if (PHP_INT_SIZE >= 8) {
-            // 64-bit PHP: direct calculation
+            // 64-bit PHP: direct calculation, byte i is bits i*8..i*8+7 (little-endian)
             $result = 0;
-            for ($i = 7; $i >= 0; $i--) {
-                $result |= (ord($data[$offset + (7 - $i)]) & 0xFF) << ($i * 8);
+            for ($i = 0; $i < 8; $i++) {
+                $result |= (ord($data[$offset + $i]) & 0xFF) << ($i * 8);
             }
             return (int)$result & self::MASK_64;
         } else {
@@ -136,14 +147,14 @@ class SipHash24
             $low = 0;
             $high = 0;
             
-            // Low 32 bits (bytes 0-3)
-            for ($i = 3; $i >= 0; $i--) {
-                $low |= (ord($data[$offset + (3 - $i)]) & 0xFF) << ($i * 8);
+            // Low 32 bits (bytes 0-3, little-endian)
+            for ($i = 0; $i < 4; $i++) {
+                $low |= (ord($data[$offset + $i]) & 0xFF) << ($i * 8);
             }
             
-            // High 32 bits (bytes 4-7)
-            for ($i = 7; $i >= 4; $i--) {
-                $high |= (ord($data[$offset + (7 - $i)]) & 0xFF) << (($i - 4) * 8);
+            // High 32 bits (bytes 4-7, little-endian)
+            for ($i = 4; $i < 8; $i++) {
+                $high |= (ord($data[$offset + $i]) & 0xFF) << (($i - 4) * 8);
             }
             
             return ($high << 32) | ($low & 0xFFFFFFFF);
@@ -192,8 +203,11 @@ class SipHash24
     private static function add64(int $a, int $b): int
     {
         if (PHP_INT_SIZE >= 8) {
-            $sum = (int)$a + (int)$b;
-            return (int)$sum & self::MASK_64;
+            // Split into 32-bit halves: native + would overflow to float on
+            // 64-bit PHP, silently losing low-order bits
+            $low = ($a & 0xFFFFFFFF) + ($b & 0xFFFFFFFF);
+            $high = (($a >> 32) & 0xFFFFFFFF) + (($b >> 32) & 0xFFFFFFFF) + (($low >> 32) & 0x1);
+            return (($high & 0xFFFFFFFF) << 32) | ($low & 0xFFFFFFFF);
         }
 
         // Split into high and low 32-bit parts
@@ -270,24 +284,36 @@ class SipHash24
     private static function rotl64(int $a, int $n): int
     {
         if (PHP_INT_SIZE >= 8) {
-            return (((int)$a << $n) | ((int)$a >> (64 - $n))) & self::MASK_64;
+            $n &= 63;
+            if ($n === 0) {
+                return (int)$a;
+            }
+            // Mask after the right shift: PHP's >> is arithmetic and would
+            // sign-extend negative values into the rotated-in bits
+            return (((int)$a << $n) | (((int)$a >> (64 - $n)) & ((1 << $n) - 1))) & self::MASK_64;
+        }
+
+        $n &= 63;
+        if ($n === 0) {
+            return $a;
         }
 
         $aHi = (int)(($a >> 32) & 0xFFFFFFFF);
         $alower = (int)($a & 0xFFFFFFFF);
 
         if ($n >= 32) {
-            $shift = $n - 32;
-            return ((int)(($alower << $shift) | ($aHi >> (32 - $shift))) & 0xFFFFFFFF)
-                | ((int)((($aHi << $shift) | ($alower >> (32 - $shift))) & 0xFFFFFFFF) << 32);
+            // Rotating by 32 swaps the halves; reduce to a rotation below 32
+            $tmp = $aHi;
+            $aHi = $alower;
+            $alower = $tmp;
+            $n -= 32;
+            if ($n === 0) {
+                return ($aHi << 32) | $alower;
+            }
         }
 
-        if ($n === 0) {
-            return $a;
-        }
-
-        $newHi = (int)((($aHi << $n) | ($alower >> (32 - $n))) & 0xFFFFFFFF);
-        $newlower = (int)((($alower << $n) | ($aHi >> (32 - $n))) & 0xFFFFFFFF);
+        $newHi = (int)((($aHi << $n) | (($alower >> (32 - $n)) & ((1 << $n) - 1))) & 0xFFFFFFFF);
+        $newlower = (int)((($alower << $n) | (($aHi >> (32 - $n)) & ((1 << $n) - 1))) & 0xFFFFFFFF);
 
         return ($newHi << 32) | $newlower;
     }

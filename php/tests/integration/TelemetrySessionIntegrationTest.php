@@ -97,8 +97,10 @@ class TelemetrySessionIntegrationTest extends IntegrationTestCase
         $command->setSettings($requestSettings);
 
         $result = $session->syncSettings($command);
-        // Timeout is non-fatal: syncSettings returns true to allow client to proceed
-        $this->assertTrue($result);
+        // No server Settings response within the timeout means the sync failed:
+        // callers must not treat startup as successful without server-accepted settings
+        $this->assertFalse($result);
+        $this->assertFalse($session->isSettingsSynced());
     }
 
     public function testSingletonReturnsSameInstance()

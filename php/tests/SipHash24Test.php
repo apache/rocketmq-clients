@@ -32,11 +32,83 @@ use PHPUnit\Framework\TestCase;
  * 5. Large data handling
  * 6. Custom key support
  * 7. Binary data handling
+ * 8. Canonical SipHash-2-4 reference vectors and Guava compatibility
  */
 class SipHash24Test extends TestCase
 {
     /**
-     * Test basic hashing with default key (0, 0)
+     * Convert a big-endian hex string to a signed 64-bit integer.
+     *
+     * @param string $hex 16-char hex string
+     * @return int Signed 64-bit value
+     */
+    private static function hexToInt64(string $hex): int
+    {
+        return unpack('J', hex2bin($hex))[1];
+    }
+
+    /**
+     * Test canonical SipHash-2-4 reference vectors from the SipHash paper
+     * (Aumasson & Bernstein): key bytes 00 01 .. 0f, input bytes 00 01 .. len-1.
+     * Guava's Hashing.sipHash24() uses exactly this fixed key, so matching these
+     * vectors with the default key proves Guava compatibility.
+     */
+    public function testKnownSipHashReferenceVectors()
+    {
+        $vectors = [
+            0 => '726fdb47dd0e0e31',
+            1 => '74f839c593dc67fd',
+            2 => '0d6c8009d9a94f5a',
+            3 => '85676696d7fb7e2d',
+            4 => 'cf2794e0277187b7',
+            5 => '18765564cd99a68d',
+            6 => 'cbc9466e58fee3ce',
+            7 => 'ab0200f58b01d137',
+            8 => '93f5f5799a932462',
+            15 => 'a129ca6149be45e5',
+        ];
+
+        foreach ($vectors as $length => $expectedHex) {
+            $input = '';
+            for ($i = 0; $i < $length; $i++) {
+                $input .= chr($i);
+            }
+            $this->assertSame(
+                self::hexToInt64($expectedHex),
+                SipHash24::hash($input),
+                "Reference vector mismatch for input length {$length}"
+            );
+        }
+    }
+
+    /**
+     * Test Guava compatibility for message group strings: expected values equal
+     * Hashing.sipHash24().hashBytes(group.getBytes(UTF_8)).asLong() in the Java
+     * client (and the Node.js siphash24 result), generated with an independent
+     * SipHash-2-4 reference implementation.
+     */
+    public function testGuavaCompatibleMessageGroupHashes()
+    {
+        $expected = [
+            'message-group-0' => -9040379075287310735,
+            'message-group-1' => 7213479487730864356,
+            'fifo-group' => -6665943517282973836,
+            'order-12345' => 2790219758358240578,
+            'RocketMQ' => -4355033068952641245,
+            '中文分组' => 7354208218558947199,
+        ];
+
+        foreach ($expected as $group => $hash) {
+            $this->assertSame(
+                $hash,
+                SipHash24::hash($group),
+                "Guava-compatible hash mismatch for group '{$group}'"
+            );
+        }
+    }
+
+    /**
+     * Test basic hashing with default key (Guava's fixed key bytes 00..0f)
      */
     public function testHashWithDefaultKey()
     {
@@ -329,7 +401,7 @@ class SipHash24Test extends TestCase
         $data = "consistency test";
         
         $staticHash = SipHash24::hash($data);
-        $instanceHash = (new SipHash24(0, 0))->hashBytes($data);
+        $instanceHash = (new SipHash24(SipHash24::GUAVA_K0, SipHash24::GUAVA_K1))->hashBytes($data);
         
         $this->assertEquals($staticHash, $instanceHash);
     }
