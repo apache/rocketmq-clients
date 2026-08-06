@@ -151,6 +151,8 @@ public class ExecutorServices {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     if (command instanceof Future<?>) {
+                        // AbstractExecutorService.submit() wraps tasks in a FutureTask before execute(); cancel it so
+                        // callers are not left waiting.
                         ((Future<?>) command).cancel(false);
                     }
                 } finally {
