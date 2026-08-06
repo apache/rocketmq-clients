@@ -25,8 +25,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
@@ -43,12 +43,12 @@ public abstract class ConsumeService {
     protected final ClientId clientId;
     protected final String consumerGroup;
     private final MessageListener messageListener;
-    private final ThreadPoolExecutor consumptionExecutor;
+    private final ExecutorService consumptionExecutor;
     private final MessageInterceptor messageInterceptor;
     private final ScheduledExecutorService scheduler;
 
     public ConsumeService(ClientId clientId, String consumerGroup,
-                          MessageListener messageListener, ThreadPoolExecutor consumptionExecutor,
+        MessageListener messageListener, ExecutorService consumptionExecutor,
         MessageInterceptor messageInterceptor, ScheduledExecutorService scheduler) {
         this.clientId = clientId;
         this.consumerGroup = consumerGroup;

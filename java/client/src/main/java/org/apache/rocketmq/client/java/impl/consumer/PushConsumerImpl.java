@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -90,7 +91,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private static final Logger log = LoggerFactory.getLogger(PushConsumerImpl.class);
 
     protected final MessageListener messageListener;
-    protected final ThreadPoolExecutor consumptionExecutor;
+    protected final ExecutorService consumptionExecutor;
     protected final boolean enableFifoConsumeAccelerator;
 
     final AtomicLong consumptionOkQuantity;
@@ -152,13 +153,14 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
         this.processQueueTable = new ConcurrentHashMap<>();
 
-        this.consumptionExecutor = new ThreadPoolExecutor(
-            consumptionThreadCount,
-            consumptionThreadCount,
-            60,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(),
-            new ThreadFactoryImpl("MessageConsumption", this.getClientId().getIndex()));
+        this.consumptionExecutor = ExecutorServices.newConcurrencyLimitedExecutorService(
+            clientConfiguration.isVirtualThreadsEnabled(), consumptionThreadCount, () -> new ThreadPoolExecutor(
+                consumptionThreadCount,
+                consumptionThreadCount,
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                new ThreadFactoryImpl("MessageConsumption", this.getClientId().getIndex())));
 
         this.inflightRequestCountInterceptor = new InflightRequestCountInterceptor();
         this.addMessageInterceptor(inflightRequestCountInterceptor);
@@ -606,7 +608,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         return getSettings().getRetryPolicy();
     }
 
-    public ThreadPoolExecutor getConsumptionExecutor() {
+    public ExecutorService getConsumptionExecutor() {
         return consumptionExecutor;
     }
 
