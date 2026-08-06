@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.apis;
 
+import com.google.common.annotations.Beta;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -74,6 +75,7 @@ public class ClientConfiguration {
         return sslEnabled;
     }
 
+    @Beta
     public boolean isVirtualThreadsEnabled() {
         return virtualThreadsEnabled;
     }

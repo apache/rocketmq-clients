@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.apis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.annotations.Beta;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -108,6 +109,7 @@ public class ClientConfigurationBuilder {
      * @param virtualThreadsEnabled whether virtual threads should be enabled.
      * @return The {@link ClientConfigurationBuilder} instance, to allow for method chaining.
      */
+    @Beta
     public ClientConfigurationBuilder enableVirtualThreads(boolean virtualThreadsEnabled) {
         this.virtualThreadsEnabled = virtualThreadsEnabled;
         return this;
