@@ -25,8 +25,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
@@ -40,7 +40,7 @@ class FifoConsumeService extends ConsumeService {
     private final boolean enableFifoConsumeAccelerator;
 
     public FifoConsumeService(ClientId clientId, String consumerGroup, MessageListener messageListener,
-        ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
+        ExecutorService consumptionExecutor, MessageInterceptor messageInterceptor,
         ScheduledExecutorService scheduler, boolean enableFifoConsumeAccelerator) {
         super(clientId, consumerGroup, messageListener, consumptionExecutor, messageInterceptor, scheduler);
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;

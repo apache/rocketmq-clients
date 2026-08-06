@@ -137,13 +137,14 @@ public class ClientManagerImpl extends ClientManager {
             Runtime.getRuntime().availableProcessors(),
             new ThreadFactoryImpl("ClientScheduler", clientIndex));
 
-        this.asyncWorker = new ThreadPoolExecutor(
-            Runtime.getRuntime().availableProcessors(),
-            Runtime.getRuntime().availableProcessors(),
-            60,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(50000),
-            new ThreadFactoryImpl("ClientAsyncWorker", clientIndex));
+        this.asyncWorker = ExecutorServices.newExecutorService(client.isVirtualThreadsEnabled(),
+            () -> new ThreadPoolExecutor(
+                Runtime.getRuntime().availableProcessors(),
+                Runtime.getRuntime().availableProcessors(),
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(50000),
+                new ThreadFactoryImpl("ClientAsyncWorker", clientIndex)));
     }
 
     /**

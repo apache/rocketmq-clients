@@ -22,8 +22,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
@@ -36,7 +36,7 @@ public class LiteStandardConsumeService extends ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(LiteStandardConsumeService.class);
 
     public LiteStandardConsumeService(ClientId clientId, String consumerGroup, MessageListener messageListener,
-        ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
+        ExecutorService consumptionExecutor, MessageInterceptor messageInterceptor,
         ScheduledExecutorService scheduler) {
         super(clientId, consumerGroup, messageListener, consumptionExecutor, messageInterceptor, scheduler);
     }

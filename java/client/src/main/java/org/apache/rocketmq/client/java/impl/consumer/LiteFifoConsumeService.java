@@ -23,8 +23,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResultSuspend;
@@ -36,7 +36,7 @@ import org.apache.rocketmq.client.java.misc.ClientId;
 public class LiteFifoConsumeService extends FifoConsumeService {
 
     public LiteFifoConsumeService(ClientId clientId, String consumerGroup, MessageListener messageListener,
-        ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
+        ExecutorService consumptionExecutor, MessageInterceptor messageInterceptor,
         ScheduledExecutorService scheduler, boolean enableFifoConsumeAccelerator) {
         super(clientId, consumerGroup, messageListener, consumptionExecutor,
             messageInterceptor, scheduler, enableFifoConsumeAccelerator);

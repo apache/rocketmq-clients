@@ -114,7 +114,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     /**
      * Telemetry command executor, which aims to execute commands from the remote.
      */
-    protected final ThreadPoolExecutor telemetryCommandExecutor;
+    protected final ExecutorService telemetryCommandExecutor;
     protected final ClientId clientId;
 
     private final ClientManager clientManager;
@@ -151,13 +151,14 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         this.clientManager = new ClientManagerImpl(this);
 
         final long clientIdIndex = clientId.getIndex();
-        this.clientCallbackExecutor = new ThreadPoolExecutor(
-            Runtime.getRuntime().availableProcessors(),
-            Runtime.getRuntime().availableProcessors(),
-            60,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(),
-            new ThreadFactoryImpl("ClientCallbackWorker", clientIdIndex));
+        this.clientCallbackExecutor = ExecutorServices.newExecutorService(
+            clientConfiguration.isVirtualThreadsEnabled(), () -> new ThreadPoolExecutor(
+                Runtime.getRuntime().availableProcessors(),
+                Runtime.getRuntime().availableProcessors(),
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                new ThreadFactoryImpl("ClientCallbackWorker", clientIdIndex)));
 
         this.clientMeterManager = new ClientMeterManager(clientId, clientConfiguration);
 
@@ -165,13 +166,14 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             new CompositedMessageInterceptor(Collections.singletonList(new MessageMeterInterceptor(this,
                 clientMeterManager)));
 
-        this.telemetryCommandExecutor = new ThreadPoolExecutor(
-            1,
-            1,
-            60,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(),
-            new ThreadFactoryImpl("CommandExecutor", clientIdIndex));
+        this.telemetryCommandExecutor = ExecutorServices.newExecutorService(
+            clientConfiguration.isVirtualThreadsEnabled(), () -> new ThreadPoolExecutor(
+                1,
+                1,
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                new ThreadFactoryImpl("CommandExecutor", clientIdIndex)));
     }
 
     /**
@@ -586,6 +588,11 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     public boolean isSslEnabled() {
         return clientConfiguration.isSslEnabled();
+    }
+
+    @Override
+    public boolean isVirtualThreadsEnabled() {
+        return clientConfiguration.isVirtualThreadsEnabled();
     }
 
     /**

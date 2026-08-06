@@ -31,6 +31,7 @@ public class ClientConfiguration {
     private final SessionCredentialsProvider sessionCredentialsProvider;
     private final Duration requestTimeout;
     private final boolean sslEnabled;
+    private final boolean virtualThreadsEnabled;
     private final String namespace;
     private final int maxStartupAttempts;
     private final Map<String, String> clientProperties;
@@ -40,12 +41,14 @@ public class ClientConfiguration {
      * logging warnings already, so we avoid repeating args check here.
      */
     ClientConfiguration(String endpoints, SessionCredentialsProvider sessionCredentialsProvider,
-        Duration requestTimeout, boolean sslEnabled, String namespace, int maxStartupAttempts,
+        Duration requestTimeout, boolean sslEnabled, boolean virtualThreadsEnabled, String namespace,
+        int maxStartupAttempts,
         Map<String, String> clientProperties) {
         this.endpoints = endpoints;
         this.sessionCredentialsProvider = sessionCredentialsProvider;
         this.requestTimeout = requestTimeout;
         this.sslEnabled = sslEnabled;
+        this.virtualThreadsEnabled = virtualThreadsEnabled;
         this.namespace = namespace;
         this.maxStartupAttempts = maxStartupAttempts;
         this.clientProperties = Collections.unmodifiableMap(new LinkedHashMap<>(clientProperties));
@@ -69,6 +72,10 @@ public class ClientConfiguration {
 
     public boolean isSslEnabled() {
         return sslEnabled;
+    }
+
+    public boolean isVirtualThreadsEnabled() {
+        return virtualThreadsEnabled;
     }
 
     public String getNamespace() {

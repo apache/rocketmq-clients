@@ -43,6 +43,7 @@ public class ClientConfigurationBuilder {
     private SessionCredentialsProvider sessionCredentialsProvider = null;
     private Duration requestTimeout = Duration.ofSeconds(3);
     private boolean sslEnabled = true;
+    private boolean virtualThreadsEnabled = false;
     private String namespace = "";
     private int maxStartupAttempts = 3;
     private final Map<String, String> clientProperties = new LinkedHashMap<>();
@@ -94,6 +95,21 @@ public class ClientConfigurationBuilder {
      */
     public ClientConfigurationBuilder enableSsl(boolean sslEnabled) {
         this.sslEnabled = sslEnabled;
+        return this;
+    }
+
+    /**
+     * Enable or disable virtual threads for client task execution.
+     *
+     * <p>Virtual threads are disabled by default. When enabled on JDK 21 or later, the client uses virtual threads for
+     * asynchronous RPCs, callbacks, telemetry commands and message consumption. On earlier JDK versions, the client
+     * falls back to its platform-thread executors.
+     *
+     * @param virtualThreadsEnabled whether virtual threads should be enabled.
+     * @return The {@link ClientConfigurationBuilder} instance, to allow for method chaining.
+     */
+    public ClientConfigurationBuilder enableVirtualThreads(boolean virtualThreadsEnabled) {
+        this.virtualThreadsEnabled = virtualThreadsEnabled;
         return this;
     }
 
@@ -183,8 +199,8 @@ public class ClientConfigurationBuilder {
         checkNotNull(requestTimeout, "requestTimeout should not be null");
         // Keep build() defensive for maps supplied through setClientProperties or future builder paths.
         validateClientProperties(clientProperties);
-        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled, namespace,
-            maxStartupAttempts, clientProperties);
+        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled,
+            virtualThreadsEnabled, namespace, maxStartupAttempts, clientProperties);
     }
 
     private static void validateClientProperties(Map<String, String> properties) {
