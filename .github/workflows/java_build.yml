@@ -28,7 +28,7 @@ jobs:
       - name: Test virtual threads with JDK 21
         if: matrix.jdk == '21'
         working-directory: ./java
-        run: mvn -B -pl client -am -Dspotbugs.skip=true '-Dtest=ClientConfigurationTest,ExecutorServicesTest' -DfailIfNoTests=false -Dsurefire.failIfNoSpecifiedTests=false test
+        run: mvn -B -pl client -am '-Dspotbugs.skip=true' '-Dtest=ClientConfigurationTest,ExecutorServicesTest' '-DfailIfNoTests=false' '-Dsurefire.failIfNoSpecifiedTests=false' test
 
   opentelemetry-instrumentation-compatibility:
     runs-on: ubuntu-latest
