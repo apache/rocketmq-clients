@@ -32,7 +32,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.grpc.StatusRuntimeException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -251,6 +250,9 @@ class ProcessQueueImpl implements ProcessQueue {
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                     @Override
                     public void onSuccess(ReceiveMessageResult result) {
+                        // Rotate the attempt ID based on the raw response because messages removed by an interceptor
+                        // were still delivered by the server for this attempt.
+                        final boolean hasReceivedMessages = !result.getMessageViewImpls().isEmpty();
                         // Intercept after message reception.
                         final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
                             .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
@@ -298,35 +300,29 @@ class ProcessQueueImpl implements ProcessQueue {
                                 // Create new ReceiveMessageResult with filtered messages.
                                 ReceiveMessageResult filteredResult =
                                     ReceiveMessageResult.createFilteredResult(result, remainingMessages);
-                                onReceiveMessageResult(filteredResult);
+                                onReceiveMessageResult(filteredResult, request.getAttemptId(), hasReceivedMessages);
                             } catch (Throwable t) {
                                 // Should never reach here.
                                 log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
                                     + "clientId={}", mq, endpoints, clientId, t);
-                                onReceiveMessageException(t, attemptId);
+                                onReceiveMessageException(t, request.getAttemptId());
                             }
                         } else {
                             // When filtering is disabled, use original result directly to avoid performance overhead.
                             try {
-                                onReceiveMessageResult(result);
+                                onReceiveMessageResult(result, request.getAttemptId(), hasReceivedMessages);
                             } catch (Throwable t) {
                                 // Should never reach here.
                                 log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
                                     + "clientId={}", mq, endpoints, clientId, t);
-                                onReceiveMessageException(t, attemptId);
+                                onReceiveMessageException(t, request.getAttemptId());
                             }
                         }
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                        String nextAttemptId = null;
-                        if (t instanceof StatusRuntimeException) {
-                            StatusRuntimeException exception = (StatusRuntimeException) t;
-                            if (io.grpc.Status.DEADLINE_EXCEEDED.getCode() == exception.getStatus().getCode()) {
-                                nextAttemptId = request.getAttemptId();
-                            }
-                        }
+                        final String nextAttemptId = request.getAttemptId();
                         // Intercept after message reception.
                         final MessageInterceptorContextImpl context0 =
                             new MessageInterceptorContextImpl(context, MessageHookPointsStatus.ERROR);
@@ -397,7 +393,7 @@ class ProcessQueueImpl implements ProcessQueue {
         return cachedMessagesBytes.get();
     }
 
-    private void onReceiveMessageResult(ReceiveMessageResult result) {
+    private void onReceiveMessageResult(ReceiveMessageResult result, String attemptId, boolean hasReceivedMessages) {
         final List<MessageViewImpl> messages = result.getMessageViewImpls();
         if (!messages.isEmpty()) {
             cacheMessages(messages);
@@ -405,7 +401,11 @@ class ProcessQueueImpl implements ProcessQueue {
             consumer.getReceivedMessagesQuantity().getAndAdd(messages.size());
             consumer.getConsumeService().consume(this, messages);
         }
-        receiveMessage();
+        if (hasReceivedMessages) {
+            receiveMessage();
+            return;
+        }
+        receiveMessage(attemptId);
     }
 
     private void evictCache(MessageViewImpl messageView) {
