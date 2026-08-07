@@ -20,9 +20,19 @@ package org.apache.rocketmq.test.client;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import apache.rocketmq.v2.Digest;
+import apache.rocketmq.v2.DigestType;
+import apache.rocketmq.v2.Encoding;
+import apache.rocketmq.v2.Message;
+import apache.rocketmq.v2.MessageType;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
+import apache.rocketmq.v2.Resource;
+import apache.rocketmq.v2.SystemProperties;
+import com.google.protobuf.ByteString;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import java.nio.charset.StandardCharsets;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
@@ -36,6 +46,7 @@ import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
+import org.apache.rocketmq.client.java.message.MessageIdCodec;
 import org.apache.rocketmq.test.server.BaseMockServerImpl;
 import org.apache.rocketmq.test.server.GrpcServerIntegrationTest;
 import org.apache.rocketmq.test.server.MockServer;
@@ -46,7 +57,7 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
     private final String topic = "topic";
     private MockServer serverImpl;
 
-     static class MockServerImpl extends BaseMockServerImpl {
+    static class MockServerImpl extends BaseMockServerImpl {
         public final List<String> attemptIdList = new CopyOnWriteArrayList<>();
         public final AtomicBoolean serverDeadlineFlag = new AtomicBoolean(true);
 
@@ -58,7 +69,7 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
         public void receiveMessage(ReceiveMessageRequest request,
             StreamObserver<ReceiveMessageResponse> responseObserver) {
             // prevent too much request
-            if (attemptIdList.size() >= 3) {
+            if (attemptIdList.size() >= 5) {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -68,10 +79,34 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
             attemptIdList.add(request.getAttemptId());
             if (serverDeadlineFlag.compareAndSet(true, false)) {
                 // timeout
-            } else {
-                responseObserver.onNext(ReceiveMessageResponse.newBuilder().setStatus(mockStatus).build());
-                responseObserver.onCompleted();
+                return;
             }
+            if (attemptIdList.size() == 2) {
+                responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+                return;
+            }
+            responseObserver.onNext(ReceiveMessageResponse.newBuilder().setStatus(mockStatus).build());
+            if (attemptIdList.size() == 4) {
+                responseObserver.onNext(ReceiveMessageResponse.newBuilder().setMessage(mockMessage()).build());
+            }
+            responseObserver.onCompleted();
+        }
+
+        private Message mockMessage() {
+            final Digest digest = Digest.newBuilder().setType(DigestType.CRC32).setChecksum("9EF61F95").build();
+            final SystemProperties systemProperties = SystemProperties.newBuilder()
+                .setMessageType(MessageType.NORMAL)
+                .setMessageId(MessageIdCodec.getInstance().nextMessageId().toString())
+                .setBornHost("127.0.0.1")
+                .setBodyDigest(digest)
+                .setBodyEncoding(Encoding.IDENTITY)
+                .setReceiptHandle("receipt-handle")
+                .build();
+            return Message.newBuilder()
+                .setTopic(Resource.newBuilder().setName(topic).build())
+                .setBody(ByteString.copyFrom("foobar", StandardCharsets.UTF_8))
+                .setSystemProperties(systemProperties)
+                .build();
         }
     }
 
@@ -83,7 +118,7 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
     }
 
     @Test
-    public void test() throws Exception {
+    public void testAttemptIdIsRotatedOnlyAfterMessagesAreReceived() throws Exception {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
         String accessKey = "yourAccessKey";
         String secretKey = "yourSecretKey";
@@ -106,11 +141,13 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
             .setMessageListener(messageView -> ConsumeResult.SUCCESS)
             .build();
         try {
-            await().atMost(java.time.Duration.ofSeconds(5)).untilAsserted(() -> {
+            await().atMost(java.time.Duration.ofSeconds(8)).untilAsserted(() -> {
                 List<String> attemptIdList = ((MockServerImpl) serverImpl).attemptIdList;
-                assertThat(attemptIdList.size()).isGreaterThanOrEqualTo(3);
+                assertThat(attemptIdList.size()).isGreaterThanOrEqualTo(5);
                 assertThat(attemptIdList.get(0)).isEqualTo(attemptIdList.get(1));
-                assertThat(attemptIdList.get(0)).isNotEqualTo(attemptIdList.get(2));
+                assertThat(attemptIdList.get(1)).isEqualTo(attemptIdList.get(2));
+                assertThat(attemptIdList.get(2)).isEqualTo(attemptIdList.get(3));
+                assertThat(attemptIdList.get(3)).isNotEqualTo(attemptIdList.get(4));
             });
         } finally {
             pushConsumer.close();
