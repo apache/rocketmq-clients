@@ -73,7 +73,7 @@ func (plb *publishingLoadBalancer) TakeMessageQueues(excluded *sync.Map, count i
 	candidateBrokerNames := make(map[string]bool, 32)
 
 	for i := 0; i < len(plb.messageQueues); i++ {
-		idx := utils.Mod(next+1, len(plb.messageQueues))
+		idx := utils.Mod(next+int32(i), len(plb.messageQueues))
 		selectMessageQueue := plb.messageQueues[idx]
 		broker := selectMessageQueue.Broker
 		brokerName := broker.GetName()
@@ -102,7 +102,7 @@ func (plb *publishingLoadBalancer) TakeMessageQueues(excluded *sync.Map, count i
 	}
 	if len(candidates) == 0 {
 		for i := 0; i < len(plb.messageQueues); i++ {
-			idx := utils.Mod(next+1, len(plb.messageQueues))
+			idx := utils.Mod(next+int32(i), len(plb.messageQueues))
 			selectMessageQueue := plb.messageQueues[idx]
 			broker := selectMessageQueue.Broker
 			brokerName := broker.GetName()
