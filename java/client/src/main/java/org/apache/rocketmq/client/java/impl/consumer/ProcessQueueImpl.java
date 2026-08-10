@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import apache.rocketmq.v2.AckMessageRequest;
 import apache.rocketmq.v2.AckMessageResponse;
 import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
@@ -546,7 +545,8 @@ class ProcessQueueImpl implements ProcessQueue {
         }
         ListenableFuture<Void> future;
         if (ConsumeResult.SUCCESS.equals(consumeResult)) {
-            future = ackMessage(messageView);
+            // FIFO acknowledgements are not delayed because the next message in the group depends on them.
+            future = ackMessage(messageView, false);
         } else if (consumeResult instanceof ConsumeResultSuspend) {
             ConsumeResultSuspend consumeResultSuspend = (ConsumeResultSuspend) consumeResult;
             log.info("Suspend consumption, consumerGroup={}, topic={}, liteTopic={}, messageId={}, result={}",
@@ -634,22 +634,27 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private ListenableFuture<Void> ackMessage(final MessageViewImpl messageView) {
+        return ackMessage(messageView, true);
+    }
+
+    private ListenableFuture<Void> ackMessage(final MessageViewImpl messageView, final boolean batchable) {
         SettableFuture<Void> future = SettableFuture.create();
-        ackMessage(messageView, 1, future);
+        ackMessage(messageView, 1, future, batchable);
         return future;
     }
 
-    private void ackMessage(final MessageViewImpl messageView, final int attempt, final SettableFuture<Void> future0) {
+    private void ackMessage(final MessageViewImpl messageView, final int attempt, final SettableFuture<Void> future0,
+        final boolean batchable) {
         final ClientId clientId = consumer.getClientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        final RpcFuture<AckMessageRequest, AckMessageResponse> future =
-            consumer.ackMessage(messageView);
+        final ListenableFuture<AckMessageResponse> future = batchable && attempt == 1
+            ? consumer.batchAckMessage(messageView) : consumer.ackMessage(messageView);
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
             public void onSuccess(AckMessageResponse response) {
-                final String requestId = future.getContext().getRequestId();
+                final String requestId = getRequestId(future);
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.INVALID_RECEIPT_HANDLE.equals(code)) {
@@ -698,7 +703,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final MessageId messageId = messageView.getMessageId();
         final ScheduledExecutorService scheduler = consumer.getScheduler();
         try {
-            scheduler.schedule(() -> ackMessage(messageView, attempt, future),
+            scheduler.schedule(() -> ackMessage(messageView, attempt, future, false),
                 ACK_MESSAGE_FAILURE_BACKOFF_DELAY.toNanos(), TimeUnit.NANOSECONDS);
         } catch (Throwable t) {
             if (scheduler.isShutdown()) {
@@ -709,6 +714,14 @@ class ProcessQueueImpl implements ProcessQueue {
                 mq, messageId, consumer.getClientId());
             ackMessageLater(messageView, 1 + attempt, future);
         }
+    }
+
+    private String getRequestId(ListenableFuture<AckMessageResponse> future) {
+        if (!(future instanceof RpcFuture)) {
+            return "-";
+        }
+        final org.apache.rocketmq.client.java.rpc.Context context = ((RpcFuture<?, ?>) future).getContext();
+        return null == context ? "-" : context.getRequestId();
     }
 
     @Override
