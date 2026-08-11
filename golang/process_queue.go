@@ -510,7 +510,7 @@ func (dpq *defaultProcessQueue) receiveMessageLater(duration time.Duration, atte
 			}
 		}()
 		dpq.consumer.cli.log.Infof("Try to receive message later, mq=%s, delay=%v, clientId=%s", dpq.mqstr, duration, dpq.consumer.cli.clientID)
-		dpq.receiveMessageImmediatelyWithAttemptId(attemptId)
+		dpq.receiveMessageWithAttemptId(attemptId)
 	})
 }
 
