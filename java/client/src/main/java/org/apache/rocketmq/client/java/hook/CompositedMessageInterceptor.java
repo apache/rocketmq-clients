@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("rawtypes")
 public class CompositedMessageInterceptor implements MessageInterceptor {
-    private static final Logger log = LoggerFactory.getLogger(MessageInterceptor.class);
+    private static final Logger log = LoggerFactory.getLogger(CompositedMessageInterceptor.class);
     private static final AttributeKey<Map<Integer, Map<AttributeKey, Attribute>>> INTERCEPTOR_ATTRIBUTES_KEY =
         AttributeKey.create("composited_interceptor_attributes");
     private final List<MessageInterceptor> interceptors = new ArrayList<>();
