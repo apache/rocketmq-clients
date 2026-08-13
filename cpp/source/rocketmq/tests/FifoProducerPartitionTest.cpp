@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <system_error>
@@ -139,7 +140,7 @@ protected:
   void installSendSuccessHandler() {
     ON_CALL(*client_manager_, send)
         .WillByDefault(testing::Invoke(
-            [this](const std::string&, const Metadata&, SendMessageRequest&, SendResultCallback cb) {
+            [this](const std::string&, const Metadata&, SendMessageRequest&, std::chrono::milliseconds, SendResultCallback cb) {
               {
                 absl::MutexLock lk(&mtx_);
                 send_count_++;
@@ -224,7 +225,7 @@ TEST_F(FifoProducerPartitionTest, multipleMessagesPreserveOrderTest) {
   ON_CALL(*client_manager_, send)
       .WillByDefault(testing::Invoke(
           [this, &sent_bodies](const std::string&, const Metadata&, SendMessageRequest& request,
-                               SendResultCallback cb) {
+                               std::chrono::milliseconds, SendResultCallback cb) {
             {
               absl::MutexLock lk(&mtx_);
               if (request.messages_size() > 0) {
@@ -307,7 +308,7 @@ TEST_F(FifoProducerPartitionTest, failedMessageRetriedViaOnCompleteTest) {
   std::atomic<int> attempt{0};
   ON_CALL(*client_manager_, send)
       .WillByDefault(testing::Invoke(
-          [this, &attempt](const std::string&, const Metadata&, SendMessageRequest&, SendResultCallback cb) {
+          [this, &attempt](const std::string&, const Metadata&, SendMessageRequest&, std::chrono::milliseconds, SendResultCallback cb) {
             int current = attempt.fetch_add(1);
             {
               absl::MutexLock lk(&mtx_);

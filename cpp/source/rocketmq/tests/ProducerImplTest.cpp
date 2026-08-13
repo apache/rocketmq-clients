@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 #include <atomic>
+#include <chrono>
+#include <future>
 #include <memory>
 #include <string>
 #include <system_error>
@@ -135,7 +137,8 @@ protected:
   void installSendSuccessHandler() {
     ON_CALL(*client_manager_, send)
         .WillByDefault(testing::Invoke(
-            [this](const std::string&, const Metadata&, SendMessageRequest&, SendResultCallback cb) {
+            [this](const std::string&, const Metadata&, SendMessageRequest&, std::chrono::milliseconds,
+                   SendResultCallback cb) {
               {
                 absl::MutexLock lk(&mtx_);
                 send_count_++;
@@ -279,6 +282,35 @@ TEST_F(ProducerImplTest, topicsOfInterestReturnsConfiguredTopicsTest) {
   EXPECT_EQ("topic-a", result_topics[0]);
   EXPECT_EQ("topic-b", result_topics[1]);
   EXPECT_EQ("topic-c", result_topics[2]);
+}
+
+// Regression: when the route query never completes (stalled name server), the
+// synchronous send path must not block forever. getPublishInfo() has to honour
+// the request timeout and return, so send() reports an error within a bounded
+// time instead of hanging the calling thread.
+TEST_F(ProducerImplTest, sendTimesOutWhenRouteStallsTest) {
+  // Route query that never invokes its callback (simulates a stalled broker).
+  ON_CALL(*client_manager_, resolveRoute)
+      .WillByDefault(testing::Invoke(
+          [](const std::string&, const Metadata&, const QueryRouteRequest&, std::chrono::milliseconds,
+             const std::function<void(const std::error_code&, const TopicRouteDataPtr&)>&) {
+            // Intentionally drop the callback.
+          }));
+
+  producer_->withRequestTimeout(std::chrono::milliseconds(300));
+
+  auto fut = std::async(std::launch::async, [this]() {
+    auto msg = makeMessage("stall-topic");
+    std::error_code ec;
+    producer_->send(std::move(msg), ec);
+    return ec;
+  });
+
+  // Hard cap well above the request timeout: if send() still hangs, fail the
+  // test rather than block the whole suite forever.
+  ASSERT_EQ(std::future_status::ready, fut.wait_for(std::chrono::seconds(10)))
+      << "send() did not return after route query stalled";
+  EXPECT_TRUE(static_cast<bool>(fut.get())) << "expected an error when route query stalls";
 }
 
 ROCKETMQ_NAMESPACE_END
