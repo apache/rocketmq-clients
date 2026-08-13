@@ -136,6 +136,12 @@ void ConsumeTask::process() {
   }
 
   std::shared_ptr<PushConsumerImpl> consumer = svc->consumer().lock();
+  if (!consumer) {
+    // The owning PushConsumerImpl has been destructed. Bail out before touching
+    // consumer stats/config so we never dereference a null consumer.
+    SPDLOG_DEBUG("PushConsumer has been destructed; skip processing");
+    return;
+  }
 
   auto self = shared_from_this();
 

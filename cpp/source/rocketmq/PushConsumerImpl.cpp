@@ -42,7 +42,10 @@ PushConsumerImpl::PushConsumerImpl(absl::string_view group_name) : ClientImpl(gr
 }
 
 PushConsumerImpl::~PushConsumerImpl() {
-  SPDLOG_DEBUG("DefaultMQPushConsumerImpl is destructed");
+  // Do NOT log here. The destructor may run during process/static teardown when
+  // the static spdlog default logger has already been destroyed; logging then
+  // dereferences a dangling logger (observed as EXC_BAD_ACCESS at 0x18 on macOS).
+  // Deterministic teardown should be driven earlier via PushConsumer::shutdown().
   shutdown();
 }
 

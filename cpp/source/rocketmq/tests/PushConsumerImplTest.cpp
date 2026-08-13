@@ -334,4 +334,14 @@ TEST(PushConsumerImplTest, maxCachedMessageMemoryTest) {
   EXPECT_EQ(MixAll::DEFAULT_CACHED_MESSAGE_MEMORY, consumer->maxCachedMessageMemory());
 }
 
+// shutdown() must be idempotent and safe to call repeatedly, including the
+// implicit call from the destructor. This underpins the public
+// PushConsumer::shutdown() contract (explicit shutdown followed by destruction).
+TEST(PushConsumerImplTest, shutdownIsIdempotentTest) {
+  auto consumer = createConsumer();
+  consumer->shutdown();
+  consumer->shutdown();
+  // Destruction here triggers shutdown() once more; must not crash.
+}
+
 ROCKETMQ_NAMESPACE_END

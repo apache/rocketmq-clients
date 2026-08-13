@@ -41,6 +41,23 @@ public:
 
   void unsubscribe(const std::string& topic) noexcept;
 
+  /**
+   * Gracefully shut the consumer down.
+   *
+   * Call this from the application (owner) thread before releasing the
+   * PushConsumer. It cancels periodic tasks, then drains and joins the consume
+   * worker threads synchronously on the calling thread. Because the join blocks
+   * the owner until all in-flight consume tasks finish, a consume worker can
+   * never become the last owner of the underlying implementation, so the final
+   * destruction always happens on the owner thread rather than on a worker
+   * thread concurrently with process/static teardown.
+   *
+   * Idempotent: safe to call multiple times and safe to call again from the
+   * destructor. If never called explicitly, teardown still runs from the
+   * destructor, but then it is not guaranteed to run on the owner thread.
+   */
+  void shutdown() noexcept;
+
 private:
   friend class PushConsumerBuilder;
 

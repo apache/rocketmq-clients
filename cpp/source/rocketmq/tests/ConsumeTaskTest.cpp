@@ -162,6 +162,33 @@ TEST_F(ConsumeTaskTest, processWithEmptyMessagesTest) {
   task->process();
 }
 
+// Regression: the service is still alive but the owning PushConsumerImpl has
+// already been destructed, so consumer().lock() yields null. process() must not
+// dereference the null consumer (metrics/stats access), it must bail out before
+// invoking the listener.
+TEST_F(ConsumeTaskTest, processWithExpiredConsumerTest) {
+  auto msg = buildMessage("topic", "body");
+  auto task = std::make_shared<ConsumeTask>(weak_service_, weak_pq_, msg);
+
+  bool listener_invoked = false;
+  MessageListener listener = [&listener_invoked](const Message&) {
+    listener_invoked = true;
+    return ConsumeResult::SUCCESS;
+  };
+
+  // Consumer weak_ptr is expired (owning PushConsumerImpl already gone).
+  EXPECT_CALL(*service_, consumer()).WillRepeatedly(testing::Return(std::weak_ptr<PushConsumerImpl>()));
+  ON_CALL(*service_, listener()).WillByDefault(testing::ReturnRef(listener));
+
+  // With no consumer, process() must not run the listener or ack/nack.
+  EXPECT_CALL(*service_, preHandle(testing::_)).Times(0);
+  EXPECT_CALL(*service_, ack(testing::_, testing::_)).Times(0);
+  EXPECT_CALL(*service_, nack(testing::_, testing::_)).Times(0);
+
+  task->process();  // must not dereference a null consumer
+  EXPECT_FALSE(listener_invoked);
+}
+
 // --- process() state-machine: Consume → Ack on SUCCESS ---
 
 TEST_F(ConsumeTaskTest, processConsumeSuccessCallsAckTest) {
