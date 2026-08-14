@@ -186,6 +186,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             scanAssignmentsFuture = getScheduler().scheduleWithFixedDelay(() -> {
                 try {
                     scanAssignments();
+                    clientMeterManager.refreshGauges();
                 } catch (Throwable t) {
                     log.error("Exception raised while scanning the load assignments, clientId={}", clientId, t);
                 }

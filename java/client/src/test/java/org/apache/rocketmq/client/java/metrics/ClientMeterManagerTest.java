@@ -40,14 +40,47 @@ public class ClientMeterManagerTest extends TestBase {
     }
 
     @Test
-    public void testResetWithMetricOff() {
-        final ClientConfiguration clientConfiguration =
-            ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
-        ClientId clientId = new ClientId();
-        final ClientMeterManager meterManager = new ClientMeterManager(clientId, clientConfiguration);
-        final Metric metric =
-            new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(false).setEndpoints(fakePbEndpoints0()).build());
-        meterManager.reset(metric);
-        assertFalse(meterManager.isEnabled());
+    public void testResetWithMetricOffAndJmxEnabled() {
+        String oldValue = System.getProperty(ClientJmxReporter.ENABLE_PROPERTY);
+        System.setProperty(ClientJmxReporter.ENABLE_PROPERTY, Boolean.TRUE.toString());
+        try {
+            final ClientConfiguration clientConfiguration =
+                ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
+            ClientId clientId = new ClientId();
+            final ClientMeterManager meterManager = new ClientMeterManager(clientId, clientConfiguration);
+            final Metric metric = new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(false)
+                .setEndpoints(fakePbEndpoints0()).build());
+            meterManager.reset(metric);
+
+            assertTrue(meterManager.isEnabled());
+        } finally {
+            restoreEnableProperty(oldValue);
+        }
+    }
+
+    @Test
+    public void testResetWithMetricAndJmxOff() {
+        String oldValue = System.getProperty(ClientJmxReporter.ENABLE_PROPERTY);
+        System.setProperty(ClientJmxReporter.ENABLE_PROPERTY, Boolean.FALSE.toString());
+        try {
+            final ClientConfiguration clientConfiguration =
+                ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
+            ClientMeterManager meterManager = new ClientMeterManager(new ClientId(), clientConfiguration);
+            final Metric metric = new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(false)
+                .setEndpoints(fakePbEndpoints0()).build());
+            meterManager.reset(metric);
+
+            assertFalse(meterManager.isEnabled());
+        } finally {
+            restoreEnableProperty(oldValue);
+        }
+    }
+
+    private static void restoreEnableProperty(String oldValue) {
+        if (null == oldValue) {
+            System.clearProperty(ClientJmxReporter.ENABLE_PROPERTY);
+        } else {
+            System.setProperty(ClientJmxReporter.ENABLE_PROPERTY, oldValue);
+        }
     }
 }

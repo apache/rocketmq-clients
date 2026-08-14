@@ -56,25 +56,35 @@ public class ClientMeterManager {
 
     private final ClientId clientId;
     private final ClientConfiguration clientConfiguration;
+    private final ClientJmxReporter jmxReporter;
     private volatile ClientMeter clientMeter;
     private volatile GaugeObserver gaugeObserver = GaugeObserver.EMPTY;
 
     public ClientMeterManager(ClientId clientId, ClientConfiguration clientConfiguration) {
         this.clientId = clientId;
         this.clientConfiguration = clientConfiguration;
+        this.jmxReporter = new ClientJmxReporter(clientId);
         this.clientMeter = ClientMeter.disabledInstance(clientId);
     }
 
     public void setGaugeObserver(GaugeObserver gaugeObserver) {
         this.gaugeObserver = checkNotNull(gaugeObserver, "gaugeObserver should not be null");
+        jmxReporter.setGaugeObserver(gaugeObserver);
+        jmxReporter.refreshGauges();
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
         clientMeter.record(histogramEnum, attributes, value);
+        jmxReporter.record(histogramEnum, attributes, value);
+    }
+
+    public void refreshGauges() {
+        jmxReporter.refreshGauges();
     }
 
     public void shutdown() {
         clientMeter.shutdown();
+        jmxReporter.shutdown();
     }
 
     @SuppressWarnings({"deprecation", "resource"})
@@ -174,6 +184,6 @@ public class ClientMeterManager {
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isEnabled() {
-        return clientMeter.isEnabled();
+        return clientMeter.isEnabled() || jmxReporter.isEnabled();
     }
 }
