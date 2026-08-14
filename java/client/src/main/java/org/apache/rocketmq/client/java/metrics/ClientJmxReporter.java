@@ -250,6 +250,7 @@ final class ClientJmxReporter {
     }
 
     private static String formatBoundary(double value) {
+        // Encode signs and decimal points as JMX-friendly suffixes, for example, -1.5 becomes n1_5.
         String boundary = BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
         return boundary.replace('-', 'n').replace('.', '_');
     }
@@ -346,18 +347,25 @@ final class ClientJmxReporter {
         private volatile Map<String, MetricValue> metrics = Collections.emptyMap();
 
         private boolean putAllIfAbsent(Map<String, MetricValue> additions) {
-            Map<String, MetricValue> updated = new LinkedHashMap<>(metrics);
-            boolean changed = false;
+            Map<String, MetricValue> snapshot = metrics;
+            boolean hasNewMetric = false;
+            for (String metricName : additions.keySet()) {
+                if (!snapshot.containsKey(metricName)) {
+                    hasNewMetric = true;
+                    break;
+                }
+            }
+            if (!hasNewMetric) {
+                return false;
+            }
+            Map<String, MetricValue> updated = new LinkedHashMap<>(snapshot);
             for (Map.Entry<String, MetricValue> entry : additions.entrySet()) {
                 if (!updated.containsKey(entry.getKey())) {
                     updated.put(entry.getKey(), entry.getValue());
-                    changed = true;
                 }
             }
-            if (changed) {
-                metrics = Collections.unmodifiableMap(updated);
-            }
-            return changed;
+            metrics = Collections.unmodifiableMap(updated);
+            return true;
         }
 
         @Override
