@@ -20,6 +20,7 @@
 #include "rocketmq/RocketMQ.h"
 #include "gtest/gtest.h"
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <thread>
 
@@ -71,6 +72,36 @@ TEST_F(ThreadPoolTest, testBasics) {
       cv.Wait(&mtx);
     }
   }
+}
+
+// Regression: shutting the pool down from within one of its own worker threads
+// must not attempt to join the calling thread (self-join deadlocks and raises
+// std::system_error EDEADLK). This mirrors the PushConsumer teardown race where
+// ~PushConsumerImpl runs on a consume worker and drives ThreadPoolImpl::shutdown().
+TEST_F(ThreadPoolTest, shutdownFromWorkerThreadDoesNotThrowTest) {
+  std::atomic<bool> threw{false};
+  std::atomic<bool> finished{false};
+
+  pool_->submit([&]() {
+    try {
+      pool_->shutdown();
+    } catch (...) {
+      threw.store(true);
+    }
+    finished.store(true);
+  });
+
+  auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!finished.load() && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+
+  EXPECT_TRUE(finished.load());
+  EXPECT_FALSE(threw.load());
+
+  // Give the detached worker a moment to unwind out of io_context::run()
+  // before the fixture destroys the pool (test-only synchronization).
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
 }
 
 ROCKETMQ_NAMESPACE_END

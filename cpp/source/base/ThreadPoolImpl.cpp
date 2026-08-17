@@ -79,10 +79,24 @@ void ThreadPoolImpl::shutdown() {
   if (state_.compare_exchange_strong(expected, State::STOPPING, std::memory_order_relaxed)) {
     work_guard_->reset();
     context_.stop();
+    auto current_id = std::this_thread::get_id();
     for (auto& thread : threads_) {
-      if (thread.joinable()) {
-        thread.join();
+      if (!thread.joinable()) {
+        continue;
       }
+      if (thread.get_id() == current_id) {
+        // shutdown() was invoked from within one of our own worker threads,
+        // e.g. the last shared_ptr to the owning PushConsumerImpl was released
+        // on a consume worker, so ~PushConsumerImpl -> shutdown() runs here.
+        // Joining the current thread raises std::system_error(EDEADLK); on the
+        // noexcept teardown path that would std::terminate. Detach self so the
+        // worker unwinds naturally once io_context::run() returns. Deterministic
+        // teardown must be driven from a non-worker thread via PushConsumer::shutdown().
+        SPDLOG_WARN("ThreadPool::shutdown() invoked from a worker thread; detaching self to avoid self-join");
+        thread.detach();
+        continue;
+      }
+      thread.join();
     }
     state_.store(State::STOPPED, std::memory_order_relaxed);
   }

@@ -41,6 +41,16 @@ void PushConsumer::unsubscribe(const std::string& topic) noexcept {
   }
 }
 
+void PushConsumer::shutdown() noexcept {
+  try {
+    if (impl_) {
+      impl_->shutdown();
+    }
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception in shutdown: {}", e.what());
+  }
+}
+
 PushConsumerBuilder PushConsumer::newBuilder() {
   return {};
 }
