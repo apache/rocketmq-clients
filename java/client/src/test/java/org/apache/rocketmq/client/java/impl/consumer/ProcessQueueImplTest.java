@@ -149,10 +149,10 @@ public class ProcessQueueImplTest extends TestBase {
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
         RpcFuture<AckMessageRequest, AckMessageResponse> future0 = okAckMessageResponseFuture();
-        when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future0);
+        when(pushConsumer.batchAckMessage(any(MessageViewImpl.class))).thenReturn(future0);
         processQueue.eraseMessage(messageView, ConsumeResult.SUCCESS);
         await().atMost(Duration.ofSeconds(1)).untilAsserted(() -> verify(pushConsumer, times(1))
-            .ackMessage(eq(messageView)));
+            .batchAckMessage(eq(messageView)));
     }
 
     @Test
@@ -162,13 +162,16 @@ public class ProcessQueueImplTest extends TestBase {
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
         RpcFuture<AckMessageRequest, AckMessageResponse> future0 = new RpcFuture<>(new Exception());
+        when(pushConsumer.batchAckMessage(any(MessageViewImpl.class))).thenReturn(future0);
         when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future0);
         processQueue.eraseMessage(messageView, ConsumeResult.SUCCESS);
         int ackTimes = 3;
         final Duration tolerance = Duration.ofMillis(500);
         await().atMost(ProcessQueueImpl.ACK_MESSAGE_FAILURE_BACKOFF_DELAY.multipliedBy(ackTimes)
-            .plus(tolerance)).untilAsserted(() -> verify(pushConsumer, times(ackTimes))
-            .ackMessage(eq(messageView)));
+            .plus(tolerance)).untilAsserted(() -> {
+                verify(pushConsumer, times(1)).batchAckMessage(eq(messageView));
+                verify(pushConsumer, times(ackTimes - 1)).ackMessage(eq(messageView));
+            });
     }
 
     @Test
