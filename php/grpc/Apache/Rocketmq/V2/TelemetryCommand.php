@@ -40,6 +40,10 @@ class TelemetryCommand extends \Google\Protobuf\Internal\Message
      *           Request client to print thread stack trace.
      *     @type \Apache\Rocketmq\V2\VerifyMessageCommand $verify_message_command
      *           Request client to verify the consumption of the appointed message.
+     *     @type \Apache\Rocketmq\V2\ReconnectEndpointsCommand $reconnect_endpoints_command
+     *           Request client to reconnect server use the latest endpoints.
+     *     @type \Apache\Rocketmq\V2\NotifyUnsubscribeLiteCommand $notify_unsubscribe_lite_command
+     *           Request client to unsubscribe lite topic.
      * }
      */
     public function __construct($data = NULL) {
@@ -265,6 +269,68 @@ class TelemetryCommand extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkMessage($var, \Apache\Rocketmq\V2\VerifyMessageCommand::class);
         $this->writeOneof(7, $var);
+
+        return $this;
+    }
+
+    /**
+     * Request client to reconnect server use the latest endpoints.
+     *
+     * Generated from protobuf field <code>.apache.rocketmq.v2.ReconnectEndpointsCommand reconnect_endpoints_command = 8;</code>
+     * @return \Apache\Rocketmq\V2\ReconnectEndpointsCommand|null
+     */
+    public function getReconnectEndpointsCommand()
+    {
+        return $this->readOneof(8);
+    }
+
+    public function hasReconnectEndpointsCommand()
+    {
+        return $this->hasOneof(8);
+    }
+
+    /**
+     * Request client to reconnect server use the latest endpoints.
+     *
+     * Generated from protobuf field <code>.apache.rocketmq.v2.ReconnectEndpointsCommand reconnect_endpoints_command = 8;</code>
+     * @param \Apache\Rocketmq\V2\ReconnectEndpointsCommand $var
+     * @return $this
+     */
+    public function setReconnectEndpointsCommand($var)
+    {
+        GPBUtil::checkMessage($var, \Apache\Rocketmq\V2\ReconnectEndpointsCommand::class);
+        $this->writeOneof(8, $var);
+
+        return $this;
+    }
+
+    /**
+     * Request client to unsubscribe lite topic.
+     *
+     * Generated from protobuf field <code>.apache.rocketmq.v2.NotifyUnsubscribeLiteCommand notify_unsubscribe_lite_command = 9;</code>
+     * @return \Apache\Rocketmq\V2\NotifyUnsubscribeLiteCommand|null
+     */
+    public function getNotifyUnsubscribeLiteCommand()
+    {
+        return $this->readOneof(9);
+    }
+
+    public function hasNotifyUnsubscribeLiteCommand()
+    {
+        return $this->hasOneof(9);
+    }
+
+    /**
+     * Request client to unsubscribe lite topic.
+     *
+     * Generated from protobuf field <code>.apache.rocketmq.v2.NotifyUnsubscribeLiteCommand notify_unsubscribe_lite_command = 9;</code>
+     * @param \Apache\Rocketmq\V2\NotifyUnsubscribeLiteCommand $var
+     * @return $this
+     */
+    public function setNotifyUnsubscribeLiteCommand($var)
+    {
+        GPBUtil::checkMessage($var, \Apache\Rocketmq\V2\NotifyUnsubscribeLiteCommand::class);
+        $this->writeOneof(9, $var);
 
         return $this;
     }

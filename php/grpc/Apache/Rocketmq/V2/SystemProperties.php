@@ -141,6 +141,24 @@ class SystemProperties extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>optional .google.protobuf.Duration orphaned_transaction_recovery_duration = 19;</code>
      */
     protected $orphaned_transaction_recovery_duration = null;
+    /**
+     * Information to identify whether this message is from dead letter queue.
+     *
+     * Generated from protobuf field <code>optional .apache.rocketmq.v2.DeadLetterQueue dead_letter_queue = 20;</code>
+     */
+    protected $dead_letter_queue = null;
+    /**
+     * lite topic
+     *
+     * Generated from protobuf field <code>optional string lite_topic = 21;</code>
+     */
+    protected $lite_topic = null;
+    /**
+     * Priority of message, which is optional
+     *
+     * Generated from protobuf field <code>optional int32 priority = 22;</code>
+     */
+    protected $priority = null;
 
     /**
      * Constructor.
@@ -200,6 +218,12 @@ class SystemProperties extends \Google\Protobuf\Internal\Message
      *           `transaction_orphan_threshold`, it would be regarded as an
      *           orphan. Servers that manages orphan messages would pick up
      *           a capable publisher to resolve
+     *     @type \Apache\Rocketmq\V2\DeadLetterQueue $dead_letter_queue
+     *           Information to identify whether this message is from dead letter queue.
+     *     @type string $lite_topic
+     *           lite topic
+     *     @type int $priority
+     *           Priority of message, which is optional
      * }
      */
     public function __construct($data = NULL) {
@@ -845,6 +869,114 @@ class SystemProperties extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkMessage($var, \Google\Protobuf\Duration::class);
         $this->orphaned_transaction_recovery_duration = $var;
+
+        return $this;
+    }
+
+    /**
+     * Information to identify whether this message is from dead letter queue.
+     *
+     * Generated from protobuf field <code>optional .apache.rocketmq.v2.DeadLetterQueue dead_letter_queue = 20;</code>
+     * @return \Apache\Rocketmq\V2\DeadLetterQueue|null
+     */
+    public function getDeadLetterQueue()
+    {
+        return $this->dead_letter_queue;
+    }
+
+    public function hasDeadLetterQueue()
+    {
+        return isset($this->dead_letter_queue);
+    }
+
+    public function clearDeadLetterQueue()
+    {
+        unset($this->dead_letter_queue);
+    }
+
+    /**
+     * Information to identify whether this message is from dead letter queue.
+     *
+     * Generated from protobuf field <code>optional .apache.rocketmq.v2.DeadLetterQueue dead_letter_queue = 20;</code>
+     * @param \Apache\Rocketmq\V2\DeadLetterQueue $var
+     * @return $this
+     */
+    public function setDeadLetterQueue($var)
+    {
+        GPBUtil::checkMessage($var, \Apache\Rocketmq\V2\DeadLetterQueue::class);
+        $this->dead_letter_queue = $var;
+
+        return $this;
+    }
+
+    /**
+     * lite topic
+     *
+     * Generated from protobuf field <code>optional string lite_topic = 21;</code>
+     * @return string
+     */
+    public function getLiteTopic()
+    {
+        return isset($this->lite_topic) ? $this->lite_topic : '';
+    }
+
+    public function hasLiteTopic()
+    {
+        return isset($this->lite_topic);
+    }
+
+    public function clearLiteTopic()
+    {
+        unset($this->lite_topic);
+    }
+
+    /**
+     * lite topic
+     *
+     * Generated from protobuf field <code>optional string lite_topic = 21;</code>
+     * @param string $var
+     * @return $this
+     */
+    public function setLiteTopic($var)
+    {
+        GPBUtil::checkString($var, True);
+        $this->lite_topic = $var;
+
+        return $this;
+    }
+
+    /**
+     * Priority of message, which is optional
+     *
+     * Generated from protobuf field <code>optional int32 priority = 22;</code>
+     * @return int
+     */
+    public function getPriority()
+    {
+        return isset($this->priority) ? $this->priority : 0;
+    }
+
+    public function hasPriority()
+    {
+        return isset($this->priority);
+    }
+
+    public function clearPriority()
+    {
+        unset($this->priority);
+    }
+
+    /**
+     * Priority of message, which is optional
+     *
+     * Generated from protobuf field <code>optional int32 priority = 22;</code>
+     * @param int $var
+     * @return $this
+     */
+    public function setPriority($var)
+    {
+        GPBUtil::checkInt32($var);
+        $this->priority = $var;
 
         return $this;
     }

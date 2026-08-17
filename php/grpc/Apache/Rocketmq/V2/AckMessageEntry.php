@@ -21,6 +21,10 @@ class AckMessageEntry extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>string receipt_handle = 2;</code>
      */
     protected $receipt_handle = '';
+    /**
+     * Generated from protobuf field <code>optional string lite_topic = 3;</code>
+     */
+    protected $lite_topic = null;
 
     /**
      * Constructor.
@@ -30,6 +34,7 @@ class AckMessageEntry extends \Google\Protobuf\Internal\Message
      *
      *     @type string $message_id
      *     @type string $receipt_handle
+     *     @type string $lite_topic
      * }
      */
     public function __construct($data = NULL) {
@@ -77,6 +82,38 @@ class AckMessageEntry extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkString($var, True);
         $this->receipt_handle = $var;
+
+        return $this;
+    }
+
+    /**
+     * Generated from protobuf field <code>optional string lite_topic = 3;</code>
+     * @return string
+     */
+    public function getLiteTopic()
+    {
+        return isset($this->lite_topic) ? $this->lite_topic : '';
+    }
+
+    public function hasLiteTopic()
+    {
+        return isset($this->lite_topic);
+    }
+
+    public function clearLiteTopic()
+    {
+        unset($this->lite_topic);
+    }
+
+    /**
+     * Generated from protobuf field <code>optional string lite_topic = 3;</code>
+     * @param string $var
+     * @return $this
+     */
+    public function setLiteTopic($var)
+    {
+        GPBUtil::checkString($var, True);
+        $this->lite_topic = $var;
 
         return $this;
     }
