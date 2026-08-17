@@ -288,6 +288,7 @@ void ClientManagerImpl::doHeartbeat() {
 bool ClientManagerImpl::send(const std::string& target_host,
                              const Metadata& metadata,
                              SendMessageRequest& request,
+                             std::chrono::milliseconds timeout,
                              SendResultCallback cb) {
   assert(cb);
   SPDLOG_DEBUG("Prepare to send message to {} asynchronously. Request: {}", target_host, request.ShortDebugString());
@@ -296,6 +297,10 @@ bool ClientManagerImpl::send(const std::string& target_host,
   auto invocation_context = new InvocationContext<SendMessageResponse>();
   invocation_context->task_name = fmt::format("Send message to {}", target_host);
   invocation_context->remote_address = target_host;
+  // Bound the SendMessage RPC. Without a deadline a stalled broker leaves the
+  // completion callback pending forever, which in turn blocks the synchronous
+  // send path indefinitely.
+  invocation_context->context.set_deadline(std::chrono::system_clock::now() + timeout);
   for (const auto& entry : metadata) {
     invocation_context->context.AddMetadata(entry.first, entry.second);
   }

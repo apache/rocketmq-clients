@@ -83,6 +83,7 @@ public:
   bool send(const std::string& target_host,
             const Metadata& metadata,
             SendMessageRequest& request,
+            std::chrono::milliseconds timeout,
             SendResultCallback cb) override LOCKS_EXCLUDED(rpc_clients_mtx_);
 
   /**

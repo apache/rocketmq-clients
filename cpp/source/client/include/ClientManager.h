@@ -97,6 +97,7 @@ public:
   virtual bool send(const std::string& target_host,
                     const Metadata& metadata,
                     SendMessageRequest& request,
+                    std::chrono::milliseconds timeout,
                     SendResultCallback cb) = 0;
 
   virtual std::error_code notifyClientTermination(const std::string& target_host, const Metadata& metadata,

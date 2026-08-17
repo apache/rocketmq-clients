@@ -89,7 +89,10 @@ public:
                ReceiveMessageCallback),
               (override));
 
-  MOCK_METHOD(bool, send, (const std::string&, const Metadata&, SendMessageRequest&, SendResultCallback), (override));
+  MOCK_METHOD(bool, send,
+              (const std::string&, const Metadata&, SendMessageRequest&, std::chrono::milliseconds,
+               SendResultCallback),
+              (override));
 
   MOCK_METHOD(std::error_code, notifyClientTermination,
               (const std::string&, const Metadata&, const NotifyClientTerminationRequest&, std::chrono::milliseconds),

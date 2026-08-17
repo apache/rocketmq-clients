@@ -227,6 +227,7 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
   auto cv = std::make_shared<absl::CondVar>();
   bool          completed = false;
   SendReceipt   send_receipt;
+  const std::string topic = message->topic();
 
   // Define callback
   auto callback =
@@ -248,8 +249,15 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
 
   {
     absl::MutexLock lk(mtx.get());
-    if (!completed) {
-      cv->Wait(mtx.get());
+    // Bound the synchronous wait. The callback may never run if the underlying
+    // RPC stalls, so an unbounded Wait() would hang the calling thread forever.
+    auto deadline = absl::Now() + requestTimeout();
+    while (!completed) {
+      if (cv->WaitWithDeadline(mtx.get(), deadline)) {
+        SPDLOG_WARN("Timeout waiting for send result of topic[{}]", topic);
+        ec = ErrorCode::RequestTimeout;
+        break;
+      }
     }
   }
 
@@ -361,7 +369,7 @@ void ProducerImpl::sendImpl(std::shared_ptr<SendContext> context) {
     context->onSuccess(send_result);
   };
 
-  client_manager_->send(target, metadata, request, callback);
+  client_manager_->send(target, metadata, request, absl::ToChronoMilliseconds(requestTimeout()), callback);
 }
 
 void ProducerImpl::send0(MessageConstPtr message, const SendCallback& callback, std::vector<rmq::MessageQueue> list) {
@@ -462,7 +470,17 @@ bool ProducerImpl::endTransaction0(const MiniTransaction& transaction, Transacti
 
   {
     absl::MutexLock lk(mtx.get());
-    cv->Wait(mtx.get());
+    // Guard on `completed`: the callback may already have run (and signalled with
+    // no waiter present) before we get here, in which case an unguarded Wait()
+    // would block forever. The deadline bounds a stalled RPC.
+    auto deadline = absl::Now() + requestTimeout();
+    while (!completed) {
+      if (cv->WaitWithDeadline(mtx.get(), deadline)) {
+        SPDLOG_WARN("Timeout waiting for {} transaction result of topic[{}]", action, topic);
+        success = false;
+        break;
+      }
+    }
   }
   return success;
 }
@@ -559,6 +577,7 @@ RecallReceipt ProducerImpl::recall(const std::string& topic, std::string& recall
   auto cv = std::make_shared<absl::CondVar>();
 
   RecallReceipt recall_receipt;
+  bool completed = false;
   auto callback =
       [&, mtx, cv, topic](const std::error_code& code, const RecallMessageResponse& response) {
 
@@ -569,6 +588,7 @@ RecallReceipt ProducerImpl::recall(const std::string& topic, std::string& recall
 
     {
       absl::MutexLock lk(mtx.get());
+      completed = true;
       cv->SignalAll();
     }
   };
@@ -578,7 +598,16 @@ RecallReceipt ProducerImpl::recall(const std::string& topic, std::string& recall
 
   {
     absl::MutexLock lk(mtx.get());
-    cv->Wait(mtx.get());
+    // Guard on `completed` so an already-completed callback cannot strand this
+    // thread in an unbounded Wait(), and bound the wait with a deadline.
+    auto deadline = absl::Now() + requestTimeout();
+    while (!completed) {
+      if (cv->WaitWithDeadline(mtx.get(), deadline)) {
+        SPDLOG_WARN("Timeout waiting for recall result of topic[{}]", topic);
+        ec = ErrorCode::RequestTimeout;
+        break;
+      }
+    }
   }
 
   return recall_receipt;
@@ -637,10 +666,20 @@ TopicPublishInfoPtr ProducerImpl::getPublishInfo(const std::string& topic) {
   };
   getPublishInfoAsync(topic, cb);
 
-  // Wait till acquiring topic publish info completes
-  while (!complete) {
+  // Wait till acquiring topic publish info completes.
+  // `complete` must only be read while holding mtx: testing it outside the lock
+  // races with the callback and can miss the signal entirely (the callback may
+  // complete between the check and Wait()), which used to hang this thread
+  // forever. The deadline additionally bounds a stalled route query.
+  {
     absl::MutexLock lk(mtx.get());
-    cv->Wait(mtx.get());
+    auto deadline = absl::Now() + requestTimeout();
+    while (!complete) {
+      if (cv->WaitWithDeadline(mtx.get(), deadline)) {
+        SPDLOG_WARN("Timeout acquiring publish info of topic[{}]", topic);
+        return nullptr;
+      }
+    }
   }
 
   // TODO: propagate error_code to caller

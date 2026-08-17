@@ -16,6 +16,7 @@
  */
 #include <apache/rocketmq/v2/definition.pb.h>
 
+#include <chrono>
 #include <memory>
 #include <system_error>
 
@@ -254,7 +255,7 @@ TEST_F(ClientManagerTest, sendSuccessTest) {
     cv.SignalAll();
   };
 
-  client_manager_->send(target_host_, metadata_, request, callback);
+  client_manager_->send(target_host_, metadata_, request, std::chrono::seconds(3), callback);
 
   {
     absl::MutexLock lk(&mtx);
@@ -297,7 +298,7 @@ TEST_F(ClientManagerTest, sendReturnsErrorOnBadRequestTest) {
     cv.SignalAll();
   };
 
-  client_manager_->send(target_host_, metadata_, request, callback);
+  client_manager_->send(target_host_, metadata_, request, std::chrono::seconds(3), callback);
 
   {
     absl::MutexLock lk(&mtx);
