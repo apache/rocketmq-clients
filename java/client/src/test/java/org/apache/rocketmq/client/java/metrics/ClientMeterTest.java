@@ -48,9 +48,6 @@ public class ClientMeterTest extends TestBase {
         assertEquals(1, histogramMap(clientMeter).size());
         clientMeter.shutdown();
         assertFalse(clientMeter.isEnabled());
-        assertTrue(histogramMap(clientMeter).isEmpty());
-        clientMeter.record(HistogramEnum.SEND_COST_TIME, Attributes.empty(), 2);
-        assertTrue(histogramMap(clientMeter).isEmpty());
     }
 
     @Test

@@ -27,7 +27,6 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
@@ -36,7 +35,6 @@ import org.slf4j.LoggerFactory;
 public class ClientMeter {
     private static final Logger log = LoggerFactory.getLogger(ClientMeter.class);
 
-    private final ReentrantReadWriteLock lifecycleLock = new ReentrantReadWriteLock();
     private volatile boolean enabled;
     private final Meter meter;
     private final Endpoints endpoints;
@@ -74,51 +72,27 @@ public class ClientMeter {
         if (!enabled) {
             return;
         }
-        final String histogramName = histogramEnum.getName();
-        DoubleHistogram histogram = histogramMap.get(histogramName);
+        final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(), name -> enabled ?
+            meter.histogramBuilder(histogramEnum.getName()).build() : null);
         if (null == histogram) {
-            histogram = getOrCreateHistogram(histogramName);
+            return;
         }
-        if (null != histogram) {
-            histogram.record(value, attributes);
-        }
-    }
-
-    private DoubleHistogram getOrCreateHistogram(String histogramName) {
-        // Keep the lifecycle lock around the entire compute so shutdown cannot clear the map before publication.
-        lifecycleLock.readLock().lock();
-        try {
-            if (!enabled) {
-                return null;
-            }
-            return histogramMap.computeIfAbsent(histogramName,
-                name -> meter.histogramBuilder(name).build());
-        } finally {
-            lifecycleLock.readLock().unlock();
-        }
+        histogram.record(value, attributes);
     }
 
     public void shutdown() {
-        lifecycleLock.writeLock().lock();
+        if (!enabled) {
+            return;
+        }
+        enabled = false;
+        log.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
+        final CountDownLatch latch = new CountDownLatch(1);
+        provider.shutdown().whenComplete(latch::countDown);
         try {
-            if (!enabled) {
-                histogramMap.clear();
-                return;
-            }
-            enabled = false;
-            log.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
-            final CountDownLatch latch = new CountDownLatch(1);
-            try {
-                provider.shutdown().whenComplete(latch::countDown);
-                latch.await();
-                log.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
-            } catch (Throwable t) {
-                log.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
-            } finally {
-                histogramMap.clear();
-            }
-        } finally {
-            lifecycleLock.writeLock().unlock();
+            latch.await();
+            log.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
+        } catch (Throwable t) {
+            log.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
         }
     }
 
