@@ -39,6 +39,7 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -57,6 +58,7 @@ public class ClientMeterManager {
     private final ClientId clientId;
     private final ClientConfiguration clientConfiguration;
     private final ClientJmxReporter jmxReporter;
+    private final ReentrantLock lifecycleLock = new ReentrantLock();
     private volatile ClientMeter clientMeter;
     private volatile GaugeObserver gaugeObserver = GaugeObserver.EMPTY;
     private boolean closed;
@@ -68,13 +70,18 @@ public class ClientMeterManager {
         this.clientMeter = ClientMeter.disabledInstance(clientId);
     }
 
-    public synchronized void setGaugeObserver(GaugeObserver gaugeObserver) {
-        if (closed) {
-            return;
+    public void setGaugeObserver(GaugeObserver gaugeObserver) {
+        lifecycleLock.lock();
+        try {
+            if (closed) {
+                return;
+            }
+            this.gaugeObserver = checkNotNull(gaugeObserver, "gaugeObserver should not be null");
+            jmxReporter.setGaugeObserver(gaugeObserver);
+            jmxReporter.refreshGauges();
+        } finally {
+            lifecycleLock.unlock();
         }
-        this.gaugeObserver = checkNotNull(gaugeObserver, "gaugeObserver should not be null");
-        jmxReporter.setGaugeObserver(gaugeObserver);
-        jmxReporter.refreshGauges();
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
@@ -86,17 +93,31 @@ public class ClientMeterManager {
         jmxReporter.refreshGauges();
     }
 
-    public synchronized void shutdown() {
-        closed = true;
-        gaugeObserver = GaugeObserver.EMPTY;
-        ClientMeter existedClientMeter = clientMeter;
-        clientMeter = ClientMeter.disabledInstance(clientId);
-        jmxReporter.shutdown();
-        existedClientMeter.shutdown();
+    public void shutdown() {
+        lifecycleLock.lock();
+        try {
+            closed = true;
+            gaugeObserver = GaugeObserver.EMPTY;
+            ClientMeter existedClientMeter = clientMeter;
+            clientMeter = ClientMeter.disabledInstance(clientId);
+            jmxReporter.shutdown();
+            existedClientMeter.shutdown();
+        } finally {
+            lifecycleLock.unlock();
+        }
+    }
+
+    public void reset(Metric metric) {
+        lifecycleLock.lock();
+        try {
+            resetLocked(metric);
+        } finally {
+            lifecycleLock.unlock();
+        }
     }
 
     @SuppressWarnings({"deprecation", "resource"})
-    public synchronized void reset(Metric metric) {
+    private void resetLocked(Metric metric) {
         ManagedChannel newChannel = null;
         OtlpGrpcMetricExporter newExporter = null;
         SdkMeterProvider newProvider = null;

@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -194,14 +195,18 @@ public class ClientJmxReporterTest extends TestBase {
             }
         });
 
-        synchronized (registrationLock(reporter)) {
+        ReentrantLock registrationLock = registrationLock(reporter);
+        registrationLock.lock();
+        try {
             recordThread.start();
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-            while (Thread.State.BLOCKED != recordThread.getState() && System.nanoTime() < deadline) {
+            while (!registrationLock.hasQueuedThread(recordThread) && System.nanoTime() < deadline) {
                 Thread.yield();
             }
-            assertEquals(Thread.State.BLOCKED, recordThread.getState());
+            assertTrue(registrationLock.hasQueuedThread(recordThread));
             reporter.shutdown();
+        } finally {
+            registrationLock.unlock();
         }
         recordThread.join(TimeUnit.SECONDS.toMillis(5));
 
@@ -254,10 +259,10 @@ public class ClientJmxReporterTest extends TestBase {
         return result;
     }
 
-    private static Object registrationLock(ClientJmxReporter reporter) throws Exception {
+    private static ReentrantLock registrationLock(ClientJmxReporter reporter) throws Exception {
         Field field = ClientJmxReporter.class.getDeclaredField("registrationLock");
         field.setAccessible(true);
-        return field.get(reporter);
+        return (ReentrantLock) field.get(reporter);
     }
 
     private static void assertHistogramSeriesEmpty(ClientJmxReporter reporter) throws Exception {

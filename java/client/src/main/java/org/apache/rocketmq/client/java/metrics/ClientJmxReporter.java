@@ -36,6 +36,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.DoubleAdder;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Pattern;
 import javax.management.Attribute;
 import javax.management.AttributeList;
@@ -72,7 +73,7 @@ final class ClientJmxReporter {
     private final ClientId clientId;
     private final MBeanServer mBeanServer;
     private final AtomicBoolean enabled;
-    private final Object registrationLock = new Object();
+    private final ReentrantLock registrationLock = new ReentrantLock();
     private final Map<ObjectName, ClientMetricsMBean> mBeans;
     private final Map<HistogramEnum, ConcurrentMap<Attributes, JmxHistogram>> histograms;
     private final Map<GaugeEnum, Set<Attributes>> registeredGaugeAttributes;
@@ -151,7 +152,8 @@ final class ClientJmxReporter {
                 Map<Attributes, Double> values = observer.getValues(gauge);
                 observedGaugeAttributes.get(gauge).addAll(values.keySet());
             }
-            synchronized (registrationLock) {
+            registrationLock.lock();
+            try {
                 if (!enabled.get()) {
                     return;
                 }
@@ -159,18 +161,20 @@ final class ClientJmxReporter {
                     Set<Attributes> observed = observedGaugeAttributes.get(gauge);
                     Set<Attributes> registered = registeredGaugeAttributes.get(gauge);
                     for (Attributes attributes : observed) {
-                        if (!registered.contains(attributes) && registerGauge(gauge, attributes)) {
+                        if (!registered.contains(attributes) && registerGaugeLocked(gauge, attributes)) {
                             registered.add(attributes);
                         }
                     }
                     Iterator<Attributes> iterator = registered.iterator();
                     while (iterator.hasNext()) {
                         Attributes attributes = iterator.next();
-                        if (!observed.contains(attributes) && removeGauge(gauge, attributes)) {
+                        if (!observed.contains(attributes) && removeGaugeLocked(gauge, attributes)) {
                             iterator.remove();
                         }
                     }
                 }
+            } finally {
+                registrationLock.unlock();
             }
         } catch (RuntimeException e) {
             log.warn("Failed to refresh client JMX gauges, clientId={}", clientId, e);
@@ -183,7 +187,8 @@ final class ClientJmxReporter {
         if (null == mBeanServer) {
             return;
         }
-        synchronized (registrationLock) {
+        registrationLock.lock();
+        try {
             Iterator<Map.Entry<ObjectName, ClientMetricsMBean>> iterator = mBeans.entrySet().iterator();
             while (iterator.hasNext()) {
                 ObjectName objectName = iterator.next().getKey();
@@ -205,12 +210,15 @@ final class ClientJmxReporter {
             }
             suppressedRegistrations.clear();
             warnedGaugeRemovalFailures.clear();
+        } finally {
+            registrationLock.unlock();
         }
     }
 
     private JmxHistogram registerHistogram(HistogramEnum histogramType, Attributes attributes,
         ConcurrentMap<Attributes, JmxHistogram> series) {
-        synchronized (registrationLock) {
+        registrationLock.lock();
+        try {
             if (!enabled.get() || suppressedRegistrations.contains(attributes)) {
                 return null;
             }
@@ -230,24 +238,26 @@ final class ClientJmxReporter {
                     new LongMetricValue(() -> histogram.cumulativeBucketCount(bucketIndex)));
             }
             metrics.put(prefix + "_bucket_le_inf", new LongMetricValue(histogram.count::sum));
-            if (!registerMetrics(attributes, metrics)) {
+            if (!registerMetricsLocked(attributes, metrics)) {
                 return null;
             }
             series.put(attributes, histogram);
             return histogram;
+        } finally {
+            registrationLock.unlock();
         }
     }
 
-    private boolean registerGauge(GaugeEnum gauge, Attributes attributes) {
+    private boolean registerGaugeLocked(GaugeEnum gauge, Attributes attributes) {
         if (suppressedRegistrations.contains(attributes)) {
             return false;
         }
         Map<String, MetricValue> metrics = Collections.singletonMap(gauge.getName(),
             new DoubleMetricValue(() -> getGaugeValue(gauge, attributes)));
-        return registerMetrics(attributes, metrics);
+        return registerMetricsLocked(attributes, metrics);
     }
 
-    private boolean removeGauge(GaugeEnum gauge, Attributes attributes) {
+    private boolean removeGaugeLocked(GaugeEnum gauge, Attributes attributes) {
         try {
             ObjectName objectName = objectName(attributes);
             ClientMetricsMBean mBean = mBeans.get(objectName);
@@ -284,37 +294,35 @@ final class ClientJmxReporter {
         }
     }
 
-    private boolean registerMetrics(Attributes attributes, Map<String, MetricValue> metrics) {
-        synchronized (registrationLock) {
-            if (!enabled.get() || suppressedRegistrations.contains(attributes)) {
-                return false;
-            }
-            try {
-                ObjectName objectName = objectName(attributes);
-                ClientMetricsMBean mBean = mBeans.get(objectName);
-                if (null == mBean) {
-                    mBean = new ClientMetricsMBean();
-                    mBean.putAllIfAbsent(metrics);
-                    mBeanServer.registerMBean(mBean, objectName);
-                    mBeans.put(objectName, mBean);
-                    return true;
-                }
-                boolean changed = mBean.putAllIfAbsent(metrics);
-                if (!changed && mBeanServer.isRegistered(objectName)) {
-                    return true;
-                }
-                if (mBeanServer.isRegistered(objectName)) {
-                    mBeanServer.unregisterMBean(objectName);
-                }
+    private boolean registerMetricsLocked(Attributes attributes, Map<String, MetricValue> metrics) {
+        if (!enabled.get() || suppressedRegistrations.contains(attributes)) {
+            return false;
+        }
+        try {
+            ObjectName objectName = objectName(attributes);
+            ClientMetricsMBean mBean = mBeans.get(objectName);
+            if (null == mBean) {
+                mBean = new ClientMetricsMBean();
+                mBean.putAllIfAbsent(metrics);
                 mBeanServer.registerMBean(mBean, objectName);
+                mBeans.put(objectName, mBean);
                 return true;
-            } catch (JMException | RuntimeException e) {
-                if (suppressedRegistrations.add(attributes)) {
-                    log.warn("Failed to register client metrics MBean, suppress further attempts, clientId={}",
-                        clientId, e);
-                }
-                return false;
             }
+            boolean changed = mBean.putAllIfAbsent(metrics);
+            if (!changed && mBeanServer.isRegistered(objectName)) {
+                return true;
+            }
+            if (mBeanServer.isRegistered(objectName)) {
+                mBeanServer.unregisterMBean(objectName);
+            }
+            mBeanServer.registerMBean(mBean, objectName);
+            return true;
+        } catch (JMException | RuntimeException e) {
+            if (suppressedRegistrations.add(attributes)) {
+                log.warn("Failed to register client metrics MBean, suppress further attempts, clientId={}",
+                    clientId, e);
+            }
+            return false;
         }
     }
 
