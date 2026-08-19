@@ -60,7 +60,8 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The reporter does not open a network port or depend on a Prometheus library. When enabled, applications that
  * already run a Prometheus JMX exporter can collect these MBeans. The reporter is disabled by default and can be
- * enabled before creating a client with the {@code rocketmq.client.jmx.enabled} system property.
+ * enabled before creating a client with the {@code rocketmq.client.jmx.enabled} system property. The exporter should
+ * include ObjectNames matching {@code org.apache.rocketmq.client:type=message-metrics,*}.
  */
 final class ClientJmxReporter {
     static final String DOMAIN = "org.apache.rocketmq.client";
