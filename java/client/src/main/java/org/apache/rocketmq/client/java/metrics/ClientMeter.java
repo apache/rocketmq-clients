@@ -79,6 +79,8 @@ public class ClientMeter {
             return;
         }
         if (!enabled.get()) {
+            // Shutdown may clear the map while this thread is creating the histogram. Do not let an in-flight record
+            // repopulate the cache after shutdown.
             histogramMap.remove(histogramEnum.getName(), histogram);
             return;
         }
