@@ -27,7 +27,7 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
@@ -36,7 +36,8 @@ import org.slf4j.LoggerFactory;
 public class ClientMeter {
     private static final Logger log = LoggerFactory.getLogger(ClientMeter.class);
 
-    private final AtomicBoolean enabled;
+    private final ReentrantReadWriteLock lifecycleLock = new ReentrantReadWriteLock();
+    private volatile boolean enabled;
     private final Meter meter;
     private final Endpoints endpoints;
     private final SdkMeterProvider provider;
@@ -44,7 +45,7 @@ public class ClientMeter {
     private final ConcurrentMap<String /* histogram name */, DoubleHistogram> histogramMap;
 
     public ClientMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider, ClientId clientId) {
-        this.enabled = new AtomicBoolean(true);
+        this.enabled = true;
         this.meter = checkNotNull(meter, "meter should not be null");
         this.endpoints = checkNotNull(endpoints, "endpoints should not be null");
         this.provider = checkNotNull(provider, "provider should not be null");
@@ -53,7 +54,7 @@ public class ClientMeter {
     }
 
     private ClientMeter(ClientId clientId) {
-        this.enabled = new AtomicBoolean(false);
+        this.enabled = false;
         this.meter = null;
         this.endpoints = null;
         this.provider = null;
@@ -66,56 +67,58 @@ public class ClientMeter {
     }
 
     public boolean isEnabled() {
-        return enabled.get();
+        return enabled;
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
-        if (!enabled.get()) {
-            return;
+        lifecycleLock.readLock().lock();
+        try {
+            if (!enabled) {
+                return;
+            }
+            final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(),
+                name -> meter.histogramBuilder(name).build());
+            histogram.record(value, attributes);
+        } finally {
+            lifecycleLock.readLock().unlock();
         }
-        final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(), name -> enabled.get() ?
-            meter.histogramBuilder(histogramEnum.getName()).build() : null);
-        if (null == histogram) {
-            return;
-        }
-        if (!enabled.get()) {
-            // Shutdown may clear the map while this thread is creating the histogram. Do not let an in-flight record
-            // repopulate the cache after shutdown.
-            histogramMap.remove(histogramEnum.getName(), histogram);
-            return;
-        }
-        histogram.record(value, attributes);
     }
 
     public void shutdown() {
-        if (!enabled.compareAndSet(true, false)) {
-            histogramMap.clear();
-            return;
-        }
-        log.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
-        final CountDownLatch latch = new CountDownLatch(1);
+        lifecycleLock.writeLock().lock();
         try {
-            provider.shutdown().whenComplete(latch::countDown);
-            latch.await();
-            log.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
-        } catch (Throwable t) {
-            log.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
+            if (!enabled) {
+                histogramMap.clear();
+                return;
+            }
+            enabled = false;
+            log.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
+            final CountDownLatch latch = new CountDownLatch(1);
+            try {
+                provider.shutdown().whenComplete(latch::countDown);
+                latch.await();
+                log.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
+            } catch (Throwable t) {
+                log.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
+            } finally {
+                histogramMap.clear();
+            }
         } finally {
-            histogramMap.clear();
+            lifecycleLock.writeLock().unlock();
         }
     }
 
     public boolean satisfy(Metric metric) {
-        if (enabled.get() && metric.isOn() && endpoints.equals(metric.getEndpoints())) {
+        if (enabled && metric.isOn() && endpoints.equals(metric.getEndpoints())) {
             return true;
         }
-        return !enabled.get() && !metric.isOn();
+        return !enabled && !metric.isOn();
     }
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-            .add("enabled", enabled.get())
+            .add("enabled", enabled)
             .add("meter", meter)
             .add("endpoints", endpoints)
             .add("provider", provider)
