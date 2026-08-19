@@ -24,10 +24,10 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
@@ -36,30 +36,30 @@ import org.slf4j.LoggerFactory;
 public class ClientMeter {
     private static final Logger log = LoggerFactory.getLogger(ClientMeter.class);
 
-    private final ReentrantReadWriteLock lifecycleLock = new ReentrantReadWriteLock();
-    private volatile boolean enabled;
     private final Meter meter;
     private final Endpoints endpoints;
     private final SdkMeterProvider provider;
     private final ClientId clientId;
-    private final ConcurrentMap<String /* histogram name */, DoubleHistogram> histogramMap;
+    private final AtomicReference<Map<HistogramEnum, DoubleHistogram>> histogramMap;
 
     public ClientMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider, ClientId clientId) {
-        this.enabled = true;
         this.meter = checkNotNull(meter, "meter should not be null");
         this.endpoints = checkNotNull(endpoints, "endpoints should not be null");
         this.provider = checkNotNull(provider, "provider should not be null");
         this.clientId = checkNotNull(clientId, "clientId should not be null");
-        this.histogramMap = new ConcurrentHashMap<>();
+        final Map<HistogramEnum, DoubleHistogram> histograms = new EnumMap<>(HistogramEnum.class);
+        for (HistogramEnum histogram : HistogramEnum.values()) {
+            histograms.put(histogram, meter.histogramBuilder(histogram.getName()).build());
+        }
+        this.histogramMap = new AtomicReference<>(histograms);
     }
 
     private ClientMeter(ClientId clientId) {
-        this.enabled = false;
         this.meter = null;
         this.endpoints = null;
         this.provider = null;
         this.clientId = checkNotNull(clientId, "clientId should not be null");
-        this.histogramMap = new ConcurrentHashMap<>();
+        this.histogramMap = new AtomicReference<>();
     }
 
     static ClientMeter disabledInstance(ClientId clientId) {
@@ -67,62 +67,35 @@ public class ClientMeter {
     }
 
     public boolean isEnabled() {
-        return enabled;
+        return null != histogramMap.get();
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
-        if (!enabled) {
+        final Map<HistogramEnum, DoubleHistogram> histograms = histogramMap.get();
+        if (null == histograms) {
             return;
         }
-        final String histogramName = histogramEnum.getName();
-        DoubleHistogram histogram = histogramMap.get(histogramName);
-        if (null == histogram) {
-            histogram = getOrCreateHistogram(histogramName);
-        }
-        if (null != histogram) {
-            histogram.record(value, attributes);
-        }
-    }
-
-    private DoubleHistogram getOrCreateHistogram(String histogramName) {
-        // Only instrument creation needs lifecycle coordination. Existing instruments can record without this lock.
-        lifecycleLock.readLock().lock();
-        try {
-            if (!enabled) {
-                return null;
-            }
-            return histogramMap.computeIfAbsent(histogramName,
-                name -> meter.histogramBuilder(name).build());
-        } finally {
-            lifecycleLock.readLock().unlock();
-        }
+        histograms.get(histogramEnum).record(value, attributes);
     }
 
     public void shutdown() {
-        lifecycleLock.writeLock().lock();
+        final Map<HistogramEnum, DoubleHistogram> histograms = histogramMap.getAndSet(null);
+        if (null == histograms) {
+            return;
+        }
+        log.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
+        final CountDownLatch latch = new CountDownLatch(1);
         try {
-            if (!enabled) {
-                histogramMap.clear();
-                return;
-            }
-            enabled = false;
-            log.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
-            final CountDownLatch latch = new CountDownLatch(1);
-            try {
-                provider.shutdown().whenComplete(latch::countDown);
-                latch.await();
-                log.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
-            } catch (Throwable t) {
-                log.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
-            } finally {
-                histogramMap.clear();
-            }
-        } finally {
-            lifecycleLock.writeLock().unlock();
+            provider.shutdown().whenComplete(latch::countDown);
+            latch.await();
+            log.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
+        } catch (Throwable t) {
+            log.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
         }
     }
 
     public boolean satisfy(Metric metric) {
+        final boolean enabled = isEnabled();
         if (enabled && metric.isOn() && endpoints.equals(metric.getEndpoints())) {
             return true;
         }
@@ -132,11 +105,11 @@ public class ClientMeter {
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-            .add("enabled", enabled)
+            .add("enabled", isEnabled())
             .add("meter", meter)
             .add("endpoints", endpoints)
             .add("provider", provider)
-            .add("histogramMap", histogramMap)
+            .add("histogramMap", histogramMap.get())
             .toString();
     }
 }
