@@ -19,7 +19,6 @@ package org.apache.rocketmq.client.java.metrics;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import apache.rocketmq.v2.Endpoints;
@@ -30,7 +29,6 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.resources.Resource;
 import java.lang.reflect.Field;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
@@ -45,14 +43,14 @@ public class ClientMeterTest extends TestBase {
         final ClientId clientId = new ClientId();
         final ClientMeter clientMeter = new ClientMeter(meter, fakeEndpoints(), provider, clientId);
         assertTrue(clientMeter.isEnabled());
-        assertEquals(HistogramEnum.values().length, histogramMap(clientMeter).size());
+        assertTrue(histogramMap(clientMeter).isEmpty());
         clientMeter.record(HistogramEnum.SEND_COST_TIME, Attributes.empty(), 1);
-        assertFalse(histogramMap(clientMeter).isEmpty());
+        assertEquals(1, histogramMap(clientMeter).size());
         clientMeter.shutdown();
         assertFalse(clientMeter.isEnabled());
-        assertNull(histogramMap(clientMeter));
+        assertTrue(histogramMap(clientMeter).isEmpty());
         clientMeter.record(HistogramEnum.SEND_COST_TIME, Attributes.empty(), 2);
-        assertNull(histogramMap(clientMeter));
+        assertTrue(histogramMap(clientMeter).isEmpty());
     }
 
     @Test
@@ -110,7 +108,6 @@ public class ClientMeterTest extends TestBase {
     private static Map<?, ?> histogramMap(ClientMeter clientMeter) throws Exception {
         Field field = ClientMeter.class.getDeclaredField("histogramMap");
         field.setAccessible(true);
-        AtomicReference<?> reference = (AtomicReference<?>) field.get(clientMeter);
-        return (Map<?, ?>) reference.get();
+        return (Map<?, ?>) field.get(clientMeter);
     }
 }
