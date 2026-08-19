@@ -55,7 +55,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Registers RocketMQ client metrics in the platform MBean server, following Kafka's JMX reporter model.
+ * Registers RocketMQ client metrics in the platform MBean server.
  *
  * <p>The reporter does not open a network port or depend on a Prometheus library. When enabled, applications that
  * already run a Prometheus JMX exporter can collect these MBeans. The reporter is disabled by default and can be
