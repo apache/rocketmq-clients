@@ -36,7 +36,11 @@ public class ClientMeterManagerTest extends TestBase {
         final Metric metric =
             new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(true).setEndpoints(fakePbEndpoints0()).build());
         meterManager.reset(metric);
-        assertTrue(meterManager.isEnabled());
+        try {
+            assertTrue(meterManager.isEnabled());
+        } finally {
+            meterManager.shutdown();
+        }
     }
 
     @Test
@@ -52,7 +56,11 @@ public class ClientMeterManagerTest extends TestBase {
                 .setEndpoints(fakePbEndpoints0()).build());
             meterManager.reset(metric);
 
-            assertTrue(meterManager.isEnabled());
+            try {
+                assertTrue(meterManager.isEnabled());
+            } finally {
+                meterManager.shutdown();
+            }
         } finally {
             restoreEnableProperty(oldValue);
         }
@@ -67,6 +75,26 @@ public class ClientMeterManagerTest extends TestBase {
                 ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
             ClientMeterManager meterManager = new ClientMeterManager(new ClientId(), clientConfiguration);
             final Metric metric = new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(false)
+                .setEndpoints(fakePbEndpoints0()).build());
+            meterManager.reset(metric);
+
+            assertFalse(meterManager.isEnabled());
+        } finally {
+            restoreEnableProperty(oldValue);
+        }
+    }
+
+    @Test
+    public void testResetAfterShutdownDoesNotEnableMeter() {
+        String oldValue = System.getProperty(ClientJmxReporter.ENABLE_PROPERTY);
+        System.setProperty(ClientJmxReporter.ENABLE_PROPERTY, Boolean.FALSE.toString());
+        try {
+            final ClientConfiguration clientConfiguration =
+                ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
+            ClientMeterManager meterManager = new ClientMeterManager(new ClientId(), clientConfiguration);
+            meterManager.shutdown();
+
+            final Metric metric = new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(true)
                 .setEndpoints(fakePbEndpoints0()).build());
             meterManager.reset(metric);
 

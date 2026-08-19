@@ -20,13 +20,15 @@ package org.apache.rocketmq.client.java.metrics;
 import io.opentelemetry.api.common.Attributes;
 import java.lang.management.ManagementFactory;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,6 +75,9 @@ final class ClientJmxReporter {
     private final Object registrationLock = new Object();
     private final Map<ObjectName, ClientMetricsMBean> mBeans;
     private final Map<HistogramEnum, ConcurrentMap<Attributes, JmxHistogram>> histograms;
+    private final Map<GaugeEnum, Set<Attributes>> registeredGaugeAttributes;
+    private final Set<Attributes> suppressedRegistrations;
+    private final Set<Attributes> warnedGaugeRemovalFailures;
     private volatile GaugeObserver gaugeObserver = GaugeObserver.EMPTY;
 
     ClientJmxReporter(ClientId clientId) {
@@ -95,9 +100,18 @@ final class ClientJmxReporter {
             for (HistogramEnum histogram : HistogramEnum.values()) {
                 this.histograms.put(histogram, new ConcurrentHashMap<>());
             }
+            this.registeredGaugeAttributes = new EnumMap<>(GaugeEnum.class);
+            for (GaugeEnum gauge : GaugeEnum.values()) {
+                this.registeredGaugeAttributes.put(gauge, new HashSet<>());
+            }
+            this.suppressedRegistrations = ConcurrentHashMap.newKeySet();
+            this.warnedGaugeRemovalFailures = ConcurrentHashMap.newKeySet();
         } else {
             this.mBeans = Collections.emptyMap();
             this.histograms = Collections.emptyMap();
+            this.registeredGaugeAttributes = Collections.emptyMap();
+            this.suppressedRegistrations = Collections.emptySet();
+            this.warnedGaugeRemovalFailures = Collections.emptySet();
         }
     }
 
@@ -110,7 +124,7 @@ final class ClientJmxReporter {
     }
 
     void record(HistogramEnum histogramType, Attributes attributes, double value) {
-        if (!enabled.get()) {
+        if (!enabled.get() || suppressedRegistrations.contains(attributes)) {
             return;
         }
         ConcurrentMap<Attributes, JmxHistogram> series = histograms.get(histogramType);
@@ -129,10 +143,33 @@ final class ClientJmxReporter {
         }
         GaugeObserver observer = gaugeObserver;
         try {
+            Map<GaugeEnum, Set<Attributes>> observedGaugeAttributes = new EnumMap<>(GaugeEnum.class);
+            for (GaugeEnum gauge : GaugeEnum.values()) {
+                observedGaugeAttributes.put(gauge, new HashSet<>());
+            }
             for (GaugeEnum gauge : observer.getGauges()) {
                 Map<Attributes, Double> values = observer.getValues(gauge);
-                for (Attributes attributes : values.keySet()) {
-                    registerGauge(gauge, attributes);
+                observedGaugeAttributes.get(gauge).addAll(values.keySet());
+            }
+            synchronized (registrationLock) {
+                if (!enabled.get()) {
+                    return;
+                }
+                for (GaugeEnum gauge : GaugeEnum.values()) {
+                    Set<Attributes> observed = observedGaugeAttributes.get(gauge);
+                    Set<Attributes> registered = registeredGaugeAttributes.get(gauge);
+                    for (Attributes attributes : observed) {
+                        if (!registered.contains(attributes) && registerGauge(gauge, attributes)) {
+                            registered.add(attributes);
+                        }
+                    }
+                    Iterator<Attributes> iterator = registered.iterator();
+                    while (iterator.hasNext()) {
+                        Attributes attributes = iterator.next();
+                        if (!observed.contains(attributes) && removeGauge(gauge, attributes)) {
+                            iterator.remove();
+                        }
+                    }
                 }
             }
         } catch (RuntimeException e) {
@@ -141,27 +178,42 @@ final class ClientJmxReporter {
     }
 
     void shutdown() {
-        if (!enabled.compareAndSet(true, false)) {
+        enabled.set(false);
+        gaugeObserver = GaugeObserver.EMPTY;
+        if (null == mBeanServer) {
             return;
         }
         synchronized (registrationLock) {
-            for (ObjectName objectName : new ArrayList<>(mBeans.keySet())) {
+            Iterator<Map.Entry<ObjectName, ClientMetricsMBean>> iterator = mBeans.entrySet().iterator();
+            while (iterator.hasNext()) {
+                ObjectName objectName = iterator.next().getKey();
                 try {
                     if (mBeanServer.isRegistered(objectName)) {
                         mBeanServer.unregisterMBean(objectName);
                     }
+                    iterator.remove();
                 } catch (JMException | RuntimeException e) {
                     log.warn("Failed to unregister client metrics MBean, objectName={}, clientId={}",
                         objectName, clientId, e);
                 }
             }
-            mBeans.clear();
+            for (ConcurrentMap<Attributes, JmxHistogram> series : histograms.values()) {
+                series.clear();
+            }
+            for (Set<Attributes> registered : registeredGaugeAttributes.values()) {
+                registered.clear();
+            }
+            suppressedRegistrations.clear();
+            warnedGaugeRemovalFailures.clear();
         }
     }
 
     private JmxHistogram registerHistogram(HistogramEnum histogramType, Attributes attributes,
         ConcurrentMap<Attributes, JmxHistogram> series) {
         synchronized (registrationLock) {
+            if (!enabled.get() || suppressedRegistrations.contains(attributes)) {
+                return null;
+            }
             JmxHistogram existed = series.get(attributes);
             if (null != existed) {
                 return existed;
@@ -186,10 +238,40 @@ final class ClientJmxReporter {
         }
     }
 
-    private void registerGauge(GaugeEnum gauge, Attributes attributes) {
+    private boolean registerGauge(GaugeEnum gauge, Attributes attributes) {
+        if (suppressedRegistrations.contains(attributes)) {
+            return false;
+        }
         Map<String, MetricValue> metrics = Collections.singletonMap(gauge.getName(),
             new DoubleMetricValue(() -> getGaugeValue(gauge, attributes)));
-        registerMetrics(attributes, metrics);
+        return registerMetrics(attributes, metrics);
+    }
+
+    private boolean removeGauge(GaugeEnum gauge, Attributes attributes) {
+        try {
+            ObjectName objectName = objectName(attributes);
+            ClientMetricsMBean mBean = mBeans.get(objectName);
+            if (null == mBean) {
+                warnedGaugeRemovalFailures.remove(attributes);
+                return true;
+            }
+            mBean.remove(gauge.getName());
+            if (!mBean.isEmpty()) {
+                warnedGaugeRemovalFailures.remove(attributes);
+                return true;
+            }
+            if (mBeanServer.isRegistered(objectName)) {
+                mBeanServer.unregisterMBean(objectName);
+            }
+            mBeans.remove(objectName);
+            warnedGaugeRemovalFailures.remove(attributes);
+            return true;
+        } catch (JMException | RuntimeException e) {
+            if (warnedGaugeRemovalFailures.add(attributes)) {
+                log.warn("Failed to remove stale client JMX gauge, gauge={}, clientId={}", gauge, clientId, e);
+            }
+            return false;
+        }
     }
 
     private double getGaugeValue(GaugeEnum gauge, Attributes attributes) {
@@ -204,6 +286,9 @@ final class ClientJmxReporter {
 
     private boolean registerMetrics(Attributes attributes, Map<String, MetricValue> metrics) {
         synchronized (registrationLock) {
+            if (!enabled.get() || suppressedRegistrations.contains(attributes)) {
+                return false;
+            }
             try {
                 ObjectName objectName = objectName(attributes);
                 ClientMetricsMBean mBean = mBeans.get(objectName);
@@ -224,7 +309,10 @@ final class ClientJmxReporter {
                 mBeanServer.registerMBean(mBean, objectName);
                 return true;
             } catch (JMException | RuntimeException e) {
-                log.warn("Failed to register client metrics MBean, clientId={}", clientId, e);
+                if (suppressedRegistrations.add(attributes)) {
+                    log.warn("Failed to register client metrics MBean, suppress further attempts, clientId={}",
+                        clientId, e);
+                }
                 return false;
             }
         }
@@ -366,6 +454,21 @@ final class ClientJmxReporter {
             }
             metrics = Collections.unmodifiableMap(updated);
             return true;
+        }
+
+        private boolean remove(String metricName) {
+            Map<String, MetricValue> snapshot = metrics;
+            if (!snapshot.containsKey(metricName)) {
+                return false;
+            }
+            Map<String, MetricValue> updated = new LinkedHashMap<>(snapshot);
+            updated.remove(metricName);
+            metrics = Collections.unmodifiableMap(updated);
+            return true;
+        }
+
+        private boolean isEmpty() {
+            return metrics.isEmpty();
         }
 
         @Override

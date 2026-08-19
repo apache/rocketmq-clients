@@ -23,11 +23,15 @@ import static org.junit.Assert.assertTrue;
 
 import io.opentelemetry.api.common.Attributes;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 import javax.management.timer.Timer;
@@ -114,6 +118,8 @@ public class ClientJmxReporterTest extends TestBase {
         values.set(Collections.emptyMap());
         assertEquals(0D, (Double) server.getAttribute(objectName,
             GaugeEnum.CONSUMER_CACHED_MESSAGES.getName()), 0.001);
+        reporter.refreshGauges();
+        assertFalse(server.isRegistered(objectName));
     }
 
     @Test
@@ -124,6 +130,8 @@ public class ClientJmxReporterTest extends TestBase {
             .put(MetricLabels.CONSUMER_GROUP, FAKE_CONSUMER_GROUP_0)
             .build();
         reporter.record(HistogramEnum.DELIVERY_LATENCY, attributes, 10);
+        AtomicReference<Map<Attributes, Double>> values =
+            new AtomicReference<>(singletonValue(attributes, 1024D));
         reporter.setGaugeObserver(new GaugeObserver() {
             @Override
             public List<GaugeEnum> getGauges() {
@@ -132,7 +140,7 @@ public class ClientJmxReporterTest extends TestBase {
 
             @Override
             public Map<Attributes, Double> getValues(GaugeEnum gauge) {
-                return singletonValue(attributes, 1024D);
+                return values.get();
             }
         });
         reporter.refreshGauges();
@@ -142,6 +150,12 @@ public class ClientJmxReporterTest extends TestBase {
         assertEquals(1L, server.getAttribute(objectName, "rocketmq_delivery_latency_count"));
         assertEquals(1024D, (Double) server.getAttribute(objectName,
             GaugeEnum.CONSUMER_CACHED_BYTES.getName()), 0.001);
+
+        values.set(Collections.emptyMap());
+        reporter.refreshGauges();
+        assertTrue(server.isRegistered(objectName));
+        assertEquals(1L, server.getAttribute(objectName, "rocketmq_delivery_latency_count"));
+        assertFalse(hasAttribute(server, objectName, GaugeEnum.CONSUMER_CACHED_BYTES.getName()));
     }
 
     @Test
@@ -153,10 +167,65 @@ public class ClientJmxReporterTest extends TestBase {
         server.registerMBean(new Timer(), objectName);
         try {
             reporter.record(HistogramEnum.SEND_COST_TIME, attributes, 1);
-
             assertTrue(server.isInstanceOf(objectName, Timer.class.getName()));
-        } finally {
+
             server.unregisterMBean(objectName);
+            reporter.record(HistogramEnum.SEND_COST_TIME, attributes, 2);
+            assertFalse(server.isRegistered(objectName));
+        } finally {
+            if (server.isRegistered(objectName) && server.isInstanceOf(objectName, Timer.class.getName())) {
+                server.unregisterMBean(objectName);
+            }
+        }
+    }
+
+    @Test
+    public void testRegistrationDoesNotRaceWithShutdown() throws Exception {
+        reporter = new ClientJmxReporter(new ClientId());
+        Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, FAKE_TOPIC_0).build();
+        MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+        ObjectName objectName = reporter.objectName(attributes);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread recordThread = new Thread(() -> {
+            try {
+                reporter.record(HistogramEnum.SEND_COST_TIME, attributes, 1);
+            } catch (Throwable t) {
+                failure.set(t);
+            }
+        });
+
+        synchronized (registrationLock(reporter)) {
+            recordThread.start();
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (Thread.State.BLOCKED != recordThread.getState() && System.nanoTime() < deadline) {
+                Thread.yield();
+            }
+            assertEquals(Thread.State.BLOCKED, recordThread.getState());
+            reporter.shutdown();
+        }
+        recordThread.join(TimeUnit.SECONDS.toMillis(5));
+
+        assertFalse(recordThread.isAlive());
+        assertTrue(null == failure.get());
+        assertFalse(server.isRegistered(objectName));
+    }
+
+    @Test
+    public void testRepeatedShutdownReleasesMBeansAndHistograms() throws Exception {
+        MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+        ObjectName query = new ObjectName(ClientJmxReporter.DOMAIN + ":type=" + ClientJmxReporter.TYPE + ",*");
+        Set<ObjectName> baseline = server.queryNames(query, null);
+
+        for (int i = 0; i < 20; i++) {
+            reporter = new ClientJmxReporter(new ClientId());
+            Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, FAKE_TOPIC_0 + i).build();
+            reporter.record(HistogramEnum.SEND_COST_TIME, attributes, i);
+            assertTrue(server.isRegistered(reporter.objectName(attributes)));
+
+            reporter.shutdown();
+
+            assertEquals(baseline, server.queryNames(query, null));
+            assertHistogramSeriesEmpty(reporter);
         }
     }
 
@@ -183,5 +252,29 @@ public class ClientJmxReporterTest extends TestBase {
         Map<Attributes, Double> result = new HashMap<>();
         result.put(attributes, value);
         return result;
+    }
+
+    private static Object registrationLock(ClientJmxReporter reporter) throws Exception {
+        Field field = ClientJmxReporter.class.getDeclaredField("registrationLock");
+        field.setAccessible(true);
+        return field.get(reporter);
+    }
+
+    private static void assertHistogramSeriesEmpty(ClientJmxReporter reporter) throws Exception {
+        Field field = ClientJmxReporter.class.getDeclaredField("histograms");
+        field.setAccessible(true);
+        Map<?, ?> histograms = (Map<?, ?>) field.get(reporter);
+        for (Object series : histograms.values()) {
+            assertTrue(((Map<?, ?>) series).isEmpty());
+        }
+    }
+
+    private static boolean hasAttribute(MBeanServer server, ObjectName objectName, String attribute) throws Exception {
+        for (MBeanAttributeInfo info : server.getMBeanInfo(objectName).getAttributes()) {
+            if (attribute.equals(info.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -59,6 +59,7 @@ public class ClientMeterManager {
     private final ClientJmxReporter jmxReporter;
     private volatile ClientMeter clientMeter;
     private volatile GaugeObserver gaugeObserver = GaugeObserver.EMPTY;
+    private boolean closed;
 
     public ClientMeterManager(ClientId clientId, ClientConfiguration clientConfiguration) {
         this.clientId = clientId;
@@ -67,7 +68,10 @@ public class ClientMeterManager {
         this.clientMeter = ClientMeter.disabledInstance(clientId);
     }
 
-    public void setGaugeObserver(GaugeObserver gaugeObserver) {
+    public synchronized void setGaugeObserver(GaugeObserver gaugeObserver) {
+        if (closed) {
+            return;
+        }
         this.gaugeObserver = checkNotNull(gaugeObserver, "gaugeObserver should not be null");
         jmxReporter.setGaugeObserver(gaugeObserver);
         jmxReporter.refreshGauges();
@@ -82,14 +86,25 @@ public class ClientMeterManager {
         jmxReporter.refreshGauges();
     }
 
-    public void shutdown() {
-        clientMeter.shutdown();
+    public synchronized void shutdown() {
+        closed = true;
+        gaugeObserver = GaugeObserver.EMPTY;
+        ClientMeter existedClientMeter = clientMeter;
+        clientMeter = ClientMeter.disabledInstance(clientId);
         jmxReporter.shutdown();
+        existedClientMeter.shutdown();
     }
 
     @SuppressWarnings({"deprecation", "resource"})
     public synchronized void reset(Metric metric) {
+        ManagedChannel newChannel = null;
+        OtlpGrpcMetricExporter newExporter = null;
+        SdkMeterProvider newProvider = null;
         try {
+            if (closed) {
+                log.info("Ignore metrics reset after manager shutdown, clientId={}", clientId);
+                return;
+            }
             if (clientMeter.satisfy(metric)) {
                 log.info("Metric settings is satisfied by the current message meter, metric={}, clientId={}",
                     metric, clientId);
@@ -97,8 +112,9 @@ public class ClientMeterManager {
             }
             if (!metric.isOn()) {
                 log.info("Metric is off, clientId={}", clientId);
-                clientMeter.shutdown();
+                ClientMeter existedClientMeter = clientMeter;
                 clientMeter = ClientMeter.disabledInstance(clientId);
+                existedClientMeter.shutdown();
                 return;
             }
             final Endpoints endpoints = metric.getEndpoints();
@@ -119,8 +135,8 @@ public class ClientMeterManager {
                 IpNameResolverFactory metricResolverFactory = new IpNameResolverFactory(socketAddresses);
                 channelBuilder.nameResolverFactory(metricResolverFactory);
             }
-            ManagedChannel channel = channelBuilder.build();
-            OtlpGrpcMetricExporter exporter = OtlpGrpcMetricExporter.builder().setChannel(channel)
+            newChannel = channelBuilder.build();
+            newExporter = OtlpGrpcMetricExporter.builder().setChannel(newChannel)
                 .setTimeout(METRIC_EXPORTER_RPC_TIMEOUT)
                 .build();
 
@@ -142,10 +158,10 @@ public class ClientMeterManager {
                 .setType(InstrumentType.HISTOGRAM).setName(HistogramEnum.PROCESS_TIME.getName()).build();
             final View processTimeView = View.builder().setAggregation(HistogramEnum.PROCESS_TIME.getBucket()).build();
 
-            PeriodicMetricReader reader = PeriodicMetricReader.builder(exporter)
+            PeriodicMetricReader reader = PeriodicMetricReader.builder(newExporter)
                 .setInterval(METRIC_READER_INTERVAL).build();
 
-            final SdkMeterProvider provider = SdkMeterProvider.builder()
+            newProvider = SdkMeterProvider.builder()
                 .setResource(Resource.empty())
                 .registerMetricReader(reader)
                 .registerView(sendSuccessCostTimeInstrumentSelector, sendSuccessCostTimeView)
@@ -154,12 +170,15 @@ public class ClientMeterManager {
                 .registerView(processTimeInstrumentSelector, processTimeView)
                 .build();
 
-            final OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder().setMeterProvider(provider).build();
+            final OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder().setMeterProvider(newProvider).build();
             Meter meter = openTelemetry.getMeter(METRIC_INSTRUMENTATION_NAME);
 
             // Reset message meter.
             ClientMeter existedClientMeter = clientMeter;
-            clientMeter = new ClientMeter(meter, endpoints, provider, clientId);
+            clientMeter = new ClientMeter(meter, endpoints, newProvider, clientId);
+            newChannel = null;
+            newExporter = null;
+            newProvider = null;
             existedClientMeter.shutdown();
             log.info("Metrics is on, endpoints={}, clientId={}", endpoints, clientId);
 
@@ -178,6 +197,13 @@ public class ClientMeterManager {
                 });
             }
         } catch (Throwable t) {
+            if (null != newProvider) {
+                newProvider.shutdown();
+            } else if (null != newExporter) {
+                newExporter.shutdown();
+            } else if (null != newChannel) {
+                newChannel.shutdownNow();
+            }
             log.error("Exception raised when resetting message meter, clientId={}", clientId, t);
         }
     }

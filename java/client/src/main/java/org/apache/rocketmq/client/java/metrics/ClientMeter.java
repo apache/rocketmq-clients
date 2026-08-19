@@ -27,6 +27,7 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
@@ -35,7 +36,7 @@ import org.slf4j.LoggerFactory;
 public class ClientMeter {
     private static final Logger log = LoggerFactory.getLogger(ClientMeter.class);
 
-    private final boolean enabled;
+    private final AtomicBoolean enabled;
     private final Meter meter;
     private final Endpoints endpoints;
     private final SdkMeterProvider provider;
@@ -43,7 +44,7 @@ public class ClientMeter {
     private final ConcurrentMap<String /* histogram name */, DoubleHistogram> histogramMap;
 
     public ClientMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider, ClientId clientId) {
-        this.enabled = true;
+        this.enabled = new AtomicBoolean(true);
         this.meter = checkNotNull(meter, "meter should not be null");
         this.endpoints = checkNotNull(endpoints, "endpoints should not be null");
         this.provider = checkNotNull(provider, "provider should not be null");
@@ -52,7 +53,7 @@ public class ClientMeter {
     }
 
     private ClientMeter(ClientId clientId) {
-        this.enabled = false;
+        this.enabled = new AtomicBoolean(false);
         this.meter = null;
         this.endpoints = null;
         this.provider = null;
@@ -65,44 +66,54 @@ public class ClientMeter {
     }
 
     public boolean isEnabled() {
-        return enabled;
+        return enabled.get();
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
-        final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(), name -> enabled ?
+        if (!enabled.get()) {
+            return;
+        }
+        final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(), name -> enabled.get() ?
             meter.histogramBuilder(histogramEnum.getName()).build() : null);
         if (null == histogram) {
+            return;
+        }
+        if (!enabled.get()) {
+            histogramMap.remove(histogramEnum.getName(), histogram);
             return;
         }
         histogram.record(value, attributes);
     }
 
     public void shutdown() {
-        if (!enabled) {
+        if (!enabled.compareAndSet(true, false)) {
+            histogramMap.clear();
             return;
         }
         log.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
         final CountDownLatch latch = new CountDownLatch(1);
-        provider.shutdown().whenComplete(latch::countDown);
         try {
+            provider.shutdown().whenComplete(latch::countDown);
             latch.await();
             log.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
         } catch (Throwable t) {
             log.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
+        } finally {
+            histogramMap.clear();
         }
     }
 
     public boolean satisfy(Metric metric) {
-        if (enabled && metric.isOn() && endpoints.equals(metric.getEndpoints())) {
+        if (enabled.get() && metric.isOn() && endpoints.equals(metric.getEndpoints())) {
             return true;
         }
-        return !enabled && !metric.isOn();
+        return !enabled.get() && !metric.isOn();
     }
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-            .add("enabled", enabled)
+            .add("enabled", enabled.get())
             .add("meter", meter)
             .add("endpoints", endpoints)
             .add("provider", provider)
