@@ -18,6 +18,8 @@
 package org.apache.rocketmq.client.java.impl;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -38,10 +40,13 @@ import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
 import io.grpc.stub.StreamObserver;
+import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -171,5 +176,39 @@ public class ClientImplTest extends TestBase {
         final ClientImpl client = createClient();
         doReturn(false).when(client).isRunning();
         client.checkRunning();
+    }
+
+    @Test
+    public void testMeterShutdownIsGuaranteedWhenInterrupted() throws Exception {
+        String property = "rocketmq.client.jmx.enabled";
+        String oldValue = System.getProperty(property);
+        System.setProperty(property, Boolean.TRUE.toString());
+        try {
+            ClientImpl client = createClient();
+            assertTrue(client.clientMeterManager.isEnabled());
+            ExecutorService executor = Mockito.mock(ExecutorService.class);
+            Mockito.when(executor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS))
+                .thenThrow(new InterruptedException());
+            setField(client, "telemetryCommandExecutor", executor);
+            try {
+                client.shutDown();
+                fail();
+            } catch (InterruptedException expected) {
+                // Expected.
+            }
+            assertFalse(client.clientMeterManager.isEnabled());
+        } finally {
+            if (null == oldValue) {
+                System.clearProperty(property);
+            } else {
+                System.setProperty(property, oldValue);
+            }
+        }
+    }
+
+    private static void setField(ClientImpl client, String name, Object value) throws Exception {
+        Field field = ClientImpl.class.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(client, value);
     }
 }

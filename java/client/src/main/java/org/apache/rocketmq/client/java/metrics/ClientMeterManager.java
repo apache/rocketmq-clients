@@ -39,6 +39,7 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -56,29 +57,41 @@ public class ClientMeterManager {
 
     private final ClientId clientId;
     private final ClientConfiguration clientConfiguration;
+    private final ClientJmxReporter jmxReporter;
+    private final ReentrantLock resetLock = new ReentrantLock();
     private volatile ClientMeter clientMeter;
     private volatile GaugeObserver gaugeObserver = GaugeObserver.EMPTY;
 
     public ClientMeterManager(ClientId clientId, ClientConfiguration clientConfiguration) {
         this.clientId = clientId;
         this.clientConfiguration = clientConfiguration;
+        this.jmxReporter = new ClientJmxReporter(clientId);
         this.clientMeter = ClientMeter.disabledInstance(clientId);
     }
 
     public void setGaugeObserver(GaugeObserver gaugeObserver) {
         this.gaugeObserver = checkNotNull(gaugeObserver, "gaugeObserver should not be null");
+        jmxReporter.setGaugeObserver(gaugeObserver);
+        jmxReporter.refreshGauges();
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
         clientMeter.record(histogramEnum, attributes, value);
+        jmxReporter.record(histogramEnum, attributes, value);
+    }
+
+    public void refreshGauges() {
+        jmxReporter.refreshGauges();
     }
 
     public void shutdown() {
         clientMeter.shutdown();
+        jmxReporter.shutdown();
     }
 
     @SuppressWarnings({"deprecation", "resource"})
-    public synchronized void reset(Metric metric) {
+    public void reset(Metric metric) {
+        resetLock.lock();
         try {
             if (clientMeter.satisfy(metric)) {
                 log.info("Metric settings is satisfied by the current message meter, metric={}, clientId={}",
@@ -169,11 +182,13 @@ public class ClientMeterManager {
             }
         } catch (Throwable t) {
             log.error("Exception raised when resetting message meter, clientId={}", clientId, t);
+        } finally {
+            resetLock.unlock();
         }
     }
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isEnabled() {
-        return clientMeter.isEnabled();
+        return clientMeter.isEnabled() || jmxReporter.isEnabled();
     }
 }

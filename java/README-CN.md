@@ -80,6 +80,35 @@ implementation 'org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.vers
 
 内部的[代码示例](./client/src/main/java/org/apache/rocketmq/client/java/example)可以帮助你上手不同的客户端和消息类型。
 
+## 通过 JMX 暴露 Prometheus 指标
+
+客户端可以将指标注册为 Platform MBeanServer 中的 MBean，供 Prometheus JMX Exporter 采集。该功能默认关闭，
+需要在创建任何 RocketMQ 客户端之前通过以下 JVM 系统属性开启：
+
+```text
+-Drocketmq.client.jmx.enabled=true
+```
+
+Reporter 本身不会开启网络端口。用户可以在同一 JVM 中运行 JMX Exporter Java Agent，也可以使用能够连接该 JVM
+的 standalone JMX Exporter。Exporter 需要采集匹配以下 ObjectName pattern 的 MBean：
+
+```text
+org.apache.rocketmq.client:type=message-metrics,*
+```
+
+例如，以下 JMX Exporter 配置仅采集 RocketMQ 客户端指标：
+
+```yaml
+includeObjectNames:
+  - "org.apache.rocketmq.client:type=message-metrics,*"
+rules:
+  - pattern: ".*"
+```
+
+省略 `includeObjectNames` 时，JMX Exporter 默认查询所有 MBean。如果将该 pattern 添加到已有配置中，需要同时保留
+应用仍需采集的其他 ObjectName pattern。Histogram MBean 会在对应客户端操作首次记录数据时创建，Consumer Gauge
+MBean 会在队列分配信息可用后创建。
+
 ## 日志系统
 
 采用 [Logback](https://logback.qos.ch/) 来作为实现，为了保证日志能够始终被有效地持久化，`rocketmq-client-java` 中集成了一个 shade 之后的 Logback，并会为其使用单独的配置文件。
