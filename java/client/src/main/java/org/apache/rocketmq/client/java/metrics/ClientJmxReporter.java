@@ -100,9 +100,6 @@ final class ClientJmxReporter {
             this.mBeans = new HashMap<>();
             this.histograms = new ConcurrentHashMap<>();
             this.registeredGaugeAttributes = new EnumMap<>(GaugeEnum.class);
-            for (GaugeEnum gauge : GaugeEnum.values()) {
-                this.registeredGaugeAttributes.put(gauge, new HashSet<>());
-            }
             this.suppressedRegistrations = ConcurrentHashMap.newKeySet();
             this.warnedGaugeRemovalFailures = ConcurrentHashMap.newKeySet();
         } else {
@@ -144,32 +141,42 @@ final class ClientJmxReporter {
         GaugeObserver observer = gaugeObserver;
         try {
             Map<GaugeEnum, Set<Attributes>> observedGaugeAttributes = new EnumMap<>(GaugeEnum.class);
-            for (GaugeEnum gauge : GaugeEnum.values()) {
-                observedGaugeAttributes.put(gauge, new HashSet<>());
-            }
             for (GaugeEnum gauge : observer.getGauges()) {
                 Map<Attributes, Double> values = observer.getValues(gauge);
-                observedGaugeAttributes.get(gauge).addAll(values.keySet());
+                observedGaugeAttributes.computeIfAbsent(gauge, ignored -> new HashSet<>())
+                    .addAll(values.keySet());
             }
             registrationLock.lock();
             try {
                 if (!enabled.get()) {
                     return;
                 }
-                for (GaugeEnum gauge : GaugeEnum.values()) {
-                    Set<Attributes> observed = observedGaugeAttributes.get(gauge);
-                    Set<Attributes> registered = registeredGaugeAttributes.get(gauge);
-                    for (Attributes attributes : observed) {
+                for (Map.Entry<GaugeEnum, Set<Attributes>> entry : observedGaugeAttributes.entrySet()) {
+                    GaugeEnum gauge = entry.getKey();
+                    Set<Attributes> registered = registeredGaugeAttributes.computeIfAbsent(gauge,
+                        ignored -> new HashSet<>());
+                    for (Attributes attributes : entry.getValue()) {
                         if (!registered.contains(attributes) && registerGaugeLocked(gauge, attributes)) {
                             registered.add(attributes);
                         }
                     }
+                }
+                Iterator<Map.Entry<GaugeEnum, Set<Attributes>>> gaugeIterator =
+                    registeredGaugeAttributes.entrySet().iterator();
+                while (gaugeIterator.hasNext()) {
+                    Map.Entry<GaugeEnum, Set<Attributes>> entry = gaugeIterator.next();
+                    Set<Attributes> observed = observedGaugeAttributes.getOrDefault(entry.getKey(),
+                        Collections.emptySet());
+                    Set<Attributes> registered = entry.getValue();
                     Iterator<Attributes> iterator = registered.iterator();
                     while (iterator.hasNext()) {
                         Attributes attributes = iterator.next();
-                        if (!observed.contains(attributes) && removeGaugeLocked(gauge, attributes)) {
+                        if (!observed.contains(attributes) && removeGaugeLocked(entry.getKey(), attributes)) {
                             iterator.remove();
                         }
+                    }
+                    if (registered.isEmpty()) {
+                        gaugeIterator.remove();
                     }
                 }
             } finally {

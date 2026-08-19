@@ -90,6 +90,7 @@ public class ClientJmxReporterTest extends TestBase {
     @Test
     public void testGaugeValueIsReadFromObserver() throws Exception {
         reporter = new ClientJmxReporter(new ClientId());
+        assertTrue(registeredGaugeAttributes(reporter).isEmpty());
         Attributes attributes = Attributes.builder()
             .put(MetricLabels.TOPIC, FAKE_TOPIC_0)
             .put(MetricLabels.CONSUMER_GROUP, FAKE_CONSUMER_GROUP_0)
@@ -108,6 +109,8 @@ public class ClientJmxReporterTest extends TestBase {
             }
         });
         reporter.refreshGauges();
+        assertEquals(Collections.singleton(GaugeEnum.CONSUMER_CACHED_MESSAGES),
+            registeredGaugeAttributes(reporter).keySet());
 
         MBeanServer server = ManagementFactory.getPlatformMBeanServer();
         ObjectName objectName = reporter.objectName(attributes);
@@ -123,6 +126,7 @@ public class ClientJmxReporterTest extends TestBase {
             GaugeEnum.CONSUMER_CACHED_MESSAGES.getName()), 0.001);
         reporter.refreshGauges();
         assertFalse(server.isRegistered(objectName));
+        assertTrue(registeredGaugeAttributes(reporter).isEmpty());
     }
 
     @Test
@@ -273,6 +277,12 @@ public class ClientJmxReporterTest extends TestBase {
 
     private static Map<?, ?> histogramSeries(ClientJmxReporter reporter) throws Exception {
         Field field = ClientJmxReporter.class.getDeclaredField("histograms");
+        field.setAccessible(true);
+        return (Map<?, ?>) field.get(reporter);
+    }
+
+    private static Map<?, ?> registeredGaugeAttributes(ClientJmxReporter reporter) throws Exception {
+        Field field = ClientJmxReporter.class.getDeclaredField("registeredGaugeAttributes");
         field.setAccessible(true);
         return (Map<?, ?>) field.get(reporter);
     }
