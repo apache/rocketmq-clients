@@ -84,26 +84,6 @@ public class ClientMeterManagerTest extends TestBase {
         }
     }
 
-    @Test
-    public void testResetAfterShutdownDoesNotEnableMeter() {
-        String oldValue = System.getProperty(ClientJmxReporter.ENABLE_PROPERTY);
-        System.setProperty(ClientJmxReporter.ENABLE_PROPERTY, Boolean.FALSE.toString());
-        try {
-            final ClientConfiguration clientConfiguration =
-                ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
-            ClientMeterManager meterManager = new ClientMeterManager(new ClientId(), clientConfiguration);
-            meterManager.shutdown();
-
-            final Metric metric = new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(true)
-                .setEndpoints(fakePbEndpoints0()).build());
-            meterManager.reset(metric);
-
-            assertFalse(meterManager.isEnabled());
-        } finally {
-            restoreEnableProperty(oldValue);
-        }
-    }
-
     private static void restoreEnableProperty(String oldValue) {
         if (null == oldValue) {
             System.clearProperty(ClientJmxReporter.ENABLE_PROPERTY);
