@@ -98,10 +98,7 @@ final class ClientJmxReporter {
         this.enabled = new AtomicBoolean(initialized);
         if (initialized) {
             this.mBeans = new HashMap<>();
-            this.histograms = new EnumMap<>(HistogramEnum.class);
-            for (HistogramEnum histogram : HistogramEnum.values()) {
-                this.histograms.put(histogram, new ConcurrentHashMap<>());
-            }
+            this.histograms = new ConcurrentHashMap<>();
             this.registeredGaugeAttributes = new EnumMap<>(GaugeEnum.class);
             for (GaugeEnum gauge : GaugeEnum.values()) {
                 this.registeredGaugeAttributes.put(gauge, new HashSet<>());
@@ -129,7 +126,8 @@ final class ClientJmxReporter {
         if (!enabled.get() || suppressedRegistrations.contains(attributes)) {
             return;
         }
-        ConcurrentMap<Attributes, JmxHistogram> series = histograms.get(histogramType);
+        ConcurrentMap<Attributes, JmxHistogram> series = histograms.computeIfAbsent(histogramType,
+            ignored -> new ConcurrentHashMap<>());
         JmxHistogram histogram = series.get(attributes);
         if (null == histogram) {
             histogram = registerHistogram(histogramType, attributes, series);
@@ -203,9 +201,7 @@ final class ClientJmxReporter {
                         objectName, clientId, e);
                 }
             }
-            for (ConcurrentMap<Attributes, JmxHistogram> series : histograms.values()) {
-                series.clear();
-            }
+            histograms.clear();
             for (Set<Attributes> registered : registeredGaugeAttributes.values()) {
                 registered.clear();
             }

@@ -64,6 +64,7 @@ public class ClientJmxReporterTest extends TestBase {
     public void testHistogramRegistrationAndShutdown() throws Exception {
         reporter = new ClientJmxReporter(new ClientId());
         assertTrue(reporter.isEnabled());
+        assertTrue(histogramSeries(reporter).isEmpty());
         Attributes attributes = Attributes.builder()
             .put(MetricLabels.TOPIC, FAKE_TOPIC_0)
             .put(MetricLabels.INVOCATION_STATUS, InvocationStatus.SUCCESS.getName())
@@ -71,6 +72,7 @@ public class ClientJmxReporterTest extends TestBase {
 
         reporter.record(HistogramEnum.SEND_COST_TIME, attributes, 0.5);
         reporter.record(HistogramEnum.SEND_COST_TIME, attributes, 5);
+        assertEquals(Collections.singleton(HistogramEnum.SEND_COST_TIME), histogramSeries(reporter).keySet());
 
         MBeanServer server = ManagementFactory.getPlatformMBeanServer();
         ObjectName objectName = reporter.objectName(attributes);
@@ -266,12 +268,13 @@ public class ClientJmxReporterTest extends TestBase {
     }
 
     private static void assertHistogramSeriesEmpty(ClientJmxReporter reporter) throws Exception {
+        assertTrue(histogramSeries(reporter).isEmpty());
+    }
+
+    private static Map<?, ?> histogramSeries(ClientJmxReporter reporter) throws Exception {
         Field field = ClientJmxReporter.class.getDeclaredField("histograms");
         field.setAccessible(true);
-        Map<?, ?> histograms = (Map<?, ?>) field.get(reporter);
-        for (Object series : histograms.values()) {
-            assertTrue(((Map<?, ?>) series).isEmpty());
-        }
+        return (Map<?, ?>) field.get(reporter);
     }
 
     private static boolean hasAttribute(MBeanServer server, ObjectName objectName, String attribute) throws Exception {
