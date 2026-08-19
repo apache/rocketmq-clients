@@ -125,10 +125,8 @@ final class ClientJmxReporter {
         }
         ConcurrentMap<Attributes, JmxHistogram> series = histograms.computeIfAbsent(histogramType,
             ignored -> new ConcurrentHashMap<>());
-        JmxHistogram histogram = series.get(attributes);
-        if (null == histogram) {
-            histogram = registerHistogram(histogramType, attributes, series);
-        }
+        JmxHistogram histogram = series.computeIfAbsent(attributes,
+            ignored -> registerHistogram(histogramType, attributes));
         if (null != histogram) {
             histogram.record(value);
         }
@@ -219,16 +217,11 @@ final class ClientJmxReporter {
         }
     }
 
-    private JmxHistogram registerHistogram(HistogramEnum histogramType, Attributes attributes,
-        ConcurrentMap<Attributes, JmxHistogram> series) {
+    private JmxHistogram registerHistogram(HistogramEnum histogramType, Attributes attributes) {
         registrationLock.lock();
         try {
             if (!enabled.get() || suppressedRegistrations.contains(attributes)) {
                 return null;
-            }
-            JmxHistogram existed = series.get(attributes);
-            if (null != existed) {
-                return existed;
             }
             JmxHistogram histogram = new JmxHistogram(histogramType.getBoundaries());
             Map<String, MetricValue> metrics = new LinkedHashMap<>();
@@ -245,7 +238,6 @@ final class ClientJmxReporter {
             if (!registerMetricsLocked(attributes, metrics)) {
                 return null;
             }
-            series.put(attributes, histogram);
             return histogram;
         } finally {
             registrationLock.unlock();
