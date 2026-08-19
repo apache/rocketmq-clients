@@ -71,14 +71,28 @@ public class ClientMeter {
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
+        if (!enabled) {
+            return;
+        }
+        final String histogramName = histogramEnum.getName();
+        DoubleHistogram histogram = histogramMap.get(histogramName);
+        if (null == histogram) {
+            histogram = getOrCreateHistogram(histogramName);
+        }
+        if (null != histogram) {
+            histogram.record(value, attributes);
+        }
+    }
+
+    private DoubleHistogram getOrCreateHistogram(String histogramName) {
+        // Only instrument creation needs lifecycle coordination. Existing instruments can record without this lock.
         lifecycleLock.readLock().lock();
         try {
             if (!enabled) {
-                return;
+                return null;
             }
-            final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(),
+            return histogramMap.computeIfAbsent(histogramName,
                 name -> meter.histogramBuilder(name).build());
-            histogram.record(value, attributes);
         } finally {
             lifecycleLock.readLock().unlock();
         }
