@@ -75,7 +75,9 @@ func TestProducer(t *testing.T) {
 			Code: v2.Code_OK,
 		},
 		MessageQueues: []*v2.MessageQueue{{
+			Permission: v2.Permission_READ_WRITE,
 			Broker: &v2.Broker{
+				Id:        0,
 				Endpoints: fakeEndpoints(),
 			},
 			AcceptMessageTypes: []v2.MessageType{
