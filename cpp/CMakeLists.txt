@@ -3,13 +3,22 @@ project(rocketmq VERSION 5.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Patch (RCS): vcpkg absl 新版宏改名兼容——强制注入兼容头（定义旧名宏 → ABSL_ 新名宏）
+# 注意 -include 会让该头在所有编译单元最前展开，早于 thread_annotations.h include
+add_compile_options(-include ${PROJECT_SOURCE_DIR}/source/base/include/absl_thread_annotations_compat.h)
+
 include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 # Minimum versions aligned with the gRPC 1.46.x dependency chain (gRPC 1.46 bundles protobuf 3.19)
-find_package(protobuf 3.19 CONFIG REQUIRED)
-find_package(gRPC 1.46 CONFIG REQUIRED)
+# Patch (RCS): protobuf 查找双模式兼容——vcpkg（CONFIG 模式，protobuf 33.4）与
+# apt（MODULE 模式，protobuf 3.21 无 CONFIG 文件）。优先 CONFIG，回落 MODULE。
+find_package(Protobuf CONFIG QUIET)
+if(NOT Protobuf_FOUND)
+  find_package(Protobuf MODULE REQUIRED)
+endif()
+find_package(gRPC CONFIG REQUIRED)
 find_package(absl REQUIRED)
-find_package(OpenSSL 1.1 REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/proto/apache/rocketmq/v2/definition.proto")
     message(FATAL_ERROR "Proto files not found. Run: git submodule update --init --recursive")
@@ -78,8 +87,9 @@ include(CMakePackageConfigHelpers)
 # Shared library: self-contained, exported for downstream find_package()
 # Note: static library (rocketmq) is not installed — on Windows its .lib
 # would collide with the shared library's import library (also .lib).
+# Patch (RCS): 移除 EXPORT set——apt 依赖（proto/opencensus_proto）不在任何 export set，
+# 不支持下游 find_package 重导出；下游（scheduling-service）改用显式路径链接。
 install(TARGETS rocketmq_shared
-    EXPORT rocketmq-targets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -89,12 +99,6 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/rocketmq
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     FILES_MATCHING PATTERN "*.h"
     PATTERN "Tracing.h" EXCLUDE
-)
-
-install(EXPORT rocketmq-targets
-    FILE rocketmq-targets.cmake
-    NAMESPACE rocketmq::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rocketmq
 )
 
 configure_package_config_file(

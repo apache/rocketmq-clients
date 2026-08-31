@@ -88,7 +88,8 @@ ConfigFileCredentialsProvider::ConfigFileCredentialsProvider() {
       config_file_stream.read(&content[0], size);
       config_file_stream.close();
       google::protobuf::Struct root;
-      google::protobuf::util::Status status = google::protobuf::util::JsonStringToMessage(content, &root);
+      // Patch (RCS): protobuf 23+ JsonStringToMessage 返回 absl::Status（util::Status 已移除）
+      auto status = google::protobuf::util::JsonStringToMessage(content, &root);
       if (status.ok()) {
         auto&& fields = root.fields();
         if (fields.contains(ACCESS_KEY_FIELD_NAME)) {
