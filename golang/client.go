@@ -33,7 +33,6 @@ import (
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
@@ -97,7 +96,7 @@ func (cs *defaultClientSession) _acquire_observer() (v2.MessagingService_Telemet
 func (cs *defaultClientSession) _execute_server_telemetry_command(command *v2.TelemetryCommand) {
 	err := cs.handleTelemetryCommand(command)
 	if err != nil {
-		cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
+		cs.cli.log.Errorf("telemetryCommand recv err=%v", err)
 	} else {
 		cs.cli.log.Info("Executed command successfully")
 	}
@@ -149,7 +148,7 @@ func (cs *defaultClientSession) startUp() {
 				if err == nil && hearbeat_response.Status.Code == v2.Code_OK {
 					cs.cli.log.Info("Managed to recover")
 				} else {
-					cs.cli.log.Errorf("Failed to recover, Some of the servers are unhealthy, Heartbeat err=%w", err)
+					cs.cli.log.Errorf("Failed to recover, Some of the servers are unhealthy, Heartbeat err=%v", err)
 					cs.release()
 				}
 				cs.recovering = false
@@ -225,7 +224,7 @@ type NewClientFunc func(*Config, ...ClientOption) (Client, error)
 var _ = Client(&defaultClient{})
 
 type defaultClient struct {
-	log                           *zap.SugaredLogger
+	log                           *internalLogger
 	config                        *Config
 	opts                          clientOptions
 	initTopics                    []string
@@ -742,7 +741,7 @@ func (cli *defaultClient) onSettingsCommand(endpoints *v2.Endpoints, settings *v
 func (cli *defaultClient) onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) {
 	if p, ok := cli.clientImpl.(*defaultProducer); ok {
 		if err := p.onRecoverOrphanedTransactionCommand(endpoints, command); err != nil {
-			cli.log.Errorf("onRecoverOrphanedTransactionCommand err=%w", err)
+			cli.log.Errorf("onRecoverOrphanedTransactionCommand err=%v", err)
 		}
 	} else {
 		cli.log.Infof("ignore orphaned transaction recovery command from remote, which is not expected, command=%v", command)
