@@ -432,6 +432,8 @@ pub trait AckMessageEntry {
     fn message_id(&self) -> String;
     fn receipt_handle(&self) -> String;
     fn endpoints(&self) -> &Endpoints;
+    /// Lite topic of the message, if it is a lite message.
+    fn lite_topic(&self) -> Option<String>;
 }
 
 /// [`MessageView`] is the data model for receive message.
@@ -472,6 +474,10 @@ impl AckMessageEntry for MessageView {
 
     fn endpoints(&self) -> &Endpoints {
         &self.endpoints
+    }
+
+    fn lite_topic(&self) -> Option<String> {
+        self.lite_topic.clone()
     }
 }
 
