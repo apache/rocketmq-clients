@@ -267,6 +267,11 @@ class PushConsumer(Consumer):
             self.__execute_receive_later(message_queue, process_queue, attempt_id)
 
     def __execute_receive_later(self, message_queue, process_queue, attempt_id):
+        self.__receive_message_executor.submit(
+            functools.partial(self.__delayed_execute_receive, message_queue, process_queue, attempt_id)
+        )
+
+    def __delayed_execute_receive(self, message_queue, process_queue, attempt_id):
         time.sleep(PushConsumer.RECEIVE_RETRY_DELAY)
         self.__execute_receive(message_queue, process_queue, attempt_id)
 
