@@ -80,6 +80,37 @@ implementation 'org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.vers
 More code examples are provided [example](./client/src/main/java/org/apache/rocketmq/client/java/example) to assist you
 in working with various clients and different message types.
 
+## Prometheus Metrics through JMX
+
+The client can register its metrics as MBeans in the platform MBean server for collection by a Prometheus JMX
+Exporter. This feature is disabled by default. Enable it before creating any RocketMQ client with the following JVM
+system property:
+
+```text
+-Drocketmq.client.jmx.enabled=true
+```
+
+The reporter does not open a network port. Run the JMX Exporter Java agent in the same JVM, or connect a standalone
+JMX Exporter to the JVM. The exporter must collect MBeans matching this ObjectName pattern:
+
+```text
+org.apache.rocketmq.client:type=message-metrics,*
+```
+
+For example, the following JMX Exporter configuration limits collection to RocketMQ client metrics:
+
+```yaml
+includeObjectNames:
+  - "org.apache.rocketmq.client:type=message-metrics,*"
+rules:
+  - pattern: ".*"
+```
+
+If `includeObjectNames` is omitted, JMX Exporter queries all MBeans by default. When adding the pattern to an existing
+configuration, preserve any other ObjectName patterns that the application still needs. Histogram MBeans are created
+when the corresponding client operation first records a value, and consumer gauge MBeans are created after queue
+assignments are available.
+
 ## Logging System
 
 We picked [Logback](https://logback.qos.ch/) and shaded it into the client implementation to guarantee that logging is reliably persistent. Because RocketMQ utilizes a distinct configuration file, you shouldn't be concerned that the Logback configuration file will clash with yours.

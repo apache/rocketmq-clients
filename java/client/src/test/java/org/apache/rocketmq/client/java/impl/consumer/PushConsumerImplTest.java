@@ -18,6 +18,9 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -25,13 +28,18 @@ import static org.mockito.Mockito.verify;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
+import org.apache.rocketmq.client.java.impl.ClientImpl;
+import org.apache.rocketmq.client.java.metrics.ClientMeterManager;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
@@ -105,5 +113,49 @@ public class PushConsumerImplTest extends TestBase {
         pushConsumer.scanAssignments();
         verify(pushConsumer, never()).syncProcessQueue(any(String.class), any(Assignments.class),
             any(FilterExpression.class));
+    }
+
+    @Test
+    public void testMeterShutdownIsGuaranteedWhenConsumptionShutdownIsInterrupted() throws Exception {
+        String property = "rocketmq.client.jmx.enabled";
+        String oldValue = System.getProperty(property);
+        System.setProperty(property, Boolean.TRUE.toString());
+        try {
+            PushConsumerImpl consumer = new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
+                subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
+                consumptionThreadCount);
+            ClientMeterManager meterManager = (ClientMeterManager) getField(ClientImpl.class, consumer,
+                "clientMeterManager");
+            assertTrue(meterManager.isEnabled());
+            ExecutorService executor = Mockito.mock(ExecutorService.class);
+            Mockito.when(executor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS))
+                .thenThrow(new InterruptedException());
+            setField(PushConsumerImpl.class, consumer, "consumptionExecutor", executor);
+            try {
+                consumer.shutDown();
+                fail();
+            } catch (InterruptedException expected) {
+                // Expected.
+            }
+            assertFalse(meterManager.isEnabled());
+        } finally {
+            if (null == oldValue) {
+                System.clearProperty(property);
+            } else {
+                System.setProperty(property, oldValue);
+            }
+        }
+    }
+
+    private static Object getField(Class<?> owner, Object target, String name) throws Exception {
+        Field field = owner.getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(target);
+    }
+
+    private static void setField(Class<?> owner, Object target, String name, Object value) throws Exception {
+        Field field = owner.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 }

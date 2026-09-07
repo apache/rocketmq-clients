@@ -17,14 +17,18 @@
 
 package org.apache.rocketmq.client.java.metrics;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import apache.rocketmq.v2.Endpoints;
+import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.resources.Resource;
+import java.lang.reflect.Field;
+import java.util.Map;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
@@ -32,14 +36,18 @@ import org.junit.Test;
 public class ClientMeterTest extends TestBase {
 
     @Test
-    public void testShutdownWithEnabledMeter() {
+    public void testShutdownWithEnabledMeter() throws Exception {
         final SdkMeterProvider provider = SdkMeterProvider.builder().setResource(Resource.empty()).build();
         final OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder().setMeterProvider(provider).build();
         Meter meter = openTelemetry.getMeter("test");
         final ClientId clientId = new ClientId();
         final ClientMeter clientMeter = new ClientMeter(meter, fakeEndpoints(), provider, clientId);
         assertTrue(clientMeter.isEnabled());
+        assertTrue(histogramMap(clientMeter).isEmpty());
+        clientMeter.record(HistogramEnum.SEND_COST_TIME, Attributes.empty(), 1);
+        assertEquals(1, histogramMap(clientMeter).size());
         clientMeter.shutdown();
+        assertFalse(clientMeter.isEnabled());
     }
 
     @Test
@@ -91,5 +99,12 @@ public class ClientMeterTest extends TestBase {
         final Endpoints pbEndpoints1 = fakePbEndpoints1();
         metric = new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(true).setEndpoints(pbEndpoints1).build());
         assertFalse(clientMeter.satisfy(metric));
+        clientMeter.shutdown();
+    }
+
+    private static Map<?, ?> histogramMap(ClientMeter clientMeter) throws Exception {
+        Field field = ClientMeter.class.getDeclaredField("histogramMap");
+        field.setAccessible(true);
+        return (Map<?, ?>) field.get(clientMeter);
     }
 }
