@@ -137,11 +137,31 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     }
 
     /**
+     * @see SimpleConsumer#receive(String, int, Duration)
+     */
+    @Override
+    public List<MessageView> receive(String topic, int maxMessageNum, Duration invisibleDuration)
+        throws ClientException {
+        final ListenableFuture<List<MessageView>> future = receive0(topic, maxMessageNum, invisibleDuration);
+        return handleClientFuture(future);
+    }
+
+    /**
      * @see SimpleConsumer#receiveAsync(int, Duration)
      */
     @Override
     public CompletableFuture<List<MessageView>> receiveAsync(int maxMessageNum, Duration invisibleDuration) {
         final ListenableFuture<List<MessageView>> future = receive0(maxMessageNum, invisibleDuration);
+        return FutureConverter.toCompletableFuture(future);
+    }
+
+    /**
+     * @see SimpleConsumer#receiveAsync(String, int, Duration)
+     */
+    @Override
+    public CompletableFuture<List<MessageView>> receiveAsync(String topic, int maxMessageNum,
+        Duration invisibleDuration) {
+        final ListenableFuture<List<MessageView>> future = receive0(topic, maxMessageNum, invisibleDuration);
         return FutureConverter.toCompletableFuture(future);
     }
 
@@ -165,6 +185,30 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         }
         final String topic = topics.get(IntMath.mod(topicIndex.getAndIncrement(), topics.size()));
         final FilterExpression filterExpression = copy.get(topic);
+        return receive0(topic, maxMessageNum, invisibleDuration, filterExpression);
+    }
+
+    public ListenableFuture<List<MessageView>> receive0(String topic, int maxMessageNum, Duration invisibleDuration) {
+        if (!this.isRunning()) {
+            log.error("Unable to receive message because {} is not running, state={}, clientId={}",
+                clientType(), state(), clientId);
+            final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
+            return Futures.immediateFailedFuture(e);
+        }
+        if (maxMessageNum <= 0) {
+            final IllegalArgumentException e = new IllegalArgumentException("maxMessageNum must be greater than 0");
+            return Futures.immediateFailedFuture(e);
+        }
+        final HashMap<String, FilterExpression> copy = new HashMap<>(subscriptionExpressions);
+        if (!copy.containsKey(topic)) {
+            final IllegalArgumentException e = new IllegalArgumentException("Topic is not subscribed: " + topic);
+            return Futures.immediateFailedFuture(e);
+        }
+        return receive0(topic, maxMessageNum, invisibleDuration, copy.get(topic));
+    }
+
+    private ListenableFuture<List<MessageView>> receive0(String topic, int maxMessageNum, Duration invisibleDuration,
+        FilterExpression filterExpression) {
         final ListenableFuture<SubscriptionLoadBalancer> routeFuture = getSubscriptionLoadBalancer(topic);
         final ListenableFuture<ReceiveMessageResult> future0 = Futures.transformAsync(routeFuture, result -> {
             final MessageQueueImpl mq = result.takeMessageQueue();

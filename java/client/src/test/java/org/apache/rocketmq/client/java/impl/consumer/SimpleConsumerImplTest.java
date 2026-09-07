@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.java.impl.consumer;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
@@ -27,7 +28,11 @@ import apache.rocketmq.v2.AckMessageResponse;
 import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.Code;
+import apache.rocketmq.v2.ReceiveMessageRequest;
+import com.google.common.util.concurrent.Futures;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -45,6 +50,8 @@ import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
 import org.apache.rocketmq.client.java.exception.UnauthorizedException;
 import org.apache.rocketmq.client.java.exception.UnsupportedException;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.route.MessageQueueImpl;
+import org.apache.rocketmq.client.java.route.TopicRouteData;
 import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
@@ -69,6 +76,13 @@ public class SimpleConsumerImplTest extends TestBase {
         simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
             subExpressions);
         simpleConsumer.receive(1, Duration.ofSeconds(1));
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testReceiveFromTopicWithoutStart() throws ClientException {
+        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
+            subExpressions);
+        simpleConsumer.receive(FAKE_TOPIC_0, 1, Duration.ofSeconds(1));
     }
 
     @Test(expected = IllegalStateException.class)
@@ -105,6 +119,58 @@ public class SimpleConsumerImplTest extends TestBase {
         } catch (ExecutionException e) {
             assertTrue(e.getCause() instanceof IllegalArgumentException);
         }
+    }
+
+    @Test
+    public void testReceiveAsyncFromUnsubscribedTopic() throws InterruptedException {
+        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
+            subExpressions));
+        when(simpleConsumer.isRunning()).thenReturn(true);
+        final CompletableFuture<List<MessageView>> future = simpleConsumer.receiveAsync(FAKE_TOPIC_1, 1,
+            Duration.ofSeconds(3));
+        try {
+            future.get();
+            fail();
+        } catch (ExecutionException e) {
+            assertTrue(e.getCause() instanceof IllegalArgumentException);
+        }
+    }
+
+    @Test
+    public void testReceiveAsyncFromUnsubscribedTopicAfterUnsubscribe() throws InterruptedException {
+        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
+            subExpressions));
+        when(simpleConsumer.isRunning()).thenReturn(true);
+        simpleConsumer.unsubscribe(FAKE_TOPIC_0);
+        final CompletableFuture<List<MessageView>> future = simpleConsumer.receiveAsync(FAKE_TOPIC_0, 1,
+            Duration.ofSeconds(3));
+        try {
+            future.get();
+            fail();
+        } catch (ExecutionException e) {
+            assertTrue(e.getCause() instanceof IllegalArgumentException);
+        }
+    }
+
+    @Test
+    public void testReceiveAsyncFromSpecifiedTopic() throws ExecutionException, InterruptedException {
+        final Map<String, FilterExpression> subscriptionExpressions = createSubscriptionExpressions(FAKE_TOPIC_0);
+        subscriptionExpressions.put(FAKE_TOPIC_1, FilterExpression.SUB_ALL);
+        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
+            subscriptionExpressions));
+        when(simpleConsumer.isRunning()).thenReturn(true);
+        final TopicRouteData topicRouteData = LiteSimpleConsumerImplTest.fakeTopicRouteData(FAKE_TOPIC_1,
+            fakePbBroker0(), Arrays.asList(apache.rocketmq.v2.Permission.READ), Arrays.asList(0));
+        simpleConsumer.updateSubscriptionLoadBalancer(FAKE_TOPIC_1, topicRouteData);
+        doReturn(Futures.immediateFuture(new ReceiveMessageResult(fakeEndpoints(), new ArrayList<>())))
+            .when(simpleConsumer).receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class),
+                any(Duration.class));
+
+        final List<MessageView> messages = simpleConsumer.receiveAsync(FAKE_TOPIC_1, 1, Duration.ofSeconds(3)).get();
+
+        assertTrue(messages.isEmpty());
+        Mockito.verify(simpleConsumer).receiveMessage(any(ReceiveMessageRequest.class),
+            Mockito.argThat(mq -> FAKE_TOPIC_1.equals(mq.getTopic())), any(Duration.class));
     }
 
     @Test

@@ -110,6 +110,20 @@ public interface SimpleConsumer extends Closeable {
     List<MessageView> receive(int maxMessageNum, Duration invisibleDuration) throws ClientException;
 
     /**
+     * Fetch messages from the specified subscribed topic synchronously.
+     * <p> This method returns immediately if there are messages available.
+     * Otherwise, it will await the passed timeout. If the timeout expires, an empty list will be returned.
+     *
+     * @param topic             subscribed topic from which messages are fetched.
+     * @param maxMessageNum     max message num of server returned.
+     * @param invisibleDuration set the invisibleDuration of messages to return from the server. These messages will be
+     *                          invisible to other consumers unless timeout.
+     * @return list of message view.
+     * @throws IllegalArgumentException if the topic is not subscribed.
+     */
+    List<MessageView> receive(String topic, int maxMessageNum, Duration invisibleDuration) throws ClientException;
+
+    /**
      * Fetch messages from the server asynchronously.
      * <p> This method returns immediately if there are messages available.
      * Otherwise, it will await the passed timeout. If the timeout expires, an empty map will be returned.
@@ -120,6 +134,20 @@ public interface SimpleConsumer extends Closeable {
      * @return list of message view.
      */
     CompletableFuture<List<MessageView>> receiveAsync(int maxMessageNum, Duration invisibleDuration);
+
+    /**
+     * Fetch messages from the specified subscribed topic asynchronously.
+     * <p> This method returns immediately if there are messages available.
+     * Otherwise, it will await the passed timeout. If the timeout expires, an empty list will be returned.
+     *
+     * @param topic             subscribed topic from which messages are fetched.
+     * @param maxMessageNum     max message num of server returned.
+     * @param invisibleDuration set the invisibleDuration of messages to return from the server. These messages will be
+     *                          invisible to other consumers unless timeout.
+     * @return list of message view.
+     * @throws IllegalArgumentException if the topic is not subscribed, completed exceptionally.
+     */
+    CompletableFuture<List<MessageView>> receiveAsync(String topic, int maxMessageNum, Duration invisibleDuration);
 
     /**
      * Ack message to server synchronously, server commit this message.
