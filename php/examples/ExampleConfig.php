@@ -1,0 +1,285 @@
+<?php
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * Example Configuration - Centralized configuration for all examples
+ * 
+ * This file provides unified configuration parameters for all PHP examples.
+ * Configuration can be set via environment variables or defaults.
+ * 
+ * Usage:
+ *   require_once __DIR__ . '/ExampleConfig.php';
+ *   $config = ExampleConfig::getInstance();
+ *   
+ *   // Access configuration
+ *   $endpoints = $config->getEndpoints();
+ *   $topic = $config->getTopic('normal');
+ *   $credentials = $config->getCredentials();
+ */
+
+use Apache\Rocketmq\TlsCredentials;
+use Apache\Rocketmq\SessionCredentials;
+
+class ExampleConfig
+{
+    private static ?self $instance = null;
+    
+    // Connection settings
+    private readonly string $endpoints;
+    private readonly string $namespace;
+    
+    // Topic configuration
+    private readonly array $topics;
+    
+    // Consumer configuration
+    private readonly string $consumerGroup;
+    private readonly string $tag;
+    
+    // Credentials
+    private readonly ?SessionCredentials $credentials;
+    
+    // Lite consumer configuration
+    private readonly array $liteTopicConfig;
+    private readonly ?string $tlsCaCert;
+    private readonly ?string $tlsClientCert;
+    private readonly ?string $tlsClientKey;
+    private readonly bool $sslEnabled;
+    
+    /**
+     * Private constructor - use getInstance() instead
+     */
+    private function __construct()
+    {
+        // Load from environment variables or use defaults
+        $this->endpoints = getenv('ROCKETMQ_PHP_CLIENT_ENDPOINTS') ?: '127.0.0.1:8081';
+        $this->namespace = getenv('ROCKETMQ_PHP_CLIENT_NAMESPACE') ?: '';
+        
+        // Topic configuration
+        $this->topics = [
+            'normal' => getenv('ROCKETMQ_PHP_TOPIC_NORMAL') ?: 'TopicTestForNormal',
+            'fifo' => getenv('ROCKETMQ_PHP_TOPIC_FIFO') ?: 'FifoTestTopic',
+            'delay' => getenv('ROCKETMQ_PHP_TOPIC_DELAY') ?: 'DelayTestTopic',
+            'transaction' => getenv('ROCKETMQ_PHP_TOPIC_TRANSACTION') ?: 'TopicTestForTransaction',
+            'priority' => getenv('ROCKETMQ_PHP_TOPIC_PRIORITY') ?: 'PriorityTestTopic',
+        ];
+        
+        // Consumer configuration
+        $this->consumerGroup = getenv('ROCKETMQ_PHP_CLIENT_GROUP') ?: 'GID_DefaultConsumer';
+        $this->tag = getenv('ROCKETMQ_PHP_TAG') ?: '*';
+        
+        // Credentials (optional)
+        $accessKey = getenv('ROCKETMQ_PHP_CLIENT_KEY') ?: '';
+        $secretKey = getenv('ROCKETMQ_PHP_CLIENT_SECRET') ?: '';
+        
+        if (!empty($accessKey) && !empty($secretKey)) {
+            $this->credentials = new SessionCredentials($accessKey, $secretKey);
+        } else {
+            $this->credentials = null;
+        }
+        
+        // Lite topic configuration
+        $this->liteTopicConfig = [
+            'parentTopic' => getenv('ROCKETMQ_PHP_LITE_PARENT_TOPIC') ?: 'yourParentTopic',
+        ];
+        // TLS configuration
+        $this->tlsCaCert = getenv('ROCKETMQ_PHP_TLS_CA_CERT') ?: null;
+        $this->tlsClientCert = getenv('ROCKETMQ_PHP_TLS_CLIENT_CERT') ?: null;
+        $this->tlsClientKey = getenv('ROCKETMQ_PHP_TLS_CLIENT_KEY') ?: null;
+        
+        // SSL enabled (default: true for secure connections)
+        $sslEnv = getenv('ROCKETMQ_PHP_SSL_ENABLED');
+        $this->sslEnabled = $sslEnv !== false ? filter_var($sslEnv, FILTER_VALIDATE_BOOLEAN) : true;
+    }
+
+    /**
+     * Get TLS credentials
+     * @return void
+     */
+    public function getTlsCredentials(): ?TlsCredentials
+    {
+        if (!empty($this->tlsClientCert) && !empty($this->tlsClientKey)) {
+            return TlsCredentials::createMtls($this->tlsClientCert, $this->tlsClientKey, $this->tlsCaCert);
+        }
+
+        if (!empty($this->tlsCaCert)) {
+            return TlsCredentials::createWithCa($this->tlsCaCert);
+        }
+        return null;
+    }
+    
+    /**
+     * Get singleton instance
+     * 
+     * @return ExampleConfig
+     */
+    public static function getInstance(): self
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+    
+    /**
+     * Reset instance (useful for testing)
+     */
+    public static function reset(): void
+    {
+        self::$instance = null;
+    }
+    
+    // Getters
+    
+    /**
+     * Get endpoints
+     * 
+     * @return string
+     */
+    public function getEndpoints(): string
+    {
+        return $this->endpoints;
+    }
+    
+    /**
+     * Get namespace
+     * 
+     * @return string
+     */
+    public function getNamespace(): string
+    {
+        return $this->namespace;
+    }
+    
+    /**
+     * Get topic by type
+     * 
+     * @param string $type Topic type: normal, fifo, delay, transaction, priority
+     * @return string
+     */
+    public function getTopic(string $type = 'normal'): string
+    {
+        return isset($this->topics[$type]) ? $this->topics[$type] : $this->topics['normal'];
+    }
+    
+    /**
+     * Get all topics
+     * 
+     * @return array
+     */
+    public function getTopics(): array
+    {
+        return $this->topics;
+    }
+    
+    /**
+     * Get consumer group
+     * 
+     * @return string
+     */
+    public function getConsumerGroup(): string
+    {
+        return $this->consumerGroup;
+    }
+    
+    /**
+     * Get tag filter expression
+     * 
+     * @return string
+     */
+    public function getTag(): string
+    {
+        return $this->tag;
+    }
+    
+    /**
+     * Get credentials (may be null)
+     * 
+     * @return SessionCredentials|null
+     */
+    public function getCredentials(): ?SessionCredentials
+    {
+        return $this->credentials;
+    }
+    
+    /**
+     * Check if credentials are configured
+     * 
+     * @return bool
+     */
+    public function hasCredentials(): bool
+    {
+        return $this->credentials !== null;
+    }
+    
+    /**
+     * Get lite topic configuration
+     * 
+     * @return array
+     */
+    public function getLiteTopicConfig(): array
+    {
+        return $this->liteTopicConfig;
+    }
+    
+    /**
+     * Get lite parent topic
+     * 
+     * @return string
+     */
+    public function getLiteParentTopic(): string
+    {
+        return $this->liteTopicConfig['parentTopic'];
+    }
+    
+    /**
+     * Get SSL enabled flag
+     * 
+     * @return bool
+     */
+    public function isSslEnabled(): bool
+    {
+        return $this->sslEnabled;
+    }
+    
+    /**
+     * Display current configuration (for debugging)
+     */
+    public function display(): void
+    {
+        echo "========================================\n";
+        echo "RocketMQ PHP Client Configuration\n";
+        echo "========================================\n";
+        echo "Endpoints: {$this->endpoints}\n";
+        echo "Namespace: " . ($this->namespace ?: '(empty)') . "\n";
+        echo "Consumer Group: {$this->consumerGroup}\n";
+        echo "Tag: {$this->tag}\n";
+        echo "Credentials: " . ($this->hasCredentials() ? 'Configured' : 'Not configured') . "\n";
+        echo "SSL Enabled: " . ($this->sslEnabled ? 'true' : 'false') . "\n";
+        echo "\nTopics:\n";
+        foreach ($this->topics as $type => $topic) {
+            echo "  {$type}: {$topic}\n";
+        }
+        echo "\nLite Topic:\n";
+        echo "  Parent Topic: {$this->liteTopicConfig['parentTopic']}\n";
+        echo "\nTLS:\n";
+        echo "  CA Cert: " . ($this->tlsCaCert ? 'Configured' : 'Not configured') . "\n";
+        echo "  Client Cert: " . ($this->tlsClientCert ? 'Configured' : 'Not configured') . "\n";
+        echo "  Client Key: " . ($this->tlsClientKey ? 'Configured' : 'Not configured') . "\n";
+        echo "========================================\n";
+    }
+}

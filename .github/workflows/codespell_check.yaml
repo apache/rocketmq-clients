@@ -20,6 +20,6 @@ jobs:
       - name: Run CodeSpell
         run: |
           codespell --quiet-level=2 \
-                   --skip "./cpp/third_party,./style/codespell/ignore_words.txt,./.git" \
+                   --skip "./cpp/third_party,./php/vendor,./nodejs/node_modules,./style/codespell/ignore_words.txt,./.git" \
                    --ignore-words ./style/codespell/ignore_words.txt \
                    --exclude-file ./style/codespell/exclude_file.txt \

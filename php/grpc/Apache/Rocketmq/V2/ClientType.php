@@ -27,12 +27,27 @@ class ClientType
      * Generated from protobuf enum <code>SIMPLE_CONSUMER = 3;</code>
      */
     const SIMPLE_CONSUMER = 3;
+    /**
+     * Generated from protobuf enum <code>PULL_CONSUMER = 4;</code>
+     */
+    const PULL_CONSUMER = 4;
+    /**
+     * Generated from protobuf enum <code>LITE_PUSH_CONSUMER = 5;</code>
+     */
+    const LITE_PUSH_CONSUMER = 5;
+    /**
+     * Generated from protobuf enum <code>LITE_SIMPLE_CONSUMER = 6;</code>
+     */
+    const LITE_SIMPLE_CONSUMER = 6;
 
     private static $valueToName = [
         self::CLIENT_TYPE_UNSPECIFIED => 'CLIENT_TYPE_UNSPECIFIED',
         self::PRODUCER => 'PRODUCER',
         self::PUSH_CONSUMER => 'PUSH_CONSUMER',
         self::SIMPLE_CONSUMER => 'SIMPLE_CONSUMER',
+        self::PULL_CONSUMER => 'PULL_CONSUMER',
+        self::LITE_PUSH_CONSUMER => 'LITE_PUSH_CONSUMER',
+        self::LITE_SIMPLE_CONSUMER => 'LITE_SIMPLE_CONSUMER',
     ];
 
     public static function name($value)

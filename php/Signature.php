@@ -1,0 +1,126 @@
+<?php
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Apache\Rocketmq;
+
+/**
+ * Signature - Generates gRPC metadata with MQv2-HMAC-SHA1 authentication headers.
+ *
+ * Algorithm:
+ * 1. Build baseline metadata (language, protocol, version, datetime, request-id, etc.)
+ * 2. Optionally add STS security token
+ * 3. Compute HMAC-SHA1(accessSecret, dateTime) -> uppercase hex digest
+ * 4. Build authorization header:
+ *    "MQv2-HMAC-SHA1 Credential=<AK>, SignedHeaders=x-mq-date-time, Signature=<hex>"
+ */
+class Signature
+{
+    private const ALGORITHM = 'MQv2-HMAC-SHA1';
+    private const CREDENTIAL = 'Credential';
+    private const SIGNED_HEADERS = 'SignedHeaders';
+    private const SIGNATURE = 'Signature';
+    private const DATE_TIME_FORMAT = 'Ymd\THis\Z';
+    private const SIGNED_HEADERS_VALUE = 'x-mq-date-time';
+
+    /**
+     * Generate signed gRPC metadata with MQv2-HMAC-SHA1 authorization.
+     *
+     * @param SessionCredentials|null $credentials Session credentials or null for unsigned metadata
+     * @param string $clientId Client identifier
+     * @param string $language Language string (e.g., "PHP")
+     * @param string $clientVersion Client version string (e.g., "5.0.0")
+     * @param string $namespace Namespace string
+     * @param string $protocol Protocol version (e.g., "v2")
+     * @return array gRPC metadata array
+     * @throws \Exception If random_int() fails to gather sufficient randomness
+     */
+    public static function sign(
+        ?SessionCredentials $credentials,
+        string $clientId,
+        string $language = 'PHP',
+        string $clientVersion = '5.0.0',
+        string $namespace = '',
+        string $protocol = 'v2'
+    ): array {
+        $dateTime = gmdate(self::DATE_TIME_FORMAT);
+        $requestId = self::generateUUID();
+
+        $metadata = [
+            'x-mq-client-id' => [$clientId],
+            'x-mq-language' => [$language],
+            'x-mq-client-version' => [$clientVersion],
+            'x-mq-protocol' => [$protocol],
+            'x-mq-date-time' => [$dateTime],
+            'x-mq-request-id' => [$requestId],
+            'x-mq-namespace' => [$namespace],
+        ];
+
+        if ($credentials !== null) {
+            // Add STS security token if present
+            $securityToken = $credentials->getSecurityToken();
+            if (!empty($securityToken)) {
+                $metadata['x-mq-session-token'] = [$securityToken];
+            }
+
+            // Compute HMAC-SHA1 signature
+            $accessSecret = $credentials->getAccessSecret();
+            $accessKey = $credentials->getAccessKey();
+            $signature = self::hmacSha1($accessSecret, $dateTime);
+
+            // Build authorization header value
+            $authValue = self::ALGORITHM
+                . ' ' . self::CREDENTIAL . '=' . $accessKey
+                . ', ' . self::SIGNED_HEADERS . '=' . self::SIGNED_HEADERS_VALUE
+                . ', ' . self::SIGNATURE . '=' . $signature;
+
+            $metadata['authorization'] = [$authValue];
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * Compute HMAC-SHA1 and return uppercase hex digest.
+     *
+     * @param string $key Secret key for HMAC
+     * @param string $data Data to sign
+     * @return string Uppercase hex-encoded HMAC-SHA1 digest
+     */
+    private static function hmacSha1(string $key, string $data): string
+    {
+        return strtoupper(hash_hmac('sha1', $data, $key));
+    }
+
+    /**
+     * Generate a UUID v4 string for request-id.
+     *
+     * @return string UUID v4 string
+     * @throws \Exception If random_int() fails to gather sufficient randomness
+     */
+    private static function generateUUID(): string
+    {
+        return sprintf(
+            '%08x-%04x-%04x-%04x-%012x',
+            random_int(0, 0xffffffff),
+            random_int(0, 0xffff),
+            random_int(0, 0xffff) & 0x0fff | 0x4000,
+            random_int(0, 0x3fff) | 0x8000,
+            random_int(0, 0xffffffffffff)
+        );
+    }
+}

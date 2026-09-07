@@ -1,0 +1,282 @@
+<?php
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Apache\Rocketmq\Test;
+
+use PHPUnit\Framework\TestCase;
+require_once __DIR__ . '/../autoload.php';
+
+require_once __DIR__ . '/../ProcessQueue.php';
+require_once __DIR__ . '/../ConsumeResult.php';
+require_once __DIR__ . '/../Logger.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/helpers/FakeConsumer.php';
+
+use Apache\Rocketmq\V2\Message;
+use Apache\Rocketmq\V2\MessageQueue;
+use Apache\Rocketmq\V2\Broker;
+use Apache\Rocketmq\V2\Resource;
+use Apache\Rocketmq\V2\Endpoints;
+use Apache\Rocketmq\V2\Address;
+use Apache\Rocketmq\V2\AddressScheme;
+use Apache\Rocketmq\V2\Permission;
+use Apache\Rocketmq\V2\SystemProperties;
+
+class ProcessQueueTest extends TestCase
+{
+    private function createFakeMessageQueue()
+    {
+        $address = new Address();
+        $address->setHost('127.0.0.1');
+        $address->setPort(8080);
+
+        $endpoints = new Endpoints();
+        $endpoints->setScheme(AddressScheme::IPv4);
+        $endpoints->setAddresses([$address]);
+
+        $broker = new Broker();
+        $broker->setName('test-broker');
+        $broker->setEndpoints($endpoints);
+
+        $topic = new Resource();
+        $topic->setName('test-topic');
+
+        $queue = new MessageQueue();
+        $queue->setTopic($topic);
+        $queue->setBroker($broker);
+        $queue->setId(0);
+        $queue->setPermission(Permission::READ_WRITE);
+
+        return $queue;
+    }
+
+    public function setUp(): void
+    {
+        \Apache\Rocketmq\Logger::close();
+    }
+
+    public function testConstructorAndInitialState()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        $this->assertFalse($pq->isDropped(), "ProcessQueue should not be dropped initially");
+        $this->assertEquals(0, $pq->cachedMessagesCount(), "Cached messages count should be 0");
+        $this->assertEquals(0, $pq->cachedMessageBytes(), "Cached message bytes should be 0");
+    }
+
+    public function testDropAndIsDropped()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        $this->assertFalse($pq->isDropped(), "Should not be dropped before drop()");
+        $pq->drop();
+        $this->assertTrue($pq->isDropped(), "Should be dropped after drop()");
+    }
+
+    public function testGetMessageQueue()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        $resultMq = $pq->getMessageQueue();
+        $this->assertTrue(
+            $resultMq->getTopic()->getName() === 'test-topic',
+            "getMessageQueue should return the original MessageQueue"
+        );
+    }
+
+    public function testFetchMessageImmediately()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+        $pq->fetchMessageImmediately();
+
+        $this->assertTrue(true, "fetchMessageImmediately should not throw");
+    }
+
+    public function testExpiredNotInitially()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        $this->assertFalse($pq->expired(), "ProcessQueue should not be expired immediately after creation");
+    }
+
+    public function testCacheNotFullInitially()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        $this->assertFalse($pq->isCacheFull(), "Cache should not be full with no messages");
+    }
+
+    /**
+     * Helper to build a V2\Message protobuf object for testing.
+     */
+    private function createFakeMessage(string $body, string $receiptHandle = null): Message
+    {
+        $sysProps = new SystemProperties();
+        if ($receiptHandle !== null) {
+            $sysProps->setReceiptHandle($receiptHandle);
+        }
+
+        $msg = new Message();
+        $msg->setBody($body);
+        $msg->setSystemProperties($sysProps);
+        return $msg;
+    }
+
+    /**
+     * Tests that cacheMessages and eviction track count/bytes correctly.
+     */
+    public function testCachedMessagesCountAndBytes()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        $msg = $this->createFakeMessage("hello world", "rh-001");
+        $pq->testCacheMessages([$msg]);
+
+        $this->assertEquals(1, $pq->cachedMessagesCount(), "Cached count should be 1");
+        $this->assertEquals(11, $pq->cachedMessageBytes(), "Cached bytes should be 11");
+    }
+
+    /**
+     * eraseMessage with SUCCESS should call ackMessage and evict.
+     */
+    public function testEraseMessageWithConsumeSuccess()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        $msg = $this->createFakeMessage("test-message", "rh-002");
+        $pq->testCacheMessages([$msg]);
+
+        $this->assertEquals(1, $pq->cachedMessagesCount(), "Should have 1 cached message");
+
+        $messageViews = $pq->getCachedMessages();
+        $pq->eraseMessage($messageViews[0], \Apache\Rocketmq\ConsumeResult::SUCCESS);
+
+        $this->assertEquals(0, $pq->cachedMessagesCount(), "Message should be evicted after erase");
+        $this->assertCount(1, $fakeConsumer->ackCalls, "ackMessage should be called for SUCCESS");
+        $this->assertCount(0, $fakeConsumer->nackCalls, "nackMessage should NOT be called for SUCCESS");
+    }
+
+    /**
+     * eraseMessage with FAILURE should call nackMessage and evict.
+     */
+    public function testEraseMessageWithConsumeFailure()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        $msg = $this->createFakeMessage("test-message", "rh-003");
+        $pq->testCacheMessages([$msg]);
+
+        $messageViews = $pq->getCachedMessages();
+        $pq->eraseMessage($messageViews[0], \Apache\Rocketmq\ConsumeResult::FAILURE);
+
+        $this->assertEquals(0, $pq->cachedMessagesCount(), "Message should be evicted after erase");
+        $this->assertCount(0, $fakeConsumer->ackCalls, "ackMessage should NOT be called for FAILURE");
+        $this->assertCount(1, $fakeConsumer->nackCalls, "nackMessage should be called for FAILURE");
+    }
+
+    /**
+     * Tests that cache full blocks further caching.
+     */
+    public function testCacheFullThreshold()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $fakeConsumer->countThreshold = 3;
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        // Fill up to threshold
+        for ($i = 0; $i < 3; $i++) {
+            $msg = $this->createFakeMessage("msg-{$i}", "rh-threshold-{$i}");
+            $pq->testCacheMessages([$msg]);
+        }
+
+        $this->assertTrue($pq->isCacheFull(), "Cache should be full at threshold");
+
+        // Verify messages still count
+        $this->assertEquals(3, $pq->cachedMessagesCount(), "Should have 3 cached messages");
+    }
+
+    /**
+     * Tests that dropped ProcessQueue returns 0 from fetchMessages.
+     */
+    public function testDroppedQueueDoesNotFetch()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+        $pq->drop();
+
+        // After drop, fetchMessages should return 0 immediately without calling broker
+        $count = $pq->fetchMessages();
+        $this->assertEquals(0, $count, "Dropped queue should fetch 0 messages");
+    }
+
+    /**
+     * Tests evictMessage reduces byte count correctly.
+     */
+    public function testEvictMessageReducesBytes()
+    {
+        $fakeConsumer = new \FakeConsumer();
+        $mq = $this->createFakeMessageQueue();
+
+        $pq = new \Apache\Rocketmq\ProcessQueue($fakeConsumer, $mq, '*');
+
+        $msg1 = $this->createFakeMessage("hello", "rh-010");
+        $msg2 = $this->createFakeMessage("world!", "rh-011");
+        $pq->testCacheMessages([$msg1, $msg2]);
+
+        $initialBytes = $pq->cachedMessageBytes();
+        $this->assertEquals(11, $initialBytes, "Initial bytes should be 11 (5+6)");
+
+        $messageViews = $pq->getCachedMessages();
+        $pq->evictMessage($messageViews[0]);
+
+        $afterBytes = $pq->cachedMessageBytes();
+        $this->assertEquals(6, $afterBytes, "Bytes should be 6 after evicting 5-byte message");
+        $this->assertEquals(1, $pq->cachedMessagesCount(), "Count should be 1 after eviction");
+    }
+}

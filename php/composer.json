@@ -1,16 +1,44 @@
 {
-  "name": "rocketmq/rocketmq-php-sdk",
+  "name": "rocketmq/rocketmq-client-php",
   "description": "PHP SDK for Apache RocketMQ",
   "license": "Apache-2.0",
   "require": {
-    "google/protobuf": "^3.3",
-    "grpc/grpc": "^1.42",
-    "hanson/foundation-sdk": "^5.0"
+    "php": ">=8.1",
+    "google/protobuf": "^3.25",
+    "grpc/grpc": "^1.57"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.6",
+    "ext-zlib": "*"
+  },
+  "suggest": {
+    "ext-grpc": "Required for gRPC transport (usually provided by grpc/grpc package)",
+    "ext-swoole": "Enable Swoole coroutines for async operations (receiveAsync, sendAsync, etc.)",
+    "ext-openswoole": "Alternative to Swoole for async coroutine support"
   },
   "autoload": {
     "psr-4": {
       "GPBMetadata\\": "grpc/GPBMetadata",
-      "Apache\\Rocketmq\\V2\\": "grpc/Apache/Rocketmq/V2"
+      "Apache\\Rocketmq\\V2\\": "grpc/Apache/Rocketmq/V2",
+      "Apache\\Rocketmq\\": ""
     }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "audit": {
+      "block-insecure": true,
+      "ignore": {
+        "PKSA-tcfz-w4fm-hhk9": "*"
+      }
+    }
+  },
+  "scripts": {
+    "test": "phpunit",
+    "test-coverage": "phpunit --coverage-html coverage",
+    "test-verbose": "phpunit --verbose"
   }
 }
