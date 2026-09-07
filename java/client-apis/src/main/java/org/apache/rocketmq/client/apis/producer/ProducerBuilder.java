@@ -75,6 +75,18 @@ public interface ProducerBuilder {
     ProducerBuilder setTransactionChecker(TransactionChecker checker);
 
     /**
+     * Set the threshold in bytes to enable message body compression.
+     *
+     * <p>Compression is disabled by default. Once this threshold is set, a message whose body size reaches it is
+     * compressed with GZIP before sending, and the consumer decompresses the body transparently according to the
+     * body encoding, so no change is required on the consuming side.
+     *
+     * @param compressBodyThresholdBytes threshold in bytes to enable message body compression.
+     * @return the producer builder instance.
+     */
+    ProducerBuilder setCompressBodyThresholdBytes(int compressBodyThresholdBytes);
+
+    /**
      * Finalize the build of {@link Producer} instance and start.
      *
      * <p>This method will block until the push consumer starts successfully.

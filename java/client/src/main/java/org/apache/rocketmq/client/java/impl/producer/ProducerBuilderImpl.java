@@ -38,6 +38,7 @@ public class ProducerBuilderImpl implements ProducerBuilder {
     private final Set<String> topics = new HashSet<>();
     private int maxAttempts = 3;
     private TransactionChecker checker = null;
+    private int compressBodyThresholdBytes = Integer.MAX_VALUE;
 
     public ProducerBuilderImpl() {
     }
@@ -84,12 +85,23 @@ public class ProducerBuilderImpl implements ProducerBuilder {
     }
 
     /**
+     * @see ProducerBuilder#setCompressBodyThresholdBytes(int)
+     */
+    @Override
+    public ProducerBuilder setCompressBodyThresholdBytes(int compressBodyThresholdBytes) {
+        checkArgument(compressBodyThresholdBytes > 0, "compressBodyThresholdBytes should be positive");
+        this.compressBodyThresholdBytes = compressBodyThresholdBytes;
+        return this;
+    }
+
+    /**
      * @see ProducerBuilder#build()
      */
     @Override
     public Producer build() {
         checkNotNull(clientConfiguration, "clientConfiguration has not been set yet");
         final ProducerImpl producer = new ProducerImpl(clientConfiguration, topics, maxAttempts, checker);
+        producer.publishingSettings.setCompressBodyThresholdBytes(compressBodyThresholdBytes);
         producer.startAsync().awaitRunning();
         return producer;
     }
