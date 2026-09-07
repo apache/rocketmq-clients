@@ -41,6 +41,7 @@ import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
@@ -107,6 +108,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private final AtomicLong receptionTimes;
     private final AtomicLong receivedMessagesQuantity;
+    private final AtomicReference<CachePause> cachePauseRef;
 
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long cacheFullNanoTime = Long.MIN_VALUE;
@@ -121,6 +123,7 @@ class ProcessQueueImpl implements ProcessQueue {
         this.cachedMessagesBytes = new AtomicLong();
         this.receptionTimes = new AtomicLong(0);
         this.receivedMessagesQuantity = new AtomicLong(0);
+        this.cachePauseRef = new AtomicReference<>();
     }
 
     @Override
@@ -131,6 +134,7 @@ class ProcessQueueImpl implements ProcessQueue {
     @Override
     public void drop() {
         this.dropped = true;
+        cachePauseRef.set(null);
     }
 
     @Override
@@ -186,11 +190,15 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void receiveMessageLater(Duration delay, String attemptId) {
+        receiveMessageLater(delay, attemptId, () -> receiveMessage(attemptId));
+    }
+
+    private void receiveMessageLater(Duration delay, String attemptId, Runnable command) {
         final ClientId clientId = consumer.getClientId();
         final ScheduledExecutorService scheduler = consumer.getScheduler();
         try {
             log.info("Try to receive message later, mq={}, delay={}, clientId={}", mq, delay, clientId);
-            scheduler.schedule(() -> receiveMessage(attemptId), delay.toNanos(), TimeUnit.NANOSECONDS);
+            scheduler.schedule(command, delay.toNanos(), TimeUnit.NANOSECONDS);
         } catch (Throwable t) {
             if (scheduler.isShutdown()) {
                 return;
@@ -215,12 +223,50 @@ class ProcessQueueImpl implements ProcessQueue {
             log.info("Process queue has been dropped, no longer receive message, mq={}, clientId={}", mq, clientId);
             return;
         }
+        if (null != cachePauseRef.get()) {
+            return;
+        }
         if (this.isCacheFull()) {
             log.warn("Process queue cache is full, would receive message later, mq={}, clientId={}", mq, clientId);
-            receiveMessageLater(RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL, attemptId);
+            pauseMessageReceiving(attemptId);
             return;
         }
         receiveMessageImmediately(attemptId);
+    }
+
+    private void pauseMessageReceiving(String attemptId) {
+        final CachePause pause = new CachePause(attemptId);
+        if (!cachePauseRef.compareAndSet(null, pause)) {
+            return;
+        }
+        receiveMessageLater(RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL, attemptId,
+            () -> resumeMessageReceiving(pause));
+        // Avoid a lost wake-up if cache eviction reaches the low watermark while the pause is being installed.
+        resumeMessageReceivingIfCacheDrained();
+    }
+
+    private void resumeMessageReceivingIfCacheDrained() {
+        final CachePause pause = cachePauseRef.get();
+        if (null == pause || !isCacheDrainedToResume()) {
+            return;
+        }
+        resumeMessageReceiving(pause);
+    }
+
+    private boolean isCacheDrainedToResume() {
+        final long cachedMessageCount = cachedMessages.size();
+        final long cachedMessageBytes = cachedMessageBytes();
+        final long cachedMessageCountLowWatermark = consumer.cacheMessageCountThresholdPerQueue() / 5L;
+        final long cachedMessageBytesLowWatermark = consumer.cacheMessageBytesThresholdPerQueue() / 5L;
+        return cachedMessageCount <= cachedMessageCountLowWatermark
+            && cachedMessageBytes <= cachedMessageBytesLowWatermark;
+    }
+
+    private void resumeMessageReceiving(CachePause pause) {
+        if (!cachePauseRef.compareAndSet(pause, null)) {
+            return;
+        }
+        receiveMessage(pause.attemptId);
     }
 
     private void receiveMessageImmediately() {
@@ -416,6 +462,15 @@ class ProcessQueueImpl implements ProcessQueue {
             }
         } finally {
             cachedMessageLock.writeLock().unlock();
+        }
+        resumeMessageReceivingIfCacheDrained();
+    }
+
+    private static final class CachePause {
+        private final String attemptId;
+
+        private CachePause(String attemptId) {
+            this.attemptId = attemptId;
         }
     }
 
