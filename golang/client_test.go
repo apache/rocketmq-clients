@@ -95,7 +95,7 @@ func GetClientAndDefaultClientSession(t *testing.T) (*defaultClient, *defaultCli
 func PrepareTestLogger(cli *defaultClient) *observer.ObservedLogs {
 	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
 	observedLogger := zap.New(observedZapCore)
-	cli.log = observedLogger.Sugar()
+	cli.log = newInternalLogger(newZapLogger(observedLogger))
 
 	return observedLogs
 }
@@ -197,7 +197,7 @@ func Test_execute_server_telemetry_command_fail(t *testing.T) {
 	for index, log := range logs {
 		messages[index] = log.Message
 	}
-	assert.Contains(t, messages, "telemetryCommand recv err=%!w(*errors.errorString=&{handleTelemetryCommand err = Command is nil})")
+	assert.Contains(t, messages, "telemetryCommand recv err=handleTelemetryCommand err = Command is nil")
 }
 
 func Test_execute_server_telemetry_command(t *testing.T) {

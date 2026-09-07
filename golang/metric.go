@@ -175,7 +175,7 @@ func (dcm *defaultClientMeter) shutdown() {
 	if dcm.ocaExporter != nil {
 		if exporter, ok := dcm.ocaExporter.(*ocagent.Exporter); ok {
 			if err := exporter.Stop(); err != nil {
-				sugarBaseLogger.Errorf("ocExporter stop failed, err=%w", err)
+				sugarBaseLogger.Errorf("ocExporter stop failed, err=%v", err)
 			}
 		}
 		dcm.ocaExporter = nil

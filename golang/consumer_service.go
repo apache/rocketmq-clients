@@ -84,7 +84,7 @@ func (bcs *baseConsumeService) newConsumeTask(clientId string, messageListener M
 				if !ok {
 					err = fmt.Errorf("panic cause [%v]", e)
 				}
-				sugarBaseLogger.Errorf("Message Interceptor raised an exception while consuming messages, clientId=%s, mq=%s, messageId=%s, err=%w", clientId, messageView.messageQueue.String(), messageView.messageId, err)
+				sugarBaseLogger.Errorf("Message Interceptor raised an exception while consuming messages, clientId=%s, mq=%s, messageId=%s, err=%v", clientId, messageView.messageQueue.String(), messageView.messageId, err)
 				callback(FAILURE, err)
 			} else {
 				callback(consumeResult, nil)
@@ -100,7 +100,7 @@ func (bcs *baseConsumeService) newConsumeTask(clientId string, messageListener M
 					if !ok {
 						err = fmt.Errorf("panic cause [%v]", e)
 					}
-					sugarBaseLogger.Errorf("Message listener raised an exception while consuming messages, clientId=%s, mq=%s, messageId=%s, err=%w", clientId, messageView.messageQueue.String(), messageView.messageId, err)
+					sugarBaseLogger.Errorf("Message listener raised an exception while consuming messages, clientId=%s, mq=%s, messageId=%s, err=%v", clientId, messageView.messageQueue.String(), messageView.messageId, err)
 				}
 			}()
 			consumeResult = messageListener.consume(messageView)
