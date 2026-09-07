@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.MessageId;
@@ -124,20 +125,24 @@ public abstract class ConsumerImpl extends ClientImpl {
         }
     }
 
-    private AckMessageRequest wrapAckMessageRequest(MessageViewImpl messageView) {
+    private AckMessageRequest wrapAckMessageRequest(List<MessageViewImpl> messageViews) {
+        final MessageViewImpl firstMessageView = messageViews.get(0);
         final apache.rocketmq.v2.Resource topicResource = apache.rocketmq.v2.Resource.newBuilder()
             .setResourceNamespace(clientConfiguration.getNamespace())
-            .setName(messageView.getTopic())
+            .setName(firstMessageView.getTopic())
             .build();
-        final AckMessageEntry.Builder builder = AckMessageEntry.newBuilder()
-            .setMessageId(messageView.getMessageId().toString())
-            .setReceiptHandle(messageView.getReceiptHandle());
-        if (isLiteConsumer()) {
-            messageView.getLiteTopic().ifPresent(builder::setLiteTopic);
+        final AckMessageRequest.Builder requestBuilder = AckMessageRequest.newBuilder()
+            .setGroup(getProtobufGroup()).setTopic(topicResource);
+        for (MessageViewImpl messageView : messageViews) {
+            final AckMessageEntry.Builder entryBuilder = AckMessageEntry.newBuilder()
+                .setMessageId(messageView.getMessageId().toString())
+                .setReceiptHandle(messageView.getReceiptHandle());
+            if (isLiteConsumer()) {
+                messageView.getLiteTopic().ifPresent(entryBuilder::setLiteTopic);
+            }
+            requestBuilder.addEntries(entryBuilder.build());
         }
-        final AckMessageEntry entry = builder.build();
-        return AckMessageRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
-            .addEntries(entry).build();
+        return requestBuilder.build();
     }
 
     protected ChangeInvisibleDurationRequest wrapChangeInvisibleDuration(MessageViewImpl messageView,
@@ -161,13 +166,19 @@ public abstract class ConsumerImpl extends ClientImpl {
     }
 
     protected RpcFuture<AckMessageRequest, AckMessageResponse> ackMessage(MessageViewImpl messageView) {
-        final Endpoints endpoints = messageView.getEndpoints();
+        return ackMessage(Collections.singletonList(messageView));
+    }
+
+    protected RpcFuture<AckMessageRequest, AckMessageResponse> ackMessage(List<MessageViewImpl> messageViews) {
+        final Endpoints endpoints = messageViews.get(0).getEndpoints();
         RpcFuture<AckMessageRequest, AckMessageResponse> future;
-        final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
+        final List<GeneralMessage> generalMessages = messageViews.stream()
+            .map(messageView -> (GeneralMessage) new GeneralMessageImpl(messageView))
+            .collect(Collectors.toList());
         final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.ACK);
         doBefore(context, generalMessages);
         try {
-            final AckMessageRequest request = wrapAckMessageRequest(messageView);
+            final AckMessageRequest request = wrapAckMessageRequest(messageViews);
             final Duration requestTimeout = clientConfiguration.getRequestTimeout();
             future = this.getClientManager().ackMessage(endpoints, request, requestTimeout);
         } catch (Throwable t) {
