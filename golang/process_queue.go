@@ -467,6 +467,7 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 			rpcErr, isRpcErr := AsErrRpcStatus(err)
 			isNoNewMessage := isRpcErr && rpcErr.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND)
 			if isNoNewMessage {
+				dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, MessageHookPointsStatus_OK)
 				dpq.consumer.cli.log.Debugf("No new message, mq=%s, endpoints=%v, clientId=%s",
 					dpq.mqstr, endpoints, clientId)
 			} else {
