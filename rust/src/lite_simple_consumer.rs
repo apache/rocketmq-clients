@@ -36,7 +36,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
@@ -47,36 +46,13 @@ use crate::conf::{ClientOption, SimpleConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::lite_subscription_manager::LiteSubscriptionManager;
 use crate::model::common::{ClientType, FilterExpression};
-use crate::model::message::{AckMessageEntry, MessageView};
+use crate::model::message::MessageView;
 use crate::model::offset_option::OffsetOption;
 use crate::pb;
 use crate::simple_consumer::SimpleConsumer;
 use crate::util::build_simple_consumer_settings;
 
 const OPERATION_NEW_LITE_SIMPLE_CONSUMER: &str = "lite_simple_consumer.new";
-
-/// LiteSimpleConsumer trait defining the interface for lite simple consumers
-#[async_trait]
-pub trait LiteSimpleConsumerTrait {
-    /// Subscribe to a lite topic
-    async fn subscribe_lite(&self, lite_topic: String) -> Result<(), ClientError>;
-
-    /// Subscribe to a lite topic with offset option
-    async fn subscribe_lite_with_offset(
-        &self,
-        lite_topic: String,
-        offset_option: OffsetOption,
-    ) -> Result<(), ClientError>;
-
-    /// Unsubscribe from a lite topic
-    async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError>;
-
-    /// Get the set of subscribed lite topics
-    fn get_lite_topic_set(&self) -> HashSet<String>;
-
-    /// Get the consumer group name
-    fn get_consumer_group(&self) -> String;
-}
 
 /// LiteSimpleConsumer implementation.
 ///
@@ -95,8 +71,8 @@ pub struct LiteSimpleConsumer {
     bind_topic: String,
     lite_client: Arc<Client>,
     lite_subscription_manager: Arc<LiteSubscriptionManager>,
-    shutdown_token: Option<CancellationToken>,
-    task_tracker: Option<TaskTracker>,
+    shutdown_token: CancellationToken,
+    task_tracker: TaskTracker,
 }
 
 impl LiteSimpleConsumer {
@@ -169,8 +145,8 @@ impl LiteSimpleConsumer {
             bind_topic,
             lite_client,
             lite_subscription_manager,
-            shutdown_token: None,
-            task_tracker: None,
+            shutdown_token: CancellationToken::default(),
+            task_tracker: TaskTracker::default(),
         })
     }
 
@@ -243,9 +219,9 @@ impl LiteSimpleConsumer {
         //   - onSettingsCommand() -> super.onSettingsCommand() + liteSubscriptionManager.sync(settings)
         //   - onNotifyUnsubscribeLiteCommand() -> liteSubscriptionManager.onNotifyUnsubscribeLiteCommand()
         let shutdown_token = CancellationToken::new();
-        self.shutdown_token = Some(shutdown_token.clone());
+        self.shutdown_token = shutdown_token.clone();
         let task_tracker = TaskTracker::new();
-        self.task_tracker = Some(task_tracker.clone());
+        self.task_tracker = task_tracker.clone();
 
         let manager = Arc::clone(&self.lite_subscription_manager);
         let client_id_clone = client_id.clone();
@@ -297,7 +273,66 @@ impl LiteSimpleConsumer {
         Ok(())
     }
 
-    /// Fetch messages from the bind topic synchronously.
+    /// Subscribe to a lite topic
+    ///
+    /// Reference Java: LiteSimpleConsumerImpl.subscribeLite(String)
+    pub async fn subscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
+        // Check if client is started (public API validation)
+        self.inner
+            .check_started("lite_simple_consumer.subscribe_lite")?;
+
+        self.lite_subscription_manager
+            .subscribe_lite(lite_topic, None)
+            .await
+    }
+
+    /// Subscribe to a lite topic with offset option
+    ///
+    /// Reference Java: LiteSimpleConsumerImpl.subscribeLite(String, OffsetOption)
+    pub async fn subscribe_lite_with_offset(
+        &self,
+        lite_topic: String,
+        offset_option: OffsetOption,
+    ) -> Result<(), ClientError> {
+        // Check if client is started (public API validation)
+        self.inner
+            .check_started("lite_simple_consumer.subscribe_lite_with_offset")?;
+
+        self.lite_subscription_manager
+            .subscribe_lite(lite_topic, Some(offset_option))
+            .await
+    }
+
+    /// Unsubscribe from a lite topic
+    ///
+    /// Reference Java: LiteSimpleConsumerImpl.unsubscribeLite(String)
+    pub async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
+        // Check if client is started (public API validation)
+        self.inner
+            .check_started("lite_simple_consumer.unsubscribe_lite")?;
+
+        self.lite_subscription_manager
+            .unsubscribe_lite(lite_topic)
+            .await
+    }
+
+    /// Get the set of subscribed lite topics
+    ///
+    /// Reference Java: LiteSimpleConsumerImpl.getLiteTopicSet()
+    pub fn get_lite_topic_set(&self) -> HashSet<String> {
+        self.lite_subscription_manager.get_lite_topic_set()
+    }
+
+    /// Get the consumer group name
+    ///
+    /// Reference Java: LiteSimpleConsumerImpl.getConsumerGroup()
+    pub fn get_consumer_group(&self) -> String {
+        self.lite_subscription_manager
+            .get_consumer_group_name()
+            .to_string()
+    }
+
+    /// Fetch messages from the bind topic (aggregation topic).
     ///
     /// Reference Java: LiteSimpleConsumerImpl.receive(maxMessageNum, invisibleDuration)
     /// -> SimpleConsumerImpl.receive(getTopic(), SUB_ALL, maxMessageNum, invisibleDuration)
@@ -320,17 +355,18 @@ impl LiteSimpleConsumer {
     }
 
     /// Ack the specified message.
-    pub async fn ack(
-        &self,
-        ack_entry: &(impl AckMessageEntry + 'static),
-    ) -> Result<(), ClientError> {
+    ///
+    /// Reference Java: LiteSimpleConsumerImpl.ack(MessageView)
+    pub async fn ack(&self, ack_entry: &MessageView) -> Result<(), ClientError> {
         self.inner.ack(ack_entry).await
     }
 
     /// Change the invisible duration of a specified message.
+    ///
+    /// Reference Java: LiteSimpleConsumerImpl.changeInvisibleDuration(MessageView, Duration)
     pub async fn change_invisible_duration(
         &self,
-        ack_entry: &(impl AckMessageEntry + 'static),
+        ack_entry: &MessageView,
         invisible_duration: Duration,
     ) -> Result<String, ClientError> {
         self.inner
@@ -344,80 +380,13 @@ impl LiteSimpleConsumer {
     pub async fn shutdown(&mut self) -> Result<(), ClientError> {
         info!("Shutting down LiteSimpleConsumer...");
 
-        if let Some(token) = self.shutdown_token.take() {
-            token.cancel();
-        }
-
-        if let Some(tracker) = self.task_tracker.take() {
-            tracker.close();
-            tracker.wait().await;
-        }
+        self.shutdown_token.cancel();
+        self.task_tracker.close();
+        self.task_tracker.wait().await;
 
         self.inner.shutdown_ref().await?;
 
         info!("LiteSimpleConsumer shutdown successfully");
         Ok(())
-    }
-}
-
-#[async_trait]
-impl LiteSimpleConsumerTrait for LiteSimpleConsumer {
-    /// Subscribe to a lite topic
-    ///
-    /// Reference Java: LiteSimpleConsumerImpl.subscribeLite(String)
-    async fn subscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
-        // Check if client is started (public API validation)
-        self.inner
-            .check_started("lite_simple_consumer.subscribe_lite")?;
-
-        self.lite_subscription_manager
-            .subscribe_lite(lite_topic, None)
-            .await
-    }
-
-    /// Subscribe to a lite topic with offset option
-    ///
-    /// Reference Java: LiteSimpleConsumerImpl.subscribeLite(String, OffsetOption)
-    async fn subscribe_lite_with_offset(
-        &self,
-        lite_topic: String,
-        offset_option: OffsetOption,
-    ) -> Result<(), ClientError> {
-        // Check if client is started (public API validation)
-        self.inner
-            .check_started("lite_simple_consumer.subscribe_lite_with_offset")?;
-
-        self.lite_subscription_manager
-            .subscribe_lite(lite_topic, Some(offset_option))
-            .await
-    }
-
-    /// Unsubscribe from a lite topic
-    ///
-    /// Reference Java: LiteSimpleConsumerImpl.unsubscribeLite(String)
-    async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
-        // Check if client is started (public API validation)
-        self.inner
-            .check_started("lite_simple_consumer.unsubscribe_lite")?;
-
-        self.lite_subscription_manager
-            .unsubscribe_lite(lite_topic)
-            .await
-    }
-
-    /// Get the set of subscribed lite topics
-    ///
-    /// Reference Java: LiteSimpleConsumerImpl.getLiteTopicSet()
-    fn get_lite_topic_set(&self) -> HashSet<String> {
-        self.lite_subscription_manager.get_lite_topic_set()
-    }
-
-    /// Get the consumer group name
-    ///
-    /// Reference Java: LiteSimpleConsumerImpl.getConsumerGroup()
-    fn get_consumer_group(&self) -> String {
-        self.lite_subscription_manager
-            .get_consumer_group_name()
-            .to_string()
     }
 }

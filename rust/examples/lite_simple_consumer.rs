@@ -21,7 +21,7 @@
 //! This example shows how to subscribe to lite topics, receive messages, and ack them.
 
 use rocketmq::conf::{ClientOption, SimpleConsumerOption};
-use rocketmq::{LiteSimpleConsumer, LiteSimpleConsumerTrait, OffsetOption, OffsetPolicy};
+use rocketmq::{LiteSimpleConsumer, OffsetOption, OffsetPolicy};
 use std::error::Error;
 use std::time::Duration;
 

@@ -122,7 +122,7 @@
 #[cfg(not(test))]
 pub use lite_push_consumer::{LitePushConsumer, LitePushConsumerTrait};
 #[cfg(not(test))]
-pub use lite_simple_consumer::{LiteSimpleConsumer, LiteSimpleConsumerTrait};
+pub use lite_simple_consumer::LiteSimpleConsumer;
 pub use model::common::ConsumeResult;
 pub use model::transaction::Transaction;
 pub use producer::Producer;
