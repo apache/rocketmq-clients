@@ -750,7 +750,7 @@ mod tests {
     async fn session_new() {
         let server = RocketMQMockServer::start_default().await;
         let session = Session::new(
-            &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
+            &Endpoints::from_url(&format!("{}", server.address())).unwrap(),
             "test_client".to_string(),
             &ClientOption::default(),
         )
