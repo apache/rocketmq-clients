@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Configure client options
     let mut client_option = ClientOption::default();
-    client_option.set_access_url("http://localhost:8080");
+    client_option.set_access_url("127.0.0.1:8080");
 
     // Configure producer options
     let mut producer_option = ProducerOption::default();
