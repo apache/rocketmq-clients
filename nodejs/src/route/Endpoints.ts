@@ -78,8 +78,27 @@ export class Endpoints {
     this.facade = this.addressesList.map(addr => `${addr.host}:${addr.port}`).join(',');
   }
 
+  /**
+   * gRPC target with resolver scheme prefix, mirroring the Java client:
+   * - IPv4 addresses:  ipv4:127.0.0.1:10911,127.0.0.2:10912
+   * - IPv6 addresses:  ipv6:[::1]:10911,[fe80::1]:10912 (brackets required by grpc-js)
+   * - Domain names:    dns:example.com:8080,example.org:8081
+   */
   getGrpcTarget() {
-    return this.facade;
+    const targets = this.addressesList.map(addr => {
+      const host = this.scheme === AddressScheme.IPV6 ? `[${addr.host}]` : addr.host;
+      return `${host}:${addr.port}`;
+    }).join(',');
+    switch (this.scheme) {
+      case AddressScheme.IPV4:
+        return `ipv4:${targets}`;
+      case AddressScheme.IPV6:
+        return `ipv6:${targets}`;
+      case AddressScheme.DOMAIN_NAME:
+        return `dns:${targets}`;
+      default:
+        return targets;
+    }
   }
 
   toString() {

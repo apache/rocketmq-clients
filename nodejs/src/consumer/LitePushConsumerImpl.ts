@@ -278,4 +278,15 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
   getRequestTimeout(): number {
     return this.requestTimeout;
   }
+
+  /**
+   * Get all route endpoints across cached topic routes (protected access for
+   * internal use), so lite subscriptions can be synced to every broker-side proxy.
+   *
+   * @internal
+   */
+  getTotalRouteEndpoints(): Endpoints[] {
+    // BaseClient exposes this as protected; re-expose publicly for LiteSubscriptionManager.
+    return super.getTotalRouteEndpoints();
+  }
 }

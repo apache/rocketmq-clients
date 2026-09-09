@@ -31,7 +31,9 @@ import {
   ExponentialBackoffRetryPolicy,
   CustomizedBackoffRetryPolicy,
 } from '../src/retry';
-import { Endpoints } from '../src/route';
+import { Endpoints, TopicRouteData } from '../src/route';
+import { PublishingLoadBalancer } from '../src/producer';
+import { calculateStringSipHash24 } from '../src/util';
 import {
   StatusChecker,
   BadRequestException,
@@ -40,6 +42,14 @@ import {
 } from '../src/exception';
 import { Code, RetryPolicy as RetryPolicyPB, ExponentialBackoff, CustomizedBackoff } from '../proto/apache/rocketmq/v2/definition_pb';
 import { Status } from '../proto/apache/rocketmq/v2/definition_pb';
+import {
+  MessageQueue as MessageQueuePB,
+  Broker as BrokerPB,
+  Resource as ResourcePB,
+  Endpoints as EndpointsPB,
+  Permission,
+  AddressScheme,
+} from '../proto/apache/rocketmq/v2/definition_pb';
 
 function statusOf(code: Code): Status.AsObject {
   return { code, message: 'mock message', requestId: '' } as unknown as Status.AsObject;
@@ -152,5 +162,80 @@ describe('StatusChecker mappings vs Java', () => {
     assert.throws(
       () => StatusChecker.check(statusOf(Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED)),
       LiteSubscriptionQuotaExceededException);
+  });
+});
+
+describe('Endpoints.getGrpcTarget with resolver scheme (B-1)', () => {
+  it('should prefix ipv4: scheme for IPv4 addresses', () => {
+    assert.strictEqual(new Endpoints('127.0.0.1:10911').getGrpcTarget(), 'ipv4:127.0.0.1:10911');
+  });
+
+  it('should prefix ipv4: scheme for multiple IPv4 addresses', () => {
+    const target = new Endpoints('127.0.0.1:8081;127.0.0.2:8082').getGrpcTarget();
+    assert.strictEqual(target, 'ipv4:127.0.0.1:8081,127.0.0.2:8082');
+  });
+
+  it('should prefix ipv6: scheme with brackets for IPv6 addresses', () => {
+    assert.strictEqual(new Endpoints('[::1]:10911').getGrpcTarget(), 'ipv6:[::1]:10911');
+  });
+
+  it('should prefix dns: scheme for domain names', () => {
+    assert.strictEqual(new Endpoints('example.com:8080').getGrpcTarget(), 'dns:example.com:8080');
+  });
+});
+
+describe('takeMessageQueueByMessageGroup floorMod semantics (C-1)', () => {
+  // One queue (queueId=0, the writable master queue) per broker across queueCount brokers,
+  // since PublishingLoadBalancer only keeps queues with queueId === MASTER_BROKER_ID (0).
+  // The returned queue is identified by its broker endpoints port (10911 + expected index).
+  function buildLoadBalancer(queueCount: number): PublishingLoadBalancer {
+    const pbs = [];
+    for (let i = 0; i < queueCount; i++) {
+      const endpointsPb = new EndpointsPB();
+      endpointsPb.setScheme(AddressScheme.IPV4);
+      endpointsPb.addAddresses().setHost('127.0.0.1').setPort(10911 + i);
+      const brokerPb = new BrokerPB();
+      brokerPb.setName('broker-' + i);
+      brokerPb.setId(0);
+      brokerPb.setEndpoints(endpointsPb);
+      const mqPb = new MessageQueuePB();
+      mqPb.setId(0);
+      mqPb.setTopic(new ResourcePB().setName('topic'));
+      mqPb.setBroker(brokerPb);
+      mqPb.setPermission(Permission.READ_WRITE);
+      pbs.push(mqPb);
+    }
+    return new PublishingLoadBalancer(new TopicRouteData(pbs));
+  }
+
+  it('should always yield a non-negative index matching Java LongMath.mod', () => {
+    const loadBalancer = buildLoadBalancer(8);
+    const groups = ['group-a', 'fifo-group', 'group-中文', 'x', 'order-12345', ''];
+    for (const group of groups) {
+      const mq = loadBalancer.takeMessageQueueByMessageGroup(group);
+      assert.ok(mq, 'should resolve a message queue for group=' + group);
+      // Expected index under floorMod semantics: ((signed hash % size) + size) % size
+      const signedHash = BigInt.asIntN(64, calculateStringSipHash24(group));
+      const expectedIndex = Number(((signedHash % 8n) + 8n) % 8n);
+      assert.strictEqual(mq.broker.endpoints.facade, '127.0.0.1:' + (10911 + expectedIndex));
+    }
+  });
+
+  it('should match Java floorMod for hashes that are negative when interpreted signed', () => {
+    // Find a message group whose SipHash-2-4 has its high bit set (negative as int64)
+    let negativeGroup: string | undefined;
+    for (let i = 0; i < 10000; i++) {
+      const candidate = 'probe-' + i;
+      if (BigInt.asIntN(64, calculateStringSipHash24(candidate)) < 0n) {
+        negativeGroup = candidate;
+        break;
+      }
+    }
+    assert.ok(negativeGroup, 'expected to find a negative hash among probes');
+    const loadBalancer = buildLoadBalancer(4);
+    const mq = loadBalancer.takeMessageQueueByMessageGroup(negativeGroup!);
+    const signedHash = BigInt.asIntN(64, calculateStringSipHash24(negativeGroup!));
+    const expectedIndex = Number(((signedHash % 4n) + 4n) % 4n);
+    assert.strictEqual(mq.broker.endpoints.facade, '127.0.0.1:' + (10911 + expectedIndex));
   });
 });

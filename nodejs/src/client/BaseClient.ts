@@ -28,6 +28,7 @@ import {
   QueryRouteRequest,
   RecoverOrphanedTransactionCommand,
   VerifyMessageCommand,
+  VerifyMessageResult,
   PrintThreadStackTraceCommand,
   ReconnectEndpointsCommand,
   TelemetryCommand,
@@ -47,6 +48,11 @@ import { TelemetrySession } from './TelemetrySession';
 import { ClientId } from './ClientId';
 
 const debug = debuglog('rocketmq-client-nodejs:client:BaseClient');
+
+// Trigger transport self-healing (D-2) after this many consecutive heartbeat failures
+const HEARTBEAT_TRANSPORT_RECOVERY_THRESHOLD = 2;
+// Minimum interval between transport-recovery attempts per endpoints
+const TRANSPORT_RECOVERY_COOLDOWN = 30 * 1000;
 
 export interface BaseClientOptions {
   sslEnabled?: boolean;
@@ -92,6 +98,10 @@ export abstract class BaseClient {
   #startupReject?: (err: Error) => void;
   #timers: NodeJS.Timeout[] = [];
   #running = false;
+  // Consecutive heartbeat failure counts keyed by endpoints facade (D-2 transport self-healing)
+  readonly #heartbeatFailureCounts = new Map<string, number>();
+  // Last transport-recovery timestamps per endpoints facade, to throttle recovery attempts
+  readonly #lastTransportRecoveryTimes = new Map<string, number>();
 
   /**
    * Get the client type.
@@ -285,15 +295,64 @@ export abstract class BaseClient {
       for (const endpoints of endpointsList) {
         try {
           await this.rpcClientManager.heartbeat(endpoints, request, this.requestTimeout);
+          // Heartbeat succeeded: the remote is reachable again, so rejoin any
+          // isolated endpoints (mirrors Java ClientImpl#doHeartbeat).
+          if (this.isolated.delete(endpoints.facade)) {
+            this.logger.info('Isolated endpoints rejoined after successful heartbeat, endpoints=%s, clientId=%s',
+              endpoints.facade, this.clientId);
+          }
+          this.#heartbeatFailureCounts.delete(endpoints.facade);
         } catch (e) {
           // Log but don't throw - heartbeat is best-effort
           this.logger.warn('Heartbeat failed for endpoints=%s, clientId=%s, error=%s',
             endpoints.facade, this.clientId, e instanceof Error ? e.message : String(e));
+          this.#onHeartbeatFailure(endpoints);
         }
       }
     } catch (e) {
       this.logger.error('Unexpected error in heartbeat, clientId=%s, error=%s',
         this.clientId, e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /**
+   * Handle a heartbeat failure: after consecutive failures, rebuild the transport
+   * layer for the affected endpoints (evict the stale RpcClient channel and refresh
+   * the telemetry session), throttled by a per-endpoints cooldown.
+   */
+  #onHeartbeatFailure(endpoints: Endpoints) {
+    const failureCount = (this.#heartbeatFailureCounts.get(endpoints.facade) ?? 0) + 1;
+    this.#heartbeatFailureCounts.set(endpoints.facade, failureCount);
+    if (failureCount < HEARTBEAT_TRANSPORT_RECOVERY_THRESHOLD) {
+      return;
+    }
+    const now = Date.now();
+    if (now - (this.#lastTransportRecoveryTimes.get(endpoints.facade) ?? 0) < TRANSPORT_RECOVERY_COOLDOWN) {
+      debug('Transport recovery throttled by cooldown, endpoints=%s, clientId=%s',
+        endpoints.facade, this.clientId);
+      return;
+    }
+    this.#lastTransportRecoveryTimes.set(endpoints.facade, now);
+    this.logger.warn('Consecutive heartbeat failures detected, rebuilding transport layer, endpoints=%s, failureCount=%d, clientId=%s',
+      endpoints.facade, failureCount, this.clientId);
+    // 1. Evict the possibly stale RpcClient so a fresh channel is established on next use.
+    try {
+      this.rpcClientManager.evict(endpoints);
+    } catch (e) {
+      this.logger.warn('Failed to evict rpc client, endpoints=%s, clientId=%s, error=%s',
+        endpoints.facade, this.clientId, e instanceof Error ? e.message : String(e));
+    }
+    // 2. Release and drop the telemetry session, then eagerly rebuild it to re-sync settings.
+    const session = this.#telemetrySessions.get(endpoints.facade);
+    if (session) {
+      session.release();
+      this.#telemetrySessions.delete(endpoints.facade);
+    }
+    try {
+      this.getTelemetrySession(endpoints).syncSettings();
+    } catch (e) {
+      this.logger.warn('Failed to rebuild telemetry session, endpoints=%s, clientId=%s, error=%s',
+        endpoints.facade, this.clientId, e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -517,21 +576,52 @@ export abstract class BaseClient {
     const obj = command.toObject();
     this.logger.warn('Ignore verify message command from remote, which is not expected, clientId=%s, command=%j',
       this.clientId, obj);
+    // Respond with VerifyMessageResult carrying the same nonce, mirroring the Java
+    // client (BaseClient#onVerifyMessageCommand), instead of echoing the command.
     const telemetryCommand = new TelemetryCommand();
     telemetryCommand.setStatus(new Status().setCode(Code.NOT_IMPLEMENTED));
-    telemetryCommand.setVerifyMessageCommand(new VerifyMessageCommand().setNonce(obj.nonce));
+    telemetryCommand.setVerifyMessageResult(new VerifyMessageResult().setNonce(obj.nonce));
     this.telemetry(endpoints, telemetryCommand);
   }
 
   onPrintThreadStackTraceCommand(endpoints: Endpoints, command: PrintThreadStackTraceCommand) {
     const obj = command.toObject();
-    this.logger.warn('Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
+    this.logger.info('Received print thread stack trace command from remote, clientId=%s, command=%j',
       this.clientId, obj);
-    const nonce = obj.nonce;
     const telemetryCommand = new TelemetryCommand();
-    telemetryCommand.setThreadStackTrace(new ThreadStackTrace().setThreadStackTrace('mock stack').setNonce(nonce));
+    telemetryCommand.setThreadStackTrace(new ThreadStackTrace()
+      .setThreadStackTrace(this.#buildProcessDiagnostics())
+      .setNonce(obj.nonce));
     telemetryCommand.setStatus(new Status().setCode(Code.OK));
     this.telemetry(endpoints, telemetryCommand);
+  }
+
+  /**
+   * Build Node.js process diagnostics in place of Java-style thread stack traces.
+   * Java sends per-thread stacks via ThreadMXBean; Node.js is single-threaded per
+   * process, so we expose the closest equivalent runtime snapshot.
+   */
+  #buildProcessDiagnostics(): string {
+    const mem = process.memoryUsage();
+    const formatBytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(2)}MB`;
+    const lines = [
+      `Process: pid=${process.pid}, node=${process.version}, platform=${process.platform}, arch=${process.arch}`,
+      `Uptime: ${process.uptime().toFixed(3)}s`,
+      `Memory: rss=${formatBytes(mem.rss)}, heapUsed=${formatBytes(mem.heapUsed)}, ` +
+        `heapTotal=${formatBytes(mem.heapTotal)}, external=${formatBytes(mem.external)}, ` +
+        `arrayBuffers=${formatBytes(mem.arrayBuffers)}`,
+    ];
+    try {
+      const activeHandles = (process as unknown as { _getActiveHandles?: () => object[] })._getActiveHandles?.() ?? [];
+      lines.push(`Active handles: ${activeHandles.length}`);
+      for (const handle of activeHandles.slice(0, 20)) {
+        const name = handle?.constructor?.name ?? typeof handle;
+        lines.push(`  - ${name}`);
+      }
+    } catch {
+      // active handles are best-effort
+    }
+    return lines.join('\n');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
