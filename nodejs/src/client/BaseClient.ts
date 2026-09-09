@@ -37,7 +37,7 @@ import {
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { createResource, getRequestDateTime, sign } from '../util';
 import { TopicRouteData, Endpoints } from '../route';
-import { ClientException, StatusChecker } from '../exception';
+import { ClientException, NotFoundException, StatusChecker } from '../exception';
 import { Settings } from './Settings';
 import { UserAgent } from './UserAgent';
 import { ILogger, getDefaultLogger } from './Logger';
@@ -169,6 +169,11 @@ export abstract class BaseClient {
         break;
       } catch (e) {
         lastError = e as Error;
+        // Not-found errors will never succeed on retry — fail fast, aligned
+        // with the Java client which surfaces NotFoundException immediately.
+        if (e instanceof NotFoundException) {
+          throw e;
+        }
         if (attempt < maxAttempts) {
           const backoffMs = 1000 * attempt; // Simple linear backoff: 1s, 2s, 3s
           this.logger.warn('Fetch topic route failed during startup, will retry, clientId=%s, attempt=%d/%d, error=%s, backoff=%dms',
