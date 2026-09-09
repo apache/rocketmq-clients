@@ -15,6 +15,11 @@
  * limitations under the License.
  */
 
-export * from './CustomizedBackoffRetryPolicy';
-export * from './ExponentialBackoffRetryPolicy';
-export * from './RetryPolicy';
+import { ClientException } from './ClientException';
+
+export class PayloadEmptyException extends ClientException {
+  constructor(code: number, message: string, requestId?: string) {
+    super(code, message, requestId);
+    this.name = 'PayloadEmptyException';
+  }
+}

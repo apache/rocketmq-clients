@@ -19,8 +19,10 @@ import { Status, Code } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { BadRequestException } from './BadRequestException';
 import { ForbiddenException } from './ForbiddenException';
 import { InternalErrorException } from './InternalErrorException';
+import { LiteSubscriptionQuotaExceededException } from './LiteSubscriptionQuotaExceededException';
 import { LiteTopicQuotaExceededException } from './LiteTopicQuotaExceededException';
 import { NotFoundException } from './NotFoundException';
+import { PayloadEmptyException } from './PayloadEmptyException';
 import { PayloadTooLargeException } from './PayloadTooLargeException';
 import { PaymentRequiredException } from './PaymentRequiredException';
 import { ProxyTimeoutException } from './ProxyTimeoutException';
@@ -44,6 +46,7 @@ export class StatusChecker {
       case Code.ILLEGAL_MESSAGE_KEY:
       case Code.ILLEGAL_MESSAGE_GROUP:
       case Code.ILLEGAL_MESSAGE_PROPERTY_KEY:
+      case Code.ILLEGAL_LITE_TOPIC:
       case Code.INVALID_TRANSACTION_ID:
       case Code.ILLEGAL_MESSAGE_ID:
       case Code.ILLEGAL_FILTER_EXPRESSION:
@@ -71,6 +74,8 @@ export class StatusChecker {
       case Code.PAYLOAD_TOO_LARGE:
       case Code.MESSAGE_BODY_TOO_LARGE:
         throw new PayloadTooLargeException(status.code, status.message, requestId);
+      case Code.MESSAGE_BODY_EMPTY:
+        throw new PayloadEmptyException(status.code, status.message, requestId);
       case Code.TOO_MANY_REQUESTS:
         throw new TooManyRequestsException(status.code, status.message, requestId);
       case Code.REQUEST_HEADER_FIELDS_TOO_LARGE:
@@ -90,6 +95,8 @@ export class StatusChecker {
         throw new UnsupportedException(status.code, status.message, requestId);
       case Code.LITE_TOPIC_QUOTA_EXCEEDED:
         throw new LiteTopicQuotaExceededException(status.code, status.message || '', requestId);
+      case Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED:
+        throw new LiteSubscriptionQuotaExceededException(status.code, requestId ?? null, status.message || '');
       default:
         throw new UnsupportedException(status.code, status.message, requestId);
     }
