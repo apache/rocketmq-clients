@@ -41,6 +41,7 @@ import { ProcessQueue } from './ProcessQueue';
 import { Assignment } from './Assignment';
 import { Assignments } from './Assignments';
 import { MessageListener } from './MessageListener';
+import { InflightRequestCountInterceptor } from '../hook';
 
 const ASSIGNMENT_SCAN_SCHEDULE_DELAY = 1000;
 const ASSIGNMENT_SCAN_SCHEDULE_PERIOD = 5000;
@@ -71,6 +72,7 @@ export class PushConsumer extends Consumer {
   readonly #enableFifoConsumeAccelerator: boolean;
   readonly #processQueueTable = new Map<string /* mq key */, { mq: MessageQueue; pq: ProcessQueue }>();
   readonly #metrics = new ConsumeMetrics();
+  readonly #inflightRequestCountInterceptor: InflightRequestCountInterceptor;
   #consumeService!: ConsumeService;
   #scanAssignmentTimer?: NodeJS.Timeout;
   #inflightReceiveRequestCount = 0;
@@ -91,6 +93,10 @@ export class PushConsumer extends Consumer {
     this.#maxCacheMessageCount = options.maxCacheMessageCount ?? 1024;
     this.#maxCacheMessageSizeInBytes = options.maxCacheMessageSizeInBytes ?? 64 * 1024 * 1024;
     this.#enableFifoConsumeAccelerator = options.enableFifoConsumeAccelerator ?? false;
+
+    // Built-in interceptor tracking in-flight receive requests, mirroring Java PushConsumerImpl.
+    this.#inflightRequestCountInterceptor = new InflightRequestCountInterceptor();
+    this.addMessageInterceptor(this.#inflightRequestCountInterceptor);
 
     this.#pushSubscriptionSettings = new PushSubscriptionSettings(
       options.namespace, this.clientId, this.getClientType(), this.endpoints,
@@ -230,11 +236,22 @@ export class PushConsumer extends Consumer {
     // No-op for push consumer; assignments are queried separately
   }
 
+  /**
+   * Get the count of in-flight receive requests tracked by the built-in
+   * {@link InflightRequestCountInterceptor}, mirroring Java PushConsumerImpl.
+   */
+  protected getInflightReceiveRequestCountFromInterceptor(): number {
+    return this.#inflightRequestCountInterceptor.getInflightReceiveRequestCount();
+  }
+
   protected createConsumeService(): ConsumeService {
+    // `this` implements MessageInterceptor (doBefore/doAfter delegating to the
+    // composited interceptor chain), mirroring Java PushConsumerImpl.
     if (this.#pushSubscriptionSettings.isFifo()) {
-      return new FifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator);
+      return new FifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator,
+        this, this.consumerGroup);
     }
-    return new StandardConsumeService(this.clientId, this.#messageListener);
+    return new StandardConsumeService(this.clientId, this.#messageListener, this, this.consumerGroup);
   }
 
   async subscribe(topic: string, filterExpression: FilterExpression) {

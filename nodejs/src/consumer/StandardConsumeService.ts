@@ -16,6 +16,7 @@
  */
 
 import { MessageView } from '../message';
+import { MessageInterceptor } from '../hook';
 import { ConsumeService } from './ConsumeService';
 import { MessageListener } from './MessageListener';
 import type { ProcessQueue } from './ProcessQueue';
@@ -25,8 +26,9 @@ export class StandardConsumeService extends ConsumeService {
   private readonly logger = getDefaultLogger();
 
   // eslint-disable-next-line @typescript-eslint/no-useless-constructor
-  constructor(clientId: string, messageListener: MessageListener) {
-    super(clientId, messageListener);
+  constructor(clientId: string, messageListener: MessageListener,
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
+    super(clientId, messageListener, messageInterceptor, consumerGroup);
   }
 
   consume(pq: ProcessQueue, messageViews: MessageView[]): void {

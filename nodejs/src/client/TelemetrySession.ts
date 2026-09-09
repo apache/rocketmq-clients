@@ -148,6 +148,12 @@ export class TelemetrySession {
         this.#baseClient.onReconnectEndpointsCommand(endpoints, command.getReconnectEndpointsCommand()!);
         break;
       }
+      case TelemetryCommand.CommandCase.NOTIFY_UNSUBSCRIBE_LITE_COMMAND: {
+        this.#logger.info('Receive notify unsubscribe lite command from remote, endpoints=%s, clientId=%s',
+          endpoints, clientId);
+        this.#baseClient.onNotifyUnsubscribeLiteCommand(endpoints, command.getNotifyUnsubscribeLiteCommand()!);
+        break;
+      }
       default: {
         const commandObj = command.toObject();
         this.#logger.warn('Receive unrecognized command from remote, endpoints=%s, commandCase=%j, command=%j, clientId=%s',

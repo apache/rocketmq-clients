@@ -15,11 +15,19 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+import { Attribute } from './Attribute';
+import { AttributeKey } from './AttributeKey';
+import { MessageHookPoints } from './MessageHookPoints';
+import { MessageHookPointsStatus } from './MessageHookPointsStatus';
+
+/**
+ * Context carried through the message interceptor chain, mirroring
+ * org.apache.rocketmq.client.java.hook.MessageInterceptorContext.
+ */
+export interface MessageInterceptorContext {
+  getMessageHookPoints(): MessageHookPoints;
+  getStatus(): MessageHookPointsStatus | undefined;
+  putAttribute<T>(key: AttributeKey<T>, value: Attribute<T>): void;
+  getAttribute<T>(key: AttributeKey<T>): Attribute<T> | undefined;
+  getAttributes(): Map<AttributeKey<any>, Attribute<any>>;
+}

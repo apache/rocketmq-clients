@@ -35,10 +35,17 @@ import {
   ThreadStackTrace,
   HeartbeatRequest,
   NotifyClientTerminationRequest,
+  NotifyUnsubscribeLiteCommand,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { createResource, getRequestDateTime, sign } from '../util';
 import { TopicRouteData, Endpoints } from '../route';
 import { ClientException, NotFoundException, StatusChecker } from '../exception';
+import {
+  CompositedMessageInterceptor,
+  GeneralMessage,
+  MessageInterceptor,
+  MessageInterceptorContext,
+} from '../hook';
 import { Settings } from './Settings';
 import { UserAgent } from './UserAgent';
 import { ILogger, getDefaultLogger } from './Logger';
@@ -69,6 +76,11 @@ export interface BaseClientOptions {
   requestTimeout?: number;
   logger?: ILogger;
   topics?: string[];
+  /**
+   * Message interceptor(s) invoked around send/receive/consume/ack hook points,
+   * mirroring the Java client's MessageInterceptor chain.
+   */
+  messageInterceptor?: MessageInterceptor | MessageInterceptor[];
 }
 
 /**
@@ -94,6 +106,7 @@ export abstract class BaseClient {
   protected readonly logger: ILogger;
   protected readonly rpcClientManager: RpcClientManager;
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
+  readonly #compositedMessageInterceptor = new CompositedMessageInterceptor();
   #startupResolve?: () => void;
   #startupReject?: (err: Error) => void;
   #timers: NodeJS.Timeout[] = [];
@@ -143,6 +156,14 @@ export abstract class BaseClient {
         if (topic && topic.trim().length > 0) {
           this.topics.add(topic);
         }
+      }
+    }
+    // Register message interceptors provided by the user (allowed before startup only).
+    if (options.messageInterceptor) {
+      const interceptors = Array.isArray(options.messageInterceptor)
+        ? options.messageInterceptor : [ options.messageInterceptor ];
+      for (const interceptor of interceptors) {
+        this.addMessageInterceptor(interceptor);
       }
     }
   }
@@ -564,12 +585,11 @@ export abstract class BaseClient {
   }
 
   onRecoverOrphanedTransactionCommand(_endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {
+    // The base client does not support transactions; subclasses (e.g. Producer) override
+    // this method to recover orphaned transactional messages. Mirroring the Java client
+    // (ClientImpl#onRecoverOrphanedTransactionCommand), no reply is sent back to remote.
     this.logger.warn('Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
       this.clientId, command.toObject());
-    // const telemetryCommand = new TelemetryCommand();
-    // telemetryCommand.setStatus(new Status().setCode(Code.NOT_IMPLEMENTED));
-    // telemetryCommand.setRecoverOrphanedTransactionCommand(new RecoverOrphanedTransactionCommand());
-    // this.telemetry(endpoints, telemetryCommand);
   }
 
   onVerifyMessageCommand(endpoints: Endpoints, command: VerifyMessageCommand) {
@@ -624,6 +644,18 @@ export abstract class BaseClient {
     return lines.join('\n');
   }
 
+  /**
+   * Handle the notify-unsubscribe-lite command sent by remote when a lite topic
+   * subscription must be dropped (e.g. quota violation or administrative action).
+   *
+   * The base client ignores it, mirroring Java ClientImpl#onNotifyUnsubscribeLiteCommand;
+   * lite push consumers override it to drive their lite subscription manager.
+   */
+  onNotifyUnsubscribeLiteCommand(endpoints: Endpoints, command: NotifyUnsubscribeLiteCommand) {
+    this.logger.warn('Ignore unsubscribe lite topic command from remote, which is not expected, endpoints=%s, clientId=%s, command=%j',
+      endpoints.facade, this.clientId, command.toObject());
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onReconnectEndpointsCommand(endpoints: Endpoints, _command: ReconnectEndpointsCommand) {
     this.logger.info('Received reconnect endpoints command from remote, will refresh telemetry session, endpoints=%s, clientId=%s',
@@ -640,6 +672,42 @@ export abstract class BaseClient {
    */
   getEndpoints(): Endpoints {
     return this.endpoints;
+  }
+
+  /**
+   * Add a message interceptor to the client. Interceptors can only be registered
+   * before the client is running, mirroring Java ClientImpl#addMessageInterceptor.
+   */
+  addMessageInterceptor(messageInterceptor: MessageInterceptor) {
+    if (!this.isRunning()) {
+      this.#compositedMessageInterceptor.addInterceptor(messageInterceptor);
+    }
+  }
+
+  /**
+   * Invoke the interceptor chain before a hook point is executed.
+   */
+  doBefore(context: MessageInterceptorContext, generalMessages: GeneralMessage[]) {
+    try {
+      this.#compositedMessageInterceptor.doBefore(context, generalMessages);
+    } catch (t) {
+      // Should never reach here, the composite interceptor guards each interceptor.
+      this.logger.error('[Bug] Exception raised while handling messages, clientId=%s, error=%s',
+        this.clientId, t);
+    }
+  }
+
+  /**
+   * Invoke the interceptor chain after a hook point is executed.
+   */
+  doAfter(context: MessageInterceptorContext, generalMessages: GeneralMessage[]) {
+    try {
+      this.#compositedMessageInterceptor.doAfter(context, generalMessages);
+    } catch (t) {
+      // Should never reach here, the composite interceptor guards each interceptor.
+      this.logger.error('[Bug] Exception raised while handling messages, clientId=%s, error=%s',
+        this.clientId, t);
+    }
   }
 
   /**

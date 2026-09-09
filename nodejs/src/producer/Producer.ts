@@ -50,6 +50,12 @@ import { Transaction } from './Transaction';
 import { createResource } from '../util';
 import { RecallReceipt } from './RecallReceipt';
 import { RecallMessageRequest } from '../../proto/apache/rocketmq/v2/service_pb';
+import {
+  GeneralMessage,
+  MessageHookPoints,
+  MessageHookPointsStatus,
+  MessageInterceptorContextImpl,
+} from '../hook';
 
 export interface ProducerOptions extends BaseClientOptions {
   topic?: string | string[];
@@ -241,7 +247,18 @@ export class Producer extends BaseClient {
     // Prepare the candidate message queue(s) for retry-sending in advance.
     const candidates = messageGroup ? [ loadBalancer.takeMessageQueueByMessageGroup(messageGroup) ] :
       this.#takeMessageQueues(loadBalancer);
-    return await this.#send0(topic, messageType, candidates, pubMessages, 1);
+    // SEND hook point, mirroring Java ProducerImpl#send.
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+    const generalMessages = pubMessages as unknown as GeneralMessage[];
+    this.doBefore(context, generalMessages);
+    try {
+      const receipts = await this.#send0(topic, messageType, candidates, pubMessages, 1);
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.OK), generalMessages);
+      return receipts;
+    } catch (err) {
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), generalMessages);
+      throw err;
+    }
   }
 
   #wrapSendMessageRequest(pubMessages: PublishingMessage[], mq: MessageQueue) {
