@@ -120,11 +120,25 @@ export class Producer extends BaseClient {
       .setTopic(createResource(message.topic).setResourceNamespace(this.namespace))
       .setResolution(resolution)
       .setSource(source);
-    const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
-    StatusChecker.check(response.getStatus()?.toObject());
+    // COMMIT_TRANSACTION / ROLLBACK_TRANSACTION hook point, mirroring Java ProducerImpl#endTransaction.
+    const messageHookPoints = resolution === TransactionResolution.COMMIT ?
+      MessageHookPoints.COMMIT_TRANSACTION : MessageHookPoints.ROLLBACK_TRANSACTION;
+    const context = new MessageInterceptorContextImpl(messageHookPoints);
+    const generalMessages: GeneralMessage[] = [ message ];
+    this.doBefore(context, generalMessages);
+    try {
+      const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
+      const statusObj = response.getStatus()?.toObject();
+      const hookStatus = statusObj?.code === Code.OK ? MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
+      StatusChecker.check(statusObj);
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, hookStatus), generalMessages);
 
-    this.logger.debug?.('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
-      messageId, transactionId, resolutionStr, sourceStr, this.clientId);
+      this.logger.debug?.('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
+        messageId, transactionId, resolutionStr, sourceStr, this.clientId);
+    } catch (err) {
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), generalMessages);
+      throw err;
+    }
   }
 
   async onRecoverOrphanedTransactionCommand(endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {

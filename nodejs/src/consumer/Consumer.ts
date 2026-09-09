@@ -28,6 +28,7 @@ import { StatusChecker } from '../exception';
 import { BaseClient, BaseClientOptions } from '../client';
 import { createDuration, createResource } from '../util';
 import {
+  GeneralMessage,
   MessageHookPoints,
   MessageHookPointsStatus,
   MessageInterceptorContextImpl,
@@ -178,9 +179,27 @@ export abstract class Consumer extends BaseClient {
     return res;
   }
 
-  async forwardMessageToDeadLetterQueueViaRpc(endpoints: any, request: any, timeout: number) {
-    const res = await this.rpcClientManager.forwardMessageToDeadLetterQueue(endpoints, request, timeout);
-    return res;
+  /**
+   * Forward the message to the dead letter queue, mirroring Java
+   * PushConsumerImpl#forwardMessageToDeadLetterQueue. The FORWARD_TO_DLQ hook
+   * point is triggered around every RPC attempt.
+   */
+  async forwardMessageToDeadLetterQueueViaRpc(endpoints: any, request: any, timeout: number,
+    messageView: MessageView) {
+    // FORWARD_TO_DLQ hook point, mirroring Java PushConsumerImpl#forwardMessageToDeadLetterQueue.
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.FORWARD_TO_DLQ);
+    const generalMessages: GeneralMessage[] = [ messageView ];
+    this.doBefore(context, generalMessages);
+    try {
+      const response = await this.rpcClientManager.forwardMessageToDeadLetterQueue(endpoints, request, timeout);
+      const hookStatus = response.getStatus()?.getCode() === Code.OK ?
+        MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, hookStatus), generalMessages);
+      return response;
+    } catch (err) {
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), generalMessages);
+      throw err;
+    }
   }
 
   /**

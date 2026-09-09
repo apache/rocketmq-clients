@@ -32,7 +32,10 @@ import {
   CustomizedBackoffRetryPolicy,
 } from '../src/retry';
 import { Endpoints, TopicRouteData } from '../src/route';
-import { PublishingLoadBalancer } from '../src/producer';
+import { Producer, PublishingLoadBalancer } from '../src/producer';
+import { Consumer } from '../src/consumer';
+import { Message } from '../src/message';
+import { Settings } from '../src/client';
 import { calculateStringSipHash24 } from '../src/util';
 import {
   Attribute,
@@ -50,8 +53,13 @@ import {
   PayloadEmptyException,
   LiteSubscriptionQuotaExceededException,
 } from '../src/exception';
-import { Code, RetryPolicy as RetryPolicyPB, ExponentialBackoff, CustomizedBackoff } from '../proto/apache/rocketmq/v2/definition_pb';
+import { Code, RetryPolicy as RetryPolicyPB, ExponentialBackoff, CustomizedBackoff, TransactionResolution,
+} from '../proto/apache/rocketmq/v2/definition_pb';
 import { Status } from '../proto/apache/rocketmq/v2/definition_pb';
+import {
+  HeartbeatRequest,
+  NotifyClientTerminationRequest,
+} from '../proto/apache/rocketmq/v2/service_pb';
 import {
   MessageQueue as MessageQueuePB,
   Broker as BrokerPB,
@@ -199,7 +207,7 @@ describe('takeMessageQueueByMessageGroup floorMod semantics (C-1)', () => {
   // since PublishingLoadBalancer only keeps queues with queueId === MASTER_BROKER_ID (0).
   // The returned queue is identified by its broker endpoints port (10911 + expected index).
   function buildLoadBalancer(queueCount: number): PublishingLoadBalancer {
-    const pbs = [];
+    const pbs: MessageQueuePB[] = [];
     for (let i = 0; i < queueCount; i++) {
       const endpointsPb = new EndpointsPB();
       endpointsPb.setScheme(AddressScheme.IPV4);
@@ -279,6 +287,141 @@ describe('Telemetry command dispatch vs Java (J-1)', () => {
     assert.strictEqual(received.length, 1);
     assert.strictEqual(received[0].liteTopic, 'lite-topic-1');
     assert.strictEqual(received[0].facade, '127.0.0.1:8081');
+  });
+});
+
+describe('Transaction hook points vs Java (K-2)', () => {
+  function createProducer(events: string[]) {
+    const producer = new Producer({
+      endpoints: '127.0.0.1:8081',
+      namespace: '',
+      topics: [ 'TopicTestForTransaction' ],
+      messageInterceptor: {
+        doBefore: context => {
+          events.push(`before:${MessageHookPoints[context.getMessageHookPoints()]}`);
+        },
+        doAfter: context => {
+          events.push(`after:${MessageHookPoints[context.getMessageHookPoints()]}:${MessageHookPointsStatus[context.getStatus()]}`);
+        },
+      },
+    } as any);
+    return producer;
+  }
+
+  function stubEndTransaction(producer: Producer, status: Status.AsObject) {
+    (producer as any).rpcClientManager = {
+      endTransaction: async () => ({
+        getStatus: () => ({
+          getCode: () => status.code,
+          toObject: () => status,
+        }),
+      }),
+    };
+  }
+
+  it('should trigger COMMIT_TRANSACTION on commit and ROLLBACK_TRANSACTION on rollback', async () => {
+    const commitEvents: string[] = [];
+    const producer = createProducer(commitEvents);
+    stubEndTransaction(producer, statusOf(Code.OK));
+    await producer.endTransaction(new Endpoints('127.0.0.1:8081'),
+      new Message({ topic: 'TopicTestForTransaction', body: Buffer.from('body') }),
+      'message-id', 'transaction-id', TransactionResolution.COMMIT);
+    assert.deepStrictEqual(commitEvents, [
+      'before:COMMIT_TRANSACTION', 'after:COMMIT_TRANSACTION:OK',
+    ]);
+
+    const rollbackEvents: string[] = [];
+    const rollbackProducer = createProducer(rollbackEvents);
+    stubEndTransaction(rollbackProducer, statusOf(Code.OK));
+    await rollbackProducer.endTransaction(new Endpoints('127.0.0.1:8081'),
+      new Message({ topic: 'TopicTestForTransaction', body: Buffer.from('body') }),
+      'message-id', 'transaction-id', TransactionResolution.ROLLBACK);
+    assert.deepStrictEqual(rollbackEvents, [
+      'before:ROLLBACK_TRANSACTION', 'after:ROLLBACK_TRANSACTION:OK',
+    ]);
+  });
+
+  it('should mark the transaction hook as ERROR when the RPC fails', async () => {
+    const events: string[] = [];
+    const producer = createProducer(events);
+    (producer as any).rpcClientManager = {
+      endTransaction: async () => {
+        throw new Error('end transaction failed');
+      },
+    };
+    await assert.rejects(async () => {
+      await producer.endTransaction(new Endpoints('127.0.0.1:8081'),
+        new Message({ topic: 'TopicTestForTransaction', body: Buffer.from('body') }),
+        'message-id', 'transaction-id', TransactionResolution.COMMIT);
+    });
+    assert.deepStrictEqual(events, [
+      'before:COMMIT_TRANSACTION', 'after:COMMIT_TRANSACTION:ERROR',
+    ]);
+  });
+});
+
+describe('FORWARD_TO_DLQ hook point vs Java (K-3)', () => {
+  class HookTestConsumer extends Consumer {
+    protected getSettings(): Settings {
+      return {} as Settings;
+    }
+    protected wrapHeartbeatRequest(): HeartbeatRequest {
+      return new HeartbeatRequest();
+    }
+    protected wrapNotifyClientTerminationRequest(): NotifyClientTerminationRequest {
+      return new NotifyClientTerminationRequest();
+    }
+  }
+
+  function createConsumer(events: string[]) {
+    return new HookTestConsumer({
+      endpoints: '127.0.0.1:8081',
+      namespace: '',
+      consumerGroup: 'TestGroup',
+      messageInterceptor: {
+        doBefore: context => {
+          events.push(`before:${MessageHookPoints[context.getMessageHookPoints()]}`);
+        },
+        doAfter: context => {
+          events.push(`after:${MessageHookPoints[context.getMessageHookPoints()]}:${MessageHookPointsStatus[context.getStatus()]}`);
+        },
+      },
+    } as any);
+  }
+
+  it('should trigger FORWARD_TO_DLQ with the status carried out of the response', async () => {
+    const okEvents: string[] = [];
+    const okConsumer = createConsumer(okEvents);
+    (okConsumer as any).rpcClientManager = {
+      forwardMessageToDeadLetterQueue: async () => ({ getStatus: () => ({ getCode: () => Code.OK }) }),
+    };
+    await okConsumer.forwardMessageToDeadLetterQueueViaRpc(new Endpoints('127.0.0.1:8081'), {}, 3000,
+      { topic: 'TopicTest' } as any);
+    assert.deepStrictEqual(okEvents, [ 'before:FORWARD_TO_DLQ', 'after:FORWARD_TO_DLQ:OK' ]);
+
+    const errEvents: string[] = [];
+    const errConsumer = createConsumer(errEvents);
+    (errConsumer as any).rpcClientManager = {
+      forwardMessageToDeadLetterQueue: async () => ({ getStatus: () => ({ getCode: () => Code.INTERNAL_ERROR }) }),
+    };
+    await errConsumer.forwardMessageToDeadLetterQueueViaRpc(new Endpoints('127.0.0.1:8081'), {}, 3000,
+      { topic: 'TopicTest' } as any);
+    assert.deepStrictEqual(errEvents, [ 'before:FORWARD_TO_DLQ', 'after:FORWARD_TO_DLQ:ERROR' ]);
+  });
+
+  it('should mark FORWARD_TO_DLQ as ERROR when the RPC throws', async () => {
+    const events: string[] = [];
+    const consumer = createConsumer(events);
+    (consumer as any).rpcClientManager = {
+      forwardMessageToDeadLetterQueue: async () => {
+        throw new Error('forward failed');
+      },
+    };
+    await assert.rejects(async () => {
+      await consumer.forwardMessageToDeadLetterQueueViaRpc(new Endpoints('127.0.0.1:8081'), {}, 3000,
+        { topic: 'TopicTest' } as any);
+    });
+    assert.deepStrictEqual(events, [ 'before:FORWARD_TO_DLQ', 'after:FORWARD_TO_DLQ:ERROR' ]);
   });
 });
 
