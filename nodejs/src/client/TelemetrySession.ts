@@ -27,6 +27,8 @@ export class TelemetrySession {
   #logger: ILogger;
   #stream: ClientDuplexStream<TelemetryCommand, TelemetryCommand>;
   #isRefreshing = false;
+  #released = false;
+  #reconnectTimer?: NodeJS.Timeout;
 
   constructor(baseClient: BaseClient, endpoints: Endpoints, logger: ILogger) {
     this.#endpoints = endpoints;
@@ -38,8 +40,20 @@ export class TelemetrySession {
   }
 
   release() {
+    if (this.#released) {
+      return;
+    }
+    this.#released = true;
+    if (this.#reconnectTimer) {
+      clearTimeout(this.#reconnectTimer);
+      this.#reconnectTimer = undefined;
+    }
     this.#logger.info('Begin to release telemetry session, endpoints=%s, clientId=%s',
       this.#endpoints, this.#baseClient.clientId);
+    this.#closeStream();
+  }
+
+  #closeStream() {
     try {
       this.#stream.end();
       this.#stream.removeAllListeners();
@@ -144,21 +158,35 @@ export class TelemetrySession {
     }
   }
 
+  /**
+   * Schedule a telemetry stream renewal. The timer is tracked so that it can
+   * be cancelled on release(), and a pending timer doubles as a guard to
+   * prevent error/end events from scheduling duplicate reconnects.
+   */
+  #scheduleRenewStream() {
+    if (this.#released || this.#reconnectTimer) {
+      return;
+    }
+    this.#reconnectTimer = setTimeout(() => {
+      this.#reconnectTimer = undefined;
+      if (this.#released) {
+        return;
+      }
+      this.#renewStream(false);
+    }, 1000);
+  }
+
   #onError(err: Error) {
     this.#logger.error('Exception raised from stream response observer, endpoints=%s, clientId=%s, error=%s',
       this.#endpoints, this.#baseClient.clientId, err);
-    this.release();
-    setTimeout(() => {
-      this.#renewStream(false);
-    }, 1000);
+    this.#closeStream();
+    this.#scheduleRenewStream();
   }
 
   #onEnd() {
     this.#logger.info('Receive completion for stream response observer, endpoints=%s, clientId=%s',
       this.#endpoints, this.#baseClient.clientId);
-    this.release();
-    setTimeout(() => {
-      this.#renewStream(false);
-    }, 1000);
+    this.#closeStream();
+    this.#scheduleRenewStream();
   }
 }
