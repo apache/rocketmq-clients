@@ -316,7 +316,11 @@ export abstract class BaseClient {
     this.isolated.clear();
 
     this.logger.info('Shutdown the rocketmq client successfully, clientId=%s', this.clientId);
-    this.logger.close && this.logger.close();
+    // Defer closing the logger to the next macrotask: subclass shutdown()
+    // implementations (Producer / PushConsumer) emit their final log line right
+    // after super.shutdown(), and egg-logger throws "log stream had been closed"
+    // if it is used again after close().
+    setImmediate(() => this.logger.close && this.logger.close());
   }
 
   async #doHeartbeat() {
