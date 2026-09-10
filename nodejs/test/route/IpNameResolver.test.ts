@@ -73,7 +73,7 @@ describe('IpNameResolver (custom ip scheme, mirrors Java IpNameResolverFactory)'
     assert.strictEqual(eps[0].addresses[0].port, 80);
   });
 
-  it('reports an error for an unparseable address', async () => {
+  it('reports an error for an unparsable address', async () => {
     await assert.rejects(() => resolve('localhost:notaport'));
   });
 
