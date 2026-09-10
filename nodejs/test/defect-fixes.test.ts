@@ -183,18 +183,18 @@ describe('StatusChecker mappings vs Java', () => {
   });
 });
 
-describe('Endpoints.getGrpcTarget with resolver scheme (B-1)', () => {
-  it('should prefix ipv4: scheme for IPv4 addresses', () => {
-    assert.strictEqual(new Endpoints('127.0.0.1:10911').getGrpcTarget(), 'ipv4:127.0.0.1:10911');
+describe('Endpoints.getGrpcTarget with resolver scheme (custom ip resolver)', () => {
+  it('should prefix ip: scheme for IPv4 addresses', () => {
+    assert.strictEqual(new Endpoints('127.0.0.1:10911').getGrpcTarget(), 'ip:127.0.0.1:10911');
   });
 
-  it('should prefix ipv4: scheme for multiple IPv4 addresses', () => {
+  it('should prefix ip: scheme for multiple IPv4 addresses', () => {
     const target = new Endpoints('127.0.0.1:8081;127.0.0.2:8082').getGrpcTarget();
-    assert.strictEqual(target, 'ipv4:127.0.0.1:8081,127.0.0.2:8082');
+    assert.strictEqual(target, 'ip:127.0.0.1:8081,127.0.0.2:8082');
   });
 
-  it('should prefix ipv6: scheme with brackets for IPv6 addresses', () => {
-    assert.strictEqual(new Endpoints('[::1]:10911').getGrpcTarget(), 'ipv6:[::1]:10911');
+  it('should prefix ip: scheme with brackets for IPv6 addresses', () => {
+    assert.strictEqual(new Endpoints('[::1]:10911').getGrpcTarget(), 'ip:[::1]:10911');
   });
 
   it('should prefix dns: scheme for domain names', () => {

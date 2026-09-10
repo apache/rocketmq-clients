@@ -45,6 +45,7 @@ import {
   GeneralMessage,
   MessageInterceptor,
   MessageInterceptorContext,
+  MessageMeterInterceptor,
 } from '../hook';
 import { Settings } from './Settings';
 import { UserAgent } from './UserAgent';
@@ -53,6 +54,8 @@ import { SessionCredentials } from './SessionCredentials';
 import { RpcClientManager } from './RpcClientManager';
 import { TelemetrySession } from './TelemetrySession';
 import { ClientId } from './ClientId';
+import { ClientMeterManager } from '../metrics';
+import { Metric } from '../metrics/Metric';
 
 const debug = debuglog('rocketmq-client-nodejs:client:BaseClient');
 
@@ -107,6 +110,7 @@ export abstract class BaseClient {
   protected readonly rpcClientManager: RpcClientManager;
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
   readonly #compositedMessageInterceptor = new CompositedMessageInterceptor();
+  protected readonly clientMeterManager: ClientMeterManager;
   #startupResolve?: () => void;
   #startupReject?: (err: Error) => void;
   #timers: NodeJS.Timeout[] = [];
@@ -151,6 +155,12 @@ export abstract class BaseClient {
     // Default request timeout is 3000ms
     this.requestTimeout = options.requestTimeout ?? 3000;
     this.rpcClientManager = new RpcClientManager(this, this.logger);
+    // Wire the metrics pipeline: a dedicated meter manager plus an interceptor
+    // that records the four RocketMQ histograms around the SEND/RECEIVE/CONSUME
+    // hook points. Mirrors Java's ClientImpl#initClientMeterManager.
+    this.clientMeterManager = new ClientMeterManager(this.clientId, () => this.getRequestMetadata(), this.logger);
+    this.addMessageInterceptor(
+      new MessageMeterInterceptor(this.clientMeterManager, this.clientId, () => this.getConsumerGroup()));
     if (options.topics) {
       for (const topic of options.topics) {
         if (topic && topic.trim().length > 0) {
@@ -295,6 +305,10 @@ export abstract class BaseClient {
 
     // 4. Close RPC connections
     this.rpcClientManager.close();
+
+    // 4.5 Close the metrics export pipeline (flushes pending exports and releases
+    // the OTLP/gRPC channel). Mirrors ClientImpl#shutdown's meter manager close.
+    await this.clientMeterManager.shutdown();
 
     // 5. Clear caches
     this.topicRouteCache.clear();
@@ -529,6 +543,15 @@ export abstract class BaseClient {
     return metadata;
   }
 
+  /**
+   * Consumer group of this client, used as a metric attribute for consumer
+   * histograms/gauges. Producers have no consumer group, so the base
+   * implementation returns undefined; Consumer overrides this.
+   */
+  getConsumerGroup(): string | undefined {
+    return undefined;
+  }
+
   protected abstract getSettings(): Settings;
 
   /**
@@ -577,8 +600,8 @@ export abstract class BaseClient {
   onSettingsCommand(_endpoints: Endpoints, settings: SettingsPB) {
     this.logger.info('Received settings command, clientId=%s, settings=%j',
       this.clientId, settings.toObject());
-    // final Metric metric = new Metric(settings.getMetric());
-    // clientMeterManager.reset(metric);
+    const metric = new Metric(settings.getMetric());
+    this.clientMeterManager.reset(metric);
     this.getSettings().sync(settings);
     this.logger.info('Sync settings=%j, clientId=%s', this.getSettings(), this.clientId);
     this.#startupResolve && this.#startupResolve();

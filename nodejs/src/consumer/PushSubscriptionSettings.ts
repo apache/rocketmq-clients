@@ -34,6 +34,7 @@ export class PushSubscriptionSettings extends Settings {
   #fifo = false;
   #receiveBatchSize = 32;
   #longPollingTimeout = 30000; // ms
+  #consumeConcurrentlyMax = 32; // mirrors Java PushConsumerSettings default
 
   constructor(
     namespace: string,
@@ -44,12 +45,16 @@ export class PushSubscriptionSettings extends Settings {
     requestTimeout: number,
     subscriptionExpressions: Map<string, FilterExpression>,
     longPollingTimeout?: number,
+    consumeConcurrentlyMax?: number,
   ) {
     super(namespace, clientId, clientType, accessPoint, requestTimeout);
     this.#group = consumerGroup;
     this.#subscriptionExpressions = subscriptionExpressions;
     if (longPollingTimeout !== undefined) {
       this.#longPollingTimeout = longPollingTimeout;
+    }
+    if (consumeConcurrentlyMax !== undefined) {
+      this.#consumeConcurrentlyMax = consumeConcurrentlyMax;
     }
   }
 
@@ -59,6 +64,16 @@ export class PushSubscriptionSettings extends Settings {
 
   getReceiveBatchSize(): number {
     return this.#receiveBatchSize;
+  }
+
+  /**
+   * Maximum number of messages that may be in-flight (fetched but not yet
+   * settled) per process queue. The Node client previously had no equivalent of
+   * the Java {@code ProcessQueueImpl} permit, so consumption could grow
+   * unbounded; this bounds it and feeds the {@link ProcessQueue} semaphore.
+   */
+  getConsumeConcurrentlyMax(): number {
+    return this.#consumeConcurrentlyMax;
   }
 
   getLongPollingTimeout(): number {
@@ -99,6 +114,12 @@ export class PushSubscriptionSettings extends Settings {
       if (longPollingTimeout) {
         this.#longPollingTimeout = longPollingTimeout.getSeconds() * 1000 +
           Math.floor(longPollingTimeout.getNanos() / 1000000);
+      }
+      // consumeConcurrentlyMax is absent from the generated proto in this fork;
+      // guard the accessor so we keep the default (32) until the field lands.
+      const consumeConcurrentlyMax = (subscription as { getConsumeConcurrentlyMax?: () => number | null }).getConsumeConcurrentlyMax?.();
+      if (typeof consumeConcurrentlyMax === 'number' && consumeConcurrentlyMax > 0) {
+        this.#consumeConcurrentlyMax = consumeConcurrentlyMax;
       }
     }
     const backoffPolicy = settings.getBackoffPolicy();

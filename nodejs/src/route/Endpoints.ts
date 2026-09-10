@@ -18,6 +18,9 @@
 import { isIPv4, isIPv6 } from 'node:net';
 import { hashCodeOfString } from '../util';
 import { Address, AddressScheme, Endpoints as EndpointsPB } from '../../proto/apache/rocketmq/v2/definition_pb';
+// Side-effect import: registers the custom `ip` name resolver (shuffle + multi-address
+// load balancing), mirroring the Java client's IpNameResolverFactory.
+import './IpNameResolver';
 
 const DEFAULT_PORT = 80;
 
@@ -91,9 +94,11 @@ export class Endpoints {
     }).join(',');
     switch (this.scheme) {
       case AddressScheme.IPV4:
-        return `ipv4:${targets}`;
       case AddressScheme.IPV6:
-        return `ipv6:${targets}`;
+        // Route IP addresses through the custom `ip` resolver registered in
+        // IpNameResolver, which shuffles the address list for multi-proxy load
+        // balancing (equivalent to Java's IpNameResolverFactory).
+        return `ip:${targets}`;
       case AddressScheme.DOMAIN_NAME:
         return `dns:${targets}`;
       default:

@@ -23,6 +23,7 @@ import { TooManyRequestsException } from '../exception';
 import { ConsumeResult, ConsumeResultSuspend } from './ConsumeResult';
 import { FilterExpression } from './FilterExpression';
 import type { PushConsumer } from './PushConsumer';
+import { Semaphore } from '../util/Semaphore';
 
 const ACK_MESSAGE_FAILURE_BACKOFF_DELAY = 1000;
 const CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY = 1000;
@@ -31,6 +32,7 @@ const FORWARD_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY = 1000;
 const RECEIVING_FLOW_CONTROL_BACKOFF_DELAY = 20;
 const RECEIVING_FAILURE_BACKOFF_DELAY = 1000;
 const RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL = 1000;
+const RECEIVING_BACKOFF_DELAY_WHEN_PERMITS_EXHAUSTED = 20;
 
 export class ProcessQueue {
   readonly #consumer: PushConsumer;
@@ -42,15 +44,26 @@ export class ProcessQueue {
   #activityTime = Date.now();
   #cacheFullTime = 0;
   #aborted = false;
+  // Bounds in-flight messages per queue; mirrors Java ProcessQueueImpl permits.
+  readonly #semaphore: Semaphore;
 
   constructor(consumer: PushConsumer, mq: MessageQueue, filterExpression: FilterExpression) {
     this.#consumer = consumer;
     this.#mq = mq;
     this.#filterExpression = filterExpression;
+    this.#semaphore = new Semaphore(consumer.getPushConsumerSettings().getConsumeConcurrentlyMax());
   }
 
   getMessageQueue(): MessageQueue {
     return this.#mq;
+  }
+
+  /**
+   * Topic of the underlying message queue, used as a metric attribute when
+   * aggregating the consumer gauges.
+   */
+  get topic(): string {
+    return this.#mq.topic.name;
   }
 
   drop(): void {
@@ -77,9 +90,23 @@ export class ProcessQueue {
       return;
     }
     for (const messageView of messageList) {
+      // Each in-flight message consumes one permit. The reception batch size is
+      // already bounded by availablePermits, so tryAcquire should always succeed;
+      // if it does not (defensive), stop caching to avoid over-committing.
+      if (!this.#semaphore.tryAcquire()) {
+        break;
+      }
       this.#cachedMessages.push(messageView);
       this.#cachedMessagesBytes += messageView.body.length;
     }
+  }
+
+  /**
+   * Number of consumption permits still available on this process queue. When it
+   * reaches zero the receive loop applies backpressure (see #receiveMessageImmediately).
+   */
+  availablePermits(): number {
+    return this.#semaphore.availablePermits;
   }
 
   #getReceptionBatchSize(): number {
@@ -87,7 +114,10 @@ export class ProcessQueue {
       this.#consumer.cacheMessageCountThresholdPerQueue() - this.cachedMessagesCount(),
       1,
     );
-    return Math.min(bufferSize, this.#consumer.getPushConsumerSettings().getReceiveBatchSize());
+    // Bound the batch by the remaining consumption permits, mirroring Java's
+    // Math.max(consumeConcurrentlyMax - inflight, 1).
+    const permitSize = Math.max(this.#semaphore.availablePermits, 1);
+    return Math.min(bufferSize, permitSize, this.#consumer.getPushConsumerSettings().getReceiveBatchSize());
   }
 
   fetchMessageImmediately(): void {
@@ -132,6 +162,13 @@ export class ProcessQueue {
 
   #receiveMessageImmediately(attemptId?: string): void {
     if (this.#aborted) return;
+    // Apply backpressure: when every consumption permit is in use (i.e. the
+    // maximum number of messages is in-flight), stop fetching until messages are
+    // settled and permits are released. Mirrors Java's tryAcquirePermit gate.
+    if (this.#semaphore.availablePermits <= 0) {
+      this.#receiveMessageLater(RECEIVING_BACKOFF_DELAY_WHEN_PERMITS_EXHAUSTED, attemptId);
+      return;
+    }
     attemptId = attemptId ?? this.#generateAttemptId();
     try {
       const batchSize = this.#getReceptionBatchSize();
@@ -368,6 +405,9 @@ export class ProcessQueue {
     if (index !== -1) {
       this.#cachedMessages.splice(index, 1);
       this.#cachedMessagesBytes -= messageView.body.length;
+      // Return the consumption permit held by this now-settled message, so the
+      // receive loop can fetch again (backpressure release).
+      this.#semaphore.release();
     }
   }
 
