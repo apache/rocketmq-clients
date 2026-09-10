@@ -16,6 +16,7 @@
  */
 
 import { MessageView } from '../message';
+import { MessageInterceptor } from '../hook';
 import { ConsumeService } from './ConsumeService';
 import { MessageListener } from './MessageListener';
 import type { ProcessQueue } from './ProcessQueue';
@@ -25,8 +26,9 @@ export class FifoConsumeService extends ConsumeService {
   readonly #enableFifoConsumeAccelerator: boolean;
   readonly #logger: ILogger;
 
-  constructor(clientId: string, messageListener: MessageListener, enableFifoConsumeAccelerator?: boolean) {
-    super(clientId, messageListener);
+  constructor(clientId: string, messageListener: MessageListener, enableFifoConsumeAccelerator?: boolean,
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
+    super(clientId, messageListener, messageInterceptor, consumerGroup);
     this.#enableFifoConsumeAccelerator = enableFifoConsumeAccelerator ?? false;
     this.#logger = getDefaultLogger();
   }

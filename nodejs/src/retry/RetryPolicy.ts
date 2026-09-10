@@ -32,7 +32,7 @@ export interface RetryPolicy {
    * Get await time after current attempts, the attempt index starts at 1.
    *
    * @param attempt current attempt.
-   * @return await time in seconds.
+   * @return await time in milliseconds.
    */
   getNextAttemptDelay(attempt: number): number;
 

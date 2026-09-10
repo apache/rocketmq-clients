@@ -21,9 +21,10 @@ import {
   Subscription,
   RetryPolicy as RetryPolicyPB,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { Endpoints } from '../route';
 import { Settings, UserAgent } from '../client';
-import { ExponentialBackoffRetryPolicy, RetryPolicy } from '../retry';
+import { CustomizedBackoffRetryPolicy, ExponentialBackoffRetryPolicy, RetryPolicy } from '../retry';
 import { createDuration, createResource } from '../util';
 import { FilterExpression } from './FilterExpression';
 
@@ -33,6 +34,7 @@ export class PushSubscriptionSettings extends Settings {
   #fifo = false;
   #receiveBatchSize = 32;
   #longPollingTimeout = 30000; // ms
+  #consumeConcurrentlyMax = 32; // mirrors Java PushConsumerSettings default
 
   constructor(
     namespace: string,
@@ -43,12 +45,16 @@ export class PushSubscriptionSettings extends Settings {
     requestTimeout: number,
     subscriptionExpressions: Map<string, FilterExpression>,
     longPollingTimeout?: number,
+    consumeConcurrentlyMax?: number,
   ) {
     super(namespace, clientId, clientType, accessPoint, requestTimeout);
     this.#group = consumerGroup;
     this.#subscriptionExpressions = subscriptionExpressions;
     if (longPollingTimeout !== undefined) {
       this.#longPollingTimeout = longPollingTimeout;
+    }
+    if (consumeConcurrentlyMax !== undefined) {
+      this.#consumeConcurrentlyMax = consumeConcurrentlyMax;
     }
   }
 
@@ -58,6 +64,16 @@ export class PushSubscriptionSettings extends Settings {
 
   getReceiveBatchSize(): number {
     return this.#receiveBatchSize;
+  }
+
+  /**
+   * Maximum number of messages that may be in-flight (fetched but not yet
+   * settled) per process queue. The Node client previously had no equivalent of
+   * the Java {@code ProcessQueueImpl} permit, so consumption could grow
+   * unbounded; this bounds it and feeds the {@link ProcessQueue} semaphore.
+   */
+  getConsumeConcurrentlyMax(): number {
+    return this.#consumeConcurrentlyMax;
   }
 
   getLongPollingTimeout(): number {
@@ -99,23 +115,38 @@ export class PushSubscriptionSettings extends Settings {
         this.#longPollingTimeout = longPollingTimeout.getSeconds() * 1000 +
           Math.floor(longPollingTimeout.getNanos() / 1000000);
       }
+      // consumeConcurrentlyMax is absent from the generated proto in this fork;
+      // guard the accessor so we keep the default (32) until the field lands.
+      const consumeConcurrentlyMax = (subscription as { getConsumeConcurrentlyMax?: () => number | null }).getConsumeConcurrentlyMax?.();
+      if (typeof consumeConcurrentlyMax === 'number' && consumeConcurrentlyMax > 0) {
+        this.#consumeConcurrentlyMax = consumeConcurrentlyMax;
+      }
     }
     const backoffPolicy = settings.getBackoffPolicy();
     if (backoffPolicy) {
+      // Convert protobuf Duration (seconds + nanos) to milliseconds without
+      // losing sub-second precision.
+      const toMillis = (duration?: Duration) =>
+        duration ? duration.getSeconds() * 1000 + duration.getNanos() / 1e6 : 0;
       switch (backoffPolicy.getStrategyCase()) {
         case RetryPolicyPB.StrategyCase.EXPONENTIAL_BACKOFF: {
-          const exponential = backoffPolicy.getExponentialBackoff()!.toObject();
+          const exponential = backoffPolicy.getExponentialBackoff()!;
           this.retryPolicy = new ExponentialBackoffRetryPolicy(
             backoffPolicy.getMaxAttempts(),
-            exponential.initial?.seconds,
-            exponential.max?.seconds,
-            exponential.multiplier,
+            toMillis(exponential.getInitial()),
+            toMillis(exponential.getMax()),
+            exponential.getMultiplier(),
           );
           break;
         }
-        case RetryPolicyPB.StrategyCase.CUSTOMIZED_BACKOFF:
-          // CustomizedBackoffRetryPolicy not yet implemented in Node.js
+        case RetryPolicyPB.StrategyCase.CUSTOMIZED_BACKOFF: {
+          const customizedBackoff = backoffPolicy.getCustomizedBackoff()!;
+          const durations = customizedBackoff.getNextList().map((duration: Duration) => toMillis(duration));
+          if (durations.length > 0) {
+            this.retryPolicy = new CustomizedBackoffRetryPolicy(durations, backoffPolicy.getMaxAttempts());
+          }
           break;
+        }
         default:
           break;
       }

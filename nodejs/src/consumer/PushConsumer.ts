@@ -38,9 +38,11 @@ import { ConsumeService } from './ConsumeService';
 import { StandardConsumeService } from './StandardConsumeService';
 import { FifoConsumeService } from './FifoConsumeService';
 import { ProcessQueue } from './ProcessQueue';
+import { PushConsumerGaugeObserver } from './PushConsumerGaugeObserver';
 import { Assignment } from './Assignment';
 import { Assignments } from './Assignments';
 import { MessageListener } from './MessageListener';
+import { InflightRequestCountInterceptor } from '../hook';
 
 const ASSIGNMENT_SCAN_SCHEDULE_DELAY = 1000;
 const ASSIGNMENT_SCAN_SCHEDULE_PERIOD = 5000;
@@ -52,6 +54,12 @@ export interface PushConsumerOptions extends ConsumerOptions {
   maxCacheMessageSizeInBytes?: number;
   longPollingTimeout?: number;
   enableFifoConsumeAccelerator?: boolean;
+  /**
+   * Max number of messages in-flight per process queue. Mirrors Java's
+   * consumeConcurrentlyMax (default 32) and backs the ProcessQueue semaphore
+   * that applies consumption backpressure.
+   */
+  consumeConcurrentlyMax?: number;
 }
 
 class ConsumeMetrics {
@@ -71,6 +79,7 @@ export class PushConsumer extends Consumer {
   readonly #enableFifoConsumeAccelerator: boolean;
   readonly #processQueueTable = new Map<string /* mq key */, { mq: MessageQueue; pq: ProcessQueue }>();
   readonly #metrics = new ConsumeMetrics();
+  readonly #inflightRequestCountInterceptor: InflightRequestCountInterceptor;
   #consumeService!: ConsumeService;
   #scanAssignmentTimer?: NodeJS.Timeout;
   #inflightReceiveRequestCount = 0;
@@ -92,9 +101,20 @@ export class PushConsumer extends Consumer {
     this.#maxCacheMessageSizeInBytes = options.maxCacheMessageSizeInBytes ?? 64 * 1024 * 1024;
     this.#enableFifoConsumeAccelerator = options.enableFifoConsumeAccelerator ?? false;
 
+    // Built-in interceptor tracking in-flight receive requests, mirroring Java PushConsumerImpl.
+    this.#inflightRequestCountInterceptor = new InflightRequestCountInterceptor();
+    this.addMessageInterceptor(this.#inflightRequestCountInterceptor);
+
+    // Register the consumer gauge observer so cached message count/bytes are
+    // exported to the broker. The provider reads the process-queue table lazily
+    // at scrape time, so registering here (before any queue exists) is safe.
+    this.clientMeterManager.setGaugeObserver(
+      new PushConsumerGaugeObserver(() => this.processQueues(), this.clientId, this.consumerGroup));
+
     this.#pushSubscriptionSettings = new PushSubscriptionSettings(
       options.namespace, this.clientId, this.getClientType(), this.endpoints,
       this.consumerGroup, this.requestTimeout, this.#subscriptionExpressions,
+      options.longPollingTimeout, options.consumeConcurrentlyMax,
     );
   }
 
@@ -168,7 +188,20 @@ export class PushConsumer extends Consumer {
     // Every received message is cached before consumption and evicted from
     // the cache once its consumption chain settles, so empty caches on all
     // process queues mean consumption has fully quiesced.
+    // Bound the wait with the same timeout as the inflight-receive drain
+    // (request timeout + long-polling timeout) so shutdown cannot hang forever
+    // on a stuck consumption chain.
+    const maxWaitingTime = this.requestTimeoutValue
+      + this.getPushConsumerSettings().getLongPollingTimeout();
+    const endTime = Date.now() + maxWaitingTime;
     while ([ ...this.#processQueueTable.values() ].some(({ pq }) => pq.cachedMessagesCount() > 0)) {
+      if (Date.now() > endTime) {
+        const remaining = [ ...this.#processQueueTable.values() ]
+          .reduce((count, { pq }) => count + pq.cachedMessagesCount(), 0);
+        this.logger.warn('Timeout waiting for the cached messages to be consumed, clientId=%s, '
+          + 'remainingCachedMessages=%d', this.clientId, remaining);
+        return;
+      }
       await this.sleep(100);
     }
   }
@@ -217,11 +250,22 @@ export class PushConsumer extends Consumer {
     // No-op for push consumer; assignments are queried separately
   }
 
+  /**
+   * Get the count of in-flight receive requests tracked by the built-in
+   * {@link InflightRequestCountInterceptor}, mirroring Java PushConsumerImpl.
+   */
+  protected getInflightReceiveRequestCountFromInterceptor(): number {
+    return this.#inflightRequestCountInterceptor.getInflightReceiveRequestCount();
+  }
+
   protected createConsumeService(): ConsumeService {
+    // `this` implements MessageInterceptor (doBefore/doAfter delegating to the
+    // composited interceptor chain), mirroring Java PushConsumerImpl.
     if (this.#pushSubscriptionSettings.isFifo()) {
-      return new FifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator);
+      return new FifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator,
+        this, this.consumerGroup);
     }
-    return new StandardConsumeService(this.clientId, this.#messageListener);
+    return new StandardConsumeService(this.clientId, this.#messageListener, this, this.consumerGroup);
   }
 
   async subscribe(topic: string, filterExpression: FilterExpression) {
@@ -395,6 +439,14 @@ export class PushConsumer extends Consumer {
 
   getQueueSize(): number {
     return this.#processQueueTable.size;
+  }
+
+  /**
+   * All live process queues, used by the consumer gauge observer to aggregate
+   * cached message count/bytes. Reads the private table lazily at scrape time.
+   */
+  processQueues(): ProcessQueue[] {
+    return [ ...this.#processQueueTable.values() ].map(entry => entry.pq);
   }
 
   cacheMessageBytesThresholdPerQueue(): number {

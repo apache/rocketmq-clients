@@ -22,6 +22,7 @@ export * from './InternalErrorException';
 export * from './LiteSubscriptionQuotaExceededException';
 export * from './LiteTopicQuotaExceededException';
 export * from './NotFoundException';
+export * from './PayloadEmptyException';
 export * from './PayloadTooLargeException';
 export * from './PaymentRequiredException';
 export * from './ProxyTimeoutException';

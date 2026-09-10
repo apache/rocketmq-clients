@@ -16,6 +16,7 @@
  */
 
 import { MessageView } from '../message';
+import { MessageInterceptor } from '../hook';
 import { ConsumeResultSuspend } from './ConsumeResult';
 import { FifoConsumeService } from './FifoConsumeService';
 import { MessageListener } from './MessageListener';
@@ -37,8 +38,9 @@ import { ILogger, getDefaultLogger } from '../client/Logger';
 export class LiteFifoConsumeService extends FifoConsumeService {
   readonly #logger: ILogger;
 
-  constructor(clientId: string, messageListener: MessageListener, enableFifoConsumeAccelerator?: boolean) {
-    super(clientId, messageListener, enableFifoConsumeAccelerator);
+  constructor(clientId: string, messageListener: MessageListener, enableFifoConsumeAccelerator?: boolean,
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
+    super(clientId, messageListener, enableFifoConsumeAccelerator, messageInterceptor, consumerGroup);
     this.#logger = getDefaultLogger();
   }
 

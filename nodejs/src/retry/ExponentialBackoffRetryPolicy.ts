@@ -16,16 +16,16 @@
  */
 
 import assert from 'node:assert';
-import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import {
   RetryPolicy as RetryPolicyPB,
   ExponentialBackoff,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { createDuration } from '../util';
 import { RetryPolicy } from './RetryPolicy';
 
 export class ExponentialBackoffRetryPolicy implements RetryPolicy {
   #maxAttempts: number;
-  // seconds
+  // milliseconds
   #initialBackoff: number;
   #maxBackoff: number;
   #backoffMultiplier: number;
@@ -58,9 +58,14 @@ export class ExponentialBackoffRetryPolicy implements RetryPolicy {
     assert(retryPolicy.getStrategyCase() === RetryPolicyPB.StrategyCase.EXPONENTIAL_BACKOFF,
       'strategy must be exponential backoff');
     const backoff = retryPolicy.getExponentialBackoff()!.toObject();
+    // Convert protobuf Duration (seconds + nanos) to milliseconds without
+    // losing sub-second precision (e.g. an initial backoff of 0.5s used to
+    // be truncated to plain 0, causing immediate retries).
+    const toMillis = (duration?: { seconds?: number; nanos?: number }) =>
+      duration ? (duration.seconds ?? 0) * 1000 + (duration.nanos ?? 0) / 1e6 : 0;
     return new ExponentialBackoffRetryPolicy(this.#maxAttempts,
-      backoff.initial?.seconds,
-      backoff.max?.seconds,
+      toMillis(backoff.initial),
+      toMillis(backoff.max),
       backoff.multiplier);
   }
 
@@ -69,8 +74,8 @@ export class ExponentialBackoffRetryPolicy implements RetryPolicy {
       .setMaxAttempts(this.#maxAttempts)
       .setExponentialBackoff(
         new ExponentialBackoff()
-          .setInitial(new Duration().setSeconds(this.#initialBackoff))
-          .setMax(new Duration().setSeconds(this.#maxBackoff))
+          .setInitial(createDuration(this.#initialBackoff))
+          .setMax(createDuration(this.#maxBackoff))
           .setMultiplier(this.#backoffMultiplier));
   }
 }

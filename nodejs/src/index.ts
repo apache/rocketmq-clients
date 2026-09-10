@@ -17,6 +17,7 @@
 
 export * from './consumer';
 export * from './exception';
+export * from './hook';
 export * from './message';
 export * from './producer';
 export * from './retry';

@@ -28,16 +28,25 @@ import {
   QueryRouteRequest,
   RecoverOrphanedTransactionCommand,
   VerifyMessageCommand,
+  VerifyMessageResult,
   PrintThreadStackTraceCommand,
   ReconnectEndpointsCommand,
   TelemetryCommand,
   ThreadStackTrace,
   HeartbeatRequest,
   NotifyClientTerminationRequest,
+  NotifyUnsubscribeLiteCommand,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { createResource, getRequestDateTime, sign } from '../util';
 import { TopicRouteData, Endpoints } from '../route';
-import { ClientException, StatusChecker } from '../exception';
+import { ClientException, NotFoundException, StatusChecker } from '../exception';
+import {
+  CompositedMessageInterceptor,
+  GeneralMessage,
+  MessageInterceptor,
+  MessageInterceptorContext,
+  MessageMeterInterceptor,
+} from '../hook';
 import { Settings } from './Settings';
 import { UserAgent } from './UserAgent';
 import { ILogger, getDefaultLogger } from './Logger';
@@ -45,8 +54,15 @@ import { SessionCredentials } from './SessionCredentials';
 import { RpcClientManager } from './RpcClientManager';
 import { TelemetrySession } from './TelemetrySession';
 import { ClientId } from './ClientId';
+import { ClientMeterManager } from '../metrics';
+import { Metric } from '../metrics/Metric';
 
 const debug = debuglog('rocketmq-client-nodejs:client:BaseClient');
+
+// Trigger transport self-healing (D-2) after this many consecutive heartbeat failures
+const HEARTBEAT_TRANSPORT_RECOVERY_THRESHOLD = 2;
+// Minimum interval between transport-recovery attempts per endpoints
+const TRANSPORT_RECOVERY_COOLDOWN = 30 * 1000;
 
 export interface BaseClientOptions {
   sslEnabled?: boolean;
@@ -63,6 +79,11 @@ export interface BaseClientOptions {
   requestTimeout?: number;
   logger?: ILogger;
   topics?: string[];
+  /**
+   * Message interceptor(s) invoked around send/receive/consume/ack hook points,
+   * mirroring the Java client's MessageInterceptor chain.
+   */
+  messageInterceptor?: MessageInterceptor | MessageInterceptor[];
 }
 
 /**
@@ -88,10 +109,16 @@ export abstract class BaseClient {
   protected readonly logger: ILogger;
   protected readonly rpcClientManager: RpcClientManager;
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
+  readonly #compositedMessageInterceptor = new CompositedMessageInterceptor();
+  protected readonly clientMeterManager: ClientMeterManager;
   #startupResolve?: () => void;
   #startupReject?: (err: Error) => void;
   #timers: NodeJS.Timeout[] = [];
   #running = false;
+  // Consecutive heartbeat failure counts keyed by endpoints facade (D-2 transport self-healing)
+  readonly #heartbeatFailureCounts = new Map<string, number>();
+  // Last transport-recovery timestamps per endpoints facade, to throttle recovery attempts
+  readonly #lastTransportRecoveryTimes = new Map<string, number>();
 
   /**
    * Get the client type.
@@ -128,11 +155,25 @@ export abstract class BaseClient {
     // Default request timeout is 3000ms
     this.requestTimeout = options.requestTimeout ?? 3000;
     this.rpcClientManager = new RpcClientManager(this, this.logger);
+    // Wire the metrics pipeline: a dedicated meter manager plus an interceptor
+    // that records the four RocketMQ histograms around the SEND/RECEIVE/CONSUME
+    // hook points. Mirrors Java's ClientImpl#initClientMeterManager.
+    this.clientMeterManager = new ClientMeterManager(this.clientId, () => this.getRequestMetadata(), this.logger);
+    this.addMessageInterceptor(
+      new MessageMeterInterceptor(this.clientMeterManager, this.clientId, () => this.getConsumerGroup()));
     if (options.topics) {
       for (const topic of options.topics) {
         if (topic && topic.trim().length > 0) {
           this.topics.add(topic);
         }
+      }
+    }
+    // Register message interceptors provided by the user (allowed before startup only).
+    if (options.messageInterceptor) {
+      const interceptors = Array.isArray(options.messageInterceptor)
+        ? options.messageInterceptor : [ options.messageInterceptor ];
+      for (const interceptor of interceptors) {
+        this.addMessageInterceptor(interceptor);
       }
     }
   }
@@ -169,6 +210,11 @@ export abstract class BaseClient {
         break;
       } catch (e) {
         lastError = e as Error;
+        // Not-found errors will never succeed on retry — fail fast, aligned
+        // with the Java client which surfaces NotFoundException immediately.
+        if (e instanceof NotFoundException) {
+          throw e;
+        }
         if (attempt < maxAttempts) {
           const backoffMs = 1000 * attempt; // Simple linear backoff: 1s, 2s, 3s
           this.logger.warn('Fetch topic route failed during startup, will retry, clientId=%s, attempt=%d/%d, error=%s, backoff=%dms',
@@ -260,13 +306,21 @@ export abstract class BaseClient {
     // 4. Close RPC connections
     this.rpcClientManager.close();
 
+    // 4.5 Close the metrics export pipeline (flushes pending exports and releases
+    // the OTLP/gRPC channel). Mirrors ClientImpl#shutdown's meter manager close.
+    await this.clientMeterManager.shutdown();
+
     // 5. Clear caches
     this.topicRouteCache.clear();
     this.inflightRouteFutures.clear();
     this.isolated.clear();
 
     this.logger.info('Shutdown the rocketmq client successfully, clientId=%s', this.clientId);
-    this.logger.close && this.logger.close();
+    // Defer closing the logger to the next macrotask: subclass shutdown()
+    // implementations (Producer / PushConsumer) emit their final log line right
+    // after super.shutdown(), and egg-logger throws "log stream had been closed"
+    // if it is used again after close().
+    setImmediate(() => this.logger.close && this.logger.close());
   }
 
   async #doHeartbeat() {
@@ -280,15 +334,64 @@ export abstract class BaseClient {
       for (const endpoints of endpointsList) {
         try {
           await this.rpcClientManager.heartbeat(endpoints, request, this.requestTimeout);
+          // Heartbeat succeeded: the remote is reachable again, so rejoin any
+          // isolated endpoints (mirrors Java ClientImpl#doHeartbeat).
+          if (this.isolated.delete(endpoints.facade)) {
+            this.logger.info('Isolated endpoints rejoined after successful heartbeat, endpoints=%s, clientId=%s',
+              endpoints.facade, this.clientId);
+          }
+          this.#heartbeatFailureCounts.delete(endpoints.facade);
         } catch (e) {
           // Log but don't throw - heartbeat is best-effort
           this.logger.warn('Heartbeat failed for endpoints=%s, clientId=%s, error=%s',
             endpoints.facade, this.clientId, e instanceof Error ? e.message : String(e));
+          this.#onHeartbeatFailure(endpoints);
         }
       }
     } catch (e) {
       this.logger.error('Unexpected error in heartbeat, clientId=%s, error=%s',
         this.clientId, e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /**
+   * Handle a heartbeat failure: after consecutive failures, rebuild the transport
+   * layer for the affected endpoints (evict the stale RpcClient channel and refresh
+   * the telemetry session), throttled by a per-endpoints cooldown.
+   */
+  #onHeartbeatFailure(endpoints: Endpoints) {
+    const failureCount = (this.#heartbeatFailureCounts.get(endpoints.facade) ?? 0) + 1;
+    this.#heartbeatFailureCounts.set(endpoints.facade, failureCount);
+    if (failureCount < HEARTBEAT_TRANSPORT_RECOVERY_THRESHOLD) {
+      return;
+    }
+    const now = Date.now();
+    if (now - (this.#lastTransportRecoveryTimes.get(endpoints.facade) ?? 0) < TRANSPORT_RECOVERY_COOLDOWN) {
+      debug('Transport recovery throttled by cooldown, endpoints=%s, clientId=%s',
+        endpoints.facade, this.clientId);
+      return;
+    }
+    this.#lastTransportRecoveryTimes.set(endpoints.facade, now);
+    this.logger.warn('Consecutive heartbeat failures detected, rebuilding transport layer, endpoints=%s, failureCount=%d, clientId=%s',
+      endpoints.facade, failureCount, this.clientId);
+    // 1. Evict the possibly stale RpcClient so a fresh channel is established on next use.
+    try {
+      this.rpcClientManager.evict(endpoints);
+    } catch (e) {
+      this.logger.warn('Failed to evict rpc client, endpoints=%s, clientId=%s, error=%s',
+        endpoints.facade, this.clientId, e instanceof Error ? e.message : String(e));
+    }
+    // 2. Release and drop the telemetry session, then eagerly rebuild it to re-sync settings.
+    const session = this.#telemetrySessions.get(endpoints.facade);
+    if (session) {
+      session.release();
+      this.#telemetrySessions.delete(endpoints.facade);
+    }
+    try {
+      this.getTelemetrySession(endpoints).syncSettings();
+    } catch (e) {
+      this.logger.warn('Failed to rebuild telemetry session, endpoints=%s, clientId=%s, error=%s',
+        endpoints.facade, this.clientId, e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -444,6 +547,15 @@ export abstract class BaseClient {
     return metadata;
   }
 
+  /**
+   * Consumer group of this client, used as a metric attribute for consumer
+   * histograms/gauges. Producers have no consumer group, so the base
+   * implementation returns undefined; Consumer overrides this.
+   */
+  getConsumerGroup(): string | undefined {
+    return undefined;
+  }
+
   protected abstract getSettings(): Settings;
 
   /**
@@ -492,41 +604,83 @@ export abstract class BaseClient {
   onSettingsCommand(_endpoints: Endpoints, settings: SettingsPB) {
     this.logger.info('Received settings command, clientId=%s, settings=%j',
       this.clientId, settings.toObject());
-    // final Metric metric = new Metric(settings.getMetric());
-    // clientMeterManager.reset(metric);
+    const metric = new Metric(settings.getMetric());
+    this.clientMeterManager.reset(metric);
     this.getSettings().sync(settings);
     this.logger.info('Sync settings=%j, clientId=%s', this.getSettings(), this.clientId);
     this.#startupResolve && this.#startupResolve();
   }
 
   onRecoverOrphanedTransactionCommand(_endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {
+    // The base client does not support transactions; subclasses (e.g. Producer) override
+    // this method to recover orphaned transactional messages. Mirroring the Java client
+    // (ClientImpl#onRecoverOrphanedTransactionCommand), no reply is sent back to remote.
     this.logger.warn('Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
       this.clientId, command.toObject());
-    // const telemetryCommand = new TelemetryCommand();
-    // telemetryCommand.setStatus(new Status().setCode(Code.NOT_IMPLEMENTED));
-    // telemetryCommand.setRecoverOrphanedTransactionCommand(new RecoverOrphanedTransactionCommand());
-    // this.telemetry(endpoints, telemetryCommand);
   }
 
   onVerifyMessageCommand(endpoints: Endpoints, command: VerifyMessageCommand) {
     const obj = command.toObject();
     this.logger.warn('Ignore verify message command from remote, which is not expected, clientId=%s, command=%j',
       this.clientId, obj);
+    // Respond with VerifyMessageResult carrying the same nonce, mirroring the Java
+    // client (BaseClient#onVerifyMessageCommand), instead of echoing the command.
     const telemetryCommand = new TelemetryCommand();
     telemetryCommand.setStatus(new Status().setCode(Code.NOT_IMPLEMENTED));
-    telemetryCommand.setVerifyMessageCommand(new VerifyMessageCommand().setNonce(obj.nonce));
+    telemetryCommand.setVerifyMessageResult(new VerifyMessageResult().setNonce(obj.nonce));
     this.telemetry(endpoints, telemetryCommand);
   }
 
   onPrintThreadStackTraceCommand(endpoints: Endpoints, command: PrintThreadStackTraceCommand) {
     const obj = command.toObject();
-    this.logger.warn('Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
+    this.logger.info('Received print thread stack trace command from remote, clientId=%s, command=%j',
       this.clientId, obj);
-    const nonce = obj.nonce;
     const telemetryCommand = new TelemetryCommand();
-    telemetryCommand.setThreadStackTrace(new ThreadStackTrace().setThreadStackTrace('mock stack').setNonce(nonce));
+    telemetryCommand.setThreadStackTrace(new ThreadStackTrace()
+      .setThreadStackTrace(this.#buildProcessDiagnostics())
+      .setNonce(obj.nonce));
     telemetryCommand.setStatus(new Status().setCode(Code.OK));
     this.telemetry(endpoints, telemetryCommand);
+  }
+
+  /**
+   * Build Node.js process diagnostics in place of Java-style thread stack traces.
+   * Java sends per-thread stacks via ThreadMXBean; Node.js is single-threaded per
+   * process, so we expose the closest equivalent runtime snapshot.
+   */
+  #buildProcessDiagnostics(): string {
+    const mem = process.memoryUsage();
+    const formatBytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(2)}MB`;
+    const lines = [
+      `Process: pid=${process.pid}, node=${process.version}, platform=${process.platform}, arch=${process.arch}`,
+      `Uptime: ${process.uptime().toFixed(3)}s`,
+      `Memory: rss=${formatBytes(mem.rss)}, heapUsed=${formatBytes(mem.heapUsed)}, ` +
+        `heapTotal=${formatBytes(mem.heapTotal)}, external=${formatBytes(mem.external)}, ` +
+        `arrayBuffers=${formatBytes(mem.arrayBuffers)}`,
+    ];
+    try {
+      const activeHandles = (process as unknown as { _getActiveHandles?: () => object[] })._getActiveHandles?.() ?? [];
+      lines.push(`Active handles: ${activeHandles.length}`);
+      for (const handle of activeHandles.slice(0, 20)) {
+        const name = handle?.constructor?.name ?? typeof handle;
+        lines.push(`  - ${name}`);
+      }
+    } catch {
+      // active handles are best-effort
+    }
+    return lines.join('\n');
+  }
+
+  /**
+   * Handle the notify-unsubscribe-lite command sent by remote when a lite topic
+   * subscription must be dropped (e.g. quota violation or administrative action).
+   *
+   * The base client ignores it, mirroring Java ClientImpl#onNotifyUnsubscribeLiteCommand;
+   * lite push consumers override it to drive their lite subscription manager.
+   */
+  onNotifyUnsubscribeLiteCommand(endpoints: Endpoints, command: NotifyUnsubscribeLiteCommand) {
+    this.logger.warn('Ignore unsubscribe lite topic command from remote, which is not expected, endpoints=%s, clientId=%s, command=%j',
+      endpoints.facade, this.clientId, command.toObject());
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -545,6 +699,42 @@ export abstract class BaseClient {
    */
   getEndpoints(): Endpoints {
     return this.endpoints;
+  }
+
+  /**
+   * Add a message interceptor to the client. Interceptors can only be registered
+   * before the client is running, mirroring Java ClientImpl#addMessageInterceptor.
+   */
+  addMessageInterceptor(messageInterceptor: MessageInterceptor) {
+    if (!this.isRunning()) {
+      this.#compositedMessageInterceptor.addInterceptor(messageInterceptor);
+    }
+  }
+
+  /**
+   * Invoke the interceptor chain before a hook point is executed.
+   */
+  doBefore(context: MessageInterceptorContext, generalMessages: GeneralMessage[]) {
+    try {
+      this.#compositedMessageInterceptor.doBefore(context, generalMessages);
+    } catch (t) {
+      // Should never reach here, the composite interceptor guards each interceptor.
+      this.logger.error('[Bug] Exception raised while handling messages, clientId=%s, error=%s',
+        this.clientId, t);
+    }
+  }
+
+  /**
+   * Invoke the interceptor chain after a hook point is executed.
+   */
+  doAfter(context: MessageInterceptorContext, generalMessages: GeneralMessage[]) {
+    try {
+      this.#compositedMessageInterceptor.doAfter(context, generalMessages);
+    } catch (t) {
+      // Should never reach here, the composite interceptor guards each interceptor.
+      this.logger.error('[Bug] Exception raised while handling messages, clientId=%s, error=%s',
+        this.clientId, t);
+    }
   }
 
   /**

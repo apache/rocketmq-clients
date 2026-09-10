@@ -37,7 +37,10 @@ const RPC_CLIENT_MAX_IDLE_DURATION = 30 * 60000; // 30 minutes
 const RPC_CLIENT_IDLE_CHECK_PERIOD = 60000;
 
 export class RpcClientManager {
-  #rpcClients = new Map<Endpoints, RpcClient>();
+  // Keyed by endpoints.facade (string) instead of the Endpoints object itself:
+  // Endpoints instances are recreated on every route fetch, so object keys would
+  // leak duplicate RpcClients for logically identical endpoints.
+  #rpcClients = new Map<string, RpcClient>();
   #baseClient: BaseClient;
   #logger: ILogger;
   #clearIdleRpcClientsTimer: NodeJS.Timeout;
@@ -55,24 +58,40 @@ export class RpcClientManager {
   }
 
   #clearIdleRpcClients() {
-    for (const [ endpoints, rpcClient ] of this.#rpcClients.entries()) {
+    for (const [ facade, rpcClient ] of this.#rpcClients.entries()) {
       const idleDuration = rpcClient.idleDuration();
       if (idleDuration > RPC_CLIENT_MAX_IDLE_DURATION) {
         rpcClient.close();
-        this.#rpcClients.delete(endpoints);
+        this.#rpcClients.delete(facade);
         this.#logger.info('[RpcClientManager] Rpc client has been idle for a long time, endpoints=%s, idleDuration=%s, clientId=%s',
-          endpoints, idleDuration, RPC_CLIENT_MAX_IDLE_DURATION, this.#baseClient.clientId);
+          facade, idleDuration, RPC_CLIENT_MAX_IDLE_DURATION, this.#baseClient.clientId);
       }
     }
   }
 
   #getRpcClient(endpoints: Endpoints) {
-    let rpcClient = this.#rpcClients.get(endpoints);
+    const facade = endpoints.facade;
+    let rpcClient = this.#rpcClients.get(facade);
     if (!rpcClient) {
       rpcClient = new RpcClient(endpoints, this.#baseClient.sslEnabled);
-      this.#rpcClients.set(endpoints, rpcClient);
+      this.#rpcClients.set(facade, rpcClient);
     }
     return rpcClient;
+  }
+
+  /**
+   * Close and remove the RPC client bound to the given endpoints (e.g. after
+   * consecutive heartbeat failures), so a fresh channel is established on next use.
+   */
+  evict(endpoints: Endpoints) {
+    const facade = endpoints.facade;
+    const rpcClient = this.#rpcClients.get(facade);
+    if (rpcClient) {
+      rpcClient.close();
+      this.#rpcClients.delete(facade);
+      this.#logger.info('[RpcClientManager] Rpc client evicted, endpoints=%s, clientId=%s',
+        facade, this.#baseClient.clientId);
+    }
   }
 
   close() {
@@ -82,12 +101,12 @@ export class RpcClientManager {
     }
 
     // Close all RPC clients and clear the map
-    for (const [ endpoints, rpcClient ] of this.#rpcClients.entries()) {
+    for (const [ facade, rpcClient ] of this.#rpcClients.entries()) {
       try {
         rpcClient.close();
       } catch (e) {
         this.#logger.warn('Failed to close RPC client for endpoints=%s, clientId=%s, error=%s',
-          endpoints.facade, this.#baseClient.clientId, e instanceof Error ? e.message : String(e));
+          facade, this.#baseClient.clientId, e instanceof Error ? e.message : String(e));
       }
     }
     this.#rpcClients.clear();

@@ -19,7 +19,6 @@ import { Code, LiteSubscriptionAction } from '../../proto/apache/rocketmq/v2/def
 import {
   NotifyUnsubscribeLiteCommand,
   SyncLiteSubscriptionRequest,
-  SyncLiteSubscriptionResponse,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { ClientException } from '../exception';
 import { Resource } from '../route';
@@ -259,20 +258,26 @@ export class LiteSubscriptionManager {
     }
 
     try {
-      // Call RPC client using public methods from LitePushConsumerImpl
-      const response: SyncLiteSubscriptionResponse = await this.consumerImpl.getRpcClientManager().syncLiteSubscription(
-        this.consumerImpl.getEndpoints(),
-        request,
-        this.consumerImpl.getRequestTimeout(),
-      );
+      // Sync the lite subscription to every route endpoint (not just the client's
+      // configured endpoints), mirroring the Java client which pushes subscriptions
+      // to all proxies serving the topic route.
+      const rpcClientManager = this.consumerImpl.getRpcClientManager();
+      const timeout = this.consumerImpl.getRequestTimeout();
+      const endpointsList = this.consumerImpl.getTotalRouteEndpoints();
+      const targets = endpointsList.length > 0 ? endpointsList : [ this.consumerImpl.getEndpoints() ];
+      const responses = await Promise.all(targets.map(endpoints =>
+        rpcClientManager.syncLiteSubscription(endpoints, request, timeout),
+      ));
 
-      // Handle response status
-      const status = response.getStatus();
-      if (status && status.getCode() !== Code.OK) {
-        throw new ClientException(
-          status.getCode(),
-          `Failed to sync lite subscription: ${status.getMessage()}`,
-        );
+      // Handle response statuses
+      for (let i = 0; i < responses.length; i++) {
+        const status = responses[i].getStatus();
+        if (status && status.getCode() !== Code.OK) {
+          throw new ClientException(
+            status.getCode(),
+            `Failed to sync lite subscription to endpoints=${targets[i].facade}: ${status.getMessage()}`,
+          );
+        }
       }
 
       if (logger.info) {

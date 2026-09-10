@@ -16,6 +16,7 @@
  */
 
 import { MessageView } from '../message';
+import { MessageInterceptor } from '../hook';
 import { ConsumeService } from './ConsumeService';
 import { MessageListener } from './MessageListener';
 import type { ProcessQueue } from './ProcessQueue';
@@ -31,8 +32,9 @@ import { ILogger, getDefaultLogger } from '../client/Logger';
 export class LiteStandardConsumeService extends ConsumeService {
   readonly #logger: ILogger;
 
-  constructor(clientId: string, messageListener: MessageListener) {
-    super(clientId, messageListener);
+  constructor(clientId: string, messageListener: MessageListener,
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
+    super(clientId, messageListener, messageInterceptor, consumerGroup);
     this.#logger = getDefaultLogger();
   }
 
