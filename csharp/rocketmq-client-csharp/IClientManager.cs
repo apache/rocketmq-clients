@@ -26,6 +26,12 @@ namespace Org.Apache.Rocketmq
     public interface IClientManager
     {
         /// <summary>
+        /// Reconnect to the specified endpoints, replacing the gRPC transport and rebuilding the telemetry stream.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        void Reconnect(Endpoints endpoints);
+
+        /// <summary>
         /// Establish a telemetry channel between client and remote endpoints.
         /// </summary>
         /// <param name="endpoints">The target endpoints.</param>
