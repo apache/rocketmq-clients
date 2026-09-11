@@ -321,6 +321,7 @@ namespace tests
         }
 
         [TestMethod]
+        [Timeout(30000)]
         public async Task TestConcurrentReconnectOnlyRecoversOnce()
         {
             var client = CreateRecoveryTestClient();
@@ -335,38 +336,34 @@ namespace tests
             rpcClient.Setup(c => c.ResetTransport()).Callback(() =>
             {
                 recoveryStarted.TrySetResult(true);
-                allowRecoveryToComplete.Task.Wait(TimeSpan.FromSeconds(5));
+                allowRecoveryToComplete.Task.GetAwaiter().GetResult();
             });
 
-            using var barrier = new Barrier(threadCount + 1);
-            var reconnects = Enumerable.Range(0, threadCount)
-                .Select(_ => Task.Run(() =>
-                {
-                    barrier.SignalAndWait(TimeSpan.FromSeconds(5));
-                    clientManager.Reconnect(FakeEndpoints, rpcClient.Object);
-                }))
-                .ToList();
-            barrier.SignalAndWait(TimeSpan.FromSeconds(5));
+            // Hold the winner off the thread pool so slow worker injection cannot release it ahead of the contenders.
+            var firstRecovery = Task.Factory.StartNew(() => clientManager.Reconnect(FakeEndpoints, rpcClient.Object),
+                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            var reconnects = Array.Empty<Task>();
             try
             {
                 await recoveryStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-                // Every other caller must skip the recovery instead of queueing behind the one in progress.
-                await TestAwaiter.Until(() => reconnects.Count(task => task.IsCompleted) == threadCount - 1,
-                    "the concurrent reconnects to be skipped");
-
-                allowRecoveryToComplete.SetResult(true);
+                reconnects = Enumerable.Range(0, threadCount - 1)
+                    .Select(_ => Task.Run(() => clientManager.Reconnect(FakeEndpoints, rpcClient.Object)))
+                    .ToArray();
                 await Task.WhenAll(reconnects).WaitAsync(TimeSpan.FromSeconds(5));
 
                 rpcClient.Verify(c => c.ResetTransport(), Times.Once);
-                Assert.AreEqual(1, client.ReconnectTelemetryCalls);
+                Assert.AreEqual(0, client.ReconnectTelemetryCalls);
             }
             finally
             {
                 allowRecoveryToComplete.TrySetResult(true);
+                await firstRecovery.WaitAsync(TimeSpan.FromSeconds(5));
                 await Task.WhenAll(reconnects).WaitAsync(TimeSpan.FromSeconds(5));
                 await clientManager.Shutdown();
             }
+
+            rpcClient.Verify(c => c.ResetTransport(), Times.Once);
+            Assert.AreEqual(1, client.ReconnectTelemetryCalls);
         }
 
         [TestMethod]

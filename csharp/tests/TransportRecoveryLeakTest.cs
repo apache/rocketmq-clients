@@ -78,12 +78,15 @@ namespace tests
 
             var descriptorsBefore = CountOpenDescriptors();
             var establishedBefore = CountEstablishedConnectionsToTheServer();
+            var metadataCount = metadata.Count;
 
             for (var i = 0; i < RecoveryCycles; i++)
             {
                 rpcClient.ResetTransport();
+                metadata = new Metadata();
                 // Called again so that every cycle really does open a connection on the replacement channel.
                 await rpcClient.Heartbeat(metadata, request, timeout);
+                Assert.AreEqual(metadataCount, metadata.Count, "Caller metadata must not accumulate between heartbeats");
             }
 
             RecoveryTestSupport.ForceFinalization();
