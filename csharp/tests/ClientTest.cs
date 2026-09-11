@@ -259,9 +259,9 @@ namespace tests
         public async Task TestReaddedSessionIgnoresOldRecoveryEvenWhenPruningIsDelayed()
         {
             var (client, manager, first, endpoints) = await ArrangeClient();
-            using var readded = new FakeTelemetryCall(true, SettingsCommand(client));
+            using var rejoined = new FakeTelemetryCall(true, SettingsCommand(client));
             using var renewed = new FakeTelemetryCall(true, SettingsCommand(client));
-            manager.SetupSequence(m => m.Telemetry(It.IsAny<Endpoints>())).Returns(readded.Call).Returns(renewed.Call);
+            manager.SetupSequence(m => m.Telemetry(It.IsAny<Endpoints>())).Returns(rejoined.Call).Returns(renewed.Call);
             var recovery = new ClientManager(client);
             var rpc = new Mock<IRpcClient>();
             var oldHeartbeat = new TaskCompletionSource<Proto.HeartbeatResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -278,7 +278,7 @@ namespace tests
                 Assert.AreEqual(1, first.DisposeCalls);
 
                 client.ReconnectTelemetry(endpoints, oldSession);
-                Assert.AreEqual(0, readded.DisposeCalls);
+                Assert.AreEqual(0, rejoined.DisposeCalls);
                 manager.Verify(m => m.Telemetry(It.IsAny<Endpoints>()), Times.Exactly(2));
 
                 oldHeartbeat.SetException(new RpcException(new Status(StatusCode.DeadlineExceeded, "retired heartbeat")));

@@ -73,8 +73,8 @@ namespace tests
         public async Task TestPushConsumerDropsObsoleteSessionAndReaddsSameEndpointsWithANewStream()
         {
             using var first = new FakeTelemetryCall(true, SettingsCommand());
-            using var readded = new FakeTelemetryCall(true, SettingsCommand());
-            var consumer = CreateConsumer(out var clientManager, first, readded);
+            using var rejoined = new FakeTelemetryCall(true, SettingsCommand());
+            var consumer = CreateConsumer(out var clientManager, first, rejoined);
             try
             {
                 var route = CreateTopicRouteData();
@@ -87,14 +87,14 @@ namespace tests
                 Assert.IsTrue(consumer.IsEndpointsDeprecated(endpoints));
                 Assert.AreEqual(1, first.DisposeCalls,
                     "publishing an empty route must close the obsolete stream without a reconnect callback");
-                Assert.AreEqual(0, readded.WrittenCommands);
+                Assert.AreEqual(0, rejoined.WrittenCommands);
                 clientManager.Verify(m => m.Telemetry(endpoints), Times.Once);
 
                 await consumer.OnTopicRouteDataFetched(Topic, route);
 
                 Assert.IsFalse(consumer.IsEndpointsDeprecated(endpoints));
-                AssertSettingsWritten(readded);
-                Assert.AreEqual(0, readded.DisposeCalls);
+                AssertSettingsWritten(rejoined);
+                Assert.AreEqual(0, rejoined.DisposeCalls);
                 Assert.AreEqual(1, first.DisposeCalls);
                 clientManager.Verify(m => m.Telemetry(endpoints), Times.Exactly(2));
             }
