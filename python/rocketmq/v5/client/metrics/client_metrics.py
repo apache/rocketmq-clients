@@ -24,7 +24,6 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import (ExplicitBucketHistogramAggregation,
                                             View)
 from opentelemetry.sdk.resources import Resource
-
 from rocketmq.grpc_protocol import Metric
 from rocketmq.v5.client.connection import RpcEndpoints
 from rocketmq.v5.log import logger

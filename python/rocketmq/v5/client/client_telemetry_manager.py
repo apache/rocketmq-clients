@@ -17,7 +17,6 @@ import functools
 from asyncio import InvalidStateError
 
 from grpc.aio import AioRpcError
-
 from rocketmq.v5.log import logger
 
 from .scheduler import ClientScheduler

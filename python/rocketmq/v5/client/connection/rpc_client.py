@@ -20,7 +20,6 @@ from concurrent.futures import Future
 from typing import Optional
 
 from grpc import ChannelConnectivity
-
 from rocketmq.grpc_protocol import (AckMessageRequest,
                                     ChangeInvisibleDurationRequest,
                                     EndTransactionRequest,
