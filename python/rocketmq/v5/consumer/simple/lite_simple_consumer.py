@@ -13,73 +13,62 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
-
 from rocketmq.grpc_protocol import ClientType
 from rocketmq.v5.client import (ClientConfiguration,
                                 LiteTopicSubscriptionManager)
-from rocketmq.v5.consumer.push.message_listener import MessageListener
-from rocketmq.v5.consumer.push.push_consumer import PushConsumer
+from rocketmq.v5.consumer.simple.simple_consumer import SimpleConsumer
 from rocketmq.v5.exception import IllegalArgumentException
 from rocketmq.v5.model import FilterExpression
 
 
-class LitePushConsumer(PushConsumer):
-    """A push-based consumer for lite topics bound to one physical topic.
+class LiteSimpleConsumer(SimpleConsumer):
+    """A pull-based consumer for lite topics bound to one physical topic.
 
     Lite topics share the route and message queues of the bound physical topic.
-    Subscriptions are managed dynamically while received messages are delivered
-    through the configured message listener.
+    Subscriptions are managed dynamically, while messages are fetched on demand
+    through the inherited reception methods.
     """
 
     def __init__(
-        self,
-        client_configuration: ClientConfiguration,
-        consumer_group,
-        bind_topic,
-        message_listener: MessageListener,
-        max_cache_message_count=1024,
-        max_cache_message_size=64 * 1024 * 1024,  # in bytes, 64MB default
-        consumption_thread_count=20,
-        tls_enable=False,
+            self,
+            bind_topic,
+            client_configuration: ClientConfiguration,
+            consumer_group,
+            await_duration=20,
+            tls_enable=False
     ):
-        """Initialize the lite push consumer.
+        """Initialize the lite simple consumer.
 
         Args:
+            bind_topic: The physical topic shared by all lite topics.
             client_configuration: Connection and authentication configuration.
             consumer_group: The consumer group name.
-            bind_topic: The physical topic shared by all lite topics.
-            message_listener: Callback invoked for each received message.
-            max_cache_message_count: Maximum number of cached messages (default: 1024).
-            max_cache_message_size: Maximum cached message bytes (default: 64MB).
-            consumption_thread_count: Number of consumption threads (default: 20).
+            await_duration: Long polling timeout in seconds (default: 20).
             tls_enable: Whether to enable TLS (default: False).
 
         Raises:
-            IllegalArgumentException: If bind_topic or message_listener is empty.
+            IllegalArgumentException: If bind_topic is empty or await_duration is None.
         """
         if not bind_topic:
             raise IllegalArgumentException("bind_topic should not be null")
+
         super().__init__(
             client_configuration,
             consumer_group,
-            message_listener,
             {bind_topic: FilterExpression()},
-            max_cache_message_count,
-            max_cache_message_size,
-            consumption_thread_count,
-            tls_enable,
-            ClientType.LITE_PUSH_CONSUMER
+            await_duration,
+            ClientType.LITE_SIMPLE_CONSUMER,
+            tls_enable
         )
         self.__subscription_manager = LiteTopicSubscriptionManager(self, bind_topic)
 
     def _on_start(self):
-        """Start message receiving and periodic lite subscription synchronization."""
+        """Start periodic lite subscription synchronization."""
         super()._on_start()
         self.__subscription_manager.start_scheduler(self._rpc_channel_io_loop())
 
     def reset_setting(self, settings):
-        """Apply server settings for consumption and lite subscriptions.
+        """Apply server settings for lite subscriptions.
 
         Args:
             settings: The :class:`Settings` protobuf returned by the server.
@@ -123,7 +112,7 @@ class LitePushConsumer(PushConsumer):
         """Subscribe to all lite topics under the bound parent topic."""
         self.__subscription_manager.sync_all_lite_subscription()
 
-    def subscribe(self, topic, filter_expression: Optional[FilterExpression] = None):
+    def subscribe(self, topic, filter_expression=None):
         """Reject normal topic subscription for a lite consumer.
 
         Args:
@@ -133,7 +122,7 @@ class LitePushConsumer(PushConsumer):
         Raises:
             NotImplementedError: Always, because the bind topic is fixed.
         """
-        raise NotImplementedError("LitePushConsumer does not support topic subscription.")
+        raise NotImplementedError("LiteSimpleConsumer does not support topic subscription.")
 
     def unsubscribe(self, topic):
         """Reject normal topic unsubscription for a lite consumer.
@@ -144,4 +133,4 @@ class LitePushConsumer(PushConsumer):
         Raises:
             NotImplementedError: Always, because the bind topic is fixed.
         """
-        raise NotImplementedError("LitePushConsumer does not support topic unsubscription.")
+        raise NotImplementedError("LiteSimpleConsumer does not support topic unsubscription.")

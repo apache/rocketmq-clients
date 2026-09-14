@@ -13,10 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .lite_simple_consumer import LiteSimpleConsumer
-from .simple_consumer import SimpleConsumer
-
-__all__ = [
-    "SimpleConsumer",
-    "LiteSimpleConsumer",
-]
+SDK_VERSION = "5.1.2"
