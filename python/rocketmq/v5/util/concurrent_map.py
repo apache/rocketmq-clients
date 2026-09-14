@@ -17,20 +17,29 @@ import threading
 
 
 class ConcurrentMap:
+    """Thread-safe dictionary wrapper using a reentrant lock.
+
+    Provides atomic get/put/remove operations for shared state access
+    across multiple threads (e.g., route cache, assignment cache).
+    """
 
     def __init__(self):
+        """Create an empty concurrent map."""
         self._lock = threading.Lock()
         self._map = {}
 
     def get(self, key, default=None):
+        """Get a value by key, returning ``default`` if not found."""
         with self._lock:
             return self._map.get(key, default)
 
     def put(self, key, value):
+        """Insert or update a key-value pair."""
         with self._lock:
             self._map[key] = value
 
     def remove(self, key):
+        """Remove a key and return its value, or ``None`` if not found."""
         with self._lock:
             if key in self._map:
                 old = self._map[key]
@@ -39,29 +48,40 @@ class ConcurrentMap:
             return None
 
     def update(self, m):
+        """Merge all key-value pairs from dict ``m`` into this map."""
         with self._lock:
             self._map.update(m)
 
     def contains(self, key):
+        """Check if the map contains the given key."""
         with self._lock:
             return key in self._map
 
     def keys(self):
+        """Return a list of all keys (snapshot at call time)."""
         with self._lock:
             return list(self._map.keys())
 
     def values(self):
+        """Return a list of all values (snapshot at call time)."""
         with self._lock:
             return list(self._map.values())
 
     def items(self):
+        """Return a list of all key-value pairs (snapshot at call time)."""
         with self._lock:
             return list(self._map.items())
 
     def put_if_absent(self, key, value):
+        """Insert ``key`` with ``value`` only if ``key`` is not already present.
+
+        Returns:
+            The existing value if ``key`` was present, otherwise ``value``.
+        """
         with self._lock:
             return self._map.setdefault(key, value)
 
     def clear(self):
+        """Remove all entries from the map."""
         with self._lock:
             self._map.clear()

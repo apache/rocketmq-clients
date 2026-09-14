@@ -13,22 +13,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import threading
 import unittest
-from concurrent.futures import Future
 from unittest.mock import patch
 
 from rocketmq.v5.client import Client
+from rocketmq.v5.client.client_route_manager import ClientRouteManager
 from rocketmq.v5.client.connection import RpcClient
 from rocketmq.v5.consumer import SimpleConsumer
 from rocketmq.v5.model import FilterExpression, Message
 from rocketmq.v5.test import TestBase
 
 
-class TestNormalConsumer(unittest.TestCase):
+async def fake_receive_message(*args, **kwargs):
+    async def response_stream():
+        for response in TestBase.fake_receive_receipt():
+            yield response
+
+    return response_stream()
+
+
+class TestConsumer(unittest.TestCase):
 
     @patch.object(Message, "_Message__message_body_check_sum")
-    @patch.object(SimpleConsumer, "_SimpleConsumer__receive_message_response")
-    @patch.object(RpcClient, "receive_message_async")
+    @patch.object(RpcClient, "receive_message", side_effect=fake_receive_message)
     @patch.object(
         SimpleConsumer,
         "_SimpleConsumer__select_topic_queue",
@@ -40,35 +48,58 @@ class TestNormalConsumer(unittest.TestCase):
         return_value=TestBase.FAKE_TOPIC_0,
     )
     @patch.object(Client, "_Client__start_scheduler", return_value=None)
-    @patch.object(Client, "_Client__update_topic_route", return_value=None)
+    @patch.object(ClientRouteManager, "update_topic_route", return_value=None)
     def test_receive(
         self,
         mock_update_topic_route,
         mock_start_scheduler,
         mock_select_topic_for_receive,
         mock_select_topic_queue,
-        mock_receive_message_async,
-        mock_receive_message_response,
+        mock_receive_message,
         mock_message_body_check_sum,
     ):
-        future = Future()
-        future.set_result(list())
-        mock_receive_message_async.return_value = future
-        mock_receive_message_response.return_value = TestBase.fake_receive_receipt()
-
+        decode_thread_names = []
+        mock_message_body_check_sum.side_effect = (
+            lambda *args, **kwargs: decode_thread_names.append(
+                threading.current_thread().name
+            )
+        )
         subs = {TestBase.FAKE_TOPIC_0: FilterExpression()}
         consumer = SimpleConsumer(
             TestBase.fake_client_config(), TestBase.FAKE_CONSUMER_GROUP_0, subs
         )
         consumer.startup()
-        messages = consumer.receive(32, 10)
-        self.assertIsInstance(messages[0], Message)
-        consumer.shutdown()
+        try:
+            messages = consumer.receive(32, 10)
+            async_messages = consumer.receive_async(32, 10).result(timeout=3)
 
-        mock_update_topic_route.assert_called()
+            self.assertIsInstance(messages[0], Message)
+            self.assertIsInstance(async_messages[0], Message)
+        finally:
+            consumer.shutdown()
+
+        mock_update_topic_route.assert_called_once()
         mock_start_scheduler.assert_called_once()
-        mock_select_topic_queue.assert_called_once()
-        mock_select_topic_for_receive.assert_called_once()
-        mock_message_body_check_sum.assert_called_once()
-        mock_receive_message_response.assert_called_once()
-        mock_receive_message_async.assert_called_once()
+        self.assertEqual(2, mock_select_topic_queue.call_count)
+        self.assertEqual(2, mock_select_topic_for_receive.call_count)
+        self.assertEqual(2, mock_message_body_check_sum.call_count)
+        self.assertEqual(2, mock_receive_message.call_count)
+        self.assertTrue(
+            all("message_decode_thread" in name for name in decode_thread_names)
+        )
+
+        expected_timeout = (
+            consumer.client_configuration.request_timeout + consumer.await_duration
+        )
+        selected_queue = mock_select_topic_queue.return_value
+        for receive_call in mock_receive_message.call_args_list:
+            args, kwargs = receive_call
+            request = args[1]
+            self.assertEqual(selected_queue.endpoints, args[0])
+            self.assertEqual(selected_queue.message_queue0(), request.message_queue)
+            self.assertEqual(32, request.batch_size)
+            self.assertEqual(10, request.invisible_duration.seconds)
+            self.assertEqual(consumer.await_duration, request.long_polling_timeout.seconds)
+            self.assertFalse(request.auto_renew)
+            self.assertTrue(kwargs["metadata"])
+            self.assertEqual(expected_timeout, kwargs["timeout"])

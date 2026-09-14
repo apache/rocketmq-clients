@@ -16,8 +16,8 @@
 from rocketmq.grpc_protocol import TransactionResolution
 
 from .v5.client import ClientConfiguration, Credentials
-from .v5.consumer import (ConsumeResult, LitePushConsumer, MessageListener,
-                          PushConsumer, SimpleConsumer)
+from .v5.consumer import (ConsumeResult, LitePushConsumer, LiteSimpleConsumer,
+                          MessageListener, PushConsumer, SimpleConsumer)
 from .v5.model import FilterExpression, Message, SendReceipt
 from .v5.producer import Producer, Transaction, TransactionChecker
 
@@ -28,6 +28,7 @@ __all__ = [
     "TransactionResolution", # noqa
     "SimpleConsumer",
     "PushConsumer",
+    "LiteSimpleConsumer",
     "LitePushConsumer",
     "MessageListener",
     "ConsumeResult",
