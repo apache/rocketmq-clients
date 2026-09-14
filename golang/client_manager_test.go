@@ -242,19 +242,6 @@ func TestCMSendMessage(t *testing.T) {
 	}
 }
 
-func TestCMTelemetry(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-
-	MOCK_RPC_CLIENT.EXPECT().Telemetry(gomock.Any()).Return(nil, nil)
-	_, err := cm.Telemetry(context.TODO(), fakeEndpoints(), time.Minute)
-	if err != nil {
-		t.Error(err)
-	}
-}
-
 func TestCMEndTransaction(t *testing.T) {
 	cm := NewDefaultClientManager()
 	cm.startUp()

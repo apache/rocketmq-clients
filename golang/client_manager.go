@@ -562,10 +562,10 @@ func (cm *defaultClientManager) QueryRoute(ctx context.Context, endpoints *v2.En
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.QueryRoute(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) QueryAssignments(ctx context.Context, endpoints *v2.Endpoints, request *v2.QueryAssignmentRequest, duration time.Duration) (*v2.QueryAssignmentResponse, error) {
@@ -573,10 +573,10 @@ func (cm *defaultClientManager) QueryAssignments(ctx context.Context, endpoints 
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.QueryAssignments(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) SendMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.SendMessageRequest, duration time.Duration) (*v2.SendMessageResponse, error) {
@@ -584,10 +584,10 @@ func (cm *defaultClientManager) SendMessage(ctx context.Context, endpoints *v2.E
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.SendMessage(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 // The stream outlives this call and its lifetime belongs to the caller's
@@ -595,9 +595,13 @@ func (cm *defaultClientManager) SendMessage(ctx context.Context, endpoints *v2.E
 func (cm *defaultClientManager) Telemetry(ctx context.Context, endpoints *v2.Endpoints, duration time.Duration) (v2.MessagingService_TelemetryClient, error) {
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
-	return entry.rpc.Telemetry(ctx)
+	stream, err := entry.rpc.Telemetry(ctx)
+	if err == nil && stream == nil {
+		err = errors.New("rocketmq: no telemetry stream")
+	}
+	return stream, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) EndTransaction(ctx context.Context, endpoints *v2.Endpoints, request *v2.EndTransactionRequest, duration time.Duration) (*v2.EndTransactionResponse, error) {
@@ -605,10 +609,10 @@ func (cm *defaultClientManager) EndTransaction(ctx context.Context, endpoints *v
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.EndTransaction(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) HeartBeat(ctx context.Context, endpoints *v2.Endpoints, request *v2.HeartbeatRequest, duration time.Duration) (*v2.HeartbeatResponse, error) {
@@ -616,11 +620,11 @@ func (cm *defaultClientManager) HeartBeat(ctx context.Context, endpoints *v2.End
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.HeartBeat(ctx, request)
 	cm.recordHeartbeat(entry, err)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) NotifyClientTermination(ctx context.Context, endpoints *v2.Endpoints, request *v2.NotifyClientTerminationRequest, duration time.Duration) (*v2.NotifyClientTerminationResponse, error) {
@@ -628,18 +632,22 @@ func (cm *defaultClientManager) NotifyClientTermination(ctx context.Context, end
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.NotifyClientTermination(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
-	return entry.rpc.ReceiveMessage(ctx, request)
+	stream, err := entry.rpc.ReceiveMessage(ctx, request)
+	if err != nil || stream == nil {
+		return nil, normalizeGrpcError(err)
+	}
+	return &normalizedReceiveMessageClient{MessagingService_ReceiveMessageClient: stream}, nil
 }
 
 func (cm *defaultClientManager) AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest, duration time.Duration) (*v2.AckMessageResponse, error) {
@@ -647,10 +655,10 @@ func (cm *defaultClientManager) AckMessage(ctx context.Context, endpoints *v2.En
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.AckMessage(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) ChangeInvisibleDuration(ctx context.Context, endpoints *v2.Endpoints, request *v2.ChangeInvisibleDurationRequest, duration time.Duration) (*v2.ChangeInvisibleDurationResponse, error) {
@@ -658,10 +666,10 @@ func (cm *defaultClientManager) ChangeInvisibleDuration(ctx context.Context, end
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.ChangeInvisibleDuration(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) ForwardMessageToDeadLetterQueue(ctx context.Context, endpoints *v2.Endpoints, request *v2.ForwardMessageToDeadLetterQueueRequest, duration time.Duration) (*v2.ForwardMessageToDeadLetterQueueResponse, error) {
@@ -669,10 +677,10 @@ func (cm *defaultClientManager) ForwardMessageToDeadLetterQueue(ctx context.Cont
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.ForwardMessageToDeadLetterQueue(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) SyncLiteSubscription(ctx context.Context, endpoints *v2.Endpoints, request *v2.SyncLiteSubscriptionRequest, duration time.Duration) (*v2.SyncLiteSubscriptionResponse, error) {
@@ -680,10 +688,10 @@ func (cm *defaultClientManager) SyncLiteSubscription(ctx context.Context, endpoi
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.SyncLiteSubscription(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
 }
 
 func (cm *defaultClientManager) RecallMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.RecallMessageRequest, duration time.Duration) (*v2.RecallMessageResponse, error) {
@@ -691,8 +699,21 @@ func (cm *defaultClientManager) RecallMessage(ctx context.Context, endpoints *v2
 	defer cancel()
 	entry, err := cm.getRpcClientContext(ctx, endpoints)
 	if err != nil {
-		return nil, err
+		return nil, normalizeGrpcError(err)
 	}
 	ret, err := entry.rpc.RecallMessage(ctx, request)
-	return ret, err
+	return ret, normalizeGrpcError(err)
+}
+
+type normalizedReceiveMessageClient struct {
+	v2.MessagingService_ReceiveMessageClient
+}
+
+func (stream *normalizedReceiveMessageClient) Recv() (*v2.ReceiveMessageResponse, error) {
+	response, err := stream.MessagingService_ReceiveMessageClient.Recv()
+	return response, normalizeGrpcError(err)
+}
+
+func (stream *normalizedReceiveMessageClient) RecvMsg(message interface{}) error {
+	return normalizeGrpcError(stream.MessagingService_ReceiveMessageClient.RecvMsg(message))
 }
