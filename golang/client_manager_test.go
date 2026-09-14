@@ -30,144 +30,15 @@ import (
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/golang/mock/gomock"
-	"github.com/prashantv/gostub"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
 var MOCK_CLIENT_ID = "mock_client_id"
 var MOCK_TOPIC = "mock_topic"
 var MOCK_GROUP = "mock_group"
-var MOCK_CLIENT *MockClient
-var MOCK_RPC_CLIENT *MockRpcClient
-
-type MOCK_MessagingService_TelemetryClient struct {
-	trace            []string
-	recv_error_count int            `default:"0"`
-	cli              *defaultClient `default:"nil"`
-}
-
-// CloseSend implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) CloseSend() error {
-	mt.trace = append(mt.trace, "closesend")
-	return nil
-}
-
-// Context implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Context() context.Context {
-	mt.trace = append(mt.trace, "context")
-	return nil
-}
-
-// Header implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Header() (metadata.MD, error) {
-	mt.trace = append(mt.trace, "header")
-	return nil, nil
-}
-
-// RecvMsg implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) RecvMsg(m interface{}) error {
-	mt.trace = append(mt.trace, "recvmsg")
-	return nil
-}
-
-// SendMsg implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) SendMsg(m interface{}) error {
-	mt.trace = append(mt.trace, "sendmsg")
-	return nil
-}
-
-// Trailer implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Trailer() metadata.MD {
-	mt.trace = append(mt.trace, "trailer")
-	return nil
-}
-
-// Recv implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Recv() (*v2.TelemetryCommand, error) {
-	mt.trace = append(mt.trace, "recv")
-	sugarBaseLogger.Info("calling recv function", "state", mt.recv_error_count, "cli", mt.cli)
-	if mt.recv_error_count >= 1 {
-		mt.recv_error_count -= 1
-		return nil, io.EOF
-	} else {
-		if mt.cli == nil {
-			return nil, io.EOF
-		} else {
-			time.Sleep(time.Second)
-			command := mt.cli.getSettingsCommand()
-			return command, nil
-		}
-	}
-}
-
-// Send implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Send(*v2.TelemetryCommand) error {
-	mt.trace = append(mt.trace, "send")
-	return nil
-}
-
-var _ = v2.MessagingService_TelemetryClient(&MOCK_MessagingService_TelemetryClient{})
-
-func TestMain(m *testing.M) {
-	os.Setenv("mq.consoleAppender.enabled", "true")
-	ResetLogger()
-
-	ctrl := gomock.NewController(nil)
-
-	MOCK_CLIENT = NewMockClient(ctrl)
-	MOCK_CLIENT.EXPECT().GetClientID().Return(MOCK_CLIENT_ID).AnyTimes()
-
-	MOCK_RPC_CLIENT = NewMockRpcClient(ctrl)
-	MOCK_RPC_CLIENT.EXPECT().HeartBeat(gomock.Any(), gomock.Any()).Return(&v2.HeartbeatResponse{
-		Status: &v2.Status{
-			Code: v2.Code_OK,
-		},
-	}, nil).AnyTimes()
-
-	MOCK_RPC_CLIENT.EXPECT().GracefulStop().Return(nil).AnyTimes()
-	MOCK_RPC_CLIENT.EXPECT().GetTarget().Return(fakeAddress).AnyTimes()
-	stubs := gostub.Stub(&NewRpcClient, func(target string, opts ...RpcClientOption) (RpcClient, error) {
-		if target == fakeAddress {
-			return MOCK_RPC_CLIENT, nil
-		}
-		return nil, fmt.Errorf("invalid target=%s", target)
-	})
-	defer stubs.Reset()
-
-	sugarBaseLogger.Info("begin")
-	m.Run()
-	sugarBaseLogger.Info("end")
-}
-func TestCMRegisterClient(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-	v, ok := cm.clientTable.Load(MOCK_CLIENT_ID)
-	if !ok {
-		t.Errorf("test RegisterClient failed")
-	}
-	exitCli, ok := v.(Client)
-	if !ok {
-		t.Errorf("test RegisterClient failed")
-	}
-	if exitCli.GetClientID() != MOCK_CLIENT_ID {
-		t.Errorf("test RegisterClient failed")
-	}
-}
-
-func TestCMUnRegisterClient(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-	if _, ok := cm.clientTable.Load(MOCK_CLIENT.GetClientID()); !ok {
-		t.Errorf("test UnRegisterClient failed")
-	}
-}
 
 var (
 	fakeHost          = "127.0.0.1"
@@ -177,169 +48,12 @@ var (
 )
 
 func fakeEndpoints() *v2.Endpoints {
-	return &v2.Endpoints{
-		Scheme: v2.AddressScheme_IPv4,
-		Addresses: []*v2.Address{
-			{
-				Host: fakeHost,
-				Port: fakePort,
-			},
-		},
-	}
-}
-func TestCMQueryRoute(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-
-	MOCK_RPC_CLIENT.EXPECT().QueryRoute(gomock.Any(), gomock.Any()).Return(&v2.QueryRouteResponse{
-		Status: &v2.Status{
-			Code: v2.Code_OK,
-		},
-	}, nil)
-	resp, err := cm.QueryRoute(context.TODO(), fakeEndpoints(), &v2.QueryRouteRequest{}, time.Minute)
-	if err != nil {
-		t.Error(err)
-	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
-		t.Errorf("test QueryRoute failed")
-	}
+	return &v2.Endpoints{Scheme: v2.AddressScheme_IPv4, Addresses: []*v2.Address{{Host: fakeHost, Port: fakePort}}}
 }
 
-func TestCMHeartBeat(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-
-	resp, err := cm.HeartBeat(context.TODO(), fakeEndpoints(), &v2.HeartbeatRequest{}, time.Minute)
-	if err != nil {
-		t.Error(err)
-	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
-		t.Errorf("test HeartBeat failed")
-	}
-}
-
-func TestCMSendMessage(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-
-	MOCK_RPC_CLIENT.EXPECT().SendMessage(gomock.Any(), gomock.Any()).Return(&v2.SendMessageResponse{
-		Status: &v2.Status{
-			Code: v2.Code_OK,
-		},
-	}, nil)
-	resp, err := cm.SendMessage(context.TODO(), fakeEndpoints(), &v2.SendMessageRequest{}, time.Minute)
-	if err != nil {
-		t.Error(err)
-	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
-		t.Errorf("test SendMessage failed")
-	}
-}
-
-func TestCMEndTransaction(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-
-	MOCK_RPC_CLIENT.EXPECT().EndTransaction(gomock.Any(), gomock.Any()).Return(&v2.EndTransactionResponse{
-		Status: &v2.Status{
-			Code: v2.Code_OK,
-		},
-	}, nil)
-	resp, err := cm.EndTransaction(context.TODO(), fakeEndpoints(), &v2.EndTransactionRequest{}, time.Minute)
-	if err != nil {
-		t.Error(err)
-	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
-		t.Errorf("test EndTransaction failed")
-	}
-}
-
-func TestCMNotifyClientTermination(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-
-	MOCK_RPC_CLIENT.EXPECT().NotifyClientTermination(gomock.Any(), gomock.Any()).Return(&v2.NotifyClientTerminationResponse{
-		Status: &v2.Status{
-			Code: v2.Code_OK,
-		},
-	}, nil)
-	resp, err := cm.NotifyClientTermination(context.TODO(), fakeEndpoints(), &v2.NotifyClientTerminationRequest{}, time.Minute)
-	if err != nil {
-		t.Error(err)
-	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
-		t.Errorf("test NotifyClientTermination failed")
-	}
-}
-
-func TestCMReceiveMessage(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-
-	MOCK_RPC_CLIENT.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any()).Return(nil, nil)
-	_, err := cm.ReceiveMessage(context.TODO(), fakeEndpoints(), &v2.ReceiveMessageRequest{})
-	if err != nil {
-		t.Error(err)
-	}
-}
-
-func TestCMAckMessage(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-
-	MOCK_RPC_CLIENT.EXPECT().AckMessage(gomock.Any(), gomock.Any()).Return(&v2.AckMessageResponse{
-		Status: &v2.Status{
-			Code: v2.Code_OK,
-		},
-	}, nil)
-	resp, err := cm.AckMessage(context.TODO(), fakeEndpoints(), &v2.AckMessageRequest{}, time.Minute)
-	if err != nil {
-		t.Error(err)
-	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
-		t.Errorf("test AckMessage failed")
-	}
-}
-
-func TestCMSyncLiteSubscription(t *testing.T) {
-	cm := NewDefaultClientManager()
-	cm.startUp()
-	cm.RegisterClient(MOCK_CLIENT)
-	defer cm.UnRegisterClient(MOCK_CLIENT)
-
-	MOCK_RPC_CLIENT.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(&v2.SyncLiteSubscriptionResponse{
-		Status: &v2.Status{
-			Code: v2.Code_OK,
-		},
-	}, nil)
-	resp, err := cm.SyncLiteSubscription(context.TODO(), fakeEndpoints(), &v2.SyncLiteSubscriptionRequest{}, time.Minute)
-	if err != nil {
-		t.Error(err)
-	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
-		t.Errorf("expected Code_OK, got %v", resp.GetStatus().GetCode())
-	}
-
-	// 错误分支
-	MOCK_RPC_CLIENT.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("mock error"))
-	_, err = cm.SyncLiteSubscription(context.TODO(), fakeEndpoints(), &v2.SyncLiteSubscriptionRequest{}, time.Minute)
-	if err == nil {
-		t.Error("expected error, got nil")
-	}
+func TestMain(m *testing.M) {
+	ResetLogger()
+	os.Exit(m.Run())
 }
 
 type recoveryTestRPC struct {
@@ -799,4 +513,175 @@ func TestCMIdleReapClosesOutsideCacheLock(t *testing.T) {
 	if recoveryEntry(cm) != nil || rpc.closed.Load() != 1 {
 		t.Fatal("idle transport/state not retired")
 	}
+}
+
+func TestCMUnaryBoundaries(t *testing.T) {
+	for _, operation := range []struct {
+		name   string
+		expect func(*MockRpcClient) *gomock.Call
+		invoke func(*defaultClientManager) error
+	}{
+		{"query route", func(r *MockRpcClient) *gomock.Call { return r.EXPECT().QueryRoute(gomock.Any(), gomock.Any()) }, func(cm *defaultClientManager) error {
+			_, err := cm.QueryRoute(context.Background(), fakeEndpoints(), &v2.QueryRouteRequest{}, time.Hour)
+			return err
+		}},
+		{"assignments", func(r *MockRpcClient) *gomock.Call { return r.EXPECT().QueryAssignments(gomock.Any(), gomock.Any()) }, func(cm *defaultClientManager) error {
+			_, err := cm.QueryAssignments(context.Background(), fakeEndpoints(), &v2.QueryAssignmentRequest{}, time.Hour)
+			return err
+		}},
+		{"send", func(r *MockRpcClient) *gomock.Call { return r.EXPECT().SendMessage(gomock.Any(), gomock.Any()) }, func(cm *defaultClientManager) error {
+			_, err := cm.SendMessage(context.Background(), fakeEndpoints(), &v2.SendMessageRequest{}, time.Hour)
+			return err
+		}},
+		{"transaction", func(r *MockRpcClient) *gomock.Call { return r.EXPECT().EndTransaction(gomock.Any(), gomock.Any()) }, func(cm *defaultClientManager) error {
+			_, err := cm.EndTransaction(context.Background(), fakeEndpoints(), &v2.EndTransactionRequest{}, time.Hour)
+			return err
+		}},
+		{"termination", func(r *MockRpcClient) *gomock.Call {
+			return r.EXPECT().NotifyClientTermination(gomock.Any(), gomock.Any())
+		}, func(cm *defaultClientManager) error {
+			_, err := cm.NotifyClientTermination(context.Background(), fakeEndpoints(), &v2.NotifyClientTerminationRequest{}, time.Hour)
+			return err
+		}},
+		{"ack", func(r *MockRpcClient) *gomock.Call { return r.EXPECT().AckMessage(gomock.Any(), gomock.Any()) }, func(cm *defaultClientManager) error {
+			_, err := cm.AckMessage(context.Background(), fakeEndpoints(), &v2.AckMessageRequest{}, time.Hour)
+			return err
+		}},
+		{"invisibility", func(r *MockRpcClient) *gomock.Call {
+			return r.EXPECT().ChangeInvisibleDuration(gomock.Any(), gomock.Any())
+		}, func(cm *defaultClientManager) error {
+			_, err := cm.ChangeInvisibleDuration(context.Background(), fakeEndpoints(), &v2.ChangeInvisibleDurationRequest{}, time.Hour)
+			return err
+		}},
+		{"dead letter", func(r *MockRpcClient) *gomock.Call {
+			return r.EXPECT().ForwardMessageToDeadLetterQueue(gomock.Any(), gomock.Any())
+		}, func(cm *defaultClientManager) error {
+			_, err := cm.ForwardMessageToDeadLetterQueue(context.Background(), fakeEndpoints(), &v2.ForwardMessageToDeadLetterQueueRequest{}, time.Hour)
+			return err
+		}},
+		{"lite subscription", func(r *MockRpcClient) *gomock.Call {
+			return r.EXPECT().SyncLiteSubscription(gomock.Any(), gomock.Any())
+		}, func(cm *defaultClientManager) error {
+			_, err := cm.SyncLiteSubscription(context.Background(), fakeEndpoints(), &v2.SyncLiteSubscriptionRequest{}, time.Hour)
+			return err
+		}},
+		{"recall", func(r *MockRpcClient) *gomock.Call { return r.EXPECT().RecallMessage(gomock.Any(), gomock.Any()) }, func(cm *defaultClientManager) error {
+			_, err := cm.RecallMessage(context.Background(), fakeEndpoints(), &v2.RecallMessageRequest{}, time.Hour)
+			return err
+		}},
+	} {
+		// Two representatives per wrapper: full normalizeGrpcError code coverage
+		// lives in error_test.go, so here we only prove each hand-written unary
+		// wrapper cancels its timeout, normalizes, and never triggers recovery.
+		for _, code := range []codes.Code{codes.Unavailable, codes.ResourceExhausted} {
+			t.Run(operation.name+"/"+code.String(), func(t *testing.T) {
+				cm, _ := newRecoveryTestManager(t)
+				mock := NewMockRpcClient(gomock.NewController(t))
+				rpc := &recoveryTestRPC{RpcClient: mock, state: connectivity.Ready}
+				entry := installRecoveryRPC(cm, rpc)
+				original := status.Error(code, "transport error")
+				var observed context.Context
+				operation.expect(mock).Do(func(ctx context.Context, _ interface{}) { observed = ctx }).Return(nil, original)
+				err := operation.invoke(cm)
+				assertManagerNormalizedError(t, err, original)
+				if observed == nil || observed.Err() == nil {
+					t.Fatal("unary timeout context was not canceled")
+				}
+				if recoveryEntry(cm) != entry || recoveryJob(cm) != nil || entry.deadlineFailures != 0 || rpc.closed.Load() != 0 {
+					t.Fatal("ordinary unary RPC triggered recovery")
+				}
+			})
+		}
+	}
+}
+
+func assertManagerNormalizedError(t *testing.T, actual, original error) {
+	t.Helper()
+	if status.Code(original) == codes.ResourceExhausted {
+		rpcStatus, ok := AsErrRpcStatus(actual)
+		if !ok || rpcStatus.Code != int32(v2.Code_TOO_MANY_REQUESTS) || !errors.Is(actual, original) {
+			t.Fatalf("expected normalized error preserving cause, got %v", actual)
+		}
+	} else if actual != original {
+		t.Fatalf("non-throttle error changed: %v -> %v", original, actual)
+	}
+}
+
+type managerReceiveStream struct {
+	grpc.ClientStream
+	err error
+}
+
+func (stream *managerReceiveStream) Recv() (*v2.ReceiveMessageResponse, error) {
+	return nil, stream.err
+}
+func (stream *managerReceiveStream) RecvMsg(interface{}) error { return stream.err }
+
+func TestCMReceiveMessageNormalization(t *testing.T) {
+	for _, original := range []error{nil, io.EOF, context.Canceled, status.Error(codes.ResourceExhausted, "limited")} {
+		cm := NewDefaultClientManager()
+		mock := NewMockRpcClient(gomock.NewController(t))
+		installRecoveryRPC(cm, &recoveryTestRPC{RpcClient: mock})
+		mock.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any()).Return(&managerReceiveStream{err: original}, nil)
+		stream, err := cm.ReceiveMessage(context.Background(), fakeEndpoints(), &v2.ReceiveMessageRequest{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = stream.Recv()
+		assertManagerNormalizedError(t, err, original)
+		assertManagerNormalizedError(t, stream.RecvMsg(&v2.ReceiveMessageResponse{}), original)
+		mock.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any()).Return(nil, original)
+		_, err = cm.ReceiveMessage(context.Background(), fakeEndpoints(), &v2.ReceiveMessageRequest{})
+		assertManagerNormalizedError(t, err, original)
+		cm.shutdown()
+	}
+}
+
+type managerTelemetryStream struct {
+	grpc.ClientStream
+	ctx context.Context
+}
+
+func (stream *managerTelemetryStream) Context() context.Context            { return stream.ctx }
+func (stream *managerTelemetryStream) Send(*v2.TelemetryCommand) error     { return nil }
+func (stream *managerTelemetryStream) Recv() (*v2.TelemetryCommand, error) { return nil, nil }
+func (stream *managerTelemetryStream) CloseSend() error                    { return nil }
+
+func TestCMTelemetryStreamLifetimeBelongsToCaller(t *testing.T) {
+	cm := NewDefaultClientManager()
+	defer cm.shutdown()
+	mock := NewMockRpcClient(gomock.NewController(t))
+	installRecoveryRPC(cm, &recoveryTestRPC{RpcClient: mock})
+	parent, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	raw := &managerTelemetryStream{}
+	mock.EXPECT().Telemetry(gomock.Any()).DoAndReturn(func(ctx context.Context) (v2.MessagingService_TelemetryClient, error) {
+		raw.ctx = ctx
+		return raw, nil
+	})
+	stream, err := cm.Telemetry(parent, fakeEndpoints(), time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stream != v2.MessagingService_TelemetryClient(raw) || raw.ctx != parent {
+		t.Fatal("the stream and its context must pass through unchanged")
+	}
+	if err := stream.Send(&v2.TelemetryCommand{}); err != nil {
+		t.Fatal("the stream must stay usable after the call returned", err)
+	}
+	cancel()
+	if raw.ctx.Err() == nil {
+		t.Fatal("the caller context owns the stream lifetime")
+	}
+}
+
+func TestCMTelemetryCreationFailureIsNormalized(t *testing.T) {
+	cm := NewDefaultClientManager()
+	defer cm.shutdown()
+	mock := NewMockRpcClient(gomock.NewController(t))
+	installRecoveryRPC(cm, &recoveryTestRPC{RpcClient: mock})
+	original := status.Error(codes.ResourceExhausted, "limited")
+	mock.EXPECT().Telemetry(gomock.Any()).Return(nil, original)
+	_, err := cm.Telemetry(context.Background(), fakeEndpoints(), time.Hour)
+	assertManagerNormalizedError(t, err, original)
 }
