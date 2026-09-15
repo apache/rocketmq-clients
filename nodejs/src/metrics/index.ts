@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-export * from './Attribute';
-export * from './AttributeKey';
-export * from './CompositedMessageInterceptor';
-export * from './InflightRequestCountInterceptor';
-export * from './MessageHookPoints';
-export * from './MessageHookPointsStatus';
-export * from './MessageInterceptor';
-export * from './MessageInterceptorContext';
-export * from './MessageInterceptorContextImpl';
-export * from './MessageMeterInterceptor';
+export * from './MetricLabels';
+export * from './InvocationStatus';
+export * from './HistogramEnum';
+export * from './GaugeEnum';
+export * from './GaugeObserver';
+export * from './EmptyGaugeObserver';
+export * from './Metric';
+export * from './ClientMeter';
+export * from './ClientMeterManager';

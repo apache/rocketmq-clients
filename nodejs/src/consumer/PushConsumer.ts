@@ -38,6 +38,7 @@ import { ConsumeService } from './ConsumeService';
 import { StandardConsumeService } from './StandardConsumeService';
 import { FifoConsumeService } from './FifoConsumeService';
 import { ProcessQueue } from './ProcessQueue';
+import { PushConsumerGaugeObserver } from './PushConsumerGaugeObserver';
 import { Assignment } from './Assignment';
 import { Assignments } from './Assignments';
 import { MessageListener } from './MessageListener';
@@ -97,6 +98,12 @@ export class PushConsumer extends Consumer {
     // Built-in interceptor tracking in-flight receive requests, mirroring Java PushConsumerImpl.
     this.#inflightRequestCountInterceptor = new InflightRequestCountInterceptor();
     this.addMessageInterceptor(this.#inflightRequestCountInterceptor);
+
+    // Register the consumer gauge observer so cached message count/bytes are
+    // exported to the broker. The provider reads the process-queue table lazily
+    // at scrape time, so registering here (before any queue exists) is safe.
+    this.clientMeterManager.setGaugeObserver(
+      new PushConsumerGaugeObserver(() => this.processQueues(), this.clientId, this.consumerGroup));
 
     this.#pushSubscriptionSettings = new PushSubscriptionSettings(
       options.namespace, this.clientId, this.getClientType(), this.endpoints,
@@ -412,6 +419,14 @@ export class PushConsumer extends Consumer {
 
   getQueueSize(): number {
     return this.#processQueueTable.size;
+  }
+
+  /**
+   * All live process queues, used by the consumer gauge observer to aggregate
+   * cached message count/bytes. Reads the private table lazily at scrape time.
+   */
+  processQueues(): ProcessQueue[] {
+    return [ ...this.#processQueueTable.values() ].map(entry => entry.pq);
   }
 
   cacheMessageBytesThresholdPerQueue(): number {
