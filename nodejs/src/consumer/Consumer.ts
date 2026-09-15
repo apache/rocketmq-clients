@@ -104,9 +104,12 @@ export abstract class Consumer extends BaseClient {
     const request = new AckMessageRequest()
       .setGroup(createResource(this.consumerGroup))
       .setTopic(createResource(messageView.topic));
-    request.addEntries()
+    const entry = request.addEntries()
       .setMessageId(messageView.messageId)
       .setReceiptHandle(messageView.receiptHandle);
+    if (this.isLiteConsumer() && messageView.liteTopic) {
+      entry.setLiteTopic(messageView.liteTopic);
+    }
     const res = await this.rpcClientManager.ackMessage(endpoints, request, this.requestTimeout);
     // FIXME: handle fail ack
     const response = res.toObject();
@@ -121,6 +124,9 @@ export abstract class Consumer extends BaseClient {
       .setReceiptHandle(messageView.receiptHandle)
       .setInvisibleDuration(createDuration(invisibleDuration))
       .setMessageId(messageView.messageId);
+    if (this.isLiteConsumer() && messageView.liteTopic) {
+      request.setLiteTopic(messageView.liteTopic);
+    }
 
     const res = await this.rpcClientManager.changeInvisibleDuration(messageView.endpoints, request, this.requestTimeout);
     const response = res.toObject();
@@ -158,10 +164,10 @@ export abstract class Consumer extends BaseClient {
   /**
    * Check if this is a lite consumer.
    *
-   * @return true if this is a LITE_PUSH_CONSUMER
+   * @return true if this is a LITE_PUSH_CONSUMER or LITE_SIMPLE_CONSUMER
    */
   protected isLiteConsumer(): boolean {
     const clientType = (this as any).getClientType?.();
-    return clientType === ClientType.LITE_PUSH_CONSUMER;
+    return clientType === ClientType.LITE_PUSH_CONSUMER || clientType === ClientType.LITE_SIMPLE_CONSUMER;
   }
 }
