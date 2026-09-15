@@ -168,7 +168,20 @@ export class PushConsumer extends Consumer {
     // Every received message is cached before consumption and evicted from
     // the cache once its consumption chain settles, so empty caches on all
     // process queues mean consumption has fully quiesced.
+    // Bound the wait with the same timeout as the inflight-receive drain
+    // (request timeout + long-polling timeout) so shutdown cannot hang forever
+    // on a stuck consumption chain.
+    const maxWaitingTime = this.requestTimeoutValue
+      + this.getPushConsumerSettings().getLongPollingTimeout();
+    const endTime = Date.now() + maxWaitingTime;
     while ([ ...this.#processQueueTable.values() ].some(({ pq }) => pq.cachedMessagesCount() > 0)) {
+      if (Date.now() > endTime) {
+        const remaining = [ ...this.#processQueueTable.values() ]
+          .reduce((count, { pq }) => count + pq.cachedMessagesCount(), 0);
+        this.logger.warn('Timeout waiting for the cached messages to be consumed, clientId=%s, '
+          + 'remainingCachedMessages=%d', this.clientId, remaining);
+        return;
+      }
       await this.sleep(100);
     }
   }

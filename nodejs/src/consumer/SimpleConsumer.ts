@@ -134,6 +134,9 @@ export class SimpleConsumer extends Consumer {
   }
 
   async receive(maxMessageNum = 10, invisibleDuration = 15000) {
+    if (!this.isRunning()) {
+      throw new Error('Simple consumer is not running, please call startup() first or check shutdown state');
+    }
     if (maxMessageNum <= 0) {
       throw new Error(`maxMessageNum must be greater than 0, but got ${maxMessageNum}`);
     }
@@ -177,10 +180,16 @@ export class SimpleConsumer extends Consumer {
   }
 
   async ack(message: MessageView) {
+    if (!this.isRunning()) {
+      throw new Error('Simple consumer is not running, cannot ack message');
+    }
     await this.ackMessage(message);
   }
 
   async changeInvisibleDuration(message: MessageView, invisibleDuration: number) {
+    if (!this.isRunning()) {
+      throw new Error('Simple consumer is not running, cannot change invisible duration');
+    }
     const response = await this.invisibleDuration(message, invisibleDuration);
     // Refresh receipt handle manually
     (message as any).receiptHandle = response;
