@@ -141,7 +141,9 @@ func (c *clientConn) dial(target string, dopts ...grpc.DialOption) (*grpc.Client
 
 	dctx := c.ctx
 	if c.opts.DialTimeout > 0 {
-		dctx, _ = context.WithTimeout(c.ctx, c.opts.DialTimeout)
+		var cancel context.CancelFunc
+		dctx, cancel = context.WithTimeout(c.ctx, c.opts.DialTimeout)
+		defer cancel()
 	}
 	conn, err := grpc.DialContext(dctx, target, opts...)
 	if err != nil {
