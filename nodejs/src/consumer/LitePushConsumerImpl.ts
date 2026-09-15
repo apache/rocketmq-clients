@@ -95,10 +95,11 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
         'Create lite FIFO consume service, consumerGroup=%s, clientId=%s, enableFifoConsumeAccelerator=%s',
         this.consumerGroup, this.clientId, this.#enableFifoConsumeAccelerator,
       );
-      return new LiteFifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator);
+      return new LiteFifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator,
+        this, this.consumerGroup);
     }
     this.logger.info('Create lite standard consume service, consumerGroup=%s, clientId=%s', this.consumerGroup, this.clientId);
-    return new LiteStandardConsumeService(this.clientId, this.#messageListener);
+    return new LiteStandardConsumeService(this.clientId, this.#messageListener, this, this.consumerGroup);
   }
 
   /**
@@ -218,9 +219,12 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    * <p>This method is called when the server sends a notification to unsubscribe
    * from a lite topic, typically due to quota violations or administrative actions.</p>
    *
+   * @param endpoints - The remote endpoints which sent the command
    * @param command - The unsubscribe command from the server
    */
-  onNotifyUnsubscribeLiteCommand(command: NotifyUnsubscribeLiteCommand) {
+  onNotifyUnsubscribeLiteCommand(endpoints: Endpoints, command: NotifyUnsubscribeLiteCommand) {
+    this.logger.info('Received notify unsubscribe lite command, liteTopic=%s, endpoints=%s, clientId=%s',
+      command.getLiteTopic(), endpoints.facade, this.clientId);
     this.liteSubscriptionManager.onNotifyUnsubscribeLiteCommand(command);
   }
 

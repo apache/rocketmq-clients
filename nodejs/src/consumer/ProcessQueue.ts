@@ -326,6 +326,7 @@ export class ProcessQueue {
         endpoints,
         this.#consumer.wrapForwardMessageToDeadLetterQueueRequest(messageView),
         this.#consumer.requestTimeoutValue,
+        messageView,
       );
       const status = response.getStatus();
       if (!status) {
