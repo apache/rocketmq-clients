@@ -121,6 +121,8 @@
 // Export structs that are part of crate API.
 #[cfg(not(test))]
 pub use lite_push_consumer::{LitePushConsumer, LitePushConsumerTrait};
+#[cfg(not(test))]
+pub use lite_simple_consumer::{LiteSimpleConsumer, LiteSimpleConsumerTrait};
 pub use model::common::ConsumeResult;
 pub use model::transaction::Transaction;
 pub use producer::Producer;
@@ -148,6 +150,8 @@ mod util;
 
 #[cfg(not(test))]
 mod lite_push_consumer;
+#[cfg(not(test))]
+mod lite_simple_consumer;
 #[cfg(not(test))]
 mod lite_subscription_manager;
 mod producer;

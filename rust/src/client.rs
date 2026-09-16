@@ -45,7 +45,10 @@ use crate::pb::{
 use crate::session::RPCClient;
 #[double]
 use crate::session::Session;
-use crate::util::{handle_receive_message_status, handle_response_status, select_message_queue};
+use crate::util::{
+    build_ack_message_entry, handle_receive_message_status, handle_response_status,
+    select_message_queue,
+};
 
 #[derive(Debug)]
 pub(crate) struct Client {
@@ -138,32 +141,44 @@ impl Client {
     /// // Both clients share the same SessionManager and telemetry session
     /// ```
     pub(crate) fn clone_for_lite_consumer(&self) -> Self {
-        // Update client type to LitePushConsumer
-        let mut new_option = self.option.clone();
-        new_option.client_type = ClientType::LitePushConsumer;
+        // FIFO is enabled for LitePushConsumer to keep the message order of a lite topic.
+        self.clone_for_lite(
+            ClientType::LitePushConsumer,
+            pb::ClientType::LitePushConsumer,
+            true,
+        )
+    }
 
-        // Create new settings with LitePushConsumer type and FIFO enabled
+    /// Same as [`Client::clone_for_lite_consumer`] but for `LiteSimpleConsumer`.
+    pub(crate) fn clone_for_lite_simple_consumer(&self) -> Self {
+        self.clone_for_lite(
+            ClientType::LiteSimpleConsumer,
+            pb::ClientType::LiteSimpleConsumer,
+            false,
+        )
+    }
+
+    fn clone_for_lite(
+        &self,
+        client_type: ClientType,
+        pb_client_type: pb::ClientType,
+        fifo: bool,
+    ) -> Self {
+        let mut new_option = self.option.clone();
+        new_option.client_type = client_type;
+
         let mut new_settings = self.settings.clone();
         if let Some(Command::Settings(ref mut settings)) = &mut new_settings.command {
-            // Set client type to LitePushConsumer
-            settings.client_type = Some(pb::ClientType::LitePushConsumer as i32);
-
-            // Ensure FIFO is enabled for LitePushConsumer
-            // This is critical for maintaining message order in lite mode
+            settings.client_type = Some(pb_client_type as i32);
             if let Some(pb::settings::PubSub::Subscription(ref mut sub)) = settings.pub_sub {
-                sub.fifo = Some(true);
+                sub.fifo = Some(fifo);
             }
         }
 
-        // Share the same SessionManager via Arc::clone
-        // This is the KEY feature that enables true Lite mode:
-        // - Both clients use the same telemetry session
-        // - No duplicate connections to the server
-        // - Shared state management
+        // Share the same SessionManager via Arc::clone so that both clients reuse the same
+        // telemetry session.
         let session_manager = Arc::clone(&self.session_manager);
 
-        // Create the lightweight clone
-        // Note: shutdown_tx is set to None to avoid duplicate shutdown signals
         Self {
             option: new_option,
             session_manager,
@@ -602,11 +617,7 @@ impl Client {
                     .await
                     .unwrap(),
                 ack_entry.topic(),
-                vec![pb::AckMessageEntry {
-                    message_id: ack_entry.message_id(),
-                    receipt_handle: ack_entry.receipt_handle(),
-                    lite_topic: None,
-                }],
+                vec![build_ack_message_entry(ack_entry)],
             )
             .await?;
         Ok(result[0].clone())
@@ -648,6 +659,7 @@ impl Client {
                 ack_entry.receipt_handle(),
                 invisible_duration,
                 ack_entry.message_id(),
+                ack_entry.lite_topic().map(|topic| topic.to_string()),
             )
             .await?;
         Ok(result)
@@ -660,6 +672,7 @@ impl Client {
         receipt_handle: String,
         invisible_duration: Duration,
         message_id: String,
+        lite_topic: Option<String>,
     ) -> Result<String, ClientError> {
         let request = ChangeInvisibleDurationRequest {
             group: Some(Resource {
@@ -673,7 +686,7 @@ impl Client {
             receipt_handle,
             invisible_duration: Some(invisible_duration),
             message_id,
-            lite_topic: None,
+            lite_topic,
             suspend: None,
         };
         let response = rpc_client.change_invisible_duration(request).await?;
@@ -1372,6 +1385,7 @@ pub(crate) mod tests {
                 "receipt_handle".to_string(),
                 prost_types::Duration::default(),
                 "message_id".to_string(),
+                None,
             )
             .await;
         assert!(change_invisible_duration_result.is_ok());
