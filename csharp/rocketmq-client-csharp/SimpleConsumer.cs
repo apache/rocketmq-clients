@@ -145,7 +145,7 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        private SubscriptionLoadBalancer UpdateSubscriptionLoadBalancer(string topic, TopicRouteData topicRouteData)
+        internal virtual SubscriptionLoadBalancer UpdateSubscriptionLoadBalancer(string topic, TopicRouteData topicRouteData)
         {
             if (_subscriptionRouteDataCache.TryGetValue(topic, out var subscriptionLoadBalancer))
             {
@@ -239,7 +239,7 @@ namespace Org.Apache.Rocketmq
             StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
         }
 
-        private Proto.AckMessageRequest WrapAckMessageRequest(MessageView messageView)
+        internal virtual Proto.AckMessageRequest WrapAckMessageRequest(MessageView messageView)
         {
             var topicResource = new Proto.Resource
             {
@@ -259,7 +259,7 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        private Proto.ChangeInvisibleDurationRequest WrapChangeInvisibleDuration(MessageView messageView,
+        internal virtual Proto.ChangeInvisibleDurationRequest WrapChangeInvisibleDuration(MessageView messageView,
             TimeSpan invisibleDuration)
         {
             var topicResource = new Proto.Resource

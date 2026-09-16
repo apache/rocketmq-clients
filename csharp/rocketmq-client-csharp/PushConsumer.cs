@@ -723,7 +723,7 @@ namespace Org.Apache.Rocketmq
         /// <summary>
         /// Check if the consumer is running.
         /// </summary>
-        internal void CheckRunning()
+        internal override void CheckRunning()
         {
             if (State != State.Running)
             {
@@ -737,29 +737,6 @@ namespace Org.Apache.Rocketmq
         internal bool IsDisposed()
         {
             return State == State.Terminated || State == State.Failed;
-        }
-
-        /// <summary>
-        /// Get the request timeout from client config.
-        /// </summary>
-        internal TimeSpan GetRequestTimeout()
-        {
-            return _clientConfig.RequestTimeout;
-        }
-
-        /// <summary>
-        /// Get the namespace from client config.
-        /// </summary>
-        internal string Namespace => _clientConfig.Namespace;
-
-        /// <summary>
-        /// Sync lite subscription for lite push consumer.
-        /// </summary>
-        internal async Task<Proto.SyncLiteSubscriptionResponse> SyncLiteSubscription(
-            Proto.SyncLiteSubscriptionRequest request, TimeSpan timeout)
-        {
-            var invocation = await ClientManager.SyncLiteSubscription(Endpoints, request, timeout);
-            return invocation.Response;
         }
 
         public class Builder
