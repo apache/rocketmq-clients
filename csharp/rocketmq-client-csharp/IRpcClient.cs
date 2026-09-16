@@ -25,6 +25,16 @@ namespace Org.Apache.Rocketmq
 {
     public interface IRpcClient
     {
+        /// <summary>
+        /// Connectivity state of the underlying gRPC channel.
+        /// </summary>
+        ConnectivityState State { get; }
+
+        /// <summary>
+        /// Replaces the gRPC channel of this client, dropping the connections it holds.
+        /// </summary>
+        void ResetTransport();
+
         AsyncDuplexStreamingCall<TelemetryCommand, TelemetryCommand> Telemetry(Metadata metadata);
 
         Task<QueryRouteResponse> QueryRoute(Metadata metadata, QueryRouteRequest request, TimeSpan timeout);

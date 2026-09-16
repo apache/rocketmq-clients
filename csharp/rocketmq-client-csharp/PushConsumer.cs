@@ -589,15 +589,19 @@ namespace Org.Apache.Rocketmq
         {
         }
 
-        internal override async void OnVerifyMessageCommand(Endpoints endpoints, VerifyMessageCommand command)
+        internal override async Task OnVerifyMessageCommand(Endpoints endpoints, VerifyMessageCommand command)
         {
-            var nonce = command.Nonce;
-            var messageView = MessageView.FromProtobuf(command.Message);
-            var messageId = messageView.MessageId;
             Proto.TelemetryCommand telemetryCommand = null;
-
             try
             {
+                var session = GetSessionIfPresent(endpoints);
+                if (null == session)
+                {
+                    return;
+                }
+
+                var nonce = command.Nonce;
+                var messageView = MessageView.FromProtobuf(command.Message);
                 var consumeResult = await _consumeService.Consume(messageView);
                 var code = consumeResult == ConsumeResult.SUCCESS ? Code.Ok : Code.FailedToConsumeMessage;
                 var status = new Status
@@ -613,13 +617,12 @@ namespace Org.Apache.Rocketmq
                     VerifyMessageResult = verifyMessageResult,
                     Status = status
                 };
-                var (_, session) = GetSession(endpoints);
                 await session.WriteAsync(telemetryCommand);
             }
             catch (Exception e)
             {
                 Logger.LogError(e,
-                    $"Failed to send message verification result command, endpoints={Endpoints}, command={telemetryCommand}, messageId={messageId}, clientId={ClientId}");
+                    $"Failed to send message verification result command, endpoints={endpoints}, command={telemetryCommand}, clientId={ClientId}");
             }
         }
 
