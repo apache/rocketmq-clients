@@ -525,6 +525,14 @@ pub trait AckMessageEntry {
     fn message_id(&self) -> String;
     fn receipt_handle(&self) -> String;
     fn endpoints(&self) -> &Endpoints;
+
+    /// Lite topic the message belongs to, `None` for non-lite messages.
+    ///
+    /// Lite messages MUST be acknowledged with their lite topic, otherwise the proxy is unable
+    /// to resolve the LMQ receipt handle and answers `INTERNAL_SERVER_ERROR`.
+    fn lite_topic(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// [`MessageView`] is the data model for receive message.
@@ -566,6 +574,10 @@ impl AckMessageEntry for MessageView {
 
     fn endpoints(&self) -> &Endpoints {
         &self.endpoints
+    }
+
+    fn lite_topic(&self) -> Option<&str> {
+        self.lite_topic.as_deref()
     }
 }
 
