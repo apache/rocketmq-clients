@@ -221,25 +221,28 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     protected void shutDown() throws InterruptedException {
         log.info("Begin to shutdown the rocketmq client, clientId={}", clientId);
-        notifyClientTermination();
-        if (null != this.updateRouteCacheFuture) {
-            updateRouteCacheFuture.cancel(false);
+        try {
+            notifyClientTermination();
+            if (null != this.updateRouteCacheFuture) {
+                updateRouteCacheFuture.cancel(false);
+            }
+            telemetryCommandExecutor.shutdown();
+            if (!ExecutorServices.awaitTerminated(telemetryCommandExecutor)) {
+                log.error("[Bug] Timeout to shutdown the telemetry command executor, clientId={}", clientId);
+            } else {
+                log.info("Shutdown the telemetry command executor successfully, clientId={}", clientId);
+            }
+            log.info("Begin to release all telemetry sessions, clientId={}", clientId);
+            releaseClientSessions();
+            log.info("Release all telemetry sessions successfully, clientId={}", clientId);
+            clientManager.stopAsync().awaitTerminated();
+            clientCallbackExecutor.shutdown();
+            if (!ExecutorServices.awaitTerminated(clientCallbackExecutor)) {
+                log.error("[Bug] Timeout to shutdown the client callback executor, clientId={}", clientId);
+            }
+        } finally {
+            clientMeterManager.shutdown();
         }
-        telemetryCommandExecutor.shutdown();
-        if (!ExecutorServices.awaitTerminated(telemetryCommandExecutor)) {
-            log.error("[Bug] Timeout to shutdown the telemetry command executor, clientId={}", clientId);
-        } else {
-            log.info("Shutdown the telemetry command executor successfully, clientId={}", clientId);
-        }
-        log.info("Begin to release all telemetry sessions, clientId={}", clientId);
-        releaseClientSessions();
-        log.info("Release all telemetry sessions successfully, clientId={}", clientId);
-        clientManager.stopAsync().awaitTerminated();
-        clientCallbackExecutor.shutdown();
-        if (!ExecutorServices.awaitTerminated(clientCallbackExecutor)) {
-            log.error("[Bug] Timeout to shutdown the client callback executor, clientId={}", clientId);
-        }
-        clientMeterManager.shutdown();
         log.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
     }
 

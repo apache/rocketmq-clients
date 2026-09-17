@@ -18,7 +18,10 @@
 package org.apache.rocketmq.client.java.metrics;
 
 import io.opentelemetry.sdk.metrics.Aggregation;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public enum HistogramEnum {
     /**
@@ -28,8 +31,7 @@ public enum HistogramEnum {
      *
      * <p>The time unit of bucket is milliseconds.
      */
-    SEND_COST_TIME("rocketmq_send_cost_time", Aggregation.explicitBucketHistogram(Arrays.asList(1.0, 5.0,
-        10.0, 20.0, 50.0, 200.0, 500.0))),
+    SEND_COST_TIME("rocketmq_send_cost_time", Arrays.asList(1.0, 5.0, 10.0, 20.0, 50.0, 200.0, 500.0)),
 
     /**
      * A histogram that records the latency of message delivery from remote.
@@ -38,8 +40,7 @@ public enum HistogramEnum {
      *
      * <p>The time unit of bucket is milliseconds.
      */
-    DELIVERY_LATENCY("rocketmq_delivery_latency", Aggregation.explicitBucketHistogram(Arrays.asList(1.0,
-        5.0, 10.0, 20.0, 50.0, 200.0, 500.0))),
+    DELIVERY_LATENCY("rocketmq_delivery_latency", Arrays.asList(1.0, 5.0, 10.0, 20.0, 50.0, 200.0, 500.0)),
 
     /**
      * A histogram that records await time of message consumption.
@@ -48,8 +49,8 @@ public enum HistogramEnum {
      *
      * <p>The time unit of bucket is milliseconds.
      */
-    AWAIT_TIME("rocketmq_await_time", Aggregation.explicitBucketHistogram(Arrays.asList(1.0, 5.0,
-        20.0, 100.0, 1000.0, 5 * 1000.0, 10 * 1000.0))),
+    AWAIT_TIME("rocketmq_await_time", Arrays.asList(1.0, 5.0, 20.0, 100.0, 1000.0, 5 * 1000.0,
+        10 * 1000.0)),
     /**
      * A histogram that records the process time of message consumption.
      *
@@ -58,15 +59,17 @@ public enum HistogramEnum {
      *
      * <p>The time unit of bucket is milliseconds.
      */
-    PROCESS_TIME("rocketmq_process_time", Aggregation.explicitBucketHistogram(Arrays.asList(1.0, 5.0,
-        10.0, 100.0, 1000.0, 10 * 1000.0, 60 * 1000.0)));
+    PROCESS_TIME("rocketmq_process_time", Arrays.asList(1.0, 5.0, 10.0, 100.0, 1000.0, 10 * 1000.0,
+        60 * 1000.0));
 
     private final String name;
     private final Aggregation bucket;
+    private final List<Double> boundaries;
 
-    HistogramEnum(String name, Aggregation bucket) {
+    HistogramEnum(String name, List<Double> boundaries) {
         this.name = name;
-        this.bucket = bucket;
+        this.boundaries = Collections.unmodifiableList(new ArrayList<>(boundaries));
+        this.bucket = Aggregation.explicitBucketHistogram(this.boundaries);
     }
 
     public String getName() {
@@ -75,5 +78,9 @@ public enum HistogramEnum {
 
     public Aggregation getBucket() {
         return bucket;
+    }
+
+    List<Double> getBoundaries() {
+        return boundaries;
     }
 }

@@ -186,6 +186,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             scanAssignmentsFuture = getScheduler().scheduleWithFixedDelay(() -> {
                 try {
                     scanAssignments();
+                    clientMeterManager.refreshGauges();
                 } catch (Throwable t) {
                     log.error("Exception raised while scanning the load assignments, clientId={}", clientId, t);
                 }
@@ -211,16 +212,19 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     @Override
     protected void shutDown() throws InterruptedException {
         log.info("Begin to shutdown the rocketmq {}, clientId={}", clientType(), clientId);
-        if (null != scanAssignmentsFuture) {
-            scanAssignmentsFuture.cancel(false);
+        try {
+            if (null != scanAssignmentsFuture) {
+                scanAssignmentsFuture.cancel(false);
+            }
+            log.info("Waiting for the inflight receive requests to be finished, clientId={}", clientId);
+            waitingReceiveRequestFinished();
+            log.info("Begin to Shutdown consumption executor, clientId={}", clientId);
+            this.consumptionExecutor.shutdown();
+            ExecutorServices.awaitTerminated(consumptionExecutor);
+            TimeUnit.SECONDS.sleep(1);
+        } finally {
+            super.shutDown();
         }
-        log.info("Waiting for the inflight receive requests to be finished, clientId={}", clientId);
-        waitingReceiveRequestFinished();
-        log.info("Begin to Shutdown consumption executor, clientId={}", clientId);
-        this.consumptionExecutor.shutdown();
-        ExecutorServices.awaitTerminated(consumptionExecutor);
-        TimeUnit.SECONDS.sleep(1);
-        super.shutDown();
         log.info("Shutdown the rocketmq {} successfully, clientId={}", clientType(), clientId);
     }
 
