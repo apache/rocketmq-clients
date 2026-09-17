@@ -169,6 +169,67 @@ try {
 }
 ```
 
+### Lite Topic
+
+Lite topics are light-weight subscriptions on top of one parent topic. A lite consumer binds to the
+parent topic and (un)subscribes lite topics at runtime, which makes it cheap to serve a large number
+of short-lived topics.
+
+Server prerequisites: broker with `enableLmq=true` and `enableMultiDispatch=true`, a parent topic
+created with `message.type=LITE`, and a consumer group created with the attribute
+`+lite.bind.topic=<parentTopic>`.
+
+Send with lite topic
+
+```ts
+import { Producer } from 'rocketmq-client-nodejs';
+
+const producer = new Producer({
+  endpoints: '127.0.0.1:8081',
+});
+await producer.startup();
+
+await producer.send({
+  topic: 'yourParentTopic',
+  liteTopic: 'lite-topic-1', // The lite topic the message belongs to
+  body: Buffer.from('This is a lite message'),
+});
+
+await producer.shutdown();
+```
+
+LiteSimpleConsumer (pull and ack explicitly)
+
+```ts
+import { LiteSimpleConsumerBuilder, OffsetOption } from 'rocketmq-client-nodejs';
+
+// Bind to the parent topic, the consumer group must be bound to it as well
+const consumer = await new LiteSimpleConsumerBuilder()
+  .setClientConfiguration({ endpoints: '127.0.0.1:8081' })
+  .setConsumerGroup('yourConsumerGroup')
+  .bindTopic('yourParentTopic')
+  .setAwaitDuration(5000)
+  .build();
+
+// Subscribe lite topics, with or without a consume-from offset
+await consumer.subscribeLite('lite-topic-1', OffsetOption.MIN_OFFSET);
+await consumer.subscribeLite('lite-topic-2');
+
+// Pull a batch and ack every message
+const messages = await consumer.receive(16, 15000);
+for (const message of messages) {
+  console.log(message.liteTopic, message.body.toString());
+  await consumer.ack(message);
+}
+
+// Release the subscription when it's no longer needed
+await consumer.unsubscribeLite('lite-topic-2');
+await consumer.close();
+```
+
+A runnable version lives in `examples/LiteSimpleConsumerExample.ts` (see also
+`examples/LiteProducerExample.ts` and `examples/LitePushConsumerExample.ts`).
+
 ## Current Progress
 
 ### Message Type
