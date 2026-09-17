@@ -18,11 +18,17 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,6 +49,13 @@ import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
@@ -97,6 +110,7 @@ public class ProcessQueueImplTest extends TestBase {
 
         AtomicLong receivedMessagesQuantity = new AtomicLong(0);
         when(pushConsumer.getReceivedMessagesQuantity()).thenReturn(receivedMessagesQuantity);
+        when(pushConsumer.getReceptionTimes()).thenReturn(new AtomicLong(0));
         when(pushConsumer.getConsumeService()).thenReturn(consumeService);
     }
 
@@ -140,6 +154,168 @@ public class ProcessQueueImplTest extends TestBase {
         await().atMost(Duration.ofSeconds(3))
             .untilAsserted(() -> verify(pushConsumer, times(cachedMessagesCountThresholdPerQueue))
                 .receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class), any(Duration.class)));
+    }
+
+    @Test
+    public void testResumeMessageReceivingAtCountLowWatermark() {
+        final List<ScheduledTask> scheduledTasks = useCapturingScheduler();
+        stubCacheThresholds(10, 1000);
+        final List<MessageViewImpl> messages = cacheMessages(10, 1);
+        stubAckMessageSuccess();
+
+        processQueue.receiveMessage("count-low-watermark-attempt");
+        assertEquals(1, countScheduledTasks(scheduledTasks, Duration.ofSeconds(1)));
+        preparePendingReceive();
+
+        eraseMessages(messages.subList(0, 7));
+        verifyReceiveMessageTimes(0);
+
+        processQueue.eraseMessage(messages.get(7), ConsumeResult.SUCCESS);
+        verifyReceiveMessageTimes(1);
+    }
+
+    @Test
+    public void testResumeMessageReceivingAtBytesLowWatermark() {
+        useCapturingScheduler();
+        stubCacheThresholds(100, 50);
+        final List<MessageViewImpl> messages = cacheMessages(5, 10);
+        stubAckMessageSuccess();
+
+        processQueue.receiveMessage("bytes-low-watermark-attempt");
+        preparePendingReceive();
+        eraseMessages(messages.subList(0, 3));
+        verifyReceiveMessageTimes(0);
+
+        processQueue.eraseMessage(messages.get(3), ConsumeResult.SUCCESS);
+        verifyReceiveMessageTimes(1);
+    }
+
+    @Test
+    public void testResumeMessageReceivingAtZeroLowWatermark() {
+        useCapturingScheduler();
+        stubCacheThresholds(4, 4);
+        final List<MessageViewImpl> messages = cacheMessages(4, 1);
+        stubAckMessageSuccess();
+
+        processQueue.receiveMessage("zero-low-watermark-attempt");
+        preparePendingReceive();
+        eraseMessages(messages.subList(0, 3));
+        verifyReceiveMessageTimes(0);
+
+        processQueue.eraseMessage(messages.get(3), ConsumeResult.SUCCESS);
+        verifyReceiveMessageTimes(1);
+    }
+
+    @Test
+    public void testConcurrentCacheEvictionAndFallbackResumeOnlyOnce() throws InterruptedException {
+        final List<ScheduledTask> scheduledTasks = useCapturingScheduler();
+        stubCacheThresholds(10, 1000);
+        final List<MessageViewImpl> messages = cacheMessages(10, 1);
+        stubAckMessageSuccess();
+
+        processQueue.receiveMessage("concurrent-resume-attempt");
+        final ScheduledTask fallback = getOnlyScheduledTask(scheduledTasks, Duration.ofSeconds(1));
+        preparePendingReceive();
+        final int concurrentTasks = 9;
+        final CountDownLatch ready = new CountDownLatch(concurrentTasks);
+        final CountDownLatch start = new CountDownLatch(1);
+        final CountDownLatch done = new CountDownLatch(concurrentTasks);
+        final ExecutorService executor = Executors.newFixedThreadPool(concurrentTasks);
+        try {
+            for (MessageViewImpl message : messages.subList(0, 8)) {
+                executor.execute(() -> {
+                    ready.countDown();
+                    awaitLatch(start);
+                    processQueue.eraseMessage(message, ConsumeResult.SUCCESS);
+                    done.countDown();
+                });
+            }
+            executor.execute(() -> {
+                ready.countDown();
+                awaitLatch(start);
+                fallback.command.run();
+                done.countDown();
+            });
+            assertTrue(ready.await(3, TimeUnit.SECONDS));
+            start.countDown();
+            assertTrue(done.await(3, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+
+        verifyReceiveMessageTimes(1);
+    }
+
+    @Test
+    public void testOldFallbackDoesNotResumeNewCachePause() {
+        final List<ScheduledTask> scheduledTasks = useCapturingScheduler();
+        stubCacheThresholds(1, 1);
+        stubAckMessageSuccess();
+
+        final MessageViewImpl firstMessage = cacheMessages(1, 1).get(0);
+        processQueue.receiveMessage("first-attempt");
+        final ScheduledTask firstFallback = getOnlyScheduledTask(scheduledTasks, Duration.ofSeconds(1));
+        preparePendingReceive();
+        processQueue.eraseMessage(firstMessage, ConsumeResult.SUCCESS);
+        verifyReceiveMessageTimes(1);
+
+        final MessageViewImpl secondMessage = cacheMessages(1, 1).get(0);
+        processQueue.receiveMessage("second-attempt");
+        assertEquals(2, countScheduledTasks(scheduledTasks, Duration.ofSeconds(1)));
+
+        firstFallback.command.run();
+        verifyReceiveMessageTimes(1);
+
+        processQueue.eraseMessage(secondMessage, ConsumeResult.SUCCESS);
+        verifyReceiveMessageTimes(2);
+    }
+
+    @Test
+    public void testCachePauseResumeReusesAttemptId() {
+        useCapturingScheduler();
+        stubCacheThresholds(1, 1);
+        stubAckMessageSuccess();
+        final String attemptId = "cache-pause-attempt";
+        final MessageViewImpl message = cacheMessages(1, 1).get(0);
+
+        processQueue.receiveMessage(attemptId);
+        preparePendingReceive();
+        processQueue.eraseMessage(message, ConsumeResult.SUCCESS);
+
+        verify(pushConsumer).wrapReceiveMessageRequest(anyInt(), any(MessageQueueImpl.class),
+            any(FilterExpression.class), any(Duration.class), eq(attemptId));
+    }
+
+    @Test
+    public void testCachePauseDoesNotResumeAfterDrop() {
+        final List<ScheduledTask> scheduledTasks = useCapturingScheduler();
+        stubCacheThresholds(1, 1);
+        stubAckMessageSuccess();
+        final MessageViewImpl message = cacheMessages(1, 1).get(0);
+
+        processQueue.receiveMessage("dropped-attempt");
+        final ScheduledTask fallback = getOnlyScheduledTask(scheduledTasks, Duration.ofSeconds(1));
+        processQueue.drop();
+        processQueue.eraseMessage(message, ConsumeResult.SUCCESS);
+        fallback.command.run();
+
+        verifyReceiveMessageTimes(0);
+    }
+
+    @Test
+    public void testCachePauseDoesNotReceiveAfterConsumerStopped() {
+        final List<ScheduledTask> scheduledTasks = useCapturingScheduler();
+        stubCacheThresholds(1, 1);
+        stubAckMessageSuccess();
+        final MessageViewImpl message = cacheMessages(1, 1).get(0);
+
+        processQueue.receiveMessage("stopped-attempt");
+        final ScheduledTask fallback = getOnlyScheduledTask(scheduledTasks, Duration.ofSeconds(1));
+        when(pushConsumer.isRunning()).thenReturn(false);
+        processQueue.eraseMessage(message, ConsumeResult.SUCCESS);
+        fallback.command.run();
+
+        verifyReceiveMessageTimes(0);
     }
 
     @Test
@@ -283,5 +459,100 @@ public class ProcessQueueImplTest extends TestBase {
                 .multipliedBy(forwardingToDeadLetterQueueTimes).plus(tolerance))
             .untilAsserted(() -> verify(pushConsumer, times(forwardingToDeadLetterQueueTimes))
                 .forwardMessageToDeadLetterQueue(any(MessageViewImpl.class)));
+    }
+
+    private List<ScheduledTask> useCapturingScheduler() {
+        final List<ScheduledTask> scheduledTasks = new CopyOnWriteArrayList<>();
+        final ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        when(scheduler.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class))).thenAnswer(invocation -> {
+            final Runnable command = invocation.getArgument(0);
+            final long delay = invocation.getArgument(1);
+            final TimeUnit unit = invocation.getArgument(2);
+            scheduledTasks.add(new ScheduledTask(command, unit.toNanos(delay)));
+            return mock(ScheduledFuture.class);
+        });
+        when(pushConsumer.getScheduler()).thenReturn(scheduler);
+        return scheduledTasks;
+    }
+
+    private void stubCacheThresholds(int messageCount, int messageBytes) {
+        when(pushConsumer.cacheMessageCountThresholdPerQueue()).thenReturn(messageCount);
+        when(pushConsumer.cacheMessageBytesThresholdPerQueue()).thenReturn(messageBytes);
+    }
+
+    private List<MessageViewImpl> cacheMessages(int count, int messageBytes) {
+        final List<MessageViewImpl> messages = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            messages.add(fakeMessageViewImpl(messageBytes, false));
+        }
+        processQueue.cacheMessages(messages);
+        return messages;
+    }
+
+    private void stubAckMessageSuccess() {
+        when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenAnswer(ignored -> okAckMessageResponseFuture());
+    }
+
+    private void eraseMessages(List<MessageViewImpl> messages) {
+        for (MessageViewImpl message : messages) {
+            processQueue.eraseMessage(message, ConsumeResult.SUCCESS);
+        }
+    }
+
+    private void preparePendingReceive() {
+        when(pushSubscriptionSettings.getReceiveBatchSize()).thenReturn(32);
+        when(pushSubscriptionSettings.getLongPollingTimeout()).thenReturn(Duration.ofSeconds(15));
+        final ReceiveMessageRequest request = ReceiveMessageRequest.newBuilder().build();
+        when(pushConsumer.wrapReceiveMessageRequest(anyInt(), any(MessageQueueImpl.class),
+            any(FilterExpression.class), any(Duration.class), nullable(String.class))).thenReturn(request);
+        when(pushConsumer.receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class),
+            any(Duration.class))).thenReturn(SettableFuture.create());
+    }
+
+    private void verifyReceiveMessageTimes(int expectedTimes) {
+        verify(pushConsumer, times(expectedTimes)).receiveMessage(any(ReceiveMessageRequest.class),
+            any(MessageQueueImpl.class), any(Duration.class));
+    }
+
+    private int countScheduledTasks(List<ScheduledTask> scheduledTasks, Duration delay) {
+        int count = 0;
+        for (ScheduledTask task : scheduledTasks) {
+            if (delay.toNanos() == task.delayNanos) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private ScheduledTask getOnlyScheduledTask(List<ScheduledTask> scheduledTasks, Duration delay) {
+        ScheduledTask result = null;
+        for (ScheduledTask task : scheduledTasks) {
+            if (delay.toNanos() != task.delayNanos) {
+                continue;
+            }
+            assertNull(result);
+            result = task;
+        }
+        assertNotNull(result);
+        return result;
+    }
+
+    private static void awaitLatch(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static final class ScheduledTask {
+        private final Runnable command;
+        private final long delayNanos;
+
+        private ScheduledTask(Runnable command, long delayNanos) {
+            this.command = command;
+            this.delayNanos = delayNanos;
+        }
     }
 }
