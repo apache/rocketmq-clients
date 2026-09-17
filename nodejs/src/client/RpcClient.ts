@@ -53,6 +53,16 @@ import {
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../route';
 
+// Channel options mirroring the Java client's Netty channel configuration:
+// keepalive probing plus unbounded message sizes (Java defaults to Integer.MAX_VALUE).
+const GRPC_CHANNEL_OPTIONS = {
+  'grpc.keepalive_time_ms': 300000, // 5 minutes, same as Java DEFAULT_KEEP_ALIVE_TIME_MILLIS
+  'grpc.keepalive_timeout_ms': 30000, // 30 seconds, same as Java DEFAULT_KEEP_ALIVE_TIMEOUT_MILLIS
+  'grpc.keepalive_permit_without_calls': 1,
+  'grpc.max_send_message_length': 2 ** 31 - 1,
+  'grpc.max_receive_message_length': 2 ** 31 - 1,
+};
+
 export class RpcClient {
   #client: MessagingServiceClient;
   #activityTime = Date.now();
@@ -60,7 +70,7 @@ export class RpcClient {
   constructor(endpoints: Endpoints, sslEnabled: boolean) {
     const address = endpoints.getGrpcTarget();
     const grpcCredentials = sslEnabled ? ChannelCredentials.createSsl() : ChannelCredentials.createInsecure();
-    this.#client = new MessagingServiceClient(address, grpcCredentials);
+    this.#client = new MessagingServiceClient(address, grpcCredentials, GRPC_CHANNEL_OPTIONS);
   }
 
   #getAndActivityRpcClient() {
