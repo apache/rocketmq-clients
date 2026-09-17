@@ -55,6 +55,35 @@ pub(crate) fn select_message_queue_by_message_group(
     route.queue[index as usize].clone()
 }
 
+const MASTER_BROKER_ID: i32 = 0;
+
+/// Select the first readable master queue for lite consumers.
+///
+/// Reference Java: LiteSimpleConsumerImpl.updateSubscriptionLoadBalancer
+///   -> SubscriptionLoadBalancer::isReadableMasterQueue
+pub(crate) fn select_first_readable_queue(route: &Route) -> Result<MessageQueue, ClientError> {
+    route
+        .queue
+        .iter()
+        .find(|queue| {
+            let readable = queue.permission == crate::pb::Permission::Read as i32
+                || queue.permission == crate::pb::Permission::ReadWrite as i32;
+            let master = queue
+                .broker
+                .as_ref()
+                .is_some_and(|broker| broker.id == MASTER_BROKER_ID);
+            readable && master
+        })
+        .cloned()
+        .ok_or_else(|| {
+            ClientError::new(
+                ErrorKind::NoBrokerAvailable,
+                "no readable master queue found",
+                "simple_consumer.select_queue",
+            )
+        })
+}
+
 pub(crate) fn build_endpoints_by_message_queue(
     message_queue: &MessageQueue,
     operation: &'static str,
