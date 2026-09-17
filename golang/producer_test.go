@@ -49,7 +49,7 @@ func newProducerForTest(t *testing.T, maxAttempts int32, delay time.Duration) (*
 	p := producer.(*defaultProducer)
 	manager := NewMockClientManager(gomock.NewController(t))
 	p.cli.clientManager = manager
-	p.cli.log = zap.NewNop().Sugar()
+	p.cli.log = newInternalLogger(newZapLogger(zap.NewNop()))
 	p.cli.inited.Store(true)
 	p.pSetting.retryPolicy.Strategy = &v2.RetryPolicy_ExponentialBackoff{
 		ExponentialBackoff: &v2.ExponentialBackoff{
