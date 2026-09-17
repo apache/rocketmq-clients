@@ -29,7 +29,8 @@ use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, FilterExpression};
 use crate::model::message::{AckMessageEntry, MessageView};
 use crate::util::{
-    build_endpoints_by_message_queue, build_simple_consumer_settings, select_message_queue,
+    build_endpoints_by_message_queue, build_simple_consumer_settings, prune_lite_route,
+    select_message_queue,
 };
 
 /// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
@@ -80,8 +81,38 @@ impl SimpleConsumer {
         })
     }
 
-    /// Start the simple consumer
-    pub async fn start(&mut self) -> Result<(), ClientError> {
+    /// Create a simple consumer instance on top of an already built client.
+    ///
+    /// Used by [`crate::lite_simple_consumer::LiteSimpleConsumer`], which has to pass a client
+    /// whose settings carry the lite client type.
+    pub(crate) fn new_with_client(
+        client: Client,
+        option: SimpleConsumerOption,
+    ) -> Result<Self, ClientError> {
+        if option.consumer_group().is_empty() {
+            return Err(ClientError::new(
+                ErrorKind::Config,
+                "required option is missing: consumer group is empty",
+                Self::OPERATION_NEW_SIMPLE_CONSUMER,
+            ));
+        }
+        Ok(SimpleConsumer {
+            option,
+            client,
+            shutdown_tx: None,
+        })
+    }
+
+    /// Check whether the underlying client is started.
+    pub(crate) fn check_started(&self, operation: &'static str) -> Result<(), ClientError> {
+        self.client.check_started(operation)
+    }
+
+    /// Start the simple consumer, forwarding server telemetry commands to `telemetry_command_tx`.
+    pub(crate) async fn start_with_telemetry(
+        &mut self,
+        telemetry_command_tx: mpsc::Sender<crate::pb::telemetry_command::Command>,
+    ) -> Result<(), ClientError> {
         if self.option.consumer_group().is_empty() {
             return Err(ClientError::new(
                 ErrorKind::Config,
@@ -89,13 +120,23 @@ impl SimpleConsumer {
                 Self::OPERATION_START_SIMPLE_CONSUMER,
             ));
         }
-        let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
         self.client.start(telemetry_command_tx).await?;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
         }
+        info!(
+            "start simple consumer success, client_id: {}",
+            self.client.client_id()
+        );
+        Ok(())
+    }
+
+    /// Start the simple consumer
+    pub async fn start(&mut self) -> Result<(), ClientError> {
+        let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
+        self.start_with_telemetry(telemetry_command_tx).await?;
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
         tokio::spawn(async move {
@@ -123,6 +164,14 @@ impl SimpleConsumer {
             let _ = shutdown_tx.send(());
         };
         self.client.shutdown().await
+    }
+
+    /// Same as [`SimpleConsumer::shutdown`] but takes a mutable reference.
+    pub(crate) async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
+        if let Some(shutdown_tx) = self.shutdown_tx.take() {
+            let _ = shutdown_tx.send(());
+        };
+        self.client.shutdown_ref().await
     }
 
     /// receive messages from the specified topic
@@ -155,7 +204,51 @@ impl SimpleConsumer {
         batch_size: i32,
         invisible_duration: Duration,
     ) -> Result<Vec<MessageView>, ClientError> {
-        let route = self.client.topic_route(topic.as_ref(), true).await?;
+        self.receive_internal(
+            topic.as_ref(),
+            expression,
+            batch_size,
+            invisible_duration,
+            false,
+        )
+        .await
+    }
+
+    /// Receive messages of a lite consumer.
+    ///
+    /// The route is pruned to the first readable master queue because the server resolves the
+    /// lite topic queues itself (reference Java: `LiteSimpleConsumerImpl`).
+    pub(crate) async fn receive_lite(
+        &self,
+        topic: impl AsRef<str>,
+        expression: &FilterExpression,
+        batch_size: i32,
+        invisible_duration: Duration,
+    ) -> Result<Vec<MessageView>, ClientError> {
+        self.receive_internal(
+            topic.as_ref(),
+            expression,
+            batch_size,
+            invisible_duration,
+            true,
+        )
+        .await
+    }
+
+    async fn receive_internal(
+        &self,
+        topic: &str,
+        expression: &FilterExpression,
+        batch_size: i32,
+        invisible_duration: Duration,
+        lite: bool,
+    ) -> Result<Vec<MessageView>, ClientError> {
+        let route = self.client.topic_route(topic, true).await?;
+        let route = if lite {
+            prune_lite_route(route, topic, Self::OPERATION_RECEIVE_MESSAGE)?
+        } else {
+            route
+        };
         let message_queue = select_message_queue(route);
         let endpoints =
             build_endpoints_by_message_queue(&message_queue, Self::OPERATION_RECEIVE_MESSAGE)?;

@@ -188,9 +188,10 @@ impl LiteSubscriptionManager {
 
     /// Unsubscribe from a lite topic (reference Java: checkRunning first)
     pub async fn unsubscribe_lite(&self, lite_topic: String) -> Result<(), ClientError> {
-        // Check if client is running (reference Java: consumerImpl.checkRunning() line 119)
-        self.client
-            .check_started(OPERATION_SYNC_LITE_SUBSCRIPTION)?;
+        // The running state is checked by the public API (LitePushConsumer / LiteSimpleConsumer) on
+        // the owning client: the client held here is a lightweight clone whose shutdown_tx is
+        // intentionally `None`, so `check_started` would always report "not started".
+        // See `Client::clone_for_lite_consumer`.
 
         // Check if subscribed
         if !self.lite_topic_set.lock().contains(&lite_topic) {
@@ -313,7 +314,7 @@ impl LiteSubscriptionManager {
     }
 
     /// Check if adding delta subscriptions would exceed quota
-    fn check_lite_subscription_quota(&self, delta: i32) -> Result<(), ClientError> {
+    pub(crate) fn check_lite_subscription_quota(&self, delta: i32) -> Result<(), ClientError> {
         let current_size = self.lite_topic_set.lock().len() as i32;
         let quota = *self.lite_subscription_quota.lock();
 
