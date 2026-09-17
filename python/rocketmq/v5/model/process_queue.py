@@ -35,8 +35,10 @@ class ProcessQueue:
     def __str__(self):
         return f"{self.__message_queue}"
 
-    def max_receive_batch_size(self, queue_count_threshold, default): # noqa
+    def renew_active_time(self):
         self.__active_time = int(time.time())  # begin to receive
+
+    def max_receive_batch_size(self, queue_count_threshold, default): # noqa
         return min(max(1, queue_count_threshold - self.__cached_messages_count.get()), default)
 
     def drop(self):
@@ -79,8 +81,6 @@ class ProcessQueue:
             return False
         logger.warn(f"process queue is idle, idle_duration: {idle_duration}, max_idle_duration: {max_idle_duration}, after_cache_full_duration: {after_cache_full_duration}, mq: {self.__message_queue}")
         return True
-
-    """ property """
 
     @property
     def message_queue(self):

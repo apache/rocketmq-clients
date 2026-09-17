@@ -37,6 +37,9 @@ namespace examples
             // PushConsumerExample.QuickStart().Wait();
             // SimpleConsumerExample.QuickStart().Wait();
             // ProducerBenchmark.QuickStart().Wait();
+            // ProducerLiteMessageExample.QuickStart().Wait();
+            // LitePushConsumerExample.QuickStart().Wait();
+            // LiteSimpleConsumerExample.QuickStart().Wait();
         }
     }
 }

@@ -21,7 +21,22 @@ from rocketmq.v5.log import logger
 
 
 class ClientScheduler:
+    """Periodic task scheduler running in a background thread.
+
+    Executes a target function at fixed intervals. Multiple schedulers
+    can share the same asyncio event loop for gRPC operations.
+    """
+
     def __init__(self, thread_name, target, initial_delay, delay, loop=None):
+        """Create a scheduler.
+
+        Args:
+            thread_name: Name for the scheduler background thread.
+            target: The callable to execute periodically.
+            initial_delay: Delay in seconds before the first execution.
+            delay: Interval in seconds between subsequent executions.
+            loop: Optional asyncio event loop to set on the scheduler thread.
+        """
         self.__scheduler_thread = threading.Thread(target=functools.partial(self.__run_func, target=target,
                                                                             initial_delay=max(0.0, initial_delay), delay=max(0.0, delay),
                                                                             loop=loop), name=thread_name, daemon=True)

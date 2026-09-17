@@ -21,15 +21,37 @@ import {
   SyncLiteSubscriptionRequest,
   SyncLiteSubscriptionResponse,
 } from '../../proto/apache/rocketmq/v2/service_pb';
+import { Endpoints } from '../route';
+import { ILogger } from '../client/Logger';
+import { RpcClientManager } from '../client/RpcClientManager';
 import { ClientException } from '../exception';
-import { Resource } from '../route';
-import { LitePushConsumerImpl } from './LitePushConsumerImpl';
+import { Resource } from '../route/Resource';
 import { OffsetOption } from './OffsetOption';
 
 const SYNC_LITE_SUBSCRIPTION_INTERVAL = 30000; // 30 seconds
 
 /**
- * Manages lite topic subscriptions for LitePushConsumer.
+ * Minimal host contract required by LiteSubscriptionManager.
+ *
+ * Implemented by LitePushConsumerImpl and LiteSimpleConsumerImpl so the same
+ * manager can keep lite subscriptions in sync for both consumer flavors.
+ */
+export interface LiteSubscriptionHost {
+  clientId: string;
+  isRunning(): boolean;
+  getLogger(): ILogger;
+  getRpcClientManager(): RpcClientManager;
+  getRequestTimeout(): number;
+  /**
+   * Endpoints the lite subscription should be synced to. Lite subscriptions
+   * must reach every route endpoint, not only the endpoint the client was
+   * configured with.
+   */
+  getSyncEndpoints(): Endpoints[];
+}
+
+/**
+ * Manages lite topic subscriptions for lite consumers.
  *
  * <p>LiteSubscriptionManager handles:
  * - Maintaining the set of subscribed lite topics
@@ -38,7 +60,7 @@ const SYNC_LITE_SUBSCRIPTION_INTERVAL = 30000; // 30 seconds
  * - Handling unsubscribe commands from server</p>
  */
 export class LiteSubscriptionManager {
-  private readonly consumerImpl: LitePushConsumerImpl;
+  private readonly host: LiteSubscriptionHost;
   private readonly bindTopic: Resource;
   private readonly group: Resource;
   private readonly liteTopicSet = new Set<string>();
@@ -47,11 +69,11 @@ export class LiteSubscriptionManager {
   private syncTimer?: NodeJS.Timeout;
 
   constructor(
-    consumerImpl: LitePushConsumerImpl,
+    host: LiteSubscriptionHost,
     bindTopic: Resource,
     group: Resource,
   ) {
-    this.consumerImpl = consumerImpl;
+    this.host = host;
     this.bindTopic = bindTopic;
     this.group = group;
     this.liteSubscriptionQuota = 100; // Default quota
@@ -129,7 +151,7 @@ export class LiteSubscriptionManager {
     offsetOption?: OffsetOption | null,
   ): Promise<void> {
     // Check if consumer is running
-    if (!this.consumerImpl.isRunning()) {
+    if (!this.host.isRunning()) {
       throw new ClientException(500, 'Consumer is not running');
     }
 
@@ -152,15 +174,15 @@ export class LiteSubscriptionManager {
       );
 
       this.liteTopicSet.add(liteTopic);
-      this.consumerImpl.getLogger().info(
+      this.host.getLogger().info(
         'SubscribeLite %s, topic=%s, group=%s, clientId=%s',
         liteTopic,
         this.getBindTopicName(),
         this.getConsumerGroupName(),
-        this.consumerImpl.clientId,
+        this.host.clientId,
       );
     } catch (error) {
-      this.consumerImpl.getLogger().error(
+      this.host.getLogger().error(
         'Failed to subscribeLite %s, error=%s',
         liteTopic,
         error,
@@ -174,7 +196,7 @@ export class LiteSubscriptionManager {
    */
   public async unsubscribeLite(liteTopic: string): Promise<void> {
     // Check if consumer is running
-    if (!this.consumerImpl.isRunning()) {
+    if (!this.host.isRunning()) {
       throw new ClientException(500, 'Consumer is not running');
     }
 
@@ -191,15 +213,15 @@ export class LiteSubscriptionManager {
       );
 
       this.liteTopicSet.delete(liteTopic);
-      this.consumerImpl.getLogger().info(
+      this.host.getLogger().info(
         'UnsubscribeLite %s, topic=%s, group=%s, clientId=%s',
         liteTopic,
         this.getBindTopicName(),
         this.getConsumerGroupName(),
-        this.consumerImpl.clientId,
+        this.host.clientId,
       );
     } catch (error) {
-      this.consumerImpl.getLogger().error(
+      this.host.getLogger().error(
         'Failed to unsubscribeLite %s, error=%s',
         liteTopic,
         error,
@@ -220,23 +242,23 @@ export class LiteSubscriptionManager {
         null,
       );
     } catch (error) {
-      this.consumerImpl.getLogger().error(
+      this.host.getLogger().error(
         'Schedule syncAllLiteSubscription error, clientId=%s, error=%s',
-        this.consumerImpl.clientId,
+        this.host.clientId,
         error,
       );
     }
   }
 
   /**
-   * Sync lite subscription with server.
+   * Sync lite subscription with every route endpoint.
    */
   private async syncLiteSubscription(
     action: LiteSubscriptionAction,
     liteTopics: string[],
     offsetOption: OffsetOption | null,
   ): Promise<void> {
-    const logger = this.consumerImpl.getLogger();
+    const logger = this.host.getLogger();
     if (logger.debug) {
       logger.debug(
         'SyncLiteSubscription: action=%s, liteTopics=[%s], offsetOption=%s',
@@ -258,29 +280,34 @@ export class LiteSubscriptionManager {
       request.setOffsetOption(offsetOption.toProtobuf());
     }
 
-    try {
-      // Call RPC client using public methods from LitePushConsumerImpl
-      const response: SyncLiteSubscriptionResponse = await this.consumerImpl.getRpcClientManager().syncLiteSubscription(
-        this.consumerImpl.getEndpoints(),
-        request,
-        this.consumerImpl.getRequestTimeout(),
-      );
+    const endpointsList = this.host.getSyncEndpoints();
+    if (endpointsList.length === 0) {
+      throw new ClientException(500, 'No endpoints available to sync lite subscription');
+    }
 
-      // Handle response status
-      const status = response.getStatus();
-      if (status && status.getCode() !== Code.OK) {
-        throw new ClientException(
-          status.getCode(),
-          `Failed to sync lite subscription: ${status.getMessage()}`,
-        );
-      }
+    try {
+      // The lite subscription must reach every route endpoint; the sync fails
+      // if any endpoint rejects it.
+      await Promise.all(endpointsList.map(async endpoints => {
+        const response: SyncLiteSubscriptionResponse = await this.host.getRpcClientManager()
+          .syncLiteSubscription(endpoints, request, this.host.getRequestTimeout());
+
+        // Handle response status
+        const status = response.getStatus();
+        if (status && status.getCode() !== Code.OK) {
+          throw new ClientException(
+            status.getCode(),
+            `Failed to sync lite subscription: ${status.getMessage()}`,
+          );
+        }
+      }));
 
       if (logger.info) {
         logger.info(
           'SyncLiteSubscription success: action=%s, liteTopics=[%s], clientId=%s',
           LiteSubscriptionAction[action],
           liteTopics.join(', '),
-          this.consumerImpl.clientId,
+          this.host.clientId,
         );
       }
     } catch (error) {
@@ -289,7 +316,7 @@ export class LiteSubscriptionManager {
           'SyncLiteSubscription failed: action=%s, liteTopics=[%s], clientId=%s, error=%s',
           LiteSubscriptionAction[action],
           liteTopics.join(', '),
-          this.consumerImpl.clientId,
+          this.host.clientId,
           error,
         );
       }
@@ -302,7 +329,7 @@ export class LiteSubscriptionManager {
    */
   public onNotifyUnsubscribeLiteCommand(command: NotifyUnsubscribeLiteCommand) {
     const liteTopic = command.getLiteTopic();
-    this.consumerImpl.getLogger().info(
+    this.host.getLogger().info(
       'Notify unsubscribe lite: liteTopic=%s, group=%s, bindTopic=%s',
       liteTopic,
       this.getConsumerGroupName(),

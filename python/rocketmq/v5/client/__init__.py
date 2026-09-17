@@ -15,6 +15,7 @@
 
 from .client import Client
 from .client_configuration import ClientConfiguration, Credentials
+from .lite_topic_subscription_manager import LiteTopicSubscriptionManager
 from .scheduler import ClientScheduler
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "ClientConfiguration",
     "Credentials",
     "ClientScheduler",
+    "LiteTopicSubscriptionManager",
 ]
