@@ -57,7 +57,8 @@ func newProducerForTest(t *testing.T, maxAttempts int32, delay time.Duration) (*
 		},
 	}
 	p.cli.router.Store(MOCK_TOPIC, []*v2.MessageQueue{{
-		Broker: &v2.Broker{Name: "broker", Endpoints: fakeEndpoints()},
+		Permission: v2.Permission_READ_WRITE,
+		Broker: &v2.Broker{Name: "broker", Id: 0, Endpoints: fakeEndpoints()},
 		AcceptMessageTypes: []v2.MessageType{
 			v2.MessageType_NORMAL, v2.MessageType_DELAY, v2.MessageType_FIFO, v2.MessageType_TRANSACTION,
 		},
@@ -69,7 +70,7 @@ func producerSendResponse(code v2.Code) *v2.SendMessageResponse {
 	return &v2.SendMessageResponse{
 		Status: &v2.Status{Code: code, Message: code.String()},
 		Entries: []*v2.SendResultEntry{{
-			MessageId: "message-id", TransactionId: "transaction-id", Offset: 42, RecallHandle: "recall-handle",
+		MessageId: "message-id", TransactionId: "transaction-id", Offset: 42, RecallHandle: "recall-handle",
 		}},
 	}
 }
