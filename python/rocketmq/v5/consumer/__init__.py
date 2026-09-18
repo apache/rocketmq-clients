@@ -15,11 +15,12 @@
 
 from .push import (ConsumeResult, LitePushConsumer, MessageListener,
                    PushConsumer)
-from .simple import SimpleConsumer
+from .simple import LiteSimpleConsumer, SimpleConsumer
 
 __all__ = [
     "SimpleConsumer",
     "PushConsumer",
+    "LiteSimpleConsumer",
     "LitePushConsumer",
     "MessageListener",
     "ConsumeResult",

@@ -38,7 +38,7 @@ namespace Org.Apache.Rocketmq
         private MessageView(string messageId, string topic, byte[] body, string tag, string messageGroup,
             DateTime? deliveryTimestamp, List<string> keys, Dictionary<string, string> properties, string bornHost,
             DateTime bornTime, int deliveryAttempt, MessageQueue messageQueue, string receiptHandle, long offset,
-            bool corrupted, int? priority = null)
+            bool corrupted, int? priority = null, string liteTopic = null)
         {
             MessageId = messageId;
             Topic = topic;
@@ -56,6 +56,7 @@ namespace Org.Apache.Rocketmq
             _offset = offset;
             _corrupted = corrupted;
             Priority = priority;
+            LiteTopic = liteTopic;
         }
 
         public string MessageId { get; }
@@ -84,6 +85,11 @@ namespace Org.Apache.Rocketmq
         /// Gets the priority of the message, which makes sense only when the topic type is PRIORITY.
         /// </summary>
         public int? Priority { get; }
+
+        /// <summary>
+        /// Gets the lite topic the message belongs to, which makes sense only for lite topics.
+        /// </summary>
+        public string LiteTopic { get; }
 
         public int IncrementAndGetDeliveryAttempt()
         {
@@ -199,8 +205,9 @@ namespace Org.Apache.Rocketmq
 
 
             var receiptHandle = systemProperties.ReceiptHandle;
+            var liteTopic = systemProperties.HasLiteTopic ? systemProperties.LiteTopic : null;
             return new MessageView(messageId, topic, body, tag, messageGroup, deliveryTime, keys, properties, bornHost,
-                bornTime, deliveryAttempt, messageQueue, receiptHandle, queueOffset, corrupted, priority);
+                bornTime, deliveryAttempt, messageQueue, receiptHandle, queueOffset, corrupted, priority, liteTopic);
         }
 
         public override string ToString()

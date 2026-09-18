@@ -17,6 +17,7 @@ import asyncio
 import threading
 import time
 from concurrent.futures import Future
+from typing import Optional
 
 from grpc import ChannelConnectivity
 from rocketmq.grpc_protocol import (AckMessageRequest,
@@ -36,6 +37,12 @@ from rocketmq.v5.util import ConcurrentMap
 
 
 class RpcClient:
+    """Manages gRPC channels to RocketMQ brokers.
+
+    Provides asynchronous RPC methods for all MessageService operations
+    (send, receive, ack, query route, heartbeat, etc.). All RPC calls are
+    executed on a shared asyncio event loop running in a dedicated I/O thread.
+    """
     _instance_lock = threading.Lock()
     _channel_lock = threading.Lock()
     _io_loop = None  # event loop for all async io
@@ -61,6 +68,17 @@ class RpcClient:
         self.__tls_enable = tls_enable
 
     def retrieve_or_create_channel(self, endpoints: RpcEndpoints):
+        """Get an existing gRPC channel or create a new one for the given endpoints.
+
+        Args:
+            endpoints: The target broker endpoints.
+
+        Returns:
+            A :class:`RpcChannel` for communication.
+
+        Raises:
+            Exception: If RpcClient is not running.
+        """
         if not self.__enable_retrieve_channel:
             raise Exception("RpcClient is not running.")
         try:
@@ -79,6 +97,7 @@ class RpcClient:
             raise e
 
     def clear_idle_rpc_channels(self):
+        """Close and remove gRPC channels that have been idle for more than 30 minutes."""
         items = self.channels.items()
         now = int(time.time())
         idle_endpoints = list()
@@ -103,11 +122,20 @@ class RpcClient:
     def get_channel_io_loop():
         return RpcClient._io_loop
 
-    """ grpc MessageService """
-
     def query_topic_route_async(
         self, endpoints: RpcEndpoints, req: QueryRouteRequest, metadata, timeout=3
     ):
+        """Query topic route information asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The query request.
+            metadata: gRPC metadata (authentication headers).
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the route response.
+        """
         return RpcClient.__run_message_service_async(
             self.__query_route_async_0(
                 endpoints, req, metadata=metadata, timeout=timeout
@@ -117,6 +145,17 @@ class RpcClient:
     def send_message_async(
         self, endpoints: RpcEndpoints, req: SendMessageRequest, metadata, timeout=3
     ):
+        """Send a message asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The send request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the send response.
+        """
         return RpcClient.__run_message_service_async(
             self.__send_message_0(endpoints, req, metadata=metadata, timeout=timeout)
         )
@@ -124,13 +163,57 @@ class RpcClient:
     def receive_message_async(
         self, endpoints: RpcEndpoints, req: ReceiveMessageRequest, metadata, timeout=3
     ):
+        """Receive messages asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The reception request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the reception response.
+        """
         return RpcClient.__run_message_service_async(
             self.__receive_message_0(endpoints, req, metadata=metadata, timeout=timeout)
+        )
+
+    async def receive_message(
+            self, endpoints, req, metadata, timeout=3
+    ):
+        """Create a receive-message stream asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The reception request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``grpc.aio.UnaryStreamCall`` for reading reception responses.
+        """
+
+        return await self.__receive_message_0(
+            endpoints,
+            req,
+            metadata=metadata,
+            timeout=timeout,
         )
 
     def ack_message_async(
         self, endpoints: RpcEndpoints, req: AckMessageRequest, metadata, timeout=3
     ):
+        """Acknowledge a message asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The ack request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the ack response.
+        """
         return RpcClient.__run_message_service_async(
             self.__ack_message_0(endpoints, req, metadata=metadata, timeout=timeout)
         )
@@ -142,6 +225,17 @@ class RpcClient:
         metadata,
         timeout=3,
     ):
+        """Change the invisible duration (visibility timeout) of a message asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The change invisible duration request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the response.
+        """
         return RpcClient.__run_message_service_async(
             self.__change_invisible_duration_0(
                 endpoints, req, metadata=metadata, timeout=timeout
@@ -151,11 +245,31 @@ class RpcClient:
     def heartbeat_async(
         self, endpoints: RpcEndpoints, req: HeartbeatRequest, metadata, timeout=3
     ):
+        """Send heartbeat to a broker asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The heartbeat request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the heartbeat response.
+        """
         return RpcClient.__run_message_service_async(
             self.__heartbeat_async_0(endpoints, req, metadata=metadata, timeout=timeout)
         )
 
     def telemetry_write_async(self, endpoints: RpcEndpoints, req: TelemetryCommand):
+        """Write a telemetry command to the bidirectional stream asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The telemetry command to send.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving when write completes.
+        """
         return RpcClient.__run_message_service_async(
             self.retrieve_or_create_channel(
                 endpoints
@@ -165,6 +279,17 @@ class RpcClient:
     def end_transaction_async(
         self, endpoints: RpcEndpoints, req: EndTransactionRequest, metadata, timeout=3
     ):
+        """End a transactional message (commit or rollback) asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The end transaction request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the response.
+        """
         return RpcClient.__run_message_service_async(
             self.__end_transaction_0(endpoints, req, metadata=metadata, timeout=timeout)
         )
@@ -176,6 +301,17 @@ class RpcClient:
         metadata,
         timeout=3,
     ):
+        """Notify the broker of client termination asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The termination notification request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the response.
+        """
         return RpcClient.__run_message_service_async(
             self.__notify_client_termination_0(
                 endpoints, req, metadata=metadata, timeout=timeout
@@ -183,45 +319,97 @@ class RpcClient:
         )
 
     def recall_message_async(self, endpoints: RpcEndpoints, req: RecallMessageRequest, metadata, timeout=3):
+        """Recall a previously sent scheduled message asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The recall message request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the response.
+        """
         return RpcClient.__run_message_service_async(
             self.__recall_message_0(endpoints, req, metadata=metadata, timeout=timeout))
 
     def query_assignment_async(self, endpoints: RpcEndpoints, req: QueryAssignmentRequest, metadata, timeout=3):
+        """Query message queue assignments for a consumer from the broker asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The query assignment request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the assignment response.
+        """
         return RpcClient.__run_message_service_async(
             self.__query_assignment_0(endpoints, req, metadata=metadata, timeout=timeout))
 
     def forward_message_to_dead_letter_queue_async(self, endpoints: RpcEndpoints, req: ForwardMessageToDeadLetterQueueRequest, metadata, timeout=3):
+        """Forward a message to the dead letter queue after repeated consumption failures asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The forward to DLQ request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the response.
+        """
         return RpcClient.__run_message_service_async(
             self.__forward_message_to_dead_letter_queue_async_0(endpoints, req, metadata=metadata, timeout=timeout))
 
     def sync_lite_subscription_async(self, endpoints: RpcEndpoints, req: SyncLiteSubscriptionRequest, metadata, timeout=3):
+        """Synchronize lite subscription information with the broker asynchronously.
+
+        Args:
+            endpoints: Target broker endpoints.
+            req: The sync lite subscription request.
+            metadata: gRPC metadata.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            A ``concurrent.futures.Future`` resolving to the response.
+        """
         return RpcClient.__run_message_service_async(
             self.__sync_lite_subscription_0(endpoints, req, metadata=metadata, timeout=timeout))
 
     def telemetry_stream(
         self, endpoints: RpcEndpoints, client, metadata, rebuild, timeout=3000
     ):
-        # build grpc stream_stream_call
-        try:
-            channel = self.retrieve_or_create_channel(endpoints)
-            stream = channel.async_stub.Telemetry(
-                metadata=metadata, timeout=timeout, wait_for_ready=True
-            )
-            channel.register_telemetry_stream_stream_call(stream, client)
-            asyncio.run_coroutine_threadsafe(
-                channel.telemetry_stream_stream_call.start_stream_read(),
-                RpcClient.get_channel_io_loop(),
-            )
-            logger.info(
-                f"{client} rebuild stream_steam_call to {endpoints}."
-                if rebuild
-                else f"{client} create stream_steam_call to {endpoints}."
-            )
-            return channel
-        except Exception as e:
-            raise e
+        """Establish or rebuild a bidirectional telemetry stream with a broker.
 
-    """ MessageService.stub impl """
+        The stream is used for server-to-client settings push and client-to-server
+        metrics reporting.
+
+        Args:
+            endpoints: Target broker endpoints.
+            client: The client handler to receive server commands.
+            metadata: gRPC metadata.
+            rebuild: If True, rebuild an existing stream.
+            timeout: Stream timeout in seconds.
+        """
+        # build grpc stream_stream_call
+
+        channel = self.retrieve_or_create_channel(endpoints)
+        stream = channel.async_stub.Telemetry(
+            metadata=metadata, timeout=timeout, wait_for_ready=True
+        )
+        channel.register_telemetry_stream_stream_call(stream, client)
+        asyncio.run_coroutine_threadsafe(
+            channel.telemetry_stream_stream_call.start_stream_read(),
+            RpcClient.get_channel_io_loop(),
+        )
+        logger.info(
+            f"{client} rebuild stream_steam_call to {endpoints}."
+            if rebuild
+            else f"{client} create stream_steam_call to {endpoints}."
+        )
+        return channel
 
     async def __query_route_async_0(
         self, endpoints: RpcEndpoints, req: QueryRouteRequest, metadata, timeout=3
@@ -308,9 +496,7 @@ class RpcClient:
     async def __create_channel_async(self, endpoints: RpcEndpoints):
         return self.retrieve_or_create_channel(endpoints)
 
-    """ private """
-
-    def __get_channel(self, endpoints: RpcEndpoints) -> RpcChannel:
+    def __get_channel(self, endpoints: RpcEndpoints) -> Optional[RpcChannel]:
         return self.channels.get(endpoints)
 
     def __put_channel(self, endpoints: RpcEndpoints, channel):
@@ -331,9 +517,15 @@ class RpcClient:
 
     @staticmethod
     def __init_io_loop(initialized_event):
-        # start a thread, set an event loop to the thread. all clients use the same event loop for io operation
-        # loop only init once, running forever until the process ends
-        # RpcClient use RpcClient._io_loop to execute grpc call
+        """Initialize the shared asyncio event loop in a dedicated I/O thread.
+
+        All ``RpcClient`` instances share this single event loop for gRPC
+        asynchronous operations. The loop is created once and runs forever
+        until the process exits.
+
+        Args:
+            initialized_event: Threading event to signal that the loop is ready.
+        """
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -346,8 +538,15 @@ class RpcClient:
 
     @staticmethod
     def __run_message_service_async(func):
+        """Schedule an async gRPC coroutine on the shared I/O event loop.
+
+        Args:
+            func: An async coroutine to execute.
+
+        Returns:
+            A ``concurrent.futures.Future`` that resolves when the coroutine completes.
+        """
         try:
-            # execute grpc call in RpcClient._io_loop
             return asyncio.run_coroutine_threadsafe(
                 func, RpcClient.get_channel_io_loop()
             )

@@ -466,16 +466,19 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 			}
 			rpcErr, isRpcErr := AsErrRpcStatus(err)
 			isNoNewMessage := isRpcErr && rpcErr.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND)
+			// An empty long polling result is still a completed reception, so it has
+			// to close the hook opened before the request was sent.
+			hookStatus := MessageHookPointsStatus_OK
 			if isNoNewMessage {
-				dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, MessageHookPointsStatus_OK)
 				dpq.consumer.cli.log.Debugf("No new message, mq=%s, endpoints=%v, clientId=%s",
 					dpq.mqstr, endpoints, clientId)
 			} else {
-				dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, MessageHookPointsStatus_ERROR)
+				hookStatus = MessageHookPointsStatus_ERROR
 				dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%s, "+
 					"nextAttemptId=%s, clientId=%s, err=%v", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
 					clientId, err)
 			}
+			dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, hookStatus)
 			dpq.onReceiveMessageException(err, nextAttemptId)
 		}
 	}()

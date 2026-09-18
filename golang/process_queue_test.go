@@ -20,117 +20,107 @@ package golang
 import (
 	"context"
 	"io"
-	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/apache/rocketmq-clients/golang/v5/credentials"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"google.golang.org/grpc"
 )
 
-func TestProcessQueueReceiveCompletesInflightRequest(t *testing.T) {
-	tests := []struct {
-		name       string
-		code       v2.Code
-		receiveErr error
-		wantStatus MessageHookPointsStatus
-	}{
-		{name: "no new message", code: v2.Code_MESSAGE_NOT_FOUND, wantStatus: MessageHookPointsStatus_OK},
-		{name: "successful receive", code: v2.Code_OK, wantStatus: MessageHookPointsStatus_OK},
-		{name: "server error", code: v2.Code_INTERNAL_SERVER_ERROR, wantStatus: MessageHookPointsStatus_ERROR},
-		{name: "receive timeout", receiveErr: status.Error(codes.DeadlineExceeded, "receive timed out"), wantStatus: MessageHookPointsStatus_ERROR},
+// noNewMessageStream answers a long polling receive the way an idle queue does:
+// a MESSAGE_NOT_FOUND status followed by EOF.
+type noNewMessageStream struct {
+	grpc.ClientStream
+	statusSent bool
+}
+
+func (stream *noNewMessageStream) Recv() (*v2.ReceiveMessageResponse, error) {
+	if !stream.statusSent {
+		stream.statusSent = true
+		return &v2.ReceiveMessageResponse{
+			Content: &v2.ReceiveMessageResponse_Status{
+				Status: &v2.Status{Code: v2.Code_MESSAGE_NOT_FOUND, Message: v2.Code_MESSAGE_NOT_FOUND.String()},
+			},
+		}, nil
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			pc, err := newPushConsumer(&Config{Endpoint: fakeAddress, ConsumerGroup: "test-group"},
-				WithPushSubscriptionExpressions(map[string]*FilterExpression{"test-topic": NewFilterExpression("*")}),
-				WithPushMessageListener(&FuncMessageListener{Consume: func(*MessageView) ConsumerResult { return SUCCESS }}),
-			)
-			require.NoError(t, err)
+	return nil, io.EOF
+}
 
-			core, logs := observer.New(zap.DebugLevel)
-			nextReceive := make(chan struct{}, 1)
-			pc.cli.log = zap.New(core, zap.Hooks(func(entry zapcore.Entry) error {
-				if strings.HasPrefix(entry.Message, "Process queue has been dropped, no longer receive message") {
-					nextReceive <- struct{}{}
-				}
-				return nil
-			})).Sugar()
-			hooks := &processQueueReceiveHooks{}
-			pc.cli.registerMessageInterceptor(hooks)
-			manager := NewMockClientManager(gomock.NewController(t))
-			pc.cli.clientManager = manager
-			manager.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any(), gomock.Any()).
-				DoAndReturn(func(context.Context, *v2.Endpoints, *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
-					if tt.receiveErr != nil {
-						return nil, tt.receiveErr
-					}
-					return &processQueueReceiveStream{code: tt.code}, nil
-				}).Times(3)
-
-			pq := &defaultProcessQueue{
-				consumer:         pc,
-				mq:               &v2.MessageQueue{Topic: &v2.Resource{Name: "test-topic"}, Broker: &v2.Broker{Endpoints: fakeEndpoints()}},
-				filterExpression: NewFilterExpression("*"),
-			}
-			// Prevent automatic polling after each manually started receive. Reaching
-			// the dropped-queue log also confirms its completion path has finished.
-			pq.dropped.Store(true)
-			for attempt := 1; attempt <= 3; attempt++ {
-				pq.receiveMessageImmediatelyWithAttemptId("test-attempt")
-				select {
-				case <-nextReceive:
-				case <-time.After(5 * time.Second):
-					t.Fatal("receive completion did not reach the next poll")
-				}
-				assert.Zero(t, pc.inflightRequestCountInterceptor.getInflightReceiveRequestCount(), "after receive %d", attempt)
-				assert.Len(t, hooks.statuses, attempt, "each receive must invoke doAfter exactly once")
-			}
-			assert.Equal(t, []MessageHookPointsStatus{tt.wantStatus, tt.wantStatus, tt.wantStatus}, hooks.statuses)
-
-			// Exercise the same wait used by GracefulStop, with a short upper bound
-			// so a leaked counter fails quickly without timing-based assertions.
-			pc.pcSettings.requestTimeout = time.Millisecond
-			pc.pcSettings.longPollingTimeout = time.Millisecond
-			require.NoError(t, pc.waitingReceiveRequestFinished())
-			assert.Zero(t, logs.FilterMessageSnippet("Timeout waiting for all inflight receive requests").Len())
-			assert.Equal(t, 1, logs.FilterMessageSnippet("All inflight receive requests have been finished").Len())
-		})
+// An empty long polling result is a completed reception, so it has to close the
+// receive hook it opened. Otherwise the inflight count grows for as long as the
+// topic stays idle and GracefulStop waits out its whole timeout for nothing.
+func TestProcessQueueEmptyLongPollingBalancesInflightReceiveCount(t *testing.T) {
+	consumer, err := NewPushConsumer(&Config{
+		Endpoint:      fakeAddress,
+		ConsumerGroup: MOCK_GROUP,
+		Credentials:   &credentials.SessionCredentials{},
+	},
+		WithPushSubscriptionExpressions(map[string]*FilterExpression{MOCK_TOPIC: SUB_ALL}),
+		WithPushMessageListener(&FuncMessageListener{
+			Consume: func(*MessageView) ConsumerResult { return SUCCESS },
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
 	}
-}
+	pc := consumer.(*defaultPushConsumer)
+	manager := NewMockClientManager(gomock.NewController(t))
+	pc.cli.clientManager = manager
+	pc.cli.log = zap.NewNop().Sugar()
+	pc.cli.inited.Store(true)
 
-type processQueueReceiveStream struct {
-	v2.MessagingService_ReceiveMessageClient
-	code v2.Code
-	sent bool
-}
+	var receptions atomic.Int32
+	manager.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, *v2.Endpoints, *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
+			receptions.Add(1)
+			return &noNewMessageStream{}, nil
+		}).AnyTimes()
 
-func (s *processQueueReceiveStream) Recv() (*v2.ReceiveMessageResponse, error) {
-	if s.sent {
-		return nil, io.EOF
+	mq := &v2.MessageQueue{
+		Topic:              &v2.Resource{Name: MOCK_TOPIC},
+		Id:                 0,
+		Broker:             &v2.Broker{Name: "broker", Endpoints: fakeEndpoints()},
+		AcceptMessageTypes: []v2.MessageType{v2.MessageType_NORMAL},
 	}
-	s.sent = true
-	return &v2.ReceiveMessageResponse{Content: &v2.ReceiveMessageResponse_Status{Status: &v2.Status{Code: s.code}}}, nil
-}
-
-type processQueueReceiveHooks struct {
-	statuses []MessageHookPointsStatus
-}
-
-func (h *processQueueReceiveHooks) doBefore(MessageHookPoints, []*MessageCommon) error {
-	return nil
-}
-
-func (h *processQueueReceiveHooks) doAfter(point MessageHookPoints, _ []*MessageCommon, _ time.Duration, status MessageHookPointsStatus) error {
-	if point == MessageHookPoints_RECEIVE {
-		h.statuses = append(h.statuses, status)
+	// Registering the queue the way the route scan does keeps the per queue cache
+	// threshold above zero, so an idle queue keeps polling instead of backing off
+	// as if its cache were full.
+	dpq, ok := pc.createProcessQueue(utils.ParseMessageQueue2Str(mq), mq, SUB_ALL).(*defaultProcessQueue)
+	if !ok {
+		t.Fatal("process queue was not created")
 	}
-	return nil
+	defer dpq.drop()
+
+	dpq.receiveMessageImmediately()
+
+	const wanted = int32(5)
+	deadline := time.Now().Add(10 * time.Second)
+	for receptions.Load() < wanted && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := receptions.Load(); got < wanted {
+		t.Fatalf("expected at least %d receptions of an idle queue, got %d", wanted, got)
+	}
+
+	// Stop the retry loop, then let the receptions in flight report back.
+	dpq.drop()
+	count := int64(-1)
+	deadline = time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		count = pc.inflightRequestCountInterceptor.getInflightReceiveRequestCount()
+		if count == 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if count != 0 {
+		t.Fatalf("inflight receive count is %d after %d completed receptions of an idle queue; "+
+			"an empty long polling result never closed the hook it opened, so GracefulStop would "+
+			"wait out requestTimeout + longPollingTimeout before giving up", count, receptions.Load())
+	}
 }

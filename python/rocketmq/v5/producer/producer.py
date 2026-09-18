@@ -34,20 +34,32 @@ from rocketmq.v5.exception import (ClientException, IllegalArgumentException,
 from rocketmq.v5.log import logger
 from rocketmq.v5.model import CallbackResult, Message, SendReceipt
 from rocketmq.v5.model.retry_policy import ExponentialBackoffRetryPolicy
-from rocketmq.v5.util import (ConcurrentMap, MessageIdCodec,
+from rocketmq.v5.util import (SDK_VERSION, ConcurrentMap, MessageIdCodec,
                               MessagingResultChecker, Misc)
 
 
 class Transaction:
-    __transaction_lock = threading.Lock()
 
     def __init__(self, producer):
+        self.__transaction_lock = threading.Lock()
         self.__message = None
         self.__send_receipt = None
         self.__producer = producer
 
     def add_half_message(self, message: Message):
-        with Transaction.__transaction_lock:
+        """Add a half message to the transaction.
+
+        A half message is a message that has been sent but is not visible to
+        consumers until the transaction is committed. Only one half message
+        can be added per transaction.
+
+        Args:
+            message: The message to add as a half message.
+
+        Raises:
+            IllegalArgumentException: If message is None or a message already exists.
+        """
+        with self.__transaction_lock:
             if message is None:
                 raise IllegalArgumentException(
                     "add half message error, message is none."
@@ -61,7 +73,17 @@ class Transaction:
                 )
 
     def add_send_receipt(self, send_receipt):
-        with Transaction.__transaction_lock:
+        """Associate a send receipt with the half message.
+
+        The send receipt must match the message_id of the half message.
+
+        Args:
+            send_receipt: The receipt returned by sending the half message.
+
+        Raises:
+            IllegalArgumentException: If no message exists or message_id mismatch.
+        """
+        with self.__transaction_lock:
             if self.__message is None:
                 raise IllegalArgumentException(
                     "add send receipt error, no message in transaction."
@@ -78,9 +100,25 @@ class Transaction:
             self.__send_receipt = send_receipt
 
     def commit(self):
+        """Commit the transaction, making the half message visible to consumers.
+
+        Returns:
+            The server response for the commit operation.
+
+        Raises:
+            IllegalArgumentException: If no message in transaction or no transaction_id.
+        """
         return self.__commit_or_rollback(TransactionResolution.COMMIT)
 
     def rollback(self):
+        """Rollback the transaction, discarding the half message.
+
+        Returns:
+            The server response for the rollback operation.
+
+        Raises:
+            IllegalArgumentException: If no message in transaction or no transaction_id.
+        """
         return self.__commit_or_rollback(TransactionResolution.ROLLBACK)
 
     def __commit_or_rollback(self, result):
@@ -111,17 +149,29 @@ class Transaction:
             )
             raise e
 
-    """ property """
-
     @property
     def message_id(self):
         return self.__message.message_id
 
 
 class TransactionChecker(metaclass=abc.ABCMeta):
+    """Abstract checker for verifying the state of orphaned transaction messages.
+
+    When the server detects a half message whose transaction status is unknown
+    (e.g., client crashed after sending), it sends a check command to this
+    checker to determine whether to commit or rollback.
+    """
 
     @abc.abstractmethod
     def check(self, message: Message) -> TransactionResolution:
+        """Check the local transaction state of the given message.
+
+        Args:
+            message: The half message to verify.
+
+        Returns:
+            TransactionResolution.COMMIT or TransactionResolution.ROLLBACK.
+        """
         pass
 
 
@@ -150,9 +200,29 @@ class Producer(Client):
     def __str__(self):
         return f"{ClientType.Name(self.client_type)} client_id:{self.client_id}"
 
-    # send message #
-
     def send(self, message: Message, transaction=None) -> SendReceipt:
+        """Send a message synchronously to the broker.
+
+        Supports both normal messages and transactional half-messages.
+        Automatically retries on failure based on the configured backoff policy
+        (default: 3 attempts with exponential backoff).
+
+        Args:
+            message: The message to send. Body, topic, and optional properties
+                (tag, keys, message_group, delivery_timestamp, etc.) should be set.
+            transaction: Optional :class:`Transaction` object for sending a half-message.
+                If provided, the message will not be visible to consumers until
+                ``transaction.commit()`` is called.
+
+        Returns:
+            SendReceipt containing message_id, transaction_id, message_queue,
+            offset, and optional recall_handle.
+
+        Raises:
+            IllegalStateException: If producer is not running.
+            IllegalArgumentException: If message body is empty, body exceeds 4MB,
+                or message type conflicts (e.g., transactional + fifo).
+        """
         if not self.is_running:
             raise IllegalStateException("producer is not running now.")
 
@@ -185,6 +255,22 @@ class Producer(Client):
                 raise e
 
     def send_async(self, message: Message):
+        """Send a message asynchronously, returning a Future.
+
+        The returned ``concurrent.futures.Future`` will be resolved with a
+        :class:`SendReceipt` on success, or an exception on failure.
+        Retry is handled internally via the backoff policy.
+
+        Args:
+            message: The message to send.
+
+        Returns:
+            A ``concurrent.futures.Future`` that resolves to SendReceipt.
+
+        Raises:
+            IllegalStateException: If producer is not running.
+            IllegalArgumentException: If message type does not match queue.
+        """
         if not self.is_running:
             raise IllegalStateException("producer is not running now.")
 
@@ -203,30 +289,68 @@ class Producer(Client):
             logger.error(f"send message exception, topic: {message.topic}, {e}")
             raise e
 
-    # recall timer #
-
     def recall_message(self, topic, recall_handle: str):
-        try:
-            future = self.__recall_message(topic, recall_handle)
-            return self.__handle_recall_result(future)
-        except Exception as e:
-            raise e
+        """Recall a scheduled message before it becomes visible to consumers.
+
+        A scheduled message (sent with ``delivery_timestamp``) is stored on the
+        broker but not visibe until the scheduled time. Recall cancels such a
+        message **before** its ``delivery_timestamp``. Once the message is delivered
+        to consumers, recall will fail.
+
+        The ``recall_handle`` is returned in the :class:`SendReceipt` when the
+        message was originally sent.
+
+        Args:
+            topic: The topic the scheduled message was sent to.
+            recall_handle: The recall handle from the original SendReceipt.
+
+        Returns:
+            The recalled message_id.
+
+        Raises:
+            IllegalStateException: If producer is not running.
+            Exception: If the message has already been delivered or recall fails.
+        """
+
+        future = self.__recall_message(topic, recall_handle)
+        return self.__handle_recall_result(future)
 
     def recall_message_async(self, topic, recall_handle: str):
-        try:
-            future = self.__recall_message(topic, recall_handle)
-            ret_future = Future()
-            recall_message_callback = functools.partial(
-                self.__handle_recall_result, ret_future=ret_future
-            )
-            future.add_done_callback(recall_message_callback)
-            return ret_future
-        except Exception as e:
-            raise e
+        """Recall a scheduled message asynchronously.
 
-    # transaction #
+        See :meth:`recall_message` for semantics. The message must not have
+        been delivered to consumers yet.
+
+        Args:
+            topic: The topic the scheduled message was sent to.
+            recall_handle: The recall handle from the original SendReceipt.
+
+        Returns:
+            A ``concurrent.futures.Future`` that resolves to the recalled message_id.
+        """
+
+        future = self.__recall_message(topic, recall_handle)
+        ret_future = Future()
+        recall_message_callback = functools.partial(
+            self.__handle_recall_result, ret_future=ret_future
+        )
+        future.add_done_callback(recall_message_callback)
+        return ret_future
 
     def begin_transaction(self):
+        """Begin a new transaction for sending half-messages.
+
+        Requires a ``TransactionChecker`` to be configured on the Producer.
+        After calling this, use ``Transaction.add_half_message()`` to add a message,
+        then call ``Transaction.commit()`` or ``Transaction.rollback()``.
+
+        Returns:
+            A new :class:`Transaction` object.
+
+        Raises:
+            IllegalStateException: If producer is not running.
+            IllegalArgumentException: If no TransactionChecker is configured.
+        """
         if not self.is_running:
             raise IllegalStateException(
                 "unable to begin transaction because producer is not running"
@@ -237,6 +361,24 @@ class Producer(Client):
         return Transaction(self)
 
     def end_transaction(self, endpoints, message, transaction_id, result, source):
+        """End a transaction by committing or rolling back a half-message.
+
+        Typically called internally via ``Transaction.commit()`` or
+        ``Transaction.rollback()``, but can be called directly for custom flows.
+
+        Args:
+            endpoints: The broker endpoints to send the request to.
+            message: The half-message being committed or rolled back.
+            transaction_id: The transaction ID from the SendReceipt.
+            result: ``TransactionResolution.COMMIT`` or ``ROLLBACK``.
+            source: ``TransactionSource`` indicating who initiated the resolution.
+
+        Returns:
+            The server response.
+
+        Raises:
+            IllegalStateException: If producer is not running.
+        """
         if not self.is_running:
             raise IllegalStateException(
                 "unable to end transaction because producer is not running"
@@ -249,7 +391,7 @@ class Producer(Client):
         future = self.rpc_client.end_transaction_async(
             endpoints,
             req,
-            metadata=self._sign(),
+            metadata=self.sign(),
             timeout=self.client_configuration.request_timeout,
         )
         return future.result()
@@ -257,6 +399,20 @@ class Producer(Client):
     def on_recover_orphaned_transaction_command(
         self, endpoints, msg, transaction_id
     ):
+        """Handle orphaned transaction recovery command from the server.
+
+        When the server detects a half-message with unknown transaction status
+        (e.g., the client crashed after sending), it sends a recovery command
+        to this handler. The handler invokes the configured ``TransactionChecker``
+        to determine commit or rollback.
+
+        This method is called by the gRPC stream, not by user code.
+
+        Args:
+            endpoints: The broker endpoints sending the command.
+            msg: Protobuf-encoded message data.
+            transaction_id: The transaction ID to resolve.
+        """
         # call this function from server side stream, in RpcClient._io_loop
         try:
             if not self.is_running:
@@ -271,9 +427,15 @@ class Producer(Client):
         except Exception as e:
             logger.error(f"on_recover_orphaned_transaction_command exception: {e}")
 
-    """ override """
-
     def reset_setting(self, settings):
+        """Reset producer settings from server-side configuration.
+
+        Updates max_body_size, validate_message_type, and backoff policy
+        based on the settings pushed by the server.
+
+        Args:
+            settings: The :class:`Settings` protobuf from the server.
+        """
         self.__max_body_size = settings.publishing.max_body_size
         self.__validate_message_type = settings.publishing.validate_message_type
         use_exponential = settings and settings.backoff_policy and settings.backoff_policy.WhichOneof("strategy") == "exponential_backoff"
@@ -292,7 +454,19 @@ class Producer(Client):
     def _on_start_failure(self):
         logger.error(f"{self} start failed.")
 
-    def _sync_setting_req(self, endpoints):
+    def sync_setting_req(self, endpoints):
+        """Build the settings request for initial sync with the server.
+
+        Constructs a TelemetryCommand containing publishing configuration
+        (topics, max_body_size, validate_message_type) and client info
+        (SDK language, version, platform, hostname).
+
+        Args:
+            endpoints: The broker endpoints to sync settings with.
+
+        Returns:
+            A :class:`TelemetryCommand` with the producer's settings.
+        """
         # publishing
         pub = Publishing()
         topics = self.topics
@@ -311,7 +485,7 @@ class Producer(Client):
         settings.publishing.CopyFrom(pub)
 
         settings.user_agent.language = Misc.sdk_language()
-        settings.user_agent.version = Misc.sdk_version()
+        settings.user_agent.version = SDK_VERSION
         settings.user_agent.platform = Misc.get_os_description()
         settings.user_agent.hostname = Misc.get_local_ip()
         settings.metric.on = False
@@ -328,22 +502,28 @@ class Producer(Client):
     def _notify_client_termination_req(self):
         return NotifyClientTerminationRequest()
 
-    def _update_queue_selector(self, topic, topic_route):
+    # def _update_queue_selector(self, topic, topic_route):
+    def update_queue_selector(self, topic, topic_route):
         queue_selector = self.__send_queue_selectors.get(topic)
         if queue_selector is None:
             return
         queue_selector.update(topic_route)
 
     def shutdown(self):
+        """Shutdown the producer and release all resources.
+
+        Stops the transaction check executor and all client schedulers
+        (heartbeat, route update, telemetry, idle channel cleanup),
+        then sends a termination notification to the server.
+
+        Raises:
+            IllegalStateException: If producer is not running or already shutdown.
+        """
         logger.info(f"begin to shutdown {self}")
         self.__transaction_check_executor.shutdown()
         self.__transaction_check_executor = None
         super().shutdown()
         logger.info(f"shutdown {self} success.")
-
-    """ private """
-
-    # send #
 
     def __send(self, message: Message, topic_queue, attempt=1) -> SendReceipt:
         req = self.__send_req(message)
@@ -351,7 +531,7 @@ class Producer(Client):
         send_message_future = self.rpc_client.send_message_async(
             topic_queue.endpoints,
             req,
-            self._sign(),
+            self.sign(),
             timeout=self.client_configuration.request_timeout,
         )
         return self.__handle_send_response_sync(
@@ -392,7 +572,7 @@ class Producer(Client):
         send_message_future = self.rpc_client.send_message_async(
             topic_queue.endpoints,
             req,
-            self._sign(),
+            self.sign(),
             timeout=self.client_configuration.request_timeout,
         )
         if ret_future is None:
@@ -482,45 +662,42 @@ class Producer(Client):
         message.message_type = self.__send_message_type(message, is_transaction)
 
     def __send_req(self, message: Message):
-        try:
-            req = SendMessageRequest()
-            msg = req.messages.add()
-            msg.topic.name = message.topic
-            msg.topic.resource_namespace = self.client_configuration.namespace
-            if not message.body or len(message.body) == 0:
-                raise IllegalArgumentException("message body is none.")
-            max_body_size = 4 * 1024 * 1024  # max body size is 4m
-            if len(message.body) > max_body_size:
-                raise IllegalArgumentException(
-                    f"Message body size exceeds the threshold, max size={max_body_size} bytes"
-                )
 
-            msg.body = message.body
-            if message.lite_topic:
-                msg.system_properties.lite_topic = message.lite_topic
-            if message.priority is not None and message.priority >= 0:
-                msg.system_properties.priority = message.priority
-            if message.tag:
-                msg.system_properties.tag = message.tag
-            if message.keys:
-                msg.system_properties.keys.extend(message.keys)
-            if message.properties:
-                msg.user_properties.update(message.properties)
-            msg.system_properties.message_id = message.message_id
-            msg.system_properties.message_type = message.message_type
-            msg.system_properties.born_timestamp.seconds = int(time.time())
-            msg.system_properties.born_host = Misc.get_local_ip()
-            msg.system_properties.body_encoding = Encoding.IDENTITY
+        req = SendMessageRequest()
+        msg = req.messages.add()
+        msg.topic.name = message.topic
+        msg.topic.resource_namespace = self.client_configuration.namespace
+        if not message.body or len(message.body) == 0:
+            raise IllegalArgumentException("message body is none.")
+        if len(message.body) > self.__max_body_size:  # default max body size is 4m
+            raise IllegalArgumentException(
+                f"Message body size exceeds the threshold, max size={self.__max_body_size} bytes"
+            )
 
-            if message.message_group:
-                msg.system_properties.message_group = message.message_group
-            if message.delivery_timestamp:
-                msg.system_properties.delivery_timestamp.seconds = (
-                    message.delivery_timestamp
-                )
-            return req
-        except Exception as e:
-            raise e
+        msg.body = message.body
+        if message.lite_topic:
+            msg.system_properties.lite_topic = message.lite_topic
+        if message.priority is not None and message.priority >= 0:
+            msg.system_properties.priority = message.priority
+        if message.tag:
+            msg.system_properties.tag = message.tag
+        if message.keys:
+            msg.system_properties.keys.extend(message.keys)
+        if message.properties:
+            msg.user_properties.update(message.properties)
+        msg.system_properties.message_id = message.message_id
+        msg.system_properties.message_type = message.message_type
+        msg.system_properties.born_timestamp.seconds = int(time.time())
+        msg.system_properties.born_host = Misc.get_local_ip()
+        msg.system_properties.body_encoding = Encoding.IDENTITY
+
+        if message.message_group:
+            msg.system_properties.message_group = message.message_group
+        if message.delivery_timestamp:
+            msg.system_properties.delivery_timestamp.seconds = (
+                message.delivery_timestamp
+            )
+        return req
 
     def __send_message_type(self, message: Message, is_transaction=False):
         if (
@@ -575,22 +752,18 @@ class Producer(Client):
             logger.error(f"producer select topic:{message.topic} queue raise exception, {e}")
             raise e
 
-    # recall timer #
-
     def __recall_message(self, topic, recall_handle: str):
         if not self.is_running:
             raise IllegalStateException(
                 "unable to recall message because producer is not running"
             )
-        try:
-            return self.rpc_client.recall_message_async(
-                self.client_configuration.rpc_endpoints,
-                self.__recall_message_req(topic, recall_handle),
-                metadata=self._sign(),
-                timeout=self.client_configuration.request_timeout,
-            )
-        except Exception as e:
-            raise e
+
+        return self.rpc_client.recall_message_async(
+            self.client_configuration.rpc_endpoints,
+            self.__recall_message_req(topic, recall_handle),
+            metadata=self.sign(),
+            timeout=self.client_configuration.request_timeout,
+        )
 
     def __recall_message_req(self, topic, recall_handle: str):
         req = RecallMessageRequest()
@@ -616,8 +789,6 @@ class Producer(Client):
                 self._submit_callback(
                     CallbackResult.recall_message_callback_result(ret_future, e, False)
                 )
-
-    # transaction #
 
     def __end_transaction_req(self, message: Message, transaction_id, result, source):
         req = EndTransactionRequest()
@@ -650,10 +821,7 @@ class Producer(Client):
             logger.error(f"server transaction check raise exception, {e}")
 
     def __server_transaction_check(self, endpoints, message, transaction_id):
-        try:
-            result = self.__checker.check(message)
-            req = self.__end_transaction_req(message, transaction_id, result, TransactionSource.SOURCE_SERVER_CHECK)
-            future = self.rpc_client.end_transaction_async(endpoints, req, metadata=self._sign(), timeout=self.client_configuration.request_timeout)
-            future.add_done_callback(functools.partial(self.__server_transaction_check_callback, message=message, transaction_id=transaction_id, result=result))
-        except Exception as e:
-            raise e
+        result = self.__checker.check(message)
+        req = self.__end_transaction_req(message, transaction_id, result, TransactionSource.SOURCE_SERVER_CHECK)
+        future = self.rpc_client.end_transaction_async(endpoints, req, metadata=self.sign(), timeout=self.client_configuration.request_timeout)
+        future.add_done_callback(functools.partial(self.__server_transaction_check_callback, message=message, transaction_id=transaction_id, result=result))
