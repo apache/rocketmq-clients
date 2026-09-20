@@ -84,7 +84,11 @@ export class TelemetrySession {
       this.#endpoints, this.#baseClient.clientId);
 
     try {
-      this.release();
+      if (this.#reconnectTimer) {
+        clearTimeout(this.#reconnectTimer);
+        this.#reconnectTimer = undefined;
+      }
+      this.#closeStream();
       this.#renewStream(false);
     } catch (err) {
       this.#logger.error('Failed to refresh telemetry session, endpoints=%s, clientId=%s, error=%s',
