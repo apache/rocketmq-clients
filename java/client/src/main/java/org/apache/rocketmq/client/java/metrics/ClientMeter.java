@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 public class ClientMeter {
     private static final Logger log = LoggerFactory.getLogger(ClientMeter.class);
 
-    private final boolean enabled;
+    private volatile boolean enabled;
     private final Meter meter;
     private final Endpoints endpoints;
     private final SdkMeterProvider provider;
@@ -69,6 +69,9 @@ public class ClientMeter {
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
+        if (!enabled) {
+            return;
+        }
         final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(), name -> enabled ?
             meter.histogramBuilder(histogramEnum.getName()).build() : null);
         if (null == histogram) {
@@ -81,6 +84,7 @@ public class ClientMeter {
         if (!enabled) {
             return;
         }
+        enabled = false;
         log.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
         final CountDownLatch latch = new CountDownLatch(1);
         provider.shutdown().whenComplete(latch::countDown);
