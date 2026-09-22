@@ -721,6 +721,14 @@ func (cli *defaultClient) startUp() error {
 				}
 				switch impl := cli.clientImpl.(type) {
 				case *defaultProducer:
+					// Do not cache an empty publishing load balancer. If the
+					// refreshed route has no writable master queues, remove the
+					// cached route so sends fail with the route error and can
+					// recover when a later refresh provides a valid route.
+					if len(filterWritableMasterQueues(newRoute)) == 0 {
+						impl.publishingRouteDataResultCache.Delete(topic)
+						return true
+					}
 					existing, ok := impl.publishingRouteDataResultCache.Load(topic)
 					if !ok {
 						plb, err := NewPublishingLoadBalancer(newRoute)
