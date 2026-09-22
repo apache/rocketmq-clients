@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import apache.rocketmq.v2.AckMessageResponse;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
@@ -41,12 +42,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
@@ -116,6 +119,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     private final ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable;
     private ConsumeService consumeService;
+    private volatile AckMessageBatcher ackMessageBatcher;
 
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
 
@@ -181,6 +185,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                 getConsumerGroup());
             this.clientMeterManager.setGaugeObserver(gaugeObserver);
             super.startUp();
+            this.ackMessageBatcher = new AckMessageBatcher(this, getScheduler());
             this.consumeService = createConsumeService();
             // Scan assignments periodically.
             scanAssignmentsFuture = getScheduler().scheduleWithFixedDelay(() -> {
@@ -205,7 +210,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      * 2. cancel scanAssignmentsFuture, do not create new processQueue
      * 3. waiting all inflight receive request finished or timeout
      * 4. shutdown consumptionExecutor and waiting all message consumption finished
-     * 5. sleep 1s to ack message async
+     * 5. flush accumulated acknowledgements, then sleep 1s for asynchronous retries
      * 6. shutdown clientImpl
      */
     @Override
@@ -219,6 +224,15 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         log.info("Begin to Shutdown consumption executor, clientId={}", clientId);
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
+        final AckMessageBatcher batcher = this.ackMessageBatcher;
+        if (null != batcher) {
+            try {
+                batcher.flushAndClose().get(clientConfiguration.getRequestTimeout().toMillis(),
+                    TimeUnit.MILLISECONDS);
+            } catch (ExecutionException | TimeoutException e) {
+                log.warn("Failed to flush all batched acknowledgements before shutdown, clientId={}", clientId, e);
+            }
+        }
         TimeUnit.SECONDS.sleep(1);
         super.shutDown();
         log.info("Shutdown the rocketmq {} successfully, clientId={}", clientType(), clientId);
@@ -498,6 +512,15 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     public ConsumeService getConsumeService() {
         return consumeService;
+    }
+
+    ListenableFuture<AckMessageResponse> batchAckMessage(MessageViewImpl messageView) {
+        final AckMessageBatcher batcher = this.ackMessageBatcher;
+        if (null == batcher || !batcher.isBatchable(messageView)) {
+            return ackMessage(messageView);
+        }
+        final ListenableFuture<AckMessageResponse> future = batcher.enqueue(messageView);
+        return null == future ? ackMessage(messageView) : future;
     }
 
     @Override

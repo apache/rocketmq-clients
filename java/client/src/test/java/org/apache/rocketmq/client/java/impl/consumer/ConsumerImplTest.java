@@ -27,6 +27,7 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,6 +45,7 @@ import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
@@ -98,6 +100,32 @@ public class ConsumerImplTest extends TestBase {
             pushConsumer.ackMessage(messageView);
         final AckMessageResponse rpcInvocation = future0.get();
         Assert.assertEquals(rpcInvocation, future.get());
+    }
+
+    @Test
+    public void testBatchAckMessage() throws ExecutionException, InterruptedException {
+        int maxCacheMessageCount = 8;
+        int maxCacheMessageSizeInBytes = 1024;
+        int consumptionThreadCount = 4;
+        PushConsumerImpl pushConsumer = Mockito.spy(new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
+            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
+            consumptionThreadCount));
+        final ClientManager clientManager = Mockito.mock(ClientManager.class);
+        Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
+        final RpcFuture<AckMessageRequest, AckMessageResponse> future = okAckMessageResponseFuture();
+        Mockito.doReturn(future).when(clientManager).ackMessage(any(Endpoints.class),
+            any(AckMessageRequest.class), any(Duration.class));
+        final MessageViewImpl messageView0 = fakeMessageViewImpl();
+        final MessageViewImpl messageView1 = fakeMessageViewImpl();
+
+        pushConsumer.ackMessage(Arrays.asList(messageView0, messageView1)).get();
+
+        final ArgumentCaptor<AckMessageRequest> requestCaptor = ArgumentCaptor.forClass(AckMessageRequest.class);
+        Mockito.verify(clientManager).ackMessage(any(Endpoints.class), requestCaptor.capture(), any(Duration.class));
+        final AckMessageRequest request = requestCaptor.getValue();
+        Assert.assertEquals(2, request.getEntriesCount());
+        Assert.assertEquals(messageView0.getMessageId().toString(), request.getEntries(0).getMessageId());
+        Assert.assertEquals(messageView1.getMessageId().toString(), request.getEntries(1).getMessageId());
     }
 
     @Test
