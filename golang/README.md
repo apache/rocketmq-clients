@@ -51,5 +51,59 @@ To run all tests:
 go test ./...
 ```
 
+### Custom Logging
+
+The client uses a small logging interface so applications can route RocketMQ
+logs through their existing logging framework. Call `SetLogger` before creating
+any producer or consumer. Logger implementations must be safe for concurrent
+use, and the application remains responsible for flushing or closing them.
+
+For example, the standard library's JSON logger can be adapted as follows:
+
+```go
+package main
+
+import (
+	"log/slog"
+	"os"
+
+	rmq_client "github.com/apache/rocketmq-clients/golang/v5"
+)
+
+type appLogger struct {
+	logger *slog.Logger
+}
+
+func (l *appLogger) Debug(msg string, keyValues ...any) {
+	l.logger.Debug(msg, keyValues...)
+}
+
+func (l *appLogger) Info(msg string, keyValues ...any) {
+	l.logger.Info(msg, keyValues...)
+}
+
+func (l *appLogger) Warn(msg string, keyValues ...any) {
+	l.logger.Warn(msg, keyValues...)
+}
+
+func (l *appLogger) Error(msg string, keyValues ...any) {
+	l.logger.Error(msg, keyValues...)
+}
+
+func (l *appLogger) With(keyValues ...any) rmq_client.Logger {
+	return &appLogger{logger: l.logger.With(keyValues...)}
+}
+
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	rmq_client.SetLogger(&appLogger{logger: logger})
+
+	// Create producers and consumers after configuring the logger.
+}
+```
+
+Call `ResetLogger` to restore the default Zap-backed logger and its environment
+variable configuration for package-level logs and clients created afterward.
+
 [codecov-golang-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=golang&label=Golang%20Coverage&logo=codecov
 [codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients

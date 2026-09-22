@@ -85,7 +85,7 @@ func (dpq *defaultProcessQueue) eraseFifoMessage(mv *MessageView, result Consume
 		nextAttemptDelay := utils.GetNextAttemptDelay(retryPolicy, int(attempt))
 		mv.deliveryAttempt += 1
 		attempt = mv.deliveryAttempt
-		dpq.consumer.cli.log.Debugf("Prepare to redeliver the fifo message because of the consumption failure, maxAttempt={},"+
+		dpq.consumer.cli.log.Debugf("Prepare to redeliver the fifo message because of the consumption failure, maxAttempt=%d,"+
 			" attempt=%d, mq=%s, messageId=%s, nextAttemptDelay=%v, clientId=%s", maxAttempts, attempt, dpq.mqstr,
 			messageId, nextAttemptDelay, clientId)
 		service.consumeWithDuration(mv, nextAttemptDelay, func(result0 ConsumerResult, err0 error) {
@@ -140,7 +140,7 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueue0(mv *MessageView, attem
 	resp, err := dpq.consumer.forwardMessageToDeadLetterQueue0(ctx, mv)
 	if err != nil {
 		dpq.consumer.cli.log.Errorf("Exception raised while acknowledging message, clientId=%s, consumerGroup=%s, "+
-			"would attempt to re-ack later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%w", clientId,
+			"would attempt to re-ack later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%v", clientId,
 			consumerGroup, attempt, messageId, dpq.mqstr, endpoints, err)
 		dpq.forwardToDeadLetterQueueLater(mv, 1+attempt, callback)
 		return
@@ -160,8 +160,8 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueue0(mv *MessageView, attem
 	callback(nil)
 	// Log retries.
 	if attempt > 1 {
-		dpq.consumer.cli.log.Infof("Re-forward message to dead letter queue successfully, clientId=%s, consumerGroup=%s "+
-			"messageId={}, attempt={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
+		dpq.consumer.cli.log.Infof("Re-forward message to dead letter queue successfully, clientId=%s, consumerGroup=%s, "+
+			"messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s", clientId, consumerGroup,
 			messageId, attempt, dpq.mqstr, endpoints, requestId)
 		return
 	}
@@ -216,7 +216,7 @@ func (dpq *defaultProcessQueue) changeInvisibleDuration(mv *MessageView, duratio
 	ctx := context.Background()
 	resp, err := dpq.consumer.changeInvisibleDuration0(ctx, mv, duration)
 	if err != nil {
-		dpq.consumer.cli.log.Errorf("Exception raised while changing invisible duration, would retry later, clientId=%s, consumerGroup=%s, messageId=%s, mq=%s, endpoints=%v, err=%w",
+		dpq.consumer.cli.log.Errorf("Exception raised while changing invisible duration, would retry later, clientId=%s, consumerGroup=%s, messageId=%s, mq=%s, endpoints=%v, err=%v",
 			clientId, consumerGroup, messageId, dpq.mqstr, endpoints, err)
 		dpq.changeInvisibleDurationLater(mv, duration, 1+attempt, callback)
 		return
@@ -244,8 +244,8 @@ func (dpq *defaultProcessQueue) changeInvisibleDuration(mv *MessageView, duratio
 	callback(nil)
 	// Log retries.
 	if attempt > 1 {
-		dpq.consumer.cli.log.Infof("Finally, change invisible duration successfully, clientId=%s, consumerGroup=%s "+
-			"messageId={}, attempt={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
+		dpq.consumer.cli.log.Infof("Finally, change invisible duration successfully, clientId=%s, consumerGroup=%s, "+
+			"messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s", clientId, consumerGroup,
 			messageId, attempt, dpq.mqstr, endpoints, requestId)
 		return
 	}
@@ -283,7 +283,7 @@ func (dpq *defaultProcessQueue) ackMessage0(mv *MessageView, attempt int, callba
 	resp, err := dpq.consumer.ack0(ctx, mv)
 	if err != nil {
 		dpq.consumer.cli.log.Errorf("Exception raised while acknowledging message, clientId=%s, consumerGroup=%s, "+
-			"would attempt to re-ack later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%w", clientId,
+			"would attempt to re-ack later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%v", clientId,
 			consumerGroup, attempt, messageId, dpq.mqstr, endpoints, err)
 		dpq.ackMessageLater(mv, 1+attempt, callback)
 		return
@@ -311,8 +311,8 @@ func (dpq *defaultProcessQueue) ackMessage0(mv *MessageView, attempt int, callba
 	callback(nil)
 	// Log retries.
 	if attempt > 1 {
-		dpq.consumer.cli.log.Infof("Finally, ack message successfully, clientId=%s, consumerGroup=%s "+
-			"messageId={}, attempt={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
+		dpq.consumer.cli.log.Infof("Finally, ack message successfully, clientId=%s, consumerGroup=%s, "+
+			"messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s", clientId, consumerGroup,
 			messageId, attempt, dpq.mqstr, endpoints, requestId)
 		return
 	}
@@ -410,7 +410,7 @@ func (dpq *defaultProcessQueue) isCacheFull() bool {
 	cacheMessageBytesThresholdPerQueue := int64(dpq.consumer.cacheMessageBytesThresholdPerQueue())
 	actualCachedMessagesBytes := dpq.cachedMessagesBytes.Load()
 	if cacheMessageBytesThresholdPerQueue <= actualCachedMessagesBytes {
-		dpq.consumer.cli.log.Warnf("Process queue total cached messages memory exceeds the threshold, threshold={} bytes, actual={} bytes, mq={}, clientId={}",
+		dpq.consumer.cli.log.Warnf("Process queue total cached messages memory exceeds the threshold, threshold=%d bytes, actual=%d bytes, mq=%s, clientId=%s",
 			cacheMessageBytesThresholdPerQueue, actualCachedMessagesBytes, dpq.mqstr, clientId)
 		dpq.cacheFullNanoTime.Store(time.Now().UnixNano())
 		return true
