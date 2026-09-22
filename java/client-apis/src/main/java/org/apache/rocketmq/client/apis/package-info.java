@@ -15,20 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.apis.producer;
+@NullMarked
+package org.apache.rocketmq.client.apis;
 
-import org.apache.rocketmq.client.apis.message.MessageId;
-
-/**
- * A receipt from the server, which only makes sense when the message is sent successfully.
- */
-public interface SendReceipt {
-    MessageId getMessageId();
-
-    /**
-     * Unique handle to identify a message to recall, only delay message is supported for now
-     *
-     * @return the recall handle, or an empty string if the message type does not support recall.
-     */
-    String getRecallHandle();
-}
+import org.jspecify.annotations.NullMarked;
