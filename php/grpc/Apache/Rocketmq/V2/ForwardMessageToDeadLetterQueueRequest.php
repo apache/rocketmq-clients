@@ -37,6 +37,10 @@ class ForwardMessageToDeadLetterQueueRequest extends \Google\Protobuf\Internal\M
      * Generated from protobuf field <code>int32 max_delivery_attempts = 6;</code>
      */
     protected $max_delivery_attempts = 0;
+    /**
+     * Generated from protobuf field <code>optional string lite_topic = 7;</code>
+     */
+    protected $lite_topic = null;
 
     /**
      * Constructor.
@@ -50,6 +54,7 @@ class ForwardMessageToDeadLetterQueueRequest extends \Google\Protobuf\Internal\M
      *     @type string $message_id
      *     @type int $delivery_attempt
      *     @type int $max_delivery_attempts
+     *     @type string $lite_topic
      * }
      */
     public function __construct($data = NULL) {
@@ -205,6 +210,38 @@ class ForwardMessageToDeadLetterQueueRequest extends \Google\Protobuf\Internal\M
     {
         GPBUtil::checkInt32($var);
         $this->max_delivery_attempts = $var;
+
+        return $this;
+    }
+
+    /**
+     * Generated from protobuf field <code>optional string lite_topic = 7;</code>
+     * @return string
+     */
+    public function getLiteTopic()
+    {
+        return isset($this->lite_topic) ? $this->lite_topic : '';
+    }
+
+    public function hasLiteTopic()
+    {
+        return isset($this->lite_topic);
+    }
+
+    public function clearLiteTopic()
+    {
+        unset($this->lite_topic);
+    }
+
+    /**
+     * Generated from protobuf field <code>optional string lite_topic = 7;</code>
+     * @param string $var
+     * @return $this
+     */
+    public function setLiteTopic($var)
+    {
+        GPBUtil::checkString($var, True);
+        $this->lite_topic = $var;
 
         return $this;
     }
