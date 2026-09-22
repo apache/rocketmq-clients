@@ -509,9 +509,9 @@ func (sc *defaultSimpleConsumer) Ack(ctx context.Context, messageView *MessageVi
 }
 
 func (sc *defaultSimpleConsumer) IsEndpointUpdated() bool {
-	return sc.cli.ReceiveReconnect
+	return sc.cli.getReceiveReconnect()
 }
 
 func (sc *defaultSimpleConsumer) SetReceiveReconnect(receiveReconnect bool) {
-	sc.cli.ReceiveReconnect = receiveReconnect
+	sc.cli.setReceiveReconnect(receiveReconnect)
 }

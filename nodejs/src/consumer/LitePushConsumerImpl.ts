@@ -218,9 +218,10 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    * <p>This method is called when the server sends a notification to unsubscribe
    * from a lite topic, typically due to quota violations or administrative actions.</p>
    *
+   * @param _endpoints - The server endpoints
    * @param command - The unsubscribe command from the server
    */
-  onNotifyUnsubscribeLiteCommand(command: NotifyUnsubscribeLiteCommand) {
+  onNotifyUnsubscribeLiteCommand(_endpoints: Endpoints, command: NotifyUnsubscribeLiteCommand) {
     this.liteSubscriptionManager.onNotifyUnsubscribeLiteCommand(command);
   }
 
@@ -277,5 +278,14 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    */
   getRequestTimeout(): number {
     return this.requestTimeout;
+  }
+
+  /**
+   * Endpoints the lite subscription manager should sync to.
+   *
+   * @internal
+   */
+  getSyncEndpoints(): Endpoints[] {
+    return [ this.endpoints ];
   }
 }

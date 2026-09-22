@@ -24,7 +24,8 @@ namespace Org.Apache.Rocketmq
         Producer,
         SimpleConsumer,
         PushConsumer,
-        LitePushConsumer
+        LitePushConsumer,
+        LiteSimpleConsumer
     }
 
     public static class ClientTypeHelper
@@ -37,6 +38,7 @@ namespace Org.Apache.Rocketmq
                 ClientType.SimpleConsumer => Proto.ClientType.SimpleConsumer,
                 ClientType.PushConsumer => Proto.ClientType.PushConsumer,
                 ClientType.LitePushConsumer => Proto.ClientType.LitePushConsumer,
+                ClientType.LiteSimpleConsumer => Proto.ClientType.LiteSimpleConsumer,
                 _ => Proto.ClientType.Unspecified
             };
         }

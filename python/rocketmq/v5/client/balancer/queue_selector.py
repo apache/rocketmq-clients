@@ -22,18 +22,39 @@ from rocketmq.v5.util import AtomicInteger
 
 
 class QueueSelector:
+    """Selects message queues using round-robin or hash-based strategies.
+
+    Maintains an internal counter for round-robin selection and provides
+    deterministic hash-based selection for message group ordering. Different
+    selector types filter queues based on role (producer: writable, consumer: readable).
+    """
 
     NONE_TYPE_SELECTOR = 0
     PRODUCER_QUEUE_SELECTOR = 1
     SIMPLE_CONSUMER_QUEUE_SELECTOR = 2
+    LITE_SIMPLE_CONSUMER_QUEUE_SELECTOR = 3
 
     def __init__(self, queues, selector_type=NONE_TYPE_SELECTOR):
+        """Create a queue selector.
+
+        Args:
+            queues: List of :class:`MessageQueue` to select from.
+            selector_type: One of the ``*_SELECTOR`` class constants.
+        """
         self.__index = AtomicInteger(random.randint(1, 1000))
         self.__message_queues = queues
         self.__selector_type = selector_type
 
     @classmethod
     def producer_queue_selector(cls, topic_route: TopicRouteData):
+        """Create a selector for producers (writable queues on master brokers).
+
+        Args:
+            topic_route: Route data for the target topic.
+
+        Returns:
+            A :class:`QueueSelector` filtered to writable master queues.
+        """
         return cls(
             list(
                 filter(
@@ -46,6 +67,14 @@ class QueueSelector:
 
     @classmethod
     def simple_consumer_queue_selector(cls, topic_route: TopicRouteData):
+        """Create a selector for simple consumers (readable queues on master brokers).
+
+        Args:
+            topic_route: Route data for the target topic.
+
+        Returns:
+            A :class:`QueueSelector` filtered to readable master queues.
+        """
         return cls(
             list(
                 filter(
@@ -56,25 +85,81 @@ class QueueSelector:
             QueueSelector.SIMPLE_CONSUMER_QUEUE_SELECTOR,
         )
 
+    @classmethod
+    def lite_simple_consumer_queue_selector(cls, topic_route: TopicRouteData):
+        """Create a selector for lite simple consumers (first readable queue only).
+
+        Lite consumers only read from a single queue regardless of how many
+        readable queues exist.
+
+        Args:
+            topic_route: Route data for the target topic.
+
+        Returns:
+            A :class:`QueueSelector` with only the first readable master queue.
+        """
+        read_queues = list(
+            filter(
+                lambda queue: queue.is_readable() and queue.is_master_broker(),
+                topic_route.message_queues,
+            )
+        )
+        selected_queues = [read_queues[0]] if read_queues else []
+        return cls(selected_queues, QueueSelector.LITE_SIMPLE_CONSUMER_QUEUE_SELECTOR)
+
     def select_next_queue(self):
+        """Select the next queue using round-robin.
+
+        Returns:
+            The next :class:`MessageQueue` in rotation.
+
+        Raises:
+            IllegalArgumentException: If the selector type is unset or no queues are available.
+        """
         if self.__selector_type == QueueSelector.NONE_TYPE_SELECTOR:
             raise IllegalArgumentException(
                 "error type for queue selector, type is NONE_TYPE_SELECTOR."
             )
+        if not self.__message_queues:
+            raise IllegalArgumentException("no available message queues for selection.")
         return self.__message_queues[
             self.__index.get_and_increment() % len(self.__message_queues)
         ]
 
     def select_queue_by_hash_key(self, key):
+        """Select a queue deterministically by hashing a key.
+
+        Used for message group ordering — the same key always maps
+        to the same queue.
+
+        Args:
+            key: Hash key string (e.g., message group ID).
+
+        Returns:
+            The selected :class:`MessageQueue`.
+        """
         hash_object = hashlib.sha256(key.encode('utf-8'))
         hash_code = int.from_bytes(hash_object.digest(), byteorder='big')
         return self.__message_queues[hash_code % len(self.__message_queues)]
 
     def all_queues(self):
+        """Get all queues in a rotated order starting from the next index.
+
+        Returns:
+            List of all :class:`MessageQueue` objects in round-robin order.
+        """
         index = self.__index.get_and_increment() % len(self.__message_queues)
         return self.__message_queues[index:] + self.__message_queues[:index]
 
     def update(self, topic_route: TopicRouteData):
+        """Update the queue list from new route data.
+
+        Re-filters queues based on the selector type (writable for producers,
+        readable for consumers).
+
+        Args:
+            topic_route: Updated route data for the topic.
+        """
         if topic_route.message_queues == self.__message_queues:
             return
         if self.__selector_type == QueueSelector.PRODUCER_QUEUE_SELECTOR:
@@ -91,3 +176,11 @@ class QueueSelector:
                     topic_route.message_queues,
                 )
             )
+        elif self.__selector_type == QueueSelector.LITE_SIMPLE_CONSUMER_QUEUE_SELECTOR:
+            read_queues = list(
+                filter(
+                    lambda queue: queue.is_readable() and queue.is_master_broker(),
+                    topic_route.message_queues,
+                )
+            )
+            self.__message_queues = [read_queues[0]] if read_queues else []

@@ -725,11 +725,11 @@ func (dirci *defultInflightRequestCountInterceptor) getInflightReceiveRequestCou
 }
 
 func (pc *defaultPushConsumer) IsEndpointUpdated() bool {
-	return pc.cli.ReceiveReconnect
+	return pc.cli.getReceiveReconnect()
 }
 
 func (sc *defaultPushConsumer) SetReceiveReconnect(receiveReconnect bool) {
-	sc.cli.ReceiveReconnect = receiveReconnect
+	sc.cli.setReceiveReconnect(receiveReconnect)
 }
 
 type PushConsumerExtension interface {

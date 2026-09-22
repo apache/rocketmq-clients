@@ -32,21 +32,82 @@ namespace Org.Apache.Rocketmq
     public class RpcClient : IRpcClient
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<RpcClient>();
-        private readonly Proto::MessagingService.MessagingServiceClient _stub;
-        private readonly GrpcChannel _channel;
         private readonly string _target;
+        private readonly object _transportLock = new object();
+        private volatile GrpcChannel _channel;
+        private volatile Proto::MessagingService.MessagingServiceClient _stub;
 
         public RpcClient(Endpoints endpoints, bool sslEnabled)
         {
             _target = endpoints.GrpcTarget(sslEnabled);
-            _channel = GrpcChannel.ForAddress(_target, new GrpcChannelOptions
+            _channel = CreateChannel(_target);
+            _stub = CreateStub(_channel);
+        }
+
+        /// <summary>
+        /// Connectivity state of the underlying gRPC channel. <see cref="ConnectivityState.Idle"/> is returned when the
+        /// state is not resolvable, which keeps the native reconnection of gRPC in control instead of forcing a reset.
+        /// </summary>
+        public ConnectivityState State
+        {
+            get
             {
-                HttpHandler = CreateHttpHandler(),
+                try
+                {
+                    return _channel.State;
+                }
+                catch (Exception e)
+                {
+                    Logger.LogWarning(e, $"Failed to resolve the connectivity state, target={_target}");
+                    return ConnectivityState.Idle;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Replaces the gRPC channel of this client, dropping the connections it holds. Every in-flight call of the
+        /// replaced channel is cancelled, including the long-lived telemetry stream.
+        /// </summary>
+        public void ResetTransport()
+        {
+            GrpcChannel previous;
+            lock (_transportLock)
+            {
+                var channel = CreateChannel(_target);
+                var stub = CreateStub(channel);
+                previous = _channel;
+                _channel = channel;
+                _stub = stub;
+            }
+
+            // Dispose outside of the lock, the disposal cancels every in-flight call of the replaced channel.
+            try
+            {
+                previous?.Dispose();
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning(e, $"Failed to dispose the replaced gRPC channel, target={_target}");
+            }
+        }
+
+        private static GrpcChannel CreateChannel(string target)
+        {
+            return GrpcChannel.ForAddress(target, new GrpcChannelOptions
+            {
+                HttpHandler = CreateGrpcHttpHandler(),
+                // Dispose the handler together with the channel, otherwise replacing the transport would leave the
+                // previous handler and the connections it pools alive.
+                DisposeHttpClient = true,
                 // Disable auto-retry.
                 MaxRetryAttempts = 0
             });
-            var invoker = _channel.Intercept(new ClientLoggerInterceptor());
-            _stub = new Proto::MessagingService.MessagingServiceClient(invoker);
+        }
+
+        private static Proto::MessagingService.MessagingServiceClient CreateStub(GrpcChannel channel)
+        {
+            var invoker = channel.Intercept(new ClientLoggerInterceptor());
+            return new Proto::MessagingService.MessagingServiceClient(invoker);
         }
 
         public async Task Shutdown()
@@ -70,6 +131,13 @@ namespace Org.Apache.Rocketmq
             {
                 ServerCertificateCustomValidationCallback = CertValidator,
             };
+            return handler;
+        }
+
+        internal static SocketsHttpHandler CreateGrpcHttpHandler()
+        {
+            var handler = new SocketsHttpHandler();
+            handler.SslOptions.RemoteCertificateValidationCallback = CertValidator;
             return handler;
         }
 
