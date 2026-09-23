@@ -16,42 +16,35 @@
 import functools
 import os
 import threading
-from asyncio import InvalidStateError
 from concurrent.futures import ThreadPoolExecutor
 
-from grpc.aio import AioRpcError
-from rocketmq.grpc_protocol import ClientType, Code, QueryRouteRequest
+from rocketmq.grpc_protocol import ClientType, Code
+from rocketmq.v5.client.client_route_manager import ClientRouteManager
+from rocketmq.v5.client.client_telemetry_manager import ClientTelemetryManager
 from rocketmq.v5.client.connection import RpcClient
 from rocketmq.v5.client.metrics import ClientMetrics
+from rocketmq.v5.client.scheduler import ClientScheduler
 from rocketmq.v5.exception import (IllegalArgumentException,
                                    IllegalStateException)
 from rocketmq.v5.log import logger
-from rocketmq.v5.model import TopicRouteData
-from rocketmq.v5.util import (ClientId, ConcurrentMap, MessagingResultChecker,
-                              Misc, Signature)
-
-from .scheduler import ClientScheduler
+from rocketmq.v5.util import ClientId, Misc, Signature
 
 
 class Client:
 
     def __init__(
-        self, client_configuration, topics, client_type: ClientType, tls_enable=False
+        self, client_configuration, topics, client_type, tls_enable=False
     ):
         if client_configuration is None:
             raise IllegalArgumentException("clientConfiguration should not be null.")
         self.__client_configuration = client_configuration
         self.__client_type = client_type
         self.__client_id = ClientId().client_id
-        # {topic, topicRouteData}
-        self.__topic_route_cache = ConcurrentMap()
         self.__rpc_client = RpcClient(tls_enable)
         self.__client_metrics = ClientMetrics(self.__client_id, client_configuration)
-        self.__topic_route_scheduler = None
         self.__heartbeat_scheduler = None
-        self.__sync_setting_scheduler = None
         self.__clear_idle_rpc_channels_scheduler = None
-        if topics is not None:
+        if topics:
             self.__topics = set(
                 filter(lambda topic: Misc.is_valid_topic(topic), topics)
             )
@@ -62,7 +55,23 @@ class Client:
         self.__had_shutdown = False
         self._init_settings_event = threading.Event()
 
+        self.__route_manager = ClientRouteManager(self)
+        self.__telemetry_manager = ClientTelemetryManager(self)
+
     def startup(self):
+        """Start the client and establish connections to the broker.
+
+        Performs the following in sequence:
+        1. Calls subclass ``_pre_start()`` hook.
+        2. Updates topic route data for all configured topics.
+        3. Waits for initial settings from the server.
+        4. Starts schedulers (route update, heartbeat, telemetry, idle cleanup).
+        5. Starts the async RPC callback executor thread pool.
+        6. Calls subclass ``_on_start()`` hook.
+
+        Raises:
+            Exception: If startup fails (topic route, settings, or scheduler).
+        """
         try:
             if self.__had_shutdown:
                 raise Exception(
@@ -70,18 +79,7 @@ class Client:
                 )
 
             self._pre_start()
-            try:
-                # pre update topic route for producer or consumer
-                if self.__topics:
-                    for topic in self.__topics:
-                        if not self.__update_topic_route(topic):
-                            raise Exception("update topic raise exception when client startup")
-                    self._init_settings_event.wait()
-            except Exception as e:
-                # ignore this exception and retrieve again when calling send or receive
-                logger.warn(
-                    f"update topic raise exception when client startup, ignore it, try it again in scheduler. exception: {e}"
-                )
+            self.__init_routes()
             self.__start_scheduler()
             self.__start_async_rpc_callback_executor()
             self._on_start()
@@ -93,12 +91,25 @@ class Client:
             logger.error(f"{self} startup exception:  {e}")
             raise e
 
+    def __str__(self):
+        return f"{ClientType.Name(self.client_type)}, client_id:{self.client_id}"
+
     def shutdown(self):
+        """Shutdown the client and release all resources.
+
+        Stops all schedulers, the async callback executor, closes gRPC connections,
+        clears topic route cache, and sends a termination notification to the server.
+
+        Raises:
+            IllegalStateException: If client is not running or already shutdown.
+        """
         if not self.is_running:
-            raise IllegalStateException(f"{self} is not running.")
+            logger.warn(f"{self} is not running, can't shutdown")
+            return
 
         if self.__had_shutdown:
-            raise IllegalStateException(f"{self} had shutdown.")
+            logger.warn(f"{self} had shutdown, can't shutdown again")
+            return
 
         self._pre_shutdown()
 
@@ -106,7 +117,8 @@ class Client:
             self.__stop_client_threads()
             self.__notify_client_termination()
             self.__rpc_client.stop()
-            self.__topic_route_cache.clear()
+            # self.__topic_route_cache.clear()
+            self.__route_manager.clear()
             self.__topics.clear()
             self._init_settings_event = None
             self.__had_shutdown = True
@@ -115,17 +127,43 @@ class Client:
             logger.error(f"{self} shutdown exception: {e}")
             raise e
 
-    # sync setting #
+    def sign(self):
+        """Generate signature metadata for gRPC RPC calls.
 
-    def reset_setting(self, settings):
-        pass
+        Returns:
+            A metadata dict/list containing authentication headers (ak, sk,
+            client_id, timestamp) for the current request.
+        """
+        return Signature.metadata(self.__client_configuration, self.__client_id)
 
-    # metrics #
+    def on_new_endpoints(self, endpoints):
+        """Handle newly discovered broker endpoints.
+
+        Called by :class:`ClientRouteManager` when route data changes and new
+        endpoints are found. Establishes a telemetry stream and sends settings
+        to the new endpoints.
+
+        Args:
+            endpoints: The newly discovered :class:`RpcEndpoints`.
+        """
+        """new endpoints handler (used by route_manager)"""
+        self.__telemetry_manager.retrieve_telemetry_stream_stream_call(endpoints)
+        self.__telemetry_manager.setting_write(endpoints)
 
     def reset_metric(self, metric):
         self.__client_metrics.reset_metrics(metric)
 
-    """ abstract """
+    def update_queue_selector(self, topic, topic_route):
+        """each subclass implements its own queue selector"""
+        pass
+
+    def reset_setting(self, settings):
+        """each subclass implements sync setting from server"""
+        pass
+
+    def sync_setting_req(self, endpoints):
+        """each subclass implements its own telemetry settings scheme"""
+        pass
 
     def _pre_start(self):
         """each subclass implements its own actions before startup"""
@@ -143,10 +181,6 @@ class Client:
         """each subclass implements its own actions after a startup failure"""
         pass
 
-    def _sync_setting_req(self, endpoints):
-        """each subclass implements its own telemetry settings scheme"""
-        pass
-
     def _heartbeat_req(self):
         """each subclass implements its own heartbeat request"""
         pass
@@ -155,33 +189,32 @@ class Client:
         """each subclass implements its own client termination request"""
         pass
 
-    def _update_queue_selector(self, topic, topic_route):
-        """each subclass implements its own queue selector"""
-        pass
+    def __init_routes(self):
+        # pre update topic route for producer or consumer.PushConsumer must be initialized with topics.
+        # Producer and SimpleConsumer can be initialized without topics
+        for topic in self.__topics:
+            if not self.__route_manager.update_topic_route(topic):
+                logger.error(f"update topic: {topic} route raise exception when client startup")
 
-    """ scheduler """
+        if not self.__client_type == ClientType.PRODUCER and not self.__client_type == ClientType.SIMPLE_CONSUMER and not self.__client_type == ClientType.LITE_SIMPLE_CONSUMER:
+            # waiting for settings from server
+            if not self._init_settings_event.wait(timeout=10):
+                raise IllegalStateException(
+                    f"{self} failed to receive initial settings from server within 10s"
+                )
 
     def __start_scheduler(self):
-        # start 4 schedulers in different threads, each thread use the same asyncio event loop.
+        # start schedulers in different threads, each thread use the same asyncio event loop.
         try:
-            # update topic route every 30 seconds
-            self.__topic_route_scheduler = ClientScheduler(f"{self.__client_id}_update_topic_route_schedule_thread", self.__do_update_topic_route_cache, 10, 30,
-                                                           self._rpc_channel_io_loop())
-            self.__topic_route_scheduler.start_scheduler()
+            self.__route_manager.start_scheduler(self._rpc_channel_io_loop())
             logger.info("start topic route scheduler success.")
-
             # send heartbeat to all endpoints every 10 seconds
             self.__heartbeat_scheduler = ClientScheduler(f"{self.__client_id}_heartbeat_schedule_thread", self.__do_heartbeat, 1, 10,
                                                          self._rpc_channel_io_loop())
             self.__heartbeat_scheduler.start_scheduler()
             logger.info("start heartbeat scheduler success.")
-
-            # send client setting to all endpoints every 5 minutes
-            self.__sync_setting_scheduler = ClientScheduler(f"{self.__client_id}_sync_setting_schedule_thread", self.__do_update_setting, 1, 300,
-                                                            self._rpc_channel_io_loop())
-            self.__sync_setting_scheduler.start_scheduler()
+            self.__telemetry_manager.start_scheduler(self._rpc_channel_io_loop())
             logger.info("start sync setting scheduler success.")
-
             # clear unused grpc channel(>30 minutes) every 60 seconds
             self.__clear_idle_rpc_channels_scheduler = ClientScheduler(f"{self.__client_id}_clear_idle_rpc_channel_schedule_thread", self.__do_clear_idle_rpc_channels, 5, 60,
                                                                        self._rpc_channel_io_loop())
@@ -194,24 +227,12 @@ class Client:
 
     # schedule task #
 
-    def __do_update_topic_route_cache(self):
-        logger.debug(f"{self} run update topic route in scheduler.")
-        # update topic route for each topic in cache
-        topics = self.__topic_route_cache.keys()
-        for topic in topics:
-            self.__update_topic_route_async(topic)
-
     def __do_heartbeat(self):
         logger.debug(f"{self} run send heartbeat in scheduler.")
-        all_endpoints = self.__get_all_endpoints().values()
+        # all_endpoints = self.__get_all_endpoints().values()
+        all_endpoints = self.__route_manager.get_all_endpoints().values()
         for endpoints in all_endpoints:
             self.__heartbeat_async(endpoints)
-
-    def __do_update_setting(self):
-        logger.debug(f"{self} run update setting in scheduler.")
-        all_endpoints = self.__get_all_endpoints().values()
-        for endpoints in all_endpoints:
-            self.__setting_write(endpoints)
 
     def __do_clear_idle_rpc_channels(self):
         logger.debug(
@@ -219,13 +240,13 @@ class Client:
         )
         self.__rpc_client.clear_idle_rpc_channels()
 
-    """ callback handler for async method """
-
     def __start_async_rpc_callback_executor(self):
         # to handle callback when using async method such as send_async(), receive_async().
         # switches user's callback thread from RpcClient's _io_loop_thread to client's client_callback_worker_thread
         try:
             workers = os.cpu_count()
+            if not workers:
+                workers = 4
             self.__client_callback_executor = ThreadPoolExecutor(max_workers=workers,
                                                                  thread_name_prefix=f"client_callback_worker_{self.__client_id}")
             logger.info(f"{self} start callback executor success. max_workers:{workers}")
@@ -240,99 +261,21 @@ class Client:
         else:
             callback_result.future.set_exception(callback_result.result)
 
-    """ protect """
-
     def _retrieve_topic_route_data(self, topic):
-        route = self.__topic_route_cache.get(topic)
-        if route:
-            if topic not in self.__topics:
-                self.__topics.add(topic)
-            return route
-        else:
-            route = self.__update_topic_route(topic)
-            if route:
-                logger.info(f"{self} update topic:{topic} route success.")
-                self.__topics.add(topic)
-                return route
-            else:
-                raise Exception(f"failed to fetch topic:{topic} route.")
+        route = self.__route_manager.retrieve_topic_route_data(topic)
+        if topic not in self.__topics:
+            self.__topics.add(topic)
+        return route
 
     def _remove_unused_topic_route_data(self, topic):
-        self.__topic_route_cache.remove(topic)
+        self.__route_manager.remove_topic_route_data(topic)
         self.__topics.remove(topic)
-
-    def _sign(self):
-        return Signature.metadata(self.__client_configuration, self.__client_id)
 
     def _rpc_channel_io_loop(self):
         return self.__rpc_client.get_channel_io_loop()
 
     def _submit_callback(self, callback_result):
         self.__client_callback_executor.submit(Client.__handle_callback, callback_result)
-
-    """ private """
-
-    # topic route #
-
-    def __update_topic_route(self, topic):
-        event = threading.Event()
-        callback = functools.partial(
-            self.__query_topic_route_async_callback, topic=topic, event=event
-        )
-        future = self.__rpc_client.query_topic_route_async(
-            self.__client_configuration.rpc_endpoints,
-            self.__topic_route_req(topic),
-            metadata=self._sign(),
-            timeout=self.__client_configuration.request_timeout,
-        )
-        future.add_done_callback(callback)
-        event.wait()
-        return self.__topic_route_cache.get(topic)
-
-    def __update_topic_route_async(self, topic):
-        callback = functools.partial(
-            self.__query_topic_route_async_callback, topic=topic
-        )
-        future = self.__rpc_client.query_topic_route_async(
-            self.__client_configuration.rpc_endpoints,
-            self.__topic_route_req(topic),
-            metadata=self._sign(),
-            timeout=self.__client_configuration.request_timeout,
-        )
-        future.add_done_callback(callback)
-
-    def __query_topic_route_async_callback(self, future, topic, event=None):
-        try:
-            res = future.result()
-            self.__handle_topic_route_res(res, topic)
-        except Exception as e:
-            logger.error(f"query topic raise exception, {e}")
-        finally:
-            if event:
-                event.set()
-
-    def __topic_route_req(self, topic):
-        req = QueryRouteRequest()
-        req.topic.name = topic
-        req.topic.resource_namespace = self.__client_configuration.namespace
-        req.endpoints.CopyFrom(self.__client_configuration.rpc_endpoints.endpoints)
-        return req
-
-    def __handle_topic_route_res(self, res, topic):
-        if res:
-            MessagingResultChecker.check(res.status)
-            if res.status.code == Code.OK:
-                topic_route = TopicRouteData(res.message_queues)
-                logger.info(
-                    f"{self} update topic:{topic} route, route info: {topic_route}"
-                )
-                # if topic route has new endpoint, connect
-                self.__check_topic_route_endpoints_changed(topic, topic_route)
-                self.__topic_route_cache.put(topic, topic_route)
-                # producer or consumer update its queue selector
-                self._update_queue_selector(topic, topic_route)
-        else:
-            raise Exception(f"query topic route exception, topic:{topic}")
 
     # heartbeat #
 
@@ -342,7 +285,7 @@ class Client:
         future = self.__rpc_client.heartbeat_async(
             endpoints,
             req,
-            metadata=self._sign(),
+            metadata=self.sign(),
             timeout=self.__client_configuration.request_timeout,
         )
         future.add_done_callback(callback)
@@ -369,49 +312,6 @@ class Client:
             )
             raise e
 
-    # sync settings #
-
-    def __retrieve_telemetry_stream_stream_call(self, endpoints, rebuild=False):
-        try:
-            self.__rpc_client.telemetry_stream(
-                endpoints, self, self._sign(), rebuild, timeout=60 * 60 * 24 * 365
-            )
-        except Exception as e:
-            logger.error(
-                f"{self} rebuild stream_steam_call to {endpoints} exception: {e}"
-                if rebuild
-                else f"{self} create stream_steam_call to {endpoints} exception: {e}"
-            )
-
-    def __setting_write(self, endpoints):
-        req = self._sync_setting_req(endpoints)
-        callback = functools.partial(self.__setting_write_callback, endpoints=endpoints)
-        future = self.__rpc_client.telemetry_write_async(endpoints, req)
-        logger.debug(f"{self} send setting to {endpoints}, {req}")
-        future.add_done_callback(callback)
-
-    def __setting_write_callback(self, future, endpoints):
-        try:
-            future.result()
-            logger.info(
-                f"{self} send setting to {endpoints} success."
-            )
-        except InvalidStateError as e:
-            logger.warn(
-                f"{self} send setting to {endpoints} occurred InvalidStateError: {e}"
-            )
-            self.__retrieve_telemetry_stream_stream_call(endpoints, rebuild=True)
-        except AioRpcError as e:
-            logger.warn(
-                f"{self} send setting to {endpoints} occurred AioRpcError: {e}"
-            )
-            self.__retrieve_telemetry_stream_stream_call(endpoints, rebuild=True)
-        except Exception as e:
-            logger.error(
-                f"{self} send setting to {endpoints} exception: {e}"
-            )
-            self.__retrieve_telemetry_stream_stream_call(endpoints, rebuild=True)
-
     # client termination #
 
     def __client_termination(self, endpoints):
@@ -419,41 +319,14 @@ class Client:
         future = self.__rpc_client.notify_client_termination_async(
             endpoints,
             req,
-            metadata=self._sign(),
+            metadata=self.sign(),
             timeout=self.__client_configuration.request_timeout,
         )
         future.result()
 
-    # others ##
-
-    def __get_all_endpoints(self):
-        endpoints_map = {}
-        all_route = self.__topic_route_cache.values()
-        for topic_route in all_route:
-            endpoints_map.update(topic_route.all_endpoints())
-        return endpoints_map
-
-    def __check_topic_route_endpoints_changed(self, topic, route):
-        old_route = self.__topic_route_cache.get(topic)
-        if old_route is None or old_route != route:
-            logger.info(
-                f"topic:{topic} route changed for {self}. old route is {old_route}, new route is {route}"
-            )
-        all_endpoints = self.__get_all_endpoints()  # the existing endpoints
-        topic_route_endpoints = (
-            route.all_endpoints()
-        )  # the latest endpoints for topic route
-        diff = set(topic_route_endpoints.keys()).difference(
-            set(all_endpoints.keys())  # the diff between existing and latest
-        )
-        # create grpc channel, stream_stream_call for new endpoints, send setting to new endpoints
-        for address in diff:
-            endpoints = topic_route_endpoints[address]
-            self.__retrieve_telemetry_stream_stream_call(endpoints)
-            self.__setting_write(endpoints)
-
     def __notify_client_termination(self):
-        all_endpoints = self.__get_all_endpoints()
+        # all_endpoints = self.__get_all_endpoints()
+        all_endpoints = self.__route_manager.get_all_endpoints()
         for endpoints in all_endpoints.values():
             try:
                 self.__client_termination(endpoints)
@@ -461,15 +334,11 @@ class Client:
                 logger.error(f"notify client termination to {endpoints} exception: {e}")
 
     def __stop_client_threads(self):
-        if self.__topic_route_scheduler:
-            self.__topic_route_scheduler.stop_scheduler()
-            self.__topic_route_scheduler = None
+        self.__route_manager.stop_scheduler()
         if self.__heartbeat_scheduler:
             self.__heartbeat_scheduler.stop_scheduler()
             self.__heartbeat_scheduler = None
-        if self.__sync_setting_scheduler:
-            self.__sync_setting_scheduler.stop_scheduler()
-            self.__sync_setting_scheduler = None
+        self.__telemetry_manager.stop_scheduler()
         if self.__clear_idle_rpc_channels_scheduler:
             self.__clear_idle_rpc_channels_scheduler.stop_scheduler()
             self.__clear_idle_rpc_channels_scheduler = None
@@ -477,8 +346,6 @@ class Client:
             self.__client_callback_executor.shutdown()
             self.__client_callback_executor = None
             logger.info("stop client callback executor.")
-
-    """ property """
 
     @property
     def is_running(self):
@@ -507,3 +374,7 @@ class Client:
     @property
     def client_metrics(self):
         return self.__client_metrics
+
+    @property
+    def route_manager(self):
+        return self.__route_manager

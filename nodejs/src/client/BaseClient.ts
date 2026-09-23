@@ -30,15 +30,15 @@ import {
   VerifyMessageCommand,
   PrintThreadStackTraceCommand,
   ReconnectEndpointsCommand,
+  NotifyUnsubscribeLiteCommand,
   TelemetryCommand,
   ThreadStackTrace,
   HeartbeatRequest,
   NotifyClientTerminationRequest,
-  NotifyUnsubscribeLiteCommand,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { createResource, getRequestDateTime, sign } from '../util';
 import { TopicRouteData, Endpoints } from '../route';
-import { ClientException, StatusChecker } from '../exception';
+import { ClientException, NotFoundException, StatusChecker } from '../exception';
 import {
   CompositedMessageInterceptor,
   GeneralMessage,
@@ -200,6 +200,11 @@ export abstract class BaseClient {
         break;
       } catch (e) {
         lastError = e as Error;
+        // Not-found errors will never succeed on retry — fail fast, aligned
+        // with the Java client which surfaces NotFoundException immediately.
+        if (e instanceof NotFoundException) {
+          throw e;
+        }
         if (attempt < maxAttempts) {
           const backoffMs = 1000 * attempt; // Simple linear backoff: 1s, 2s, 3s
           this.logger.warn('Fetch topic route failed during startup, will retry, clientId=%s, attempt=%d/%d, error=%s, backoff=%dms',
@@ -561,6 +566,18 @@ export abstract class BaseClient {
     this.telemetry(endpoints, telemetryCommand);
   }
 
+  /**
+   * Handle the notify-unsubscribe-lite command sent by remote when a lite topic
+   * subscription must be dropped (e.g. quota violation or administrative action).
+   *
+   * The base client ignores it, mirroring Java ClientImpl#onNotifyUnsubscribeLiteCommand;
+   * lite consumers override it to drive their lite subscription manager.
+   */
+  onNotifyUnsubscribeLiteCommand(endpoints: Endpoints, command: NotifyUnsubscribeLiteCommand) {
+    this.logger.warn('Ignore notify unsubscribe lite command from remote, which is not expected, clientId=%s, endpoints=%s, command=%j',
+      this.clientId, endpoints.facade, command.toObject());
+  }
+
   onPrintThreadStackTraceCommand(endpoints: Endpoints, command: PrintThreadStackTraceCommand) {
     const obj = command.toObject();
     this.logger.warn('Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
@@ -571,19 +588,6 @@ export abstract class BaseClient {
     telemetryCommand.setStatus(new Status().setCode(Code.OK));
     this.telemetry(endpoints, telemetryCommand);
   }
-
-  /**
-   * Handle the notify-unsubscribe-lite command sent by remote when a lite topic
-   * subscription must be dropped (e.g. quota violation or administrative action).
-   *
-   * The base client ignores it, mirroring Java ClientImpl#onNotifyUnsubscribeLiteCommand;
-   * lite push consumers override it to drive their lite subscription manager.
-   */
-  onNotifyUnsubscribeLiteCommand(endpoints: Endpoints, command: NotifyUnsubscribeLiteCommand) {
-    this.logger.warn('Ignore unsubscribe lite topic command from remote, which is not expected, endpoints=%s, clientId=%s, command=%j',
-      endpoints.facade, this.clientId, command.toObject());
-  }
-
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onReconnectEndpointsCommand(endpoints: Endpoints, _command: ReconnectEndpointsCommand) {
