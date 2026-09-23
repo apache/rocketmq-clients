@@ -48,9 +48,10 @@ export class CompositedMessageInterceptor implements MessageInterceptor {
 
   doBefore(context0: MessageInterceptorContext, messages: GeneralMessage[]) {
     const attributeMap = new Map<number, Map<AttributeKey<any>, Attribute<any>>>();
+    // A single cumulative context is shared by the whole chain, mirroring the Java
+    // implementation, so that later interceptors observe what earlier ones recorded.
+    const context = new MessageInterceptorContextImpl(context0.getMessageHookPoints(), context0.getStatus());
     for (let index = 0; index < this.#interceptors.length; index++) {
-      const context = new MessageInterceptorContextImpl(context0.getMessageHookPoints(), context0.getStatus());
-      // Share the attributes accumulated by the caller and previous interceptors.
       for (const [ key, value ] of context0.getAttributes()) {
         context.putAttribute(key, value);
       }
@@ -66,13 +67,6 @@ export class CompositedMessageInterceptor implements MessageInterceptor {
       attributeMap.set(index, context.getAttributes());
     }
     context0.putAttribute(INTERCEPTOR_ATTRIBUTES_KEY, Attribute.create(attributeMap));
-    // Propagate attributes collected by the first interceptor to the caller context.
-    const firstAttributes = attributeMap.get(0);
-    if (firstAttributes) {
-      for (const [ key, value ] of firstAttributes) {
-        context0.putAttribute(key, value);
-      }
-    }
   }
 
   doAfter(context0: MessageInterceptorContext, messages: GeneralMessage[]) {
