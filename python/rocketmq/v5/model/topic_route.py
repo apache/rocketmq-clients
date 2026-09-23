@@ -19,9 +19,20 @@ from rocketmq.v5.model import Message
 
 
 class MessageQueue:
+    """Wrapper representing a message queue on a specific broker.
+
+    Encapsulates queue metadata including topic, broker identity, permission
+    level, and accepted message types. Used by producers to select writable
+    queues and by consumers to select readable queues.
+    """
     MASTER_BROKER_ID = 0
 
     def __init__(self, queue):
+        """Create a MessageQueue from a protobuf MessageQueue.
+
+        Args:
+            queue: A gRPC ``MessageQueue`` protobuf message.
+        """
         self.__topic = queue.topic.name
         self.__namespace = queue.topic.resource_namespace
         self.__queue_id = queue.id
@@ -32,18 +43,33 @@ class MessageQueue:
         self.__accept_message_types = set(queue.accept_message_types)
 
     def is_readable(self):
+        """Check if the queue permits read operations.
+
+        Returns:
+            ``True`` if the permission is ``READ`` or ``READ_WRITE``.
+        """
         return (
             self.__permission == Permission.READ
             or self.__permission == Permission.READ_WRITE
         )
 
     def is_writable(self):
+        """Check if the queue permits write operations.
+
+        Returns:
+            ``True`` if the permission is ``WRITE`` or ``READ_WRITE``.
+        """
         return (
             self.__permission == Permission.WRITE
             or self.__permission == Permission.READ_WRITE
         )
 
     def is_master_broker(self):
+        """Check if the queue belongs to the master broker (broker ID 0).
+
+        Returns:
+            ``True`` if the broker is the master node.
+        """
         return self.__broker_id == MessageQueue.MASTER_BROKER_ID
 
     def __eq__(self, other: object) -> bool:
@@ -80,7 +106,11 @@ class MessageQueue:
         return hash((self.__broker_name, self.__topic, self.__queue_id))
 
     def message_queue0(self):
-        # to grpc MessageQueue
+        """Convert back to a protobuf ``MessageQueue`` for RPC requests.
+
+        Returns:
+            A ``definition_pb2.MessageQueue`` instance.
+        """
         queue = definition_pb2.MessageQueue()  # noqa
         queue.topic.name = self.__topic
         queue.topic.resource_namespace = self.__namespace
@@ -93,6 +123,11 @@ class MessageQueue:
         return queue
 
     def accept_message_types_desc(self):
+        """Get a comma-separated description of accepted message types.
+
+        Returns:
+            Human-readable string like ``"NORMAL,DELAY"`` or empty string.
+        """
         ret = ""
         for access_type in self.__accept_message_types:
             ret = ret + Message.message_type_desc(access_type) + ","
@@ -101,24 +136,35 @@ class MessageQueue:
         else:
             return ret[:len(ret) - 1]
 
-    """ property """
-
     @property
     def endpoints(self) -> RpcEndpoints:
+        """The broker's RPC endpoint addresses for this queue."""
         return self.__broker_endpoints
 
     @property
     def accept_message_types(self):
+        """Set of accepted message type integers (e.g., normal, transaction, delay)."""
         return self.__accept_message_types
 
     @property
     def topic(self):
+        """The topic name this queue belongs to."""
         return self.__topic
 
 
 class TopicRouteData:
+    """Aggregated route information for a single topic.
+
+    Holds all ``MessageQueue`` instances for a topic across brokers,
+    enabling queue selection for both producers and consumers.
+    """
 
     def __init__(self, message_queues):
+        """Build route data from protobuf message queues.
+
+        Args:
+            message_queues: List of gRPC ``MessageQueue`` protobuf messages.
+        """
         self.__message_queues = list(
             map(lambda queue: MessageQueue(queue), message_queues)
         )
@@ -141,13 +187,17 @@ class TopicRouteData:
         )
 
     def all_endpoints(self):
+        """Collect all unique broker endpoints from the route.
+
+        Returns:
+            Dict mapping endpoint facade string to :class:`RpcEndpoints`.
+        """
         endpoints_map = {}
         for queue in self.__message_queues:
             endpoints_map[queue.endpoints.facade] = queue.endpoints
         return endpoints_map
 
-    """ property """
-
     @property
     def message_queues(self):
+        """The list of :class:`MessageQueue` instances for this topic."""
         return self.__message_queues

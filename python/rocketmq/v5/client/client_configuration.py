@@ -21,8 +21,20 @@ from rocketmq.v5.log import logger
 
 
 class Credentials:
+    """Authentication credentials for RocketMQ connections.
+
+    Attributes:
+        ak: Access key used for authentication.
+        sk: Secret key used for request signing.
+    """
 
     def __init__(self, ak="", sk=""):
+        """Create credentials.
+
+        Args:
+            ak: Access key. Empty string for no authentication.
+            sk: Secret key. Empty string for no authentication.
+        """
         self.__ak = ak if ak is not None else ""
         self.__sk = sk if sk is not None else ""
 
@@ -36,10 +48,24 @@ class Credentials:
 
 
 class ClientConfiguration:
+    """Configuration for connecting to a RocketMQ broker.
+
+    Holds connection endpoints, authentication credentials, namespace,
+    and request timeout settings. All client instances (Producer, Consumer)
+    require a ClientConfiguration.
+    """
 
     def __init__(
         self, endpoints: str, credentials: Credentials, namespace="", request_timeout=3
     ):
+        """Create a client configuration.
+
+        Args:
+            endpoints: Broker address string, semicolon-separated (e.g. ``"host1:8080;host2:8080"``).
+            credentials: Authentication credentials. Use empty credentials for no auth.
+            namespace: Optional namespace for topic and group isolation.
+            request_timeout: Default RPC request timeout in seconds.
+        """
         self.__rpc_endpoints = RpcEndpoints(
             ClientConfiguration.__parse_endpoints(endpoints)
         )
@@ -95,8 +121,6 @@ class ClientConfiguration:
         elif endpoints_str.startswith(https_prefix):
             return endpoints_str[len(https_prefix):]
         return endpoints_str
-
-    """ property """
 
     @property
     def rpc_endpoints(self) -> RpcEndpoints:

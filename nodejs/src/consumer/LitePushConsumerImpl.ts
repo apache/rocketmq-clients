@@ -218,9 +218,10 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    * <p>This method is called when the server sends a notification to unsubscribe
    * from a lite topic, typically due to quota violations or administrative actions.</p>
    *
+   * @param _endpoints - The server endpoints
    * @param command - The unsubscribe command from the server
    */
-  onNotifyUnsubscribeLiteCommand(command: NotifyUnsubscribeLiteCommand) {
+  onNotifyUnsubscribeLiteCommand(_endpoints: Endpoints, command: NotifyUnsubscribeLiteCommand) {
     this.liteSubscriptionManager.onNotifyUnsubscribeLiteCommand(command);
   }
 
@@ -280,13 +281,16 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
   }
 
   /**
-   * Get all route endpoints across cached topic routes (protected access for
-   * internal use), so lite subscriptions can be synced to every broker-side proxy.
+   * Endpoints the lite subscription manager should sync to.
+   *
+   * Lite subscriptions must reach every proxy serving the topic route, not only
+   * the endpoint the client was configured with, so the route cache is used and
+   * the configured endpoints act as the fallback before any route is known.
    *
    * @internal
    */
-  getTotalRouteEndpoints(): Endpoints[] {
-    // BaseClient exposes this as protected; re-expose publicly for LiteSubscriptionManager.
-    return super.getTotalRouteEndpoints();
+  getSyncEndpoints(): Endpoints[] {
+    const endpointsList = this.getTotalRouteEndpoints();
+    return endpointsList.length > 0 ? endpointsList : [ this.endpoints ];
   }
 }

@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 
@@ -49,13 +50,15 @@ type ClientConn interface {
 var _ = ClientConn(&clientConn{})
 
 type clientConn struct {
-	opts     connOptions
-	creds    credentials.TransportCredentials
-	ctx      context.Context
-	cancel   context.CancelFunc
-	callOpts []grpc.CallOption
-	conn     *grpc.ClientConn
-	validate *validator.Validate
+	opts      connOptions
+	creds     credentials.TransportCredentials
+	ctx       context.Context
+	cancel    context.CancelFunc
+	callOpts  []grpc.CallOption
+	conn      *grpc.ClientConn
+	validate  *validator.Validate
+	closeOnce sync.Once
+	closeErr  error
 }
 
 var NewClientConn = func(endpoint string, opts ...ConnOption) (ClientConn, error) {
@@ -83,6 +86,7 @@ var NewClientConn = func(endpoint string, opts ...ConnOption) (ClientConn, error
 
 	if client.opts.MaxCallSendMsgSize > 0 || client.opts.MaxCallRecvMsgSize > 0 {
 		if client.opts.MaxCallRecvMsgSize > 0 && client.opts.MaxCallSendMsgSize > client.opts.MaxCallRecvMsgSize {
+			cancel()
 			return nil, fmt.Errorf("gRPC message recv limit (%d bytes) must be greater than send limit (%d bytes)", client.opts.MaxCallRecvMsgSize, client.opts.MaxCallSendMsgSize)
 		}
 		if client.opts.MaxCallSendMsgSize > 0 {
@@ -108,8 +112,11 @@ func (c *clientConn) Conn() *grpc.ClientConn {
 }
 
 func (c *clientConn) Close() error {
-	defer c.cancel()
-	return c.conn.Close()
+	c.closeOnce.Do(func() {
+		c.cancel()
+		c.closeErr = c.conn.Close()
+	})
+	return c.closeErr
 }
 
 func (c *clientConn) dialSetupOpts(dopts ...grpc.DialOption) (opts []grpc.DialOption, err error) {
@@ -141,7 +148,9 @@ func (c *clientConn) dial(target string, dopts ...grpc.DialOption) (*grpc.Client
 
 	dctx := c.ctx
 	if c.opts.DialTimeout > 0 {
-		dctx, _ = context.WithTimeout(c.ctx, c.opts.DialTimeout)
+		var cancel context.CancelFunc
+		dctx, cancel = context.WithTimeout(c.ctx, c.opts.DialTimeout)
+		defer cancel()
 	}
 	conn, err := grpc.DialContext(dctx, target, opts...)
 	if err != nil {
