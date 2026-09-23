@@ -25,6 +25,7 @@ import (
 	"go.uber.org/atomic"
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -94,6 +95,7 @@ type producerSettings struct {
 	topics              sync.Map
 	endpoints           *v2.Endpoints
 	clientType          v2.ClientType
+	retryPolicyLock     sync.RWMutex
 	retryPolicy         *v2.RetryPolicy
 	requestTimeout      time.Duration
 	validateMessageType atomic.Bool
@@ -109,7 +111,11 @@ func (ps *producerSettings) GetAccessPoint() *v2.Endpoints {
 func (ps *producerSettings) GetClientType() v2.ClientType {
 	return ps.clientType
 }
+
+// GetRetryPolicy returns an immutable snapshot; settings updates replace it rather than mutate it.
 func (ps *producerSettings) GetRetryPolicy() *v2.RetryPolicy {
+	ps.retryPolicyLock.RLock()
+	defer ps.retryPolicyLock.RUnlock()
 	return ps.retryPolicy
 }
 func (ps *producerSettings) GetRequestTimeout() time.Duration {
@@ -135,7 +141,7 @@ func (ps *producerSettings) toProtobuf() *v2.Settings {
 		AccessPoint:    ps.GetAccessPoint(),
 		RequestTimeout: durationpb.New(ps.requestTimeout),
 		PubSub:         pubSetting,
-		BackoffPolicy:  ps.GetRetryPolicy(),
+		BackoffPolicy:  proto.Clone(ps.GetRetryPolicy()).(*v2.RetryPolicy),
 		UserAgent:      globalUserAgent.toProtoBuf(),
 	}
 	return settings
@@ -152,17 +158,18 @@ func (ps *producerSettings) applySettingsCommand(settings *v2.Settings) error {
 	}
 	retryPolicy := settings.GetBackoffPolicy()
 	if retryPolicy != nil {
-		ps.retryPolicy.MaxAttempts = retryPolicy.GetMaxAttempts()
-		exponentialBackoff := retryPolicy.GetExponentialBackoff()
-		if exponentialBackoff != nil {
-			ps.retryPolicy.Strategy = &v2.RetryPolicy_ExponentialBackoff{
-				ExponentialBackoff: &v2.ExponentialBackoff{
-					Max:        exponentialBackoff.GetMax(),
-					Initial:    exponentialBackoff.GetInitial(),
-					Multiplier: exponentialBackoff.GetMultiplier(),
-				},
+		ps.retryPolicyLock.Lock()
+		next := &v2.RetryPolicy{
+			MaxAttempts: retryPolicy.GetMaxAttempts(),
+			Strategy:    ps.retryPolicy.GetStrategy(),
+		}
+		if exponentialBackoff := retryPolicy.GetExponentialBackoff(); exponentialBackoff != nil {
+			next.Strategy = &v2.RetryPolicy_ExponentialBackoff{
+				ExponentialBackoff: proto.Clone(exponentialBackoff).(*v2.ExponentialBackoff),
 			}
 		}
+		ps.retryPolicy = next
+		ps.retryPolicyLock.Unlock()
 	}
 	ps.validateMessageType.Store(v.Publishing.GetValidateMessageType())
 	ps.maxBodySizeBytes.Store(v.Publishing.GetMaxBodySize())

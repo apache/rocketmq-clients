@@ -35,7 +35,33 @@ export class Endpoints {
       const splits = endpoints.split(';');
       this.addressesList = [];
       for (const endpoint of splits) {
-        const [ host, port ] = endpoint.split(':');
+        // Strip the optional http:// or https:// prefix, mirroring the Java client.
+        const candidate = endpoint.trim().replace(/^https?:\/\//, '');
+        let host: string;
+        let port: number;
+        if (candidate.startsWith('[')) {
+          // Bracketed IPv6 address, e.g. [::1]:10911 or [fe80::1]
+          const match = candidate.match(/^\[([^\]]+)\](?::(\d+))?$/);
+          if (!match) {
+            throw new TypeError(`Invalid IPv6 endpoint: ${endpoint}`);
+          }
+          host = match[1];
+          port = match[2] ? parseInt(match[2], 10) : DEFAULT_PORT;
+        } else if (isIPv6(candidate)) {
+          // Bare IPv6 address without brackets, e.g. ::1
+          host = candidate;
+          port = DEFAULT_PORT;
+        } else {
+          // IPv4 address or domain name, e.g. 127.0.0.1:10911, example.com:80
+          const index = candidate.lastIndexOf(':');
+          if (index > 0) {
+            host = candidate.substring(0, index);
+            port = parseInt(candidate.substring(index + 1), 10) || DEFAULT_PORT;
+          } else {
+            host = candidate;
+            port = DEFAULT_PORT;
+          }
+        }
         if (isIPv4(host)) {
           this.scheme = AddressScheme.IPV4;
         } else if (isIPv6(host)) {
@@ -43,7 +69,7 @@ export class Endpoints {
         } else {
           this.scheme = AddressScheme.DOMAIN_NAME;
         }
-        this.addressesList.push({ host, port: parseInt(port) || DEFAULT_PORT });
+        this.addressesList.push({ host, port });
       }
     } else {
       this.scheme = endpoints.scheme;

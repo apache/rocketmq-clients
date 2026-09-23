@@ -99,7 +99,7 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
         endpoints,
         namespace,
         sessionCredentials,
-        consumerGroup: `nodejs-unittest-group-${randomUUID()}`,
+        consumerGroup: 'nodejs-unittest-group',
         subscriptions: new Map().set(topic, new FilterExpression(tag)),
       });
       await simpleConsumer.startup();

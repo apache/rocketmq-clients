@@ -20,12 +20,28 @@ from rocketmq.v5.model import Message
 
 
 class ConsumeResult(Enum):
+    """Result of message consumption returned by :class:`MessageListener.consume`."""
     SUCCESS = 0  # Consume message successfully.
     FAILURE = 1  # Failed to consume message.
 
 
 class MessageListener(metaclass=abc.ABCMeta):
+    """Abstract callback handler for consuming messages in :class:`PushConsumer`.
+
+    Subclass this and implement :meth:`consume` to process received messages.
+    The PushConsumer invokes this callback on a thread from its consumption
+    thread pool.
+    """
 
     @abc.abstractmethod
     def consume(self, message: Message) -> ConsumeResult:
+        """Process a received message.
+
+        Args:
+            message: The received :class:`Message`.
+
+        Returns:
+            :attr:`ConsumeResult.SUCCESS` to acknowledge, or
+            :attr:`ConsumeResult.FAILURE` to retry delivery.
+        """
         pass

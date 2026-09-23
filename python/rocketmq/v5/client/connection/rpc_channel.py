@@ -27,8 +27,18 @@ from rocketmq.v5.log import logger
 
 
 class RpcAddress:
+    """Represents a single broker host:port address.
+
+    Wraps a protobuf ``Address`` with hash, equality, and ordering
+    support for use in sets and sorted collections.
+    """
 
     def __init__(self, address: Address):
+        """Create an RPC address.
+
+        Args:
+            address: A gRPC ``Address`` protobuf message.
+        """
         self.__host = address.host
         self.__port = address.port
 
@@ -49,6 +59,11 @@ class RpcAddress:
         return self.__str__() < (other.__str__())
 
     def address0(self):
+        """Convert back to a protobuf ``Address``.
+
+        Returns:
+            An ``Address`` protobuf message.
+        """
         address = Address()
         address.host = self.__host
         address.port = self.__port
@@ -56,8 +71,22 @@ class RpcAddress:
 
 
 class RpcEndpoints:
+    """Encapsulates broker endpoint addresses and connection scheme.
+
+    Parses a protobuf ``Endpoints`` into a usable connection string
+    (the *facade*) for gRPC channel creation. Supports IPv4, IPv6,
+    and DNS schemes.
+    """
 
     def __init__(self, endpoints: Endpoints):
+        """Build RPC endpoints from protobuf data.
+
+        Args:
+            endpoints: A gRPC ``Endpoints`` protobuf message.
+
+        Raises:
+            UnsupportedException: If DNS scheme has multiple addresses.
+        """
         self.__endpoints = endpoints
         self.__scheme = endpoints.scheme
         self.__addresses = set(
@@ -80,8 +109,6 @@ class RpcEndpoints:
     def __str__(self):
         return self.__endpoint_desc
 
-    """ private """
-
     def __facade(self):
         if (
             self.__scheme is None
@@ -103,26 +130,44 @@ class RpcEndpoints:
             ret = ret + address.__str__() + ","
         return prefix + ret[0:len(ret) - 1], ret[0:len(ret) - 1]
 
-    """ property """
-
     @property
     def endpoints(self):
+        """The underlying protobuf ``Endpoints`` message."""
         return self.__endpoints
 
     @property
     def facade(self):
+        """The gRPC connection string (e.g., ``"ipv4:192.168.1.1:8080"``)."""
         return self.__facade
 
 
 class RpcStreamStreamCall:
+    """Wrapper around a bidirectional gRPC stream for telemetry.
+
+    Manages server-side stream reading (settings sync, transaction recovery)
+    and client-side stream writing. Associated with a specific set of
+    broker endpoints and a handler for processing incoming messages.
+    """
 
     def __init__(self, endpoints: RpcEndpoints, stream_stream_call, handler):
+        """Create a stream call wrapper.
+
+        Args:
+            endpoints: Broker endpoint addresses for this stream.
+            stream_stream_call: The raw gRPC bidirectional stream object.
+            handler: Callback handler for processing server-side messages.
+        """
         self.__endpoints = endpoints
         self.__stream_stream_call = stream_stream_call  # grpc stream_stream_call
         self.__handler = handler  # handler responsible for handling data from the server side stream.
 
     async def start_stream_read(self):
-        # start reading from a stream, including send setting result, sever check for transaction message
+        """Continuously read from the gRPC stream and dispatch messages.
+
+        Handles two message types from the server:
+        - ``settings``: Updates client configuration and metrics.
+        - ``recover_orphaned_transaction_command``: Triggers transaction recovery.
+        """
         if self.__stream_stream_call is not None:
             try:
                 while True:
@@ -159,20 +204,38 @@ class RpcStreamStreamCall:
                 )
 
     async def stream_write(self, req):
+        """Write a request to the gRPC stream.
+
+        Args:
+            req: The protobuf message to send.
+
+        Raises:
+            Exception: If the stream write fails.
+        """
         if self.__stream_stream_call:
-            try:
-                await self.__stream_stream_call.write(req)
-            except Exception as e:
-                raise e
+            await self.__stream_stream_call.write(req)
 
     def close(self):
+        """Cancel the underlying gRPC stream, releasing associated resources."""
         if self.__stream_stream_call:
             self.__stream_stream_call.cancel()
 
 
 class RpcChannel:
+    """Manages a gRPC channel to a specific set of broker endpoints.
+
+    Handles channel creation (secure/insecure), lifecycle management,
+    and telemetry stream registration. Each channel instance corresponds
+    to one broker address group.
+    """
 
     def __init__(self, endpoints: RpcEndpoints, tls_enabled=False):
+        """Create an RPC channel.
+
+        Args:
+            endpoints: Broker endpoint addresses to connect to.
+            tls_enabled: Whether to use TLS (secure channel) or insecure channel.
+        """
         self.__async_channel = None
         self.__async_stub = None
         self.__telemetry_stream_stream_call = None
@@ -181,12 +244,25 @@ class RpcChannel:
         self.__update_time = int(time.time())
 
     def create_channel(self, loop):
+        """Create the gRPC async channel on the given event loop.
+
+        Args:
+            loop: The asyncio event loop to bind the channel to.
+        """
         # create grpc channel with the given loop
         # assert loop == RpcClient._io_loop
         asyncio.set_event_loop(loop)
         self.__create_aio_channel()
 
     def close_channel(self, loop):
+        """Close the gRPC channel and associated telemetry stream.
+
+        Gracefully shuts down the channel, cancels active streams,
+        and clears all internal references.
+
+        Args:
+            loop: The asyncio event loop the channel is bound to.
+        """
         if self.__async_channel:
             # close stream_stream_call
             if self.__telemetry_stream_stream_call:
@@ -205,16 +281,32 @@ class RpcChannel:
             self.__update_time = None
 
     def channel_state(self, wait_for_ready=True):
-        return self.__async_channel.get_state(wait_for_ready)
+        """Get the current connectivity state of the gRPC channel.
+
+        Args:
+            wait_for_ready: Whether to wait for a state change before returning.
+
+        Returns:
+            A ``ChannelConnectivity`` enum value.
+        """
+        if self.__async_channel:
+            return self.__async_channel.get_state(wait_for_ready)
+        return None
 
     def register_telemetry_stream_stream_call(self, stream_stream_call, handler):
+        """Register a new bidirectional telemetry stream.
+
+        Closes any existing stream before registering the new one.
+
+        Args:
+            stream_stream_call: Raw gRPC bidirectional stream object.
+            handler: Callback handler for processing server messages.
+        """
         if self.__telemetry_stream_stream_call is not None:
             self.__telemetry_stream_stream_call.close()
         self.__telemetry_stream_stream_call = RpcStreamStreamCall(
             self.__endpoints, stream_stream_call, handler
         )
-
-    """ private """
 
     def __create_aio_channel(self):
         try:
@@ -247,21 +339,22 @@ class RpcChannel:
             )
             raise e
 
-    #
-    """ property """
-
     @property
     def async_stub(self):
+        """The async gRPC ``MessagingServiceStub`` for making RPC calls."""
         return self.__async_stub
 
     @property
     def telemetry_stream_stream_call(self):
+        """The active :class:`RpcStreamStreamCall` for telemetry, or ``None``."""
         return self.__telemetry_stream_stream_call
 
     @property
     def update_time(self):
+        """Unix timestamp (seconds) of when this channel was last created or updated."""
         return self.__update_time
 
     @update_time.setter
     def update_time(self, update_time):
+        """Set the channel's last update timestamp."""
         self.__update_time = update_time

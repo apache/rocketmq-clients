@@ -31,6 +31,7 @@ import {
   VerifyMessageResult,
   PrintThreadStackTraceCommand,
   ReconnectEndpointsCommand,
+  NotifyUnsubscribeLiteCommand,
   TelemetryCommand,
   ThreadStackTrace,
   HeartbeatRequest,
@@ -581,6 +582,11 @@ export abstract class BaseClient {
     telemetryCommand.setStatus(new Status().setCode(Code.NOT_IMPLEMENTED));
     telemetryCommand.setVerifyMessageResult(new VerifyMessageResult().setNonce(obj.nonce));
     this.telemetry(endpoints, telemetryCommand);
+  }
+
+  onNotifyUnsubscribeLiteCommand(endpoints: Endpoints, command: NotifyUnsubscribeLiteCommand) {
+    this.logger.warn('Ignore notify unsubscribe lite command from remote, which is not expected, clientId=%s, endpoints=%s, command=%j',
+      this.clientId, endpoints.facade, command.toObject());
   }
 
   onPrintThreadStackTraceCommand(endpoints: Endpoints, command: PrintThreadStackTraceCommand) {

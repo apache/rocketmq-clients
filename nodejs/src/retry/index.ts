@@ -15,5 +15,6 @@
  * limitations under the License.
  */
 
+export * from './CustomizedBackoffRetryPolicy';
 export * from './ExponentialBackoffRetryPolicy';
 export * from './RetryPolicy';

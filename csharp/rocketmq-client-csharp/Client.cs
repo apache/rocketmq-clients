@@ -50,6 +50,9 @@ namespace Org.Apache.Rocketmq
         private static readonly TimeSpan StatsSchedulePeriod = TimeSpan.FromSeconds(60);
         private readonly CancellationTokenSource _statsCts;
 
+        // Larger than the close timeout of a single session, which force closes itself: this one only backs it up.
+        internal static readonly TimeSpan SessionCloseTimeout = TimeSpan.FromSeconds(10);
+
         protected readonly ClientConfig ClientConfig;
         protected readonly Endpoints Endpoints;
         protected IClientManager ClientManager;
@@ -60,7 +63,9 @@ namespace Org.Apache.Rocketmq
         private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteCache;
 
         private readonly Dictionary<Endpoints, Session> _sessionsTable;
+        private readonly Dictionary<Endpoints, int> _initializingEndpoints = new Dictionary<Endpoints, int>();
         private readonly ReaderWriterLockSlim _sessionLock;
+        private bool _sessionsClosed;
 
         internal volatile State State;
 
@@ -111,6 +116,37 @@ namespace Org.Apache.Rocketmq
             _settingsSyncCts.Cancel();
             _statsCts.Cancel();
             NotifyClientTermination();
+
+            List<Session> sessions;
+            _sessionLock.EnterWriteLock();
+            try
+            {
+                _sessionsClosed = true;
+                sessions = _sessionsTable.Values.ToList();
+                foreach (var session in sessions)
+                {
+                    session.MarkClosed();
+                }
+
+                _sessionsTable.Clear();
+            }
+            finally
+            {
+                _sessionLock.ExitWriteLock();
+            }
+
+            // Disposing streams can resume their readers; never do it while holding the session table lock.
+            try
+            {
+                await Task.WhenAll(sessions.Select(session => session.CloseAsync()))
+                    .WaitAsync(SessionCloseTimeout);
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning(e, $"Failed to close the client sessions in {SessionCloseTimeout}, " +
+                                     $"clientId={ClientId}");
+            }
+
             await ClientManager.Shutdown();
             ClientMeterManager.Shutdown();
             Logger.LogDebug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
@@ -121,6 +157,7 @@ namespace Org.Apache.Rocketmq
             _sessionLock.EnterReadLock();
             try
             {
+                ThrowIfSessionsClosed();
                 // Session exists, return in advance.
                 if (_sessionsTable.TryGetValue(endpoints, out var session))
                 {
@@ -135,6 +172,7 @@ namespace Org.Apache.Rocketmq
             _sessionLock.EnterWriteLock();
             try
             {
+                ThrowIfSessionsClosed();
                 // Session exists, return in advance.
                 if (_sessionsTable.TryGetValue(endpoints, out var session))
                 {
@@ -152,7 +190,69 @@ namespace Org.Apache.Rocketmq
             }
         }
 
+        private bool SessionsClosed => _sessionsClosed || State == State.Stopping
+            || State == State.Terminated || State == State.Failed;
+
+        private void ThrowIfSessionsClosed()
+        {
+            if (SessionsClosed)
+            {
+                throw new ObjectDisposedException(nameof(Client));
+            }
+        }
+
+        internal Session GetSessionIfPresent(Endpoints endpoints)
+        {
+            _sessionLock.EnterReadLock();
+            try
+            {
+                return !SessionsClosed && _sessionsTable.TryGetValue(endpoints, out var session) ? session : null;
+            }
+            finally
+            {
+                _sessionLock.ExitReadLock();
+            }
+        }
+
         protected abstract IEnumerable<string> GetTopics();
+
+        internal virtual bool IsEndpointsDeprecated(Endpoints endpoints)
+        {
+            _sessionLock.EnterReadLock();
+            try
+            {
+                return SessionsClosed || (!_initializingEndpoints.ContainsKey(endpoints)
+                    && !GetTotalRouteEndpoints().Contains(endpoints));
+            }
+            finally
+            {
+                _sessionLock.ExitReadLock();
+            }
+        }
+
+        internal virtual async Task<bool> RemoveSession(Endpoints endpoints, Session session)
+        {
+            _sessionLock.EnterWriteLock();
+            try
+            {
+                if (!_sessionsTable.TryGetValue(endpoints, out var existing) || !ReferenceEquals(existing, session)
+                    || (!SessionsClosed && (_initializingEndpoints.ContainsKey(endpoints)
+                        || GetTotalRouteEndpoints().Contains(endpoints))))
+                {
+                    return false;
+                }
+
+                session.MarkClosed();
+                _sessionsTable.Remove(endpoints);
+            }
+            finally
+            {
+                _sessionLock.ExitWriteLock();
+            }
+
+            await session.CloseAsync();
+            return true;
+        }
 
         internal abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
 
@@ -160,30 +260,87 @@ namespace Org.Apache.Rocketmq
 
         internal async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
         {
-            var routeEndpoints = new HashSet<Endpoints>();
-            foreach (var mq in topicRouteData.MessageQueues)
+            var routeEndpoints = new HashSet<Endpoints>(topicRouteData.MessageQueues.Select(mq => mq.Broker.Endpoints));
+            _sessionLock.EnterWriteLock();
+            try
             {
-                routeEndpoints.Add(mq.Broker.Endpoints);
+                ThrowIfSessionsClosed();
+                foreach (var endpoints in routeEndpoints)
+                {
+                    _initializingEndpoints.TryGetValue(endpoints, out var count);
+                    _initializingEndpoints[endpoints] = count + 1;
+                }
+            }
+            finally
+            {
+                _sessionLock.ExitWriteLock();
             }
 
-            var existedRouteEndpoints = GetTotalRouteEndpoints();
-            var newEndpoints = routeEndpoints.Except(existedRouteEndpoints);
-
-            foreach (var endpoints in newEndpoints)
+            try
             {
-                var (created, session) = GetSession(endpoints);
-                if (!created)
+                foreach (var endpoints in routeEndpoints)
                 {
-                    continue;
+                    var (_, session) = GetSession(endpoints);
+                    await session.InitializeAsync();
                 }
 
-                Logger.LogInformation($"Begin to establish session for endpoints={endpoints}, clientId={ClientId}");
-                await session.SyncSettings(true);
-                Logger.LogInformation($"Establish session for endpoints={endpoints} successfully, clientId={ClientId}");
+                _sessionLock.EnterWriteLock();
+                try
+                {
+                    ThrowIfSessionsClosed();
+                    _topicRouteCache[topic] = topicRouteData;
+                    OnTopicRouteDataUpdated0(topic, topicRouteData);
+                }
+                finally
+                {
+                    _sessionLock.ExitWriteLock();
+                }
             }
+            finally
+            {
+                List<Session> retired;
+                _sessionLock.EnterWriteLock();
+                try
+                {
+                    foreach (var endpoints in routeEndpoints)
+                    {
+                        var count = _initializingEndpoints[endpoints] - 1;
+                        if (count == 0)
+                        {
+                            _initializingEndpoints.Remove(endpoints);
+                        }
+                        else
+                        {
+                            _initializingEndpoints[endpoints] = count;
+                        }
+                    }
 
-            _topicRouteCache[topic] = topicRouteData;
-            OnTopicRouteDataUpdated0(topic, topicRouteData);
+                    var active = GetTotalRouteEndpoints();
+                    retired = new List<Session>();
+                    foreach (var entry in _sessionsTable.ToArray())
+                    {
+                        if (active.Contains(entry.Key) || _initializingEndpoints.ContainsKey(entry.Key))
+                        {
+                            continue;
+                        }
+
+                        entry.Value.MarkClosed();
+                        _sessionsTable.Remove(entry.Key);
+                        retired.Add(entry.Value);
+                    }
+                }
+                finally
+                {
+                    _sessionLock.ExitWriteLock();
+                }
+
+                if (ClientManager is ClientManager manager)
+                {
+                    manager.PruneTransportRecoveryStates();
+                }
+
+                await Task.WhenAll(retired.Select(session => session.CloseAsync()));
+            }
         }
 
         /**
@@ -410,10 +567,10 @@ namespace Org.Apache.Rocketmq
             var request = WrapNotifyClientTerminationRequest();
             foreach (var item in endpoints)
             {
-                var invocation =
-                    await ClientManager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
                 try
                 {
+                    var invocation =
+                        await ClientManager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
                     StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
                 }
                 catch (Exception e)
@@ -441,6 +598,28 @@ namespace Org.Apache.Rocketmq
             return ClientManager;
         }
 
+        /// <summary>
+        /// Rebuilds the telemetry stream of the specified endpoints, invoked right after the gRPC transport has been
+        /// replaced.
+        /// </summary>
+        internal virtual void ReconnectTelemetry(Endpoints endpoints, Session expectedSession = null)
+        {
+            var session = GetSessionIfPresent(endpoints);
+            if (null != expectedSession && !ReferenceEquals(session, expectedSession))
+            {
+                return;
+            }
+
+            if (null == session)
+            {
+                Logger.LogWarning($"Failed to rebuild telemetry because client session does not exist, " +
+                                  $"endpoints={endpoints}, clientId={ClientId}");
+                return;
+            }
+
+            session.Reconnect();
+        }
+
         // Only for testing
         internal void SetClientManager(IClientManager clientManager)
         {
@@ -454,52 +633,66 @@ namespace Org.Apache.Rocketmq
                               $"clientId={ClientId}, endpoints={endpoints}");
         }
 
-        internal virtual async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
+        internal virtual async Task OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
         {
-            // Only push consumer support message consumption verification.
-            Logger.LogWarning($"Ignore verify message command from remote, which is not expected, clientId={ClientId}, " +
-                        $"endpoints={endpoints}, command={command}");
-            var status = new Proto.Status
+            try
             {
-                Code = Proto.Code.Unsupported,
-                Message = "Message consumption verification is not supported"
-            };
-            var verifyMessageResult = new Proto.VerifyMessageResult
-            {
-                Nonce = command.Nonce
-            };
+                var session = GetSessionIfPresent(endpoints);
+                if (null == session)
+                {
+                    return;
+                }
 
-            var telemetryCommand = new Proto.TelemetryCommand
+                var telemetryCommand = new Proto.TelemetryCommand
+                {
+                    VerifyMessageResult = new Proto.VerifyMessageResult { Nonce = command.Nonce },
+                    Status = new Proto.Status
+                    {
+                        Code = Proto.Code.Unsupported,
+                        Message = "Message consumption verification is not supported"
+                    }
+                };
+                await session.WriteAsync(telemetryCommand);
+            }
+            catch (Exception e)
             {
-                VerifyMessageResult = verifyMessageResult,
-                Status = status
-            };
-            var (_, session) = GetSession(endpoints);
-            await session.WriteAsync(telemetryCommand);
+                Logger.LogWarning(e, $"Failed to reply to message verification, endpoints={endpoints}, clientId={ClientId}");
+            }
         }
 
-        internal async void OnPrintThreadStackTraceCommand(Endpoints endpoints,
+        internal async Task OnPrintThreadStackTraceCommand(Endpoints endpoints,
             Proto.PrintThreadStackTraceCommand command)
         {
-            Logger.LogWarning("Ignore thread stack trace printing command from remote because it is still not supported, " +
-                              $"clientId={ClientId}, endpoints={endpoints}");
-            var status = new Proto.Status
+            try
             {
-                Code = Proto.Code.Unsupported,
-                Message = "C# don't support thread stack trace printing"
-            };
-            var threadStackTrace = new Proto.ThreadStackTrace
-            {
-                Nonce = command.Nonce
-            };
+                var session = GetSessionIfPresent(endpoints);
+                if (null == session)
+                {
+                    return;
+                }
 
-            var telemetryCommand = new Proto.TelemetryCommand
+                var telemetryCommand = new Proto.TelemetryCommand
+                {
+                    ThreadStackTrace = new Proto.ThreadStackTrace { Nonce = command.Nonce },
+                    Status = new Proto.Status
+                    {
+                        Code = Proto.Code.Unsupported,
+                        Message = "C# don't support thread stack trace printing"
+                    }
+                };
+                await session.WriteAsync(telemetryCommand);
+            }
+            catch (Exception e)
             {
-                ThreadStackTrace = threadStackTrace,
-                Status = status,
-            };
-            var (_, session) = GetSession(endpoints);
-            await session.WriteAsync(telemetryCommand);
+                Logger.LogWarning(e, $"Failed to reply to thread stack trace request, endpoints={endpoints}, clientId={ClientId}");
+            }
+        }
+
+        internal virtual void OnReconnectEndpointsCommand(Endpoints endpoints, Proto.ReconnectEndpointsCommand command)
+        {
+            Logger.LogInformation($"Receive reconnect endpoints command from remote, endpoints={endpoints}, " +
+                                  $"command={command}, clientId={ClientId}");
+            ClientManager.Reconnect(endpoints);
         }
 
         internal virtual void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
