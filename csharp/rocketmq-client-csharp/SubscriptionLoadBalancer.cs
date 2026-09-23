@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Org.Apache.Rocketmq.Error;
 
 namespace Org.Apache.Rocketmq
 {
@@ -51,6 +52,13 @@ namespace Org.Apache.Rocketmq
 
         public MessageQueue TakeMessageQueue()
         {
+            if (0 == _messageQueues.Count)
+            {
+                // Lite consumers prune the route to a single queue, an empty route is possible
+                // when no readable master queue is served by the broker.
+                throw new NotFoundException("Failed to take message queue, no readable master queue is available");
+            }
+
             var next = Interlocked.Increment(ref _index);
             var index = Utilities.GetPositiveMod(next, _messageQueues.Count);
             return _messageQueues[index];

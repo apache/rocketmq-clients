@@ -13,17 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rocketmq.v5.util import Misc
+from rocketmq.v5.util import SDK_VERSION
 from setuptools import find_packages, setup
 
 setup(
     name='rocketmq-python-client',
-    version=Misc.SDK_VERSION,
+    version=SDK_VERSION,
     packages=find_packages(),
     install_requires=[
         "grpcio>=1.5.0",
         "grpcio-tools>=1.5.0",
-        'protobuf',
+        'protobuf>=6.33.5',
         "opentelemetry-api>=1.33.0",
         "opentelemetry-sdk>=1.33.0",
         "opentelemetry-exporter-otlp>=1.33.0"

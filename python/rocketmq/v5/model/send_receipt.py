@@ -15,8 +15,23 @@
 
 
 class SendReceipt:
+    """Receipt returned after a successful message send.
+
+    Contains the message ID, transaction ID (for transactional messages),
+    the message queue the message was written to, the offset, and an
+    optional recall handle for scheduled messages.
+    """
 
     def __init__(self, message_id, transaction_id, message_queue, offset, recall_handle=None):
+        """Create a send receipt.
+
+        Args:
+            message_id: Unique identifier of the send message.
+            transaction_id: Transaction ID for half-messages, None for normal messages.
+            message_queue: The :class:`MessageQueue` the message was written to.
+            offset: The message offset in the queue.
+            recall_handle: Handle for recalling (canceling) scheduled messages.
+        """
         self.__message_id = message_id
         self.__transaction_id = transaction_id
         self.__message_queue = message_queue
@@ -25,8 +40,6 @@ class SendReceipt:
 
     def __str__(self):
         return f"message_id:{self.__message_id}"
-
-    """ property """
 
     @property
     def message_id(self):

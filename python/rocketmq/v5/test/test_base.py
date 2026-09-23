@@ -16,6 +16,8 @@
 from rocketmq.grpc_protocol import (AddressScheme, Broker, Code, Endpoints,
                                     MessageType, Permission, Resource, Status,
                                     definition_pb2)
+from rocketmq.grpc_protocol.service_pb2 import EndTransactionResponse  # noqa
+from rocketmq.grpc_protocol.service_pb2 import RecallMessageResponse  # noqa
 from rocketmq.grpc_protocol.service_pb2 import ReceiveMessageResponse  # noqa
 from rocketmq.grpc_protocol.service_pb2 import SendMessageResponse  # noqa
 from rocketmq.v5.client import ClientConfiguration, Credentials
@@ -110,6 +112,7 @@ class TestBase:
                 MessageType.FIFO,
                 MessageType.DELAY,
                 MessageType.TRANSACTION,
+                MessageType.PRIORITY,
             )
         )
         return MessageQueue(fake_queue)
@@ -149,6 +152,21 @@ class TestBase:
             fake_message_queue,
             fake_entry.offset,
         )
+
+    @staticmethod
+    def fake_end_transaction_success_response():
+        fake_response = EndTransactionResponse()
+        status = TestBase.fake_ok_status()
+        fake_response.status.CopyFrom(status)
+        return fake_response
+
+    @staticmethod
+    def fake_recall_message_success_response(message_id):
+        resp = RecallMessageResponse()
+        status = TestBase.fake_ok_status()
+        resp.status.CopyFrom(status)
+        resp.message_id = message_id
+        return resp
 
     @staticmethod
     def fake_receive_receipt():

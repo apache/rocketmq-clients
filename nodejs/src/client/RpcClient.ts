@@ -61,6 +61,9 @@ const GRPC_CHANNEL_OPTIONS = {
   'grpc.keepalive_permit_without_calls': 1,
   'grpc.max_send_message_length': 2 ** 31 - 1,
   'grpc.max_receive_message_length': 2 ** 31 - 1,
+  // Use a local subchannel pool so each RpcClient owns its own connection
+  // instead of sharing one via grpc-js's global pool, aligning with the Java client.
+  'grpc.use_local_subchannel_pool': 1,
 };
 
 export class RpcClient {

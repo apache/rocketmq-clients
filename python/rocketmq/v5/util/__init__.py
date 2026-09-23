@@ -20,6 +20,7 @@ from .message_id_codec import MessageIdCodec
 from .messaging_result_checker import MessagingResultChecker
 from .misc import Misc
 from .signature import Signature
+from .version import SDK_VERSION
 
 __all__ = [
     "AtomicInteger",
@@ -29,4 +30,5 @@ __all__ = [
     "MessageIdCodec",
     "MessagingResultChecker",
     "Signature",
+    "SDK_VERSION",
 ]

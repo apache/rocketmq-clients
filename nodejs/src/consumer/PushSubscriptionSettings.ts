@@ -21,9 +21,10 @@ import {
   Subscription,
   RetryPolicy as RetryPolicyPB,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { Endpoints } from '../route';
 import { Settings, UserAgent } from '../client';
-import { ExponentialBackoffRetryPolicy, RetryPolicy } from '../retry';
+import { CustomizedBackoffRetryPolicy, ExponentialBackoffRetryPolicy, RetryPolicy } from '../retry';
 import { createDuration, createResource } from '../util';
 import { FilterExpression } from './FilterExpression';
 
@@ -102,20 +103,29 @@ export class PushSubscriptionSettings extends Settings {
     }
     const backoffPolicy = settings.getBackoffPolicy();
     if (backoffPolicy) {
+      // Convert protobuf Duration (seconds + nanos) to milliseconds without
+      // losing sub-second precision.
+      const toMillis = (duration?: Duration) =>
+        duration ? duration.getSeconds() * 1000 + duration.getNanos() / 1e6 : 0;
       switch (backoffPolicy.getStrategyCase()) {
         case RetryPolicyPB.StrategyCase.EXPONENTIAL_BACKOFF: {
-          const exponential = backoffPolicy.getExponentialBackoff()!.toObject();
+          const exponential = backoffPolicy.getExponentialBackoff()!;
           this.retryPolicy = new ExponentialBackoffRetryPolicy(
             backoffPolicy.getMaxAttempts(),
-            exponential.initial?.seconds,
-            exponential.max?.seconds,
-            exponential.multiplier,
+            toMillis(exponential.getInitial()),
+            toMillis(exponential.getMax()),
+            exponential.getMultiplier(),
           );
           break;
         }
-        case RetryPolicyPB.StrategyCase.CUSTOMIZED_BACKOFF:
-          // CustomizedBackoffRetryPolicy not yet implemented in Node.js
+        case RetryPolicyPB.StrategyCase.CUSTOMIZED_BACKOFF: {
+          const customizedBackoff = backoffPolicy.getCustomizedBackoff()!;
+          const durations = customizedBackoff.getNextList().map((duration: Duration) => toMillis(duration));
+          if (durations.length > 0) {
+            this.retryPolicy = new CustomizedBackoffRetryPolicy(durations, backoffPolicy.getMaxAttempts());
+          }
           break;
+        }
         default:
           break;
       }
