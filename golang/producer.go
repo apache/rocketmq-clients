@@ -196,6 +196,9 @@ func (p *defaultProducer) getNextAttemptDelay(attempt int) time.Duration {
 func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v2.MessageType,
 	candidates []*v2.MessageQueue, pubMessages []*PublishingMessage, attempt int) ([]*SendReceipt, error) {
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	ctx = p.cli.Sign(ctx)
 
 	idx := utils.Mod(int32(attempt)-1, len(candidates))
@@ -221,9 +224,7 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 	duration := time.Since(watchTime)
 	messageHookPointsStatus := MessageHookPointsStatus_OK
 	// processSendResponse
-	tooManyRequests := false
 	if err == nil && resp.GetStatus().GetCode() != v2.Code_OK {
-		tooManyRequests = resp.GetStatus().GetCode() == v2.Code_TOO_MANY_REQUESTS
 		err = &ErrRpcStatus{
 			Code:    int32(resp.Status.GetCode()),
 			Message: resp.GetStatus().GetMessage(),
@@ -251,11 +252,17 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 		// Try to do more attempts.
 		nextAttempt := attempt + 1
 		// Retry immediately if the request is not throttled.
-		if tooManyRequests {
+		if rpcStatus, ok := AsErrRpcStatus(err); ok && rpcStatus.Code == int32(v2.Code_TOO_MANY_REQUESTS) {
 			waitTime := p.getNextAttemptDelay(nextAttempt)
 			p.cli.log.Warnf("failed to send message due to too many requests, would attempt to resend after %v, topic=%s, messageId(s)=%v, maxAttempts=%d, attempt=%d, endpoints=%v, requestId=%s",
 				waitTime, topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
-			time.Sleep(waitTime)
+			timer := time.NewTimer(waitTime)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, ctx.Err()
+			case <-timer.C:
+			}
 		} else {
 			p.cli.log.Warnf("failed to send message, would attempt to resend right now, topic=%s, messageId(s)=%v, maxAttempts=%d, attempt=%d, endpoints=%v, requestId=%s",
 				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
@@ -516,9 +523,9 @@ func (p *defaultProducer) SetRequestTimeout(timeout time.Duration) {
 }
 
 func (p *defaultProducer) IsEndpointUpdated() bool {
-	return p.cli.ReceiveReconnect
+	return p.cli.getReceiveReconnect()
 }
 
 func (sc *defaultProducer) SetReceiveReconnect(receiveReconnect bool) {
-	sc.cli.ReceiveReconnect = receiveReconnect
+	sc.cli.setReceiveReconnect(receiveReconnect)
 }

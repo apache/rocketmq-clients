@@ -19,7 +19,9 @@ from hashlib import sha1
 from hmac import new
 from uuid import uuid4
 
-from rocketmq.v5.util import ClientId, Misc
+from rocketmq.v5.util import ClientId
+
+from .version import SDK_VERSION
 
 
 class Signature:
@@ -48,7 +50,7 @@ class Signature:
         metadata = [
             ("x-mq-language", "PYTHON"),
             ("x-mq-protocol", "GRPC_V2"),
-            ("x-mq-client-version", Misc.sdk_version()),
+            ("x-mq-client-version", SDK_VERSION),
             ("x-mq-date-time", formatted_date_time),
             ("x-mq-request-id", request_id),
             ("x-mq-client-id", client_id),

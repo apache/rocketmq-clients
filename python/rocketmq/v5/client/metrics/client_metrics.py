@@ -32,6 +32,20 @@ from rocketmq.v5.util import Misc, Signature
 
 
 class ClientMetrics:
+    """Manages OpenTelemetry metrics for the RocketMQ client.
+
+    Tracks send latency, receive delivery latency, consume await time,
+    and consume processing time as histograms. Metrics are enabled/disabled
+    dynamically by server-side configuration and exported via OTLP to
+    a broker-specified endpoint.
+
+    Attributes:
+        METRIC_EXPORTER_RPC_TIMEOUT: Timeout in seconds for metric export RPC calls.
+        METRIC_READER_INTERVAL: Export interval in milliseconds (default 60s).
+        SEND_STOPWATCH_KEY: Context key for storing the send start timestamp.
+        CONSUME_STOPWATCH_KEY: Context key for storing the consume start timestamp.
+        INVOCATION_STATUS: Context key for the operation success/failure status.
+    """
     METRIC_EXPORTER_RPC_TIMEOUT = 5
     METRIC_READER_INTERVAL = 60000  # 1 minute
     METRIC_NAME = "org.apache.rocketmq.message"
@@ -40,6 +54,12 @@ class ClientMetrics:
     INVOCATION_STATUS = "invocation_status"
 
     def __init__(self, client_id, configuration):
+        """Create a client metrics collector.
+
+        Args:
+            client_id: Unique identifier for the client instance.
+            configuration: The :class:`ClientConfiguration` with credentials.
+        """
         self.__enabled = False
         self.__endpoints = None
         self.__client_id = client_id
@@ -52,7 +72,16 @@ class ClientMetrics:
         self.__metric_lock = threading.Lock()
 
     def reset_metrics(self, metric: Metric):
-        # if metrics endpoints changed or metric.on from False to True, start a new client metrics
+        """Reconfigure metrics based on server-side metric settings.
+
+        Handles three cases:
+        - Metrics disabled (no-op if already off).
+        - Metrics turned off: shuts down the meter provider.
+        - Metrics turned on or endpoints changed: starts a new meter provider.
+
+        Args:
+            metric: Server-side ``Metric`` protobuf message.
+        """
         with self.__metric_lock:
             if self.__satisfy(metric):
                 return
@@ -74,6 +103,13 @@ class ClientMetrics:
             logger.info(f"client:{self.__client_id} start metric provider success.")
 
     def create_push_consumer_process_queue_observable_gauge(self, name, callback_func):
+        """Create an observable gauge metric for push consumer process queue stats.
+
+        Args:
+            name: The metric name.
+            callback_func: Callable returning a list of dicts with ``"value"``
+                and ``"attributes"`` keys for each gauge measurement.
+        """
         def gauge_callback(callback_options):
             try:
                 results = callback_func() or []
@@ -92,9 +128,18 @@ class ClientMetrics:
             callbacks=[gauge_callback],
         )
 
-    """ send metric """
-
     def send_before(self, topic):
+        """Record the start of a message send operation.
+
+        Creates a metric context with the current timestamp. Call
+        :meth:`send_after` with the returned context after send completes.
+
+        Args:
+            topic: The topic name the message is being sent to.
+
+        Returns:
+            A :class:`MetricContext` to pass to :meth:`send_after`.
+        """
         send_context = MetricContext(MessageMetricType.SEND)
         # record send message time
         start_timestamp = Misc.current_mills()
@@ -104,6 +149,15 @@ class ClientMetrics:
         return send_context
 
     def send_after(self, send_context: MetricContext, success: bool):
+        """Record the end of a message send operation and emit the metric.
+
+        Calculates the send cost time from the stopwatch stored in the context
+        and records it as a histogram value with success/failure status.
+
+        Args:
+            send_context: Context returned by :meth:`send_before`.
+            success: Whether the send operation succeeded.
+        """
         if send_context is None:
             logger.warn(
                 "metrics do send_after exception. send_context must not be none."
@@ -136,9 +190,16 @@ class ClientMetrics:
         send_context.remove_attr(ClientMetrics.SEND_STOPWATCH_KEY)
         self.__record_send_success_cost_time(send_context, cost)
 
-    """ receive metric """
-
     def receive_after(self, consumer_group, messages):
+        """Record message reception latency after receiving messages from the broker.
+
+        Calculates the time between the transport delivery timestamp and
+        the current wall clock, then records it as a delivery latency histogram.
+
+        Args:
+            consumer_group: The consumer group name.
+            messages: List of received :class:`Message` objects (uses the first message's timestamp).
+        """
         if not consumer_group or not messages or len(messages) == 0:
             return
 
@@ -154,9 +215,19 @@ class ClientMetrics:
             return
         self.__record_receive_latency(receive_context, latency)
 
-    """ consume metric """
-
     def consume_before(self, consumer_group, message):
+        """Record the start of message consumption.
+
+        Calculates await time (current time minus decode timestamp) and
+        stores a consume stopwatch timestamp for :meth:`consume_after`.
+
+        Args:
+            consumer_group: The consumer group name.
+            message: The :class:`Message` being consumed.
+
+        Returns:
+            A :class:`MetricContext` to pass to :meth:`consume_after`, or ``None`` on invalid input.
+        """
         if not consumer_group or not message:
             return None
 
@@ -172,6 +243,15 @@ class ClientMetrics:
         return consume_context
 
     def consume_after(self, consume_context, success: bool):
+        """Record the end of message consumption and emit the metric.
+
+        Calculates the processing time from the consume stopwatch stored
+        in the context and records it as a histogram with success/failure status.
+
+        Args:
+            consume_context: Context returned by :meth:`consume_before`.
+            success: Whether the consume operation succeeded.
+        """
         if consume_context is None:
             logger.warn(
                 "metrics do consume_after exception. consume_after must not be none."
@@ -209,8 +289,6 @@ class ClientMetrics:
         consume_context.put_attr(ClientMetrics.INVOCATION_STATUS, "success" if success else "failure")
         consume_context.remove_attr(ClientMetrics.CONSUME_STOPWATCH_KEY)
         self.__record_consume_process_time(consume_context, process_time)
-
-    """ private """
 
     def __satisfy(self, metric: Metric):
         if metric.endpoints is None:

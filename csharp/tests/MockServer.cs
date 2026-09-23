@@ -21,6 +21,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using MessageIdGenerator = Org.Apache.Rocketmq.MessageIdGenerator;
 using Proto = Apache.Rocketmq.V2;
 
 namespace tests
@@ -84,6 +85,32 @@ namespace tests
             ServerCallContext context)
         {
             var response = new Proto.HeartbeatResponse { Status = _mockStatus };
+            return Task.FromResult(response);
+        }
+
+        public override Task<Proto.SendMessageResponse> SendMessage(Proto.SendMessageRequest request,
+            ServerCallContext context)
+        {
+            var response = new Proto.SendMessageResponse
+            {
+                Status = _mockStatus,
+                Entries =
+                {
+                    new Proto.SendResultEntry
+                    {
+                        Status = _mockStatus,
+                        MessageId = MessageIdGenerator.GetInstance().Next(),
+                        Offset = 1
+                    }
+                }
+            };
+            return Task.FromResult(response);
+        }
+
+        public override Task<Proto.NotifyClientTerminationResponse> NotifyClientTermination(
+            Proto.NotifyClientTerminationRequest request, ServerCallContext context)
+        {
+            var response = new Proto.NotifyClientTerminationResponse { Status = _mockStatus };
             return Task.FromResult(response);
         }
 

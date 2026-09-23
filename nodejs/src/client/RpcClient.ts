@@ -60,7 +60,11 @@ export class RpcClient {
   constructor(endpoints: Endpoints, sslEnabled: boolean) {
     const address = endpoints.getGrpcTarget();
     const grpcCredentials = sslEnabled ? ChannelCredentials.createSsl() : ChannelCredentials.createInsecure();
-    this.#client = new MessagingServiceClient(address, grpcCredentials);
+    // Use a local subchannel pool so each RpcClient owns its own connection
+    // instead of sharing one via grpc-js's global pool, aligning with the Java client.
+    this.#client = new MessagingServiceClient(address, grpcCredentials, {
+      'grpc.use_local_subchannel_pool': 1,
+    });
   }
 
   #getAndActivityRpcClient() {

@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+using System;
+
 namespace Org.Apache.Rocketmq.Error
 {
     /// <summary>
@@ -24,6 +26,11 @@ namespace Org.Apache.Rocketmq.Error
     {
         public TooManyRequestsException(int responseCode, string requestId, string message) : base(responseCode,
             requestId, message)
+        {
+        }
+
+        public TooManyRequestsException(int responseCode, string requestId, string message, Exception innerException)
+            : base(responseCode, requestId, message, innerException)
         {
         }
 

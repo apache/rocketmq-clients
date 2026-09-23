@@ -20,8 +20,20 @@ from rocketmq.v5.util import Misc
 
 
 class Message:
+    """Represents a message to be sent to or received from RocketMQ.
+
+    A message has a required :attr:`topic` and :attr:`body`, plus optional
+    metadata such as :attr:`tag`, :attr:`keys`, :attr:`message_group` (for
+    FIFO), :attr:`delivery_timestamp` (for scheduled/delayed), :attr:`priority`,
+    and :attr:`lite_topic` (for lite consumers).
+
+    When received, additional fields like :attr:`message_id`, :attr:`born_host`,
+    :attr:`born_timestamp`, :attr:`delivery_attempt`, and :attr:`corrupted`
+    are populated by the broker.
+    """
 
     def __init__(self):
+        """Create an empty message. Set :attr:`topic` and :attr:`body` before sending."""
         self.__body = None
         self.__topic = None
         self.__lite_topic = None
@@ -51,46 +63,54 @@ class Message:
         )
 
     def fromProtobuf(self, message: definition_pb2.Message):  # noqa
-        try:
-            self.__message_body_check_sum(message)
-            self.__topic = message.topic.name
-            self.__namespace = message.topic.resource_namespace
-            self.__body = self.__uncompress_body(message)
-            if message.user_properties:
-                self.__properties.update(message.user_properties)
+        """Deserialize a message from the gRPC protobuf response.
 
-            # system_properties
-            self.__message_id = message.system_properties.message_id
-            self.__message_type = message.system_properties.message_type
-            self.__born_timestamp = Misc.to_mills(message.system_properties.born_timestamp)
-            self.__born_host = message.system_properties.born_host
+        Populates all message fields including body, system properties,
+        and user properties. Also performs body checksum verification
+        and sets :attr:`corrupted` if the check fails.
 
-            if message.system_properties.tag:
-                self.__tag = message.system_properties.tag
-            if message.system_properties.keys:
-                self.__keys.update(message.system_properties.keys)
-            if message.system_properties.store_timestamp:
-                self.__store_timestamp = Misc.to_mills(message.system_properties.store_timestamp)
-            if message.system_properties.delivery_timestamp:
-                self.__delivery_timestamp = Misc.to_mills(message.system_properties.delivery_timestamp)
-            if message.system_properties.receipt_handle:
-                self.__receipt_handle = message.system_properties.receipt_handle
-            if message.system_properties.lite_topic:
-                self.__lite_topic = message.system_properties.lite_topic
-            if message.system_properties.message_group:
-                self.__message_group = message.system_properties.message_group
-            if message.system_properties.delivery_attempt:
-                self.__delivery_attempt = message.system_properties.delivery_attempt
-            if message.system_properties.priority is not None:
-                self.__priority = message.system_properties.priority
+        Args:
+            message: The protobuf :class:`definition_pb2.Message` from the broker.
 
-            # decode time
-            self.__decode_message_timestamp = Misc.current_mills()
-            return self
-        except Exception as e:
-            raise e
+        Returns:
+            self, for method chaining.
+        """
 
-    """ private """
+        self.__message_body_check_sum(message)
+        self.__topic = message.topic.name
+        self.__namespace = message.topic.resource_namespace
+        self.__body = self.__uncompress_body(message)
+        if message.user_properties:
+            self.__properties.update(message.user_properties)
+
+        # system_properties
+        self.__message_id = message.system_properties.message_id
+        self.__message_type = message.system_properties.message_type
+        self.__born_timestamp = Misc.to_mills(message.system_properties.born_timestamp)
+        self.__born_host = message.system_properties.born_host
+
+        if message.system_properties.tag:
+            self.__tag = message.system_properties.tag
+        if message.system_properties.keys:
+            self.__keys.update(message.system_properties.keys)
+        if message.system_properties.store_timestamp:
+            self.__store_timestamp = Misc.to_mills(message.system_properties.store_timestamp)
+        if message.system_properties.delivery_timestamp:
+            self.__delivery_timestamp = Misc.to_mills(message.system_properties.delivery_timestamp)
+        if message.system_properties.receipt_handle:
+            self.__receipt_handle = message.system_properties.receipt_handle
+        if message.system_properties.lite_topic:
+            self.__lite_topic = message.system_properties.lite_topic
+        if message.system_properties.message_group:
+            self.__message_group = message.system_properties.message_group
+        if message.system_properties.delivery_attempt:
+            self.__delivery_attempt = message.system_properties.delivery_attempt
+        if message.system_properties.priority is not None:
+            self.__priority = message.system_properties.priority
+
+        # decode time
+        self.__decode_message_timestamp = Misc.current_mills()
+        return self
 
     def __message_body_check_sum(self, message):
         try:
@@ -137,22 +157,24 @@ class Message:
                 f"unsupported message encoding algorithm, {message.system_properties.body_encoding}, {message.topic}, {message.system_properties.message_id}"
             )
 
-    """ property """
-
     @property
     def body(self):
+        """Message body as raw bytes. Must be set before sending."""
         return self.__body
 
     @property
     def topic(self):
+        """The topic this message belongs to."""
         return self.__topic
 
     @property
     def lite_topic(self):
+        """The lite topic name for lite consumer messages. Cannot be set together with message_group, delivery_timestamp, or priority."""
         return self.__lite_topic
 
     @property
     def priority(self):
+        """Message priority (>= 0). Cannot be set with lite_topic, message_group, or delivery_timestamp."""
         return self.__priority
 
     @property
@@ -161,18 +183,22 @@ class Message:
 
     @property
     def message_id(self):
+        """Unique message ID assigned by the client or broker."""
         return self.__message_id
 
     @property
     def tag(self):
+        """Message tag for tag-based filtering."""
         return self.__tag
 
     @property
     def message_group(self):
+        """Message group ID for FIFO messages. Cannot be set with lite_topic, delivery_timestamp, or priority."""
         return self.__message_group
 
     @property
     def delivery_timestamp(self):
+        """Scheduled delivery timestamp (ms) for delayed messages. Message is not visible to consumers until this time."""
         return self.__delivery_timestamp
 
     @property
@@ -185,10 +211,12 @@ class Message:
 
     @property
     def keys(self):
+        """Set of business keys associated with the message, used for querying and tracing."""
         return self.__keys
 
     @property
     def properties(self):
+        """Custom user-defined properties as key-value pairs."""
         return self.__properties
 
     @property
@@ -209,6 +237,7 @@ class Message:
 
     @property
     def message_type(self):
+        """Message type code (1=NORMAL, 2=FIFO, 3=DELAY, 4=TRANSACTION, 5=LITE, 6=PRIORITY)."""
         return self.__message_type
 
     @property
@@ -217,6 +246,7 @@ class Message:
 
     @property
     def corrupted(self):
+        """Whether the message body checksum verification failed."""
         return self.__corrupted
 
     @body.setter
@@ -316,6 +346,15 @@ class Message:
         self.__endpoints = endpoints
 
     def add_property(self, key: str, value: str):
+        """Add a custom user property to the message.
+
+        Args:
+            key: Property key (must not be blank).
+            value: Property value (must not be blank).
+
+        Raises:
+            IllegalArgumentException: If key or value is blank.
+        """
         if not key or not key.strip():
             raise IllegalArgumentException("key should not be blank.")
         if not value or not value.strip():
@@ -324,6 +363,14 @@ class Message:
 
     @staticmethod
     def message_type_desc(message_type):
+        """Convert a numeric message type code to a human-readable string.
+
+        Args:
+            message_type: Integer code (1=NORMAL, 2=FIFO, 3=DELAY, 4=TRANSACTION, 5=LITE, 6=PRIORITY).
+
+        Returns:
+            String description of the message type.
+        """
         if message_type == 1:
             return "NORMAL"
         elif message_type == 2:
