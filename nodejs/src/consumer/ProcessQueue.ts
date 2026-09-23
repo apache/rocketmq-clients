@@ -210,6 +210,7 @@ export class ProcessQueue {
         endpoints,
         this.#consumer.wrapAckMessageRequest(messageView),
         this.#consumer.requestTimeoutValue,
+        messageView,
       );
       const status = response.getStatus()?.toObject();
       if (status?.code === Code.INVALID_RECEIPT_HANDLE) {
@@ -247,6 +248,7 @@ export class ProcessQueue {
         endpoints,
         this.#consumer.wrapChangeInvisibleDurationRequest(messageView, duration),
         this.#consumer.requestTimeoutValue,
+        messageView,
       );
       const status = response.getStatus()?.toObject();
       if (status?.code === Code.INVALID_RECEIPT_HANDLE) {
@@ -326,6 +328,7 @@ export class ProcessQueue {
         endpoints,
         this.#consumer.wrapForwardMessageToDeadLetterQueueRequest(messageView),
         this.#consumer.requestTimeoutValue,
+        messageView,
       );
       const status = response.getStatus();
       if (!status) {
