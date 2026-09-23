@@ -15,11 +15,19 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+/**
+ * The two consumer gauges exported by the RocketMQ client, mirroring
+ * org.apache.rocketmq.client.java.metrics.GaugeEnum.
+ */
+export enum GaugeEnum {
+  /**
+   * Cached message count of push consumer.
+   * Labels: topic, client_id, consumer_group.
+   */
+  CONSUMER_CACHED_MESSAGES = 'rocketmq_consumer_cached_messages',
+  /**
+   * Cached message bytes of push consumer.
+   * Labels: topic, client_id, consumer_group.
+   */
+  CONSUMER_CACHED_BYTES = 'rocketmq_consumer_cached_bytes',
+}

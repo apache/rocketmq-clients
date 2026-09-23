@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+/**
+ * Outcome of an instrumented operation (send / consume), mirroring
+ * org.apache.rocketmq.client.java.metrics.InvocationStatus.
+ */
+export class InvocationStatus {
+  static readonly SUCCESS = new InvocationStatus('success');
+  static readonly FAILURE = new InvocationStatus('failure');
+
+  private constructor(readonly name: string) {
+  }
+}

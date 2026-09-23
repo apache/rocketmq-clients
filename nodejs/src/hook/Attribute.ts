@@ -15,11 +15,22 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+/**
+ * Immutable value holder shared through a {@link MessageInterceptorContext},
+ * mirroring org.apache.rocketmq.client.java.hook.Attribute.
+ */
+export class Attribute<T> {
+  readonly #value: T;
+
+  private constructor(value: T) {
+    this.#value = value;
+  }
+
+  static create<T>(value: T): Attribute<T> {
+    return new Attribute(value);
+  }
+
+  get(): T {
+    return this.#value;
+  }
+}

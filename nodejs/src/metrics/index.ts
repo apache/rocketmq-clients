@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+export * from './MetricLabels';
+export * from './InvocationStatus';
+export * from './HistogramEnum';
+export * from './GaugeEnum';
+export * from './GaugeObserver';
+export * from './EmptyGaugeObserver';
+export * from './Metric';
+export * from './ClientMeter';
+export * from './ClientMeterManager';

@@ -50,6 +50,12 @@ import { Transaction } from './Transaction';
 import { createResource } from '../util';
 import { RecallReceipt } from './RecallReceipt';
 import { RecallMessageRequest } from '../../proto/apache/rocketmq/v2/service_pb';
+import {
+  GeneralMessage,
+  MessageHookPoints,
+  MessageHookPointsStatus,
+  MessageInterceptorContextImpl,
+} from '../hook';
 
 export interface ProducerOptions extends BaseClientOptions {
   topic?: string | string[];
@@ -114,11 +120,25 @@ export class Producer extends BaseClient {
       .setTopic(createResource(message.topic).setResourceNamespace(this.namespace))
       .setResolution(resolution)
       .setSource(source);
-    const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
-    StatusChecker.check(response.getStatus()?.toObject());
+    // COMMIT_TRANSACTION / ROLLBACK_TRANSACTION hook point, mirroring Java ProducerImpl#endTransaction.
+    const messageHookPoints = resolution === TransactionResolution.COMMIT ?
+      MessageHookPoints.COMMIT_TRANSACTION : MessageHookPoints.ROLLBACK_TRANSACTION;
+    const context = new MessageInterceptorContextImpl(messageHookPoints);
+    const generalMessages: GeneralMessage[] = [ message ];
+    this.doBefore(context, generalMessages);
+    try {
+      const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
+      const statusObj = response.getStatus()?.toObject();
+      const hookStatus = statusObj?.code === Code.OK ? MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
+      StatusChecker.check(statusObj);
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, hookStatus), generalMessages);
 
-    this.logger.debug?.('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
-      messageId, transactionId, resolutionStr, sourceStr, this.clientId);
+      this.logger.debug?.('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',
+        messageId, transactionId, resolutionStr, sourceStr, this.clientId);
+    } catch (err) {
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), generalMessages);
+      throw err;
+    }
   }
 
   async onRecoverOrphanedTransactionCommand(endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {
@@ -241,7 +261,18 @@ export class Producer extends BaseClient {
     // Prepare the candidate message queue(s) for retry-sending in advance.
     const candidates = messageGroup ? [ loadBalancer.takeMessageQueueByMessageGroup(messageGroup) ] :
       this.#takeMessageQueues(loadBalancer);
-    return await this.#send0(topic, messageType, candidates, pubMessages, 1);
+    // SEND hook point, mirroring Java ProducerImpl#send.
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+    const generalMessages = pubMessages as unknown as GeneralMessage[];
+    this.doBefore(context, generalMessages);
+    try {
+      const receipts = await this.#send0(topic, messageType, candidates, pubMessages, 1);
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.OK), generalMessages);
+      return receipts;
+    } catch (err) {
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), generalMessages);
+      throw err;
+    }
   }
 
   #wrapSendMessageRequest(pubMessages: PublishingMessage[], mq: MessageQueue) {
