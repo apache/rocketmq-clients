@@ -283,9 +283,14 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
   /**
    * Endpoints the lite subscription manager should sync to.
    *
+   * Lite subscriptions must reach every proxy serving the topic route, not only
+   * the endpoint the client was configured with, so the route cache is used and
+   * the configured endpoints act as the fallback before any route is known.
+   *
    * @internal
    */
   getSyncEndpoints(): Endpoints[] {
-    return [ this.endpoints ];
+    const endpointsList = this.getTotalRouteEndpoints();
+    return endpointsList.length > 0 ? endpointsList : [ this.endpoints ];
   }
 }
