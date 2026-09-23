@@ -22,6 +22,8 @@ import (
 	"fmt"
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type ErrRpcStatus struct {
@@ -48,13 +50,42 @@ func (err *ErrRpcStatus) Error() string {
 var _ = error(&ErrRpcStatus{})
 
 func AsErrRpcStatus(err error) (*ErrRpcStatus, bool) {
+	var target *ErrRpcStatus
+	ok := errors.As(err, &target)
+	return target, ok
+}
+
+// rpcStatusError keeps the transport cause without changing ErrRpcStatus's public layout.
+type rpcStatusError struct {
+	*ErrRpcStatus
+	cause error
+}
+
+func (err *rpcStatusError) Unwrap() error {
+	return err.cause
+}
+
+func (err *rpcStatusError) As(target interface{}) bool {
+	if rpcStatus, ok := target.(**ErrRpcStatus); ok {
+		*rpcStatus = err.ErrRpcStatus
+		return true
+	}
+	return false
+}
+
+func normalizeGrpcError(err error) error {
 	if err == nil {
-		return nil, false
+		return nil
 	}
-	target, ok := err.(*ErrRpcStatus)
-	if ok {
-		return target, true
+	grpcStatus, ok := status.FromError(err)
+	if !ok || grpcStatus.Code() != codes.ResourceExhausted {
+		return err
 	}
-	err = errors.Unwrap(err)
-	return AsErrRpcStatus(err)
+	return &rpcStatusError{
+		ErrRpcStatus: &ErrRpcStatus{
+			Code:    int32(v2.Code_TOO_MANY_REQUESTS),
+			Message: grpcStatus.Message(),
+		},
+		cause: err,
+	}
 }

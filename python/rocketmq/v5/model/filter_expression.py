@@ -17,6 +17,14 @@ from rocketmq.grpc_protocol import FilterType
 
 
 class FilterExpression:
+    """Filter expression for topic subscription.
+
+    Used to filter messages by tag or SQL92 expression when subscribing
+    to a topic. The default subscribes to all tags (``"*"``).
+
+    Attributes:
+        TAG_EXPRESSION_SUB_ALL: Wildcard expression matching all tags.
+    """
     TAG_EXPRESSION_SUB_ALL = "*"
 
     def __init__(
@@ -24,10 +32,14 @@ class FilterExpression:
         expression=TAG_EXPRESSION_SUB_ALL,
         filter_type: FilterType = FilterType.TAG,
     ):
+        """Create a filter expression.
+
+        Args:
+            expression: Filter expression string. ``"*"`` matches all tags.
+            filter_type: The filter type, either ``TAG`` or ``SQL92``.
+        """
         self.__expression = expression
         self.__filter_type = filter_type
-
-    """ property """
 
     @property
     def expression(self):

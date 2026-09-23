@@ -27,23 +27,24 @@ using Proto = Apache.Rocketmq.V2;
 namespace Org.Apache.Rocketmq
 {
     /// <summary>
-    /// Manages lite topic subscriptions for lite push consumer.
+    /// Manages lite topic subscriptions for lite consumers (push and simple).
     /// Handles subscription synchronization, quota management, and server notifications.
     /// </summary>
     internal class LiteSubscriptionManager
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<LiteSubscriptionManager>();
 
-        private readonly PushConsumer _consumer;
+        private readonly Consumer _consumer;
         private readonly string _bindTopic;
         private readonly string _consumerGroup;
         private readonly ConcurrentDictionary<string, byte> _liteTopicSet;
+        private System.Threading.Timer _syncTimer;
         
         // Client-side lite subscription quota limit
         private volatile int _liteSubscriptionQuota;
         private volatile int _maxLiteTopicSize = 64;
 
-        public LiteSubscriptionManager(PushConsumer consumer, string bindTopic, string consumerGroup)
+        public LiteSubscriptionManager(Consumer consumer, string bindTopic, string consumerGroup)
         {
             _consumer = consumer;
             _bindTopic = bindTopic;
@@ -68,7 +69,7 @@ namespace Org.Apache.Rocketmq
             }
             
             // Schedule periodic sync every 30 seconds using Timer
-            var timer = new System.Threading.Timer(
+            _syncTimer = new System.Threading.Timer(
                 callback: state =>
                 {
                     try
@@ -86,6 +87,15 @@ namespace Org.Apache.Rocketmq
             );
             
             Logger.LogInformation($"LiteSubscriptionManager started successfully, scheduled periodic sync every 30 seconds");
+        }
+
+        /// <summary>
+        /// Stop the periodic sync and release the underlying timer.
+        /// </summary>
+        public void Shutdown()
+        {
+            _syncTimer?.Dispose();
+            _syncTimer = null;
         }
 
         public string GetBindTopicName()

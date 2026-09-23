@@ -282,4 +282,13 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
   getRequestTimeout(): number {
     return this.requestTimeout;
   }
+
+  /**
+   * Endpoints the lite subscription manager should sync to.
+   *
+   * @internal
+   */
+  getSyncEndpoints(): Endpoints[] {
+    return [ this.endpoints ];
+  }
 }

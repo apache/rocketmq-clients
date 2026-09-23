@@ -46,10 +46,42 @@ namespace Org.Apache.Rocketmq
         /// <returns>True if this is a lite consumer, false otherwise.</returns>
         public bool IsLiteConsumer()
         {
-            // For now, we check if GetSettings returns LitePushSubscriptionSettings
-            // This can be extended when LiteSimpleConsumer is implemented
             var settings = GetSettings();
-            return settings is LitePushSubscriptionSettings;
+            return settings is LitePushSubscriptionSettings || settings is LiteSimpleSubscriptionSettings;
+        }
+
+        /// <summary>
+        /// Check if the consumer is running.
+        /// </summary>
+        internal virtual void CheckRunning()
+        {
+            if (State != State.Running)
+            {
+                throw new InvalidOperationException("Consumer is not running");
+            }
+        }
+
+        /// <summary>
+        /// Get the request timeout from client config.
+        /// </summary>
+        internal TimeSpan GetRequestTimeout()
+        {
+            return ClientConfig.RequestTimeout;
+        }
+
+        /// <summary>
+        /// Get the namespace from client config.
+        /// </summary>
+        internal string Namespace => ClientConfig.Namespace;
+
+        /// <summary>
+        /// Sync lite subscription with the server, shared by all lite consumers.
+        /// </summary>
+        internal async Task<Proto.SyncLiteSubscriptionResponse> SyncLiteSubscription(
+            Proto.SyncLiteSubscriptionRequest request, TimeSpan timeout)
+        {
+            var invocation = await ClientManager.SyncLiteSubscription(Endpoints, request, timeout);
+            return invocation.Response;
         }
 
         /// <summary>
