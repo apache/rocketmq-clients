@@ -82,9 +82,8 @@ export class Endpoints {
   }
 
   /**
-   * gRPC target with resolver scheme prefix, mirroring the Java client:
-   * - IPv4 addresses:  ipv4:127.0.0.1:10911,127.0.0.2:10912
-   * - IPv6 addresses:  ipv6:[::1]:10911,[fe80::1]:10912 (brackets required by grpc-js)
+   * gRPC target with resolver scheme prefix:
+   * - IP addresses:    ip:127.0.0.1:10911,127.0.0.2:10912 (custom resolver, IPv6 hosts bracketed)
    * - Domain names:    dns:example.com:8080,example.org:8081
    */
   getGrpcTarget() {
