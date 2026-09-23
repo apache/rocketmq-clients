@@ -52,6 +52,12 @@ export interface PushConsumerOptions extends ConsumerOptions {
   maxCacheMessageSizeInBytes?: number;
   longPollingTimeout?: number;
   enableFifoConsumeAccelerator?: boolean;
+  /**
+   * Max number of messages in-flight per process queue. Mirrors Java's
+   * consumeConcurrentlyMax (default 32) and backs the ProcessQueue semaphore
+   * that applies consumption backpressure.
+   */
+  consumeConcurrentlyMax?: number;
 }
 
 class ConsumeMetrics {
@@ -95,6 +101,7 @@ export class PushConsumer extends Consumer {
     this.#pushSubscriptionSettings = new PushSubscriptionSettings(
       options.namespace, this.clientId, this.getClientType(), this.endpoints,
       this.consumerGroup, this.requestTimeout, this.#subscriptionExpressions,
+      options.longPollingTimeout, options.consumeConcurrentlyMax,
     );
   }
 
