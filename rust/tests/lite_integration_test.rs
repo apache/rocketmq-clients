@@ -22,10 +22,10 @@
 
 #[cfg(test)]
 mod lite_tests {
-    use rocketmq::conf::{ClientOption, PushConsumerOption};
+    use rocketmq::conf::{ClientOption, PushConsumerOption, SimpleConsumerOption};
     use rocketmq::model::message::{Message, MessageBuilder};
     use rocketmq::model::offset_option::{OffsetOption, OffsetPolicy};
-    use rocketmq::{LitePushConsumer, LitePushConsumerTrait};
+    use rocketmq::{LitePushConsumer, LiteSimpleConsumer};
 
     #[test]
     fn test_lite_message_builder() {
@@ -73,5 +73,22 @@ mod lite_tests {
         // We expect an error because we're not connecting to a real server,
         // but the important thing is that it compiles
         assert!(result.is_err() || result.is_ok());
+    }
+
+    #[test]
+    fn test_lite_simple_consumer_construction() {
+        // `LiteSimpleConsumer::new` does not connect to a server; it succeeds with a
+        // parseable access URL, so the public inherent getters can be exercised directly.
+        let mut client_option = ClientOption::default();
+        client_option.set_access_url("http://localhost:8080");
+
+        let mut option = SimpleConsumerOption::default();
+        option.set_consumer_group("test_group");
+
+        let consumer = LiteSimpleConsumer::new(client_option, option, "parent_topic".to_string())
+            .expect("LiteSimpleConsumer::new should succeed with a valid config");
+
+        assert_eq!(consumer.get_consumer_group(), "test_group");
+        assert!(consumer.get_lite_topic_set().is_empty());
     }
 }
