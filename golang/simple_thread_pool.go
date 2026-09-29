@@ -68,11 +68,11 @@ func (tp *simpleThreadPool) Submit(task func()) {
 	defer func() {
 		if r := recover(); r != nil {
 			// the running flag may have concurrency security, here is a fallback
-			sugarBaseLogger.Warnf("recover: simple thread pool [%s], task=%v, err=%v", tp.name, task, r)
+			sugarBaseLogger.Warnf("recover: simple thread pool [%s], task=%p, err=%v", tp.name, task, r)
 		}
 	}()
 	if !tp.running.Load() {
-		sugarBaseLogger.Warnf("simple thread pool [%s] is not running, task=%v", tp.name, task)
+		sugarBaseLogger.Warnf("simple thread pool [%s] is not running, task=%p", tp.name, task)
 		return
 	}
 	tp.tasks <- task
