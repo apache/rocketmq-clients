@@ -64,6 +64,22 @@ import org.apache.rocketmq.client.apis.ClientException;
  */
 public interface PushConsumer extends Closeable {
     /**
+     * Update local cache limits and consumption concurrency without rebuilding the consumer.
+     *
+     * <p>Lower cache limits affect subsequent receive requests and do not discard cached messages. Lower concurrency
+     * does not interrupt processing already in progress; new processing waits until the active count falls below the
+     * new limit. For asynchronous listeners, pending processing stages count as active consumption.
+     *
+     * @param maxCacheMessageCount positive local cache message limit.
+     * @param maxCacheMessageSizeInBytes positive local cache byte limit.
+     * @param consumptionConcurrency positive maximum number of concurrent message processing operations.
+     */
+    default void updateRuntimeTuning(int maxCacheMessageCount, int maxCacheMessageSizeInBytes,
+        int consumptionConcurrency) {
+        throw new UnsupportedOperationException("Runtime consumption tuning is not supported");
+    }
+
+    /**
      * Get the load balancing group for the consumer.
      *
      * @return consumer load balancing group.

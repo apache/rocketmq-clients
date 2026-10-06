@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
@@ -51,6 +53,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.consumer.AsyncMessageListener;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
@@ -97,11 +100,14 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     final AtomicLong consumptionOkQuantity;
     final AtomicLong consumptionErrorQuantity;
 
+    private final AsyncMessageListener asyncMessageListener;
+    private final Object receiveAdmissionLock = new Object();
+    private boolean receiveAdmissionClosed;
+    private int admittedReceives;
     private final PushSubscriptionSettings pushSubscriptionSettings;
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
     private final ConcurrentMap<String /* topic */, Assignments> cacheAssignments;
-    private final int maxCacheMessageCount;
-    private final int maxCacheMessageSizeInBytes;
+    private volatile RuntimeTuning runtimeTuning;
     private final boolean enableMessageInterceptorFiltering;
     private final InflightRequestCountInterceptor inflightRequestCountInterceptor;
 
@@ -115,7 +121,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private final AtomicLong receivedMessagesQuantity;
 
     private final ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable;
-    private ConsumeService consumeService;
+    private volatile ConsumeService consumeService;
 
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
 
@@ -135,14 +141,24 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount,
         boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering) {
+        this(clientConfiguration, consumerGroup, subscriptionExpressions, messageListener, null, maxCacheMessageCount,
+            maxCacheMessageSizeInBytes, consumptionThreadCount, enableFifoConsumeAccelerator,
+            enableMessageInterceptorFiltering);
+    }
+
+    public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
+        Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
+        AsyncMessageListener asyncMessageListener, int maxCacheMessageCount, int maxCacheMessageSizeInBytes,
+        int consumptionThreadCount, boolean enableFifoConsumeAccelerator, boolean enableMessageInterceptorFiltering) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration, clientId,
             clientType(), endpoints, consumerGroup, subscriptionExpressions);
         this.subscriptionExpressions = subscriptionExpressions;
         this.cacheAssignments = new ConcurrentHashMap<>();
         this.messageListener = messageListener;
-        this.maxCacheMessageCount = maxCacheMessageCount;
-        this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
+        this.asyncMessageListener = asyncMessageListener;
+        this.runtimeTuning = new RuntimeTuning(maxCacheMessageCount, maxCacheMessageSizeInBytes,
+            consumptionThreadCount);
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
         this.enableMessageInterceptorFiltering = enableMessageInterceptorFiltering;
 
@@ -181,7 +197,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                 getConsumerGroup());
             this.clientMeterManager.setGaugeObserver(gaugeObserver);
             super.startUp();
-            this.consumeService = createConsumeService();
+            synchronized (this) {
+                this.consumeService = createConsumeService();
+            }
             // Scan assignments periodically.
             scanAssignmentsFuture = getScheduler().scheduleWithFixedDelay(() -> {
                 try {
@@ -204,24 +222,56 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      * 1. when begin shutdown, do not send any new receive request
      * 2. cancel scanAssignmentsFuture, do not create new processQueue
      * 3. waiting all inflight receive request finished or timeout
-     * 4. shutdown consumptionExecutor and waiting all message consumption finished
+     * 4. drain asynchronous processing/acknowledgements, then shutdown consumptionExecutor
      * 5. sleep 1s to ack message async
      * 6. shutdown clientImpl
      */
     @Override
     protected void shutDown() throws InterruptedException {
         log.info("Begin to shutdown the rocketmq {}, clientId={}", clientType(), clientId);
+        synchronized (receiveAdmissionLock) {
+            receiveAdmissionClosed = true;
+        }
         if (null != scanAssignmentsFuture) {
             scanAssignmentsFuture.cancel(false);
         }
         log.info("Waiting for the inflight receive requests to be finished, clientId={}", clientId);
         waitingReceiveRequestFinished();
+        synchronized (receiveAdmissionLock) {
+            while (admittedReceives > 0) {
+                receiveAdmissionLock.wait();
+            }
+        }
+        if (null != consumeService) {
+            consumeService.awaitConsumption();
+        }
         log.info("Begin to Shutdown consumption executor, clientId={}", clientId);
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
         TimeUnit.SECONDS.sleep(1);
         super.shutDown();
         log.info("Shutdown the rocketmq {} successfully, clientId={}", clientType(), clientId);
+    }
+
+    boolean hasAsyncMessageListener() {
+        return null != asyncMessageListener;
+    }
+
+    boolean beginReceiveOperation() {
+        synchronized (receiveAdmissionLock) {
+            if (receiveAdmissionClosed || !isRunning()) {
+                return false;
+            }
+            admittedReceives++;
+            return true;
+        }
+    }
+
+    void finishReceiveOperation() {
+        synchronized (receiveAdmissionLock) {
+            admittedReceives--;
+            receiveAdmissionLock.notifyAll();
+        }
     }
 
     private void waitingReceiveRequestFinished() {
@@ -249,6 +299,15 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     protected ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
+        if (null != asyncMessageListener) {
+            if (getSettings().isFifo()) {
+                return new FifoConsumeService(clientId, getConsumerGroup(), asyncMessageListener,
+                    consumptionExecutor, this, scheduler, runtimeTuning.consumptionConcurrency,
+                    enableFifoConsumeAccelerator);
+            }
+            return new StandardConsumeService(clientId, getConsumerGroup(), asyncMessageListener,
+                consumptionExecutor, this, scheduler, runtimeTuning.consumptionConcurrency);
+        }
         if (getSettings().isFifo()) {
             log.info("Create FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
                 getConsumerGroup(), clientId, enableFifoConsumeAccelerator);
@@ -476,7 +535,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         if (size <= 0) {
             return 0;
         }
-        return Math.max(1, maxCacheMessageSizeInBytes / size);
+        return Math.max(1, runtimeTuning.maxCacheMessageSizeInBytes / size);
     }
 
     int cacheMessageCountThresholdPerQueue() {
@@ -485,7 +544,32 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         if (size <= 0) {
             return 0;
         }
-        return Math.max(1, maxCacheMessageCount / size);
+        return Math.max(1, runtimeTuning.maxCacheMessageCount / size);
+    }
+
+    @Override
+    public synchronized void updateRuntimeTuning(int maxCacheMessageCount, int maxCacheMessageSizeInBytes,
+        int consumptionConcurrency) {
+        checkArgument(maxCacheMessageCount > 0, "maxCacheMessageCount should be positive");
+        checkArgument(maxCacheMessageSizeInBytes > 0, "maxCacheMessageSizeInBytes should be positive");
+        checkArgument(consumptionConcurrency > 0, "consumptionConcurrency should be positive");
+        ExecutorServices.updateConcurrencyLimit(consumptionExecutor, consumptionConcurrency);
+        runtimeTuning = new RuntimeTuning(maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionConcurrency);
+        if (null != consumeService) {
+            consumeService.updateConcurrency(consumptionConcurrency);
+        }
+    }
+
+    private static class RuntimeTuning {
+        private final int maxCacheMessageCount;
+        private final int maxCacheMessageSizeInBytes;
+        private final int consumptionConcurrency;
+
+        private RuntimeTuning(int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionConcurrency) {
+            this.maxCacheMessageCount = maxCacheMessageCount;
+            this.maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
+            this.consumptionConcurrency = consumptionConcurrency;
+        }
     }
 
     public AtomicLong getReceptionTimes() {

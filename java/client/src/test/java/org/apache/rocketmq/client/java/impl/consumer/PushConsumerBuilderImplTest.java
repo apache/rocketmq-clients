@@ -17,9 +17,16 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+
+import java.lang.reflect.Field;
+import java.util.concurrent.CompletableFuture;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.consumer.AsyncMessageListener;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
+import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 
@@ -41,6 +48,37 @@ public class PushConsumerBuilderImplTest extends TestBase {
     public void testSetMessageListenerWithNull() {
         final PushConsumerBuilderImpl builder = new PushConsumerBuilderImpl();
         builder.setMessageListener(null);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testSetAsyncMessageListenerWithNull() {
+        new PushConsumerBuilderImpl().setAsyncMessageListener(null);
+    }
+
+    @Test
+    public void testAsyncListenerReplacesSynchronousListener() throws Exception {
+        final PushConsumerBuilderImpl builder = new PushConsumerBuilderImpl();
+        final MessageListener synchronousListener = message -> ConsumeResult.SUCCESS;
+        final AsyncMessageListener asynchronousListener = message ->
+            CompletableFuture.completedFuture(ConsumeResult.SUCCESS);
+
+        builder.setMessageListener(synchronousListener).setAsyncMessageListener(asynchronousListener);
+
+        assertNull(listenerField(builder, "messageListener"));
+        assertSame(asynchronousListener, listenerField(builder, "asyncMessageListener"));
+    }
+
+    @Test
+    public void testSynchronousListenerReplacesAsyncListener() throws Exception {
+        final PushConsumerBuilderImpl builder = new PushConsumerBuilderImpl();
+        final MessageListener synchronousListener = message -> ConsumeResult.SUCCESS;
+        final AsyncMessageListener asynchronousListener = message ->
+            CompletableFuture.completedFuture(ConsumeResult.SUCCESS);
+
+        builder.setAsyncMessageListener(asynchronousListener).setMessageListener(synchronousListener);
+
+        assertSame(synchronousListener, listenerField(builder, "messageListener"));
+        assertNull(listenerField(builder, "asyncMessageListener"));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -69,5 +107,29 @@ public class PushConsumerBuilderImplTest extends TestBase {
         builder.setClientConfiguration(clientConfiguration).setConsumerGroup(FAKE_CONSUMER_GROUP_0)
             .setMessageListener(messageView -> ConsumeResult.SUCCESS)
             .build();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildWithAsyncListenerWithoutExpressions() throws ClientException {
+        new PushConsumerBuilderImpl()
+            .setClientConfiguration(ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build())
+            .setConsumerGroup(FAKE_CONSUMER_GROUP_0)
+            .setAsyncMessageListener(message -> CompletableFuture.completedFuture(ConsumeResult.SUCCESS))
+            .build();
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testBuildWithoutEitherListener() throws ClientException {
+        new PushConsumerBuilderImpl()
+            .setClientConfiguration(ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build())
+            .setConsumerGroup(FAKE_CONSUMER_GROUP_0)
+            .setSubscriptionExpressions(createSubscriptionExpressions(FAKE_TOPIC_0))
+            .build();
+    }
+
+    private Object listenerField(PushConsumerBuilderImpl builder, String fieldName) throws Exception {
+        final Field field = PushConsumerBuilderImpl.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(builder);
     }
 }

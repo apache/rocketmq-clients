@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.rocketmq.client.apis.consumer.AsyncMessageListener;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
@@ -46,6 +47,8 @@ public abstract class ConsumeService {
     private final ExecutorService consumptionExecutor;
     private final MessageInterceptor messageInterceptor;
     private final ScheduledExecutorService scheduler;
+    private final AsyncMessageListener asyncMessageListener;
+    private final AsyncConsumeDispatcher asyncDispatcher;
 
     public ConsumeService(ClientId clientId, String consumerGroup,
         MessageListener messageListener, ExecutorService consumptionExecutor,
@@ -56,6 +59,43 @@ public abstract class ConsumeService {
         this.consumptionExecutor = consumptionExecutor;
         this.messageInterceptor = messageInterceptor;
         this.scheduler = scheduler;
+        this.asyncMessageListener = null;
+        this.asyncDispatcher = null;
+    }
+
+    public ConsumeService(ClientId clientId, String consumerGroup, AsyncMessageListener messageListener,
+        ExecutorService consumptionExecutor, MessageInterceptor messageInterceptor,
+        ScheduledExecutorService scheduler, int maxConcurrentConsumptions) {
+        this.clientId = clientId;
+        this.consumerGroup = consumerGroup;
+        this.messageListener = null;
+        this.asyncMessageListener = messageListener;
+        this.consumptionExecutor = consumptionExecutor;
+        this.messageInterceptor = messageInterceptor;
+        this.scheduler = scheduler;
+        this.asyncDispatcher = new AsyncConsumeDispatcher(consumptionExecutor, scheduler, maxConcurrentConsumptions);
+    }
+
+    protected boolean isAsyncConsumption() {
+        return null != asyncDispatcher;
+    }
+
+    protected void trackCompletion(ListenableFuture<?> future) {
+        if (null != asyncDispatcher) {
+            asyncDispatcher.trackCompletion(future);
+        }
+    }
+
+    public void awaitConsumption() throws InterruptedException {
+        if (null != asyncDispatcher) {
+            asyncDispatcher.awaitConsumption();
+        }
+    }
+
+    void updateConcurrency(int count) {
+        if (null != asyncDispatcher) {
+            asyncDispatcher.updateConcurrency(count);
+        }
     }
 
     public abstract void consume(ProcessQueue pq, List<MessageViewImpl> messageViews);
@@ -65,6 +105,10 @@ public abstract class ConsumeService {
     }
 
     public ListenableFuture<ConsumeResult> consume(MessageViewImpl messageView, Duration delay) {
+        if (null != asyncDispatcher) {
+            return asyncDispatcher.consume(new AsyncConsumeTask(clientId, consumerGroup, asyncMessageListener,
+                messageView, messageInterceptor), delay);
+        }
         final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(consumptionExecutor);
         final ConsumeTask task = new ConsumeTask(clientId, consumerGroup,
                 messageListener, messageView, messageInterceptor);
