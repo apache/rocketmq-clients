@@ -42,11 +42,17 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
 import org.apache.rocketmq.client.java.tool.TestBase;
+import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -56,7 +62,11 @@ public class ClientImplTest extends TestBase {
         .setEndpoints(FAKE_ENDPOINTS).build();
 
     private ClientImpl createClient() {
-        return Mockito.spy(new ClientImpl(clientConfiguration, new HashSet<>()) {
+        return Mockito.spy(createClient(clientConfiguration));
+    }
+
+    private ClientImpl createClient(ClientConfiguration configuration) {
+        return new ClientImpl(configuration, new HashSet<>()) {
             @Override
             public Settings getSettings() {
                 return null;
@@ -71,7 +81,107 @@ public class ClientImplTest extends TestBase {
             public HeartbeatRequest wrapHeartbeatRequest() {
                 return null;
             }
-        });
+        };
+    }
+
+    @Test
+    public void testDefaultCallbackAndSchedulerThreadCounts() throws Exception {
+        ClientImpl client = createClient(clientConfiguration);
+        client.startAsync().awaitRunning();
+        try {
+            int availableProcessors = Runtime.getRuntime().availableProcessors();
+            ThreadPoolExecutor callbacks = (ThreadPoolExecutor) client.clientCallbackExecutor;
+            Assert.assertEquals(availableProcessors, callbacks.getCorePoolSize());
+            Assert.assertEquals(availableProcessors, callbacks.getMaximumPoolSize());
+            Assert.assertEquals(Integer.MAX_VALUE, callbacks.getQueue().remainingCapacity());
+            Assert.assertEquals(availableProcessors,
+                ((ScheduledThreadPoolExecutor) client.getScheduler()).getCorePoolSize());
+        } finally {
+            client.stopAsync().awaitTerminated();
+        }
+    }
+
+    @Test
+    public void testConfiguredCallbacksLimitConcurrencyAndTerminate() throws Exception {
+        ClientConfiguration configuration = ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS)
+            .setSchedulerThreadCount(1).setAsyncWorkerThreadCount(3).setCallbackThreadCount(2).build();
+        ClientImpl client = createClient(configuration);
+        client.startAsync().awaitRunning();
+        CountDownLatch running = new CountDownLatch(2);
+        CountDownLatch release = new CountDownLatch(1);
+        try {
+            ThreadPoolExecutor callbacks = (ThreadPoolExecutor) client.clientCallbackExecutor;
+            Assert.assertEquals(2, callbacks.getCorePoolSize());
+            Assert.assertEquals(2, callbacks.getMaximumPoolSize());
+            Assert.assertEquals(1, ((ScheduledThreadPoolExecutor) client.getScheduler()).getCorePoolSize());
+            final Future<String> first = callbacks.submit(() -> {
+                running.countDown();
+                release.await();
+                return Thread.currentThread().getName();
+            });
+            final Future<String> second = callbacks.submit(() -> {
+                running.countDown();
+                release.await();
+                return Thread.currentThread().getName();
+            });
+            Assert.assertTrue(running.await(5, TimeUnit.SECONDS));
+            Future<Integer> queued = callbacks.submit(() -> 3);
+            Assert.assertEquals(1, callbacks.getQueue().size());
+            Assert.assertFalse(queued.isDone());
+            release.countDown();
+            Assert.assertTrue(first.get(5, TimeUnit.SECONDS).startsWith("RocketmqClientCallbackWorker"));
+            Assert.assertTrue(second.get(5, TimeUnit.SECONDS).startsWith("RocketmqClientCallbackWorker"));
+            Assert.assertEquals(Integer.valueOf(3), queued.get(5, TimeUnit.SECONDS));
+        } finally {
+            release.countDown();
+            client.stopAsync().awaitTerminated();
+        }
+        Assert.assertTrue(client.clientCallbackExecutor.isTerminated());
+        Assert.assertTrue(client.getScheduler().isTerminated());
+    }
+
+    @Test
+    public void testClientsOwnIndependentCallbackExecutors() throws Exception {
+        ClientConfiguration configuration = ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS)
+            .setSchedulerThreadCount(1).setAsyncWorkerThreadCount(1).setCallbackThreadCount(1).build();
+        ClientImpl first = createClient(configuration);
+        ClientImpl second = createClient(configuration);
+        first.startAsync().awaitRunning();
+        second.startAsync().awaitRunning();
+        try {
+            Assert.assertNotSame(first.clientCallbackExecutor, second.clientCallbackExecutor);
+            first.stopAsync().awaitTerminated();
+            Assert.assertTrue(first.clientCallbackExecutor.isTerminated());
+            Assert.assertFalse(second.clientCallbackExecutor.isShutdown());
+            Assert.assertEquals(Integer.valueOf(1), second.clientCallbackExecutor.submit(() -> 1)
+                .get(5, TimeUnit.SECONDS));
+        } finally {
+            first.stopAsync().awaitTerminated();
+            second.stopAsync().awaitTerminated();
+        }
+        Assert.assertTrue(second.clientCallbackExecutor.isTerminated());
+    }
+
+    @Test
+    public void testCallbackConfigurationWithVirtualThreadsAndPlatformFallback() throws Exception {
+        ClientConfiguration configuration = ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS)
+            .enableVirtualThreads(true).setSchedulerThreadCount(1).setCallbackThreadCount(3).build();
+        ClientImpl client = createClient(configuration);
+        client.startAsync().awaitRunning();
+        try {
+            Assert.assertEquals(1, ((ScheduledThreadPoolExecutor) client.getScheduler()).getCorePoolSize());
+            Thread taskThread = client.clientCallbackExecutor.submit(Thread::currentThread).get(5, TimeUnit.SECONDS);
+            if (client.clientCallbackExecutor instanceof ThreadPoolExecutor) {
+                ThreadPoolExecutor callbacks = (ThreadPoolExecutor) client.clientCallbackExecutor;
+                Assert.assertEquals(3, callbacks.getCorePoolSize());
+                Assert.assertEquals(3, callbacks.getMaximumPoolSize());
+            } else {
+                Assert.assertEquals(Boolean.TRUE, Thread.class.getMethod("isVirtual").invoke(taskThread));
+            }
+        } finally {
+            client.stopAsync().awaitTerminated();
+        }
+        Assert.assertTrue(client.clientCallbackExecutor.isTerminated());
     }
 
     @Test

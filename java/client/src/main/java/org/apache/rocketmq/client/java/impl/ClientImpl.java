@@ -148,13 +148,15 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
         this.isolated = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        this.clientManager = new ClientManagerImpl(this);
+        this.clientManager = new ClientManagerImpl(this, clientConfiguration);
 
         final long clientIdIndex = clientId.getIndex();
+        final int callbackThreadCount =
+            clientConfiguration.getCallbackThreadCount().orElse(Runtime.getRuntime().availableProcessors());
         this.clientCallbackExecutor = ExecutorServices.newExecutorService(
             clientConfiguration.isVirtualThreadsEnabled(), () -> new ThreadPoolExecutor(
-                Runtime.getRuntime().availableProcessors(),
-                Runtime.getRuntime().availableProcessors(),
+                callbackThreadCount,
+                callbackThreadCount,
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),

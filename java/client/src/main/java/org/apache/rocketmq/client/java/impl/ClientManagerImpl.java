@@ -70,6 +70,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
+import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.misc.ClientId;
@@ -127,20 +128,29 @@ public class ClientManagerImpl extends ClientManager {
     private final ExecutorService asyncWorker;
 
     public ClientManagerImpl(Client client) {
+        this(client, null);
+    }
+
+    ClientManagerImpl(Client client, ClientConfiguration clientConfiguration) {
         this.client = client;
         this.rpcClientTable = new HashMap<>();
         this.rpcClientTableLock = new ReentrantReadWriteLock();
         this.heartbeatFailureAttempts = new ConcurrentHashMap<>();
         this.transportRecoveryStates = new ConcurrentHashMap<>();
         final long clientIndex = client.getClientId().getIndex();
+        final int availableProcessors = Runtime.getRuntime().availableProcessors();
+        final int schedulerThreadCount = null == clientConfiguration ? availableProcessors
+            : clientConfiguration.getSchedulerThreadCount().orElse(availableProcessors);
         this.scheduler = new ScheduledThreadPoolExecutor(
-            Runtime.getRuntime().availableProcessors(),
+            schedulerThreadCount,
             new ThreadFactoryImpl("ClientScheduler", clientIndex));
 
+        final int asyncWorkerThreadCount = null == clientConfiguration ? availableProcessors
+            : clientConfiguration.getAsyncWorkerThreadCount().orElse(availableProcessors);
         this.asyncWorker = ExecutorServices.newExecutorService(client.isVirtualThreadsEnabled(),
             () -> new ThreadPoolExecutor(
-                Runtime.getRuntime().availableProcessors(),
-                Runtime.getRuntime().availableProcessors(),
+                asyncWorkerThreadCount,
+                asyncWorkerThreadCount,
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(50000),
