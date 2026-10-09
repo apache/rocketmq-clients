@@ -80,6 +80,25 @@ implementation 'org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.vers
 More code examples are provided [example](./client/src/main/java/org/apache/rocketmq/client/java/example) to assist you
 in working with various clients and different message types.
 
+## Internal Executor Configuration
+
+Scheduled tasks, asynchronous RPC responses and client callbacks can use independent thread counts:
+
+```java
+ClientConfiguration configuration = ClientConfiguration.newBuilder()
+    .setEndpoints("localhost:8081")
+    .setSchedulerThreadCount(1)
+    .setAsyncWorkerThreadCount(2)
+    .setCallbackThreadCount(2)
+    .build();
+```
+
+Each value must be positive. An omitted value defaults to `Runtime.getRuntime().availableProcessors()`. These settings
+are applied when each client is created, and each client owns and shuts down its executors. The scheduler always uses
+platform threads. If virtual threads are enabled and supported, asynchronous RPC responses and callbacks use virtual
+threads, so their platform thread counts apply only when virtual threads are disabled or the runtime falls back to
+platform threads. Message consumption concurrency is configured separately by `PushConsumerBuilder`.
+
 ## Logging System
 
 We picked [Logback](https://logback.qos.ch/) and shaded it into the client implementation to guarantee that logging is reliably persistent. Because RocketMQ utilizes a distinct configuration file, you shouldn't be concerned that the Logback configuration file will clash with yours.
