@@ -15,11 +15,21 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+import { MessageView } from '../message/MessageView';
+import { MessageInterceptorContext } from './MessageInterceptorContext';
+
+/**
+ * Message passed to interceptors: either an outgoing message or a received one,
+ * mirroring org.apache.rocketmq.client.java.message.GeneralMessage.
+ */
+export type GeneralMessage = MessageView | { topic: string };
+
+/**
+ * Interface for intercepting ingoing/outgoing message before/after they are
+ * dispatched by client, mirroring
+ * org.apache.rocketmq.client.java.hook.MessageInterceptor.
+ */
+export interface MessageInterceptor {
+  doBefore(context: MessageInterceptorContext, messages: GeneralMessage[]): void;
+  doAfter(context: MessageInterceptorContext, messages: GeneralMessage[]): void;
+}

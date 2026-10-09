@@ -15,11 +15,28 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+/**
+ * Typed key of a context attribute, mirroring
+ * org.apache.rocketmq.client.java.hook.AttributeKey.
+ *
+ * The type parameter is only used for compile-time typing of the associated value.
+ */
+export class AttributeKey<T> {
+  readonly name: string;
+  /**
+   * Never assigned at runtime; it only carries the value type for compile-time typing.
+   */
+  readonly typeHint?: T;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+  static create<T>(name: string): AttributeKey<T> {
+    return new AttributeKey<T>(name);
+  }
+
+  toString() {
+    return `AttributeKey(${this.name})`;
+  }
+}

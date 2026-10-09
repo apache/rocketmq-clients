@@ -40,6 +40,13 @@ import {
 import { createResource, getRequestDateTime, sign } from '../util';
 import { TopicRouteData, Endpoints } from '../route';
 import { ClientException, NotFoundException, StatusChecker } from '../exception';
+import {
+  CompositedMessageInterceptor,
+  GeneralMessage,
+  MessageInterceptor,
+  MessageInterceptorContext,
+  MessageMeterInterceptor,
+} from '../hook';
 import { Settings } from './Settings';
 import { UserAgent } from './UserAgent';
 import { ILogger, getDefaultLogger } from './Logger';
@@ -47,6 +54,8 @@ import { SessionCredentials } from './SessionCredentials';
 import { RpcClientManager } from './RpcClientManager';
 import { TelemetrySession } from './TelemetrySession';
 import { ClientId } from './ClientId';
+import { ClientMeterManager } from '../metrics';
+import { Metric } from '../metrics/Metric';
 
 const debug = debuglog('rocketmq-client-nodejs:client:BaseClient');
 
@@ -70,6 +79,11 @@ export interface BaseClientOptions {
   requestTimeout?: number;
   logger?: ILogger;
   topics?: string[];
+  /**
+   * Message interceptor(s) invoked around send/receive/consume/ack hook points,
+   * mirroring the Java client's MessageInterceptor chain.
+   */
+  messageInterceptor?: MessageInterceptor | MessageInterceptor[];
 }
 
 /**
@@ -95,6 +109,8 @@ export abstract class BaseClient {
   protected readonly logger: ILogger;
   protected readonly rpcClientManager: RpcClientManager;
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
+  readonly #compositedMessageInterceptor = new CompositedMessageInterceptor();
+  protected readonly clientMeterManager: ClientMeterManager;
   #startupResolve?: () => void;
   #startupReject?: (err: Error) => void;
   #timers: NodeJS.Timeout[] = [];
@@ -139,11 +155,25 @@ export abstract class BaseClient {
     // Default request timeout is 3000ms
     this.requestTimeout = options.requestTimeout ?? 3000;
     this.rpcClientManager = new RpcClientManager(this, this.logger);
+    // Wire the metrics pipeline: a dedicated meter manager plus an interceptor
+    // that records the four RocketMQ histograms around the SEND/RECEIVE/CONSUME
+    // hook points. Mirrors Java's ClientImpl#initClientMeterManager.
+    this.clientMeterManager = new ClientMeterManager(this.clientId, () => this.getRequestMetadata(), this.logger);
+    this.addMessageInterceptor(
+      new MessageMeterInterceptor(this.clientMeterManager, this.clientId, () => this.getConsumerGroup()));
     if (options.topics) {
       for (const topic of options.topics) {
         if (topic && topic.trim().length > 0) {
           this.topics.add(topic);
         }
+      }
+    }
+    // Register message interceptors provided by the user (allowed before startup only).
+    if (options.messageInterceptor) {
+      const interceptors = Array.isArray(options.messageInterceptor)
+        ? options.messageInterceptor : [ options.messageInterceptor ];
+      for (const interceptor of interceptors) {
+        this.addMessageInterceptor(interceptor);
       }
     }
   }
@@ -275,6 +305,10 @@ export abstract class BaseClient {
 
     // 4. Close RPC connections
     this.rpcClientManager.close();
+
+    // 4.5 Close the metrics export pipeline (flushes pending exports and releases
+    // the OTLP/gRPC channel). Mirrors ClientImpl#shutdown's meter manager close.
+    await this.clientMeterManager.shutdown();
 
     // 5. Clear caches
     this.topicRouteCache.clear();
@@ -513,6 +547,15 @@ export abstract class BaseClient {
     return metadata;
   }
 
+  /**
+   * Consumer group of this client, used as a metric attribute for consumer
+   * histograms/gauges. Producers have no consumer group, so the base
+   * implementation returns undefined; Consumer overrides this.
+   */
+  getConsumerGroup(): string | undefined {
+    return undefined;
+  }
+
   protected abstract getSettings(): Settings;
 
   /**
@@ -561,20 +604,19 @@ export abstract class BaseClient {
   onSettingsCommand(_endpoints: Endpoints, settings: SettingsPB) {
     this.logger.info('Received settings command, clientId=%s, settings=%j',
       this.clientId, settings.toObject());
-    // final Metric metric = new Metric(settings.getMetric());
-    // clientMeterManager.reset(metric);
+    const metric = new Metric(settings.getMetric());
+    this.clientMeterManager.reset(metric);
     this.getSettings().sync(settings);
     this.logger.info('Sync settings=%j, clientId=%s', this.getSettings(), this.clientId);
     this.#startupResolve && this.#startupResolve();
   }
 
   onRecoverOrphanedTransactionCommand(_endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {
+    // The base client does not support transactions; subclasses (e.g. Producer) override
+    // this method to recover orphaned transactional messages. Mirroring the Java client
+    // (ClientImpl#onRecoverOrphanedTransactionCommand), no reply is sent back to remote.
     this.logger.warn('Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
       this.clientId, command.toObject());
-    // const telemetryCommand = new TelemetryCommand();
-    // telemetryCommand.setStatus(new Status().setCode(Code.NOT_IMPLEMENTED));
-    // telemetryCommand.setRecoverOrphanedTransactionCommand(new RecoverOrphanedTransactionCommand());
-    // this.telemetry(endpoints, telemetryCommand);
   }
 
   onVerifyMessageCommand(endpoints: Endpoints, command: VerifyMessageCommand) {
@@ -589,6 +631,13 @@ export abstract class BaseClient {
     this.telemetry(endpoints, telemetryCommand);
   }
 
+  /**
+   * Handle the notify-unsubscribe-lite command sent by remote when a lite topic
+   * subscription must be dropped (e.g. quota violation or administrative action).
+   *
+   * The base client ignores it, mirroring Java ClientImpl#onNotifyUnsubscribeLiteCommand;
+   * lite consumers override it to drive their lite subscription manager.
+   */
   onNotifyUnsubscribeLiteCommand(endpoints: Endpoints, command: NotifyUnsubscribeLiteCommand) {
     this.logger.warn('Ignore notify unsubscribe lite command from remote, which is not expected, clientId=%s, endpoints=%s, command=%j',
       this.clientId, endpoints.facade, command.toObject());
@@ -650,6 +699,42 @@ export abstract class BaseClient {
    */
   getEndpoints(): Endpoints {
     return this.endpoints;
+  }
+
+  /**
+   * Add a message interceptor to the client. Interceptors can only be registered
+   * before the client is running, mirroring Java ClientImpl#addMessageInterceptor.
+   */
+  addMessageInterceptor(messageInterceptor: MessageInterceptor) {
+    if (!this.isRunning()) {
+      this.#compositedMessageInterceptor.addInterceptor(messageInterceptor);
+    }
+  }
+
+  /**
+   * Invoke the interceptor chain before a hook point is executed.
+   */
+  doBefore(context: MessageInterceptorContext, generalMessages: GeneralMessage[]) {
+    try {
+      this.#compositedMessageInterceptor.doBefore(context, generalMessages);
+    } catch (t) {
+      // Should never reach here, the composite interceptor guards each interceptor.
+      this.logger.error('[Bug] Exception raised while handling messages, clientId=%s, error=%s',
+        this.clientId, t);
+    }
+  }
+
+  /**
+   * Invoke the interceptor chain after a hook point is executed.
+   */
+  doAfter(context: MessageInterceptorContext, generalMessages: GeneralMessage[]) {
+    try {
+      this.#compositedMessageInterceptor.doAfter(context, generalMessages);
+    } catch (t) {
+      // Should never reach here, the composite interceptor guards each interceptor.
+      this.logger.error('[Bug] Exception raised while handling messages, clientId=%s, error=%s',
+        this.clientId, t);
+    }
   }
 
   /**

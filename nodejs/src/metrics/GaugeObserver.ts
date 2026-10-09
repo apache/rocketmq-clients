@@ -15,11 +15,18 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+import { Attributes } from '@opentelemetry/api';
+import { GaugeEnum } from './GaugeEnum';
+
+/**
+ * Supplies the live values observed by the periodic metric reader for each
+ * consumer gauge, mirroring org.apache.rocketmq.client.java.metrics.GaugeObserver.
+ *
+ * The map key is the attribute set (topic / client_id / consumer_group) and the
+ * value is the observed gauge reading.
+ */
+export interface GaugeObserver {
+  getGauges(): GaugeEnum[];
+
+  getValues(gauge: GaugeEnum): Map<Attributes, number>;
+}

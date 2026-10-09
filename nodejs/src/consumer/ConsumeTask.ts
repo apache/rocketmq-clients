@@ -16,24 +16,64 @@
  */
 
 import { MessageView } from '../message';
+import {
+  Attribute,
+  AttributeKey,
+  MessageHookPoints,
+  MessageHookPointsStatus,
+  MessageInterceptor,
+  MessageInterceptorContextImpl,
+} from '../hook';
 import { ConsumeResult } from './ConsumeResult';
 import { MessageListener } from './MessageListener';
+
+// Context keys exposed to interceptors, mirroring the Java ConsumeTask keys.
+export const REMOTE_ADDR_CONTEXT_KEY = AttributeKey.create<string>('remote_address');
+export const MESSAGE_VIEW_CONTEXT_KEY = AttributeKey.create<MessageView>('message_view');
+export const CONSUMER_GROUP_CONTEXT_KEY = AttributeKey.create<string>('consumer_group');
+export const CONSUME_ERROR_CONTEXT_KEY = AttributeKey.create<unknown>('consume_error');
 
 export class ConsumeTask {
   readonly #messageListener: MessageListener;
   readonly #messageView: MessageView;
+  readonly #consumerGroup?: string;
+  readonly #messageInterceptor?: MessageInterceptor;
 
-  constructor(_clientId: string, messageListener: MessageListener, messageView: MessageView) {
+  constructor(_clientId: string, messageListener: MessageListener, messageView: MessageView,
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
     this.#messageListener = messageListener;
     this.#messageView = messageView;
+    this.#messageInterceptor = messageInterceptor;
+    this.#consumerGroup = consumerGroup;
   }
 
   async call(): Promise<ConsumeResult> {
+    const generalMessages = [ this.#messageView ];
+    let context = new MessageInterceptorContextImpl(MessageHookPoints.CONSUME);
+    context.putAttribute(MESSAGE_VIEW_CONTEXT_KEY, Attribute.create(this.#messageView));
+    if (this.#consumerGroup) {
+      context.putAttribute(CONSUMER_GROUP_CONTEXT_KEY, Attribute.create(this.#consumerGroup));
+    }
+    let throwable: unknown;
+    let consumeResult: ConsumeResult;
+    if (this.#messageInterceptor) {
+      this.#messageInterceptor.doBefore(context, generalMessages);
+    }
     try {
-      return await this.#messageListener.consume(this.#messageView);
+      consumeResult = await this.#messageListener.consume(this.#messageView);
     } catch (e) {
       // Message listener raised an exception while consuming messages
-      return ConsumeResult.FAILURE;
+      throwable = e;
+      consumeResult = ConsumeResult.FAILURE;
     }
+    const status = consumeResult === ConsumeResult.SUCCESS ? MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
+    context = MessageInterceptorContextImpl.withStatus(context, status);
+    if (throwable) {
+      context.putAttribute(CONSUME_ERROR_CONTEXT_KEY, Attribute.create(throwable));
+    }
+    if (this.#messageInterceptor) {
+      this.#messageInterceptor.doAfter(context, generalMessages);
+    }
+    return consumeResult;
   }
 }

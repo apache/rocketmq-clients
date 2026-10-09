@@ -15,11 +15,17 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+/**
+ * Canonical attribute (label) keys attached to every RocketMQ metric,
+ * mirroring org.apache.rocketmq.client.java.metrics.MetricLabels.
+ */
+export class MetricLabels {
+  static readonly TOPIC = 'topic';
+  static readonly CLIENT_ID = 'client_id';
+  static readonly CONSUMER_GROUP = 'consumer_group';
+  static readonly INVOCATION_STATUS = 'invocation_status';
+
+  private constructor() {
+    // constant holder
+  }
+}

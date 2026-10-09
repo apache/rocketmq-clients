@@ -15,11 +15,22 @@
  * limitations under the License.
  */
 
-export * from './consumer';
-export * from './exception';
-export * from './hook';
-export * from './message';
-export * from './producer';
-export * from './retry';
-export * from './route';
-export * from './client';
+import { Attributes } from '@opentelemetry/api';
+import { GaugeEnum } from './GaugeEnum';
+import { GaugeObserver } from './GaugeObserver';
+
+/**
+ * Default no-op gauge observer used before a consumer registers a real one,
+ * mirroring org.apache.rocketmq.client.java.metrics.EmptyGaugeObserver.
+ */
+export class EmptyGaugeObserver implements GaugeObserver {
+  static readonly EMPTY: EmptyGaugeObserver = new EmptyGaugeObserver();
+
+  getGauges(): GaugeEnum[] {
+    return [];
+  }
+
+  getValues(): Map<Attributes, number> {
+    return new Map();
+  }
+}

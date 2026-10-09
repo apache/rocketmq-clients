@@ -43,13 +43,17 @@
     "egg-bin": "^6.4.2",
     "eslint": "^8.48.0",
     "eslint-config-egg": "^12.2.1",
-    "grpc-tools": "^1.12.4",
     "grpc_tools_node_protoc_ts": "^5.3.3",
+    "grpc-tools": "^1.12.4",
     "typescript": "^5.2.2"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.9.1",
     "@node-rs/crc32": "^1.7.2",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.57.2",
+    "@opentelemetry/resources": "^1.30.1",
+    "@opentelemetry/sdk-metrics": "^1.30.1",
     "address": "^1.2.2",
     "egg-logger": "^3.4.0",
     "google-protobuf": "^3.21.2",

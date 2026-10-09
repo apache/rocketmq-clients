@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 import { MessageView } from '../message';
+import { MessageInterceptor } from '../hook';
 import { ConsumeResult } from './ConsumeResult';
 import { ConsumeTask } from './ConsumeTask';
 import { MessageListener } from './MessageListener';
@@ -23,12 +24,17 @@ import type { ProcessQueue } from './ProcessQueue';
 export abstract class ConsumeService {
   protected readonly clientId: string;
   readonly #messageListener: MessageListener;
+  readonly #messageInterceptor?: MessageInterceptor;
+  readonly #consumerGroup?: string;
   #aborted = false;
   #pendingTimers: Set<NodeJS.Timeout> = new Set();
 
-  constructor(clientId: string, messageListener: MessageListener) {
+  constructor(clientId: string, messageListener: MessageListener,
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
     this.clientId = clientId;
     this.#messageListener = messageListener;
+    this.#messageInterceptor = messageInterceptor;
+    this.#consumerGroup = consumerGroup;
   }
 
   abstract consume(pq: ProcessQueue, messageViews: MessageView[]): void;
@@ -37,7 +43,8 @@ export abstract class ConsumeService {
     if (this.#aborted) {
       return ConsumeResult.FAILURE;
     }
-    const task = new ConsumeTask(this.clientId, this.#messageListener, messageView);
+    const task = new ConsumeTask(this.clientId, this.#messageListener, messageView,
+      this.#messageInterceptor, this.#consumerGroup);
     if (delay <= 0) {
       return this.#executeTask(task);
     }

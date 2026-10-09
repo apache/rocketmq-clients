@@ -53,6 +53,14 @@ export class ProcessQueue {
     return this.#mq;
   }
 
+  /**
+   * Topic of the underlying message queue, used as a metric attribute when
+   * aggregating the consumer gauges.
+   */
+  get topic(): string {
+    return this.#mq.topic.name;
+  }
+
   drop(): void {
     this.#dropped = true;
   }
@@ -326,6 +334,7 @@ export class ProcessQueue {
         endpoints,
         this.#consumer.wrapForwardMessageToDeadLetterQueueRequest(messageView),
         this.#consumer.requestTimeoutValue,
+        messageView,
       );
       const status = response.getStatus();
       if (!status) {
