@@ -36,6 +36,7 @@ mod lite_simple_consumer_integration_tests {
     use std::time::Duration;
 
     use rocketmq::conf::{ClientOption, ProducerOption, SimpleConsumerOption};
+    use rocketmq::error::ErrorKind;
     use rocketmq::model::message::MessageBuilder;
     use rocketmq::model::offset_option::{OffsetOption, OffsetPolicy};
     use rocketmq::{LiteSimpleConsumer, LiteSimpleConsumerTrait, Producer};
@@ -196,5 +197,93 @@ mod lite_simple_consumer_integration_tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
+    }
+
+    /// `ack()` / `change_invisible_duration()` must report `ClientIsNotRunning` after the
+    /// consumer was shut down instead of panicking: `shutdown(&mut self)` leaves the consumer
+    /// accessible, and a caller may still hold a received `MessageView`.
+    #[tokio::test]
+    async fn test_ack_and_change_invisible_duration_after_shutdown() {
+        let Some(config) = Config::from_env() else {
+            println!("ROCKETMQ_RUST_LITE_ENDPOINTS is not set, skip the integration test");
+            return;
+        };
+
+        let lite_topic = format!("rust-lite-shutdown-{}", chrono_like_nonce());
+        send_lite_messages(&config, &lite_topic, 1).await;
+
+        let mut consumer = LiteSimpleConsumer::new(
+            config.client_option(),
+            config.consumer_option(),
+            config.parent_topic.clone(),
+        )
+        .expect("create lite simple consumer");
+        consumer.start().await.expect("start lite simple consumer");
+        consumer
+            .subscribe_lite(lite_topic.clone())
+            .await
+            .expect("subscribe lite topic");
+
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+        let message = loop {
+            let messages = consumer
+                .receive(32, Duration::from_secs(15))
+                .await
+                .expect("receive messages");
+            if let Some(message) = messages.into_iter().next() {
+                break message;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "no message was received"
+            );
+        };
+
+        consumer.shutdown().await.expect("shutdown consumer");
+
+        // Both calls must fail with `ClientIsNotRunning`; before the running-state guard was
+        // added they panicked on the missing telemetry channel instead.
+        let err = consumer
+            .ack(&message)
+            .await
+            .err()
+            .expect("ack must fail after shutdown");
+        assert_eq!(*err.kind(), ErrorKind::ClientIsNotRunning);
+
+        let err = consumer
+            .change_invisible_duration(&message, Duration::from_secs(1))
+            .await
+            .err()
+            .expect("changeInvisibleDuration must fail after shutdown");
+        assert_eq!(*err.kind(), ErrorKind::ClientIsNotRunning);
+    }
+
+    /// The first `subscribe_lite` right after `start()` must see the server-provided
+    /// `max_lite_topic_size` (and quota), not the built-in defaults: `start()` waits bounded
+    /// for the telemetry handler to apply the initial `Settings`.
+    #[tokio::test]
+    async fn test_immediate_first_subscribe_after_start() {
+        let Some(config) = Config::from_env() else {
+            println!("ROCKETMQ_RUST_LITE_ENDPOINTS is not set, skip the integration test");
+            return;
+        };
+
+        let lite_topic = format!("rust-lite-first-{}", chrono_like_nonce());
+        let mut consumer = LiteSimpleConsumer::new(
+            config.client_option(),
+            config.consumer_option(),
+            config.parent_topic.clone(),
+        )
+        .expect("create lite simple consumer");
+
+        // No sleep, no warm-up: subscribe immediately after start.
+        consumer.start().await.expect("start lite simple consumer");
+        consumer
+            .subscribe_lite(lite_topic.clone())
+            .await
+            .expect("subscribe immediately after start");
+        assert!(consumer.get_lite_topic_set().contains(&lite_topic));
+
+        consumer.shutdown().await.expect("shutdown consumer");
     }
 }

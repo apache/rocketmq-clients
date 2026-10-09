@@ -57,8 +57,15 @@ use crate::util::build_lite_simple_consumer_settings;
 
 const OPERATION_NEW_LITE_SIMPLE_CONSUMER: &str = "lite_simple_consumer.new";
 const OPERATION_LITE_SIMPLE_CONSUMER_RECEIVE: &str = "lite_simple_consumer.receive";
+const OPERATION_LITE_SIMPLE_CONSUMER_ACK: &str = "lite_simple_consumer.ack";
+const OPERATION_LITE_SIMPLE_CONSUMER_CHANGE_INVISIBLE_DURATION: &str =
+    "lite_simple_consumer.change_invisible_duration";
 const OPERATION_SUBSCRIBE_LITE: &str = "lite_simple_consumer.subscribe_lite";
 const OPERATION_UNSUBSCRIBE_LITE: &str = "lite_simple_consumer.unsubscribe_lite";
+
+/// Upper bound for waiting on the server's initial `Settings` during startup. When it elapses,
+/// startup proceeds with the built-in defaults (a warning is logged).
+const INITIAL_SETTINGS_WAIT_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// LiteSimpleConsumer trait defining the interface for lite simple consumers
 #[async_trait]
@@ -283,6 +290,23 @@ impl LiteSimpleConsumer {
             self.get_consumer_group(),
             client_id
         );
+
+        // Step 5: wait (bounded) until the telemetry handler applied the server's initial
+        // `Settings`, so that a `subscribe_lite` right after `start()` validates the lite topic
+        // against the server-provided `max_lite_topic_size` instead of the built-in default.
+        // On a current-thread runtime the handler spawned above need not have run yet.
+        if !self
+            .lite_subscription_manager
+            .wait_for_initial_settings(INITIAL_SETTINGS_WAIT_TIMEOUT)
+            .await
+        {
+            warn!(
+                "Timed out waiting for the initial Settings from server, bindTopic={}, \
+                 clientId={}; proceeding with the local defaults, maxLiteTopicSize=64",
+                self.bind_topic, client_id
+            );
+        }
+
         Ok(())
     }
 
@@ -314,6 +338,8 @@ impl LiteSimpleConsumer {
     /// It is important to acknowledge every consumed message, otherwise, they will be received
     /// again after the invisible duration.
     pub async fn ack(&self, message: &MessageView) -> Result<(), ClientError> {
+        self.inner
+            .check_started(OPERATION_LITE_SIMPLE_CONSUMER_ACK)?;
         self.inner.ack(message).await
     }
 
@@ -323,6 +349,8 @@ impl LiteSimpleConsumer {
         message: &MessageView,
         invisible_duration: Duration,
     ) -> Result<String, ClientError> {
+        self.inner
+            .check_started(OPERATION_LITE_SIMPLE_CONSUMER_CHANGE_INVISIBLE_DURATION)?;
         self.inner
             .change_invisible_duration(message, invisible_duration)
             .await
@@ -389,6 +417,13 @@ impl LiteSimpleConsumerTrait for LiteSimpleConsumer {
     /// Shutdown the consumer
     async fn shutdown(&mut self) -> Result<(), ClientError> {
         info!("Shutting down LiteSimpleConsumer...");
+
+        // Stop the periodic-sync scheduler first. It retains an `Arc<Client>` and the
+        // subscription set; if it kept running, its next tick would call
+        // `Client::get_session_for_lite_consumer()` — which deliberately bypasses the
+        // running-state check — and could re-create a session after
+        // `SessionManager::shutdown()` cleared the session map, then send `CompleteAdd` again.
+        self.lite_subscription_manager.stop_scheduler().await;
 
         if let Some(token) = self.shutdown_token.take() {
             token.cancel();

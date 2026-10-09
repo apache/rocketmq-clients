@@ -152,7 +152,9 @@ mod util;
 mod lite_push_consumer;
 #[cfg(not(test))]
 mod lite_simple_consumer;
-#[cfg(not(test))]
+// Not gated behind `cfg(not(test))`: the manager carries its own unit tests. Its `Client` is
+// doubled in test builds (`#[double]`), and the two consumers above — the only callers of
+// `LiteSubscriptionManager::new` — are excluded from test builds, so the types still line up.
 mod lite_subscription_manager;
 mod producer;
 mod push_consumer;
