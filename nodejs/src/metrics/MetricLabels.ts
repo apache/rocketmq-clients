@@ -15,13 +15,17 @@
  * limitations under the License.
  */
 
-export * from './Attribute';
-export * from './AttributeKey';
-export * from './CompositedMessageInterceptor';
-export * from './InflightRequestCountInterceptor';
-export * from './MessageHookPoints';
-export * from './MessageHookPointsStatus';
-export * from './MessageInterceptor';
-export * from './MessageInterceptorContext';
-export * from './MessageInterceptorContextImpl';
-export * from './MessageMeterInterceptor';
+/**
+ * Canonical attribute (label) keys attached to every RocketMQ metric,
+ * mirroring org.apache.rocketmq.client.java.metrics.MetricLabels.
+ */
+export class MetricLabels {
+  static readonly TOPIC = 'topic';
+  static readonly CLIENT_ID = 'client_id';
+  static readonly CONSUMER_GROUP = 'consumer_group';
+  static readonly INVOCATION_STATUS = 'invocation_status';
+
+  private constructor() {
+    // constant holder
+  }
+}

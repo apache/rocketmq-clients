@@ -357,6 +357,16 @@ describe('PushConsumer settlement hooks vs Java (K-4)', () => {
     getRetryPolicy() {
       return { getMaxAttempts: () => 1, getNextAttemptDelay: () => 0 };
     }
+    getPushConsumerSettings() {
+      // ProcessQueue reads the semaphore bound, long-polling timeout and receive
+      // batch size from the subscription settings; the defaults mirror
+      // PushSubscriptionSettings.
+      return {
+        getConsumeConcurrentlyMax: () => 32,
+        getLongPollingTimeout: () => 30000,
+        getReceiveBatchSize: () => 32,
+      };
+    }
     incrementConsumptionOkQuantity(): void { /* not collected in tests */ }
     incrementConsumptionErrorQuantity(): void { /* not collected in tests */ }
     protected isLiteConsumer(): boolean {

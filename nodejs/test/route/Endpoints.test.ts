@@ -16,9 +16,10 @@
  */
 
 /**
- * Regression tests for the gRPC target resolver scheme fix (B-1):
- * getGrpcTarget() must prefix the scheme (ipv4:/ipv6:/dns:) so grpc-js
- * resolves multi-address and bare-IPv6 targets correctly.
+ * Tests for the gRPC target resolver scheme: getGrpcTarget() routes IP
+ * addresses through the custom `ip` name resolver (registered by
+ * IpNameResolver) and prefixes domain names with dns:, so grpc-js resolves
+ * multi-address and bare-IPv6 targets correctly.
  */
 
 import { describe, it } from 'node:test';
@@ -36,18 +37,18 @@ function endpointsFromPb(scheme: AddressScheme, host: string, port: number): End
   return new Endpoints(pb.toObject());
 }
 
-describe('Endpoints.getGrpcTarget with resolver scheme (B-1)', () => {
-  it('should prefix ipv4: scheme for IPv4 addresses', () => {
-    assert.strictEqual(new Endpoints('127.0.0.1:10911').getGrpcTarget(), 'ipv4:127.0.0.1:10911');
+describe('Endpoints.getGrpcTarget with resolver scheme (custom ip resolver)', () => {
+  it('should prefix ip: scheme for IPv4 addresses', () => {
+    assert.strictEqual(new Endpoints('127.0.0.1:10911').getGrpcTarget(), 'ip:127.0.0.1:10911');
   });
 
-  it('should prefix ipv4: scheme for multiple IPv4 addresses', () => {
+  it('should prefix ip: scheme for multiple IPv4 addresses', () => {
     const target = new Endpoints('127.0.0.1:8081;127.0.0.2:8082').getGrpcTarget();
-    assert.strictEqual(target, 'ipv4:127.0.0.1:8081,127.0.0.2:8082');
+    assert.strictEqual(target, 'ip:127.0.0.1:8081,127.0.0.2:8082');
   });
 
-  it('should prefix ipv6: scheme with brackets for IPv6 addresses', () => {
-    assert.strictEqual(endpointsFromPb(AddressScheme.IPV6, '::1', 10911).getGrpcTarget(), 'ipv6:[::1]:10911');
+  it('should prefix ip: scheme with brackets for IPv6 addresses', () => {
+    assert.strictEqual(endpointsFromPb(AddressScheme.IPV6, '::1', 10911).getGrpcTarget(), 'ip:[::1]:10911');
   });
 
   it('should prefix dns: scheme for domain names', () => {

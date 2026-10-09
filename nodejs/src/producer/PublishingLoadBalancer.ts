@@ -78,8 +78,14 @@ export class PublishingLoadBalancer {
   }
 
   takeMessageQueueByMessageGroup(messageGroup: string) {
-    const hashCode = calculateStringSipHash24(messageGroup);
-    const index = parseInt(`${hashCode % BigInt(this.#messageQueues.length)}`);
+    // SipHash-2-4 returns an unsigned 64-bit value in JS (readBigUInt64BE), while
+    // Java's String.hashCode-style paths use signed semantics. Interpret the hash as
+    // a signed 64-bit integer and apply floorMod so the result is always non-negative,
+    // exactly matching Java LongMath.mod(hashCode, size) — otherwise FIFO messages
+    // with "negative" hashes route to different queues than the Java client.
+    const hashCode = BigInt.asIntN(64, calculateStringSipHash24(messageGroup));
+    const size = this.#messageQueues.length;
+    const index = Number(((hashCode % BigInt(size)) + BigInt(size)) % BigInt(size));
     return this.#messageQueues[index];
   }
 
