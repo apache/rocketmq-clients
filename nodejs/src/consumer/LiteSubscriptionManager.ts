@@ -297,7 +297,7 @@ export class LiteSubscriptionManager {
         if (status && status.getCode() !== Code.OK) {
           throw new ClientException(
             status.getCode(),
-            `Failed to sync lite subscription: ${status.getMessage()}`,
+            `Failed to sync lite subscription to endpoints=${endpoints.facade}: ${status.getMessage()}`,
           );
         }
       }));
