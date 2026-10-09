@@ -64,6 +64,12 @@ export abstract class Consumer extends BaseClient {
     const timeout = this.requestTimeout + awaitDuration;
     let status: Status.AsObject | undefined;
 
+    // RECEIVE hook point, mirroring Java ProcessQueueImpl: intercept before the
+    // RPC so that interceptors which count in-flight requests observe the real
+    // request, and carry this same context into doAfter.
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.RECEIVE);
+    this.doBefore(context, []);
+
     try {
       this.logger.debug?.('Receiving messages from broker, topic=%s, endpoints=%s, batchSize=%d, clientId=%s',
         request.getMessageQueue()?.getTopic()?.getName(), endpoints, request.getBatchSize(), (this as any).clientId);
@@ -97,17 +103,11 @@ export abstract class Consumer extends BaseClient {
       }
 
       const messages = messageList.map(message => new MessageView(message, mq, transportDeliveryTimestamp));
-      // RECEIVE hook point, mirroring Java ProcessQueueImpl.
-      const context = new MessageInterceptorContextImpl(MessageHookPoints.RECEIVE, MessageHookPointsStatus.OK);
-      this.doBefore(context, messages);
       this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.OK), messages);
       return messages;
     } catch (err) {
       this.logger.error('Failed to receive messages, topic=%s, endpoints=%s, clientId=%s, error=%s',
         request.getMessageQueue()?.getTopic()?.getName(), endpoints, (this as any).clientId, err);
-      // RECEIVE hook point with error status.
-      const context = new MessageInterceptorContextImpl(MessageHookPoints.RECEIVE);
-      this.doBefore(context, []);
       this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), []);
       throw err;
     }
@@ -173,16 +173,43 @@ export abstract class Consumer extends BaseClient {
   }
 
   /**
-   * Expose public methods for ProcessQueue to access RPC operations
+   * Expose public methods for ProcessQueue to access RPC operations. Each attempt
+   * — including retries driven by ProcessQueue — triggers the matching hook point,
+   * so PushConsumer and SimpleConsumer observability stays consistent.
    */
-  async ackMessageViaRpc(endpoints: any, request: AckMessageRequest, timeout: number) {
-    const res = await this.rpcClientManager.ackMessage(endpoints, request, timeout);
-    return res;
+  async ackMessageViaRpc(endpoints: any, request: AckMessageRequest, timeout: number, messageView: MessageView) {
+    return this.#invokeWithHook(
+      MessageHookPoints.ACK,
+      messageView,
+      () => this.rpcClientManager.ackMessage(endpoints, request, timeout),
+    );
   }
 
-  async changeInvisibleDurationViaRpc(endpoints: any, request: ChangeInvisibleDurationRequest, timeout: number) {
-    const res = await this.rpcClientManager.changeInvisibleDuration(endpoints, request, timeout);
-    return res;
+  async changeInvisibleDurationViaRpc(endpoints: any, request: ChangeInvisibleDurationRequest, timeout: number,
+    messageView: MessageView) {
+    return this.#invokeWithHook(
+      MessageHookPoints.CHANGE_INVISIBLE_DURATION,
+      messageView,
+      () => this.rpcClientManager.changeInvisibleDuration(endpoints, request, timeout),
+    );
+  }
+
+  async #invokeWithHook<T extends { getStatus(): Status | undefined }>(hookPoint: MessageHookPoints,
+    messageView: MessageView,
+    rpc: () => Promise<T>): Promise<T> {
+    const context = new MessageInterceptorContextImpl(hookPoint);
+    const generalMessages: GeneralMessage[] = [ messageView ];
+    this.doBefore(context, generalMessages);
+    try {
+      const response = await rpc();
+      const hookStatus = response.getStatus()?.getCode() === Code.OK
+        ? MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, hookStatus), generalMessages);
+      return response;
+    } catch (err) {
+      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), generalMessages);
+      throw err;
+    }
   }
 
   /**
@@ -192,20 +219,11 @@ export abstract class Consumer extends BaseClient {
    */
   async forwardMessageToDeadLetterQueueViaRpc(endpoints: any, request: any, timeout: number,
     messageView: MessageView) {
-    // FORWARD_TO_DLQ hook point, mirroring Java PushConsumerImpl#forwardMessageToDeadLetterQueue.
-    const context = new MessageInterceptorContextImpl(MessageHookPoints.FORWARD_TO_DLQ);
-    const generalMessages: GeneralMessage[] = [ messageView ];
-    this.doBefore(context, generalMessages);
-    try {
-      const response = await this.rpcClientManager.forwardMessageToDeadLetterQueue(endpoints, request, timeout);
-      const hookStatus = response.getStatus()?.getCode() === Code.OK ?
-        MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
-      this.doAfter(MessageInterceptorContextImpl.withStatus(context, hookStatus), generalMessages);
-      return response;
-    } catch (err) {
-      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), generalMessages);
-      throw err;
-    }
+    return this.#invokeWithHook(
+      MessageHookPoints.FORWARD_TO_DLQ,
+      messageView,
+      () => this.rpcClientManager.forwardMessageToDeadLetterQueue(endpoints, request, timeout),
+    );
   }
 
   /**
