@@ -19,7 +19,8 @@ use std::time::Duration;
 
 use mockall_double::double;
 use tokio::select;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
 #[double]
@@ -29,7 +30,8 @@ use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, FilterExpression};
 use crate::model::message::{AckMessageEntry, MessageView};
 use crate::util::{
-    build_endpoints_by_message_queue, build_simple_consumer_settings, select_message_queue,
+    build_endpoints_by_message_queue, build_simple_consumer_settings, select_first_readable_queue,
+    select_message_queue,
 };
 
 /// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
@@ -45,7 +47,7 @@ use crate::util::{
 pub struct SimpleConsumer {
     option: SimpleConsumerOption,
     client: Client,
-    shutdown_tx: Option<oneshot::Sender<()>>,
+    shutdown_token: Option<CancellationToken>,
 }
 
 impl SimpleConsumer {
@@ -73,31 +75,40 @@ impl SimpleConsumer {
             ..client_option
         };
         let client = Client::new(client_option, build_simple_consumer_settings(&option))?;
+        Self::new_with_client(client, option)
+    }
+
+    /// Create a SimpleConsumer from an existing client.
+    ///
+    /// Used by [`crate::LiteSimpleConsumer`] to share a client that has already
+    /// been configured with the correct [`ClientType`] and settings.
+    pub(crate) fn new_with_client(
+        client: Client,
+        option: SimpleConsumerOption,
+    ) -> Result<Self, ClientError> {
+        if option.consumer_group().is_empty() {
+            return Err(ClientError::new(
+                ErrorKind::Config,
+                "required option is missing: consumer group is empty",
+                Self::OPERATION_NEW_SIMPLE_CONSUMER,
+            ));
+        }
         Ok(SimpleConsumer {
             option,
             client,
-            shutdown_tx: None,
+            shutdown_token: None,
         })
     }
 
     /// Start the simple consumer
     pub async fn start(&mut self) -> Result<(), ClientError> {
-        if self.option.consumer_group().is_empty() {
-            return Err(ClientError::new(
-                ErrorKind::Config,
-                "required option is missing: consumer group is empty",
-                Self::OPERATION_START_SIMPLE_CONSUMER,
-            ));
-        }
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
-        self.client.start(telemetry_command_tx).await?;
-        if let Some(topics) = self.option.topics() {
-            for topic in topics {
-                self.client.topic_route(topic, true).await?;
-            }
-        }
-        let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
-        self.shutdown_tx = Some(shutdown_tx);
+        self.start_with_telemetry(telemetry_command_tx).await?;
+
+        let shutdown_token = self
+            .shutdown_token
+            .clone()
+            .expect("shutdown token should have been initialized by start_with_telemetry");
         tokio::spawn(async move {
             loop {
                 select! {
@@ -105,7 +116,7 @@ impl SimpleConsumer {
                         warn!("command {:?} cannot be handled in simple consumer.", command);
                     }
 
-                    _ = &mut shutdown_rx => {
+                    _ = shutdown_token.cancelled() => {
                        break;
                     }
                 }
@@ -118,11 +129,48 @@ impl SimpleConsumer {
         Ok(())
     }
 
-    pub async fn shutdown(self) -> Result<(), ClientError> {
-        if let Some(shutdown_tx) = self.shutdown_tx {
-            let _ = shutdown_tx.send(());
-        };
+    /// Start the inner client with an external telemetry channel, without
+    /// consuming it. Used by [`crate::LiteSimpleConsumer`] so that it can
+    /// process lite-specific telemetry commands itself.
+    pub(crate) async fn start_with_telemetry(
+        &mut self,
+        telemetry_command_tx: mpsc::Sender<crate::pb::telemetry_command::Command>,
+    ) -> Result<(), ClientError> {
+        if self.option.consumer_group().is_empty() {
+            return Err(ClientError::new(
+                ErrorKind::Config,
+                "required option is missing: consumer group is empty",
+                Self::OPERATION_START_SIMPLE_CONSUMER,
+            ));
+        }
+        self.client.start(telemetry_command_tx).await?;
+        if let Some(topics) = self.option.topics() {
+            for topic in topics {
+                self.client.topic_route(topic, true).await?;
+            }
+        }
+        self.shutdown_token = Some(CancellationToken::new());
+        Ok(())
+    }
+
+    /// Check if the simple consumer has been started
+    pub(crate) fn check_started(&self, operation: &'static str) -> Result<(), ClientError> {
+        self.client.check_started(operation)
+    }
+
+    pub async fn shutdown(mut self) -> Result<(), ClientError> {
+        if let Some(shutdown_token) = self.shutdown_token.take() {
+            shutdown_token.cancel();
+        }
         self.client.shutdown().await
+    }
+
+    /// Shutdown without consuming self. Used by [`crate::LiteSimpleConsumer`].
+    pub(crate) async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
+        if let Some(shutdown_token) = self.shutdown_token.take() {
+            shutdown_token.cancel();
+        }
+        self.client.shutdown_ref().await
     }
 
     /// receive messages from the specified topic
@@ -156,7 +204,11 @@ impl SimpleConsumer {
         invisible_duration: Duration,
     ) -> Result<Vec<MessageView>, ClientError> {
         let route = self.client.topic_route(topic.as_ref(), true).await?;
-        let message_queue = select_message_queue(route);
+        let message_queue = if self.client.is_lite_consumer() {
+            select_first_readable_queue(&route)?
+        } else {
+            select_message_queue(route)
+        };
         let endpoints =
             build_endpoints_by_message_queue(&message_queue, Self::OPERATION_RECEIVE_MESSAGE)?;
         let messages = self
@@ -284,10 +336,11 @@ mod tests {
         client
             .expect_ack_message()
             .returning(|_: &MessageView| Ok(AckMessageResultEntry::default()));
+        client.expect_is_lite_consumer().returning(|| false);
         let simple_consumer = SimpleConsumer {
             option: SimpleConsumerOption::default(),
             client,
-            shutdown_tx: None,
+            shutdown_token: None,
         };
 
         let messages = simple_consumer

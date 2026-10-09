@@ -37,6 +37,7 @@ pub(crate) enum ClientType {
     #[allow(dead_code)]
     PullConsumer = 4,
     LitePushConsumer = 5,
+    LiteSimpleConsumer = 6,
 }
 
 #[derive(Debug)]
