@@ -21,9 +21,14 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
+use mockall_double::double;
 use parking_lot::Mutex;
-use tracing::{error, info};
+use tokio::sync::watch;
+use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
+use tracing::{error, info, warn};
 
+#[double]
 use crate::client::Client;
 use crate::error::{ClientError, ErrorKind};
 use crate::model::offset_option::OffsetOption;
@@ -34,6 +39,9 @@ use crate::util::handle_response_status;
 
 const OPERATION_SYNC_LITE_SUBSCRIPTION: &str = "lite_subscription.sync";
 
+/// Default interval between two periodic `SyncLiteSubscription` rounds.
+const DEFAULT_PERIODIC_SYNC_INTERVAL: Duration = Duration::from_secs(30);
+
 /// Manages lite topic subscriptions for LitePushConsumer
 pub struct LiteSubscriptionManager {
     client: Arc<Client>,
@@ -42,6 +50,14 @@ pub struct LiteSubscriptionManager {
     lite_topic_set: Arc<Mutex<HashSet<String>>>,
     lite_subscription_quota: Arc<Mutex<i32>>,
     max_lite_topic_size: Arc<Mutex<i32>>,
+    /// Interval between two periodic sync rounds. Defaults to 30 seconds; shortened by tests.
+    periodic_sync_interval: Duration,
+    /// Cancellation token of the periodic-sync scheduler.
+    scheduler_token: Mutex<Option<CancellationToken>>,
+    /// Join handle of the periodic-sync scheduler, so `stop_scheduler` can await its exit.
+    scheduler_handle: Mutex<Option<JoinHandle<()>>>,
+    /// Flipped to `true` once the telemetry handler applied the server's `Settings`.
+    settings_ready_tx: Arc<watch::Sender<bool>>,
 }
 
 impl LiteSubscriptionManager {
@@ -52,6 +68,7 @@ impl LiteSubscriptionManager {
         namespace: String,
         consumer_group: String,
     ) -> Self {
+        let (settings_ready_tx, _) = watch::channel(false);
         Self {
             client,
             bind_topic: Resource {
@@ -65,6 +82,10 @@ impl LiteSubscriptionManager {
             lite_topic_set: Arc::new(Mutex::new(HashSet::new())),
             lite_subscription_quota: Arc::new(Mutex::new(0)),
             max_lite_topic_size: Arc::new(Mutex::new(64)), // default value
+            periodic_sync_interval: DEFAULT_PERIODIC_SYNC_INTERVAL,
+            scheduler_token: Mutex::new(None),
+            scheduler_handle: Mutex::new(None),
+            settings_ready_tx: Arc::new(settings_ready_tx),
         }
     }
 
@@ -72,19 +93,55 @@ impl LiteSubscriptionManager {
     pub async fn start(&self) -> Result<(), ClientError> {
         self.sync_all_lite_subscription().await?;
 
-        // Schedule periodic sync every 30 seconds
+        // Replace any scheduler left over from a previous start.
+        self.stop_scheduler().await;
+
+        // Schedule periodic sync every `periodic_sync_interval`. The task holds an `Arc<Self>`,
+        // hence it must be cancellable: otherwise it would keep the client alive and could
+        // re-create sessions after `Client::shutdown` cleared the session map.
+        let token = CancellationToken::new();
+        let task_token = token.clone();
         let manager = self.clone_for_scheduler();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(30));
+        let interval = self.periodic_sync_interval;
+        let handle = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(interval);
             loop {
-                interval.tick().await;
-                if let Err(e) = manager.sync_all_lite_subscription().await {
-                    error!("Schedule syncAllLiteSubscription error: {:?}", e);
+                tokio::select! {
+                    _ = interval.tick() => {
+                        if let Err(e) = manager.sync_all_lite_subscription().await {
+                            error!("Schedule syncAllLiteSubscription error: {:?}", e);
+                        }
+                    }
+                    _ = task_token.cancelled() => {
+                        break;
+                    }
                 }
             }
+            info!("LiteSubscriptionManager periodic sync scheduler stopped");
         });
 
+        *self.scheduler_token.lock() = Some(token);
+        *self.scheduler_handle.lock() = Some(handle);
+
         Ok(())
+    }
+
+    /// Stop the periodic-sync scheduler, waiting until it exited.
+    ///
+    /// Must be called before closing the client sessions: the scheduler retains an `Arc<Client>`
+    /// and the subscription set, and its next tick would call
+    /// `Client::get_session_for_lite_consumer()` — which bypasses the running-state check and
+    /// could re-create a session and send another `CompleteAdd` after shutdown.
+    pub async fn stop_scheduler(&self) {
+        if let Some(token) = self.scheduler_token.lock().take() {
+            token.cancel();
+        }
+        let handle = self.scheduler_handle.lock().take();
+        if let Some(handle) = handle {
+            if let Err(e) = handle.await {
+                warn!("Failed to join the periodic-sync scheduler: {:?}", e);
+            }
+        }
     }
 
     /// Clone necessary fields for scheduler task
@@ -96,6 +153,10 @@ impl LiteSubscriptionManager {
             lite_topic_set: Arc::clone(&self.lite_topic_set),
             lite_subscription_quota: Arc::clone(&self.lite_subscription_quota),
             max_lite_topic_size: Arc::clone(&self.max_lite_topic_size),
+            periodic_sync_interval: self.periodic_sync_interval,
+            scheduler_token: Mutex::new(None),
+            scheduler_handle: Mutex::new(None),
+            settings_ready_tx: Arc::clone(&self.settings_ready_tx),
         })
     }
 
@@ -116,6 +177,10 @@ impl LiteSubscriptionManager {
 
     /// Sync settings from server (reference Java: check hasSubscription first)
     pub fn sync_settings(&self, settings: &pb::Settings) {
+        // The initial `Settings` command has arrived: whoever waits for it may proceed.
+        // `send_replace` (not `send`) so the value is stored even when nobody is waiting.
+        self.settings_ready_tx.send_replace(true);
+
         // Check if settings has subscription (similar to Java's settings.hasSubscription())
         let has_subscription = matches!(
             &settings.pub_sub,
@@ -137,6 +202,17 @@ impl LiteSubscriptionManager {
                 info!("Updated max lite topic size to {}", max_size);
             }
         }
+    }
+
+    /// Wait until the telemetry handler applied the server's initial `Settings`.
+    ///
+    /// Returns `true` when the initial settings have been applied, `false` when `timeout`
+    /// elapsed first (e.g. the server did not push its settings in time). Callers should log a
+    /// warning in the latter case and continue with the local defaults.
+    pub async fn wait_for_initial_settings(&self, timeout: Duration) -> bool {
+        let mut rx = self.settings_ready_tx.subscribe();
+        let ready = async { rx.wait_for(|ready| *ready).await.is_ok() };
+        tokio::time::timeout(timeout, ready).await.is_ok()
     }
 
     /// Subscribe to a lite topic (reference Java: checkRunning first)
@@ -346,16 +422,25 @@ impl LiteSubscriptionManager {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use super::*;
 
+    /// In test builds `Client` is doubled (`mockall_double`), so a fresh `MockClient` is used
+    /// instead of the real one. Callers must set up the expectations they need.
     fn create_test_client() -> Arc<Client> {
-        // Create a minimal client for testing
-        let option = crate::conf::ClientOption::default();
-        let settings = pb::TelemetryCommand {
-            command: None,
-            status: None,
-        };
-        Arc::new(Client::new(option, settings).unwrap())
+        Arc::new(Client::default())
+    }
+
+    fn test_settings(max_lite_topic_size: i32) -> pb::Settings {
+        pb::Settings {
+            pub_sub: Some(pb::settings::PubSub::Subscription(pb::Subscription {
+                lite_subscription_quota: Some(16),
+                max_lite_topic_size: Some(max_lite_topic_size),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -410,5 +495,142 @@ mod tests {
         // Now only 3 more allowed
         assert!(manager.check_lite_subscription_quota(3).is_ok());
         assert!(manager.check_lite_subscription_quota(4).is_err());
+    }
+
+    /// Regression test: the periodic-sync scheduler must stop when requested, otherwise it
+    /// keeps issuing `SyncLiteSubscription` RPCs (and creating sessions) forever after the
+    /// consumer has been shut down.
+    #[tokio::test]
+    async fn test_stop_scheduler_cancels_periodic_sync() {
+        let sync_calls = Arc::new(AtomicUsize::new(0));
+
+        // The scheduler only issues the RPC when the subscription set is not empty; every
+        // attempt goes through `get_session_for_lite_consumer`, so counting that call is
+        // enough. It returns an error to avoid mocking the whole session layer.
+        let mut client = Client::default();
+        {
+            let sync_calls = Arc::clone(&sync_calls);
+            client
+                .expect_get_session_for_lite_consumer()
+                .times(1..)
+                .returning(move || {
+                    sync_calls.fetch_add(1, Ordering::SeqCst);
+                    Err(ClientError::new(
+                        ErrorKind::ClientInternal,
+                        "no session in test",
+                        OPERATION_SYNC_LITE_SUBSCRIPTION,
+                    ))
+                });
+        }
+        let client = Arc::new(client);
+
+        let mut manager = LiteSubscriptionManager::new(
+            client,
+            "bind_topic".to_string(),
+            "namespace".to_string(),
+            "group".to_string(),
+        );
+        manager.periodic_sync_interval = Duration::from_millis(50);
+
+        // Start with an empty subscription set so the initial sync inside `start()` is a no-op
+        // and succeeds without any server interaction.
+        manager.start().await.expect("manager should start");
+
+        // Subscribe from "outside": the scheduler now has a topic to sync and should start
+        // issuing RPCs.
+        manager.lite_topic_set.lock().insert("topic1".to_string());
+
+        // Give the scheduler a chance to tick, so the test proves it was running.
+        tokio::time::sleep(Duration::from_millis(120)).await;
+        let calls_before_stop = sync_calls.load(Ordering::SeqCst);
+        assert!(
+            calls_before_stop >= 1,
+            "the scheduler should keep issuing syncs while running"
+        );
+
+        manager.stop_scheduler().await;
+
+        // Keep the runtime alive for much longer than one sync interval: no further RPC may
+        // happen now that the scheduler has been cancelled.
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let calls_after_stop = sync_calls.load(Ordering::SeqCst);
+        assert_eq!(
+            calls_before_stop, calls_after_stop,
+            "no sync RPC may be issued after the scheduler was stopped"
+        );
+    }
+
+    /// Regression test: the server-provided `max_lite_topic_size` must be visible before the
+    /// first `subscribe_lite`, otherwise a topic that is valid on the server is rejected
+    /// locally against the built-in default of 64.
+    #[tokio::test]
+    async fn test_initial_settings_are_applied_before_first_subscribe() {
+        let mut client = Client::default();
+        {
+            // Validation passes, quota passes, then the RPC itself fails in this offline test.
+            client
+                .expect_get_session_for_lite_consumer()
+                .times(1..)
+                .returning(|| {
+                    Err(ClientError::new(
+                        ErrorKind::ClientInternal,
+                        "no session in test",
+                        OPERATION_SYNC_LITE_SUBSCRIPTION,
+                    ))
+                });
+        }
+        let client = Arc::new(client);
+
+        let manager = LiteSubscriptionManager::new(
+            client,
+            "bind_topic".to_string(),
+            "namespace".to_string(),
+            "group".to_string(),
+        );
+
+        // 80 ASCII bytes: longer than the built-in default (64), shorter than the server
+        // limit used below (128).
+        let lite_topic = "a".repeat(80);
+
+        // Before any settings arrived, `wait_for_initial_settings` must time out.
+        assert!(
+            !manager
+                .wait_for_initial_settings(Duration::from_millis(50))
+                .await,
+            "initial settings must not be reported as ready before they arrived"
+        );
+
+        // And the topic is rejected locally against the default max size.
+        let err = manager
+            .subscribe_lite(lite_topic.clone(), None)
+            .await
+            .err()
+            .expect("subscribe must fail while the default max size is in effect");
+        assert_eq!(*err.kind(), ErrorKind::Config);
+        assert!(err.message().contains("max length"));
+
+        // The server reports its settings (limit 128 > 80).
+        manager.sync_settings(&test_settings(128));
+
+        assert!(
+            manager
+                .wait_for_initial_settings(Duration::from_millis(50))
+                .await,
+            "initial settings must be reported as ready right after sync_settings"
+        );
+
+        // Now validation passes; the failure (if any) must come from the RPC layer, not from
+        // the local length check.
+        match manager.subscribe_lite(lite_topic, None).await {
+            Ok(()) => {}
+            Err(err) => {
+                assert_ne!(
+                    *err.kind(),
+                    ErrorKind::Config,
+                    "the topic must not be rejected by local validation anymore, got: {}",
+                    err.message()
+                );
+            }
+        }
     }
 }
