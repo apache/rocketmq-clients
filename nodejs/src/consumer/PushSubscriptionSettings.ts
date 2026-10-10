@@ -127,7 +127,7 @@ export class PushSubscriptionSettings extends Settings {
       // Convert protobuf Duration (seconds + nanos) to milliseconds without
       // losing sub-second precision.
       const toMillis = (duration?: Duration) =>
-        duration ? duration.getSeconds() * 1000 + duration.getNanos() / 1e6 : 0;
+        (duration ? duration.getSeconds() * 1000 + duration.getNanos() / 1e6 : 0);
       switch (backoffPolicy.getStrategyCase()) {
         case RetryPolicyPB.StrategyCase.EXPONENTIAL_BACKOFF: {
           const exponential = backoffPolicy.getExponentialBackoff()!;

@@ -83,7 +83,7 @@ describe('ExponentialBackoffRetryPolicy (ms contract)', () => {
 
 describe('CustomizedBackoffRetryPolicy', () => {
   it('should return the Nth duration and clamp to the last one', () => {
-    const policy = new CustomizedBackoffRetryPolicy([1000, 5000, 10000], 5);
+    const policy = new CustomizedBackoffRetryPolicy([ 1000, 5000, 10000 ], 5);
     assert.strictEqual(policy.getNextAttemptDelay(1), 1000);
     assert.strictEqual(policy.getNextAttemptDelay(2), 5000);
     assert.strictEqual(policy.getNextAttemptDelay(3), 10000);
@@ -98,7 +98,7 @@ describe('CustomizedBackoffRetryPolicy', () => {
     const retryPolicy = new RetryPolicyPB()
       .setMaxAttempts(4)
       .setCustomizedBackoff(customizedBackoff);
-    const policy = new CustomizedBackoffRetryPolicy([100], 3).inheritBackoff(retryPolicy);
+    const policy = new CustomizedBackoffRetryPolicy([ 100 ], 3).inheritBackoff(retryPolicy);
     assert.strictEqual(policy.getMaxAttempts(), 3);
     assert.strictEqual(policy.getNextAttemptDelay(1), 1000);
     assert.strictEqual(policy.getNextAttemptDelay(2), 500);
