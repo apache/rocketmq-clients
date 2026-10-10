@@ -121,6 +121,8 @@
 // Export structs that are part of crate API.
 #[cfg(not(test))]
 pub use lite_push_consumer::{LitePushConsumer, LitePushConsumerTrait};
+#[cfg(not(test))]
+pub use lite_simple_consumer::{LiteSimpleConsumer, LiteSimpleConsumerTrait};
 pub use model::common::ConsumeResult;
 pub use model::transaction::Transaction;
 pub use producer::Producer;
@@ -149,6 +151,10 @@ mod util;
 #[cfg(not(test))]
 mod lite_push_consumer;
 #[cfg(not(test))]
+mod lite_simple_consumer;
+// Not gated behind `cfg(not(test))`: the manager carries its own unit tests. Its `Client` is
+// doubled in test builds (`#[double]`), and the two consumers above — the only callers of
+// `LiteSubscriptionManager::new` — are excluded from test builds, so the types still line up.
 mod lite_subscription_manager;
 mod producer;
 mod push_consumer;

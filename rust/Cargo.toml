@@ -68,6 +68,13 @@ tokio-util = { version = "=0.7.10", features = ["rt"] }
 indexmap = ">=2.0, <2.8"
 # Explicitly pin hashbrown to versions compatible with Rust 1.74
 hashbrown = ">=0.12, <0.16"
+# Pin powerfmt to avoid 0.2.1+ which requires rustc 1.79 (MSRV is 1.74).
+# powerfmt is pulled in transitively via `time` -> `deranged`/`time`.
+powerfmt = ">=0.2.0, <0.2.1"
+# Pin hyper-util to avoid 0.1.21+ which switched to the 2024 edition and can no
+# longer be parsed by Cargo 1.74 (MSRV is 1.74). hyper-util is pulled in
+# transitively via `wiremock-grpc` -> `tonic` -> `hyper-timeout`.
+hyper-util = ">=0.1, <0.1.21"
 
 [build-dependencies]
 tonic-build = "0.10.2"

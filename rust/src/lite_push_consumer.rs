@@ -413,6 +413,13 @@ impl LitePushConsumerTrait for LitePushConsumer {
     async fn shutdown(&mut self) -> Result<(), ClientError> {
         info!("Shutting down LitePushConsumer...");
 
+        // Stop the periodic-sync scheduler first. It retains an `Arc<Client>` and the
+        // subscription set; if it kept running, its next tick would call
+        // `Client::get_session_for_lite_consumer()` — which deliberately bypasses the
+        // running-state check — and could re-create a session after
+        // `SessionManager::shutdown()` cleared the session map, then send `CompleteAdd` again.
+        self.lite_subscription_manager.stop_scheduler().await;
+
         if let Some(token) = self.shutdown_token.take() {
             token.cancel();
         }

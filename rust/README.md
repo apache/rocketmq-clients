@@ -38,6 +38,60 @@ cargo run --example producer
 cargo run --example simple_consumer
 ```
 
+### Lite Topic
+
+Lite topics are sub-topics of a parent topic with reduced metadata and storage overhead.
+
+Server side preparation:
+
+1. start the broker with `enableLmq=true` and `enableMultiDispatch=true`;
+2. create the parent topic with `message.type=LITE`:
+
+   ```sh
+   sh mqadmin updateTopic -n <namesrv> -c <cluster> -t <parentTopic> -a +message.type=LITE
+   ```
+
+3. create the consumer group and bind it to the parent topic:
+
+   ```sh
+   sh mqadmin updateSubGroup -n <namesrv> -c <cluster> -g <group> --attributes "+lite.bind.topic=<parentTopic>"
+   ```
+
+4. run the proxy in CLUSTER mode, the LOCAL mode does not serve lite subscriptions.
+
+Send a lite message:
+
+```rust
+let message = MessageBuilder::lite_message_builder("parentTopic", body, "lite-topic-1").build()?;
+let receipt = producer.send(message).await?;
+```
+
+Pull and ack lite messages with `LiteSimpleConsumer`, which is bound to one parent topic and
+subscribes lite topics dynamically:
+
+```rust
+let mut consumer = LiteSimpleConsumer::new(client_option, option, "parentTopic".to_string())?;
+consumer.start().await?;
+consumer
+    .subscribe_lite_with_offset("lite-topic-1".to_string(), OffsetOption::from_policy(OffsetPolicy::Min))
+    .await?;
+
+let messages = consumer.receive(32, Duration::from_secs(15)).await?;
+for message in &messages {
+    println!("{}", message.message_id());
+    consumer.ack(message).await?;
+}
+
+consumer.unsubscribe_lite("lite-topic-1".to_string()).await?;
+consumer.shutdown().await?;
+```
+
+A runnable version lives in `examples/lite_simple_consumer.rs`:
+
+```sh
+cargo run --example lite_simple_consumer
+```
+
 [codecov-rust-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=rust&label=Rust%20Coverage&logo=codecov
 [codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients
 [crates-image]: https://img.shields.io/crates/v/rocketmq.svg
