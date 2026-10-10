@@ -24,6 +24,7 @@ import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -34,6 +35,7 @@ public class ExecutorServices {
     private static final Logger log = LoggerFactory.getLogger(ExecutorServices.class);
     private static final Method NEW_VIRTUAL_THREAD_PER_TASK_EXECUTOR = findVirtualThreadExecutorFactory();
     private static final AtomicBoolean VIRTUAL_THREAD_FALLBACK_LOGGED = new AtomicBoolean(false);
+    private static final Object THREAD_POOL_RESIZE_LOCK = new Object();
 
     private ExecutorServices() {
     }
@@ -76,6 +78,46 @@ public class ExecutorServices {
             newExecutorService(true, platformExecutorSupplier), maxConcurrency);
     }
 
+    /**
+     * Updates the concurrency limit of an existing executor without replacing it or interrupting running tasks.
+     * A reduced limit takes effect as running tasks finish. For virtual-thread executors created by
+     * {@link #newConcurrencyLimitedExecutorService(boolean, int, Supplier)}, tasks wait for an available permit.
+     *
+     * @param executor a thread pool or an executor created by the concurrency-limited factory.
+     * @param maxConcurrency the new positive concurrency limit.
+     * @throws IllegalArgumentException if the limit is not positive.
+     * @throws UnsupportedOperationException if the executor does not expose a supported concurrency limit.
+     */
+    public static void updateConcurrencyLimit(ExecutorService executor, int maxConcurrency) {
+        Objects.requireNonNull(executor, "executor");
+        if (maxConcurrency <= 0) {
+            throw new IllegalArgumentException("maxConcurrency should be positive");
+        }
+        if (executor instanceof ConcurrencyLimitedExecutorService) {
+            ((ConcurrencyLimitedExecutorService) executor).updateConcurrencyLimit(maxConcurrency);
+            return;
+        }
+        if (executor instanceof ThreadPoolExecutor) {
+            resizeThreadPool((ThreadPoolExecutor) executor, maxConcurrency);
+            return;
+        }
+        throw new UnsupportedOperationException("Executor does not support runtime concurrency updates: "
+            + executor.getClass().getName());
+    }
+
+    private static void resizeThreadPool(ThreadPoolExecutor executor, int maxConcurrency) {
+        synchronized (THREAD_POOL_RESIZE_LOCK) {
+            // Raise the maximum before the core size; reduce the core size before the maximum.
+            if (maxConcurrency > executor.getMaximumPoolSize()) {
+                executor.setMaximumPoolSize(maxConcurrency);
+            }
+            executor.setCorePoolSize(maxConcurrency);
+            if (executor.getMaximumPoolSize() != maxConcurrency) {
+                executor.setMaximumPoolSize(maxConcurrency);
+            }
+        }
+    }
+
     static boolean isVirtualThreadSupported() {
         return null != NEW_VIRTUAL_THREAD_PER_TASK_EXECUTOR;
     }
@@ -107,11 +149,27 @@ public class ExecutorServices {
 
     private static class ConcurrencyLimitedExecutorService extends AbstractExecutorService {
         private final ExecutorService delegate;
-        private final Semaphore semaphore;
+        private final ResizableSemaphore semaphore;
+        private int maxConcurrency;
 
         private ConcurrencyLimitedExecutorService(ExecutorService delegate, int maxConcurrency) {
             this.delegate = delegate;
-            this.semaphore = new Semaphore(maxConcurrency, true);
+            this.semaphore = new ResizableSemaphore(maxConcurrency);
+            this.maxConcurrency = maxConcurrency;
+        }
+
+        private synchronized void updateConcurrencyLimit(int newMaxConcurrency) {
+            // A runtime without virtual threads falls back to a platform executor. Resize that executor too.
+            if (delegate instanceof ThreadPoolExecutor) {
+                resizeThreadPool((ThreadPoolExecutor) delegate, newMaxConcurrency);
+            }
+            final int difference = newMaxConcurrency - maxConcurrency;
+            if (difference > 0) {
+                semaphore.release(difference);
+            } else if (difference < 0) {
+                semaphore.reduce(-difference);
+            }
+            maxConcurrency = newMaxConcurrency;
         }
 
         @Override
@@ -161,6 +219,19 @@ public class ExecutorServices {
                     }
                 }
             });
+        }
+    }
+
+    private static class ResizableSemaphore extends Semaphore {
+        private static final long serialVersionUID = 1L;
+
+        private ResizableSemaphore(int permits) {
+            super(permits, true);
+        }
+
+        private void reduce(int permits) {
+            // Negative available permits keep new tasks waiting until enough existing tasks have completed.
+            reducePermits(permits);
         }
     }
 }

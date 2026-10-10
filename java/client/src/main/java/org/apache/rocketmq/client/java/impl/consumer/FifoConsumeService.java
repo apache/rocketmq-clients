@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.java.impl.consumer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.rocketmq.client.apis.consumer.AsyncMessageListener;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
@@ -46,22 +48,36 @@ class FifoConsumeService extends ConsumeService {
         this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
     }
 
+    public FifoConsumeService(ClientId clientId, String consumerGroup, AsyncMessageListener messageListener,
+        ExecutorService consumptionExecutor, MessageInterceptor messageInterceptor,
+        ScheduledExecutorService scheduler, int maxConcurrentConsumptions, boolean enableFifoConsumeAccelerator) {
+        super(clientId, consumerGroup, messageListener, consumptionExecutor, messageInterceptor, scheduler,
+            maxConcurrentConsumptions);
+        this.enableFifoConsumeAccelerator = enableFifoConsumeAccelerator;
+    }
+
     @Override
     public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
-        if (!enableFifoConsumeAccelerator || messageViews.size() <= 1) {
-            consumeIteratively(pq, messageViews.iterator());
-            return;
-        }
-        Map<String, List<MessageViewImpl>> messageViewsGroupByGroupKey = new HashMap<>();
-        for (MessageViewImpl messageView : messageViews) {
-            // Group messages by group key. Default to null-key group for unkeyed messages.
-            String groupKey = getMessageGroupKey(messageView);
-            messageViewsGroupByGroupKey.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(messageView);
-        }
-        log.debug("FifoConsumeService parallel consume, messageViewsNum={}, groupNum={}", messageViews.size(),
-            messageViewsGroupByGroupKey.size());
+        SettableFuture<Void> dispatch = SettableFuture.create();
+        trackCompletion(dispatch);
+        try {
+            if (!enableFifoConsumeAccelerator || messageViews.size() <= 1) {
+                consumeIteratively(pq, messageViews.iterator());
+                return;
+            }
+            Map<String, List<MessageViewImpl>> messageViewsGroupByGroupKey = new HashMap<>();
+            for (MessageViewImpl messageView : messageViews) {
+                // Group messages by group key. Default to null-key group for unkeyed messages.
+                String groupKey = getMessageGroupKey(messageView);
+                messageViewsGroupByGroupKey.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(messageView);
+            }
+            log.debug("FifoConsumeService parallel consume, messageViewsNum={}, groupNum={}", messageViews.size(),
+                messageViewsGroupByGroupKey.size());
 
-        messageViewsGroupByGroupKey.values().forEach(list -> consumeIteratively(pq, list.iterator()));
+            messageViewsGroupByGroupKey.values().forEach(list -> consumeIteratively(pq, list.iterator()));
+        } finally {
+            dispatch.set(null);
+        }
     }
 
     /**
@@ -77,6 +93,12 @@ class FifoConsumeService extends ConsumeService {
      * This method handles corrupted messages and continues processing the next valid message.
      */
     protected void consumeIteratively(ProcessQueue pq, Iterator<MessageViewImpl> iterator) {
+        if (isAsyncConsumption()) {
+            SettableFuture<Void> batch = SettableFuture.create();
+            trackCompletion(batch);
+            consumeAsyncIteratively(pq, iterator, batch);
+            return;
+        }
         MessageViewImpl messageView = getNextValidMessage(pq, iterator);
         if (messageView == null) {
             return;
@@ -85,6 +107,20 @@ class FifoConsumeService extends ConsumeService {
         ListenableFuture<Void> future = Futures.transformAsync(future0, result -> pq.eraseFifoMessage(messageView,
             result), MoreExecutors.directExecutor());
         future.addListener(() -> consumeIteratively(pq, iterator), MoreExecutors.directExecutor());
+    }
+
+    private void consumeAsyncIteratively(ProcessQueue pq, Iterator<MessageViewImpl> iterator,
+        SettableFuture<Void> batch) {
+        MessageViewImpl messageView = getNextValidMessage(pq, iterator);
+        if (null == messageView) {
+            batch.set(null);
+            return;
+        }
+        ListenableFuture<ConsumeResult> consumption = consume(messageView);
+        ListenableFuture<Void> completion = Futures.transformAsync(consumption,
+            result -> pq.eraseFifoMessage(messageView, result), MoreExecutors.directExecutor());
+        // Keep the entire group batch registered across ACK completion and dispatch of the next message.
+        completion.addListener(() -> consumeAsyncIteratively(pq, iterator, batch), MoreExecutors.directExecutor());
     }
 
     /**
