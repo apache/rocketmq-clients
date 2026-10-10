@@ -348,6 +348,24 @@ class MessageView implements MessageViewInterface
     }
 
     /**
+     * Get the lite (logical) topic this message was published to.
+     *
+     * Only lite (LMQ) messages carry one; regular messages return null.
+     * Mirrors the Java client's SystemProperties#getLiteTopic and the C#
+     * port's MessageView.LiteTopic.
+     *
+     * @return string|null The lite topic name, or null for non-lite messages
+     */
+    public function getLiteTopic(): ?string
+    {
+        $sysProps = $this->getSystemProperties();
+        if ($sysProps !== null && method_exists($sysProps, 'hasLiteTopic') && $sysProps->hasLiteTopic()) {
+            return $sysProps->getLiteTopic();
+        }
+        return null;
+    }
+
+    /**
      * Check if this is a FIFO message.
      *
      * @return bool

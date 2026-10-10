@@ -122,7 +122,10 @@ class PushConsumer implements ConsumerInterface
         if (empty($consumerGroup)) {
             throw new \InvalidArgumentException("PushConsumer consumerGroup cannot be empty");
         }
-        $this->clientId = $options['clientId'] ?? ('php-push-consumer-' . getmypid() . '-' . time());
+        // Treat an explicitly-passed empty clientId as unset (see SimpleConsumer).
+        $this->clientId = ($options['clientId'] ?? '') !== ''
+            ? $options['clientId']
+            : ('php-push-consumer-' . getmypid() . '-' . time());
         $this->messageListener = $options['messageListener'] ?? null;
         $this->subscriptionExpressions = $options['subscriptionExpressions'] ?? [];
         $this->maxCacheMessageCount = $options['maxCacheMessageCount'] ?? 4096;

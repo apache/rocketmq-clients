@@ -55,7 +55,7 @@ class SimpleConsumer
     protected readonly TelemetrySession $telemetrySession;
     private array $subscriptions = [];
     protected bool $isStarted = false;
-    private readonly Logger $logger;
+    protected readonly Logger $logger;
     private ?SessionCredentials $credentials = null;
     private string $namespace = '';
     private int $requestTimeout = 3000; // ms
@@ -92,7 +92,11 @@ class SimpleConsumer
         protected readonly string $consumerGroup,
         array $options = []
     ) {
-        $this->clientId = $options['clientId'] ?? ('php-consumer-' . getmypid() . '-' . time());
+        // Treat an explicitly-passed empty clientId as unset (builders default to ''),
+        // otherwise a '' clientId leaks into TelemetrySession (typed prop) and signing.
+        $this->clientId = ($options['clientId'] ?? '') !== ''
+            ? $options['clientId']
+            : ('php-consumer-' . getmypid() . '-' . time());
         $this->namespace = $options['namespace'] ?? '';
         $this->requestTimeout = $options['requestTimeout'] ?? 3000;
         $this->awaitDuration = $options['awaitDuration'] ?? 30;

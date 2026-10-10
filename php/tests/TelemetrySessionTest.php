@@ -526,14 +526,15 @@ class TelemetrySessionTest extends TestCase
     }
 
     /**
-     * Test getClientId when no clientId is provided throws (uninitialized property).
+     * Test getClientId when no clientId is provided falls back to an empty
+     * string (the typed property has a default) instead of erroring on an
+     * uninitialized property.
      */
     public function testGetClientIdDefault()
     {
         $fakeClient = new FakeMessagingClientForSession();
         $session = TelemetrySession::getInstance($fakeClient, 'ep-noclient', null);
-        $this->expectException(\Error::class);
-        $session->getClientId();
+        $this->assertSame('', $session->getClientId());
     }
 
     // ========================

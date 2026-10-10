@@ -48,7 +48,7 @@ class TelemetrySession
     /** @var object|null gRPC stream */
     private $stream;
     private Logger $logger;
-    private string $clientId;
+    private string $clientId = '';
 
     // Settings sync state
     private bool $settingsSynced = false;
@@ -532,14 +532,21 @@ class TelemetrySession
         if (!$this->stream) {
             return;
         }
-        
+
         if (SwooleCompat::isAvailable()) {
             // In Swoole mode, background reader handles it
             return;
         }
-        
-        // In non-Swoole mode, manually poll
-        $this->pollTelemetryManual();
+
+        // Non-Swoole mode: gRPC PHP has no non-blocking read for an open stream
+        // (BidiStreamingCall::read() blocks until the next frame arrives or the
+        // call deadline expires, and this long-lived stream intentionally has no
+        // deadline). An opportunistic read here therefore stalls the caller
+        // indefinitely whenever no telemetry frame is pending -- observed as a
+        // permanent receive() hang against a real proxy. Frames are drained at
+        // points where a reply is guaranteed to be pending instead (the settings
+        // handshake, which calls pollTelemetryManual() directly); install Swoole
+        // for full server-push handling of telemetry commands.
     }
 
     /**
