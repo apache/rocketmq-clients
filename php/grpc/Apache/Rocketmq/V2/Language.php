@@ -35,6 +35,34 @@ class Language
      * Generated from protobuf enum <code>RUST = 5;</code>
      */
     const RUST = 5;
+    /**
+     * Generated from protobuf enum <code>PYTHON = 6;</code>
+     */
+    const PYTHON = 6;
+    /**
+     * Generated from protobuf enum <code>PHP = 7;</code>
+     */
+    const PHP = 7;
+    /**
+     * Generated from protobuf enum <code>NODE_JS = 8;</code>
+     */
+    const NODE_JS = 8;
+    /**
+     * Generated from protobuf enum <code>RUBY = 9;</code>
+     */
+    const RUBY = 9;
+    /**
+     * Generated from protobuf enum <code>OBJECTIVE_C = 10;</code>
+     */
+    const OBJECTIVE_C = 10;
+    /**
+     * Generated from protobuf enum <code>DART = 11;</code>
+     */
+    const DART = 11;
+    /**
+     * Generated from protobuf enum <code>KOTLIN = 12;</code>
+     */
+    const KOTLIN = 12;
 
     private static $valueToName = [
         self::LANGUAGE_UNSPECIFIED => 'LANGUAGE_UNSPECIFIED',
@@ -43,6 +71,13 @@ class Language
         self::DOT_NET => 'DOT_NET',
         self::GOLANG => 'GOLANG',
         self::RUST => 'RUST',
+        self::PYTHON => 'PYTHON',
+        self::PHP => 'PHP',
+        self::NODE_JS => 'NODE_JS',
+        self::RUBY => 'RUBY',
+        self::OBJECTIVE_C => 'OBJECTIVE_C',
+        self::DART => 'DART',
+        self::KOTLIN => 'KOTLIN',
     ];
 
     public static function name($value)
