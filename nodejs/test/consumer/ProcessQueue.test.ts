@@ -32,8 +32,8 @@ function makeConsumer(consumeConcurrentlyMax: number): any {
     wrapChangeInvisibleDurationRequest: () => ({}),
     getConsumerGroup: () => 'cg',
     clientId: 'client',
-    logger: { info: () => {}, debug: () => {}, warn: () => {}, error: () => {} },
-    getConsumeService: () => ({ consume: () => {} }),
+    logger: { info: () => undefined, debug: () => undefined, warn: () => undefined, error: () => undefined },
+    getConsumeService: () => ({ consume: () => undefined }),
     cacheMessageCountThresholdPerQueue: () => 1024,
     cacheMessageBytesThresholdPerQueue: () => 1024 * 1024,
   };
@@ -55,7 +55,7 @@ const mq: any = { topic: { name: 't' }, broker: { name: 'b' }, queueId: 0 };
 describe('ProcessQueue consumption permit (backpressure)', () => {
   it('caps cached messages by consumeConcurrentlyMax and reports availablePermits', () => {
     const pq = new ProcessQueue(makeConsumer(2), mq, new FilterExpression('*'));
-    pq.cacheMessages([makeMessage('a'), makeMessage('b'), makeMessage('c')]);
+    pq.cacheMessages([ makeMessage('a'), makeMessage('b'), makeMessage('c') ]);
     // Only two permits exist, so only two messages are cached.
     assert.strictEqual(pq.cachedMessagesCount(), 2);
     assert.strictEqual(pq.availablePermits(), 0);
@@ -64,7 +64,7 @@ describe('ProcessQueue consumption permit (backpressure)', () => {
   it('releases a permit when a message is settled (discarded/nacked)', async () => {
     const pq = new ProcessQueue(makeConsumer(2), mq, new FilterExpression('*'));
     const a = makeMessage('a');
-    pq.cacheMessages([a, makeMessage('b')]);
+    pq.cacheMessages([ a, makeMessage('b') ]);
     assert.strictEqual(pq.availablePermits(), 0);
     // discardMessage -> nack -> (async) evict -> release permit
     pq.discardMessage(a);
@@ -75,7 +75,7 @@ describe('ProcessQueue consumption permit (backpressure)', () => {
   it('releases nothing for an unknown message (no double release)', async () => {
     const pq = new ProcessQueue(makeConsumer(2), mq, new FilterExpression('*'));
     const a = makeMessage('a');
-    pq.cacheMessages([a]);
+    pq.cacheMessages([ a ]);
     assert.strictEqual(pq.availablePermits(), 1);
     pq.discardMessage(makeMessage('z')); // not in cache
     await new Promise(r => setTimeout(r, 30));

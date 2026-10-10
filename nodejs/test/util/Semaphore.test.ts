@@ -65,8 +65,8 @@ describe('Semaphore (consumption permit primitive)', () => {
     s.release();
     s.release();
     s.release();
-    await Promise.all([a, b, c]);
-    assert.deepStrictEqual(order, [1, 2, 3]);
+    await Promise.all([ a, b, c ]);
+    assert.deepStrictEqual(order, [ 1, 2, 3 ]);
     assert.strictEqual(s.availablePermits, 0);
   });
 

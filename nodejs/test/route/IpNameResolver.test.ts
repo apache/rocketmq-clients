@@ -36,6 +36,7 @@ function makeTarget(path: string) {
  */
 function resolve(path: string): Promise<Endpoint[]> {
   return new Promise((resolvePromise, rejectPromise) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const listener = (endpointList: any, _attrs: any, _cfg: any, _note: string) => {
       if (endpointList.ok) {
         resolvePromise(endpointList.value as Endpoint[]);
@@ -89,7 +90,7 @@ describe('IpNameResolver (custom ip scheme, mirrors Java IpNameResolverFactory)'
     try {
       const eps = await resolve('10.0.0.1:80,10.0.0.2:80,10.0.0.3:80');
       const order = eps.map(e => e.addresses[0].host);
-      assert.deepStrictEqual(order, ['10.0.0.2', '10.0.0.3', '10.0.0.1']);
+      assert.deepStrictEqual(order, [ '10.0.0.2', '10.0.0.3', '10.0.0.1' ]);
     } finally {
       Math.random = original;
     }
@@ -97,7 +98,7 @@ describe('IpNameResolver (custom ip scheme, mirrors Java IpNameResolverFactory)'
 
   it('returns a permutation (all original addresses, no duplicates) across runs', async () => {
     const input = '10.0.0.1:80,10.0.0.2:80,10.0.0.3:80,10.0.0.4:80';
-    const expected = new Set(['10.0.0.1:80', '10.0.0.2:80', '10.0.0.3:80', '10.0.0.4:80']);
+    const expected = new Set([ '10.0.0.1:80', '10.0.0.2:80', '10.0.0.3:80', '10.0.0.4:80' ]);
     for (let i = 0; i < 20; i++) {
       const eps = await resolve(input);
       assert.strictEqual(eps.length, 4);

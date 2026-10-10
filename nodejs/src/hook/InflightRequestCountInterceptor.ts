@@ -26,12 +26,14 @@ import { GeneralMessage, MessageInterceptor } from './MessageInterceptor';
 export class InflightRequestCountInterceptor implements MessageInterceptor {
   #inflightReceiveRequestCount = 0;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   doBefore(context: MessageInterceptorContext, _messages: GeneralMessage[]) {
     if (context.getMessageHookPoints() === MessageHookPoints.RECEIVE) {
       this.#inflightReceiveRequestCount++;
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   doAfter(context: MessageInterceptorContext, _messages: GeneralMessage[]) {
     if (context.getMessageHookPoints() === MessageHookPoints.RECEIVE) {
       this.#inflightReceiveRequestCount--;
