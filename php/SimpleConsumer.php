@@ -52,9 +52,9 @@ class SimpleConsumer
 
     private readonly MessagingServiceClient $client;
     private readonly string $clientId;
-    private readonly TelemetrySession $telemetrySession;
+    protected readonly TelemetrySession $telemetrySession;
     private array $subscriptions = [];
-    private bool $isStarted = false;
+    protected bool $isStarted = false;
     private readonly Logger $logger;
     private ?SessionCredentials $credentials = null;
     private string $namespace = '';
@@ -88,8 +88,8 @@ class SimpleConsumer
      *                        - subscriptionExpressions: array<string,string>, pre-populated subscriptions (topic => expression)
      */
     public function __construct(
-        private readonly string $endpoints,
-        private readonly string $consumerGroup,
+        protected readonly string $endpoints,
+        protected readonly string $consumerGroup,
         array $options = []
     ) {
         $this->clientId = $options['clientId'] ?? ('php-consumer-' . getmypid() . '-' . time());
@@ -165,6 +165,41 @@ class SimpleConsumer
     }
 
     /**
+     * Get the client type reported to the broker in telemetry/heartbeat.
+     *
+     * Subclasses (e.g. LiteSimpleConsumer) override this to report a lite client type.
+     *
+     * @return int One of the ClientType constants
+     */
+    protected function getClientType(): int
+    {
+        return ClientType::SIMPLE_CONSUMER;
+    }
+
+    /**
+     * Ensure the consumer has not been started yet.
+     *
+     * @return void
+     * @throws \RuntimeException If the consumer is already started
+     */
+    protected function checkNotRunning(): void
+    {
+        if ($this->isStarted) {
+            throw new \RuntimeException("Consumer already started");
+        }
+    }
+
+    /**
+     * Whether the consumer has been started.
+     *
+     * @return bool
+     */
+    public function isRunning(): bool
+    {
+        return $this->isStarted;
+    }
+
+    /**
      * Start the consumer
      *
      * @return void
@@ -225,7 +260,7 @@ class SimpleConsumer
     public function doHeartbeat(): void
     {
         $request = new HeartbeatRequest();
-        $request->setClientType(ClientType::SIMPLE_CONSUMER);
+        $request->setClientType($this->getClientType());
         $groupResource = new Resource();
         $groupResource->setName($this->consumerGroup);
         $request->setGroup($groupResource);
@@ -285,7 +320,7 @@ class SimpleConsumer
 
         // Create Settings
         $settings = new Settings();
-        $settings->setClientType(ClientType::SIMPLE_CONSUMER);
+        $settings->setClientType($this->getClientType());
         $settings->setUserAgent($ua);
         $settings->setSubscription($subscription);
 
@@ -676,6 +711,22 @@ class SimpleConsumer
     }
 
     /**
+     * Resolve the topic to put in an AckMessage / ChangeInvisibleDuration request.
+     *
+     * For a normal consumer this is the message's own topic. Lite consumers bind
+     * to a parent topic and must address the request at the parent topic while
+     * carrying the logical lite topic separately (via lite_topic), so subclasses
+     * override this to return the bound parent topic.
+     *
+     * @param object $message MessageView to acknowledge
+     * @return string|null
+     */
+    protected function getAckRequestTopic($message): ?string
+    {
+        return $this->extractTopic($message);
+    }
+
+    /**
      * Acknowledge messages.
      *
      * @param array $messages List of message objects to acknowledge
@@ -695,7 +746,7 @@ class SimpleConsumer
         // Group messages by topic and broker endpoint for ack
         $messagesByGroup = [];
         foreach ($messages as $message) {
-            $topic = $this->extractTopic($message);
+            $topic = $this->getAckRequestTopic($message);
             if (!$topic) {
                 continue;
             }
@@ -771,6 +822,10 @@ class SimpleConsumer
                 $entry->setMessageId($messageId);
             }
             $entry->setReceiptHandle($receiptHandle);
+            // Carry the lite topic so the proxy can resolve LMQ receipt handles.
+            if (($liteTopic = $this->extractLiteTopic($message)) !== null) {
+                $entry->setLiteTopic($liteTopic);
+            }
             $entries[] = $entry;
         }
 
@@ -924,7 +979,7 @@ class SimpleConsumer
 
         $receiptHandle = $this->extractReceiptHandle($message);
         $messageId = $this->extractMessageId($message);
-        $topic = $this->extractTopic($message);
+        $topic = $this->getAckRequestTopic($message);
 
         if (!$receiptHandle) {
             $this->logger->warning("SimpleConsumer changeInvisibleDuration: no receipt handle, skipping");
@@ -948,6 +1003,10 @@ class SimpleConsumer
         $request->setInvisibleDuration($duration);
         if ($messageId) {
             $request->setMessageId($messageId);
+        }
+        // Carry the lite topic so the proxy can resolve LMQ receipt handles.
+        if (($liteTopic = $this->extractLiteTopic($message)) !== null) {
+            $request->setLiteTopic($liteTopic);
         }
 
         // Set gRPC deadline in metadata (server-side enforcement)
