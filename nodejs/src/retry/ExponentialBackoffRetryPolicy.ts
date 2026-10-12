@@ -62,7 +62,7 @@ export class ExponentialBackoffRetryPolicy implements RetryPolicy {
     // losing sub-second precision (e.g. an initial backoff of 0.5s used to
     // be truncated to plain 0, causing immediate retries).
     const toMillis = (duration?: { seconds?: number; nanos?: number }) =>
-      duration ? (duration.seconds ?? 0) * 1000 + (duration.nanos ?? 0) / 1e6 : 0;
+      (duration ? (duration.seconds ?? 0) * 1000 + (duration.nanos ?? 0) / 1e6 : 0);
     return new ExponentialBackoffRetryPolicy(this.#maxAttempts,
       toMillis(backoff.initial),
       toMillis(backoff.max),

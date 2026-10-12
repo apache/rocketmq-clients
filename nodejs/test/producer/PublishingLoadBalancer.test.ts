@@ -62,7 +62,7 @@ describe('takeMessageQueueByMessageGroup floorMod semantics (C-1)', () => {
 
   it('should always yield a non-negative index matching Java LongMath.mod', () => {
     const loadBalancer = buildLoadBalancer(8);
-    const groups = ['group-a', 'fifo-group', 'group-中文', 'x', 'order-12345', ''];
+    const groups = [ 'group-a', 'fifo-group', 'group-中文', 'x', 'order-12345', '' ];
     for (const group of groups) {
       const mq = loadBalancer.takeMessageQueueByMessageGroup(group);
       assert.ok(mq, 'should resolve a message queue for group=' + group);

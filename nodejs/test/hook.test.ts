@@ -117,9 +117,11 @@ function eventRecorder(events: string[], key?: AttributeKey<string>, value?: str
 
 describe('Telemetry command dispatch vs Java (J-1)', () => {
   it('should dispatch NOTIFY_UNSUBSCRIBE_LITE_COMMAND to the client', () => {
+    /* eslint-disable @typescript-eslint/no-var-requires */
     const { EventEmitter } = require('node:events');
     const { TelemetryCommand, NotifyUnsubscribeLiteCommand } = require('../proto/apache/rocketmq/v2/service_pb');
     const { TelemetrySession } = require('../src/client/TelemetrySession');
+    /* eslint-enable @typescript-eslint/no-var-requires */
 
     const received: Array<{ liteTopic: string; facade: string }> = [];
     const stream = new EventEmitter();
@@ -135,7 +137,7 @@ describe('Telemetry command dispatch vs Java (J-1)', () => {
       },
     };
     new TelemetrySession(fakeClient, new Endpoints('127.0.0.1:8081'),
-      { info() {}, warn() {}, error() {}, debug() {} });
+      { info: () => undefined, warn: () => undefined, error: () => undefined, debug: () => undefined });
 
     const telemetryCommand = new TelemetryCommand();
     telemetryCommand.setNotifyUnsubscribeLiteCommand(new NotifyUnsubscribeLiteCommand().setLiteTopic('lite-topic-1'));

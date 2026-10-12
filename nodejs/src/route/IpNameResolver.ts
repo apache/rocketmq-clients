@@ -53,6 +53,7 @@ class IpResolver {
   private error: { code: Status; details: string; metadata: Metadata } | null = null;
   private hasReturnedResult = false;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(target: experimental.GrpcUri, listener: experimental.ResolverListener, _channelOptions: ChannelOptions) {
     this.listener = listener;
     const pathList = (target.path || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -72,7 +73,7 @@ class IpResolver {
         port: hostPort.port ?? DEFAULT_PORT,
       });
     }
-    this.endpoints = shuffle(addresses).map(address => ({ addresses: [address] }));
+    this.endpoints = shuffle(addresses).map(address => ({ addresses: [ address ] }));
   }
 
   updateResolution(): void {
