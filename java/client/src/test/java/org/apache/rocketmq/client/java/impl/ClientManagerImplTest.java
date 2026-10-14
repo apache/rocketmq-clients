@@ -34,11 +34,15 @@ import com.google.common.util.concurrent.Futures;
 import io.grpc.ConnectivityState;
 import io.grpc.Metadata;
 import io.grpc.Status;
+import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.RpcClient;
@@ -317,6 +321,104 @@ public class ClientManagerImplTest extends TestBase {
         final Client client = Mockito.mock(Client.class);
         Mockito.when(client.getClientId()).thenReturn(FAKE_CLIENT_ID);
         return new ClientManagerImpl(client);
+    }
+
+    @Test
+    public void testDefaultInternalThreadCounts() throws Exception {
+        ClientManagerImpl manager = createClientManager();
+        try {
+            int availableProcessors = Runtime.getRuntime().availableProcessors();
+            ScheduledThreadPoolExecutor scheduler = (ScheduledThreadPoolExecutor) manager.getScheduler();
+            ThreadPoolExecutor asyncWorker = (ThreadPoolExecutor) getAsyncWorker(manager);
+            Assert.assertEquals(availableProcessors, scheduler.getCorePoolSize());
+            Assert.assertEquals(availableProcessors, asyncWorker.getCorePoolSize());
+            Assert.assertEquals(availableProcessors, asyncWorker.getMaximumPoolSize());
+            Assert.assertEquals(50000, asyncWorker.getQueue().remainingCapacity());
+        } finally {
+            manager.shutDown();
+        }
+    }
+
+    @Test
+    public void testConfiguredInternalExecutorsRunTasksAndTerminate() throws Exception {
+        ClientConfiguration configuration = ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS)
+            .setSchedulerThreadCount(1).setAsyncWorkerThreadCount(2).setCallbackThreadCount(3).build();
+        ClientManagerImpl manager = createClientManager(configuration);
+        ExecutorService asyncWorker = getAsyncWorker(manager);
+        try {
+            ScheduledThreadPoolExecutor scheduler = (ScheduledThreadPoolExecutor) manager.getScheduler();
+            Assert.assertEquals(1, scheduler.getCorePoolSize());
+            ThreadPoolExecutor platformAsyncWorker = (ThreadPoolExecutor) asyncWorker;
+            Assert.assertEquals(2, platformAsyncWorker.getCorePoolSize());
+            Assert.assertEquals(2, platformAsyncWorker.getMaximumPoolSize());
+            Assert.assertEquals(50000, platformAsyncWorker.getQueue().remainingCapacity());
+            Assert.assertTrue(scheduler.schedule(() -> Thread.currentThread().getName(), 0, TimeUnit.SECONDS)
+                .get(5, TimeUnit.SECONDS).startsWith("RocketmqClientScheduler"));
+            Assert.assertTrue(asyncWorker.submit(() -> Thread.currentThread().getName())
+                .get(5, TimeUnit.SECONDS).startsWith("RocketmqClientAsyncWorker"));
+        } finally {
+            manager.shutDown();
+        }
+        Assert.assertTrue(manager.getScheduler().isTerminated());
+        Assert.assertTrue(asyncWorker.isTerminated());
+    }
+
+    @Test
+    public void testClientManagersOwnIndependentExecutors() throws Exception {
+        ClientConfiguration configuration = ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS)
+            .setSchedulerThreadCount(1).setAsyncWorkerThreadCount(1).build();
+        ClientManagerImpl first = createClientManager(configuration);
+        ClientManagerImpl second = createClientManager(configuration);
+        ExecutorService firstAsyncWorker = getAsyncWorker(first);
+        ExecutorService secondAsyncWorker = getAsyncWorker(second);
+        try {
+            Assert.assertNotSame(first.getScheduler(), second.getScheduler());
+            Assert.assertNotSame(firstAsyncWorker, secondAsyncWorker);
+            first.shutDown();
+            Assert.assertTrue(first.getScheduler().isTerminated());
+            Assert.assertTrue(firstAsyncWorker.isTerminated());
+            Assert.assertFalse(second.getScheduler().isShutdown());
+            Assert.assertFalse(secondAsyncWorker.isShutdown());
+            Assert.assertEquals(Integer.valueOf(1), second.getScheduler()
+                .schedule(() -> 1, 0, TimeUnit.SECONDS).get(5, TimeUnit.SECONDS));
+            Assert.assertEquals(Integer.valueOf(2), secondAsyncWorker.submit(() -> 2).get(5, TimeUnit.SECONDS));
+        } finally {
+            first.shutDown();
+            second.shutDown();
+        }
+    }
+
+    @Test
+    public void testSchedulerConfigurationWithVirtualThreadsAndPlatformFallback() throws Exception {
+        ClientConfiguration configuration = ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS)
+            .enableVirtualThreads(true).setSchedulerThreadCount(1).setAsyncWorkerThreadCount(3).build();
+        ClientManagerImpl manager = createClientManager(configuration);
+        try {
+            Assert.assertEquals(1, ((ScheduledThreadPoolExecutor) manager.getScheduler()).getCorePoolSize());
+            ExecutorService asyncWorker = getAsyncWorker(manager);
+            Thread taskThread = asyncWorker.submit(Thread::currentThread).get(5, TimeUnit.SECONDS);
+            if (asyncWorker instanceof ThreadPoolExecutor) {
+                Assert.assertEquals(3, ((ThreadPoolExecutor) asyncWorker).getCorePoolSize());
+                Assert.assertEquals(3, ((ThreadPoolExecutor) asyncWorker).getMaximumPoolSize());
+            } else {
+                Assert.assertEquals(Boolean.TRUE, Thread.class.getMethod("isVirtual").invoke(taskThread));
+            }
+        } finally {
+            manager.shutDown();
+        }
+    }
+
+    private ClientManagerImpl createClientManager(ClientConfiguration configuration) {
+        Client client = Mockito.mock(Client.class);
+        Mockito.when(client.getClientId()).thenReturn(new ClientId());
+        Mockito.when(client.isVirtualThreadsEnabled()).thenReturn(configuration.isVirtualThreadsEnabled());
+        return new ClientManagerImpl(client, configuration);
+    }
+
+    private ExecutorService getAsyncWorker(ClientManagerImpl manager) throws ReflectiveOperationException {
+        Field field = ClientManagerImpl.class.getDeclaredField("asyncWorker");
+        field.setAccessible(true);
+        return (ExecutorService) field.get(manager);
     }
 
 }
