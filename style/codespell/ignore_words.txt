@@ -7,3 +7,5 @@ atleast
 # package-lock.json false positives (base64 hashes and package binary names)
 ba
 marge
+# SipHash24.php: 64-bit arithmetic split into low/high 32-bit variable
+aLo
