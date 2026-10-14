@@ -44,10 +44,28 @@ type publishingLoadBalancer struct {
 var _ = PublishingLoadBalancer(&publishingLoadBalancer{})
 
 var NewPublishingLoadBalancer = func(messageQueues []*v2.MessageQueue) (PublishingLoadBalancer, error) {
+	messageQueues = filterWritableMasterQueues(messageQueues)
+	if len(messageQueues) == 0 {
+		return nil, fmt.Errorf("no writable message queue found")
+	}
 	plb := &publishingLoadBalancer{
 		messageQueues: messageQueues,
 	}
 	return plb, nil
+}
+
+func filterWritableMasterQueues(messageQueues []*v2.MessageQueue) []*v2.MessageQueue {
+	filtered := make([]*v2.MessageQueue, 0, len(messageQueues))
+	for _, mq := range messageQueues {
+		if mq == nil || mq.GetBroker() == nil || mq.GetBroker().GetId() != 0 {
+			continue
+		}
+		permission := mq.GetPermission()
+		if permission == v2.Permission_WRITE || permission == v2.Permission_READ_WRITE {
+			filtered = append(filtered, mq)
+		}
+	}
+	return filtered
 }
 
 func (plb *publishingLoadBalancer) TakeMessageQueueByMessageGroup(messageGroup *string) ([]*v2.MessageQueue, error) {
@@ -123,7 +141,7 @@ func (plb *publishingLoadBalancer) TakeMessageQueues(excluded *sync.Map, count i
 
 func (plb *publishingLoadBalancer) CopyAndUpdate(messageQueues []*v2.MessageQueue) PublishingLoadBalancer {
 	return &publishingLoadBalancer{
-		messageQueues: messageQueues,
+		messageQueues: filterWritableMasterQueues(messageQueues),
 		index:         plb.index,
 	}
 }
