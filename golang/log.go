@@ -44,12 +44,14 @@ const (
 	defaultLogMaxFileSize = 100 // unit: MB
 )
 
-var sugarBaseLogger *zap.SugaredLogger
+var sugarBaseLogger *internalLogger
 
+// ResetLogger restores the default Zap-backed logger.
 func ResetLogger() {
 	InitLogger()
 }
 
+// InitLogger initializes the default logger from the logging environment variables.
 func InitLogger() {
 	writeSyncer := getLogWriter()
 	isStdOut := utils.GetenvWithDef(ENABLE_CONSOLE_APPENDER, "false")
@@ -73,7 +75,7 @@ func InitLogger() {
 	core := zapcore.NewCore(encoder, writeSyncer, atomicLevel)
 
 	logger := zap.New(core, zap.AddCaller())
-	sugarBaseLogger = logger.Sugar()
+	SetLogger(newZapLogger(logger))
 }
 
 func getEncoder() zapcore.Encoder {

@@ -71,7 +71,7 @@ func TestProcessQueueEmptyLongPollingBalancesInflightReceiveCount(t *testing.T) 
 	pc := consumer.(*defaultPushConsumer)
 	manager := NewMockClientManager(gomock.NewController(t))
 	pc.cli.clientManager = manager
-	pc.cli.log = zap.NewNop().Sugar()
+	pc.cli.log = newInternalLogger(newZapLogger(zap.NewNop()))
 	pc.cli.inited.Store(true)
 
 	var receptions atomic.Int32
