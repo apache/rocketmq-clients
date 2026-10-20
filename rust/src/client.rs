@@ -488,11 +488,8 @@ impl Client {
         endpoints: &Endpoints,
         messages: Vec<Message>,
     ) -> Result<Vec<SendReceipt>, ClientError> {
-        self.send_message_inner(
-            self.get_session_with_endpoints(endpoints).await.unwrap(),
-            messages,
-        )
-        .await
+        let rpc_client = self.get_session_with_endpoints(endpoints).await?;
+        self.send_message_inner(rpc_client, messages).await
     }
 
     pub(crate) async fn recall_message(
@@ -500,11 +497,8 @@ impl Client {
         endpoints: &Endpoints,
         request: RecallMessageRequest,
     ) -> Result<RecallMessageResponse, ClientError> {
-        self.recall_message_inner(
-            self.get_session_with_endpoints(endpoints).await.unwrap(),
-            request,
-        )
-        .await
+        let rpc_client = self.get_session_with_endpoints(endpoints).await?;
+        self.recall_message_inner(rpc_client, request).await
     }
 
     pub(crate) async fn send_message_inner<T: RPCClient + 'static>(
@@ -540,8 +534,9 @@ impl Client {
         batch_size: i32,
         invisible_duration: Duration,
     ) -> Result<Vec<Message>, ClientError> {
+        let rpc_client = self.get_session_with_endpoints(endpoints).await?;
         self.receive_message_inner(
-            self.get_session_with_endpoints(endpoints).await.unwrap(),
+            rpc_client,
             message_queue,
             expression,
             batch_size,
@@ -611,11 +606,12 @@ impl Client {
         &self,
         ack_entry: &T,
     ) -> Result<AckMessageResultEntry, ClientError> {
+        let rpc_client = self
+            .get_session_with_endpoints(ack_entry.endpoints())
+            .await?;
         let result = self
             .ack_message_inner(
-                self.get_session_with_endpoints(ack_entry.endpoints())
-                    .await
-                    .unwrap(),
+                rpc_client,
                 ack_entry.topic(),
                 vec![pb::AckMessageEntry {
                     message_id: ack_entry.message_id(),
@@ -654,11 +650,12 @@ impl Client {
         ack_entry: &T,
         invisible_duration: Duration,
     ) -> Result<String, ClientError> {
+        let rpc_client = self
+            .get_session_with_endpoints(ack_entry.endpoints())
+            .await?;
         let result = self
             .change_invisible_duration_inner(
-                self.get_session_with_endpoints(ack_entry.endpoints())
-                    .await
-                    .unwrap(),
+                rpc_client,
                 ack_entry.topic(),
                 ack_entry.receipt_handle(),
                 invisible_duration,
