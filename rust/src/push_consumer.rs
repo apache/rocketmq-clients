@@ -75,6 +75,34 @@ fn receive_failure_backoff_delay(error: &ClientError) -> Duration {
 
 pub type MessageListener = Box<dyn Fn(&MessageView) -> ConsumeResult + Send + Sync>;
 
+/// Invoke the message listener, treating a panic as [`ConsumeResult::FAILURE`].
+///
+/// Reference Java: `ConsumeTask#call` catches any `Throwable` raised by the listener, logs it
+/// and marks the consumption as failure, so the message goes through the normal retry or
+/// dead-letter path and the consumer keeps running. Without this, a panic would unwind
+/// through the consumer worker task and stop it for good.
+///
+/// Panics cannot be caught when the binary is built with `panic = "abort"`.
+fn consume_message(message_listener: &MessageListener, message: &MessageView) -> ConsumeResult {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| message_listener(message))) {
+        Ok(consume_result) => consume_result,
+        Err(panic) => {
+            let reason = panic
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "unknown panic payload".to_string());
+            error!(
+                "message listener panicked while consuming message, treat it as failure, topic={}, message_id={}, reason={}",
+                message.topic(),
+                message.message_id(),
+                reason
+            );
+            ConsumeResult::FAILURE
+        }
+    }
+}
+
 pub struct PushConsumer {
     client: Client,
     message_listener: Arc<MessageListener>,
@@ -788,7 +816,7 @@ impl StandardConsumerWorker {
         )
         .await?;
         for message in messages {
-            let consume_result = (self.message_listener)(&message);
+            let consume_result = consume_message(&self.message_listener, &message);
             match consume_result {
                 ConsumeResult::SUCCESS => {
                     ack_processor.ack_message(message).await;
@@ -927,7 +955,7 @@ impl FifoConsumerWorker {
         let mut delivery_attempt = message.delivery_attempt();
         let max_delivery_attempts = retry_policy.get_max_attempts();
         loop {
-            let consume_result = (message_listener)(&message);
+            let consume_result = consume_message(message_listener, &message);
             match consume_result {
                 ConsumeResult::SUCCESS => {
                     ack_processor.ack_message(message).await;
@@ -2276,6 +2304,134 @@ mod tests {
             )
             .await;
         assert!(result.is_ok(), "{:?}", result);
+        assert_eq!(2, outer_call_counter.load(Ordering::Relaxed));
+    }
+
+    // Reference Java: ConsumeTask#call catches any Throwable raised by the listener and treats
+    // the consumption as FAILURE, so the message is redelivered and the worker keeps running.
+    #[tokio::test]
+    async fn test_standard_consume_messages_listener_panic() {
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok(vec![ReceiveMessageResponse {
+                content: Some(Content::Message(new_message())),
+            }])
+        });
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(|_| panic!("listener panic in test"))),
+        );
+        let consumer_group = Resource {
+            name: "test_group".to_string(),
+            resource_namespace: "".to_string(),
+        };
+        let topic = Resource {
+            name: "test_topic".to_string(),
+            resource_namespace: "".to_string(),
+        };
+        let retry_policy = &BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::new(
+            pb::ExponentialBackoff {
+                initial: Some(prost_types::Duration::from_str("1s").unwrap()),
+                max: Some(prost_types::Duration::from_str("60s").unwrap()),
+                multiplier: 2.0,
+            },
+            3,
+        ));
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut session = Session::default();
+        session
+            .expect_shadow_session()
+            .returning(|| Session::default());
+        session.expect_ack_message().never();
+        session
+            .expect_change_invisible_duration()
+            .times(1)
+            .returning(|_| {
+                Ok(ChangeInvisibleDurationResponse {
+                    status: Some(Status {
+                        code: Code::Ok as i32,
+                        message: "".to_string(),
+                    }),
+                    receipt_handle: "".to_string(),
+                })
+            });
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let is_start_ok = ack_processor.start().await;
+        assert!(is_start_ok.is_ok());
+        let result = ConsumerWorker::Standard(consumer_worker)
+            .receive_messages(
+                &new_message_queue(),
+                &FilterExpression::sub_all(),
+                &option,
+                &mut ack_processor,
+                retry_policy,
+            )
+            .await;
+        assert!(result.is_ok(), "{:?}", result);
+    }
+
+    #[tokio::test]
+    async fn test_fifo_consume_message_listener_panic_then_success() {
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok(vec![ReceiveMessageResponse {
+                content: Some(Content::Message(new_message())),
+            }])
+        });
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let outer_call_counter = Arc::clone(&call_count);
+        let consumer_worker = FifoConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(move |_| {
+                if call_count.fetch_add(1, Ordering::Relaxed) == 0 {
+                    panic!("listener panic in test");
+                }
+                ConsumeResult::SUCCESS
+            })),
+        );
+        let consumer_group = Resource {
+            name: "test_group".to_string(),
+            resource_namespace: "".to_string(),
+        };
+        let topic = Resource {
+            name: "test_topic".to_string(),
+            resource_namespace: "".to_string(),
+        };
+        let retry_policy = &BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
+            pb::CustomizedBackoff {
+                next: vec![prost_types::Duration::from_str("0.01s").unwrap()],
+            },
+            2,
+        ));
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut session = Session::default();
+        session
+            .expect_shadow_session()
+            .returning(|| Session::default());
+        session.expect_forward_to_deadletter_queue().never();
+        session.expect_ack_message().times(1).returning(|_| {
+            Ok(AckMessageResponse {
+                status: Some(Status {
+                    code: Code::Ok as i32,
+                    message: "".to_string(),
+                }),
+                entries: vec![],
+            })
+        });
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let result = ConsumerWorker::Fifo(consumer_worker)
+            .receive_messages(
+                &new_message_queue(),
+                &FilterExpression::sub_all(),
+                &option,
+                &mut ack_processor,
+                retry_policy,
+            )
+            .await;
+        assert!(result.is_ok(), "{:?}", result);
+        // The panic counts as one failed attempt; the retry succeeds and is acked.
         assert_eq!(2, outer_call_counter.load(Ordering::Relaxed));
     }
 }
