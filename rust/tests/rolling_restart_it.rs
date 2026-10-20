@@ -145,8 +145,14 @@ async fn simple_consumer_recovers_quickly_after_rolling_restart() {
                     }
                 }
                 if signal_seen {
-                    let proxy_up =
-                        file_mtime(PROXY_UP_FILE).expect("the driver must write the proxy-up file");
+                    // The client can recover faster than the driver detects the proxy
+                    // being up, so the marker file may not exist yet for a moment.
+                    let proxy_up = loop {
+                        if let Some(mtime) = file_mtime(PROXY_UP_FILE) {
+                            break mtime;
+                        }
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    };
                     recovery = Some(
                         std::time::SystemTime::now()
                             .duration_since(proxy_up)
