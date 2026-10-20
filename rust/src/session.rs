@@ -50,6 +50,14 @@ use tracing::{debug, error, info};
 const OPERATION_START: &str = "session.start";
 const OPERATION_UPDATE_SETTINGS: &str = "session.update_settings";
 
+/// The long-polling timeout, shared between the client layer and every session.
+///
+/// The server can push a new value at any time through the telemetry stream, so it has to
+/// live behind a lock instead of being baked into the immutable [`ClientOption`] clone each
+/// session keeps. Both the gRPC deadline of a receive request and the request body itself
+/// read from here.
+pub(crate) type SharedLongPollingTimeout = Arc<parking_lot::RwLock<std::time::Duration>>;
+
 const OPERATION_QUERY_ROUTE: &str = "rpc.query_route";
 const OPERATION_HEARTBEAT: &str = "rpc.heartbeat";
 const OPERATION_SEND_MESSAGE: &str = "rpc.send_message";
@@ -141,6 +149,14 @@ pub(crate) struct Session {
     /// last request on this session, shared with every shadow session so that activity is
     /// recorded on the registered session as well.
     last_activity_millis: Arc<std::sync::atomic::AtomicU64>,
+    /// Long-polling timeout shared with the client layer, see
+    /// [`SharedLongPollingTimeout`].
+    long_polling_timeout: SharedLongPollingTimeout,
+    /// Notifies the client layer when the telemetry stream ends, so that it can schedule a
+    /// proactive reconnect instead of waiting for the next periodic settings sync. Mirrors
+    /// `ClientSessionImpl#renewRequestObserver` of the Java client, which renews the stream
+    /// as soon as it is observed dead.
+    stream_closed_tx: Option<mpsc::Sender<String>>,
 }
 
 /// Origin the session activity timestamps are measured from.
@@ -167,6 +183,8 @@ impl Session {
             telemetry_command_tx: self.telemetry_command_tx.clone(),
             shutdown_tx: None,
             last_activity_millis: Arc::clone(&self.last_activity_millis),
+            long_polling_timeout: Arc::clone(&self.long_polling_timeout),
+            stream_closed_tx: self.stream_closed_tx.clone(),
         }
     }
 
@@ -174,6 +192,7 @@ impl Session {
         endpoints: &Endpoints,
         client_id: String,
         option: &ClientOption,
+        long_polling_timeout: SharedLongPollingTimeout,
     ) -> Result<Self, ClientError> {
         let peer = endpoints.endpoint_url().to_owned();
 
@@ -218,6 +237,8 @@ impl Session {
             telemetry_command_tx: None,
             shutdown_tx: None,
             last_activity_millis: Arc::new(std::sync::atomic::AtomicU64::new(now_millis())),
+            long_polling_timeout,
+            stream_closed_tx: None,
         })
     }
 
@@ -385,6 +406,8 @@ impl Session {
         self.telemetry_tx = Some(tx);
 
         let telemetry_command_tx = self.telemetry_command_tx.as_ref().unwrap().clone();
+        let stream_closed_tx = self.stream_closed_tx.clone();
+        let peer = self.peer().to_string();
         tokio::spawn(async move {
             let mut stream = response.into_inner();
             loop {
@@ -399,10 +422,19 @@ impl Session {
                             }
                             Ok(None) => {
                                 info!("telemetry command stream closed by server");
+                                if let Some(tx) = stream_closed_tx {
+                                    // Tell the client layer so that it re-establishes the
+                                    // stream right away instead of waiting for the next
+                                    // periodic settings sync.
+                                    let _ = tx.send(peer.clone()).await;
+                                }
                                 break;
                             }
                             Err(e) => {
                                 error!("telemetry response error: {:?}", e);
+                                if let Some(tx) = stream_closed_tx {
+                                    let _ = tx.send(peer.clone()).await;
+                                }
                                 break;
                             }
                         }
@@ -424,6 +456,29 @@ impl Session {
         if let Some(tx) = self.shutdown_tx.take() {
             let _ = tx.send(());
         }
+    }
+
+    /// Register the channel the stream-end notification is sent through.
+    ///
+    /// Must be called before [`Self::start`], because the telemetry stream task captures
+    /// the sender when it is spawned.
+    pub(crate) fn set_stream_closed_tx(&mut self, tx: mpsc::Sender<String>) {
+        self.stream_closed_tx = Some(tx);
+    }
+
+    /// Unconditionally re-establish the telemetry stream on this session.
+    ///
+    /// Unlike [`Self::update_settings`], which only rebuilds the stream when it observes a
+    /// closed sender, this is called by the client layer when the server closed the stream
+    /// (or when a heartbeat error reveals the server no longer knows this client):
+    /// re-establishing the stream also re-registers the client with the (possibly new)
+    /// server instance.
+    pub(crate) async fn reconnect(
+        &mut self,
+        settings: TelemetryCommand,
+    ) -> Result<(), ClientError> {
+        info!("re-establishing telemetry stream, peer={}", self.peer());
+        self.establish_telemetry_stream(settings).await
     }
 
     pub(crate) fn is_started(&self) -> bool {
@@ -466,7 +521,7 @@ impl Session {
     /// right as the answer arrives, so every poll fails once `long_polling_timeout` is short
     /// (a few seconds or less) even though the server behaves correctly.
     pub(crate) fn receive_deadline(&self) -> std::time::Duration {
-        *self.option.long_polling_timeout() + *self.option.timeout()
+        *self.long_polling_timeout.read() + *self.option.timeout()
     }
 
     pub(crate) async fn update_settings(
@@ -753,12 +808,18 @@ mock! {
             endpoints: &Endpoints,
             client_id: String,
             option: &ClientOption,
+            long_polling_timeout: SharedLongPollingTimeout,
         ) -> Result<Self, ClientError>;
         pub(crate) fn peer(&self) -> &str;
         pub(crate) fn is_started(&self) -> bool;
         pub(crate) fn is_healthy(&self) -> bool;
         pub(crate) fn touch(&self);
         pub(crate) fn idle_duration(&self) -> std::time::Duration;
+        pub(crate) fn set_stream_closed_tx(&mut self, tx: mpsc::Sender<String>);
+        pub(crate) async fn reconnect(
+            &mut self,
+            settings: TelemetryCommand,
+        ) -> Result<(), ClientError>;
         pub(crate) async fn update_settings(
             &mut self,
             settings: TelemetryCommand,
@@ -840,6 +901,7 @@ mod tests {
             &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
             "test_client".to_string(),
             &ClientOption::default(),
+            Arc::new(parking_lot::RwLock::new(std::time::Duration::from_secs(40))),
         )
         .await;
         debug!("session: {:?}", session);
@@ -852,6 +914,7 @@ mod tests {
             &Endpoints::from_url("127.0.0.1:8080,127.0.0.1:8081").unwrap(),
             "test_client".to_string(),
             &ClientOption::default(),
+            Arc::new(parking_lot::RwLock::new(std::time::Duration::from_secs(40))),
         )
         .await;
         debug!("session: {:?}", session);
@@ -872,10 +935,15 @@ mod tests {
         option.timeout = std::time::Duration::from_secs(3);
 
         let server = RocketMQMockServer::start_default().await;
+        // The deadline is driven by the shared handle, which the server can update through
+        // the telemetry stream at any time.
+        let long_polling_timeout =
+            Arc::new(parking_lot::RwLock::new(std::time::Duration::from_secs(3)));
         let session = Session::new(
             &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
             "test_client".to_string(),
             &option,
+            Arc::clone(&long_polling_timeout),
         )
         .await
         .unwrap();
@@ -888,6 +956,14 @@ mod tests {
         assert!(
             session.receive_deadline() > *option.long_polling_timeout(),
             "the deadline must be longer than the server side long polling"
+        );
+
+        // A server-pushed update must be picked up without recreating the session.
+        *long_polling_timeout.write() = std::time::Duration::from_secs(10);
+        assert_eq!(
+            session.receive_deadline(),
+            std::time::Duration::from_secs(13),
+            "the deadline must follow the shared long_polling_timeout"
         );
     }
 }
