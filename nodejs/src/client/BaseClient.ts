@@ -199,6 +199,19 @@ export abstract class BaseClient {
     this.logger.info('Begin to execute startup flow, clientId=%s, topics=%d',
       this.clientId, this.topics.size);
 
+    // Create the first-settings promise before any await: updateRoutes() below opens
+    // telemetry sessions and syncs settings while it is still iterating the topics, so a
+    // server-pushed Settings callback can fire long before the code below reaches the
+    // await. Registering the resolvers only at the await point would silently drop that
+    // first callback and leave startup hanging until the periodic settings sync fires
+    // (5 minutes later).
+    const firstSettingsPromise = this.topics.size > 0
+      ? new Promise<void>((resolve, reject) => {
+        this.#startupReject = reject;
+        this.#startupResolve = resolve;
+      })
+      : undefined;
+
     // Fetch topic route with retry mechanism (align with Java client)
     const maxAttempts = 3;
     let lastError: Error | undefined;
@@ -260,18 +273,13 @@ export abstract class BaseClient {
     // doStats every 60s
     // doStats()
 
-    if (this.topics.size > 0) {
+    if (firstSettingsPromise) {
       this.logger.info('Waiting for first onSettingsCommand, clientId=%s', this.clientId);
-      // wait for this first onSettingsCommand call
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      await new Promise<void>((resolve, reject) => {
-        this.#startupReject = reject;
-        this.#startupResolve = resolve;
-      });
+      await firstSettingsPromise;
       this.logger.info('Received first onSettingsCommand, clientId=%s', this.clientId);
-      this.#startupReject = undefined;
-      this.#startupResolve = undefined;
     }
+    this.#startupReject = undefined;
+    this.#startupResolve = undefined;
     this.#running = true;
   }
 
