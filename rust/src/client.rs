@@ -78,6 +78,19 @@ const OPERATION_SEND_MESSAGE: &str = "client.send_message";
 const OPERATION_RECEIVE_MESSAGE: &str = "client.receive_message";
 const OPERATION_ACK_MESSAGE: &str = "client.ack_message";
 
+/// Maximum duration a session may stay idle before it is dropped from the session map.
+///
+/// A session is re-created on demand, so reaping idle ones only costs a re-connect for
+/// endpoints that are used again. Mirrors `ClientManagerImpl#RPC_CLIENT_MAX_IDLE_DURATION`
+/// of the Java client.
+const SESSION_MAX_IDLE_DURATION: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+
+/// Interval of the housekeeping task that drops dead and idle sessions.
+///
+/// It is deliberately shorter than the settings/heartbeat intervals so that a dead endpoint
+/// is removed before the next report cycle tries to use it again.
+const SESSION_CLEANUP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
 #[automock]
 impl Client {
     pub(crate) fn new(
@@ -206,6 +219,10 @@ impl Client {
             let mut sync_settings_interval =
                 tokio::time::interval_at(Instant::now() + seconds_30, seconds_30);
             let mut sync_route_timer = tokio::time::interval(seconds_30);
+            let mut session_cleanup_timer = tokio::time::interval_at(
+                Instant::now() + SESSION_CLEANUP_INTERVAL,
+                SESSION_CLEANUP_INTERVAL,
+            );
             loop {
                 select! {
                     _ = heartbeat_interval.tick() => {
@@ -226,6 +243,10 @@ impl Client {
                                     "send heartbeat failed: failed to send heartbeat rpc: {}",
                                     e
                                 );
+                                // The endpoint did not answer at all: drop it so that the next
+                                // access rebuilds it against a fresh connection, instead of
+                                // keeping a dead endpoint around forever.
+                                session_manager.evict_session(&peer).await;
                                 continue;
                             }
                             let result =
@@ -241,21 +262,15 @@ impl Client {
                         }
                     },
                     _ = sync_settings_interval.tick() => {
-                        let sessions = session_manager.get_all_sessions().await;
-                        if let Err(e) = sessions {
-                            error!("sync settings failed: failed to get sessions: {}", e);
-                            continue;
-                        }
-                        for mut session in sessions.unwrap() {
-                            let peer = session.peer().to_string();
-                            let result = session.update_settings(settings.clone()).await;
-                            if let Err(e) = result {
-                                error!("sync settings failed: failed to call rpc: {}", e);
-                                continue;
-                            }
-                            debug!("sync settings success, peer = {}", peer);
-                        }
-
+                        // Sync on the registered sessions, not on shadow copies: rebuilding a
+                        // stream on a throw-away copy loses it immediately, which is what left
+                        // the client with a new one-off stream on every cycle.
+                        session_manager.sync_settings(&settings).await;
+                    },
+                    _ = session_cleanup_timer.tick() => {
+                        // Keep the session map from growing without bound: drop sessions whose
+                        // long-lived connection is gone, or that nobody used for a long time.
+                        session_manager.clear_dead_and_idle_sessions().await;
                     },
                     _ = sync_route_timer.tick() => {
                         let result = route_manager.sync_route_data(&mut rpc_client).await;
@@ -907,6 +922,93 @@ impl SessionManager {
         Ok(sessions)
     }
 
+    /// Drop the session bound to `endpoint_url`, if it is still the one registered under
+    /// that key.
+    ///
+    /// A session removed here is torn down and a later call to
+    /// [`Self::get_or_create_session`] rebuilds it from scratch, which is the only way to
+    /// recover from a server that closed the connection for good.
+    ///
+    /// Mirrors `ClientImpl#removeClientSession` of the Java client.
+    pub(crate) async fn evict_session(&self, endpoint_url: &str) -> bool {
+        let mut session_map = self.session_map.lock().await;
+        match session_map.remove(endpoint_url) {
+            Some(mut session) => {
+                session.shutdown();
+                info!("evicted session for endpoint {}", endpoint_url);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Push the client settings to every session that currently holds a telemetry stream.
+    ///
+    /// This deliberately operates on the *registered* sessions rather than on throw-away
+    /// shadow copies: a shadow that rebuilds its telemetry stream would drop that stream
+    /// again as soon as it goes out of scope, which used to leave the registered session
+    /// permanently without a stream (one short-lived stream per sync interval, and a dead
+    /// endpoint that fails on every cycle). Mirrors `ClientImpl#syncSettings` of the Java
+    /// client, where the same `ClientSession` instance is reused.
+    ///
+    /// Sessions whose stream cannot be restored are evicted so that `session_map` shrinks
+    /// instead of accumulating dead endpoints.
+    pub(crate) async fn sync_settings(&self, settings: &TelemetryCommand) {
+        let mut session_map = self.session_map.lock().await;
+        let mut broken: Vec<String> = Vec::new();
+        for (endpoint_url, session) in session_map.iter_mut() {
+            match session.update_settings(settings.clone()).await {
+                Ok(()) => {
+                    debug!("sync settings success, peer = {}", endpoint_url);
+                }
+                Err(e) => {
+                    error!(
+                        "sync settings failed, peer = {}, error = {}",
+                        endpoint_url, e
+                    );
+                    broken.push(endpoint_url.clone());
+                }
+            }
+        }
+        for endpoint_url in broken {
+            if let Some(mut session) = session_map.remove(&endpoint_url) {
+                session.shutdown();
+                warn!(
+                    "evicted session after settings sync failure, peer = {}",
+                    endpoint_url
+                );
+            }
+        }
+    }
+
+    /// Forget the sessions that are no longer usable.
+    ///
+    /// Two kinds of session are dropped, both of which used to accumulate forever because
+    /// `session_map` only ever grew:
+    ///
+    /// * sessions whose telemetry stream is gone, i.e. the long-lived connection was lost
+    ///   (for example after a rolling deployment of the server);
+    /// * sessions that have been idle for longer than [`SESSION_MAX_IDLE_DURATION`],
+    ///   mirroring `ClientManagerImpl#clearIdleRpcClients` of the Java client.
+    ///
+    /// Every dropped session is torn down so that the next access rebuilds it.
+    pub(crate) async fn clear_dead_and_idle_sessions(&self) {
+        let mut session_map = self.session_map.lock().await;
+        let stale: Vec<String> = session_map
+            .iter()
+            .filter(|(_, session)| {
+                !session.is_healthy() || session.idle_duration() > SESSION_MAX_IDLE_DURATION
+            })
+            .map(|(url, _)| url.clone())
+            .collect();
+        for url in stale {
+            if let Some(mut session) = session_map.remove(&url) {
+                session.shutdown();
+                info!("evicted stale session for endpoint {}", url);
+            }
+        }
+    }
+
     pub(crate) async fn shutdown(&self) {
         let mut session_map = self.session_map.lock().await;
         for (_, session) in session_map.iter_mut() {
@@ -958,6 +1060,17 @@ pub(crate) mod tests {
                 ..Default::default()
             },
         )
+    }
+
+    fn mock_session(started: bool) -> Session {
+        let mut session = MockSession::default();
+        session.expect_is_started().return_const(started);
+        session.expect_is_healthy().return_const(started);
+        session
+            .expect_idle_duration()
+            .return_const(std::time::Duration::ZERO);
+        session.expect_shutdown().returning(|| ());
+        session
     }
 
     fn new_client_for_test() -> Client {
@@ -1547,5 +1660,120 @@ pub(crate) mod tests {
         // Clone should also be lite consumer
         let cloned_client = original_client.clone_for_lite_consumer();
         assert!(cloned_client.is_lite_consumer());
+    }
+
+    #[tokio::test]
+    async fn test_evict_session() {
+        let session_manager = new_session_manager();
+        session_manager
+            .session_map
+            .lock()
+            .await
+            .insert("endpoint_a".to_string(), mock_session(true));
+
+        assert!(session_manager.evict_session("endpoint_a").await);
+        assert!(session_manager.session_map.lock().await.is_empty());
+
+        // Evicting an unknown endpoint is a no-op.
+        assert!(!session_manager.evict_session("endpoint_a").await);
+    }
+
+    #[tokio::test]
+    async fn test_clear_dead_and_idle_sessions() {
+        let session_manager = new_session_manager();
+        {
+            let mut session_map = session_manager.session_map.lock().await;
+            // Healthy session: kept.
+            session_map.insert("healthy".to_string(), mock_session(true));
+            // Lost its telemetry stream: dropped.
+            session_map.insert("dead".to_string(), mock_session(false));
+        }
+
+        session_manager.clear_dead_and_idle_sessions().await;
+
+        let session_map = session_manager.session_map.lock().await;
+        assert_eq!(session_map.len(), 1);
+        assert!(session_map.contains_key("healthy"));
+    }
+
+    #[tokio::test]
+    async fn test_clear_idle_sessions() {
+        let session_manager = new_session_manager();
+        {
+            let mut session_map = session_manager.session_map.lock().await;
+            let mut session = MockSession::default();
+            session.expect_is_started().return_const(true);
+            session.expect_is_healthy().return_const(true);
+            session
+                .expect_idle_duration()
+                .return_const(SESSION_MAX_IDLE_DURATION + std::time::Duration::from_secs(1));
+            session.expect_shutdown().returning(|| ());
+            session_map.insert("idle".to_string(), session);
+        }
+
+        session_manager.clear_dead_and_idle_sessions().await;
+
+        assert!(session_manager.session_map.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_sync_settings_rebuilds_stream_on_registered_session() {
+        let session_manager = new_session_manager();
+        let rebuilt = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        {
+            let mut session_map = session_manager.session_map.lock().await;
+            let mut session = MockSession::default();
+            // The stream is gone, so the settings sync must re-establish it...
+            session.expect_is_started().return_const(false);
+            session.expect_is_healthy().return_const(false);
+            let counter = Arc::clone(&rebuilt);
+            session.expect_update_settings().returning(move |_| {
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            });
+            session.expect_shutdown().returning(|| ());
+            session_map.insert("endpoint_a".to_string(), session);
+        }
+
+        session_manager
+            .sync_settings(&TelemetryCommand::default())
+            .await;
+
+        // ... and it must have been rebuilt exactly once, on the registered session rather
+        // than on a throw-away shadow copy.
+        assert_eq!(
+            rebuilt.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "settings sync should rebuild the stream of the registered session once"
+        );
+        // A session whose stream was restored successfully stays registered.
+        assert_eq!(session_manager.session_map.lock().await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_sync_settings_evicts_unrecoverable_session() {
+        let session_manager = new_session_manager();
+        {
+            let mut session_map = session_manager.session_map.lock().await;
+            let mut session = MockSession::default();
+            session.expect_is_started().return_const(false);
+            session.expect_is_healthy().return_const(false);
+            session.expect_update_settings().returning(|_| {
+                Err(ClientError::new(
+                    ErrorKind::ServerUnavailable,
+                    "server unavailable",
+                    "test.sync_settings",
+                ))
+            });
+            session.expect_shutdown().returning(|| ());
+            session_map.insert("endpoint_a".to_string(), session);
+        }
+
+        session_manager
+            .sync_settings(&TelemetryCommand::default())
+            .await;
+
+        // A dead endpoint must not be kept around: it would fail again on every cycle.
+        assert!(session_manager.session_map.lock().await.is_empty());
     }
 }

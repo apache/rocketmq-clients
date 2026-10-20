@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+use std::time::Instant;
+
 use async_trait::async_trait;
 use mockall::{automock, mock};
 use ring::hmac;
@@ -58,6 +61,19 @@ const OPERATION_END_TRANSACTION: &str = "rpc.end_transaction";
 const OPERATION_NOTIFY_CLIENT_TERMINATION: &str = "rpc.notify_client_termination";
 const OPERATION_QUERY_ASSIGNMENT: &str = "rpc.query_assignment";
 const OPERATION_FORWARD_TO_DEADLETTER_QUEUE: &str = "rpc.forward_to_deadletter_queue";
+
+/// Interval between HTTP/2 keep-alive pings.
+///
+/// The gRPC server permits a minimum ping interval of 5 minutes by default (grpc-java
+/// `permitKeepAliveTime`), so this must not be lowered below that value or the server will
+/// reject the connection with `GOAWAY(ENHANCE_YOUR_CALM)`.
+/// Kept in line with the Java client (`RpcClientImpl.KEEP_ALIVE_TIME_MILLIS`).
+const KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(300);
+
+/// How long to wait for the keep-alive ping acknowledgement before considering the
+/// connection dead and reconnecting.
+/// Kept in line with the Java client (`RpcClientImpl.KEEP_ALIVE_TIMEOUT_MILLIS`).
+const KEEP_ALIVE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[async_trait]
 #[automock]
@@ -121,6 +137,18 @@ pub(crate) struct Session {
     telemetry_tx: Option<mpsc::Sender<TelemetryCommand>>,
     telemetry_command_tx: Option<mpsc::Sender<Command>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
+    /// Milliseconds elapsed since [`Instant`] `SESSION_ACTIVITY_ORIGIN` at the time of the
+    /// last request on this session, shared with every shadow session so that activity is
+    /// recorded on the registered session as well.
+    last_activity_millis: Arc<std::sync::atomic::AtomicU64>,
+}
+
+/// Origin the session activity timestamps are measured from.
+static SESSION_ACTIVITY_ORIGIN: once_cell::sync::Lazy<Instant> =
+    once_cell::sync::Lazy::new(Instant::now);
+
+fn now_millis() -> u64 {
+    SESSION_ACTIVITY_ORIGIN.elapsed().as_millis() as u64
 }
 
 impl Session {
@@ -138,6 +166,7 @@ impl Session {
             telemetry_tx: self.telemetry_tx.clone(),
             telemetry_command_tx: self.telemetry_command_tx.clone(),
             shutdown_tx: None,
+            last_activity_millis: Arc::clone(&self.last_activity_millis),
         }
     }
 
@@ -188,6 +217,7 @@ impl Session {
             telemetry_tx: None,
             telemetry_command_tx: None,
             shutdown_tx: None,
+            last_activity_millis: Arc::new(std::sync::atomic::AtomicU64::new(now_millis())),
         })
     }
 
@@ -223,7 +253,20 @@ impl Session {
             //     .with_context("peer", &peer_addr)
             // })?
             .connect_timeout(option.timeout)
-            .tcp_nodelay(true);
+            .tcp_nodelay(true)
+            // Keep the long-lived HTTP/2 connection alive so that a rolling deployment of the
+            // server does not silently break the telemetry stream, and so that a dead peer is
+            // detected within `KEEP_ALIVE_TIMEOUT` instead of leaving a half-open connection.
+            //
+            // NOTE: `KEEP_ALIVE_INTERVAL` must not be less than the minimum ping interval the
+            // gRPC server permits (5 minutes by default in grpc-java), otherwise the server
+            // answers with GOAWAY(ENHANCE_YOUR_CALM) and drops the connection.
+            // Keep it aligned with the Java client: see RpcClientImpl.KEEP_ALIVE_TIME_MILLIS.
+            .http2_keep_alive_interval(KEEP_ALIVE_INTERVAL)
+            .keep_alive_timeout(KEEP_ALIVE_TIMEOUT)
+            // Ping even while no RPC is in flight: the telemetry stream is long-lived but is
+            // idle between settings syncs, so without this the connection is never probed.
+            .keep_alive_while_idle(true);
         Ok(endpoint)
     }
 
@@ -232,6 +275,8 @@ impl Session {
     }
 
     fn sign<T>(&self, message: T) -> tonic::Request<T> {
+        // Any request proves the session is in use, even when it goes through a shadow copy.
+        self.touch();
         let mut request = tonic::Request::new(message);
         let metadata = request.metadata_mut();
         self.sign_without_timeout(metadata);
@@ -385,6 +430,45 @@ impl Session {
         self.telemetry_tx.is_some() && !self.telemetry_tx.as_ref().unwrap().is_closed()
     }
 
+    /// Whether the session still owns a live telemetry stream.
+    ///
+    /// A session whose telemetry stream is gone can no longer receive server-push
+    /// commands (settings, reconnect, unsubscribe, ...), so it must not be kept in the
+    /// session map: keeping it makes every settings sync fail on a dead endpoint and
+    /// blocks the long-lived connection from ever being re-established.
+    pub(crate) fn is_healthy(&self) -> bool {
+        self.is_started()
+    }
+
+    /// Record activity on this session so that it is not reaped while still in use.
+    pub(crate) fn touch(&self) {
+        self.last_activity_millis
+            .store(now_millis(), std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// How long this session has been idle.
+    pub(crate) fn idle_duration(&self) -> std::time::Duration {
+        let last = self
+            .last_activity_millis
+            .load(std::sync::atomic::Ordering::Relaxed);
+        std::time::Duration::from_millis(now_millis().saturating_sub(last))
+    }
+
+    /// Deadline applied to a receive request.
+    ///
+    /// The request itself carries `long_polling_timeout`, so the server may hold the
+    /// response for exactly that long before answering. The gRPC deadline therefore has to
+    /// leave room for the request tolerance on top of it, which is what
+    /// `ClientOption::set_long_polling_timeout` documents and what the Java client does
+    /// (`awaitDuration.plus(tolerance)`).
+    ///
+    /// Using `long_polling_timeout` alone races the server response: the client gives up
+    /// right as the answer arrives, so every poll fails once `long_polling_timeout` is short
+    /// (a few seconds or less) even though the server behaves correctly.
+    pub(crate) fn receive_deadline(&self) -> std::time::Duration {
+        *self.option.long_polling_timeout() + *self.option.timeout()
+    }
+
     pub(crate) async fn update_settings(
         &mut self,
         settings: TelemetryCommand,
@@ -496,7 +580,7 @@ impl RPCClient for Session {
     ) -> Result<Vec<ReceiveMessageResponse>, ClientError> {
         let batch_size = request.batch_size;
         let mut request = self.sign(request);
-        request.set_timeout(*self.option.long_polling_timeout());
+        request.set_timeout(self.receive_deadline());
         let mut stream = self
             .stub
             .receive_message(request)
@@ -672,6 +756,9 @@ mock! {
         ) -> Result<Self, ClientError>;
         pub(crate) fn peer(&self) -> &str;
         pub(crate) fn is_started(&self) -> bool;
+        pub(crate) fn is_healthy(&self) -> bool;
+        pub(crate) fn touch(&self);
+        pub(crate) fn idle_duration(&self) -> std::time::Duration;
         pub(crate) async fn update_settings(
             &mut self,
             settings: TelemetryCommand,
@@ -774,5 +861,33 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn session_start() {
         // TODO: add grpc bi-stream test
+    }
+
+    #[tokio::test]
+    async fn receive_deadline_leaves_room_for_the_server_response() {
+        let mut option = ClientOption::default();
+        // A short long polling timeout used to make every poll fail, because the gRPC
+        // deadline was exactly the time the server is allowed to hold the response.
+        option.long_polling_timeout = std::time::Duration::from_secs(3);
+        option.timeout = std::time::Duration::from_secs(3);
+
+        let server = RocketMQMockServer::start_default().await;
+        let session = Session::new(
+            &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
+            "test_client".to_string(),
+            &option,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            session.receive_deadline(),
+            std::time::Duration::from_secs(6),
+            "the deadline must be long_polling_timeout + timeout, as documented"
+        );
+        assert!(
+            session.receive_deadline() > *option.long_polling_timeout(),
+            "the deadline must be longer than the server side long polling"
+        );
     }
 }

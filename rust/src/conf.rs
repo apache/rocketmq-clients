@@ -312,6 +312,14 @@ impl PushConsumerOption {
         &self.long_polling_timeout
     }
 
+    /// Set the await duration during long polling.
+    ///
+    /// Also used to apply the value pushed by the server, so that a client configured with
+    /// a short `long_polling_timeout` follows the server after the first settings sync.
+    pub(crate) fn set_long_polling_timeout(&mut self, long_polling_timeout: Duration) {
+        self.long_polling_timeout = long_polling_timeout;
+    }
+
     pub fn subscription_expressions(&self) -> &HashMap<String, FilterExpression> {
         &self.subscription_expressions
     }
@@ -353,6 +361,13 @@ impl PushConsumerOption {
 
     pub fn batch_size(&self) -> i32 {
         self.batch_size
+    }
+
+    /// Set the reception batch size.
+    ///
+    /// Also used to apply the value pushed by the server.
+    pub(crate) fn set_batch_size(&mut self, batch_size: i32) {
+        self.batch_size = batch_size;
     }
 
     pub fn consumer_worker_count_each_queue(&self) -> usize {
