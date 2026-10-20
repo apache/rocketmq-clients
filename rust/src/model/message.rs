@@ -564,6 +564,14 @@ impl MessageView {
         self.delivery_attempt
     }
 
+    /// Increase the delivery attempt before a local redelivery and return the new value.
+    ///
+    /// Reference Java: `MessageViewImpl#incrementAndGetDeliveryAttempt`.
+    pub(crate) fn increment_and_get_delivery_attempt(&mut self) -> i32 {
+        self.delivery_attempt += 1;
+        self.delivery_attempt
+    }
+
     /// Get message priority (1-10, higher value means higher priority)
     pub fn priority(&self) -> Option<i32> {
         self.priority
