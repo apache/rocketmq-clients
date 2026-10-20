@@ -32,6 +32,7 @@
 
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::sync::mpsc;
@@ -50,6 +51,9 @@ use crate::push_consumer::{MessageListener, PushConsumer};
 use crate::util::build_push_consumer_settings;
 
 const OPERATION_NEW_LITE_PUSH_CONSUMER: &str = "lite_push_consumer.new";
+
+/// Reference Java: ClientSessionImpl#SETTINGS_INITIALIZATION_TIMEOUT
+const SETTINGS_INITIALIZATION_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// LitePushConsumer trait defining the interface for lite push consumers
 #[async_trait]
@@ -94,6 +98,8 @@ pub struct LitePushConsumer {
     inner: PushConsumer,
     lite_client: Arc<Client>,
     lite_subscription_manager: Arc<LiteSubscriptionManager>,
+    /// Request timeout of the client, tolerance for waiting on the initial settings.
+    request_timeout: Duration,
     shutdown_token: Option<CancellationToken>,
     task_tracker: Option<TaskTracker>,
 }
@@ -155,6 +161,7 @@ impl LitePushConsumer {
             namespace: namespace.clone(),
             ..client_option
         };
+        let request_timeout = *client_option.timeout();
         let client = Client::new(client_option, settings)?;
 
         // Reference Java: LiteSubscriptionManager(consumerImpl, new Resource(bindTopic), groupResource)
@@ -191,6 +198,7 @@ impl LitePushConsumer {
             inner,
             lite_client,
             lite_subscription_manager,
+            request_timeout,
             shutdown_token: None,
             task_tracker: None,
         })
@@ -260,26 +268,7 @@ impl LitePushConsumer {
             ));
         }
 
-        // Step 3: Start lite subscription manager (reference Java: liteSubscriptionManager.startUp())
-        if let Err(e) = self.lite_subscription_manager.start().await {
-            error!(
-                "Failed to start LiteSubscriptionManager, bindTopic={}, clientId={}, error={:?}",
-                bind_topic, client_id, e
-            );
-            if let Err(shutdown_err) = self.shutdown().await {
-                error!(
-                    "Failed to shutdown after start failure, clientId={}, error={:?}",
-                    client_id, shutdown_err
-                );
-            }
-            return Err(ClientError::new(
-                ErrorKind::ClientInternal,
-                &format!("startUp err={:?}", e),
-                "lite_push_consumer.start",
-            ));
-        }
-
-        // Step 4: Setup telemetry command handler for lite-specific commands
+        // Step 3: Setup telemetry command handler for lite-specific commands
         // Reference Java: LitePushConsumerImpl handles:
         //   - onSettingsCommand() -> super.onSettingsCommand() + liteSubscriptionManager.sync(settings)
         //   - onNotifyUnsubscribeLiteCommand() -> liteSubscriptionManager.onNotifyUnsubscribeLiteCommand()
@@ -334,6 +323,46 @@ impl LitePushConsumer {
                 client_id_clone
             );
         });
+
+        // Step 4: Wait for the first Settings from the server, so that the lite subscription
+        // quota and max lite topic size are known before any subscription is made.
+        // Reference Java: ClientImpl#startUp waits on ClientSessionImpl#settingsInitFuture, which
+        // times out after SETTINGS_INITIALIZATION_TIMEOUT (3s) + request timeout and fails startup.
+        let settings_timeout = SETTINGS_INITIALIZATION_TIMEOUT + self.request_timeout;
+        let start_result = if self
+            .lite_subscription_manager
+            .wait_for_initial_settings(settings_timeout)
+            .await
+        {
+            // Step 5: Start lite subscription manager (reference Java: liteSubscriptionManager.startUp())
+            self.lite_subscription_manager.start().await
+        } else {
+            Err(ClientError::new(
+                ErrorKind::ClientInternal,
+                &format!(
+                    "timed out waiting for the initial settings from server after {:?}",
+                    settings_timeout
+                ),
+                "lite_push_consumer.start",
+            ))
+        };
+        if let Err(e) = start_result {
+            error!(
+                "Failed to start LiteSubscriptionManager, bindTopic={}, clientId={}, error={:?}",
+                bind_topic, client_id, e
+            );
+            if let Err(shutdown_err) = self.shutdown().await {
+                error!(
+                    "Failed to shutdown after start failure, clientId={}, error={:?}",
+                    client_id, shutdown_err
+                );
+            }
+            return Err(ClientError::new(
+                ErrorKind::ClientInternal,
+                &format!("startUp err={:?}", e),
+                "lite_push_consumer.start",
+            ));
+        }
 
         info!(
             "The LitePushConsumer starts successfully, bindTopic={}, consumerGroup={}, clientId={}",

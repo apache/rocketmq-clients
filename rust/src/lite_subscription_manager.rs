@@ -394,13 +394,8 @@ impl LiteSubscriptionManager {
         let current_size = self.lite_topic_set.lock().len() as i32;
         let quota = *self.lite_subscription_quota.lock();
 
-        // If quota is 0, it means the server hasn't returned the quota yet.
-        // In this case, we should allow subscriptions to proceed.
-        // Once the server returns the quota, it will be updated via sync_settings().
-        if quota == 0 {
-            return Ok(());
-        }
-
+        // Reference Java: LiteSubscriptionManager#checkLiteSubscriptionQuota. No special case
+        // for 0: the quota is synced from the server settings before the consumer is started.
         if current_size + delta > quota {
             return Err(ClientError::new(
                 ErrorKind::Server,
@@ -475,9 +470,20 @@ mod tests {
             "group".to_string(),
         );
 
-        // When quota is 0 (not set by server yet), should allow subscriptions
-        assert!(manager.check_lite_subscription_quota(1).is_ok());
-        assert!(manager.check_lite_subscription_quota(100).is_ok());
+        // Reference Java: LiteSubscriptionManager#checkLiteSubscriptionQuota has no special case
+        // for quota 0: before the server settings arrive, no subscription is allowed.
+        assert!(manager.check_lite_subscription_quota(0).is_ok());
+        let err = manager.check_lite_subscription_quota(1).unwrap_err();
+        assert_eq!(
+            Some(&format!(
+                "{}",
+                pb::Code::LiteSubscriptionQuotaExceeded as i32
+            )),
+            err.context
+                .iter()
+                .find(|(k, _)| *k == "code")
+                .map(|(_, v)| v)
+        );
 
         // Set quota to 5
         *manager.lite_subscription_quota.lock() = 5;
@@ -537,7 +543,9 @@ mod tests {
         manager.start().await.expect("manager should start");
 
         // Subscribe from "outside": the scheduler now has a topic to sync and should start
-        // issuing RPCs.
+        // issuing RPCs. The quota normally comes from the server settings; without it the
+        // periodic sync is rejected locally (reference Java: checkLiteSubscriptionQuota).
+        *manager.lite_subscription_quota.lock() = 16;
         manager.lite_topic_set.lock().insert("topic1".to_string());
 
         // Give the scheduler a chance to tick, so the test proves it was running.
@@ -632,5 +640,72 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn subscription_settings(quota: i32, max_lite_topic_size: i32) -> pb::Settings {
+        pb::Settings {
+            pub_sub: Some(pb::settings::PubSub::Subscription(pb::Subscription {
+                lite_subscription_quota: Some(quota),
+                max_lite_topic_size: Some(max_lite_topic_size),
+                ..pb::Subscription::default()
+            })),
+            ..pb::Settings::default()
+        }
+    }
+
+    // Reference Java: ClientSessionImpl#settingsInitFuture is completed by the first Settings
+    // command, and ClientImpl#startUp waits for it before the client is considered started.
+    #[tokio::test]
+    async fn test_sync_settings_applies_quota_and_max_size() {
+        let manager = LiteSubscriptionManager::new(
+            create_test_client(),
+            "bind_topic".to_string(),
+            "namespace".to_string(),
+            "group".to_string(),
+        );
+        manager.sync_settings(&subscription_settings(2000, 128));
+        assert!(
+            manager
+                .wait_for_initial_settings(Duration::from_millis(50))
+                .await
+        );
+        assert_eq!(2000, *manager.lite_subscription_quota.lock());
+        assert_eq!(128, *manager.max_lite_topic_size.lock());
+    }
+
+    #[tokio::test]
+    async fn test_wait_for_initial_settings_wakes_up_waiter() {
+        let manager = Arc::new(LiteSubscriptionManager::new(
+            create_test_client(),
+            "bind_topic".to_string(),
+            "namespace".to_string(),
+            "group".to_string(),
+        ));
+        let waiter = {
+            let manager = Arc::clone(&manager);
+            tokio::spawn(async move {
+                manager
+                    .wait_for_initial_settings(Duration::from_secs(5))
+                    .await
+            })
+        };
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        // Any Settings command completes the initialization, as in Java.
+        manager.sync_settings(&pb::Settings::default());
+        assert!(waiter.await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_scheduler_clone_shares_initial_settings_state() {
+        let manager = LiteSubscriptionManager::new(
+            create_test_client(),
+            "bind_topic".to_string(),
+            "namespace".to_string(),
+            "group".to_string(),
+        );
+        let clone = manager.clone_for_scheduler();
+        manager.sync_settings(&subscription_settings(10, 64));
+        assert!(clone.wait_for_initial_settings(Duration::ZERO).await);
+        assert_eq!(10, *clone.lite_subscription_quota.lock());
     }
 }

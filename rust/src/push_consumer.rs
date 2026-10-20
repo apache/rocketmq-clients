@@ -287,9 +287,14 @@ impl PushConsumer {
     }
 
     /// Start with external telemetry channel (for LitePushConsumer)
+    ///
+    /// Every telemetry command received from the server is handled by this push consumer and
+    /// then forwarded to `telemetry_command_tx`, so that the caller can handle the commands it
+    /// is interested in (reference Java: `LitePushConsumerImpl#onSettingsCommand` calls
+    /// `super.onSettingsCommand` before syncing the lite settings).
     pub async fn start_with_telemetry(
         &mut self,
-        _telemetry_command_tx: mpsc::Sender<pb::TelemetryCommand>,
+        telemetry_command_tx: mpsc::Sender<pb::TelemetryCommand>,
     ) -> Result<(), ClientError> {
         // Extract the command channel from TelemetryCommand
         let (command_tx, mut command_rx) = mpsc::channel(16);
@@ -330,9 +335,19 @@ impl PushConsumer {
                             if let pb::telemetry_command::Command::Settings(ref settings) = command {
                                 Self::apply_settings(settings, &option, &long_polling_timeout);
                             }
-                            let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
+                            let remote_backoff_policy = BackOffRetryPolicy::try_from(command.clone());
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
                                 retry_policy.lock().replace(remote_backoff_policy);
+                            }
+                            let forwarded = pb::TelemetryCommand {
+                                command: Some(command),
+                                ..pb::TelemetryCommand::default()
+                            };
+                            if let Err(e) = telemetry_command_tx.send(forwarded).await {
+                                warn!(
+                                    "failed to forward telemetry command, receiver dropped: {:?}",
+                                    e.0.command
+                                );
                             }
                         }
                     }
@@ -1586,6 +1601,114 @@ mod tests {
             apply_server_long_polling_timeout(true).await,
             Duration::from_secs(20)
         );
+    }
+
+    // LitePushConsumer relies on start_with_telemetry() forwarding the telemetry commands
+    // (Settings, NotifyUnsubscribeLiteCommand) to the channel it passes in. Reference Java:
+    // LitePushConsumerImpl#onSettingsCommand / #onNotifyUnsubscribeLiteCommand.
+    #[tokio::test]
+    async fn test_start_with_telemetry_forwards_commands() -> Result<(), ClientError> {
+        let _m = crate::client::tests::MTX.lock();
+        let context = Client::new_context();
+        let command_tx_slot: Arc<Mutex<Option<mpsc::Sender<pb::telemetry_command::Command>>>> =
+            Arc::new(Mutex::new(None));
+        let slot = Arc::clone(&command_tx_slot);
+        let mut client = Client::default();
+        client.expect_start().return_once(move |tx| {
+            slot.lock().replace(tx);
+            Ok(())
+        });
+        client.expect_shutdown_ref().return_once(|| Ok(()));
+        client.expect_get_session().returning(|| {
+            let mut session = Session::default();
+            session.expect_query_route().returning(|_| {
+                Ok(QueryRouteResponse {
+                    status: Some(Status {
+                        code: Code::Ok as i32,
+                        message: "Success".to_string(),
+                    }),
+                    message_queues: vec![],
+                })
+            });
+            Ok(session)
+        });
+        client.expect_get_route_manager().returning(|| {
+            TopicRouteManager::new(
+                "".to_string(),
+                Endpoints::from_url("http://localhost:8081").unwrap(),
+            )
+        });
+        client
+            .expect_long_polling_timeout_handle()
+            .returning(|| Arc::new(RwLock::new(Duration::from_secs(40))));
+        context.expect().return_once(|_, _| Ok(client));
+
+        let mut option = PushConsumerOption::default();
+        option.set_consumer_group("test_group");
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut push_consumer = PushConsumer::new(
+            ClientOption::default(),
+            option,
+            Box::new(|_| ConsumeResult::SUCCESS),
+        )?;
+
+        let (external_tx, mut external_rx) = mpsc::channel(16);
+        push_consumer.start_with_telemetry(external_tx).await?;
+
+        let command_tx = command_tx_slot
+            .lock()
+            .take()
+            .expect("client must be started with a command channel");
+        let settings = pb::Settings {
+            pub_sub: Some(pb::settings::PubSub::Subscription(pb::Subscription {
+                lite_subscription_quota: Some(2000),
+                max_lite_topic_size: Some(64),
+                ..pb::Subscription::default()
+            })),
+            ..pb::Settings::default()
+        };
+        command_tx
+            .send(pb::telemetry_command::Command::Settings(settings))
+            .await
+            .unwrap();
+        command_tx
+            .send(
+                pb::telemetry_command::Command::NotifyUnsubscribeLiteCommand(
+                    pb::NotifyUnsubscribeLiteCommand {
+                        lite_topic: "lite_a".to_string(),
+                    },
+                ),
+            )
+            .await
+            .unwrap();
+
+        let first = tokio::time::timeout(Duration::from_secs(1), external_rx.recv())
+            .await
+            .expect("Settings must be forwarded to the external channel")
+            .unwrap();
+        match first.command {
+            Some(pb::telemetry_command::Command::Settings(s)) => match s.pub_sub {
+                Some(pb::settings::PubSub::Subscription(sub)) => {
+                    assert_eq!(Some(2000), sub.lite_subscription_quota);
+                    assert_eq!(Some(64), sub.max_lite_topic_size);
+                }
+                other => panic!("unexpected pub_sub: {:?}", other),
+            },
+            other => panic!("unexpected command: {:?}", other),
+        }
+        let second = tokio::time::timeout(Duration::from_secs(1), external_rx.recv())
+            .await
+            .expect("NotifyUnsubscribeLiteCommand must be forwarded to the external channel")
+            .unwrap();
+        match second.command {
+            Some(pb::telemetry_command::Command::NotifyUnsubscribeLiteCommand(c)) => {
+                assert_eq!("lite_a", c.lite_topic);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+
+        push_consumer.shutdown_ref().await?;
+        Ok(())
     }
 
     #[tokio::test]
