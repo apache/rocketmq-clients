@@ -72,11 +72,12 @@ const OPERATION_FORWARD_TO_DEADLETTER_QUEUE: &str = "rpc.forward_to_deadletter_q
 
 /// Interval between HTTP/2 keep-alive pings.
 ///
-/// The gRPC server permits a minimum ping interval of 5 minutes by default (grpc-java
-/// `permitKeepAliveTime`), so this must not be lowered below that value or the server will
-/// reject the connection with `GOAWAY(ENHANCE_YOUR_CALM)`.
-/// Kept in line with the Java client (`RpcClientImpl.KEEP_ALIVE_TIME_MILLIS`).
-const KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(300);
+/// The RocketMQ proxy allows client pings every 30 seconds by default
+/// (`ProxyConfig#grpcServerPermitKeepAliveTimeMillis = 30000`; the bare grpc-java default is
+/// 5 minutes, but the proxy overrides it), so the interval must stay above that or the
+/// server answers with `GOAWAY(ENHANCE_YOUR_CALM)`. 60s doubles the permitted minimum,
+/// which detects a dead peer within ~90s instead of the ~330s a 300s interval would take.
+const KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// How long to wait for the keep-alive ping acknowledgement before considering the
 /// connection dead and reconnecting.
@@ -279,10 +280,11 @@ impl Session {
             // server does not silently break the telemetry stream, and so that a dead peer is
             // detected within `KEEP_ALIVE_TIMEOUT` instead of leaving a half-open connection.
             //
-            // NOTE: `KEEP_ALIVE_INTERVAL` must not be less than the minimum ping interval the
-            // gRPC server permits (5 minutes by default in grpc-java), otherwise the server
-            // answers with GOAWAY(ENHANCE_YOUR_CALM) and drops the connection.
-            // Keep it aligned with the Java client: see RpcClientImpl.KEEP_ALIVE_TIME_MILLIS.
+            // NOTE: `KEEP_ALIVE_INTERVAL` must not fall below the minimum ping interval the
+            // server permits. The RocketMQ proxy defaults to 30s
+            // (`ProxyConfig#grpcServerPermitKeepAliveTimeMillis`), so 60s keeps a safety
+            // margin; lowering it further makes the server answer with
+            // GOAWAY(ENHANCE_YOUR_CALM) and drop the connection.
             .http2_keep_alive_interval(KEEP_ALIVE_INTERVAL)
             .keep_alive_timeout(KEEP_ALIVE_TIMEOUT)
             // Ping even while no RPC is in flight: the telemetry stream is long-lived but is

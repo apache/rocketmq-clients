@@ -104,17 +104,30 @@ const HEART_BEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(
 /// tolerates a transient blip instead of tearing the connection down at the first failure.
 const HEART_BEAT_FAILURE_THRESHOLD: u32 = 2;
 
-/// Initial delay before a reconnect attempt after the telemetry stream was observed dead.
-/// Kept in line with the Java client (`ClientSessionImpl#REQUEST_OBSERVER_RENEW_BACKOFF_DELAY`).
+/// Initial delay before the first reconnect attempt after the telemetry stream was
+/// observed dead. Kept in line with the Java client
+/// (`ClientSessionImpl#REQUEST_OBSERVER_RENEW_BACKOFF_DELAY`).
 const RECONNECT_BACKOFF_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
 
-/// Fixed delay between reconnect attempts.
+/// Upper bound of the delay between reconnect attempts. The delay doubles on every
+/// failure, so a permanently offline endpoint is probed at most every 30s instead of being
+/// hammered once a second, while a peer that comes back is still picked up quickly.
+const RECONNECT_RETRY_MAX_DELAY: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Number of reconnect attempts after a stream-close notification before giving up on the
+/// peer (about two minutes in total with the doubling back-off). After that the endpoint is
+/// considered gone for now: recovery is left to the periodic settings sync, the heartbeat
+/// and the next business traffic, so a permanently offline endpoint is not probed forever.
+const RECONNECT_MAX_ATTEMPTS: u32 = 8;
+
+/// Interval of the periodic topic-route sync.
 ///
-/// Deliberately NOT exponential: a rolling deployment or failover may take tens of seconds,
-/// and with a growing back-off the client would keep missing the moment the new instance
-/// becomes available, extending the interruption far beyond the server outage itself. The
-/// Java client retries every second (`ClientSessionImpl#renewRequestObserver`).
-const RECONNECT_RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
+/// Deliberately shorter than the 30s the Java client uses: when a broker endpoint drifts
+/// (failover, migration), the client keeps sending to the stale, dead endpoints until the
+/// route data is refreshed, and this timer — not the telemetry reconnect — decides how long
+/// that window lasts. 10s halves-to-thirds the measured 13-29s interruption of the 30s
+/// variant.
+const ROUTE_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
 
 #[automock]
 impl Client {
@@ -231,13 +244,16 @@ impl Client {
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
 
-        self.telemetry_command_tx = Some(telemetry_command_tx);
+        self.telemetry_command_tx = Some(telemetry_command_tx.clone());
 
         // Channel the sessions notify through when the server closes a telemetry stream.
         // Registered before the first session is created, so that the stream task captures
         // the sender while it is spawned.
         let (stream_closed_tx, mut stream_closed_rx) = mpsc::channel::<String>(16);
         session_manager.set_stream_closed_channel(stream_closed_tx);
+        // Also captured so that reconnect_session can rebuild a session that was evicted
+        // or reaped meanwhile.
+        session_manager.set_telemetry_command_channel(telemetry_command_tx);
 
         let mut rpc_client = self
             .get_session()
@@ -253,7 +269,7 @@ impl Client {
             let seconds_30 = std::time::Duration::from_secs(30);
             let mut sync_settings_interval =
                 tokio::time::interval_at(Instant::now() + seconds_30, seconds_30);
-            let mut sync_route_timer = tokio::time::interval(seconds_30);
+            let mut sync_route_timer = tokio::time::interval(ROUTE_SYNC_INTERVAL);
             let mut session_cleanup_timer = tokio::time::interval_at(
                 Instant::now() + SESSION_CLEANUP_INTERVAL,
                 SESSION_CLEANUP_INTERVAL,
@@ -307,13 +323,14 @@ impl Client {
                                 // failover moved the traffic to another instance. Rebuild
                                 // the telemetry stream: the telemetry RPC itself
                                 // re-registers the client with the new instance.
-                                if let Err(re) =
-                                    session_manager.reconnect_session(&peer, &settings).await
-                                {
-                                    error!(
-                                        "reconnect session after heartbeat error failed, peer={}, error={}",
-                                        peer, re
-                                    );
+                                match session_manager.reconnect_session(&peer, &settings).await {
+                                    Ok(_) => {}
+                                    Err(re) => {
+                                        error!(
+                                            "reconnect session after heartbeat error failed, peer={}, error={}",
+                                            peer, re
+                                        );
+                                    }
                                 }
                                 continue;
                             }
@@ -339,41 +356,52 @@ impl Client {
                                     "telemetry stream for peer {} was closed, scheduling reconnect",
                                     peer
                                 );
-                                // Retry in the background with an exponential back-off, so
-                                // that a long server outage does not block the loop. The
-                                // reconnect re-establishes the stream on the registered
-                                // session instead of waiting for the next settings sync.
+                                // Retry in the background: the first attempt follows the
+                                // initial back-off delay, then the delay doubles up to a
+                                // cap, so a permanently offline endpoint is not hammered
+                                // once a second. After the attempt budget is exhausted the
+                                // endpoint is left to the periodic settings sync, the
+                                // heartbeat and the next business traffic.
                                 let session_manager = session_manager.clone();
                                 let settings = settings.clone();
                                 tokio::spawn(async move {
-                                    let mut first = true;
-                                    loop {
-                                        tokio::time::sleep(if first {
-                                            RECONNECT_BACKOFF_DELAY
-                                        } else {
-                                            RECONNECT_RETRY_DELAY
-                                        })
-                                        .await;
-                                        first = false;
+                                    let mut delay = RECONNECT_BACKOFF_DELAY;
+                                    for attempt in 1..=RECONNECT_MAX_ATTEMPTS {
+                                        tokio::time::sleep(delay).await;
                                         match session_manager
                                             .reconnect_session(&peer, &settings)
                                             .await
                                         {
-                                            Ok(()) => {
+                                            Ok(true) => {
                                                 info!(
-                                                    "telemetry stream for peer {} re-established",
+                                                    "telemetry stream for peer {} re-established after {} attempt(s)",
+                                                    peer, attempt
+                                                );
+                                                return;
+                                            }
+                                            Ok(false) => {
+                                                // Nothing could be driven (no access
+                                                // endpoints configured); retrying without
+                                                // a session to rebuild on is pointless.
+                                                warn!(
+                                                    "session for peer {} could not be rebuilt, it will be recreated on the next access",
                                                     peer
                                                 );
                                                 return;
                                             }
                                             Err(e) => {
                                                 error!(
-                                                    "reconnect to peer {} failed: {}, retrying in {:?}",
-                                                    peer, e, RECONNECT_RETRY_DELAY
+                                                    "reconnect to peer {} failed (attempt {}/{}): {}, next attempt in {:?}",
+                                                    peer, attempt, RECONNECT_MAX_ATTEMPTS, e, delay
                                                 );
+                                                delay = (delay * 2).min(RECONNECT_RETRY_MAX_DELAY);
                                             }
                                         }
                                     }
+                                    error!(
+                                        "gave up reconnecting to peer {} after {} attempts; it will be rebuilt by the periodic settings sync or the next traffic",
+                                        peer, RECONNECT_MAX_ATTEMPTS
+                                    );
                                 });
                             }
                             None => {
@@ -1003,6 +1031,9 @@ pub(crate) struct SessionManager {
     /// Sender of the channel stream-end notifications are sent through; handed to every
     /// session when it is created.
     stream_closed_tx: Mutex<Option<mpsc::Sender<String>>>,
+    /// Sender of the client's telemetry command channel, captured on start so that
+    /// `reconnect_session` can rebuild a missing session from scratch.
+    telemetry_command_tx: Mutex<Option<mpsc::Sender<pb::telemetry_command::Command>>>,
 }
 
 #[automock]
@@ -1019,6 +1050,7 @@ impl SessionManager {
             session_map,
             long_polling_timeout,
             stream_closed_tx: Mutex::new(None),
+            telemetry_command_tx: Mutex::new(None),
         }
     }
 
@@ -1027,6 +1059,15 @@ impl SessionManager {
     /// Must be called before the first session is created.
     pub(crate) fn set_stream_closed_channel(&self, tx: mpsc::Sender<String>) {
         *self.stream_closed_tx.lock() = Some(tx);
+    }
+
+    /// Capture the client's telemetry command channel so that `reconnect_session` can
+    /// rebuild a missing session from scratch. Called by `Client::start`.
+    pub(crate) fn set_telemetry_command_channel(
+        &self,
+        tx: mpsc::Sender<pb::telemetry_command::Command>,
+    ) {
+        *self.telemetry_command_tx.lock() = Some(tx);
     }
 
     pub(crate) async fn get_or_create_session(
@@ -1094,20 +1135,40 @@ impl SessionManager {
     /// The session is taken out of the map for the duration of the RPC so that other
     /// callers are not blocked on the network round trip. On failure it is put back so
     /// that the reconnect retry loop keeps driving recovery on the same session even when
-    /// the client is idle; a missing session is a no-op, because the next access recreates
-    /// it from scratch.
+    /// the client is idle.
+    ///
+    /// Returns `Ok(true)` when the stream was re-established. A session that is missing
+    /// from the map (evicted or reaped meanwhile) is rebuilt from the access endpoints, so
+    /// an idle client keeps a driver for recovery; for broker sessions that rebuild lands
+    /// on the access session and the broker session itself is recreated with its own
+    /// endpoints on the next access, which returns `Ok(true)` as well. `Ok(false)` means
+    /// nothing could be driven (no access endpoints configured).
     pub(crate) async fn reconnect_session(
         &self,
         endpoint_url: &str,
         settings: &TelemetryCommand,
-    ) -> Result<(), ClientError> {
-        let mut session = {
+    ) -> Result<bool, ClientError> {
+        // Take the session out of the map and release the lock before any await: the
+        // rebuild path below calls get_or_create_session, which locks the same map again
+        // (tokio::sync::Mutex is not reentrant).
+        let session_opt = {
             let mut session_map = self.session_map.lock().await;
-            match session_map.remove(endpoint_url) {
-                Some(session) => session,
-                // The session was evicted meanwhile; it is recreated on the next access.
-                None => return Ok(()),
-            }
+            session_map.remove(endpoint_url)
+        };
+        let Some(mut session) = session_opt else {
+            // The session was evicted or reaped meanwhile. Rebuild it from the access
+            // endpoints instead of reporting success without doing anything: treating
+            // this as a success used to make the reconnect retry loop exit while no
+            // stream had been re-established.
+            let telemetry_command_tx = self.telemetry_command_tx.lock().clone();
+            let Some(telemetry_command_tx) = telemetry_command_tx else {
+                return Ok(false);
+            };
+            let endpoints = Endpoints::from_url(self.option.access_url())?;
+            return self
+                .get_or_create_session(&endpoints, settings.clone(), telemetry_command_tx)
+                .await
+                .map(|_| true);
         };
         match session.reconnect(settings.clone()).await {
             Ok(()) => {
@@ -1115,7 +1176,7 @@ impl SessionManager {
                     .lock()
                     .await
                     .insert(endpoint_url.to_string(), session);
-                Ok(())
+                Ok(true)
             }
             Err(e) => {
                 // Keep the session registered so that the reconnect retry loop keeps
@@ -1998,6 +2059,13 @@ pub(crate) mod tests {
             "reconnect should re-establish the stream of the registered session"
         );
         assert_eq!(session_manager.session_map.lock().await.len(), 1);
+        assert!(
+            session_manager
+                .reconnect_session("endpoint_a", &TelemetryCommand::default())
+                .await
+                .unwrap(),
+            "a re-established stream must be reported as restored"
+        );
     }
 
     #[tokio::test]
@@ -2028,12 +2096,29 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn test_reconnect_session_is_a_no_op_for_unknown_endpoint() {
+    async fn test_reconnect_session_rebuilds_missing_session() {
         let session_manager = new_session_manager();
-        assert!(session_manager
+        let (tx, _rx) = mpsc::channel(16);
+        session_manager.set_telemetry_command_channel(tx);
+        let context = MockSession::new_context();
+        context.expect().returning(|_, _, _, _| {
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session.expect_set_stream_closed_tx().returning(|_| ());
+            session
+                .expect_shadow_session()
+                .returning(|| MockSession::default());
+            Ok(session)
+        });
+
+        // A session that was evicted or reaped meanwhile must be rebuilt from the access
+        // endpoints instead of reporting a success that re-established nothing (that used
+        // to make the reconnect retry loop exit without any stream).
+        let restored = session_manager
             .reconnect_session("endpoint_a", &TelemetryCommand::default())
             .await
-            .is_ok());
-        assert!(session_manager.session_map.lock().await.is_empty());
+            .unwrap();
+        assert!(restored);
+        assert_eq!(session_manager.session_map.lock().await.len(), 1);
     }
 }
