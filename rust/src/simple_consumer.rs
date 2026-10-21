@@ -32,7 +32,7 @@ use crate::pb::telemetry_command::Command;
 use crate::session::SharedLongPollingTimeout;
 use crate::util::{
     build_endpoints_by_message_queue, build_simple_consumer_settings, prune_lite_route,
-    select_message_queue,
+    select_readable_message_queue,
 };
 
 /// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
@@ -287,7 +287,7 @@ impl SimpleConsumer {
         } else {
             route
         };
-        let message_queue = select_message_queue(route);
+        let message_queue = select_readable_message_queue(route, Self::OPERATION_RECEIVE_MESSAGE)?;
         let endpoints =
             build_endpoints_by_message_queue(&message_queue, Self::OPERATION_RECEIVE_MESSAGE)?;
         let messages = self
