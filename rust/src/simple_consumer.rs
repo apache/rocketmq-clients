@@ -56,6 +56,7 @@ impl SimpleConsumer {
     const OPERATION_NEW_SIMPLE_CONSUMER: &'static str = "simple_consumer.new";
     const OPERATION_START_SIMPLE_CONSUMER: &'static str = "simple_consumer.start";
     const OPERATION_RECEIVE_MESSAGE: &'static str = "simple_consumer.receive_message";
+    const OPERATION_ACK_MESSAGE: &'static str = "simple_consumer.ack_message";
     const OPERATION_CHANGE_INVISIBLE_DURATION: &'static str =
         "simple_consumer.change_invisible_duration";
 
@@ -143,7 +144,17 @@ impl SimpleConsumer {
         self.client.start(telemetry_command_tx).await?;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
-                self.client.topic_route(topic, true).await?;
+                if let Err(error) = self.client.topic_route(topic, true).await {
+                    // Reference Java: SimpleConsumerImpl#startUp shuts the client down when any
+                    // startup step fails.
+                    if let Err(shutdown_error) = self.client.shutdown_ref().await {
+                        warn!(
+                            "failed to shut down simple consumer after a failed start: {}",
+                            shutdown_error
+                        );
+                    }
+                    return Err(error);
+                }
             }
         }
         info!(
@@ -299,6 +310,7 @@ impl SimpleConsumer {
         invisible_duration: Duration,
         lite: bool,
     ) -> Result<Vec<MessageView>, ClientError> {
+        self.client.check_started(Self::OPERATION_RECEIVE_MESSAGE)?;
         // Reference Java: `SimpleConsumerImpl#receive0` rejects a non-positive maxMessageNum.
         if batch_size <= 0 {
             return Err(ClientError::new(
@@ -349,6 +361,7 @@ impl SimpleConsumer {
         &self,
         ack_entry: &(impl AckMessageEntry + 'static),
     ) -> Result<(), ClientError> {
+        self.client.check_started(Self::OPERATION_ACK_MESSAGE)?;
         self.client.ack_message(ack_entry).await?;
         Ok(())
     }
@@ -368,6 +381,8 @@ impl SimpleConsumer {
         ack_entry: &(impl AckMessageEntry + 'static),
         invisible_duration: Duration,
     ) -> Result<String, ClientError> {
+        self.client
+            .check_started(Self::OPERATION_CHANGE_INVISIBLE_DURATION)?;
         let invisible_duration = Self::to_pb_invisible_duration(
             invisible_duration,
             Self::OPERATION_CHANGE_INVISIBLE_DURATION,
@@ -431,6 +446,7 @@ mod tests {
     #[tokio::test]
     async fn simple_consumer_consume_message() -> Result<(), ClientError> {
         let mut client = Client::default();
+        client.expect_check_started().returning(|_| Ok(()));
         client.expect_topic_route().returning(|_, _| {
             Ok(Arc::new(Route {
                 index: Default::default(),
@@ -513,6 +529,7 @@ mod tests {
 
     fn new_simple_consumer_without_rpc() -> SimpleConsumer {
         let mut client = Client::default();
+        client.expect_check_started().returning(|_| Ok(()));
         client.expect_topic_route().never();
         client.expect_receive_message().never();
         client
@@ -586,6 +603,7 @@ mod tests {
     #[tokio::test]
     async fn change_invisible_duration_refreshes_receipt_handle() -> Result<(), ClientError> {
         let mut client = Client::default();
+        client.expect_check_started().returning(|_| Ok(()));
         client
             .expect_change_invisible_duration()
             .times(1)
@@ -620,6 +638,7 @@ mod tests {
     #[tokio::test]
     async fn failed_change_invisible_duration_keeps_receipt_handle() {
         let mut client = Client::default();
+        client.expect_check_started().returning(|_| Ok(()));
         client
             .expect_change_invisible_duration()
             .times(1)
@@ -638,5 +657,84 @@ mod tests {
             .await;
         assert!(result.is_err());
         assert_eq!(message.receipt_handle(), "handle-1");
+    }
+
+    fn assert_not_running<T: std::fmt::Debug>(result: Result<T, ClientError>, operation: &str) {
+        let error = result.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::ClientIsNotRunning, "{:?}", error);
+        assert_eq!(error.operation, operation);
+    }
+
+    // Reference Java: SimpleConsumerImpl#receive0 / #ack0 / #changeInvisibleDuration0 fail with
+    // IllegalStateException("Simple consumer is not running now") before any RPC.
+    #[tokio::test]
+    async fn operations_fail_when_not_started() {
+        let mut client = Client::default();
+        client.expect_check_started().returning(|operation| {
+            Err(ClientError::new(
+                ErrorKind::ClientIsNotRunning,
+                "client is not started",
+                operation,
+            ))
+        });
+        client.expect_topic_route().never();
+        client.expect_receive_message().never();
+        client.expect_ack_message::<MessageView>().never();
+        client
+            .expect_change_invisible_duration::<MessageView>()
+            .never();
+        let simple_consumer = SimpleConsumer {
+            option: SimpleConsumerOption::default(),
+            client,
+            shutdown_tx: None,
+        };
+        let expression = FilterExpression::new(FilterType::Tag, "*");
+        let message = new_message_view("handle");
+
+        assert_not_running(
+            simple_consumer.receive("test_topic", &expression).await,
+            "simple_consumer.receive_message",
+        );
+        assert_not_running(
+            simple_consumer.ack(&message).await,
+            "simple_consumer.ack_message",
+        );
+        assert_not_running(
+            simple_consumer
+                .change_invisible_duration(&message, Duration::from_secs(10))
+                .await,
+            "simple_consumer.change_invisible_duration",
+        );
+    }
+
+    // Reference Java: SimpleConsumerImpl#startUp calls shutDown() when any startup step fails.
+    #[tokio::test]
+    async fn start_failure_shuts_down_client() {
+        let _m = crate::client::tests::MTX.lock();
+
+        let ctx = Client::new_context();
+        ctx.expect().return_once(|_, _| {
+            let mut client = Client::default();
+            client.expect_start().times(1).returning(|_| Ok(()));
+            client.expect_topic_route().times(1).returning(|_, _| {
+                Err(ClientError::new(
+                    ErrorKind::Server,
+                    "topic not found",
+                    "client.query_route",
+                ))
+            });
+            client.expect_shutdown_ref().times(1).returning(|| Ok(()));
+            client
+                .expect_client_id()
+                .return_const("fake_id".to_string());
+            Ok(client)
+        });
+        let mut option = SimpleConsumerOption::default();
+        option.set_consumer_group("test_group");
+        option.set_topics(vec!["test_topic"]);
+        let mut simple_consumer = SimpleConsumer::new(option, ClientOption::default()).unwrap();
+        let result = simple_consumer.start().await;
+        assert!(result.is_err());
+        assert!(simple_consumer.shutdown_tx.is_none());
     }
 }
