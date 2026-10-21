@@ -1137,12 +1137,11 @@ impl SessionManager {
     /// that the reconnect retry loop keeps driving recovery on the same session even when
     /// the client is idle.
     ///
-    /// Returns `Ok(true)` when the stream was re-established. A session that is missing
-    /// from the map (evicted or reaped meanwhile) is rebuilt from the access endpoints, so
-    /// an idle client keeps a driver for recovery; for broker sessions that rebuild lands
-    /// on the access session and the broker session itself is recreated with its own
-    /// endpoints on the next access, which returns `Ok(true)` as well. `Ok(false)` means
-    /// nothing could be driven (no access endpoints configured).
+    /// Returns `Ok(true)` when the stream of `endpoint_url` was re-established. A session
+    /// that is missing from the map (evicted or reaped meanwhile) is rebuilt against that
+    /// same endpoint, so an idle client keeps a driver for recovery even when no traffic
+    /// refers to the endpoint anymore. `Ok(false)` means nothing could be driven (no
+    /// telemetry command channel captured yet).
     pub(crate) async fn reconnect_session(
         &self,
         endpoint_url: &str,
@@ -1156,15 +1155,17 @@ impl SessionManager {
             session_map.remove(endpoint_url)
         };
         let Some(mut session) = session_opt else {
-            // The session was evicted or reaped meanwhile. Rebuild it from the access
-            // endpoints instead of reporting success without doing anything: treating
-            // this as a success used to make the reconnect retry loop exit while no
-            // stream had been re-established.
+            // The session was evicted or reaped meanwhile. Rebuild it against the very
+            // endpoint that was asked for: rebuilding the access session instead would
+            // leave this peer without a stream while still reporting `Ok(true)`, which
+            // makes the reconnect retry loop log "re-established" and stop. Every key of
+            // `session_map` comes from `Endpoints::endpoint_url`, so it round-trips back
+            // into a valid endpoint here.
             let telemetry_command_tx = self.telemetry_command_tx.lock().clone();
             let Some(telemetry_command_tx) = telemetry_command_tx else {
                 return Ok(false);
             };
-            let endpoints = Endpoints::from_url(self.option.access_url())?;
+            let endpoints = Endpoints::from_url(endpoint_url)?;
             return self
                 .get_or_create_session(&endpoints, settings.clone(), telemetry_command_tx)
                 .await
@@ -2097,11 +2098,17 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn test_reconnect_session_rebuilds_missing_session() {
+        let _m = MTX.lock();
+
         let session_manager = new_session_manager();
         let (tx, _rx) = mpsc::channel(16);
         session_manager.set_telemetry_command_channel(tx);
+        let created: Arc<parking_lot::Mutex<Vec<String>>> =
+            Arc::new(parking_lot::Mutex::new(Vec::new()));
         let context = MockSession::new_context();
-        context.expect().returning(|_, _, _, _| {
+        let recorded = Arc::clone(&created);
+        context.expect().returning(move |endpoints, _, _, _| {
+            recorded.lock().push(endpoints.endpoint_url().to_string());
             let mut session = MockSession::default();
             session.expect_start().returning(|_, _| Ok(()));
             session.expect_set_stream_closed_tx().returning(|_| ());
@@ -2111,14 +2118,32 @@ pub(crate) mod tests {
             Ok(session)
         });
 
-        // A session that was evicted or reaped meanwhile must be rebuilt from the access
-        // endpoints instead of reporting a success that re-established nothing (that used
-        // to make the reconnect retry loop exit without any stream).
+        // A session that was evicted or reaped meanwhile must be rebuilt against the peer
+        // that is being reconnected, not against the access endpoint. Rebuilding the access
+        // session used to report Ok(true) for a peer that had no stream left, so the
+        // reconnect retry loop stopped as if it had restored the connection. The peer here
+        // deliberately differs from the default access_url (localhost:8081).
+        let peer = "127.0.0.1:9999";
         let restored = session_manager
-            .reconnect_session("endpoint_a", &TelemetryCommand::default())
+            .reconnect_session(peer, &TelemetryCommand::default())
             .await
             .unwrap();
-        assert!(restored);
-        assert_eq!(session_manager.session_map.lock().await.len(), 1);
+        assert!(
+            restored,
+            "the rebuilt peer stream must be reported as restored"
+        );
+        assert_eq!(created.lock().as_slice(), &[peer.to_string()]);
+        let keys: Vec<String> = session_manager
+            .session_map
+            .lock()
+            .await
+            .keys()
+            .cloned()
+            .collect();
+        assert_eq!(
+            keys,
+            vec![peer.to_string()],
+            "the session must be registered under the reconnected peer"
+        );
     }
 }
