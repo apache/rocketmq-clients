@@ -66,7 +66,15 @@ impl Endpoints {
 
     const ENDPOINT_SEPARATOR: &'static str = ",";
     const ADDRESS_SEPARATOR: &'static str = ":";
+    const HTTP_PREFIX: &'static str = "http://";
+    const HTTPS_PREFIX: &'static str = "https://";
 
+    /// Parse an endpoint url such as `localhost:8081` or `127.0.0.1:8081,127.0.0.2:8081`.
+    ///
+    /// A single address may start with `http://` or `https://`, which is removed. The prefix
+    /// does not enable TLS, use [`crate::conf::ClientOption::set_enable_tls`] for that.
+    ///
+    /// Reference Java: `Endpoints(String)` strips the same prefixes for a single address.
     pub(crate) fn from_url(endpoint_url: &str) -> Result<Self, ClientError> {
         if endpoint_url.is_empty() {
             return Err(ClientError::new(
@@ -76,6 +84,17 @@ impl Endpoints {
             )
             .with_context("url", endpoint_url));
         }
+
+        let endpoint_url = if endpoint_url.contains(Self::ENDPOINT_SEPARATOR) {
+            endpoint_url
+        } else {
+            let endpoint_url = endpoint_url
+                .strip_prefix(Self::HTTP_PREFIX)
+                .unwrap_or(endpoint_url);
+            endpoint_url
+                .strip_prefix(Self::HTTPS_PREFIX)
+                .unwrap_or(endpoint_url)
+        };
 
         let mut scheme = AddressScheme::DomainName;
         let mut urls = Vec::new();
@@ -386,6 +405,28 @@ mod tests {
         assert_eq!(inner.addresses.len(), 1);
         assert_eq!(inner.addresses[0].host, "::1");
         assert_eq!(inner.addresses[0].port, 8080);
+    }
+
+    #[test]
+    fn parse_endpoint_url_with_http_prefix() {
+        // Reference Java: EndpointsTest#testEndpointsWithDomainPortAndHttp(s)Prefix.
+        for url in ["http://localhost:8080", "https://localhost:8080"] {
+            let endpoints = Endpoints::from_url(url).unwrap();
+            assert_eq!(endpoints.endpoint_url(), "localhost:8080");
+            assert_eq!(endpoints.scheme(), AddressScheme::DomainName);
+            let inner = endpoints.into_inner();
+            assert_eq!(inner.addresses.len(), 1);
+            assert_eq!(inner.addresses[0].host, "localhost");
+            assert_eq!(inner.addresses[0].port, 8080);
+        }
+
+        let endpoints = Endpoints::from_url("http://127.0.0.1:8080").unwrap();
+        assert_eq!(endpoints.endpoint_url(), "127.0.0.1:8080");
+        assert_eq!(endpoints.scheme(), AddressScheme::IPv4);
+
+        let err = Endpoints::from_url("http://localhost").err().unwrap();
+        assert_eq!(err.kind, ErrorKind::Config);
+        assert_eq!(err.message, "port in endpoint url is missing");
     }
 
     #[test]
