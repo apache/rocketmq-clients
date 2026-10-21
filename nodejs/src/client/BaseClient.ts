@@ -211,76 +211,90 @@ export abstract class BaseClient {
         this.#startupResolve = resolve;
       })
       : undefined;
+    // A status-only telemetry command can reach onUnknownCommand() while
+    // updateRoutes() (or its retry backoff) is still pending, rejecting this
+    // promise before the await below attaches a rejection handler. Under
+    // Node.js's default unhandled-rejection behavior that terminates the
+    // process even though startup() would surface the error to its caller,
+    // so attach a no-op handler immediately; the await below still observes
+    // the error and propagates it to the caller.
+    void firstSettingsPromise?.catch(() => undefined);
 
-    // Fetch topic route with retry mechanism (align with Java client)
-    const maxAttempts = 3;
-    let lastError: Error | undefined;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        await this.updateRoutes();
-        this.logger.info('Fetch topic route successfully during startup, clientId=%s, attempt=%d',
-          this.clientId, attempt);
-        break;
-      } catch (e) {
-        lastError = e as Error;
-        // Not-found errors will never succeed on retry — fail fast, aligned
-        // with the Java client which surfaces NotFoundException immediately.
-        if (e instanceof NotFoundException) {
-          throw e;
+    try {
+      // Fetch topic route with retry mechanism (align with Java client)
+      const maxAttempts = 3;
+      let lastError: Error | undefined;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await this.updateRoutes();
+          this.logger.info('Fetch topic route successfully during startup, clientId=%s, attempt=%d',
+            this.clientId, attempt);
+          break;
+        } catch (e) {
+          lastError = e as Error;
+          // Not-found errors will never succeed on retry — fail fast, aligned
+          // with the Java client which surfaces NotFoundException immediately.
+          if (e instanceof NotFoundException) {
+            throw e;
+          }
+          if (attempt < maxAttempts) {
+            const backoffMs = 1000 * attempt; // Simple linear backoff: 1s, 2s, 3s
+            this.logger.warn('Fetch topic route failed during startup, will retry, clientId=%s, attempt=%d/%d, error=%s, backoff=%dms',
+              this.clientId, attempt, maxAttempts, e instanceof Error ? e.message : String(e), backoffMs);
+            await this.sleep(backoffMs);
+          } else {
+            this.logger.error('Fetch topic route failed after %d attempts, clientId=%s, error=%s',
+              maxAttempts, this.clientId, e instanceof Error ? e.message : String(e));
+          }
         }
-        if (attempt < maxAttempts) {
-          const backoffMs = 1000 * attempt; // Simple linear backoff: 1s, 2s, 3s
-          this.logger.warn('Fetch topic route failed during startup, will retry, clientId=%s, attempt=%d/%d, error=%s, backoff=%dms',
-            this.clientId, attempt, maxAttempts, e instanceof Error ? e.message : String(e), backoffMs);
-          await this.sleep(backoffMs);
-        } else {
-          this.logger.error('Fetch topic route failed after %d attempts, clientId=%s, error=%s',
-            maxAttempts, this.clientId, e instanceof Error ? e.message : String(e));
+      }
+
+      if (lastError && !this.topicRouteCache.size) {
+        throw new Error(`Failed to fetch topic routes after ${maxAttempts} attempts`, { cause: lastError });
+      }
+
+      this.logger.info('Topic routes updated, clientId=%s', this.clientId);
+      // update topic route every 30s
+      this.#timers.push(setInterval(async () => {
+        try {
+          await this.updateRoutes();
+        } catch (e) {
+          this.logger.error('Failed to update routes periodically, clientId=%s, error=%s',
+            this.clientId, e instanceof Error ? e.message : String(e));
         }
+      }, 30000));
+
+      // sync settings every 5m
+      this.#timers.push(setInterval(async () => {
+        try {
+          this.#syncSettings();
+        } catch (e) {
+          this.logger.error('Failed to sync settings, clientId=%s, error=%s',
+            this.clientId, e instanceof Error ? e.message : String(e));
+        }
+      }, 5 * 60000));
+
+      // heartbeat every 10s
+      this.#timers.push(setInterval(async () => {
+        this.#doHeartbeat();
+      }, 10000));
+
+      // doStats every 60s
+      // doStats()
+
+      if (firstSettingsPromise) {
+        this.logger.info('Waiting for first onSettingsCommand, clientId=%s', this.clientId);
+        await firstSettingsPromise;
+        this.logger.info('Received first onSettingsCommand, clientId=%s', this.clientId);
       }
+      this.#running = true;
+    } finally {
+      // Never leave the resolvers dangling across exits: on the early-throw
+      // (route fetch failure) and first-settings rejection paths they would
+      // otherwise settle an abandoned promise long after startup is over.
+      this.#startupReject = undefined;
+      this.#startupResolve = undefined;
     }
-
-    if (lastError && !this.topicRouteCache.size) {
-      throw new Error(`Failed to fetch topic routes after ${maxAttempts} attempts`, { cause: lastError });
-    }
-
-    this.logger.info('Topic routes updated, clientId=%s', this.clientId);
-    // update topic route every 30s
-    this.#timers.push(setInterval(async () => {
-      try {
-        await this.updateRoutes();
-      } catch (e) {
-        this.logger.error('Failed to update routes periodically, clientId=%s, error=%s',
-          this.clientId, e instanceof Error ? e.message : String(e));
-      }
-    }, 30000));
-
-    // sync settings every 5m
-    this.#timers.push(setInterval(async () => {
-      try {
-        this.#syncSettings();
-      } catch (e) {
-        this.logger.error('Failed to sync settings, clientId=%s, error=%s',
-          this.clientId, e instanceof Error ? e.message : String(e));
-      }
-    }, 5 * 60000));
-
-    // heartbeat every 10s
-    this.#timers.push(setInterval(async () => {
-      this.#doHeartbeat();
-    }, 10000));
-
-    // doStats every 60s
-    // doStats()
-
-    if (firstSettingsPromise) {
-      this.logger.info('Waiting for first onSettingsCommand, clientId=%s', this.clientId);
-      await firstSettingsPromise;
-      this.logger.info('Received first onSettingsCommand, clientId=%s', this.clientId);
-    }
-    this.#startupReject = undefined;
-    this.#startupResolve = undefined;
-    this.#running = true;
   }
 
   isRunning(): boolean {
