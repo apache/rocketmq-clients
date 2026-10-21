@@ -22,6 +22,8 @@ use std::io::Read;
 
 use tracing::error;
 
+use parking_lot::Mutex;
+
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::Endpoints;
 use crate::model::message::MessageType::{DELAY, FIFO, LITE, NORMAL, PRIORITY, TRANSACTION};
@@ -541,7 +543,8 @@ pub trait AckMessageEntry {
 #[derive(Debug)]
 pub struct MessageView {
     pub(crate) message_id: String,
-    pub(crate) receipt_handle: Option<String>,
+    /// Refreshed by `SimpleConsumer::change_invisible_duration`, hence the interior mutability.
+    pub(crate) receipt_handle: Mutex<Option<String>>,
     pub(crate) namespace: String,
     pub(crate) topic: String,
     pub(crate) body: Vec<u8>,
@@ -569,7 +572,7 @@ impl AckMessageEntry for MessageView {
     }
 
     fn receipt_handle(&self) -> String {
-        self.receipt_handle.clone().unwrap()
+        self.receipt_handle.lock().clone().unwrap()
     }
 
     fn endpoints(&self) -> &Endpoints {
@@ -582,6 +585,13 @@ impl AckMessageEntry for MessageView {
 }
 
 impl MessageView {
+    /// Replace the receipt handle, e.g. with the one returned by ChangeInvisibleDuration.
+    ///
+    /// Reference Java: `MessageViewImpl#setReceiptHandle`.
+    pub(crate) fn set_receipt_handle(&self, receipt_handle: String) {
+        *self.receipt_handle.lock() = Some(receipt_handle);
+    }
+
     pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Option<Self> {
         let system_properties = message.system_properties?;
         let topic = message.topic?;
@@ -593,7 +603,7 @@ impl MessageView {
         );
         Some(MessageView {
             message_id: system_properties.message_id,
-            receipt_handle: system_properties.receipt_handle,
+            receipt_handle: Mutex::new(system_properties.receipt_handle),
             namespace: topic.resource_namespace,
             topic: topic.name,
             body,
