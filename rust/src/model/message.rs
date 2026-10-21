@@ -18,6 +18,9 @@
 //! Message data model of RocketMQ rust client.
 
 use std::collections::HashMap;
+use std::io::Read;
+
+use tracing::error;
 
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::Endpoints;
@@ -431,6 +434,91 @@ impl MessageBuilder {
     }
 }
 
+/// Verify the body digest and decode the body according to its encoding.
+///
+/// Returns the body to expose and whether the message is corrupted. The digest is computed by
+/// the server on the body as stored, so it is checked before decoding.
+///
+/// Reference Java: `MessageViewImpl#fromProtobuf`.
+fn decode_body(
+    body: Vec<u8>,
+    system_properties: &pb::SystemProperties,
+    topic: &str,
+    message_id: &str,
+) -> (Vec<u8>, bool) {
+    let mut corrupted = false;
+    if let Some(digest) = &system_properties.body_digest {
+        match pb::DigestType::from_i32(digest.r#type) {
+            Some(pb::DigestType::Crc32) => {
+                corrupted |= format!("{:X}", crc32fast::hash(&body)) != digest.checksum;
+            }
+            Some(pb::DigestType::Md5) => {
+                use md5::Digest;
+                corrupted |= hex::encode_upper(md5::Md5::digest(&body)) != digest.checksum;
+            }
+            Some(pb::DigestType::Sha1) => {
+                let sha1 = ring::digest::digest(&ring::digest::SHA1_FOR_LEGACY_USE_ONLY, &body);
+                corrupted |= hex::encode_upper(sha1.as_ref()) != digest.checksum;
+            }
+            _ => error!(
+                "Unsupported message body digest algorithm, digest_type={}, topic={}, message_id={}",
+                digest.r#type, topic, message_id
+            ),
+        }
+    }
+    if corrupted {
+        error!(
+            "Message body digest mismatch, topic={}, message_id={}",
+            topic, message_id
+        );
+    }
+    match pb::Encoding::from_i32(system_properties.body_encoding) {
+        Some(pb::Encoding::Gzip) => match decompress(&body) {
+            Ok(decompressed) => (decompressed, corrupted),
+            Err(e) => {
+                error!(
+                    "Failed to uncompress message body, topic={}, message_id={}, error={}",
+                    topic, message_id, e
+                );
+                (body, true)
+            }
+        },
+        Some(pb::Encoding::Identity) => (body, corrupted),
+        _ => {
+            error!(
+                "Unsupported message encoding algorithm, topic={}, message_id={}, body_encoding={}",
+                topic, message_id, system_properties.body_encoding
+            );
+            (body, corrupted)
+        }
+    }
+}
+
+/// Decompress a body by its magic number.
+///
+/// The proxy marks every body that was stored compressed as `GZIP`, whatever the algorithm. The
+/// remoting producer compresses with ZLIB by default. LZ4 and ZSTD are not supported.
+///
+/// Reference Java: `Utilities#decompressBytes`.
+fn decompress(body: &[u8]) -> std::io::Result<Vec<u8>> {
+    let mut decompressed = Vec::new();
+    match body {
+        [0x1f, 0x8b, ..] => {
+            flate2::read::MultiGzDecoder::new(body).read_to_end(&mut decompressed)?;
+        }
+        [0x78, ..] => {
+            flate2::read::ZlibDecoder::new(body).read_to_end(&mut decompressed)?;
+        }
+        _ => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "unsupported compression format",
+            ))
+        }
+    }
+    Ok(decompressed)
+}
+
 /// [`AckMessageEntry`] is the data model for ack message.
 pub trait AckMessageEntry {
     fn topic(&self) -> String;
@@ -460,6 +548,7 @@ pub struct MessageView {
     pub(crate) endpoints: Endpoints,
     pub(crate) priority: Option<i32>,
     pub(crate) lite_topic: Option<String>,
+    pub(crate) corrupted: bool,
 }
 
 impl AckMessageEntry for MessageView {
@@ -484,12 +573,18 @@ impl MessageView {
     pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Option<Self> {
         let system_properties = message.system_properties?;
         let topic = message.topic?;
+        let (body, corrupted) = decode_body(
+            message.body,
+            &system_properties,
+            &topic.name,
+            &system_properties.message_id,
+        );
         Some(MessageView {
             message_id: system_properties.message_id,
             receipt_handle: system_properties.receipt_handle,
             namespace: topic.resource_namespace,
             topic: topic.name,
-            body: message.body,
+            body,
             tag: system_properties.tag,
             keys: system_properties.keys,
             properties: message.user_properties,
@@ -501,6 +596,7 @@ impl MessageView {
             endpoints,
             priority: system_properties.priority,
             lite_topic: system_properties.lite_topic,
+            corrupted,
         })
     }
 
@@ -522,6 +618,13 @@ impl MessageView {
     /// Get message body
     pub fn body(&self) -> &[u8] {
         &self.body
+    }
+
+    /// Whether the message body failed its digest check or could not be decompressed.
+    ///
+    /// A corrupted message keeps the body as received. Reference Java: `MessageViewImpl#isCorrupted`.
+    pub fn is_corrupted(&self) -> bool {
+        self.corrupted
     }
 
     /// Get message tag
@@ -586,6 +689,143 @@ impl MessageView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    mod body_decoding {
+        use std::io::Write;
+
+        use super::*;
+
+        const PLAIN: &[u8] = b"hello compressed body hello compressed body hello compressed body";
+
+        fn gzip(data: &[u8]) -> Vec<u8> {
+            let mut encoder =
+                flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+            encoder.write_all(data).unwrap();
+            encoder.finish().unwrap()
+        }
+
+        fn zlib(data: &[u8]) -> Vec<u8> {
+            let mut encoder =
+                flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+            encoder.write_all(data).unwrap();
+            encoder.finish().unwrap()
+        }
+
+        fn md5_hex(data: &[u8]) -> String {
+            use md5::Digest;
+            hex::encode_upper(md5::Md5::digest(data))
+        }
+
+        fn view(body: Vec<u8>, encoding: pb::Encoding, digest: Option<pb::Digest>) -> MessageView {
+            MessageView::from_pb_message(
+                pb::Message {
+                    topic: Some(pb::Resource {
+                        name: "topic".to_string(),
+                        resource_namespace: "".to_string(),
+                    }),
+                    user_properties: Default::default(),
+                    system_properties: Some(pb::SystemProperties {
+                        body_encoding: encoding as i32,
+                        body_digest: digest,
+                        ..Default::default()
+                    }),
+                    body,
+                },
+                Endpoints::from_url("localhost:8081").unwrap(),
+            )
+            .unwrap()
+        }
+
+        fn digest(r#type: pb::DigestType, checksum: String) -> Option<pb::Digest> {
+            Some(pb::Digest {
+                r#type: r#type as i32,
+                checksum,
+            })
+        }
+
+        #[test]
+        fn identity_body_is_kept() {
+            let message = view(PLAIN.to_vec(), pb::Encoding::Identity, None);
+            assert_eq!(message.body(), PLAIN);
+            assert!(!message.is_corrupted());
+        }
+
+        #[test]
+        fn gzip_body_is_decompressed() {
+            let message = view(gzip(PLAIN), pb::Encoding::Gzip, None);
+            assert_eq!(message.body(), PLAIN);
+            assert!(!message.is_corrupted());
+        }
+
+        #[test]
+        fn zlib_body_marked_as_gzip_is_decompressed() {
+            // The proxy marks every body stored with COMPRESSED_FLAG as GZIP, but the remoting
+            // producer compresses with ZLIB by default.
+            let message = view(zlib(PLAIN), pb::Encoding::Gzip, None);
+            assert_eq!(message.body(), PLAIN);
+            assert!(!message.is_corrupted());
+        }
+
+        #[test]
+        fn undecodable_body_is_corrupted() {
+            let garbage = vec![0x1f, 0x8b, 0x00, 0x01, 0x02];
+            let message = view(garbage.clone(), pb::Encoding::Gzip, None);
+            assert_eq!(message.body(), garbage.as_slice());
+            assert!(message.is_corrupted());
+
+            let unknown_format = b"not compressed".to_vec();
+            let message = view(unknown_format.clone(), pb::Encoding::Gzip, None);
+            assert_eq!(message.body(), unknown_format.as_slice());
+            assert!(message.is_corrupted());
+        }
+
+        #[test]
+        fn digest_is_verified_on_the_received_body() {
+            // The proxy computes the digest on the stored, i.e. still compressed, body.
+            let compressed = zlib(PLAIN);
+            let message = view(
+                compressed.clone(),
+                pb::Encoding::Gzip,
+                digest(pb::DigestType::Md5, md5_hex(&compressed)),
+            );
+            assert_eq!(message.body(), PLAIN);
+            assert!(!message.is_corrupted());
+
+            let message = view(
+                compressed,
+                pb::Encoding::Gzip,
+                digest(pb::DigestType::Md5, md5_hex(PLAIN)),
+            );
+            assert!(message.is_corrupted());
+        }
+
+        #[test]
+        fn every_digest_type_is_verified() {
+            let crc32 = format!("{:X}", crc32fast::hash(PLAIN));
+            let sha1 = hex::encode_upper(
+                ring::digest::digest(&ring::digest::SHA1_FOR_LEGACY_USE_ONLY, PLAIN).as_ref(),
+            );
+            for (r#type, checksum) in [
+                (pb::DigestType::Crc32, crc32),
+                (pb::DigestType::Md5, md5_hex(PLAIN)),
+                (pb::DigestType::Sha1, sha1),
+            ] {
+                let message = view(
+                    PLAIN.to_vec(),
+                    pb::Encoding::Identity,
+                    digest(r#type, checksum.clone()),
+                );
+                assert!(!message.is_corrupted(), "{:?} {}", r#type, checksum);
+
+                let message = view(
+                    PLAIN.to_vec(),
+                    pb::Encoding::Identity,
+                    digest(r#type, "0".to_string()),
+                );
+                assert!(message.is_corrupted(), "{:?}", r#type);
+            }
+        }
+    }
 
     #[test]
     fn common_test_message() {
