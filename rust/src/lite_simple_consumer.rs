@@ -344,6 +344,10 @@ impl LiteSimpleConsumer {
     }
 
     /// Change the invisible duration of the specified message
+    ///
+    /// For a lite message the request carries `suspend=true`, as in the Java client: the broker
+    /// suspends the whole lite topic queue of this consumer group until the new visible time and
+    /// does not count it as a delivery attempt.
     pub async fn change_invisible_duration(
         &self,
         message: &MessageView,
