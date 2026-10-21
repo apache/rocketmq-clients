@@ -275,10 +275,11 @@ impl Producer {
             ));
         }
 
+        // Millisecond precision, as Java PublishingMessageImpl (Timestamps.fromMillis).
         let born_timestamp = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(duration) => Some(Timestamp {
                 seconds: duration.as_secs() as i64,
-                nanos: 0,
+                nanos: (duration.subsec_millis() * 1_000_000) as i32,
             }),
             Err(_) => None,
         };
@@ -721,6 +722,43 @@ mod tests {
         assert_eq!(message.user_properties.get("key").unwrap(), "value");
         assert_eq!(std::str::from_utf8(&message.body).unwrap(), "hello world");
         assert!(!system_properties.message_id.is_empty());
+    }
+
+    // Reference Java: PublishingMessageImpl sets the born timestamp with Timestamps.fromMillis.
+    #[tokio::test]
+    async fn producer_born_timestamp_has_millisecond_precision() {
+        fn now_millis() -> i64 {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64
+        }
+        let producer = new_producer_for_test();
+        let messages = vec![MessageBuilder::builder()
+            .set_topic("DefaultCluster")
+            .set_body("hello world".as_bytes().to_vec())
+            .build()
+            .unwrap()];
+        let before = now_millis();
+        let (_, _, pb_messages) = producer
+            .transform_messages_to_protobuf(messages)
+            .await
+            .unwrap();
+        let after = now_millis();
+
+        let born = pb_messages[0]
+            .system_properties
+            .as_ref()
+            .unwrap()
+            .born_timestamp
+            .clone()
+            .unwrap();
+        assert_eq!(born.nanos % 1_000_000, 0);
+        let born_millis = born.seconds * 1000 + i64::from(born.nanos / 1_000_000);
+        assert!(
+            (before..=after).contains(&born_millis),
+            "born timestamp {born_millis} not in [{before}, {after}]"
+        );
     }
 
     #[tokio::test]

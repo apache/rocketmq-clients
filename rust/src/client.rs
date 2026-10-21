@@ -562,7 +562,6 @@ impl Client {
 
         let mut messages = Vec::with_capacity(batch_size as usize);
         let mut status: Option<Status> = None;
-        let mut delivery_timestamp: Option<prost_types::Timestamp> = None;
 
         for response in responses {
             match response.content.unwrap() {
@@ -572,23 +571,16 @@ impl Client {
                 Content::Message(message) => {
                     messages.push(message);
                 }
-                Content::DeliveryTimestamp(timestamp) => {
-                    delivery_timestamp = Some(timestamp);
-                }
+                // The time the proxy delivered this batch (Java keeps it as the transport delivery
+                // timestamp for client metrics). It is not the delivery timestamp of a delay
+                // message, so it must not be copied into the messages.
+                Content::DeliveryTimestamp(_) => {}
             }
         }
 
         if let Some(status) = status {
             handle_receive_message_status(&status, OPERATION_RECEIVE_MESSAGE)?;
         }
-        if let Some(ref delivery_timestamp) = delivery_timestamp {
-            for message in &mut messages {
-                if let Some(system_properties) = message.system_properties.as_mut() {
-                    system_properties.delivery_timestamp = Some(delivery_timestamp.clone());
-                }
-            }
-        }
-
         Ok(messages)
     }
 
@@ -1297,6 +1289,83 @@ pub(crate) mod tests {
 
         let messages = receive_result.unwrap();
         assert_eq!(messages.len(), 1);
+    }
+
+    // Reference Java: ConsumerImpl#receiveMessage keeps the delivery timestamp of the response as
+    // the transport delivery timestamp; it does not replace the delivery timestamp of messages.
+    #[tokio::test]
+    async fn client_receive_message_keeps_message_delivery_timestamp() {
+        let delay_message = Message {
+            system_properties: Some(pb::SystemProperties {
+                delivery_timestamp: Some(prost_types::Timestamp {
+                    seconds: 1_700_000_100,
+                    nanos: 0,
+                }),
+                ..pb::SystemProperties::default()
+            }),
+            ..Message::default()
+        };
+        let normal_message = Message {
+            system_properties: Some(pb::SystemProperties::default()),
+            ..Message::default()
+        };
+        let response = Ok(vec![
+            ReceiveMessageResponse {
+                content: Some(Content::Status(Status {
+                    code: Code::Ok as i32,
+                    message: "OK".to_string(),
+                })),
+            },
+            ReceiveMessageResponse {
+                content: Some(Content::DeliveryTimestamp(prost_types::Timestamp {
+                    seconds: 1_700_000_200,
+                    nanos: 0,
+                })),
+            },
+            ReceiveMessageResponse {
+                content: Some(Content::Message(delay_message)),
+            },
+            ReceiveMessageResponse {
+                content: Some(Content::Message(normal_message)),
+            },
+        ]);
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_receive_message()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+
+        let client = new_client_for_test();
+        let messages = client
+            .receive_message_inner(
+                mock,
+                MessageQueue::default(),
+                FilterExpression::default(),
+                32,
+                prost_types::Duration::default(),
+            )
+            .await
+            .unwrap();
+
+        let delivery_timestamps: Vec<_> = messages
+            .iter()
+            .map(|message| {
+                message
+                    .system_properties
+                    .as_ref()
+                    .unwrap()
+                    .delivery_timestamp
+                    .clone()
+            })
+            .collect();
+        assert_eq!(
+            delivery_timestamps,
+            vec![
+                Some(prost_types::Timestamp {
+                    seconds: 1_700_000_100,
+                    nanos: 0,
+                }),
+                None,
+            ]
+        );
     }
 
     #[tokio::test]
