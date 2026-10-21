@@ -1100,7 +1100,7 @@ impl SessionManager {
     pub(crate) async fn get_all_sessions(&self) -> Result<Vec<Session>, ClientError> {
         let session_map = self.session_map.lock().await;
         let mut sessions = Vec::new();
-        for (_, session) in session_map.iter() {
+        for session in session_map.values() {
             sessions.push(session.shadow_session());
         }
         Ok(sessions)
@@ -1260,7 +1260,7 @@ impl SessionManager {
 
     pub(crate) async fn shutdown(&self) {
         let mut session_map = self.session_map.lock().await;
-        for (_, session) in session_map.iter_mut() {
+        for session in session_map.values_mut() {
             session.shutdown();
         }
         session_map.clear();
