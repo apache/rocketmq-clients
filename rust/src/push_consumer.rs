@@ -39,9 +39,9 @@ use crate::pb::{
     ForwardMessageToDeadLetterQueueRequest, QueryAssignmentRequest, ReceiveMessageRequest,
     Resource, Status,
 };
-use crate::session::RPCClient;
 #[double]
 use crate::session::Session;
+use crate::session::{RPCClient, SharedLongPollingTimeout};
 use crate::util::{
     build_endpoints_by_message_queue, build_push_consumer_settings, handle_receive_message_status,
     handle_response_status,
@@ -178,6 +178,7 @@ impl PushConsumer {
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
         self.client.start(telemetry_command_tx).await?;
         let option = Arc::clone(&self.option);
+        let long_polling_timeout = self.client.long_polling_timeout_handle();
         let mut rpc_client = self.client.get_session().await?;
         let route_manager = self.client.get_route_manager();
         let topics;
@@ -213,7 +214,7 @@ impl PushConsumer {
                                 // Apply what the server pushed, otherwise these settings are
                                 // silently dropped and the client keeps polling with the
                                 // configured values.
-                                Self::apply_settings(settings, &option);
+                                Self::apply_settings(settings, &option, &long_polling_timeout);
                             }
                             let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
@@ -297,6 +298,7 @@ impl PushConsumer {
         let (command_tx, mut command_rx) = mpsc::channel(16);
         self.client.start(command_tx).await?;
         let option = Arc::clone(&self.option);
+        let long_polling_timeout = self.client.long_polling_timeout_handle();
         let mut rpc_client = self.client.get_session().await?;
         let route_manager = self.client.get_route_manager();
         let topics;
@@ -329,7 +331,7 @@ impl PushConsumer {
                     command = command_rx.recv() => {
                         if let Some(command) = command {
                             if let pb::telemetry_command::Command::Settings(ref settings) = command {
-                                Self::apply_settings(settings, &option);
+                                Self::apply_settings(settings, &option, &long_polling_timeout);
                             }
                             let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
@@ -411,7 +413,16 @@ impl PushConsumer {
     /// Only subscription settings are applied; the back-off policy is handled separately by
     /// [`BackOffRetryPolicy::try_from`]. Mirrors `PushSubscriptionSettings#sync` of the Java
     /// client, where the same values are also taken from the server-pushed settings.
-    fn apply_settings(settings: &pb::Settings, option: &Arc<RwLock<PushConsumerOption>>) {
+    ///
+    /// The long-polling timeout is also written to the client's shared value, which sessions use
+    /// to compute the receive deadline. Otherwise the request would carry the server value while
+    /// the client still waits for the configured one, as `ConsumerImpl#receiveMessage` of the Java
+    /// client uses the same value for both.
+    fn apply_settings(
+        settings: &pb::Settings,
+        option: &Arc<RwLock<PushConsumerOption>>,
+        shared_long_polling_timeout: &SharedLongPollingTimeout,
+    ) {
         let Some(pb::settings::PubSub::Subscription(ref subscription)) = settings.pub_sub else {
             warn!(
                 "received settings that do not match the client type, pub_sub={:?}",
@@ -428,7 +439,9 @@ impl PushConsumer {
             let seconds = long_polling_timeout.seconds;
             let nanos = long_polling_timeout.nanos;
             if seconds > 0 || nanos > 0 {
-                option.set_long_polling_timeout(Duration::new(seconds as u64, nanos as u32));
+                let long_polling_timeout = Duration::new(seconds as u64, nanos as u32);
+                option.set_long_polling_timeout(long_polling_timeout);
+                *shared_long_polling_timeout.write() = long_polling_timeout;
             }
         }
         if let Some(fifo) = subscription.fifo {
@@ -1400,6 +1413,9 @@ mod tests {
         let mut client = Client::default();
         client.expect_start().return_once(|_| Ok(()));
         client.expect_shutdown().return_once(|| Ok(()));
+        client
+            .expect_long_polling_timeout_handle()
+            .returning(|| Arc::new(RwLock::new(Duration::from_secs(40))));
         client.expect_get_session().returning(|| {
             let mut session = Session::default();
             session.expect_query_route().returning(|_| {
@@ -1441,6 +1457,118 @@ mod tests {
         push_consumer.shutdown().await?;
 
         Ok(())
+    }
+
+    /// Starts a push consumer on a mocked client, pushes a `Settings` command with a 20s
+    /// long-polling timeout, and returns the shared long-polling timeout of the client, which
+    /// sessions use to compute the receive deadline.
+    async fn apply_server_long_polling_timeout(with_telemetry: bool) -> Duration {
+        let telemetry_tx = Arc::new(Mutex::new(None));
+        let shared_long_polling_timeout = Arc::new(RwLock::new(Duration::from_secs(40)));
+        // The mocked `Client::new` is only needed while constructing the consumer, so the lock is
+        // released before the first await.
+        let mut push_consumer = {
+            let _m = crate::client::tests::MTX.lock();
+            let context = Client::new_context();
+            let mut client = Client::default();
+            let telemetry_tx_clone = Arc::clone(&telemetry_tx);
+            client.expect_start().return_once(move |tx| {
+                telemetry_tx_clone.lock().replace(tx);
+                Ok(())
+            });
+            client.expect_shutdown().return_once(|| Ok(()));
+            client.expect_shutdown_ref().return_once(|| Ok(()));
+            client.expect_get_session().returning(|| {
+                let mut session = Session::default();
+                session.expect_query_route().returning(|_| {
+                    Ok(QueryRouteResponse {
+                        status: Some(Status {
+                            code: Code::Ok as i32,
+                            message: "Success".to_string(),
+                        }),
+                        message_queues: vec![],
+                    })
+                });
+                Ok(session)
+            });
+            client.expect_get_route_manager().returning(|| {
+                TopicRouteManager::new(
+                    "".to_string(),
+                    Endpoints::from_url("http://localhost:8081").unwrap(),
+                )
+            });
+            let handle = Arc::clone(&shared_long_polling_timeout);
+            client
+                .expect_long_polling_timeout_handle()
+                .returning(move || Arc::clone(&handle));
+            context.expect().return_once(|_, _| Ok(client));
+
+            let mut option = PushConsumerOption::default();
+            option.set_consumer_group("test_group");
+            option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+            PushConsumer::new(
+                ClientOption::default(),
+                option,
+                Box::new(|_| ConsumeResult::SUCCESS),
+            )
+            .unwrap()
+        };
+        if with_telemetry {
+            let (tx, _rx) = mpsc::channel(16);
+            push_consumer.start_with_telemetry(tx).await.unwrap();
+        } else {
+            push_consumer.start().await.unwrap();
+        }
+
+        let tx = telemetry_tx.lock().take().unwrap();
+        tx.send(pb::telemetry_command::Command::Settings(pb::Settings {
+            pub_sub: Some(pb::settings::PubSub::Subscription(pb::Subscription {
+                long_polling_timeout: Some(prost_types::Duration {
+                    seconds: 20,
+                    nanos: 0,
+                }),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }))
+        .await
+        .unwrap();
+        // Wait until the telemetry loop has handled the command.
+        let _ = tokio::time::timeout(Duration::from_secs(1), async {
+            while push_consumer.option.read().long_polling_timeout() != &Duration::from_secs(20) {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await;
+        assert_eq!(
+            push_consumer.option.read().long_polling_timeout(),
+            &Duration::from_secs(20)
+        );
+        let shared = *shared_long_polling_timeout.read();
+        if with_telemetry {
+            push_consumer.shutdown_ref().await.unwrap();
+        } else {
+            push_consumer.shutdown().await.unwrap();
+        }
+        shared
+    }
+
+    #[tokio::test]
+    async fn test_server_long_polling_timeout_updates_receive_deadline() {
+        // The request carries the server value, so the deadline must follow it too.
+        // Reference Java: ConsumerImpl#receiveMessage uses the same awaitDuration for both.
+        assert_eq!(
+            apply_server_long_polling_timeout(false).await,
+            Duration::from_secs(20)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_server_long_polling_timeout_updates_receive_deadline_with_telemetry() {
+        assert_eq!(
+            apply_server_long_polling_timeout(true).await,
+            Duration::from_secs(20)
+        );
     }
 
     #[tokio::test]
