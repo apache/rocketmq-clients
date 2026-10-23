@@ -816,6 +816,20 @@ impl StandardConsumerWorker {
         )
         .await?;
         for message in messages {
+            // Reference Java: `StandardConsumeService#consume` nacks a corrupted message
+            // instead of passing it to the listener.
+            if message.is_corrupted() {
+                error!(
+                    "Message is corrupted for standard consumption, prepare to discard it, topic={}, message_id={}",
+                    message.topic(),
+                    message.message_id()
+                );
+                let delay = retry_policy.get_next_attempt_delay(message.delivery_attempt());
+                ack_processor
+                    .change_invisible_duration(message, delay)
+                    .await;
+                continue;
+            }
             let consume_result = consume_message(&self.message_listener, &message);
             match consume_result {
                 ConsumeResult::SUCCESS => {
@@ -958,6 +972,20 @@ impl FifoConsumerWorker {
         retry_policy: &BackOffRetryPolicy,
     ) {
         let max_delivery_attempts = retry_policy.get_max_attempts();
+        // Reference Java: `FifoConsumeService#getNextValidMessage` forwards a corrupted message
+        // to the dead letter queue instead of passing it to the listener.
+        if message.is_corrupted() {
+            error!(
+                "Message is corrupted for FIFO consumption, prepare to discard it, topic={}, message_id={}",
+                message.topic(),
+                message.message_id()
+            );
+            let delivery_attempt = message.delivery_attempt();
+            ack_processor
+                .forward_to_deadletter_queue(message, delivery_attempt, max_delivery_attempts)
+                .await;
+            return;
+        }
         loop {
             let consume_result = consume_message(message_listener, &message);
             match consume_result {
@@ -2662,5 +2690,141 @@ mod tests {
             .await;
         assert!(result.is_ok(), "{:?}", result);
         assert_eq!(vec![2], *attempts.lock());
+    }
+
+    /// A message whose GZIP body can not be decompressed.
+    fn new_corrupted_message() -> pb::Message {
+        let mut message = new_message();
+        let system_properties = message.system_properties.as_mut().unwrap();
+        system_properties.body_encoding = pb::Encoding::Gzip as i32;
+        message.body = b"not compressed".to_vec();
+        message
+    }
+
+    fn new_listener_counter() -> (Arc<AtomicUsize>, Arc<MessageListener>) {
+        let count = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&count);
+        let listener: Arc<MessageListener> = Arc::new(Box::new(move |_| {
+            counter.fetch_add(1, Ordering::Relaxed);
+            ConsumeResult::SUCCESS
+        }));
+        (count, listener)
+    }
+
+    #[tokio::test]
+    async fn test_standard_consume_discards_corrupted_message() {
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok(vec![ReceiveMessageResponse {
+                content: Some(Content::Message(new_corrupted_message())),
+            }])
+        });
+        let (listener_calls, listener) = new_listener_counter();
+        let consumer_worker = StandardConsumerWorker::new(rpc_client, listener);
+        let retry_policy = &BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::new(
+            pb::ExponentialBackoff {
+                initial: Some(prost_types::Duration::from_str("1s").unwrap()),
+                max: Some(prost_types::Duration::from_str("60s").unwrap()),
+                multiplier: 2.0,
+            },
+            3,
+        ));
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut session = Session::default();
+        session.expect_shadow_session().returning(Session::default);
+        session.expect_ack_message().never();
+        session
+            .expect_change_invisible_duration()
+            .times(1)
+            .returning(|_| {
+                Ok(ChangeInvisibleDurationResponse {
+                    status: Some(Status {
+                        code: Code::Ok as i32,
+                        message: "".to_string(),
+                    }),
+                    receipt_handle: "".to_string(),
+                })
+            });
+        let mut ack_processor = AckEntryProcessor::new(
+            session,
+            Resource {
+                name: "test_group".to_string(),
+                resource_namespace: "".to_string(),
+            },
+            Resource {
+                name: "test_topic".to_string(),
+                resource_namespace: "".to_string(),
+            },
+            false,
+        );
+        let result = ConsumerWorker::Standard(consumer_worker)
+            .receive_messages(
+                &new_message_queue(),
+                &FilterExpression::sub_all(),
+                &option,
+                &mut ack_processor,
+                retry_policy,
+            )
+            .await;
+        assert!(result.is_ok(), "{:?}", result);
+        assert_eq!(0, listener_calls.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn test_fifo_consume_forwards_corrupted_message_to_dlq() {
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok(vec![ReceiveMessageResponse {
+                content: Some(Content::Message(new_corrupted_message())),
+            }])
+        });
+        let (listener_calls, listener) = new_listener_counter();
+        let consumer_worker = FifoConsumerWorker::new(rpc_client, listener);
+        let retry_policy = &BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
+            pb::CustomizedBackoff {
+                next: vec![prost_types::Duration::from_str("0.01s").unwrap()],
+            },
+            1,
+        ));
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut session = Session::default();
+        session.expect_shadow_session().returning(Session::default);
+        session.expect_ack_message().never();
+        session
+            .expect_forward_to_deadletter_queue()
+            .times(1)
+            .returning(|_| {
+                Ok(ForwardMessageToDeadLetterQueueResponse {
+                    status: Some(Status {
+                        code: Code::Ok as i32,
+                        message: "".to_string(),
+                    }),
+                })
+            });
+        let mut ack_processor = AckEntryProcessor::new(
+            session,
+            Resource {
+                name: "test_group".to_string(),
+                resource_namespace: "".to_string(),
+            },
+            Resource {
+                name: "test_topic".to_string(),
+                resource_namespace: "".to_string(),
+            },
+            false,
+        );
+        let result = ConsumerWorker::Fifo(consumer_worker)
+            .receive_messages(
+                &new_message_queue(),
+                &FilterExpression::sub_all(),
+                &option,
+                &mut ack_processor,
+                retry_policy,
+            )
+            .await;
+        assert!(result.is_ok(), "{:?}", result);
+        assert_eq!(0, listener_calls.load(Ordering::Relaxed));
     }
 }
