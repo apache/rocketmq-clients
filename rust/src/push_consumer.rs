@@ -276,11 +276,8 @@ impl PushConsumer {
                         }
                     }
                     _ = shutdown_token.cancelled() => {
-                        let entries = actor_table.drain();
-                        info!("shutdown {:?} actors", entries.len());
-                        for (_, actor) in entries {
-                            let _ = actor.shutdown().await;
-                        }
+                        info!("shutdown {:?} actors", actor_table.len());
+                        Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
                         break;
                     }
                 }
@@ -393,11 +390,8 @@ impl PushConsumer {
                         }
                     }
                     _ = shutdown_token.cancelled() => {
-                        let entries = actor_table.drain();
-                        info!("shutdown {:?} actors", entries.len());
-                        for (_, actor) in entries {
-                            let _ = actor.shutdown().await;
-                        }
+                        info!("shutdown {:?} actors", actor_table.len());
+                        Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
                         break;
                     }
                 }
@@ -476,10 +470,7 @@ impl PushConsumer {
             }
         });
         // the remaining actors will be shutdown.
-        let shutdown_entries = actor_table.drain();
-        for (_, actor) in shutdown_entries {
-            let _ = actor.shutdown().await;
-        }
+        Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
 
         for mut actor in actors {
             let option = option.clone();
@@ -508,6 +499,27 @@ impl PushConsumer {
             }
         }
         Ok(())
+    }
+
+    /// Shut the actors down concurrently.
+    ///
+    /// Each actor waits for its in-flight receive requests to finish, which can take up to a long
+    /// polling timeout, so shutting them down one by one takes that time once per actor.
+    async fn shutdown_actors(actors: impl IntoIterator<Item = MessageQueueActor>) {
+        let task_tracker = TaskTracker::new();
+        for actor in actors {
+            task_tracker.spawn(async move {
+                let message_queue = actor.message_queue.clone();
+                if let Err(e) = actor.shutdown().await {
+                    error!(
+                        "failed to shutdown queue actor {:?}: {:?}",
+                        message_queue, e
+                    );
+                }
+            });
+        }
+        task_tracker.close();
+        task_tracker.wait().await;
     }
 
     pub async fn shutdown(mut self) -> Result<(), ClientError> {
@@ -762,6 +774,15 @@ impl MessageQueueActor {
             task_tracker.spawn(async move {
                 loop {
                     select! {
+                        // Check shutdown first. The ticker is always ready again once a long
+                        // polling request returns, so an unbiased select would keep issuing new
+                        // receive requests after shutdown started, like Java's
+                        // ProcessQueueImpl checking consumer.isRunning() before receiving.
+                        biased;
+                        _ = shutdown_token.cancelled() => {
+                            ack_processor.shutdown().await;
+                            break;
+                        }
                         _ = ticker.tick() => {
                             let result = consumer_worker.receive_messages(&message_queue, &filter_expression, &option, &mut ack_processor, &retry_policy).await;
                             if let Err(e) = result {
@@ -773,10 +794,6 @@ impl MessageQueueActor {
                                     _ = shutdown_token.cancelled() => {}
                                 }
                             }
-                        }
-                        _ = shutdown_token.cancelled() => {
-                            ack_processor.shutdown().await;
-                            break;
                         }
                     }
                 }
@@ -1356,7 +1373,7 @@ impl AckEntryProcessor {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::{str::FromStr, vec};
 
     use pb::{
@@ -1863,6 +1880,126 @@ mod tests {
         assert!(result.is_ok());
         let result2 = actor.shutdown().await;
         assert!(result2.is_ok());
+    }
+
+    /// A session whose `receive_message` blocks for `poll` like a long polling request held by
+    /// the server, then returns no message. The mocked call is synchronous, so the test runtime
+    /// needs one worker thread per in-flight request. `calls` counts receive requests, and
+    /// `late_calls` those issued after `shutting_down` was set.
+    fn new_session_with_long_polling(
+        poll: Duration,
+        calls: Arc<AtomicUsize>,
+        shutting_down: Arc<AtomicBool>,
+        late_calls: Arc<AtomicUsize>,
+    ) -> Session {
+        let mut session = Session::default();
+        session.expect_shadow_session().returning(move || {
+            let calls = Arc::clone(&calls);
+            let shutting_down = Arc::clone(&shutting_down);
+            let late_calls = Arc::clone(&late_calls);
+            let mut mock = Session::default();
+            mock.expect_receive_message().returning(move |_| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                if shutting_down.load(Ordering::SeqCst) {
+                    late_calls.fetch_add(1, Ordering::SeqCst);
+                }
+                std::thread::sleep(poll);
+                Ok(vec![])
+            });
+            mock.expect_shadow_session().returning(Session::default);
+            mock
+        });
+        session
+    }
+
+    fn new_actor_with_long_polling(
+        queue_id: i32,
+        worker_count: usize,
+        session: Session,
+    ) -> MessageQueueActor {
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        option.set_consumer_worker_count_each_queue(worker_count);
+        let mut message_queue = new_message_queue();
+        message_queue.id = queue_id;
+        MessageQueueActor::new(
+            session,
+            message_queue,
+            FilterExpression::sub_all(),
+            option,
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default()),
+        )
+    }
+
+    async fn wait_for_calls(calls: &AtomicUsize, expected: usize) {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while calls.load(Ordering::SeqCst) < expected {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("workers should be polling");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 10)]
+    async fn test_actor_stops_receiving_once_shutdown_starts() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let shutting_down = Arc::new(AtomicBool::new(false));
+        let late_calls = Arc::new(AtomicUsize::new(0));
+        let session = new_session_with_long_polling(
+            Duration::from_millis(100),
+            Arc::clone(&calls),
+            Arc::clone(&shutting_down),
+            Arc::clone(&late_calls),
+        );
+        let mut actor = new_actor_with_long_polling(0, 8, session);
+        actor.start().await.unwrap();
+        wait_for_calls(&calls, 8).await;
+
+        shutting_down.store(true, Ordering::SeqCst);
+        actor.shutdown().await.unwrap();
+        // Reference Java: ProcessQueueImpl#receiveMessageImmediately checks
+        // consumer.isRunning() before every receive request.
+        assert_eq!(
+            late_calls.load(Ordering::SeqCst),
+            0,
+            "no receive request may be issued after shutdown started"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+    async fn test_shutdown_actors_waits_for_long_polling_concurrently() {
+        let poll = Duration::from_millis(200);
+        let calls = Arc::new(AtomicUsize::new(0));
+        let shutting_down = Arc::new(AtomicBool::new(false));
+        let late_calls = Arc::new(AtomicUsize::new(0));
+        let mut actors = Vec::new();
+        for queue_id in 0..6 {
+            let session = new_session_with_long_polling(
+                poll,
+                Arc::clone(&calls),
+                Arc::clone(&shutting_down),
+                Arc::clone(&late_calls),
+            );
+            let mut actor = new_actor_with_long_polling(queue_id, 1, session);
+            actor.start().await.unwrap();
+            actors.push(actor);
+        }
+        wait_for_calls(&calls, 6).await;
+
+        // Each in-flight request still has to finish, like Java's
+        // PushConsumerImpl#waitingReceiveRequestFinished, but all actors wait at the same time:
+        // about one poll in total instead of one poll per actor.
+        let started = std::time::Instant::now();
+        PushConsumer::shutdown_actors(actors).await;
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed < poll * 3,
+            "shutting down 6 actors took {:?}, expected about one poll of {:?}",
+            elapsed,
+            poll
+        );
     }
 
     #[tokio::test]
