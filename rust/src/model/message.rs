@@ -345,7 +345,7 @@ impl MessageBuilder {
     ///
     /// * `topic` - parent topic of the message
     /// * `body` - message body
-    /// * `lite_topic` - lite topic name
+    /// * `lite_topic` - lite topic name, should not be blank
     pub fn lite_message_builder(
         topic: impl Into<String>,
         body: Vec<u8>,
@@ -370,7 +370,8 @@ impl MessageBuilder {
     }
 
     /// Set lite topic for lite message.
-    /// Lite topic cannot be set with message_group, delivery_timestamp, or priority at the same time.
+    /// Lite topic cannot be blank, and cannot be set with message_group, delivery_timestamp, or
+    /// priority at the same time; [`MessageBuilder::build`] fails otherwise.
     pub fn set_lite_topic(mut self, lite_topic: impl Into<String>) -> Self {
         self.message.lite_topic = Some(lite_topic.into());
         self.message.message_type = LITE;
@@ -398,7 +399,11 @@ impl MessageBuilder {
             );
         }
         // Lite topic validation
-        if self.message.lite_topic.is_some() {
+        if let Some(lite_topic) = &self.message.lite_topic {
+            // Reference Java: MessageBuilderImpl#setLiteTopic checks StringUtils.isNotBlank.
+            if lite_topic.trim().is_empty() {
+                return Err("lite_topic should not be blank.".to_string());
+            }
             if self.message.message_group.is_some() {
                 return Err(
                     "lite_topic and message_group can not be set at the same time.".to_string(),
@@ -685,6 +690,34 @@ mod tests {
             err.message,
             "lite_topic and priority can not be set at the same time."
         );
+    }
+
+    #[test]
+    fn test_build_message_with_blank_lite_topic() {
+        for lite_topic in ["", " ", "\t\n "] {
+            let message =
+                MessageBuilder::lite_message_builder("parent_topic", vec![1, 2, 3], lite_topic)
+                    .build();
+            let err = message.err().unwrap();
+            assert_eq!(err.kind, ErrorKind::InvalidMessage);
+            assert_eq!(err.message, "lite_topic should not be blank.");
+
+            let message = MessageBuilder::builder()
+                .set_topic("parent_topic")
+                .set_body(vec![1, 2, 3])
+                .set_lite_topic(lite_topic)
+                .build();
+            let err = message.err().unwrap();
+            assert_eq!(err.kind, ErrorKind::InvalidMessage);
+            assert_eq!(err.message, "lite_topic should not be blank.");
+        }
+
+        // Surrounding whitespace is kept as is, like the Java client.
+        let mut message =
+            MessageBuilder::lite_message_builder("parent_topic", vec![1, 2, 3], " lite_topic ")
+                .build()
+                .unwrap();
+        assert_eq!(message.take_lite_topic(), Some(" lite_topic ".to_string()));
     }
 
     #[test]
