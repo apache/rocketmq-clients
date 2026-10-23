@@ -31,7 +31,7 @@ use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, Endpoints, SendReceipt};
-use crate::model::message::{self, MessageTypeAware, MessageView};
+use crate::model::message::{self, MessageType, MessageTypeAware, MessageView};
 use crate::model::transaction::{
     Transaction, TransactionChecker, TransactionImpl, TransactionResolution,
 };
@@ -401,11 +401,23 @@ impl Producer {
     ///
     /// * `message` - the message to send
     pub async fn send(&self, message: impl message::Message) -> Result<SendReceipt, ClientError> {
-        let results = self.batch_send(vec![message]).await?;
-        Ok(results[0].clone())
+        let mut receipts = self.batch_send(vec![message]).await?;
+        // batch_send guarantees one receipt per sent message.
+        Ok(receipts.remove(0))
     }
 
     /// Send a batch of messages
+    ///
+    /// All messages must have the same topic (and the same message group, if any).
+    ///
+    /// The server does not guarantee one send receipt per message for a batch: a proxy may store
+    /// the batch as a whole and return a single receipt for it. The returned receipts always
+    /// match the sent messages one to one; if the server returns a different number of receipts,
+    /// this method fails with [`ErrorKind::Server`] (the messages may have been stored anyway).
+    /// Lite messages are not supported in a batch of more than one message and are rejected
+    /// with [`ErrorKind::InvalidMessage`] before sending.
+    ///
+    /// Prefer sending messages one by one with [`Producer::send`].
     ///
     /// # Arguments
     ///
@@ -418,6 +430,17 @@ impl Producer {
             .iter()
             .map(|message| message.get_message_type())
             .collect::<Vec<_>>();
+
+        // The server only dispatches a lite message to its lite topic when it is sent alone: a
+        // batch is stored as a whole, its messages are reported as sent but never delivered to
+        // lite consumers.
+        if message_types.len() > 1 && message_types.contains(&MessageType::LITE) {
+            return Err(ClientError::new(
+                ErrorKind::InvalidMessage,
+                "lite messages do not support batch sending, send them one by one",
+                Self::OPERATION_SEND_MESSAGE,
+            ));
+        }
 
         let (topic, message_group, mut pb_messages) =
             self.transform_messages_to_protobuf(messages).await?;
@@ -453,7 +476,23 @@ impl Producer {
             message.system_properties.as_mut().unwrap().queue_id = message_queue.id;
         }
 
-        self.client.send_message(&endpoints, pb_messages).await
+        let message_count = pb_messages.len();
+        let receipts = self.client.send_message(&endpoints, pb_messages).await?;
+        // Reference Java: ProducerImpl#send0 fails the send when the receipt quantity differs
+        // from the message quantity.
+        if receipts.len() != message_count {
+            return Err(ClientError::new(
+                ErrorKind::Server,
+                format!(
+                    "received {} send receipt(s) for {} sent message(s)",
+                    receipts.len(),
+                    message_count
+                )
+                .as_str(),
+                Self::OPERATION_SEND_MESSAGE,
+            ));
+        }
+        Ok(receipts)
     }
 
     async fn validate_message_type(&self) -> bool {
@@ -595,7 +634,7 @@ mod tests {
 
     use crate::error::ErrorKind;
     use crate::model::common::Route;
-    use crate::model::message::{MessageBuilder, MessageImpl, MessageType};
+    use crate::model::message::{MessageBuilder, MessageImpl};
     use crate::model::transaction::TransactionResolution;
     use crate::pb::{Broker, Code, EndTransactionResponse, MessageQueue, Status};
     use crate::session::MockRPCClient;
@@ -918,5 +957,224 @@ mod tests {
         )
         .await;
         assert!(result.is_ok())
+    }
+
+    fn new_route_accepting(message_type: MessageType) -> Arc<Route> {
+        Arc::new(Route {
+            index: Default::default(),
+            queue: vec![MessageQueue {
+                topic: Some(Resource {
+                    name: "test_topic".to_string(),
+                    resource_namespace: "".to_string(),
+                }),
+                id: 0,
+                permission: 0,
+                broker: Some(Broker {
+                    name: "".to_string(),
+                    id: 0,
+                    endpoints: Some(pb::Endpoints {
+                        scheme: 0,
+                        addresses: vec![],
+                    }),
+                }),
+                accept_message_types: vec![message_type as i32],
+            }],
+        })
+    }
+
+    fn new_message_impl(lite_topic: Option<&str>) -> MessageImpl {
+        MessageImpl {
+            message_id: "message_id".to_string(),
+            topic: "test_topic".to_string(),
+            body: Some(b"body".to_vec()),
+            tag: None,
+            keys: None,
+            properties: None,
+            message_group: None,
+            delivery_timestamp: None,
+            transaction_enabled: false,
+            message_type: if lite_topic.is_some() {
+                MessageType::LITE
+            } else {
+                MessageType::NORMAL
+            },
+            priority: None,
+            lite_topic: lite_topic.map(str::to_string),
+        }
+    }
+
+    fn new_lite_message(lite_topic: &str) -> MessageImpl {
+        new_message_impl(Some(lite_topic))
+    }
+
+    #[tokio::test]
+    async fn producer_batch_send_rejects_lite_messages() {
+        // No expectation is set on the mocked client: the batch must be rejected before any
+        // route lookup or SendMessage RPC.
+        let producer = new_producer_for_test();
+
+        let same_lite_topic = vec![
+            new_lite_message("lite_topic"),
+            new_lite_message("lite_topic"),
+            new_lite_message("lite_topic"),
+        ];
+        let different_lite_topics = vec![
+            new_lite_message("lite_topic_0"),
+            new_lite_message("lite_topic_1"),
+            new_lite_message("lite_topic_2"),
+        ];
+        let lite_and_normal = vec![new_lite_message("lite_topic"), new_message_impl(None)];
+
+        for messages in [same_lite_topic, different_lite_topics, lite_and_normal] {
+            let err = producer.batch_send(messages).await.unwrap_err();
+            assert_eq!(err.kind, ErrorKind::InvalidMessage);
+            assert_eq!(err.operation, Producer::OPERATION_SEND_MESSAGE);
+            assert!(
+                err.message
+                    .contains("lite messages do not support batch sending"),
+                "unexpected error message: {}",
+                err.message
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn producer_send_single_lite_message() -> Result<(), ClientError> {
+        let mut producer = new_producer_for_test();
+        producer
+            .client
+            .expect_topic_route()
+            .returning(|_, _| Ok(new_route_accepting(MessageType::LITE)));
+        producer
+            .client
+            .expect_send_message()
+            .times(1)
+            .returning(|_, messages| {
+                assert_eq!(messages.len(), 1);
+                let system_properties = messages[0].system_properties.as_ref().unwrap();
+                assert_eq!(system_properties.lite_topic.as_deref(), Some("lite_topic"));
+                Ok(vec![SendReceipt::from_pb_send_result(
+                    &pb::SendResultEntry {
+                        message_id: "message_id".to_string(),
+                        ..pb::SendResultEntry::default()
+                    },
+                )])
+            });
+
+        let receipt = producer.send(new_lite_message("lite_topic")).await?;
+        assert_eq!(receipt.message_id(), "message_id");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn producer_send_fails_when_receipt_quantity_mismatches() {
+        let mut producer = new_producer_for_test();
+        producer
+            .client
+            .expect_topic_route()
+            .returning(|_, _| Ok(new_route_accepting(MessageType::NORMAL)));
+        producer
+            .client
+            .expect_send_message()
+            .returning(|_, _| Ok(vec![]));
+
+        let err = producer
+            .send(
+                MessageBuilder::builder()
+                    .set_topic("test_topic")
+                    .set_body(b"body".to_vec())
+                    .build()
+                    .unwrap(),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(err.kind, ErrorKind::Server);
+        assert_eq!(err.operation, Producer::OPERATION_SEND_MESSAGE);
+        assert!(
+            err.message
+                .contains("received 0 send receipt(s) for 1 sent message(s)"),
+            "unexpected error message: {}",
+            err.message
+        );
+    }
+
+    #[tokio::test]
+    async fn producer_batch_send_fails_when_receipt_quantity_mismatches() {
+        let mut producer = new_producer_for_test();
+        producer
+            .client
+            .expect_topic_route()
+            .returning(|_, _| Ok(new_route_accepting(MessageType::NORMAL)));
+        // What a proxy returns for a batch: a single entry whose message_id joins the ids of all
+        // messages.
+        producer
+            .client
+            .expect_send_message()
+            .times(1)
+            .returning(|_, messages| {
+                assert_eq!(messages.len(), 3);
+                Ok(vec![SendReceipt::from_pb_send_result(
+                    &pb::SendResultEntry {
+                        message_id: "id_0,id_1,id_2".to_string(),
+                        ..pb::SendResultEntry::default()
+                    },
+                )])
+            });
+
+        let result = producer
+            .batch_send(vec![
+                new_message_impl(None),
+                new_message_impl(None),
+                new_message_impl(None),
+            ])
+            .await;
+        let err = match result {
+            Ok(receipts) => panic!(
+                "expected an error, got receipts {:?}",
+                receipts
+                    .iter()
+                    .map(|receipt| receipt.message_id().to_string())
+                    .collect::<Vec<_>>()
+            ),
+            Err(err) => err,
+        };
+        assert_eq!(err.kind, ErrorKind::Server);
+        assert_eq!(err.operation, Producer::OPERATION_SEND_MESSAGE);
+        assert!(
+            err.message
+                .contains("received 1 send receipt(s) for 3 sent message(s)"),
+            "unexpected error message: {}",
+            err.message
+        );
+    }
+
+    #[tokio::test]
+    async fn producer_batch_send_returns_one_receipt_per_message() -> Result<(), ClientError> {
+        let mut producer = new_producer_for_test();
+        producer
+            .client
+            .expect_topic_route()
+            .returning(|_, _| Ok(new_route_accepting(MessageType::NORMAL)));
+        producer
+            .client
+            .expect_send_message()
+            .times(1)
+            .returning(|_, messages| {
+                Ok((0..messages.len())
+                    .map(|i| {
+                        SendReceipt::from_pb_send_result(&pb::SendResultEntry {
+                            message_id: format!("id_{}", i),
+                            ..pb::SendResultEntry::default()
+                        })
+                    })
+                    .collect())
+            });
+
+        let receipts = producer
+            .batch_send(vec![new_message_impl(None), new_message_impl(None)])
+            .await?;
+        let message_ids: Vec<&str> = receipts.iter().map(|r| r.message_id()).collect();
+        assert_eq!(message_ids, vec!["id_0", "id_1"]);
+        Ok(())
     }
 }
