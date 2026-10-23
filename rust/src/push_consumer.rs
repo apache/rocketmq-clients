@@ -30,7 +30,7 @@ use tokio_util::task::TaskTracker;
 use crate::client::Client;
 use crate::conf::{BackOffRetryPolicy, ClientOption, PushConsumerOption};
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{ClientType, ConsumeResult, MessageQueue};
+use crate::model::common::{ClientType, ConsumeResult, FilterExpression, MessageQueue};
 use crate::model::message::{AckMessageEntry, MessageView};
 use crate::pb;
 use crate::pb::receive_message_response::Content;
@@ -54,6 +54,24 @@ const OPERATION_ACK_MESSAGE: &str = "push_consumer.ack_message";
 const OPERATION_START_PUSH_CONSUMER: &str = "push_consumer.start";
 const OPERATION_CHANGE_INVISIBLE_DURATION: &str = "push_consumer.change_invisible_duration";
 const OPERATION_FORWARD_TO_DEADLETTER_QUEUE: &str = "push_consumer.forward_to_deadletter_queue";
+
+// Reference Java: ProcessQueueImpl.RECEIVING_FLOW_CONTROL_BACKOFF_DELAY / RECEIVING_FAILURE_BACKOFF_DELAY
+const RECEIVING_FLOW_CONTROL_BACKOFF_DELAY: Duration = Duration::from_millis(20);
+const RECEIVING_FAILURE_BACKOFF_DELAY: Duration = Duration::from_secs(1);
+
+/// Delay before the next receive attempt after a failure.
+fn receive_failure_backoff_delay(error: &ClientError) -> Duration {
+    let too_many_requests = (pb::Code::TooManyRequests as i32).to_string();
+    let flow_controlled = error
+        .context()
+        .iter()
+        .any(|(key, value)| *key == "code" && *value == too_many_requests);
+    if flow_controlled {
+        RECEIVING_FLOW_CONTROL_BACKOFF_DELAY
+    } else {
+        RECEIVING_FAILURE_BACKOFF_DELAY
+    }
+}
 
 pub type MessageListener = Box<dyn Fn(&MessageView) -> ConsumeResult + Send + Sync>;
 
@@ -185,7 +203,7 @@ impl PushConsumer {
                         }
                         let subscription_table = consumer_option.subscription_expressions();
                         // query endpoints from topic route
-                        for topic in subscription_table.keys() {
+                        for (topic, filter_expression) in subscription_table.iter() {
                             if let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) {
                                 let request = QueryAssignmentRequest {
                                     topic: Some(Resource {
@@ -204,6 +222,7 @@ impl PushConsumer {
                                             let result = Self::process_assignments(
                                                 &rpc_client,
                                                 &consumer_option,
+                                                filter_expression,
                                                 Arc::clone(&message_listener),
                                                 &mut actor_table,
                                                 response.assignments,
@@ -297,7 +316,7 @@ impl PushConsumer {
                         }
                         let subscription_table = consumer_option.subscription_expressions();
                         // query endpoints from topic route
-                        for topic in subscription_table.keys() {
+                        for (topic, filter_expression) in subscription_table.iter() {
                             if let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) {
                                 let request = QueryAssignmentRequest {
                                     topic: Some(Resource {
@@ -316,6 +335,7 @@ impl PushConsumer {
                                             let result = Self::process_assignments(
                                                 &rpc_client,
                                                 &consumer_option,
+                                                filter_expression,
                                                 Arc::clone(&message_listener),
                                                 &mut actor_table,
                                                 response.assignments,
@@ -352,6 +372,7 @@ impl PushConsumer {
     async fn process_assignments(
         rpc_client: &Session,
         option: &PushConsumerOption,
+        filter_expression: &FilterExpression,
         message_listener: Arc<MessageListener>,
         actor_table: &mut HashMap<MessageQueue, MessageQueueActor>,
         mut assignments: Vec<Assignment>,
@@ -396,6 +417,7 @@ impl PushConsumer {
             let mut actor = MessageQueueActor::new(
                 rpc_client.shadow_session(),
                 message_queue.clone(),
+                filter_expression.clone(),
                 option,
                 Arc::clone(&message_listener),
                 retry_policy.clone(),
@@ -436,15 +458,9 @@ impl PushConsumer {
     async fn receive_messages<T: RPCClient + 'static>(
         rpc_client: &mut T,
         message_queue: &MessageQueue,
+        filter_expression: &FilterExpression,
         option: &PushConsumerOption,
     ) -> Result<Vec<MessageView>, ClientError> {
-        let filter_expression = option
-            .get_filter_expression(&message_queue.topic.name)
-            .ok_or(ClientError::new(
-                ErrorKind::Unknown,
-                "no filter expression presents",
-                OPERATION_RECEIVE_MESSAGE,
-            ))?;
         let request = ReceiveMessageRequest {
             group: Some(option.get_consumer_group_resource()),
             message_queue: Some(message_queue.to_pb_message_queue()),
@@ -580,6 +596,10 @@ impl DlqEntry {
 struct MessageQueueActor {
     rpc_client: Session,
     message_queue: MessageQueue,
+    // Taken from the subscription table when the queue is assigned (same as Java's
+    // ProcessQueueImpl). Never look it up by the assigned queue's topic name, because
+    // servers may return a decorated name such as "<instance>%<topic>".
+    filter_expression: FilterExpression,
     option: PushConsumerOption,
     message_listener: Arc<MessageListener>,
     retry_policy: BackOffRetryPolicy,
@@ -592,6 +612,7 @@ impl MessageQueueActor {
     pub(crate) fn new(
         rpc_client: Session,
         message_queue: MessageQueue,
+        filter_expression: FilterExpression,
         option: PushConsumerOption,
         message_listener: Arc<MessageListener>,
         retry_policy: BackOffRetryPolicy,
@@ -599,6 +620,7 @@ impl MessageQueueActor {
         Self {
             rpc_client,
             message_queue,
+            filter_expression,
             option,
             message_listener: Arc::clone(&message_listener),
             retry_policy,
@@ -645,6 +667,7 @@ impl MessageQueueActor {
             }
             let mut ticker = tokio::time::interval(Duration::from_millis(1));
             let message_queue = self.message_queue.clone();
+            let filter_expression = self.filter_expression.clone();
             let option = self.option.clone();
             let retry_policy = self.retry_policy.clone();
             // TODO: Pass is_lite_consumer from Client when LitePushConsumer is fully integrated
@@ -660,9 +683,15 @@ impl MessageQueueActor {
                 loop {
                     select! {
                         _ = ticker.tick() => {
-                            let result = consumer_worker.receive_messages(&message_queue, &option, &mut ack_processor, &retry_policy).await;
-                            if result.is_err() {
-                                error!("receive messages error: {:?}", result.err());
+                            let result = consumer_worker.receive_messages(&message_queue, &filter_expression, &option, &mut ack_processor, &retry_policy).await;
+                            if let Err(e) = result {
+                                // Reference Java: ProcessQueueImpl.onReceiveMessageException()
+                                let delay = receive_failure_backoff_delay(&e);
+                                error!("receive messages error, retry after {:?}, mq={:?}: {:?}", delay, message_queue, e);
+                                select! {
+                                    _ = tokio::time::sleep(delay) => {}
+                                    _ = shutdown_token.cancelled() => {}
+                                }
                             }
                         }
                         _ = shutdown_token.cancelled() => {
@@ -698,6 +727,7 @@ impl ConsumerWorker {
     async fn receive_messages(
         &mut self,
         message_queue: &MessageQueue,
+        filter_expression: &FilterExpression,
         option: &PushConsumerOption,
         ack_processor: &mut AckEntryProcessor,
         retry_policy: &BackOffRetryPolicy,
@@ -705,12 +735,24 @@ impl ConsumerWorker {
         match self {
             ConsumerWorker::Standard(consumer_worker) => {
                 consumer_worker
-                    .receive_messages(message_queue, option, ack_processor, retry_policy)
+                    .receive_messages(
+                        message_queue,
+                        filter_expression,
+                        option,
+                        ack_processor,
+                        retry_policy,
+                    )
                     .await
             }
             ConsumerWorker::Fifo(consumer_worker) => {
                 consumer_worker
-                    .receive_messages(message_queue, option, ack_processor, retry_policy)
+                    .receive_messages(
+                        message_queue,
+                        filter_expression,
+                        option,
+                        ack_processor,
+                        retry_policy,
+                    )
                     .await
             }
         }
@@ -733,12 +775,18 @@ impl StandardConsumerWorker {
     async fn receive_messages(
         &mut self,
         message_queue: &MessageQueue,
+        filter_expression: &FilterExpression,
         option: &PushConsumerOption,
         ack_processor: &mut AckEntryProcessor,
         retry_policy: &BackOffRetryPolicy,
     ) -> Result<(), ClientError> {
-        let messages =
-            PushConsumer::receive_messages(&mut self.rpc_client, message_queue, option).await?;
+        let messages = PushConsumer::receive_messages(
+            &mut self.rpc_client,
+            message_queue,
+            filter_expression,
+            option,
+        )
+        .await?;
         for message in messages {
             let consume_result = (self.message_listener)(&message);
             match consume_result {
@@ -774,12 +822,18 @@ impl FifoConsumerWorker {
     async fn receive_messages(
         &mut self,
         message_queue: &MessageQueue,
+        filter_expression: &FilterExpression,
         option: &PushConsumerOption,
         ack_processor: &mut AckEntryProcessor,
         retry_policy: &BackOffRetryPolicy,
     ) -> Result<(), ClientError> {
-        let messages =
-            PushConsumer::receive_messages(&mut self.rpc_client, message_queue, option).await?;
+        let messages = PushConsumer::receive_messages(
+            &mut self.rpc_client,
+            message_queue,
+            filter_expression,
+            option,
+        )
+        .await?;
 
         // If FIFO consume accelerator is enabled, consume messages in parallel by messageGroup
         if option.enable_fifo_consume_accelerator() && !messages.is_empty() {
@@ -1307,7 +1361,7 @@ mod tests {
             }),
         }];
         let context = MockMessageQueueActor::new_context();
-        context.expect().returning(|_, _, _, _, _| {
+        context.expect().returning(|_, _, _, _, _, _| {
             let mut actor = MockMessageQueueActor::default();
             actor.expect_start().returning(|| Ok(()));
             return actor;
@@ -1315,6 +1369,7 @@ mod tests {
         PushConsumer::process_assignments(
             &rpc_client,
             option,
+            &FilterExpression::sub_all(),
             message_listener,
             &mut actor_table,
             assignments,
@@ -1370,6 +1425,7 @@ mod tests {
         PushConsumer::process_assignments(
             &rpc_client,
             option,
+            &FilterExpression::sub_all(),
             message_listener,
             &mut actor_table,
             assignments,
@@ -1447,6 +1503,7 @@ mod tests {
         PushConsumer::process_assignments(
             &session,
             option,
+            &FilterExpression::sub_all(),
             message_listener,
             &mut actor_table,
             assignments.clone(),
@@ -1478,6 +1535,7 @@ mod tests {
         PushConsumer::process_assignments(
             &session,
             option,
+            &FilterExpression::sub_all(),
             Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
             &mut actor_table,
             assignments2,
@@ -1568,6 +1626,7 @@ mod tests {
         let mut actor = MessageQueueActor::new(
             session,
             message_queue,
+            FilterExpression::sub_all(),
             option,
             Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
             retry_policy,
@@ -1601,6 +1660,7 @@ mod tests {
         let mut actor = MessageQueueActor::new(
             session,
             message_queue,
+            FilterExpression::sub_all(),
             option,
             Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
             retry_policy,
@@ -1953,12 +2013,95 @@ mod tests {
         let result = ConsumerWorker::Standard(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
+                &FilterExpression::sub_all(),
                 &option,
                 &mut ack_processor,
                 retry_policy,
             )
             .await;
         assert!(result.is_ok(), "{:?}", result);
+    }
+
+    #[test]
+    fn test_receive_failure_backoff_delay() {
+        let flow_control = ClientError::new(ErrorKind::Server, "too many requests", "test")
+            .with_context("code", format!("{}", Code::TooManyRequests as i32));
+        assert_eq!(
+            Duration::from_millis(20),
+            receive_failure_backoff_delay(&flow_control)
+        );
+
+        let other_code = ClientError::new(ErrorKind::Server, "internal error", "test")
+            .with_context("code", format!("{}", Code::InternalError as i32));
+        assert_eq!(
+            Duration::from_secs(1),
+            receive_failure_backoff_delay(&other_code)
+        );
+
+        let transport = ClientError::new(ErrorKind::ClientInternal, "rpc failed", "test");
+        assert_eq!(
+            Duration::from_secs(1),
+            receive_failure_backoff_delay(&transport)
+        );
+    }
+
+    // Some servers (e.g. TDMQ) return assignment topics with an instance prefix such as
+    // "rmq-xxx%test_topic", which differs from the subscription key "test_topic".
+    // The filter expression must come from the subscription, not be looked up by the
+    // topic name of the assigned queue.
+    #[tokio::test]
+    async fn test_receive_messages_with_prefixed_topic_name() {
+        let mut rpc_client = Session::default();
+        rpc_client
+            .expect_receive_message()
+            .times(1)
+            .returning(|request| {
+                let topic = request.message_queue.unwrap().topic.unwrap();
+                assert_eq!("rmq-xxx%test_topic", topic.name);
+                let filter = request.filter_expression.unwrap();
+                assert_eq!("tagA", filter.expression);
+                assert_eq!(FilterType::Tag as i32, filter.r#type);
+                Ok(vec![ReceiveMessageResponse {
+                    content: Some(Content::Message(new_message())),
+                }])
+            });
+        let consumer_worker =
+            StandardConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
+        let mut message_queue = new_message_queue();
+        message_queue.topic.name = "rmq-xxx%test_topic".to_string();
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "tagA"));
+        let retry_policy =
+            &BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+        let mut session = Session::default();
+        session.expect_shadow_session().returning(Session::default);
+        session.expect_ack_message().times(1).returning(|_| {
+            Ok(AckMessageResponse {
+                status: Some(Status {
+                    code: Code::Ok as i32,
+                    message: "".to_string(),
+                }),
+                entries: vec![],
+            })
+        });
+        let mut ack_processor = AckEntryProcessor::new(
+            session,
+            option.get_consumer_group_resource(),
+            message_queue.topic.clone(),
+            false,
+        );
+        assert!(ack_processor.start().await.is_ok());
+        let result = ConsumerWorker::Standard(consumer_worker)
+            .receive_messages(
+                &message_queue,
+                option.get_filter_expression("test_topic").unwrap(),
+                &option,
+                &mut ack_processor,
+                retry_policy,
+            )
+            .await;
+        assert!(result.is_ok(), "{:?}", result);
+        ack_processor.shutdown().await;
     }
 
     #[tokio::test]
@@ -2012,6 +2155,7 @@ mod tests {
         let result = ConsumerWorker::Standard(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
+                &FilterExpression::sub_all(),
                 &option,
                 &mut ack_processor,
                 retry_policy,
@@ -2063,6 +2207,7 @@ mod tests {
         let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
+                &FilterExpression::sub_all(),
                 &option,
                 &mut ack_processor,
                 retry_policy,
@@ -2124,6 +2269,7 @@ mod tests {
         let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
+                &FilterExpression::sub_all(),
                 &option,
                 &mut ack_processor,
                 retry_policy,
