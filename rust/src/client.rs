@@ -1011,6 +1011,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn client_get_session() {
+        let _m = MTX.lock();
         let context = MockSession::new_context();
         context.expect().returning(|_, _, _| {
             let mut session = MockSession::default();
