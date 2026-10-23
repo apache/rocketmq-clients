@@ -209,6 +209,12 @@ impl PushConsumer {
                 select! {
                     command = telemetry_command_rx.recv() => {
                         if let Some(command) = command {
+                            if let pb::telemetry_command::Command::Settings(ref settings) = command {
+                                // Apply what the server pushed, otherwise these settings are
+                                // silently dropped and the client keeps polling with the
+                                // configured values.
+                                Self::apply_settings(settings, &option);
+                            }
                             let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
                                 retry_policy.lock().replace(remote_backoff_policy);
@@ -322,6 +328,9 @@ impl PushConsumer {
                 select! {
                     command = command_rx.recv() => {
                         if let Some(command) = command {
+                            if let pb::telemetry_command::Command::Settings(ref settings) = command {
+                                Self::apply_settings(settings, &option);
+                            }
                             let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
                                 retry_policy.lock().replace(remote_backoff_policy);
@@ -395,6 +404,36 @@ impl PushConsumer {
 
         info!("PushConsumer started with external telemetry");
         Ok(())
+    }
+
+    /// Apply the settings pushed by the server.
+    ///
+    /// Only subscription settings are applied; the back-off policy is handled separately by
+    /// [`BackOffRetryPolicy::try_from`]. Mirrors `PushSubscriptionSettings#sync` of the Java
+    /// client, where the same values are also taken from the server-pushed settings.
+    fn apply_settings(settings: &pb::Settings, option: &Arc<RwLock<PushConsumerOption>>) {
+        let Some(pb::settings::PubSub::Subscription(ref subscription)) = settings.pub_sub else {
+            warn!(
+                "received settings that do not match the client type, pub_sub={:?}",
+                settings.pub_sub
+            );
+            return;
+        };
+
+        let mut option = option.write();
+        if subscription.receive_batch_size.unwrap_or_default() > 0 {
+            option.set_batch_size(subscription.receive_batch_size.unwrap());
+        }
+        if let Some(ref long_polling_timeout) = subscription.long_polling_timeout {
+            let seconds = long_polling_timeout.seconds;
+            let nanos = long_polling_timeout.nanos;
+            if seconds > 0 || nanos > 0 {
+                option.set_long_polling_timeout(Duration::new(seconds as u64, nanos as u32));
+            }
+        }
+        if let Some(fifo) = subscription.fifo {
+            option.set_fifo(fifo);
+        }
     }
 
     async fn process_assignments(

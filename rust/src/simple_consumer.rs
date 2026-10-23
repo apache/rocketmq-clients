@@ -28,6 +28,8 @@ use crate::conf::{ClientOption, SimpleConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, FilterExpression};
 use crate::model::message::{AckMessageEntry, MessageView};
+use crate::pb::telemetry_command::Command;
+use crate::session::SharedLongPollingTimeout;
 use crate::util::{
     build_endpoints_by_message_queue, build_simple_consumer_settings, select_message_queue,
 };
@@ -98,11 +100,21 @@ impl SimpleConsumer {
         }
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
+        let long_polling_timeout = self.client.long_polling_timeout_handle();
         tokio::spawn(async move {
             loop {
                 select! {
                     command = telemetry_command_rx.recv() => {
-                        warn!("command {:?} cannot be handled in simple consumer.", command);
+                        match command {
+                            Some(Command::Settings(settings)) => {
+                                Self::apply_server_settings(&settings, &long_polling_timeout);
+                            }
+                            Some(command) => {
+                                warn!("command {:?} cannot be handled in simple consumer.", command);
+                            }
+                            // The client was dropped; there is nothing left to handle.
+                            None => break,
+                        }
                     }
 
                     _ = &mut shutdown_rx => {
@@ -123,6 +135,32 @@ impl SimpleConsumer {
             let _ = shutdown_tx.send(());
         };
         self.client.shutdown().await
+    }
+
+    /// Apply the settings pushed by the server.
+    ///
+    /// The simple consumer only consumes the long-polling timeout for now: it drives both
+    /// the gRPC deadline of a receive request and the `long_polling_timeout` field of the
+    /// request body itself. Mirrors `SimpleSubscriptionSettings#sync` of the Java client.
+    fn apply_server_settings(
+        settings: &crate::pb::Settings,
+        long_polling_timeout: &SharedLongPollingTimeout,
+    ) {
+        if let Some(crate::pb::settings::PubSub::Subscription(ref subscription)) = settings.pub_sub
+        {
+            if let Some(ref timeout) = subscription.long_polling_timeout {
+                let seconds = timeout.seconds;
+                let nanos = timeout.nanos;
+                if seconds > 0 || nanos > 0 {
+                    let timeout = Duration::new(seconds as u64, nanos as u32);
+                    *long_polling_timeout.write() = timeout;
+                    info!(
+                        "simple consumer applied server-pushed long_polling_timeout: {:?}",
+                        timeout
+                    );
+                }
+            }
+        }
     }
 
     /// receive messages from the specified topic
@@ -232,6 +270,9 @@ mod tests {
                 }))
             });
             client.expect_start().returning(|_| Ok(()));
+            client
+                .expect_long_polling_timeout_handle()
+                .returning(|| Arc::new(parking_lot::RwLock::new(Duration::from_secs(40))));
             client
                 .expect_client_id()
                 .return_const("fake_id".to_string());
