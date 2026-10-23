@@ -946,13 +946,17 @@ impl FifoConsumerWorker {
     }
 
     /// Consume a single message sequentially with retries (static method for use in spawned tasks)
+    ///
+    /// Reference Java: `ProcessQueueImpl#eraseFifoMessage`. While the delivery attempt is below
+    /// the max attempts, a failed message is consumed again locally after the delay of the
+    /// current attempt, with its delivery attempt increased, so the listener sees 1, 2, ...,
+    /// max attempts. Then the message is forwarded to the DLQ with its current delivery attempt.
     async fn consume_message_sequentially_static(
-        message: MessageView,
+        mut message: MessageView,
         message_listener: &Arc<MessageListener>,
         ack_processor: &mut AckEntryProcessor,
         retry_policy: &BackOffRetryPolicy,
     ) {
-        let mut delivery_attempt = message.delivery_attempt();
         let max_delivery_attempts = retry_policy.get_max_attempts();
         loop {
             let consume_result = consume_message(message_listener, &message);
@@ -962,8 +966,12 @@ impl FifoConsumerWorker {
                     break;
                 }
                 ConsumeResult::FAILURE => {
-                    delivery_attempt += 1;
-                    if delivery_attempt > max_delivery_attempts {
+                    let delivery_attempt = message.delivery_attempt();
+                    if delivery_attempt < max_delivery_attempts {
+                        let delay = retry_policy.get_next_attempt_delay(delivery_attempt);
+                        message.increment_and_get_delivery_attempt();
+                        tokio::time::sleep(delay).await;
+                    } else {
                         ack_processor
                             .forward_to_deadletter_queue(
                                 message,
@@ -972,9 +980,6 @@ impl FifoConsumerWorker {
                             )
                             .await;
                         break;
-                    } else {
-                        tokio::time::sleep(retry_policy.get_next_attempt_delay(delivery_attempt))
-                            .await;
                     }
                 }
             }
@@ -2433,5 +2438,229 @@ mod tests {
         assert!(result.is_ok(), "{:?}", result);
         // The panic counts as one failed attempt; the retry succeeds and is acked.
         assert_eq!(2, outer_call_counter.load(Ordering::Relaxed));
+    }
+
+    fn new_message_with_delivery_attempt(delivery_attempt: i32) -> pb::Message {
+        let mut message = new_message();
+        message.system_properties.as_mut().unwrap().delivery_attempt = Some(delivery_attempt);
+        message
+    }
+
+    fn new_fifo_worker_recording_attempts(
+        rpc_client: Session,
+        failures: usize,
+    ) -> (FifoConsumerWorker, Arc<Mutex<Vec<i32>>>) {
+        let attempts = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&attempts);
+        let worker = FifoConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(move |message: &MessageView| {
+                let mut recorded = recorded.lock();
+                recorded.push(message.delivery_attempt());
+                if recorded.len() <= failures {
+                    ConsumeResult::FAILURE
+                } else {
+                    ConsumeResult::SUCCESS
+                }
+            })),
+        );
+        (worker, attempts)
+    }
+
+    fn new_test_resources() -> (Resource, Resource) {
+        (
+            Resource {
+                name: "test_group".to_string(),
+                resource_namespace: "".to_string(),
+            },
+            Resource {
+                name: "test_topic".to_string(),
+                resource_namespace: "".to_string(),
+            },
+        )
+    }
+
+    // Reference Java: ProcessQueueImpl#eraseFifoMessage. While attempt < maxAttempts, a failed
+    // FIFO message is consumed again locally after messageView.incrementAndGetDeliveryAttempt(),
+    // so the listener sees 1, 2, ..., maxAttempts. Once attempt reaches maxAttempts the message
+    // is forwarded to the DLQ with the current delivery attempt.
+    #[tokio::test]
+    async fn test_fifo_local_retry_increments_delivery_attempt_until_dlq() {
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok(vec![ReceiveMessageResponse {
+                content: Some(Content::Message(new_message_with_delivery_attempt(1))),
+            }])
+        });
+        let (consumer_worker, attempts) =
+            new_fifo_worker_recording_attempts(rpc_client, usize::MAX);
+        let (consumer_group, topic) = new_test_resources();
+        let retry_policy = &BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
+            pb::CustomizedBackoff {
+                next: vec![prost_types::Duration::from_str("0.01s").unwrap()],
+            },
+            4,
+        ));
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut session = Session::default();
+        session
+            .expect_shadow_session()
+            .returning(|| Session::default());
+        session.expect_ack_message().never();
+        session
+            .expect_forward_to_deadletter_queue()
+            .withf(|request| request.delivery_attempt == 4 && request.max_delivery_attempts == 4)
+            .times(1)
+            .returning(|_| {
+                Ok(ForwardMessageToDeadLetterQueueResponse {
+                    status: Some(Status {
+                        code: Code::Ok as i32,
+                        message: "".to_string(),
+                    }),
+                })
+            });
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let result = ConsumerWorker::Fifo(consumer_worker)
+            .receive_messages(
+                &new_message_queue(),
+                &FilterExpression::sub_all(),
+                &option,
+                &mut ack_processor,
+                retry_policy,
+            )
+            .await;
+        assert!(result.is_ok(), "{:?}", result);
+        assert_eq!(vec![1, 2, 3, 4], *attempts.lock());
+    }
+
+    #[tokio::test]
+    async fn test_fifo_local_retry_succeeds_with_incremented_delivery_attempt() {
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok(vec![ReceiveMessageResponse {
+                content: Some(Content::Message(new_message_with_delivery_attempt(1))),
+            }])
+        });
+        let (consumer_worker, attempts) = new_fifo_worker_recording_attempts(rpc_client, 2);
+        let (consumer_group, topic) = new_test_resources();
+        // The first retry must wait next[0] (the delay for attempt 1), as in Java
+        // (retryPolicy.getNextAttemptDelay(attempt) is called before the increment).
+        let retry_policy = &BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
+            pb::CustomizedBackoff {
+                next: vec![
+                    prost_types::Duration::from_str("0.01s").unwrap(),
+                    prost_types::Duration::from_str("0.01s").unwrap(),
+                    prost_types::Duration::from_str("5s").unwrap(),
+                ],
+            },
+            17,
+        ));
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut session = Session::default();
+        session
+            .expect_shadow_session()
+            .returning(|| Session::default());
+        session.expect_forward_to_deadletter_queue().never();
+        session.expect_ack_message().times(1).returning(|_| {
+            Ok(AckMessageResponse {
+                status: Some(Status {
+                    code: Code::Ok as i32,
+                    message: "".to_string(),
+                }),
+                entries: vec![],
+            })
+        });
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let started = std::time::Instant::now();
+        let result = ConsumerWorker::Fifo(consumer_worker)
+            .receive_messages(
+                &new_message_queue(),
+                &FilterExpression::sub_all(),
+                &option,
+                &mut ack_processor,
+                retry_policy,
+            )
+            .await;
+        assert!(result.is_ok(), "{:?}", result);
+        assert_eq!(vec![1, 2, 3], *attempts.lock());
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "retries must use the delays of attempts 1 and 2, took {:?}",
+            started.elapsed()
+        );
+    }
+
+    // The standard (non-FIFO) path redelivers through the server and must keep reporting the
+    // server-provided delivery attempt, with the delay for that attempt.
+    #[tokio::test]
+    async fn test_standard_failure_keeps_server_delivery_attempt() {
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok(vec![ReceiveMessageResponse {
+                content: Some(Content::Message(new_message_with_delivery_attempt(2))),
+            }])
+        });
+        let attempts = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&attempts);
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(move |message: &MessageView| {
+                recorded.lock().push(message.delivery_attempt());
+                ConsumeResult::FAILURE
+            })),
+        );
+        let (consumer_group, topic) = new_test_resources();
+        let retry_policy = &BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
+            pb::CustomizedBackoff {
+                next: vec![
+                    prost_types::Duration::from_str("1s").unwrap(),
+                    prost_types::Duration::from_str("7s").unwrap(),
+                ],
+            },
+            17,
+        ));
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut session = Session::default();
+        session
+            .expect_shadow_session()
+            .returning(|| Session::default());
+        session.expect_ack_message().never();
+        session.expect_forward_to_deadletter_queue().never();
+        session
+            .expect_change_invisible_duration()
+            .withf(|request| {
+                request.invisible_duration
+                    == Some(prost_types::Duration {
+                        seconds: 7,
+                        nanos: 0,
+                    })
+            })
+            .times(1)
+            .returning(|_| {
+                Ok(ChangeInvisibleDurationResponse {
+                    status: Some(Status {
+                        code: Code::Ok as i32,
+                        message: "".to_string(),
+                    }),
+                    receipt_handle: "".to_string(),
+                })
+            });
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let is_start_ok = ack_processor.start().await;
+        assert!(is_start_ok.is_ok());
+        let result = ConsumerWorker::Standard(consumer_worker)
+            .receive_messages(
+                &new_message_queue(),
+                &FilterExpression::sub_all(),
+                &option,
+                &mut ack_processor,
+                retry_policy,
+            )
+            .await;
+        assert!(result.is_ok(), "{:?}", result);
+        assert_eq!(vec![2], *attempts.lock());
     }
 }
