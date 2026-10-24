@@ -55,6 +55,23 @@ impl SimpleConsumer {
     const OPERATION_NEW_SIMPLE_CONSUMER: &'static str = "simple_consumer.new";
     const OPERATION_START_SIMPLE_CONSUMER: &'static str = "simple_consumer.start";
     const OPERATION_RECEIVE_MESSAGE: &'static str = "simple_consumer.receive_message";
+    const OPERATION_CHANGE_INVISIBLE_DURATION: &'static str =
+        "simple_consumer.change_invisible_duration";
+
+    /// Convert the invisible duration to protobuf, rejecting values protobuf can not represent.
+    fn to_pb_invisible_duration(
+        invisible_duration: Duration,
+        operation: &'static str,
+    ) -> Result<prost_types::Duration, ClientError> {
+        prost_types::Duration::try_from(invisible_duration).map_err(|_| {
+            ClientError::new(
+                ErrorKind::Config,
+                "invisible duration is out of range",
+                operation,
+            )
+            .with_context("invisible_duration", format!("{:?}", invisible_duration))
+        })
+    }
 
     /// Create a new simple consumer instance
     pub fn new(
@@ -281,6 +298,17 @@ impl SimpleConsumer {
         invisible_duration: Duration,
         lite: bool,
     ) -> Result<Vec<MessageView>, ClientError> {
+        // Reference Java: `SimpleConsumerImpl#receive0` rejects a non-positive maxMessageNum.
+        if batch_size <= 0 {
+            return Err(ClientError::new(
+                ErrorKind::Config,
+                "batch size must be greater than 0",
+                Self::OPERATION_RECEIVE_MESSAGE,
+            )
+            .with_context("batch_size", batch_size.to_string()));
+        }
+        let invisible_duration =
+            Self::to_pb_invisible_duration(invisible_duration, Self::OPERATION_RECEIVE_MESSAGE)?;
         let route = self.client.topic_route(topic, true).await?;
         let route = if lite {
             prune_lite_route(route, topic, Self::OPERATION_RECEIVE_MESSAGE)?
@@ -300,7 +328,7 @@ impl SimpleConsumer {
                     expression: expression.expression().to_string(),
                 },
                 batch_size,
-                prost_types::Duration::try_from(invisible_duration).unwrap(),
+                invisible_duration,
             )
             .await?;
         Ok(messages
@@ -329,11 +357,12 @@ impl SimpleConsumer {
         ack_entry: &(impl AckMessageEntry + 'static),
         invisible_duration: Duration,
     ) -> Result<String, ClientError> {
+        let invisible_duration = Self::to_pb_invisible_duration(
+            invisible_duration,
+            Self::OPERATION_CHANGE_INVISIBLE_DURATION,
+        )?;
         self.client
-            .change_invisible_duration(
-                ack_entry,
-                prost_types::Duration::try_from(invisible_duration).unwrap(),
-            )
+            .change_invisible_duration(ack_entry, invisible_duration)
             .await
     }
 }
@@ -435,5 +464,79 @@ mod tests {
             .ack(&messages.into_iter().next().unwrap())
             .await?;
         Ok(())
+    }
+
+    fn new_simple_consumer_without_rpc() -> SimpleConsumer {
+        let mut client = Client::default();
+        client.expect_topic_route().never();
+        client.expect_receive_message().never();
+        client
+            .expect_change_invisible_duration::<MessageView>()
+            .never();
+        SimpleConsumer {
+            option: SimpleConsumerOption::default(),
+            client,
+            shutdown_tx: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn receive_with_rejects_non_positive_batch_size() {
+        let simple_consumer = new_simple_consumer_without_rpc();
+        for batch_size in [0, -1, i32::MIN] {
+            let result = simple_consumer
+                .receive_with(
+                    "test_topic",
+                    &FilterExpression::new(FilterType::Tag, "*"),
+                    batch_size,
+                    Duration::from_secs(15),
+                )
+                .await;
+            let error = result.expect_err("non-positive batch size must be rejected");
+            assert_eq!(error.kind, ErrorKind::Config);
+            assert_eq!(error.message, "batch size must be greater than 0");
+        }
+    }
+
+    #[tokio::test]
+    async fn receive_with_rejects_out_of_range_invisible_duration() {
+        let simple_consumer = new_simple_consumer_without_rpc();
+        let result = simple_consumer
+            .receive_with(
+                "test_topic",
+                &FilterExpression::new(FilterType::Tag, "*"),
+                32,
+                Duration::MAX,
+            )
+            .await;
+        let error = result.expect_err("out of range invisible duration must be rejected");
+        assert_eq!(error.kind, ErrorKind::Config);
+        assert_eq!(error.message, "invisible duration is out of range");
+    }
+
+    #[tokio::test]
+    async fn change_invisible_duration_rejects_out_of_range_invisible_duration() {
+        let simple_consumer = new_simple_consumer_without_rpc();
+        let message = MessageView::from_pb_message(
+            Message {
+                topic: Some(Resource {
+                    name: "test_topic".to_string(),
+                    ..Default::default()
+                }),
+                system_properties: Some(SystemProperties {
+                    receipt_handle: Some("receipt_handle".to_string()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            crate::model::common::Endpoints::from_url("localhost:8081").unwrap(),
+        )
+        .unwrap();
+        let result = simple_consumer
+            .change_invisible_duration(&message, Duration::MAX)
+            .await;
+        let error = result.expect_err("out of range invisible duration must be rejected");
+        assert_eq!(error.kind, ErrorKind::Config);
+        assert_eq!(error.message, "invisible duration is out of range");
     }
 }
