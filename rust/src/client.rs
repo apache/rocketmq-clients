@@ -1013,8 +1013,10 @@ impl TopicRouteManager {
         let response = rpc_client.query_route(request).await?;
         handle_response_status(response.status, OPERATION_QUERY_ROUTE)?;
 
+        // Start round-robin at a random queue, as Java SubscriptionLoadBalancer /
+        // PublishingLoadBalancer do, so that clients do not all start with the same queue.
         let route = Route {
-            index: AtomicUsize::new(0),
+            index: AtomicUsize::new(random_index()),
             queue: response.message_queues,
         };
         Ok(route)
@@ -1043,6 +1045,13 @@ impl TopicRouteManager {
             None
         })
     }
+}
+
+/// A random start index in `[0, i32::MAX)`, like Java `RandomUtils.nextInt(0, Integer.MAX_VALUE)`.
+fn random_index() -> usize {
+    use std::collections::hash_map::RandomState;
+    use std::hash::{BuildHasher, Hasher};
+    (RandomState::new().build_hasher().finish() % i32::MAX as u64) as usize
 }
 
 #[derive(Debug)]
@@ -1616,6 +1625,29 @@ pub(crate) mod tests {
         assert!(result.is_ok());
     }
 
+    // Reference Java: SubscriptionLoadBalancer / PublishingLoadBalancer start round-robin at a
+    // random index, so that clients do not all start with the same queue.
+    #[tokio::test]
+    async fn client_query_route_starts_at_random_index() {
+        let client = new_client_for_test();
+        let mut indexes = std::collections::HashSet::new();
+        for _ in 0..8 {
+            let mut mock = session::MockRPCClient::new();
+            mock.expect_query_route()
+                .return_once(|_| Box::pin(futures::future::ready(new_topic_route_response())));
+            let route = TopicRouteManager::query_topic_route(
+                &mut mock,
+                client.route_manager.namespace.clone(),
+                client.route_manager.access_endpoints.clone(),
+                "DefaultCluster",
+            )
+            .await
+            .unwrap();
+            indexes.insert(route.index.load(Ordering::Relaxed));
+        }
+        assert!(indexes.len() > 1, "start indexes: {indexes:?}");
+    }
+
     #[tokio::test]
     async fn client_update_same_route() {
         let client = new_client_for_test();
@@ -1632,7 +1664,7 @@ pub(crate) mod tests {
 
         let route = result.unwrap();
         assert!(!route.queue.is_empty());
-        route.index.fetch_add(1, Ordering::Relaxed);
+        let index = route.index.fetch_add(1, Ordering::Relaxed) + 1;
 
         let topic = &route.queue[0].topic;
         assert!(topic.is_some());
@@ -1652,7 +1684,7 @@ pub(crate) mod tests {
         assert!(result2.is_ok());
 
         let route2 = result2.unwrap();
-        assert_eq!(1, route2.index.load(Ordering::Relaxed));
+        assert_eq!(index, route2.index.load(Ordering::Relaxed));
     }
     #[tokio::test]
     async fn client_heartbeat() {

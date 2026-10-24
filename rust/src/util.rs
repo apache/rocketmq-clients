@@ -46,6 +46,37 @@ pub(crate) fn select_message_queue(route: Arc<Route>) -> MessageQueue {
     route.queue[i % route.queue.len()].clone()
 }
 
+/// Round-robin over the readable queues of master brokers.
+///
+/// Reference Java: `SubscriptionLoadBalancer`, which only keeps such queues and fails when there
+/// is none.
+pub(crate) fn select_readable_message_queue(
+    route: Arc<Route>,
+    operation: &'static str,
+) -> Result<MessageQueue, ClientError> {
+    let queues: Vec<&MessageQueue> = route
+        .queue
+        .iter()
+        .filter(|message_queue| is_readable_master_queue(message_queue))
+        .collect();
+    if queues.is_empty() {
+        let topic = route
+            .queue
+            .first()
+            .and_then(|message_queue| message_queue.topic.as_ref())
+            .map(|topic| topic.name.clone())
+            .unwrap_or_default();
+        return Err(ClientError::new(
+            ErrorKind::NoBrokerAvailable,
+            "no readable message queue found",
+            operation,
+        )
+        .with_context("topic", topic));
+    }
+    let i = route.index.fetch_add(1, Ordering::Relaxed);
+    Ok(queues[i % queues.len()].clone())
+}
+
 pub(crate) fn select_message_queue_by_message_group(
     route: Arc<Route>,
     message_group: String,
@@ -526,6 +557,57 @@ mod tests {
         assert_eq!(message_queue.id, 2);
         let message_queue = select_message_queue(route);
         assert_eq!(message_queue.id, 1);
+    }
+
+    fn queue(id: i32, broker_id: i32, permission: pb::Permission) -> MessageQueue {
+        MessageQueue {
+            topic: None,
+            id,
+            permission: permission as i32,
+            broker: Some(Broker {
+                name: "broker".to_string(),
+                id: broker_id,
+                endpoints: None,
+            }),
+            accept_message_types: vec![],
+        }
+    }
+
+    // Reference Java: SubscriptionLoadBalancer only keeps readable queues of master brokers.
+    #[test]
+    fn util_select_readable_message_queue_skips_unreadable_and_slave_queues() {
+        let route = Arc::new(Route {
+            index: AtomicUsize::new(0),
+            queue: vec![
+                queue(1, 1, pb::Permission::ReadWrite),
+                queue(2, 0, pb::Permission::Write),
+                queue(3, 0, pb::Permission::None),
+                queue(4, 0, pb::Permission::Read),
+                queue(5, 0, pb::Permission::ReadWrite),
+            ],
+        });
+        let ids: Vec<i32> = (0..4)
+            .map(|_| {
+                select_readable_message_queue(Arc::clone(&route), "test")
+                    .unwrap()
+                    .id
+            })
+            .collect();
+        assert_eq!(ids, vec![4, 5, 4, 5]);
+    }
+
+    #[test]
+    fn util_select_readable_message_queue_fails_without_readable_queue() {
+        let route = Arc::new(Route {
+            index: AtomicUsize::new(0),
+            queue: vec![
+                queue(1, 1, pb::Permission::ReadWrite),
+                queue(2, 0, pb::Permission::Write),
+            ],
+        });
+        let error = select_readable_message_queue(route, "test").unwrap_err();
+        assert_eq!(error.kind, ErrorKind::NoBrokerAvailable);
+        assert_eq!(error.operation, "test");
     }
 
     #[test]
