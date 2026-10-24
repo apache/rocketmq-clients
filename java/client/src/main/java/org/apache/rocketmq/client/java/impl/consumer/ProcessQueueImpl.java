@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -233,6 +234,16 @@ class ProcessQueueImpl implements ProcessQueue {
             log.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq, clientId);
             return;
         }
+        final boolean trackedReceive = consumer.hasAsyncMessageListener();
+        if (trackedReceive && !consumer.beginReceiveOperation()) {
+            return;
+        }
+        final AtomicBoolean receiveFinished = new AtomicBoolean();
+        final Runnable finishReceive = () -> {
+            if (trackedReceive && receiveFinished.compareAndSet(false, true)) {
+                consumer.finishReceiveOperation();
+            }
+        };
         try {
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final int batchSize = this.getReceptionBatchSize();
@@ -250,93 +261,107 @@ class ProcessQueueImpl implements ProcessQueue {
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                     @Override
                     public void onSuccess(ReceiveMessageResult result) {
-                        // Rotate the attempt ID based on the raw response because messages removed by an interceptor
-                        // were still delivered by the server for this attempt.
-                        final boolean hasReceivedMessages = !result.getMessageViewImpls().isEmpty();
-                        // Intercept after message reception.
-                        final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
-                            .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
-                            .collect(Collectors.toList());
-                        final MessageInterceptorContextImpl context0 =
-                            new MessageInterceptorContextImpl(context, MessageHookPointsStatus.OK);
-                        consumer.doAfter(context0, generalMessages);
+                        // Register result processing before RECEIVE hooks decrement the inflight RPC counter.
+                        SettableFuture<Void> processing = SettableFuture.create();
+                        trackConsumptionCompletion(processing);
+                        try {
+                            // Rotate the attempt ID using the raw response before filtering.
+                            final boolean hasReceivedMessages = !result.getMessageViewImpls().isEmpty();
+                            // Intercept after message reception.
+                            final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
+                                .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
+                                .collect(Collectors.toList());
+                            final MessageInterceptorContextImpl context0 =
+                                new MessageInterceptorContextImpl(context, MessageHookPointsStatus.OK);
+                            consumer.doAfter(context0, generalMessages);
 
-                        // Only perform message filtering when enableMessageInterceptorFiltering is enabled.
-                        if (consumer.isEnableMessageInterceptorFiltering()) {
-                            final List<MessageViewImpl> originalMessages =
-                                new ArrayList<>(result.getMessageViewImpls());
+                            // Only perform message filtering when enableMessageInterceptorFiltering is enabled.
+                            if (consumer.isEnableMessageInterceptorFiltering()) {
+                                final List<MessageViewImpl> originalMessages =
+                                    new ArrayList<>(result.getMessageViewImpls());
 
-                            final Set<MessageId> filteredMessageIds = generalMessages.stream()
-                                .filter(msg -> msg.getMessageId().isPresent())
-                                .map(msg -> msg.getMessageId().get())
-                                .collect(Collectors.toSet());
+                                final Set<MessageId> filteredMessageIds = generalMessages.stream()
+                                    .filter(msg -> msg.getMessageId().isPresent())
+                                    .map(msg -> msg.getMessageId().get())
+                                    .collect(Collectors.toSet());
 
-                            final List<MessageViewImpl> filteredOutMessages = new ArrayList<>();
-                            final List<MessageViewImpl> remainingMessages = new ArrayList<>();
+                                final List<MessageViewImpl> filteredOutMessages = new ArrayList<>();
+                                final List<MessageViewImpl> remainingMessages = new ArrayList<>();
 
-                            for (MessageViewImpl originalMsg : originalMessages) {
-                                if (filteredMessageIds.contains(originalMsg.getMessageId())) {
-                                    remainingMessages.add(originalMsg);
-                                } else {
-                                    filteredOutMessages.add(originalMsg);
+                                for (MessageViewImpl originalMsg : originalMessages) {
+                                    if (filteredMessageIds.contains(originalMsg.getMessageId())) {
+                                        remainingMessages.add(originalMsg);
+                                    } else {
+                                        filteredOutMessages.add(originalMsg);
+                                    }
+                                }
+
+                                // Ack filtered out messages.
+                                if (!filteredOutMessages.isEmpty()) {
+                                    log.info("Acking {} filtered out messages by interceptor, mq={}, clientId={}",
+                                        filteredOutMessages.size(), mq, consumer.getClientId());
+
+                                    for (MessageViewImpl filteredOutMsg : filteredOutMessages) {
+                                        ListenableFuture<Void> ackFuture = ackMessage(filteredOutMsg);
+                                        trackConsumptionCompletion(ackFuture);
+                                        ackFuture.addListener(() -> {
+                                            log.debug("Successfully acked filtered out message, messageId={}, topic={}",
+                                                filteredOutMsg.getMessageId(), filteredOutMsg.getTopic());
+                                        }, MoreExecutors.directExecutor());
+                                    }
+                                }
+
+                                try {
+                                    // Create new ReceiveMessageResult with filtered messages.
+                                    ReceiveMessageResult filteredResult =
+                                        ReceiveMessageResult.createFilteredResult(result, remainingMessages);
+                                    onReceiveMessageResult(filteredResult, request.getAttemptId(), hasReceivedMessages);
+                                } catch (Throwable t) {
+                                    // Should never reach here.
+                                    log.error("[Bug] Exception raised while handling receive result, "
+                                        + "mq={}, endpoints={}, clientId={}", mq, endpoints, clientId, t);
+                                    onReceiveMessageException(t, request.getAttemptId());
+                                }
+                            } else {
+                                // Handle the original result when filtering is disabled.
+                                try {
+                                    onReceiveMessageResult(result, request.getAttemptId(), hasReceivedMessages);
+                                } catch (Throwable t) {
+                                    // Should never reach here.
+                                    log.error("[Bug] Exception raised while handling receive result, "
+                                        + "mq={}, endpoints={}, clientId={}", mq, endpoints, clientId, t);
+                                    onReceiveMessageException(t, request.getAttemptId());
                                 }
                             }
-
-                            // Ack filtered out messages.
-                            if (!filteredOutMessages.isEmpty()) {
-                                log.info("Acking {} filtered out messages by interceptor, mq={}, clientId={}",
-                                    filteredOutMessages.size(), mq, consumer.getClientId());
-
-                                for (MessageViewImpl filteredOutMsg : filteredOutMessages) {
-                                    ListenableFuture<Void> ackFuture = ackMessage(filteredOutMsg);
-                                    ackFuture.addListener(() -> {
-                                        log.debug("Successfully acked filtered out message, messageId={}, topic={}",
-                                            filteredOutMsg.getMessageId(), filteredOutMsg.getTopic());
-                                    }, MoreExecutors.directExecutor());
-                                }
-                            }
-
-                            try {
-                                // Create new ReceiveMessageResult with filtered messages.
-                                ReceiveMessageResult filteredResult =
-                                    ReceiveMessageResult.createFilteredResult(result, remainingMessages);
-                                onReceiveMessageResult(filteredResult, request.getAttemptId(), hasReceivedMessages);
-                            } catch (Throwable t) {
-                                // Should never reach here.
-                                log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
-                                    + "clientId={}", mq, endpoints, clientId, t);
-                                onReceiveMessageException(t, request.getAttemptId());
-                            }
-                        } else {
-                            // When filtering is disabled, use original result directly to avoid performance overhead.
-                            try {
-                                onReceiveMessageResult(result, request.getAttemptId(), hasReceivedMessages);
-                            } catch (Throwable t) {
-                                // Should never reach here.
-                                log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
-                                    + "clientId={}", mq, endpoints, clientId, t);
-                                onReceiveMessageException(t, request.getAttemptId());
-                            }
+                        } finally {
+                            processing.set(null);
+                            finishReceive.run();
                         }
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                        final String nextAttemptId = request.getAttemptId();
-                        // Intercept after message reception.
-                        final MessageInterceptorContextImpl context0 =
-                            new MessageInterceptorContextImpl(context, MessageHookPointsStatus.ERROR);
-                        consumer.doAfter(context0, Collections.emptyList());
+                        try {
+                            final String nextAttemptId = request.getAttemptId();
+                            // Intercept after message reception.
+                            final MessageInterceptorContextImpl context0 =
+                                new MessageInterceptorContextImpl(context, MessageHookPointsStatus.ERROR);
+                            consumer.doAfter(context0, Collections.emptyList());
 
-                        log.error("Exception raised during message reception, mq={}, endpoints={}, attemptId={}, " +
-                                "nextAttemptId={}, clientId={}", mq, endpoints, request.getAttemptId(), nextAttemptId,
-                            clientId, t);
-                        onReceiveMessageException(t, nextAttemptId);
+                            log.error("Exception raised during message reception, " +
+                                    "mq={}, endpoints={}, attemptId={}, nextAttemptId={}, clientId={}",
+                                mq, endpoints, request.getAttemptId(), nextAttemptId,
+                                clientId, t);
+                            onReceiveMessageException(t, nextAttemptId);
+                        } finally {
+                            finishReceive.run();
+                        }
                     }
                 }, MoreExecutors.directExecutor());
             receptionTimes.getAndIncrement();
             consumer.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
+            finishReceive.run();
             log.error("Exception raised during message reception, mq={}, clientId={}", mq, clientId, t);
             onReceiveMessageException(t, attemptId);
         }
@@ -369,6 +394,7 @@ class ProcessQueueImpl implements ProcessQueue {
         log.info("Discard message, mq={}, messageId={}, clientId={}", mq, messageView.getMessageId(),
             consumer.getClientId());
         final ListenableFuture<Void> future = nackMessage(messageView);
+        trackConsumptionCompletion(future);
         future.addListener(() -> evictCache(messageView), MoreExecutors.directExecutor());
     }
 
@@ -377,7 +403,15 @@ class ProcessQueueImpl implements ProcessQueue {
         log.info("Discard fifo message, mq={}, messageId={}, clientId={}", mq, messageView.getMessageId(),
             consumer.getClientId());
         final ListenableFuture<Void> future = forwardToDeadLetterQueue(messageView);
+        trackConsumptionCompletion(future);
         future.addListener(() -> evictCache(messageView), MoreExecutors.directExecutor());
+    }
+
+    private void trackConsumptionCompletion(ListenableFuture<?> future) {
+        ConsumeService service = consumer.getConsumeService();
+        if (null != service) {
+            service.trackCompletion(future);
+        }
     }
 
     public int cachedMessagesCount() {
@@ -429,11 +463,17 @@ class ProcessQueueImpl implements ProcessQueue {
 
     @Override
     public void eraseMessage(MessageViewImpl messageView, ConsumeResult consumeResult) {
+        eraseMessageAsync(messageView, consumeResult);
+    }
+
+    @Override
+    public ListenableFuture<Void> eraseMessageAsync(MessageViewImpl messageView, ConsumeResult consumeResult) {
         consumeResult = convertSuspendResultIfNeeded(consumeResult);
         statsConsumptionResult(consumeResult);
         ListenableFuture<Void> future = ConsumeResult.SUCCESS.equals(consumeResult) ? ackMessage(messageView) :
             nackMessage(messageView);
         future.addListener(() -> evictCache(messageView), MoreExecutors.directExecutor());
+        return future;
     }
 
     private ListenableFuture<Void> nackMessage(final MessageViewImpl messageView) {
