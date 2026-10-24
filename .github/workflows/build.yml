@@ -148,7 +148,7 @@ jobs:
     uses: ./.github/workflows/nodejs_build.yml
   build-result:
     runs-on: ubuntu-latest
-    needs: [java-build, cpp-build, csharp-build, golang-build, php-build, python-build, nodejs-build]
+    needs: [java-build, cpp-build, csharp-build, golang-build, php-build, rust-build, python-build, nodejs-build]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v2
@@ -159,6 +159,7 @@ jobs:
           csharp-${{ needs.csharp-build.result }},\
           golang-${{ needs.golang-build.result }},\
           php-${{ needs.php-build.result }},\
+          rust-${{ needs.rust-build.result }},\
           nodejs-${{ needs.nodejs-build.result }},\
           python-${{ needs.python-build.result }} | grep -E 'cancelled|failure' -o > null
           then
