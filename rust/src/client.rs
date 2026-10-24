@@ -270,10 +270,16 @@ impl Client {
         // or reaped meanwhile.
         session_manager.set_telemetry_command_channel(telemetry_command_tx);
 
-        let mut rpc_client = self
-            .get_session()
-            .await
-            .map_err(|error| error.with_operation(OPERATION_CLIENT_START))?;
+        let mut rpc_client = match self.get_session().await {
+            Ok(rpc_client) => rpc_client,
+            Err(error) => {
+                // Roll back, so that a client whose startup failed is not considered started.
+                // Reference Java: the client service ends up in state FAILED.
+                self.shutdown_tx = None;
+                self.telemetry_command_tx = None;
+                return Err(error.with_operation(OPERATION_CLIENT_START));
+            }
+        };
 
         let route_manager = self.route_manager.clone();
 
@@ -1416,6 +1422,33 @@ pub(crate) mod tests {
             .get_session_with_endpoints(&Endpoints::from_url("localhost:8081").unwrap())
             .await;
         assert!(result.is_ok());
+    }
+
+    // Reference Java: a client whose startup failed is not running (Guava `Service` state FAILED).
+    #[tokio::test]
+    async fn client_start_failure_leaves_client_not_started() {
+        let _m = MTX.lock();
+        let context = MockSession::new_context();
+        context.expect().returning(|_, _, _, _| {
+            let mut session = MockSession::default();
+            session.expect_set_stream_closed_tx().returning(|_| ());
+            session.expect_start().returning(|_, _| {
+                Err(ClientError::new(
+                    ErrorKind::ClientInternal,
+                    "send rpc telemetry failed",
+                    "session.start",
+                ))
+            });
+            Ok(session)
+        });
+        let mut client = new_client_with_session_manager(new_session_manager());
+        let (tx, _rx) = mpsc::channel(16);
+        let result = client.start(tx).await;
+        assert!(result.is_err());
+        assert!(!client.is_started());
+        assert!(client.telemetry_command_tx.is_none());
+        let error = client.get_session().await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::ClientIsNotRunning);
     }
 
     pub(crate) fn new_topic_route_response() -> Result<QueryRouteResponse, ClientError> {
