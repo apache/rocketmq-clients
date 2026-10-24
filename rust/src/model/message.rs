@@ -571,8 +571,10 @@ impl AckMessageEntry for MessageView {
         self.message_id.clone()
     }
 
+    /// Empty if the message carries no receipt handle (e.g. a message passed to the transaction
+    /// checker), as Java `MessageViewImpl#getReceiptHandle`; the server rejects such an ack.
     fn receipt_handle(&self) -> String {
-        self.receipt_handle.lock().clone().unwrap()
+        self.receipt_handle.lock().clone().unwrap_or_default()
     }
 
     fn endpoints(&self) -> &Endpoints {
@@ -1053,6 +1055,30 @@ mod tests {
             AckMessageEntry::endpoints(&message_view).endpoint_url(),
             "localhost:8081"
         );
+    }
+
+    // Reference Java: MessageViewImpl#fromProtobuf reads the receipt handle with the protobuf
+    // getter, which yields "" when it is absent, so getReceiptHandle() never throws.
+    #[test]
+    fn message_view_without_receipt_handle() {
+        let message_view = MessageView::from_pb_message(
+            pb::Message {
+                topic: Some(pb::Resource {
+                    name: "test".to_string(),
+                    ..Default::default()
+                }),
+                system_properties: Some(pb::SystemProperties {
+                    message_id: "message_id".to_string(),
+                    receipt_handle: None,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            Endpoints::from_url("localhost:8081").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(AckMessageEntry::receipt_handle(&message_view), "");
     }
 
     #[test]
