@@ -935,6 +935,9 @@ impl StandardConsumerWorker {
                         .await;
                 }
             }
+            // Handing the ack over usually completes without waiting, so nothing else would let
+            // the other tasks of this runtime thread run until the whole batch is consumed.
+            tokio::task::yield_now().await;
         }
 
         Ok(())
@@ -2147,6 +2150,71 @@ mod tests {
         // Every ack is still sent before the processor finishes shutting down.
         ack_processor.shutdown().await;
         assert_eq!(MESSAGES, acked.load(Ordering::SeqCst));
+    }
+
+    // Without the ack round trip the worker never waits on the network. It must still yield
+    // between messages, otherwise a slow listener holds the runtime thread for a whole batch.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_standard_consume_yields_between_messages() {
+        const MESSAGES: usize = 64;
+        const BLOCK: Duration = Duration::from_millis(5);
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok((0..MESSAGES)
+                .map(|_| ReceiveMessageResponse {
+                    content: Some(Content::Message(new_message())),
+                })
+                .collect())
+        });
+        let entered = Arc::new(AtomicBool::new(false));
+        let in_listener = Arc::clone(&entered);
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(move |_| {
+                in_listener.store(true, Ordering::SeqCst);
+                std::thread::sleep(BLOCK);
+                ConsumeResult::SUCCESS
+            })),
+        );
+        let session = new_session_with_slow_ack(Duration::ZERO, Arc::new(AtomicUsize::new(0)));
+        let (consumer_group, topic) = new_test_resources();
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        ack_processor.start().await.unwrap();
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+        let consume = tokio::spawn(async move {
+            let result = ConsumerWorker::Standard(consumer_worker)
+                .receive_messages(
+                    &new_message_queue(),
+                    &FilterExpression::sub_all(),
+                    &option,
+                    &mut ack_processor,
+                    &retry_policy,
+                )
+                .await;
+            ack_processor.shutdown().await;
+            result
+        });
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !entered.load(Ordering::SeqCst) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the listener was not called"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let started = std::time::Instant::now();
+        let latency = tokio::spawn(async move { started.elapsed() })
+            .await
+            .unwrap();
+        assert!(
+            latency < BLOCK * 8,
+            "another task waited {:?}, the worker did not yield between messages",
+            latency
+        );
+        consume.await.unwrap().unwrap();
     }
 
     fn new_message() -> pb::Message {
