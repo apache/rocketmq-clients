@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::any::Any;
 use std::time::Duration;
 
 use mockall_double::double;
@@ -352,6 +353,16 @@ impl SimpleConsumer {
         Ok(())
     }
 
+    /// Change the invisible duration of the specified message
+    ///
+    /// The server issues a new receipt handle, which is returned. When `ack_entry` is a
+    /// [`MessageView`], its receipt handle is refreshed as well, so the same view can be acked or
+    /// changed again afterwards.
+    ///
+    /// # Arguments
+    ///
+    /// * `ack_entry` - special message view with handle want to change
+    /// * `invisible_duration` - new invisible duration of the message, counted from now
     pub async fn change_invisible_duration(
         &self,
         ack_entry: &(impl AckMessageEntry + 'static),
@@ -361,9 +372,17 @@ impl SimpleConsumer {
             invisible_duration,
             Self::OPERATION_CHANGE_INVISIBLE_DURATION,
         )?;
-        self.client
+        let receipt_handle = self
+            .client
             .change_invisible_duration(ack_entry, invisible_duration)
-            .await
+            .await?;
+        // The server invalidates the old receipt handle. Refresh it in the message view, so that
+        // a later ack or change of the same view takes effect.
+        // Reference Java: `SimpleConsumerImpl#changeInvisibleDuration0`.
+        if let Some(message_view) = (ack_entry as &dyn Any).downcast_ref::<MessageView>() {
+            message_view.set_receipt_handle(receipt_handle.clone());
+        }
+        Ok(receipt_handle)
     }
 }
 
@@ -466,6 +485,32 @@ mod tests {
         Ok(())
     }
 
+    fn new_message_view(receipt_handle: &str) -> MessageView {
+        MessageView::from_pb_message(
+            Message {
+                topic: Some(Resource {
+                    name: "test_topic".to_string(),
+                    ..Default::default()
+                }),
+                system_properties: Some(SystemProperties {
+                    receipt_handle: Some(receipt_handle.to_string()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            crate::model::common::Endpoints::from_url("localhost:8081").unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn new_simple_consumer(client: Client) -> SimpleConsumer {
+        SimpleConsumer {
+            option: SimpleConsumerOption::default(),
+            client,
+            shutdown_tx: None,
+        }
+    }
+
     fn new_simple_consumer_without_rpc() -> SimpleConsumer {
         let mut client = Client::default();
         client.expect_topic_route().never();
@@ -473,11 +518,7 @@ mod tests {
         client
             .expect_change_invisible_duration::<MessageView>()
             .never();
-        SimpleConsumer {
-            option: SimpleConsumerOption::default(),
-            client,
-            shutdown_tx: None,
-        }
+        new_simple_consumer(client)
     }
 
     #[tokio::test]
@@ -538,5 +579,64 @@ mod tests {
         let error = result.expect_err("out of range invisible duration must be rejected");
         assert_eq!(error.kind, ErrorKind::Config);
         assert_eq!(error.message, "invisible duration is out of range");
+    }
+
+    // Reference Java: SimpleConsumerImpl#changeInvisibleDuration0 refreshes the receipt handle of
+    // the MessageView, so that a later ack or change of the same view uses the new handle.
+    #[tokio::test]
+    async fn change_invisible_duration_refreshes_receipt_handle() -> Result<(), ClientError> {
+        let mut client = Client::default();
+        client
+            .expect_change_invisible_duration()
+            .times(1)
+            .withf(|message: &MessageView, _| message.receipt_handle() == "handle-1")
+            .returning(|_: &MessageView, _| Ok("handle-2".to_string()));
+        client
+            .expect_change_invisible_duration()
+            .times(1)
+            .withf(|message: &MessageView, _| message.receipt_handle() == "handle-2")
+            .returning(|_: &MessageView, _| Ok("handle-3".to_string()));
+        client
+            .expect_ack_message()
+            .times(1)
+            .withf(|message: &MessageView| message.receipt_handle() == "handle-3")
+            .returning(|_: &MessageView| Ok(AckMessageResultEntry::default()));
+        let simple_consumer = new_simple_consumer(client);
+
+        let message = new_message_view("handle-1");
+        let handle = simple_consumer
+            .change_invisible_duration(&message, Duration::from_secs(10))
+            .await?;
+        assert_eq!(handle, "handle-2");
+        assert_eq!(message.receipt_handle(), "handle-2");
+        simple_consumer
+            .change_invisible_duration(&message, Duration::from_secs(10))
+            .await?;
+        assert_eq!(message.receipt_handle(), "handle-3");
+        simple_consumer.ack(&message).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn failed_change_invisible_duration_keeps_receipt_handle() {
+        let mut client = Client::default();
+        client
+            .expect_change_invisible_duration()
+            .times(1)
+            .returning(|_: &MessageView, _| {
+                Err(ClientError::new(
+                    ErrorKind::Server,
+                    "server error",
+                    "change_invisible_duration",
+                ))
+            });
+        let simple_consumer = new_simple_consumer(client);
+
+        let message = new_message_view("handle-1");
+        let result = simple_consumer
+            .change_invisible_duration(&message, Duration::from_secs(10))
+            .await;
+        assert!(result.is_err());
+        assert_eq!(message.receipt_handle(), "handle-1");
     }
 }
