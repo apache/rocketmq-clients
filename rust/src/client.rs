@@ -845,8 +845,13 @@ impl Client {
             receipt_handle,
             invisible_duration: Some(invisible_duration),
             message_id,
+            // Reference Java: ConsumerImpl#wrapChangeInvisibleDuration. A lite simple consumer that
+            // changes the invisible duration of a lite message asks the broker to suspend the lite
+            // queue until then, instead of only rescheduling this message.
+            suspend: (lite_topic.is_some()
+                && matches!(self.option.client_type, ClientType::LiteSimpleConsumer))
+            .then_some(true),
             lite_topic,
-            suspend: None,
         };
         let response = rpc_client.change_invisible_duration(request).await?;
         handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
@@ -1758,6 +1763,65 @@ pub(crate) mod tests {
             .await;
         assert!(change_invisible_duration_result.is_ok());
         assert_eq!(change_invisible_duration_result.unwrap(), "receipt_handle");
+    }
+
+    async fn change_invisible_duration_request(
+        client_type: ClientType,
+        lite_topic: Option<String>,
+    ) -> ChangeInvisibleDurationRequest {
+        let captured = Arc::new(Mutex::new(None));
+        let captured_in_mock = Arc::clone(&captured);
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_change_invisible_duration()
+            .return_once(move |request| {
+                captured_in_mock.lock().replace(request);
+                Box::pin(futures::future::ready(Ok(
+                    ChangeInvisibleDurationResponse {
+                        status: Some(Status {
+                            code: Code::Ok as i32,
+                            message: "Success".to_string(),
+                        }),
+                        receipt_handle: "receipt_handle".to_string(),
+                    },
+                )))
+            });
+        let mut client = new_client_for_test();
+        client.option.client_type = client_type;
+        client
+            .change_invisible_duration_inner(
+                mock,
+                "test_topic".to_string(),
+                "receipt_handle".to_string(),
+                prost_types::Duration::default(),
+                "message_id".to_string(),
+                lite_topic,
+            )
+            .await
+            .unwrap();
+        let request = captured.lock().take();
+        request.unwrap()
+    }
+
+    // Reference Java: ConsumerImpl#wrapChangeInvisibleDuration sets suspend=true when a lite
+    // consumer changes the invisible duration of a lite message (LiteSimpleConsumer).
+    #[tokio::test]
+    async fn client_change_invisible_duration_of_lite_message_suspends() {
+        let request = change_invisible_duration_request(
+            ClientType::LiteSimpleConsumer,
+            Some("lite-a".to_string()),
+        )
+        .await;
+        assert_eq!(request.lite_topic.as_deref(), Some("lite-a"));
+        assert_eq!(request.suspend, Some(true));
+    }
+
+    #[tokio::test]
+    async fn client_change_invisible_duration_of_normal_message_does_not_suspend() {
+        let request = change_invisible_duration_request(ClientType::SimpleConsumer, None).await;
+        assert_eq!(request.lite_topic, None);
+        assert_eq!(request.suspend, None);
+        let request = change_invisible_duration_request(ClientType::LiteSimpleConsumer, None).await;
+        assert_eq!(request.suspend, None);
     }
 
     #[tokio::test]
