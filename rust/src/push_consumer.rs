@@ -66,6 +66,9 @@ const RECEIVING_FAILURE_BACKOFF_DELAY: Duration = Duration::from_secs(1);
 /// size, so that a whole batch can be acked while the next one is consumed.
 const MAX_IN_FLIGHT_ACKS: usize = 64;
 
+/// Longest a standard consumer worker consumes messages without yielding the runtime thread.
+const MAX_CONSUME_WITHOUT_YIELD: Duration = Duration::from_millis(1);
+
 /// Delay before the next receive attempt after a failure.
 fn receive_failure_backoff_delay(error: &ClientError) -> Duration {
     let too_many_requests = (pb::Code::TooManyRequests as i32).to_string();
@@ -906,6 +909,7 @@ impl StandardConsumerWorker {
             option,
         )
         .await?;
+        let mut last_yield = std::time::Instant::now();
         for message in messages {
             // Reference Java: `StandardConsumeService#consume` nacks a corrupted message
             // instead of passing it to the listener.
@@ -936,8 +940,13 @@ impl StandardConsumerWorker {
                 }
             }
             // Handing the ack over usually completes without waiting, so nothing else would let
-            // the other tasks of this runtime thread run until the whole batch is consumed.
-            tokio::task::yield_now().await;
+            // the other tasks of this runtime thread run until the whole batch is consumed. Only
+            // yield once the worker has held the thread for a while: yielding forces a poll of
+            // the I/O driver, which is too expensive to pay for every message.
+            if last_yield.elapsed() >= MAX_CONSUME_WITHOUT_YIELD {
+                tokio::task::yield_now().await;
+                last_yield = std::time::Instant::now();
+            }
         }
 
         Ok(())
