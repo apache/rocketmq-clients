@@ -688,6 +688,7 @@ func (cli *defaultClient) telemeter(target string, command *v2.TelemetryCommand)
 func (cli *defaultClient) startUp() error {
 	cli.log.Infof("begin to start the rocketmq client")
 	cm := NewDefaultClientManager()
+	cm.grpcLogger = cli.config.GRPCLogger
 	cli.clientManager = cm
 	cm.RegisterClient(cli)
 	cm.startUp()
