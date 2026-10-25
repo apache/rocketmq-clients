@@ -770,21 +770,24 @@ impl Client {
         Ok(messages)
     }
 
+    /// Ack one message.
+    ///
+    /// Only the status of the response is checked, like Java `SimpleConsumerImpl#ack0`: the
+    /// result entries are not needed, and a response without any must not fail the ack.
     pub(crate) async fn ack_message<T: AckMessageEntry + 'static>(
         &self,
         ack_entry: &T,
-    ) -> Result<AckMessageResultEntry, ClientError> {
+    ) -> Result<(), ClientError> {
         let rpc_client = self
             .get_session_with_endpoints(ack_entry.endpoints())
             .await?;
-        let result = self
-            .ack_message_inner(
-                rpc_client,
-                ack_entry.topic(),
-                vec![build_ack_message_entry(ack_entry)],
-            )
-            .await?;
-        Ok(result[0].clone())
+        self.ack_message_inner(
+            rpc_client,
+            ack_entry.topic(),
+            vec![build_ack_message_entry(ack_entry)],
+        )
+        .await?;
+        Ok(())
     }
 
     pub(crate) async fn ack_message_inner<T: RPCClient + 'static>(
@@ -2288,5 +2291,52 @@ pub(crate) mod tests {
             vec![peer.to_string()],
             "the session must be registered under the reconnected peer"
         );
+    }
+
+    // The proxy returns one result entry per ack entry, but `entries` is a repeated field: a
+    // server that omits it must not panic the caller.
+    #[tokio::test]
+    async fn client_ack_message_without_result_entry() {
+        let _m = MTX.lock();
+        let context = MockSession::new_context();
+        context.expect().returning(|_, _, _, _| {
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session.expect_set_stream_closed_tx().returning(|_| ());
+            session.expect_shadow_session().returning(|| {
+                let mut shadow = MockSession::default();
+                shadow.expect_ack_message().returning(|_| {
+                    Ok(AckMessageResponse {
+                        status: Some(Status {
+                            code: Code::Ok as i32,
+                            message: "Success".to_string(),
+                        }),
+                        entries: vec![],
+                    })
+                });
+                shadow
+            });
+            Ok(session)
+        });
+        let mut client = new_client_with_session_manager(new_session_manager());
+        client.option.group = Some("group".to_string());
+        let message = crate::model::message::MessageView::from_pb_message(
+            Message {
+                topic: Some(Resource {
+                    name: "test_topic".to_string(),
+                    resource_namespace: "".to_string(),
+                }),
+                system_properties: Some(pb::SystemProperties {
+                    receipt_handle: Some("receipt_handle".to_string()),
+                    ..pb::SystemProperties::default()
+                }),
+                ..Message::default()
+            },
+            Endpoints::from_url("http://localhost:8081").unwrap(),
+        )
+        .unwrap();
+
+        let result = client.ack_message(&message).await;
+        assert!(result.is_ok(), "{:?}", result);
     }
 }
