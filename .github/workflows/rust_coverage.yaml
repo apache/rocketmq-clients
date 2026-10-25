@@ -17,9 +17,9 @@ jobs:
           submodules: true
 
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov
