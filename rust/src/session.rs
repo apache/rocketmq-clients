@@ -324,14 +324,11 @@ impl Session {
             AsciiMetadataValue::from_static(PROTOCOL_VERSION),
         );
 
-        let date_time_result = OffsetDateTime::now_local();
-        let date_time = if let Ok(result) = date_time_result {
-            result
-        } else {
-            OffsetDateTime::now_utc()
-        };
-
-        let date_time = date_time.format(&Rfc3339).unwrap();
+        // UTC, like the Java client (`Signature#DATE_TIME_FORMAT` ends with 'Z'). Do not use
+        // `OffsetDateTime::now_local()`: in a multi-threaded process it reads /proc/self/stat on
+        // every call to count the threads and then fails, so it costs ~14µs per request only to
+        // fall back to UTC anyway.
+        let date_time = OffsetDateTime::now_utc().format(&Rfc3339).unwrap();
 
         metadata.insert(
             "x-mq-date-time",
@@ -921,6 +918,55 @@ mod tests {
         .await;
         debug!("session: {:?}", session);
         assert!(session.is_ok());
+    }
+
+    #[tokio::test]
+    async fn sign_sets_utc_date_time() {
+        let mut option = ClientOption::default();
+        option.set_access_key("ak");
+        option.set_secret_key("sk");
+        let server = RocketMQMockServer::start_default().await;
+        let session = Session::new(
+            &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
+            "test_client".to_string(),
+            &option,
+            Arc::new(parking_lot::RwLock::new(std::time::Duration::from_secs(40))),
+        )
+        .await
+        .unwrap();
+        let today = OffsetDateTime::now_utc().date();
+        let request = session.sign(());
+
+        let date_time = request
+            .metadata()
+            .get("x-mq-date-time")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        // RFC 3339 in UTC, like the Java client: "2026-01-02T03:04:05.123456789Z".
+        assert!(date_time.ends_with('Z'), "not UTC: {date_time}");
+        assert!(
+            date_time.starts_with(&format!(
+                "{:04}-{:02}-{:02}T",
+                today.year(),
+                u8::from(today.month()),
+                today.day()
+            )),
+            "{date_time}"
+        );
+        // The signature covers exactly this header.
+        let authorization = request
+            .metadata()
+            .get("authorization")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        let key = hmac::Key::new(hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY, b"sk");
+        let signature = hex::encode(hmac::sign(&key, date_time.as_bytes()).as_ref());
+        assert!(
+            authorization.ends_with(&format!("Signature={signature}")),
+            "{authorization}"
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
