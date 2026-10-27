@@ -30,6 +30,7 @@ import (
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/golang/mock/gomock"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
@@ -54,6 +55,74 @@ func fakeEndpoints() *v2.Endpoints {
 func TestMain(m *testing.M) {
 	ResetLogger()
 	os.Exit(m.Run())
+}
+
+func TestClientGRPCLogger(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		logger *zap.Logger
+	}{
+		{name: "default"},
+		{name: "custom", logger: zap.NewExample()},
+		{name: "disabled", logger: zap.NewNop()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cli := newStartupClient(t)
+			cli.config.GRPCLogger = tc.logger
+			cli.inited.Store(true)
+			if err := cli.startUp(); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(cli.workers.Wait)
+			// Cancel before waiting for the startup worker to exit.
+			t.Cleanup(cli.cancel)
+			cm := cli.clientManager.(*defaultClientManager)
+			t.Cleanup(cm.shutdown)
+			loggers := make(chan *zap.Logger, 3)
+			cm.rpcClientFactory = func(target string, opts ...RpcClientOption) (RpcClient, error) {
+				return newRpcClient(target, append(opts, WithRpcClientClientConnFunc(
+					func(_ string, opts ...ConnOption) (ClientConn, error) {
+						options := defaultConnOptions
+						for _, opt := range opts {
+							opt.apply(&options)
+						}
+						loggers <- options.Logger
+						// NewClient is lazy, so no network connection is needed.
+						conn, err := grpc.NewClient("passthrough:///localhost:80", grpc.WithInsecure())
+						if err != nil {
+							return nil, err
+						}
+						return &clientConn{conn: conn, cancel: func() {}}, nil
+					}))...)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			entry, err := cm.getRpcClientContext(ctx, fakeEndpoints())
+			if err != nil {
+				t.Fatal(err)
+			}
+			other := fakeEndpoints()
+			other.Addresses[0].Port++
+			cli.router.Store(MOCK_TOPIC, []*v2.MessageQueue{{Broker: &v2.Broker{Endpoints: other}}})
+			if _, err := cm.getRpcClientContext(ctx, other); err != nil {
+				t.Fatal(err)
+			}
+			recreated, err := entry.rpc.(rpcClientRecreator).recreate(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = recreated.GracefulStop() })
+			want := tc.logger
+			if want == nil {
+				want = defaultConnOptions.Logger
+			}
+			for i := 0; i < 3; i++ {
+				if got := <-loggers; got != want {
+					t.Errorf("connection %d logger = %p, want %p", i, got, want)
+				}
+			}
+		})
+	}
 }
 
 type recoveryTestRPC struct {
