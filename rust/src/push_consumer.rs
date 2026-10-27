@@ -976,8 +976,13 @@ impl FifoConsumerWorker {
         Ok(())
     }
 
-    /// Consume messages with accelerator: messages with the same messageGroup are consumed sequentially,
-    /// but messages with different messageGroups are consumed in parallel.
+    /// Consume messages with accelerator: messages with the same group key are consumed
+    /// sequentially, but messages with different group keys are consumed in parallel.
+    ///
+    /// The group key is the lite topic of a lite message and the message group otherwise. A lite
+    /// message has no message group (the producer rejects one), and its order is kept per lite
+    /// topic. Reference Java: `FifoConsumeService#getMessageGroupKey`, overridden by
+    /// `LiteFifoConsumeService` to return the lite topic.
     async fn consume_with_accelerator(
         &self,
         messages: Vec<MessageView>,
@@ -986,10 +991,13 @@ impl FifoConsumerWorker {
     ) {
         let message_count = messages.len();
 
-        // Group messages by message_group
+        // Group messages by lite topic or message group
         let mut grouped_messages: HashMap<Option<String>, Vec<MessageView>> = HashMap::new();
         for message in messages {
-            let group = message.message_group().map(|s| s.to_string());
+            let group = message
+                .lite_topic()
+                .or(message.message_group())
+                .map(|s| s.to_string());
             grouped_messages.entry(group).or_default().push(message);
         }
 
@@ -1955,6 +1963,120 @@ mod tests {
             accept_message_types: vec![],
             permission: 0,
         }
+    }
+
+    fn new_lite_message(lite_topic: &str, sequence: usize) -> pb::Message {
+        let mut message = new_message();
+        let system_properties = message.system_properties.as_mut().unwrap();
+        system_properties.lite_topic = Some(lite_topic.to_string());
+        system_properties.message_id = format!("{lite_topic}-{sequence}");
+        system_properties.receipt_handle = Some(format!("{lite_topic}-{sequence}"));
+        message
+    }
+
+    /// A session, and every shadow of it, that acks every message.
+    fn new_session_acking_everything() -> Session {
+        let mut session = Session::default();
+        session.expect_ack_message().returning(|_| {
+            Ok(AckMessageResponse {
+                status: Some(Status {
+                    code: Code::Ok as i32,
+                    message: "".to_string(),
+                }),
+                entries: vec![],
+            })
+        });
+        session
+            .expect_shadow_session()
+            .returning(new_session_acking_everything);
+        session
+    }
+
+    // Lite messages carry no message group: the order to keep is the one of each lite topic.
+    // Reference Java: LiteFifoConsumeService#getMessageGroupKey returns the lite topic, so the
+    // FIFO consume accelerator consumes different lite topics in parallel.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_fifo_consume_accelerator_groups_lite_messages_by_lite_topic() {
+        const LITE_TOPICS: usize = 4;
+        const PER_TOPIC: usize = 3;
+        const CONSUME_TIME: Duration = Duration::from_millis(50);
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            // Interleaved, as the server returns them: a-0, b-0, c-0, d-0, a-1, ...
+            Ok((0..PER_TOPIC)
+                .flat_map(|sequence| {
+                    (0..LITE_TOPICS).map(move |topic| ReceiveMessageResponse {
+                        content: Some(Content::Message(new_lite_message(
+                            &format!("lite-{topic}"),
+                            sequence,
+                        ))),
+                    })
+                })
+                .collect())
+        });
+        let consumed: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&consumed);
+        let running = Arc::new(AtomicUsize::new(0));
+        let max_running = Arc::new(AtomicUsize::new(0));
+        let (now, max) = (Arc::clone(&running), Arc::clone(&max_running));
+        let consumer_worker = FifoConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(move |message: &MessageView| {
+                let current = now.fetch_add(1, Ordering::SeqCst) + 1;
+                max.fetch_max(current, Ordering::SeqCst);
+                std::thread::sleep(CONSUME_TIME);
+                recorded.lock().push(message.message_id().to_string());
+                now.fetch_sub(1, Ordering::SeqCst);
+                ConsumeResult::SUCCESS
+            })),
+        );
+        let (consumer_group, topic) = new_test_resources();
+        let mut ack_processor = AckEntryProcessor::new(
+            new_session_acking_everything(),
+            consumer_group,
+            topic,
+            false,
+        );
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        option.set_fifo(true);
+        option.set_enable_fifo_consume_accelerator(true);
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+
+        ConsumerWorker::Fifo(consumer_worker)
+            .receive_messages(
+                &new_message_queue(),
+                &FilterExpression::sub_all(),
+                &option,
+                &mut ack_processor,
+                &retry_policy,
+            )
+            .await
+            .unwrap();
+
+        let consumed = consumed.lock().clone();
+        assert_eq!(LITE_TOPICS * PER_TOPIC, consumed.len());
+        // The order inside every lite topic is kept.
+        for topic in 0..LITE_TOPICS {
+            let prefix = format!("lite-{topic}-");
+            let sequences: Vec<&String> = consumed
+                .iter()
+                .filter(|id| id.starts_with(&prefix))
+                .collect();
+            let expected: Vec<String> = (0..PER_TOPIC)
+                .map(|sequence| format!("{prefix}{sequence}"))
+                .collect();
+            assert_eq!(expected.iter().collect::<Vec<_>>(), sequences);
+        }
+        // The lite topics are consumed in parallel. Grouping them all into one group would
+        // never run two listener calls at the same time.
+        assert!(
+            max_running.load(Ordering::SeqCst) >= 2,
+            "at most {} listener call(s) ran at the same time, the lite topics were consumed \
+             sequentially",
+            max_running.load(Ordering::SeqCst)
+        );
     }
 
     fn new_message() -> pb::Message {
