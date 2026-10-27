@@ -28,6 +28,7 @@ use tokio_util::task::TaskTracker;
 
 #[double]
 use crate::client::Client;
+use crate::client::TopicRouteManager;
 use crate::conf::{BackOffRetryPolicy, ClientOption, PushConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, ConsumeResult, FilterExpression, MessageQueue};
@@ -47,6 +48,13 @@ use crate::util::{
     handle_response_status,
 };
 use tracing::{debug, error, info, warn};
+
+/// Queue actors grouped by the subscribed topic they were assigned for.
+///
+/// Keyed by the subscription topic rather than by the topic name of the assigned queue, which a
+/// server may decorate (for example `"<instance>%<topic>"`). Reference Java:
+/// `PushConsumerImpl#syncProcessQueue` only drops the queues of the topic being synchronized.
+type ActorTable = HashMap<String, HashMap<MessageQueue, MessageQueueActor>>;
 
 const OPERATION_NEW_PUSH_CONSUMER: &str = "push_consumer.new";
 const OPERATION_RECEIVE_MESSAGE: &str = "push_consumer.receive_message";
@@ -193,7 +201,7 @@ impl PushConsumer {
         route_manager
             .sync_topic_routes(&mut rpc_client, topics)
             .await?;
-        let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
+        let mut actor_table: ActorTable = HashMap::new();
 
         let message_listener = Arc::clone(&self.message_listener);
         let retry_policy: Arc<Mutex<Option<BackOffRetryPolicy>>> = Arc::new(Mutex::new(None));
@@ -236,48 +244,23 @@ impl PushConsumer {
                         {
                             consumer_option = option.read().clone();
                         }
-                        let subscription_table = consumer_option.subscription_expressions();
-                        // query endpoints from topic route
-                        for (topic, filter_expression) in subscription_table.iter() {
-                            if let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) {
-                                let request = QueryAssignmentRequest {
-                                    topic: Some(Resource {
-                                        name: topic.to_string(),
-                                        resource_namespace: consumer_option.namespace().to_string(),
-                                    }),
-                                    group: Some(Resource {
-                                        name: consumer_option.consumer_group().to_string(),
-                                        resource_namespace: consumer_option.namespace().to_string(),
-                                    }),
-                                    endpoints: Some(endpoints.into_inner()),
-                                };
-                                let result = rpc_client.query_assignment(request).await;
-                                if let Ok(response) = result {
-                                    if handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
-                                            let result = Self::process_assignments(
-                                                &rpc_client,
-                                                &consumer_option,
-                                                filter_expression,
-                                                Arc::clone(&message_listener),
-                                                &mut actor_table,
-                                                response.assignments,
-                                                retry_policy_inner.clone(),
-                                            ).await;
-                                            if let Err(e) = result {
-                                                error!("process assignments failed: {:?}", e);
-                                            }
-                                    } else {
-                                        error!("query assignment failed, no status in response.");
-                                    }
-                                } else {
-                                    error!("query assignment failed: {:?}", result.unwrap_err());
-                                }
-                            }
-                        }
+                        Self::scan_assignments(
+                            &mut rpc_client,
+                            &route_manager,
+                            &consumer_option,
+                            &message_listener,
+                            &mut actor_table,
+                            &retry_policy_inner,
+                        )
+                        .await;
                     }
                     _ = shutdown_token.cancelled() => {
-                        info!("shutdown {:?} actors", actor_table.len());
-                        Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
+                        let actors: Vec<MessageQueueActor> = actor_table
+                            .drain()
+                            .flat_map(|(_, actors)| actors.into_values())
+                            .collect();
+                        info!("shutdown {:?} actors", actors.len());
+                        Self::shutdown_actors(actors).await;
                         break;
                     }
                 }
@@ -316,7 +299,7 @@ impl PushConsumer {
             .sync_topic_routes(&mut rpc_client, topics)
             .await?;
 
-        let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
+        let mut actor_table: ActorTable = HashMap::new();
         let message_listener = Arc::clone(&self.message_listener);
         let retry_policy: Arc<Mutex<Option<BackOffRetryPolicy>>> = Arc::new(Mutex::new(None));
 
@@ -365,48 +348,23 @@ impl PushConsumer {
                         {
                             consumer_option = option.read().clone();
                         }
-                        let subscription_table = consumer_option.subscription_expressions();
-                        // query endpoints from topic route
-                        for (topic, filter_expression) in subscription_table.iter() {
-                            if let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) {
-                                let request = QueryAssignmentRequest {
-                                    topic: Some(Resource {
-                                        name: topic.to_string(),
-                                        resource_namespace: consumer_option.namespace().to_string(),
-                                    }),
-                                    group: Some(Resource {
-                                        name: consumer_option.consumer_group().to_string(),
-                                        resource_namespace: consumer_option.namespace().to_string(),
-                                    }),
-                                    endpoints: Some(endpoints.into_inner()),
-                                };
-                                let result = rpc_client.query_assignment(request).await;
-                                if let Ok(response) = result {
-                                    if handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
-                                            let result = Self::process_assignments(
-                                                &rpc_client,
-                                                &consumer_option,
-                                                filter_expression,
-                                                Arc::clone(&message_listener),
-                                                &mut actor_table,
-                                                response.assignments,
-                                                retry_policy_inner.clone(),
-                                            ).await;
-                                            if let Err(e) = result {
-                                                error!("process assignments failed: {:?}", e);
-                                            }
-                                    } else {
-                                        error!("query assignment failed, no status in response.");
-                                    }
-                                } else {
-                                    error!("query assignment failed: {:?}", result.unwrap_err());
-                                }
-                            }
-                        }
+                        Self::scan_assignments(
+                            &mut rpc_client,
+                            &route_manager,
+                            &consumer_option,
+                            &message_listener,
+                            &mut actor_table,
+                            &retry_policy_inner,
+                        )
+                        .await;
                     }
                     _ = shutdown_token.cancelled() => {
-                        info!("shutdown {:?} actors", actor_table.len());
-                        Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
+                        let actors: Vec<MessageQueueActor> = actor_table
+                            .drain()
+                            .flat_map(|(_, actors)| actors.into_values())
+                            .collect();
+                        info!("shutdown {:?} actors", actors.len());
+                        Self::shutdown_actors(actors).await;
                         break;
                     }
                 }
@@ -455,6 +413,60 @@ impl PushConsumer {
         }
         if let Some(fifo) = subscription.fifo {
             option.set_fifo(fifo);
+        }
+    }
+
+    /// Query the assignments of every subscribed topic and reconcile the queue actors.
+    async fn scan_assignments(
+        rpc_client: &mut Session,
+        route_manager: &TopicRouteManager,
+        consumer_option: &PushConsumerOption,
+        message_listener: &Arc<MessageListener>,
+        actor_table: &mut ActorTable,
+        retry_policy: &BackOffRetryPolicy,
+    ) {
+        let subscription_table = consumer_option.subscription_expressions();
+        // query endpoints from topic route
+        for (topic, filter_expression) in subscription_table.iter() {
+            if let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) {
+                let request = QueryAssignmentRequest {
+                    topic: Some(Resource {
+                        name: topic.to_string(),
+                        resource_namespace: consumer_option.namespace().to_string(),
+                    }),
+                    group: Some(Resource {
+                        name: consumer_option.consumer_group().to_string(),
+                        resource_namespace: consumer_option.namespace().to_string(),
+                    }),
+                    endpoints: Some(endpoints.into_inner()),
+                };
+                let result = rpc_client.query_assignment(request).await;
+                if let Ok(response) = result {
+                    if handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER)
+                        .is_ok()
+                    {
+                        // Only reconcile the actors of this topic: the assignments of one topic
+                        // say nothing about the queues of the other subscribed topics.
+                        let result = Self::process_assignments(
+                            rpc_client,
+                            consumer_option,
+                            filter_expression,
+                            Arc::clone(message_listener),
+                            actor_table.entry(topic.clone()).or_default(),
+                            response.assignments,
+                            retry_policy.clone(),
+                        )
+                        .await;
+                        if let Err(e) = result {
+                            error!("process assignments failed: {:?}", e);
+                        }
+                    } else {
+                        error!("query assignment failed, no status in response.");
+                    }
+                } else {
+                    error!("query assignment failed: {:?}", result.unwrap_err());
+                }
+            }
         }
     }
 
@@ -1397,7 +1409,6 @@ mod tests {
         Status, SystemProperties,
     };
 
-    use crate::client::TopicRouteManager;
     use crate::model::common::{Endpoints, FilterType};
     use crate::{
         conf::{CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy},
@@ -1932,6 +1943,107 @@ mod tests {
             accept_message_types: vec![],
         }));
         Ok(())
+    }
+
+    fn new_message_queue_of_topic(topic: &str) -> pb::MessageQueue {
+        let mut message_queue = new_message_queue();
+        message_queue.topic.name = topic.to_string();
+        message_queue.to_pb_message_queue()
+    }
+
+    /// A route manager whose route table has one queue for each of `topics`.
+    async fn new_route_manager_with_topics(topics: &[&str]) -> TopicRouteManager {
+        let route_manager = TopicRouteManager::new(
+            "".to_string(),
+            Endpoints::from_url("http://localhost:8081").unwrap(),
+        );
+        let mut session = Session::default();
+        session.expect_query_route().returning(|request| {
+            let topic = request.topic.unwrap().name;
+            Ok(QueryRouteResponse {
+                status: Some(Status {
+                    code: Code::Ok as i32,
+                    message: "".to_string(),
+                }),
+                message_queues: vec![new_message_queue_of_topic(&topic)],
+            })
+        });
+        route_manager
+            .sync_topic_routes(&mut session, topics.iter().map(|t| t.to_string()).collect())
+            .await
+            .unwrap();
+        route_manager
+    }
+
+    // Reference Java: PushConsumerImpl#syncProcessQueue only drops the queues of the topic whose
+    // assignments are being synchronized.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_scan_assignments_keeps_actors_of_other_topics() {
+        let topics = ["topic_a", "topic_b"];
+        let route_manager = new_route_manager_with_topics(&topics).await;
+        let mut option = PushConsumerOption::default();
+        option.set_consumer_group("test_group");
+        for topic in topics {
+            option.subscribe(topic, FilterExpression::new(FilterType::Tag, "*"));
+        }
+        option.set_consumer_worker_count_each_queue(1);
+
+        // Every actor that is started polls once per 10ms; count the actors started.
+        let started_actors = Arc::new(AtomicUsize::new(0));
+        let mut rpc_client = Session::default();
+        rpc_client.expect_query_assignment().returning(|request| {
+            let topic = request.topic.unwrap().name;
+            Ok(pb::QueryAssignmentResponse {
+                status: Some(Status {
+                    code: Code::Ok as i32,
+                    message: "".to_string(),
+                }),
+                assignments: vec![Assignment {
+                    message_queue: Some(new_message_queue_of_topic(&topic)),
+                }],
+            })
+        });
+        let counter = Arc::clone(&started_actors);
+        rpc_client.expect_shadow_session().returning(move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+            new_session_with_long_polling(
+                Duration::from_millis(10),
+                Arc::new(AtomicUsize::new(0)),
+                Arc::new(AtomicBool::new(false)),
+                Arc::new(AtomicUsize::new(0)),
+            )
+        });
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+        let mut actor_table: ActorTable = HashMap::new();
+
+        for _ in 0..3 {
+            PushConsumer::scan_assignments(
+                &mut rpc_client,
+                &route_manager,
+                &option,
+                &message_listener,
+                &mut actor_table,
+                &retry_policy,
+            )
+            .await;
+        }
+
+        let mut assigned: Vec<String> = actor_table
+            .values()
+            .flat_map(|actors| actors.keys())
+            .map(|message_queue| message_queue.topic.name.clone())
+            .collect();
+        assigned.sort();
+        assert_eq!(vec!["topic_a", "topic_b"], assigned);
+        assert_eq!(
+            2,
+            started_actors.load(Ordering::SeqCst),
+            "unchanged assignments must not restart any actor"
+        );
+        PushConsumer::shutdown_actors(actor_table.into_values().flat_map(|a| a.into_values()))
+            .await;
     }
 
     fn new_message_queue() -> MessageQueue {
