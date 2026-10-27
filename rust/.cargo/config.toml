@@ -16,3 +16,9 @@
 #
 [registries.crates-io]
 protocol = "sparse"
+
+# Prefer dependency versions whose `rust-version` is compatible with this crate's MSRV
+# when Cargo (1.84+) resolves `Cargo.lock`. This only affects development of this crate;
+# downstream projects resolve dependencies with their own configuration.
+[resolver]
+incompatible-rust-versions = "fallback"
