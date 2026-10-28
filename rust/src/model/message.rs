@@ -195,7 +195,7 @@ impl MessageBuilder {
     ///
     /// * `topic` - topic of the message
     /// * `body` - message body
-    /// * `delay_time` - delivery timestamp of message, specify when to deliver the message
+    /// * `delay_time` - delivery timestamp of message in seconds since the Unix epoch, specify when to deliver the message
     pub fn delay_message_builder(
         topic: impl Into<String>,
         body: Vec<u8>,
@@ -292,7 +292,7 @@ impl MessageBuilder {
 
     /// Set delivery timestamp, which is required for delay message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/02delaymessage)
     ///
-    /// The delivery timestamp could not be set with message group at the same time
+    /// The delivery timestamp is in seconds since the Unix epoch, and could not be set with message group at the same time
     pub fn set_delivery_timestamp(mut self, delivery_timestamp: i64) -> Self {
         self.message.delivery_timestamp = Some(delivery_timestamp);
         self
@@ -586,6 +586,14 @@ impl AckMessageEntry for MessageView {
     }
 }
 
+/// Milliseconds since the Unix epoch, as protobuf-java `Timestamps.toMillis`.
+fn to_millis(timestamp: prost_types::Timestamp) -> i64 {
+    timestamp
+        .seconds
+        .saturating_mul(1000)
+        .saturating_add(i64::from(timestamp.nanos / 1_000_000))
+}
+
 impl MessageView {
     /// Replace the receipt handle, e.g. with the one returned by ChangeInvisibleDuration.
     ///
@@ -613,9 +621,9 @@ impl MessageView {
             keys: system_properties.keys,
             properties: message.user_properties,
             message_group: system_properties.message_group,
-            delivery_timestamp: system_properties.delivery_timestamp.map(|t| t.seconds),
+            delivery_timestamp: system_properties.delivery_timestamp.map(to_millis),
             born_host: system_properties.born_host,
-            born_timestamp: system_properties.born_timestamp.map_or(0, |t| t.seconds),
+            born_timestamp: system_properties.born_timestamp.map_or(0, to_millis),
             delivery_attempt: system_properties.delivery_attempt.unwrap_or(0),
             endpoints,
             priority: system_properties.priority,
@@ -671,7 +679,9 @@ impl MessageView {
         self.message_group.as_deref()
     }
 
-    /// Get delivery timestamp of delay message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/02delaymessage)
+    /// Get delivery timestamp of delay message, in milliseconds since the Unix epoch. [Read more](https://rocketmq.apache.org/docs/featureBehavior/02delaymessage)
+    ///
+    /// `None` if the message is not a delay message.
     pub fn delivery_timestamp(&self) -> Option<i64> {
         self.delivery_timestamp
     }
@@ -681,7 +691,7 @@ impl MessageView {
         &self.born_host
     }
 
-    /// Get born timestamp of message
+    /// Get born timestamp of message, in milliseconds since the Unix epoch
     pub fn born_timestamp(&self) -> i64 {
         self.born_timestamp
     }
@@ -1013,13 +1023,13 @@ mod tests {
                     keys: vec!["key".to_string()],
                     message_group: Some("message_group".to_string()),
                     delivery_timestamp: Some(prost_types::Timestamp {
-                        seconds: 123456789,
-                        ..Default::default()
+                        seconds: 1_700_000_100,
+                        nanos: 0,
                     }),
                     born_host: "born_host".to_string(),
                     born_timestamp: Some(prost_types::Timestamp {
-                        seconds: 987654321,
-                        ..Default::default()
+                        seconds: 1_700_000_000,
+                        nanos: 123_456_789,
                     }),
                     delivery_attempt: Some(1),
                     ..Default::default()
@@ -1040,9 +1050,10 @@ mod tests {
             properties
         });
         assert_eq!(message_view.message_group(), Some("message_group"));
-        assert_eq!(message_view.delivery_timestamp(), Some(123456789));
+        // Milliseconds since the Unix epoch, as Java Timestamps.toMillis.
+        assert_eq!(message_view.delivery_timestamp(), Some(1_700_000_100_000));
         assert_eq!(message_view.born_host(), "born_host");
-        assert_eq!(message_view.born_timestamp(), 987654321);
+        assert_eq!(message_view.born_timestamp(), 1_700_000_000_123);
         assert_eq!(message_view.delivery_attempt(), 1);
 
         assert_eq!(AckMessageEntry::message_id(&message_view), "message_id");
