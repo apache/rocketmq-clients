@@ -2,3 +2,6 @@
 src
 vendor
 composer.lock
+coverage
+.phpunit.result.cache
+phpunit.xsd

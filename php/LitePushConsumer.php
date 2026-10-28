@@ -1,0 +1,335 @@
+<?php
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Apache\Rocketmq;
+
+use Apache\Rocketmq\V2\SyncLiteSubscriptionRequest;
+use Apache\Rocketmq\V2\LiteSubscriptionAction;
+use Apache\Rocketmq\V2\Resource;
+use Apache\Rocketmq\V2\ClientType;
+
+/**
+ * LitePushConsumer - Push consumer for lite topics.
+ *
+ * Extends PushConsumer with dynamic lite topic subscription management.
+ * Instead of creating many physical topics, Lite consumers use a parent topic
+ * with logical lite topic sub-classifiers.
+ *
+ * Usage:
+ *   $consumer = new LitePushConsumer($endpoints, $consumerGroup, $parentTopic);
+ *   $consumer->subscribeLite('lite-topic-1', $callback);
+ *   $consumer->subscribeLite('lite-topic-2', $callback);
+ *   $consumer->start();
+ */
+class LitePushConsumer extends PushConsumer
+{
+    private readonly string $parentTopic;
+    private array $liteTopics = [];
+    private readonly int $liteSubscriptionQuota;
+    private readonly int $maxLiteTopicSize;
+    private int $syncLiteSubscriptionInterval = 30;
+    /** @var callable|null per-lite-topic callback */
+    private ?\Closure $liteMessageListener = null;
+    private int $lastSyncTime = 0;
+    private ?ProcessQueue $virtualProcessQueue = null; // ProcessQueue|null
+
+    /**
+     * Constructor.
+     *
+     * @param string $endpoints gRPC server endpoint
+     * @param string $consumerGroup Consumer group name
+     * @param string $parentTopic Parent (bound) topic
+     * @param array $options Configuration options
+     *  - clientId: string, custom client identifier (default: 'php-push-consumer-{pid}-{time}')
+     *  - messageListener: callable|null, message consumption callback
+     *  - maxCacheMessageCount: int, max cached messages in memory (default: 4096)
+     *  - maxCacheMessageSizeInBytes: int, max cached message total size (default: 67108864, 64MB)
+     *  - awaitDuration: int, long polling timeout in seconds (default: 5)
+     *  - scanIntervalSeconds: int, assignment scan interval in seconds (default: 5)
+     *  - receiveBatchSize: int, max messages per receive batch (default: 32)
+     *  - enableFifoConsumeAccelerator: bool, enable FIFO consume accelerator (default: true for Lite)
+     *  - credentials: SessionCredentials|null, AK/SK authentication credentials
+     *  - namespace: string, resource namespace prefix (default: '')
+     *  - tlsCredentials: TlsCredentials|null, TLS/SSL configuration
+     *  - sslEnabled: bool, enable SSL for gRPC channel (default: true)
+     *  - liteSubscriptionQuota: int, max number of lite topic subscriptions (default: 0 = unlimited)
+     *  - maxLiteTopicSize: int, max length of lite topic name (default: 64)
+     */
+    public function __construct(string $endpoints, string $consumerGroup, $parentTopic, array $options = [])
+    {
+        if (empty(trim($parentTopic))) {
+            throw new \InvalidArgumentException("LitePushConsumer parentTopic cannot be empty");
+        }
+        $this->parentTopic = $parentTopic;
+        $listener = $options['messageListener'] ?? null;
+        $this->liteMessageListener = $listener !== null
+            ? ($listener instanceof \Closure ? $listener : \Closure::fromCallable($listener))
+            : null;
+
+        $liteOptions = array_merge($options, [
+            'subscriptionExpressions' => [$parentTopic => '*'],
+            'fifo' => true,
+            'isLiteConsumer' => true,
+            'enableFifoConsumeAccelerator' => $options['enableFifoConsumeAccelerator'] ?? true,
+            'messageListener' => $this->liteMessageListener,
+        ]);
+
+        parent::__construct($endpoints, $consumerGroup, $liteOptions);
+
+        $this->liteSubscriptionQuota = $options['liteSubscriptionQuota'] ?? 0;
+        $this->maxLiteTopicSize = $options['maxLiteTopicSize'] ?? 64;
+    }
+
+    /**
+     * Subscribe to a lite topic.
+     *
+     * @param string $liteTopic Lite topic name
+     * @param callable|null $listener Optional per-lite-topic callback
+     * @return $this
+     */
+    public function subscribeLite(string $liteTopic, ?callable $listener = null): self
+    {
+        $this->checkNotRunning();
+
+        if (strlen($liteTopic) > $this->maxLiteTopicSize) {
+            throw new \RuntimeException("Lite topic name exceeds max length of {$this->maxLiteTopicSize}");
+        }
+
+        if ($this->liteSubscriptionQuota > 0 && count($this->liteTopics) >= $this->liteSubscriptionQuota) {
+            throw new \RuntimeException("Lite subscription quota exceeded: {$this->liteSubscriptionQuota}");
+        }
+
+        $this->liteTopics[$liteTopic] = $listener;
+
+        return $this;
+    }
+
+    /**
+     * Get the client type for this consumer.
+     *
+     * @return int ClientType::LITE_PUSH_CONSUMER
+     */
+    protected function getClientType(): int
+    {
+        return ClientType::LITE_PUSH_CONSUMER;
+    }
+
+    /**
+     * Unsubscribe from a lite topic.
+     *
+     * @param string $liteTopic Lite topic name to remove
+     * @return $this
+     */
+    public function unsubscribeLite(string $liteTopic): self
+    {
+        $this->checkNotRunning();
+        unset($this->liteTopics[$liteTopic]);
+        return $this;
+    }
+
+    /**
+     * Get subscribed lite topics.
+     *
+     * @return array
+     */
+    public function getLiteTopics(): array
+    {
+        return array_keys($this->liteTopics);
+    }
+
+    /**
+     * Set the global lite message listener (used when no per-lite-topic listener is set).
+     *
+     * @param callable $listener Callback invoked for messages with no per-lite-topic listener
+     * @return $this
+     */
+    public function setLiteMessageListener(callable $listener): self
+    {
+        $this->liteMessageListener = $listener instanceof \Closure
+            ? $listener
+            : \Closure::fromCallable($listener);
+        return $this;
+    }
+
+    /**
+     * Start the LitePushConsumer.
+     *
+     * Overrides parent start() to sync lite subscriptions, register handlers, and use lite-aware consume service.
+     */
+    public function start(): void
+    {
+        if ($this->isRunning()) {
+            return;
+        }
+
+        if (empty($this->liteTopics)) {
+            throw new \RuntimeException("LitePushConsumer has no lite topics subscribed");
+        }
+
+        if ($this->liteMessageListener === null) {
+            throw new \RuntimeException("LitePushConsumer has no lite message listener");
+        }
+
+        $this->logger->info("LitePushConsumer starting, clientId={$this->getClientId()}, parentTopic={$this->parentTopic}");
+        parent::start();
+    }
+
+    /**
+     * Setup before the main scan loop: sync lite subscriptions and wait for assignments.
+     */
+    protected function onStartBeforeLoop(): void
+    {
+        $self = $this;
+        $this->telemetrySession->setOnNotifyUnsubscribeLite(function ($notifyCmd) use ($self) {
+            $liteTopic = $notifyCmd->getLiteTopic();
+            $self->logger->info("Received NotifyUnsubscribeLite for liteTopic={$liteTopic}");
+            $self->handleUnsubscribeLite($liteTopic);
+        });
+        $this->syncLiteSubscriptions();
+        $this->lastSyncTime = time();
+        $pollInterval = 500000;
+        $maxAttempts = 10;
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            try {
+                $assignments = $this->queryLiteAssignment();
+                $assignmentList = $assignments ? ProtobufUtil::repeatedFieldToArray($assignments->getAssignments()) : [];
+                if (!empty($assignmentList)) {
+                    $this->logger->info("Lite subscription active after " . ($attempt + 500) . "ms" . count($assignmentList) . " assignments");
+                    return;
+                }
+            } catch (\Exception $e) {
+                $this->logger->error("Error querying lite subscription: " . $e->getMessage());
+            }
+            $this->logger->debug("Waiting doe lite subscription to take effect, attempt {$attempt}/{$maxAttempts}");
+            SwooleCompat::sleep($pollInterval);
+        }
+        $this->logger->error("Lite subscription time out waiting assignments, will scan during normal cycle");
+    }
+
+    /**
+     * Handle server-initiated lite topic unsubscription.
+     *
+     * @param string $liteTopic Lite topic name to remove from subscriptions
+     * @return void
+     */
+    public function handleUnsubscribeLite(string $liteTopic): void
+    {
+        if (array_key_exists($liteTopic, $this->liteTopics)) {
+            unset($this->liteTopics[$liteTopic]);
+            $this->logger->info("Unsubscribed from lite topic: {$liteTopic}");
+        }
+    }
+
+    /**
+     * Hook called after each scan cycle to perform periodic lite sync.
+     */
+    protected function onScanCycleComplete(): void
+    {
+        $now = time();
+        if (!empty($this->liteTopics) && ($now - $this->lastSyncTime) >= $this->syncLiteSubscriptionInterval) {
+            $this->syncLiteSubscriptions();
+            $this->lastSyncTime = $now;
+        }
+    }
+
+    /**
+     * Sync lite subscriptions to server via SyncLiteSubscription gRPC.
+     */
+    public function syncLiteSubscriptions(): void
+    {
+        if (empty($this->liteTopics)) {
+            return;
+        }
+
+        $topicResource = new Resource();
+        $topicResource->setName($this->parentTopic);
+
+        $groupResource = new Resource();
+        $groupResource->setName($this->consumerGroup);
+
+        $request = new SyncLiteSubscriptionRequest();
+        $request->setAction(LiteSubscriptionAction::COMPLETE_ADD);
+        $request->setTopic($topicResource);
+        $request->setGroup($groupResource);
+        $request->setLiteTopicSet(array_keys($this->liteTopics));
+
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_SYNC_LITE_MESSAGE_TIMEOUT / 1000);
+
+        try {
+            list($response, $status) = $this->getClient()->SyncLiteSubscription($request, $metadata, $this->getCallOptions())->wait();
+            if ($status->code !== 0) {
+                throw new \RuntimeException("SyncLiteSubscription failed: " . $status->details);
+            }
+            $this->logger->info("SyncLiteSubscription success for " . count($this->liteTopics) . " lite topics");
+        } catch (\RuntimeException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            throw new \RuntimeException("SyncLiteSubscription exception: " . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Get the lite message listener for a specific lite topic.
+     *
+     * @param string $liteTopic
+     * @return callable|null
+     */
+    public function getLiteMessageListener(string $liteTopic): ?callable
+    {
+        if (isset($this->liteTopics[$liteTopic])) {
+            $listener = $this->liteTopics[$liteTopic];
+            if (is_callable($listener)) {
+                return $listener;
+            }
+        }
+        return $this->liteMessageListener;
+    }
+
+    /**
+     * Check if consumer is in FIFO mode (lite consumers always use FIFO consume service).
+     *
+     * @return bool
+     */
+    public function isLiteConsumer(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Query the server for lite topic assignment information.
+     *
+     * @return object|null Assignment response or null on failure
+     */
+    private function queryLiteAssignment(): ?object
+    {
+        $topicResource = new \Apache\Rocketmq\V2\Resource();
+        $topicResource->setName($this->parentTopic);
+        $groupResource = new \Apache\Rocketmq\V2\Resource();
+        $groupResource->setName($this->consumerGroup);
+        $request = new \Apache\Rocketmq\V2\QueryAssignmentRequest();
+        $request->setTopic($topicResource);
+        $request->setGroup($groupResource);
+        $request->setEndpoints($this->parseEndpoints($this->endpoints));
+        $metadata = $this->buildMetadata(ClientConstants::GRPC_SYNC_LITE_MESSAGE_TIMEOUT / 1000);
+        list($response, $status) = $this->getClient()->QueryAssignment($request, $metadata, $this->getCallOptions())->wait();
+        if ($status->code !== 0) {
+            return null;
+        }
+        return $response;
+    }
+}

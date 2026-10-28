@@ -136,6 +136,24 @@ class Code
      */
     const CLIENT_ID_REQUIRED = 40017;
     /**
+     * Polling time is illegal.
+     *
+     * Generated from protobuf enum <code>ILLEGAL_POLLING_TIME = 40018;</code>
+     */
+    const ILLEGAL_POLLING_TIME = 40018;
+    /**
+     * Offset is illegal.
+     *
+     * Generated from protobuf enum <code>ILLEGAL_OFFSET = 40019;</code>
+     */
+    const ILLEGAL_OFFSET = 40019;
+    /**
+     * Format of lite topic is illegal.
+     *
+     * Generated from protobuf enum <code>ILLEGAL_LITE_TOPIC = 40020;</code>
+     */
+    const ILLEGAL_LITE_TOPIC = 40020;
+    /**
      * Generic code indicates that the client request lacks valid authentication
      * credentials for the requested resource.
      *
@@ -179,6 +197,12 @@ class Code
      */
     const CONSUMER_GROUP_NOT_FOUND = 40403;
     /**
+     * Offset not found from server.
+     *
+     * Generated from protobuf enum <code>OFFSET_NOT_FOUND = 40404;</code>
+     */
+    const OFFSET_NOT_FOUND = 40404;
+    /**
      * Generic code representing client side timeout when connecting to, reading data from, or write data to server.
      *
      * Generated from protobuf enum <code>REQUEST_TIMEOUT = 40800;</code>
@@ -197,6 +221,12 @@ class Code
      */
     const MESSAGE_BODY_TOO_LARGE = 41301;
     /**
+     * Message body is empty.
+     *
+     * Generated from protobuf enum <code>MESSAGE_BODY_EMPTY = 41302;</code>
+     */
+    const MESSAGE_BODY_EMPTY = 41302;
+    /**
      * Generic code for use cases where pre-conditions are not met.
      * For example, if a producer instance is used to publish messages without prior start() invocation,
      * this error code will be raised.
@@ -211,6 +241,16 @@ class Code
      * Generated from protobuf enum <code>TOO_MANY_REQUESTS = 42900;</code>
      */
     const TOO_MANY_REQUESTS = 42900;
+    /**
+     * LiteTopic related quota exceeded
+     *
+     * Generated from protobuf enum <code>LITE_TOPIC_QUOTA_EXCEEDED = 42901;</code>
+     */
+    const LITE_TOPIC_QUOTA_EXCEEDED = 42901;
+    /**
+     * Generated from protobuf enum <code>LITE_SUBSCRIPTION_QUOTA_EXCEEDED = 42902;</code>
+     */
+    const LITE_SUBSCRIPTION_QUOTA_EXCEEDED = 42902;
     /**
      * Generic code for the case that the server is unwilling to process the request because its header fields are too large.
      * The request may be resubmitted after reducing the size of the request header fields.
@@ -325,6 +365,9 @@ class Code
         self::UNRECOGNIZED_CLIENT_TYPE => 'UNRECOGNIZED_CLIENT_TYPE',
         self::MESSAGE_CORRUPTED => 'MESSAGE_CORRUPTED',
         self::CLIENT_ID_REQUIRED => 'CLIENT_ID_REQUIRED',
+        self::ILLEGAL_POLLING_TIME => 'ILLEGAL_POLLING_TIME',
+        self::ILLEGAL_OFFSET => 'ILLEGAL_OFFSET',
+        self::ILLEGAL_LITE_TOPIC => 'ILLEGAL_LITE_TOPIC',
         self::UNAUTHORIZED => 'UNAUTHORIZED',
         self::PAYMENT_REQUIRED => 'PAYMENT_REQUIRED',
         self::FORBIDDEN => 'FORBIDDEN',
@@ -332,11 +375,15 @@ class Code
         self::MESSAGE_NOT_FOUND => 'MESSAGE_NOT_FOUND',
         self::TOPIC_NOT_FOUND => 'TOPIC_NOT_FOUND',
         self::CONSUMER_GROUP_NOT_FOUND => 'CONSUMER_GROUP_NOT_FOUND',
+        self::OFFSET_NOT_FOUND => 'OFFSET_NOT_FOUND',
         self::REQUEST_TIMEOUT => 'REQUEST_TIMEOUT',
         self::PAYLOAD_TOO_LARGE => 'PAYLOAD_TOO_LARGE',
         self::MESSAGE_BODY_TOO_LARGE => 'MESSAGE_BODY_TOO_LARGE',
+        self::MESSAGE_BODY_EMPTY => 'MESSAGE_BODY_EMPTY',
         self::PRECONDITION_FAILED => 'PRECONDITION_FAILED',
         self::TOO_MANY_REQUESTS => 'TOO_MANY_REQUESTS',
+        self::LITE_TOPIC_QUOTA_EXCEEDED => 'LITE_TOPIC_QUOTA_EXCEEDED',
+        self::LITE_SUBSCRIPTION_QUOTA_EXCEEDED => 'LITE_SUBSCRIPTION_QUOTA_EXCEEDED',
         self::REQUEST_HEADER_FIELDS_TOO_LARGE => 'REQUEST_HEADER_FIELDS_TOO_LARGE',
         self::MESSAGE_PROPERTIES_TOO_LARGE => 'MESSAGE_PROPERTIES_TOO_LARGE',
         self::INTERNAL_ERROR => 'INTERNAL_ERROR',
