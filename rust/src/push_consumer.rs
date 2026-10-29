@@ -59,6 +59,33 @@ const OPERATION_FORWARD_TO_DEADLETTER_QUEUE: &str = "push_consumer.forward_to_de
 const RECEIVING_FLOW_CONTROL_BACKOFF_DELAY: Duration = Duration::from_millis(20);
 const RECEIVING_FAILURE_BACKOFF_DELAY: Duration = Duration::from_secs(1);
 
+/// Maximum number of failed ack / nack / DLQ entries an [`AckEntryProcessor`] keeps for retrying.
+///
+/// The same number of entries can wait in its channel. Once both are full, the consumer worker
+/// blocks on the next failed entry, which stops it from receiving more messages. Reference Java:
+/// a message stays in the process queue cache until its ack completes, and reception stops while
+/// the cache is full (`ProcessQueueImpl#isCacheFull`).
+const MAX_PENDING_ACK_ENTRIES: usize = 1024;
+
+/// Delay before a failed ack / nack / DLQ entry is retried.
+///
+/// Reference Java: `ProcessQueueImpl.ACK_MESSAGE_FAILURE_BACKOFF_DELAY`,
+/// `CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY` and
+/// `FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY`.
+const ACK_ENTRY_RETRY_DELAY: Duration = Duration::from_secs(1);
+
+/// Whether the server rejected a request because the receipt handle is no longer valid.
+///
+/// Retrying such a request can never succeed. Reference Java: `ProcessQueueImpl#ackMessage` and
+/// `#changeInvisibleDuration` forgive to retry on `INVALID_RECEIPT_HANDLE`.
+fn is_invalid_receipt_handle(error: &ClientError) -> bool {
+    let invalid_receipt_handle = (pb::Code::InvalidReceiptHandle as i32).to_string();
+    error
+        .context()
+        .iter()
+        .any(|(key, value)| *key == "code" && *value == invalid_receipt_handle)
+}
+
 /// Delay before the next receive attempt after a failure.
 fn receive_failure_backoff_delay(error: &ClientError) -> Duration {
     let too_many_requests = (pb::Code::TooManyRequests as i32).to_string();
@@ -634,6 +661,23 @@ enum AckEntryItem {
 }
 
 impl AckEntryItem {
+    /// Whether a failed request for this entry is worth retrying.
+    fn should_retry(&self, error: &ClientError) -> bool {
+        match self {
+            // Reference Java: ProcessQueueImpl#forwardToDeadLetterQueue retries on any failure.
+            Self::Dlq(_) => true,
+            Self::Ack(_) | Self::Nack(_) => !is_invalid_receipt_handle(error),
+        }
+    }
+
+    fn message(&self) -> &MessageView {
+        match self {
+            Self::Ack(entry) => &entry.message,
+            Self::Nack(entry) => &entry.message,
+            Self::Dlq(entry) => &entry.message,
+        }
+    }
+
     fn inc_attempt(&mut self) {
         match self {
             Self::Ack(ack_entry) => {
@@ -647,6 +691,12 @@ impl AckEntryItem {
             }
         }
     }
+}
+
+/// An entry waiting in the retry queue of an [`AckEntryProcessor`].
+struct PendingAckEntry {
+    next_attempt_at: tokio::time::Instant,
+    item: AckEntryItem,
 }
 
 #[derive(Debug)]
@@ -784,6 +834,9 @@ impl MessageQueueActor {
                 self.message_queue.topic.to_owned(),
                 false, // Default to false for now, will be set by LitePushConsumer
             );
+            // Stop the retry task as soon as the actor shuts down, even when the worker is
+            // blocked on a full retry queue and never reaches `ack_processor.shutdown()`.
+            ack_processor.shutdown_token = Some(shutdown_token.child_token());
             ack_processor.start().await?;
             let shutdown_token = shutdown_token.clone();
             task_tracker.spawn(async move {
@@ -1141,17 +1194,31 @@ impl AckEntryProcessor {
 
     async fn ack_message(&mut self, message: MessageView) {
         let result = self.ack_message_inner(&message).await;
-        if result.is_err() {
-            if let Some(ack_entry_sender) = self.ack_entry_sender.as_ref() {
-                let send_result = ack_entry_sender
-                    .send(AckEntryItem::Ack(AckEntry::new(message)))
-                    .await;
-                if send_result.is_err() {
-                    error!("put ack entry to queue error {:?}", send_result.err());
-                }
-            } else {
-                error!("The ack entry sender is not set. Drop the ack message.");
+        if let Err(e) = result {
+            self.retry_later(AckEntryItem::Ack(AckEntry::new(message)), e)
+                .await;
+        }
+    }
+
+    /// Queue a failed entry for retrying, unless retrying it cannot succeed.
+    ///
+    /// Waits while the retry queue is full, which stops the calling consumer worker from
+    /// receiving more messages until the server accepts the pending entries again.
+    async fn retry_later(&mut self, item: AckEntryItem, error: ClientError) {
+        if !item.should_retry(&error) {
+            error!(
+                "invalid receipt handle, forgive to retry, message_id={}, error={:?}",
+                item.message().message_id(),
+                error
+            );
+            return;
+        }
+        if let Some(ack_entry_sender) = self.ack_entry_sender.as_ref() {
+            if let Err(e) = ack_entry_sender.send(item).await {
+                error!("put entry to the retry queue error {:?}", e);
             }
+        } else {
+            error!("The ack entry sender is not set. Drop {:?}.", item);
         }
     }
 
@@ -1163,20 +1230,12 @@ impl AckEntryProcessor {
         let result = self
             .change_invisible_duration_inner(&message, invisible_duration)
             .await;
-        if result.is_err() {
-            if let Some(ack_entry_sender) = self.ack_entry_sender.as_ref() {
-                let send_result = ack_entry_sender
-                    .send(AckEntryItem::Nack(NackEntry::new(
-                        message,
-                        invisible_duration,
-                    )))
-                    .await;
-                if send_result.is_err() {
-                    error!("put nack entry to queue error {:?}", send_result.err());
-                }
-            } else {
-                error!("Drop the nack message due to ack entry sender is not set.")
-            }
+        if let Err(e) = result {
+            self.retry_later(
+                AckEntryItem::Nack(NackEntry::new(message, invisible_duration)),
+                e,
+            )
+            .await;
         }
     }
 
@@ -1189,21 +1248,16 @@ impl AckEntryProcessor {
         let result = self
             .forward_to_deadletter_queue_inner(&message, delivery_attempt, max_delivery_attempts)
             .await;
-        if result.is_err() {
-            if let Some(ack_entry_sender) = self.ack_entry_sender.as_ref() {
-                let send_result = ack_entry_sender
-                    .send(AckEntryItem::Dlq(DlqEntry::new(
-                        message,
-                        delivery_attempt,
-                        max_delivery_attempts,
-                    )))
-                    .await;
-                if send_result.is_err() {
-                    error!("put dlq entry to queue error {:?}", send_result.err());
-                }
-            } else {
-                error!("Drop the dlq message due to ack edntry sender is not set.");
-            }
+        if let Err(e) = result {
+            self.retry_later(
+                AckEntryItem::Dlq(DlqEntry::new(
+                    message,
+                    delivery_attempt,
+                    max_delivery_attempts,
+                )),
+                e,
+            )
+            .await;
         }
     }
 
@@ -1262,27 +1316,37 @@ impl AckEntryProcessor {
         handle_response_status(response.status, OPERATION_CHANGE_INVISIBLE_DURATION)
     }
 
+    /// Start the retry task.
+    ///
+    /// The task stops once `shutdown` is called or, if one was set before starting, once
+    /// `shutdown_token` is cancelled. The latter lets the owner stop the task while a consumer
+    /// worker is blocked on a full retry queue.
     async fn start(&mut self) -> Result<(), ClientError> {
-        let (ack_entry_sender, mut ack_entry_receiver) = mpsc::channel(1024);
+        let (ack_entry_sender, mut ack_entry_receiver) = mpsc::channel(MAX_PENDING_ACK_ENTRIES);
         self.ack_entry_sender = Some(ack_entry_sender);
-        let mut ack_entry_queue: VecDeque<AckEntryItem> = VecDeque::new();
+        let mut ack_entry_queue: VecDeque<PendingAckEntry> = VecDeque::new();
         let mut ack_ticker = tokio::time::interval(Duration::from_millis(100));
+        ack_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let mut processor = self.shadow_self();
-        let shutdown_token = CancellationToken::new();
-        self.shutdown_token = Some(shutdown_token.clone());
+        let shutdown_token = self
+            .shutdown_token
+            .get_or_insert_with(CancellationToken::new)
+            .clone();
         let task_tracker = TaskTracker::new();
         self.task_tracker = Some(task_tracker.clone());
         task_tracker.spawn(async move {
             loop {
                 select! {
                     _ = ack_ticker.tick() => {
-                        let result = processor.process_ack_entry_queue(&mut ack_entry_queue).await;
-                        if result.is_err() {
-                            error!("process ack entry queue failed: {:?}", result);
-                        }
+                        processor.process_ack_entry_queue(&mut ack_entry_queue).await;
                     }
-                    Some(ack_entry) = ack_entry_receiver.recv() => {
-                        ack_entry_queue.push_back(ack_entry);
+                    // Stop taking entries while the retry queue is full: the channel then fills
+                    // up and the consumer worker waits, instead of the queue growing unbounded.
+                    Some(item) = ack_entry_receiver.recv(), if ack_entry_queue.len() < MAX_PENDING_ACK_ENTRIES => {
+                        ack_entry_queue.push_back(PendingAckEntry {
+                            next_attempt_at: tokio::time::Instant::now() + ACK_ENTRY_RETRY_DELAY,
+                            item,
+                        });
                         debug!("ack entry queue size: {}", ack_entry_queue.len());
                     }
                     _ = shutdown_token.cancelled() => {
@@ -1296,41 +1360,65 @@ impl AckEntryProcessor {
         Ok(())
     }
 
-    async fn process_ack_entry_queue(
-        &mut self,
-        ack_entry_queue: &mut VecDeque<AckEntryItem>,
-    ) -> Result<(), ClientError> {
-        if let Some(ack_entry_item) = ack_entry_queue.front_mut() {
-            let result = match ack_entry_item {
-                AckEntryItem::Ack(ack_entry) => self.ack_message_inner(&ack_entry.message).await,
-                AckEntryItem::Nack(nack_entry) => {
-                    self.change_invisible_duration_inner(
-                        &nack_entry.message,
-                        nack_entry.invisible_duration,
-                    )
-                    .await
-                }
-                AckEntryItem::Dlq(entry) => {
-                    self.forward_to_deadletter_queue_inner(
-                        &entry.message,
-                        entry.delivery_attempt,
-                        entry.max_delivery_attempt,
-                    )
-                    .await
-                }
-            };
-            if result.is_ok() {
-                ack_entry_queue.pop_front();
-            } else {
-                error!("ack message failed: {:?}, will deliver later.", result);
-                ack_entry_item.inc_attempt();
+    /// Retry every entry whose retry delay has elapsed.
+    ///
+    /// Each entry is retried on its own schedule, so an entry that keeps failing does not hold
+    /// back the others. Reference Java: `ProcessQueueImpl#ackMessageLater` and its siblings
+    /// schedule the retry of each message independently.
+    async fn process_ack_entry_queue(&mut self, ack_entry_queue: &mut VecDeque<PendingAckEntry>) {
+        let now = tokio::time::Instant::now();
+        let mut remaining = VecDeque::with_capacity(ack_entry_queue.len());
+        while let Some(mut pending) = ack_entry_queue.pop_front() {
+            if pending.next_attempt_at > now {
+                remaining.push_back(pending);
+                continue;
             }
+            let result = self.send_ack_entry(&pending.item).await;
+            let Err(e) = result else {
+                continue;
+            };
+            if !pending.item.should_retry(&e) {
+                error!(
+                    "invalid receipt handle, forgive to retry, entry={:?}, error={:?}",
+                    pending.item, e
+                );
+                continue;
+            }
+            error!(
+                "{:?} failed: {:?}, will retry in {:?}.",
+                pending.item, e, ACK_ENTRY_RETRY_DELAY
+            );
+            pending.item.inc_attempt();
+            pending.next_attempt_at = tokio::time::Instant::now() + ACK_ENTRY_RETRY_DELAY;
+            remaining.push_back(pending);
         }
-        Ok(())
+        *ack_entry_queue = remaining;
     }
 
-    async fn flush_ack_entry_queue(&mut self, ack_entry_queue: &mut VecDeque<AckEntryItem>) {
-        for ack_entry_item in ack_entry_queue {
+    async fn send_ack_entry(&mut self, item: &AckEntryItem) -> Result<(), ClientError> {
+        match item {
+            AckEntryItem::Ack(entry) => self.ack_message_inner(&entry.message).await,
+            AckEntryItem::Nack(entry) => {
+                self.change_invisible_duration_inner(&entry.message, entry.invisible_duration)
+                    .await
+            }
+            AckEntryItem::Dlq(entry) => {
+                self.forward_to_deadletter_queue_inner(
+                    &entry.message,
+                    entry.delivery_attempt,
+                    entry.max_delivery_attempt,
+                )
+                .await
+            }
+        }
+    }
+
+    async fn flush_ack_entry_queue(&mut self, ack_entry_queue: &mut VecDeque<PendingAckEntry>) {
+        for PendingAckEntry {
+            item: ack_entry_item,
+            ..
+        } in ack_entry_queue
+        {
             match ack_entry_item {
                 AckEntryItem::Ack(entry) => {
                     let _ = self.ack_message_inner(&entry.message).await;
@@ -1955,6 +2043,171 @@ mod tests {
             accept_message_types: vec![],
             permission: 0,
         }
+    }
+
+    fn ack_response(code: Code) -> Result<AckMessageResponse, ClientError> {
+        Ok(AckMessageResponse {
+            status: Some(Status {
+                code: code as i32,
+                message: "".to_string(),
+            }),
+            entries: vec![],
+        })
+    }
+
+    fn new_message_with_receipt_handle(receipt_handle: &str) -> MessageView {
+        let mut message = new_message();
+        let system_properties = message.system_properties.as_mut().unwrap();
+        system_properties.receipt_handle = Some(receipt_handle.to_string());
+        system_properties.message_id = receipt_handle.to_string();
+        MessageView::from_pb_message(
+            message,
+            Endpoints::from_url("http://127.0.0.1:8080").unwrap(),
+        )
+        .unwrap()
+    }
+
+    async fn wait_until(timeout: Duration, condition: impl Fn() -> bool) -> bool {
+        tokio::time::timeout(timeout, async {
+            while !condition() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .is_ok()
+    }
+
+    // Reference Java: ProcessQueueImpl#ackMessage retries every message on its own, and forgives
+    // to retry once the receipt handle is invalid.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_ack_retry_is_not_blocked_by_an_invalid_receipt_handle() {
+        const OTHERS: usize = 20;
+        let expired_attempts = Arc::new(AtomicUsize::new(0));
+        let other_attempts = Arc::new(AtomicUsize::new(0));
+        let mut rpc_client = Session::default();
+        // The first attempt of every ack fails, so they all go to the retry queue.
+        rpc_client
+            .expect_ack_message()
+            .returning(|_| ack_response(Code::InternalServerError));
+        let (expired, others) = (Arc::clone(&expired_attempts), Arc::clone(&other_attempts));
+        rpc_client.expect_shadow_session().return_once(move || {
+            let mut retry = Session::default();
+            retry.expect_ack_message().returning(move |request| {
+                if request.entries[0].receipt_handle == "expired" {
+                    expired.fetch_add(1, Ordering::SeqCst);
+                    ack_response(Code::InvalidReceiptHandle)
+                } else {
+                    others.fetch_add(1, Ordering::SeqCst);
+                    ack_response(Code::Ok)
+                }
+            });
+            retry
+        });
+        let (consumer_group, topic) = new_test_resources();
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
+        ack_processor.start().await.unwrap();
+
+        ack_processor
+            .ack_message(new_message_with_receipt_handle("expired"))
+            .await;
+        for i in 0..OTHERS {
+            ack_processor
+                .ack_message(new_message_with_receipt_handle(&format!("ok-{i}")))
+                .await;
+        }
+
+        assert!(
+            wait_until(Duration::from_secs(5), || other_attempts
+                .load(Ordering::SeqCst)
+                >= OTHERS)
+            .await,
+            "the acks behind an invalid receipt handle must be retried, retried {}",
+            other_attempts.load(Ordering::SeqCst)
+        );
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        assert_eq!(
+            1,
+            expired_attempts.load(Ordering::SeqCst),
+            "an invalid receipt handle must not be retried again"
+        );
+        assert_eq!(OTHERS, other_attempts.load(Ordering::SeqCst));
+        ack_processor.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn test_ack_with_invalid_receipt_handle_is_not_retried() {
+        let mut rpc_client = Session::default();
+        rpc_client
+            .expect_ack_message()
+            .times(1)
+            .returning(|_| ack_response(Code::InvalidReceiptHandle));
+        let retried = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&retried);
+        rpc_client.expect_shadow_session().return_once(move || {
+            let mut retry = Session::default();
+            retry.expect_ack_message().returning(move |_| {
+                counter.fetch_add(1, Ordering::SeqCst);
+                ack_response(Code::InvalidReceiptHandle)
+            });
+            retry
+        });
+        let (consumer_group, topic) = new_test_resources();
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
+        ack_processor.start().await.unwrap();
+        ack_processor
+            .ack_message(new_message_with_receipt_handle("expired"))
+            .await;
+        tokio::time::sleep(ACK_ENTRY_RETRY_DELAY + Duration::from_millis(300)).await;
+        // Shutting down flushes the retry queue, which must be empty.
+        ack_processor.shutdown().await;
+        assert_eq!(0, retried.load(Ordering::SeqCst));
+    }
+
+    // Reference Java: a message stays in the process queue cache until its ack completes, and
+    // reception stops while the cache is full. The retry queue must not grow without bound.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_ack_retry_queue_is_bounded_and_shutdown_unblocks_senders() {
+        const TOTAL: usize = 3 * MAX_PENDING_ACK_ENTRIES;
+        let mut rpc_client = Session::default();
+        rpc_client
+            .expect_ack_message()
+            .returning(|_| ack_response(Code::InternalServerError));
+        rpc_client.expect_shadow_session().return_once(|| {
+            let mut retry = Session::default();
+            retry
+                .expect_ack_message()
+                .returning(|_| ack_response(Code::InternalServerError));
+            retry
+        });
+        let (consumer_group, topic) = new_test_resources();
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
+        let shutdown_token = CancellationToken::new();
+        ack_processor.shutdown_token = Some(shutdown_token.child_token());
+        ack_processor.start().await.unwrap();
+        let enqueued = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&enqueued);
+        let sender = tokio::spawn(async move {
+            for i in 0..TOTAL {
+                ack_processor
+                    .ack_message(new_message_with_receipt_handle(&format!("rh-{i}")))
+                    .await;
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
+            ack_processor.shutdown().await;
+        });
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let pending = enqueued.load(Ordering::SeqCst);
+        assert!(
+            pending <= 2 * MAX_PENDING_ACK_ENTRIES + 1,
+            "{} failed acks were accepted, the retry queue must apply backpressure",
+            pending
+        );
+        // A sender blocked on a full retry queue must not prevent the shutdown.
+        shutdown_token.cancel();
+        tokio::time::timeout(Duration::from_secs(10), sender)
+            .await
+            .expect("shutdown must unblock the senders")
+            .unwrap();
     }
 
     fn new_message() -> pb::Message {
