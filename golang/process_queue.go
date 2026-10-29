@@ -38,7 +38,10 @@ type ProcessQueue interface {
 	discardMessage(*MessageView)
 	eraseMessage(*MessageView, ConsumerResult)
 	discardFifoMessage(*MessageView)
-	eraseFifoMessage(*MessageView, ConsumerResult)
+	// eraseFifoMessage settles a consumed FIFO message and calls done once the
+	// message is settled, after any local redelivery, so that the next message
+	// of the same group is not consumed before it.
+	eraseFifoMessage(mv *MessageView, result ConsumerResult, done func())
 }
 
 const (
@@ -70,7 +73,7 @@ func (dpq *defaultProcessQueue) discardFifoMessage(mv *MessageView) {
 	dpq.forwardToDeadLetterQueue(mv, func(error) { dpq.evictCacheMessage(mv) })
 }
 
-func (dpq *defaultProcessQueue) eraseFifoMessage(mv *MessageView, result ConsumerResult) {
+func (dpq *defaultProcessQueue) eraseFifoMessage(mv *MessageView, result ConsumerResult, done func()) {
 	result = dpq.convertSuspendResultIfNeeded(result)
 
 	retryPolicy := dpq.consumer.pcSettings.GetRetryPolicy()
@@ -89,14 +92,19 @@ func (dpq *defaultProcessQueue) eraseFifoMessage(mv *MessageView, result Consume
 			" attempt=%d, mq=%s, messageId=%s, nextAttemptDelay=%v, clientId=%s", maxAttempts, attempt, dpq.mqstr,
 			messageId, nextAttemptDelay, clientId)
 		service.consumeWithDuration(mv, nextAttemptDelay, func(result0 ConsumerResult, err0 error) {
-			dpq.eraseFifoMessage(mv, result0)
+			dpq.eraseFifoMessage(mv, result0, done)
 		})
 		return
 	}
 
+	settled := func(error) {
+		dpq.evictCacheMessage(mv)
+		done()
+	}
+
 	// Handle SUCCESS result
 	if result.Type == ConsumerResultTypeSuccess {
-		dpq.ackMessage(mv, func(error) { dpq.evictCacheMessage(mv) })
+		dpq.ackMessage(mv, settled)
 		return
 	}
 
@@ -104,14 +112,14 @@ func (dpq *defaultProcessQueue) eraseFifoMessage(mv *MessageView, result Consume
 	if result.Type == ConsumerResultTypeSuspend {
 		dpq.consumer.cli.log.Infof("Suspend consumption, consumerGroup=%s, topic=%s, liteTopic=%s, messageId=%s, suspendTime=%v",
 			dpq.consumer.groupName, mv.topic, mv.GetLiteTopic(), messageId, result.suspendTime)
-		dpq.changeInvisibleDuration(mv, result.suspendTime, 1, func(error) { dpq.evictCacheMessage(mv) })
+		dpq.changeInvisibleDuration(mv, result.suspendTime, 1, settled)
 		return
 	}
 
 	// Handle FAILURE result without retry (final failure)
 	dpq.consumer.cli.log.Infof("Failed to consume fifo message finally, run out of attempt times, maxAttempts=%d, "+
 		"attempt=%d, mq=%s, messageId=%s, clientId=%s", maxAttempts, attempt, dpq.mqstr, messageId, clientId)
-	dpq.forwardToDeadLetterQueue(mv, func(error) { dpq.evictCacheMessage(mv) })
+	dpq.forwardToDeadLetterQueue(mv, settled)
 }
 
 func (dpq *defaultProcessQueue) convertSuspendResultIfNeeded(result ConsumerResult) ConsumerResult {
