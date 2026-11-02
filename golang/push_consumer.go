@@ -19,6 +19,7 @@ package golang
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -69,6 +70,8 @@ type defaultPushConsumer struct {
 	consumptionErrorQuantity atomic.Int64
 
 	stopping                        atomic.Bool
+	receiveCtx                      context.Context
+	receiveCancel                   context.CancelFunc
 	inflightRequestCountInterceptor *defultInflightRequestCountInterceptor
 
 	pushConsumerExtension PushConsumerExtension
@@ -134,7 +137,7 @@ func (pc *defaultPushConsumer) changeInvisibleDuration0(context context.Context,
 	duration := time.Since(watchTime)
 	messageHookPointsStatus := MessageHookPointsStatus_OK
 	if err != nil {
-		pc.cli.log.Errorf("exception raised during message acknowledgement, messageId=%s, endpoints=%v, requestId=%s", messageView.GetMessageId(), endpoints, utils.GetRequestID(ctx))
+		pc.cli.log.Errorf("exception raised during message change invisible duration, messageId=%s, endpoints=%v, requestId=%s", messageView.GetMessageId(), endpoints, utils.GetRequestID(ctx))
 	} else if resp.GetStatus().GetCode() != v2.Code_OK {
 		pc.cli.log.Errorf("failed to change message invisible duration, messageId=%s, endpoints=%v, code=%v, status message=[%s], requestId=%s", messageView.GetMessageId(), endpoints, resp.GetStatus().GetCode(), resp.GetStatus().GetMessage(), utils.GetRequestID(ctx))
 		err = &ErrRpcStatus{
@@ -257,6 +260,9 @@ func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.R
 	}()
 	select {
 	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return nil, ctx.Err()
+		}
 		// timeout
 		return nil, fmt.Errorf("[error] CODE=DEADLINE_EXCEEDED")
 	case result := <-done:
@@ -353,6 +359,10 @@ var newPushConsumer = func(config *Config, opts ...PushConsumerOption) (*default
 		stopping:                        *atomic.NewBool(false),
 		inflightRequestCountInterceptor: NewDefultInflightRequestCountInterceptor(),
 	}
+	// In-flight long polling receive requests are canceled on GracefulStop, so
+	// the shutdown does not wait out the requestTimeout + longPollingTimeout of
+	// every hanging poll.
+	pc.receiveCtx, pc.receiveCancel = context.WithCancel(context.Background())
 	pc.pushConsumerExtension = pc
 	pc.cli.initTopics = make([]string, 0)
 	pcOpts.subscriptionExpressions.Range(func(key, value interface{}) bool {
@@ -430,8 +440,13 @@ func (pc *defaultPushConsumer) scanAssignments() {
 		filterExpression := value.(*FilterExpression)
 		newest, err := pc.cli.queryAssignments(context.TODO(), topic, pc.groupName, pc.cli.opts.timeout)
 		if err != nil {
-			pc.cli.log.Errorf("Exception raised while scanning the assignments, topic=%s, clientId=%s, err=%v",
+			// A failed scan does not mean the server has no assignments: syncing the
+			// nil result here would drop every working process queue and stall
+			// consumption for the whole outage. Keep the current assignments until
+			// the next successful scan.
+			pc.cli.log.Errorf("Exception raised while scanning the assignments, keep current assignments, topic=%s, clientId=%s, err=%v",
 				topic, pc.cli.clientID, err)
+			return true
 		}
 		val, _ := pc.cacheAssignments.Load(topic)
 		var existed *[]*v2.Assignment
@@ -443,7 +458,7 @@ func (pc *defaultPushConsumer) scanAssignments() {
 				pc.cli.log.Infof("Acquired empty assignments from remote, would scan later, topic=%s, clientId=%s", topic, pc.cli.clientID)
 				return true
 			}
-			pc.cli.log.Infof("Attention!!! acquired empty assignments from remote, but existed assignments is not empty, topic=%s, clientId=%d",
+			pc.cli.log.Infof("Attention!!! acquired empty assignments from remote, but existed assignments is not empty, topic=%s, clientId=%s",
 				topic, pc.cli.clientID)
 		}
 		if !utils.CompareAssignments(newest, existed) {
@@ -495,7 +510,7 @@ func (pc *defaultPushConsumer) syncProcessQueue(topic string, assignments *[]*v2
 		}
 		optionalProcessQueue := pc.createProcessQueue(mqs, mq, filterExpression)
 		if optionalProcessQueue != nil {
-			pc.cli.log.Infof("Start to fetch message from remote, mq=%s, clientId={}", mqs, pc.cli.clientID)
+			pc.cli.log.Infof("Start to fetch message from remote, mq=%s, clientId=%s", mqs, pc.cli.clientID)
 			optionalProcessQueue.fetchMessageImmediately()
 		}
 	}
@@ -529,6 +544,9 @@ func (pc *defaultPushConsumer) dropProcessQueue(mqstr utils.MessageQueueStr) {
 func (pc *defaultPushConsumer) GracefulStop() error {
 	// step 1 and 2
 	pc.stopping.Store(true)
+	// Cancel the long polling receive requests that are in flight, so the wait
+	// below is not stretched by a poll hanging against a restarting proxy.
+	pc.receiveCancel()
 
 	// step 3
 	pc.cli.log.Infof("Waiting for the inflight receive requests to be finished, clientId=%s", pc.cli.clientID)
