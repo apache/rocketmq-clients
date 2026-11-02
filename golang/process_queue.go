@@ -50,6 +50,15 @@ const (
 	RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL        time.Duration = time.Second
 )
 
+// Max attempts of the settlement chains (ack, change invisible duration, forward
+// to DLQ) before the message is given up; every retry waits for the chain's
+// failure back-off delay, so a message is retried for a few seconds at most.
+const (
+	MAX_ACK_MESSAGE_ATTEMPTS               = 3
+	MAX_CHANGE_INVISIBLE_DURATION_ATTEMPTS = 3
+	MAX_FORWARD_MESSAGE_TO_DLQ_ATTEMPTS    = 3
+)
+
 type defaultProcessQueue struct {
 	consumer         *defaultPushConsumer
 	dropped          atomic.Bool
@@ -139,8 +148,8 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueue0(mv *MessageView, attem
 	ctx := context.Background()
 	resp, err := dpq.consumer.forwardMessageToDeadLetterQueue0(ctx, mv)
 	if err != nil {
-		dpq.consumer.cli.log.Errorf("Exception raised while acknowledging message, clientId=%s, consumerGroup=%s, "+
-			"would attempt to re-ack later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%w", clientId,
+		dpq.consumer.cli.log.Errorf("Exception raised while forwarding message to dead letter queue, "+
+			"would attempt to re-forward later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%v", clientId,
 			consumerGroup, attempt, messageId, dpq.mqstr, endpoints, err)
 		dpq.forwardToDeadLetterQueueLater(mv, 1+attempt, callback)
 		return
@@ -148,6 +157,15 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueue0(mv *MessageView, attem
 	requestId := utils.GetRequestID(ctx)
 	status := resp.GetStatus()
 	code := status.GetCode()
+	if code == v2.Code_INVALID_RECEIPT_HANDLE {
+		// The receipt handle has expired, no retry can ever succeed.
+		dpq.consumer.cli.log.Errorf("Failed to forward message to dead letter queue due to the invalid receipt handle, forgive to retry, "+
+			"clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, "+
+			"requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
+			endpoints, requestId, status.GetMessage())
+		callback(&ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: code.String()})
+		return
+	}
 	// Log failure and retry later.
 	if code != v2.Code_OK {
 		dpq.consumer.cli.log.Errorf("Failed to forward message to dead letter queue, would attempt to re-forward later, "+
@@ -173,14 +191,22 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueue0(mv *MessageView, attem
 func (dpq *defaultProcessQueue) forwardToDeadLetterQueueLater(mv *MessageView, attempt int, callback func(error)) {
 	clientId := dpq.consumer.cli.clientID
 	messageId := mv.messageId
-	time.AfterFunc(ACK_MESSAGE_FAILURE_BACKOFF_DELAY, func() {
+	if attempt > MAX_FORWARD_MESSAGE_TO_DLQ_ATTEMPTS {
+		dpq.forgiveSettlement("forward message to dead letter queue", attempt, messageId, callback)
+		return
+	}
+	time.AfterFunc(FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY, func() {
 		defer func() {
 			if err := recover(); err != nil {
-				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message change invisible duration request, mq=%s, messageId=%s, "+
+				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message forward to dead letter queue request, mq=%s, messageId=%s, "+
 					"clientId=%s", dpq.mqstr, messageId, clientId)
 				dpq.forwardToDeadLetterQueueLater(mv, 1+attempt, callback)
 			}
 		}()
+		if err := dpq.settlementRetryGuard("forward message to dead letter queue", messageId); err != nil {
+			callback(err)
+			return
+		}
 		dpq.forwardToDeadLetterQueue0(mv, attempt, callback)
 	})
 }
@@ -214,32 +240,27 @@ func (dpq *defaultProcessQueue) changeInvisibleDuration(mv *MessageView, duratio
 	endpoints := mv.endpoints
 
 	ctx := context.Background()
-	resp, err := dpq.consumer.changeInvisibleDuration0(ctx, mv, duration)
+	_, err := dpq.consumer.changeInvisibleDuration0(ctx, mv, duration)
+	// changeInvisibleDuration0 converts a non-OK status into an error, so an expired
+	// receipt handle surfaces through err instead of through a response status:
+	// the abandon branch must run before the generic failure handling, otherwise
+	// the expired handle is renewed once a second forever.
+	if rpcErr, ok := AsErrRpcStatus(err); ok && rpcErr.GetCode() == int32(v2.Code_INVALID_RECEIPT_HANDLE) {
+		dpq.consumer.cli.log.Errorf("Failed to change invisible duration due to the invalid receipt handle, forgive to retry, "+
+			"clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, status message=[%s]",
+			clientId, consumerGroup, messageId, attempt, dpq.mqstr, endpoints, rpcErr.GetMessage())
+		callback(&ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: v2.Code_INVALID_RECEIPT_HANDLE.String()})
+		return
+	}
 	if err != nil {
-		dpq.consumer.cli.log.Errorf("Exception raised while changing invisible duration, would retry later, clientId=%s, consumerGroup=%s, messageId=%s, mq=%s, endpoints=%v, err=%w",
+		dpq.consumer.cli.log.Errorf("Exception raised while changing invisible duration, would retry later, clientId=%s, consumerGroup=%s, messageId=%s, mq=%s, endpoints=%v, err=%v",
 			clientId, consumerGroup, messageId, dpq.mqstr, endpoints, err)
 		dpq.changeInvisibleDurationLater(mv, duration, 1+attempt, callback)
 		return
 	}
+	// A nil error implies the server returned Code_OK, any other status was
+	// converted into the error handled above.
 	requestId := utils.GetRequestID(ctx)
-	status := resp.GetStatus()
-	code := status.GetCode()
-	if code == v2.Code_INVALID_RECEIPT_HANDLE {
-		dpq.consumer.cli.log.Errorf("Failed to change invisible duration due to the invalid receipt handle, forgive to retry, "+
-			"clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, "+
-			"requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
-			endpoints, requestId, status.GetMessage())
-		callback(&ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: code.String()})
-		return
-	}
-	// Log failure and retry later.
-	if code != v2.Code_OK {
-		dpq.consumer.cli.log.Errorf("Failed to change invisible duration, would retry later, "+
-			" clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
-			endpoints, requestId, status.GetMessage())
-		dpq.changeInvisibleDurationLater(mv, duration, 1+attempt, callback)
-		return
-	}
 	// Set result if succeed in changing invisible time.
 	callback(nil)
 	// Log retries.
@@ -257,6 +278,10 @@ func (dpq *defaultProcessQueue) changeInvisibleDuration(mv *MessageView, duratio
 func (dpq *defaultProcessQueue) changeInvisibleDurationLater(mv *MessageView, duration time.Duration, attempt int, callback func(error)) {
 	clientId := dpq.consumer.cli.clientID
 	messageId := mv.messageId
+	if attempt > MAX_CHANGE_INVISIBLE_DURATION_ATTEMPTS {
+		dpq.forgiveSettlement("change invisible duration", attempt, messageId, callback)
+		return
+	}
 	time.AfterFunc(CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY, func() {
 		defer func() {
 			if err := recover(); err != nil {
@@ -265,6 +290,10 @@ func (dpq *defaultProcessQueue) changeInvisibleDurationLater(mv *MessageView, du
 				dpq.changeInvisibleDurationLater(mv, duration, 1+attempt, callback)
 			}
 		}()
+		if err := dpq.settlementRetryGuard("change invisible duration", messageId); err != nil {
+			callback(err)
+			return
+		}
 		dpq.changeInvisibleDuration(mv, duration, attempt, callback)
 	})
 }
@@ -283,7 +312,7 @@ func (dpq *defaultProcessQueue) ackMessage0(mv *MessageView, attempt int, callba
 	resp, err := dpq.consumer.ack0(ctx, mv)
 	if err != nil {
 		dpq.consumer.cli.log.Errorf("Exception raised while acknowledging message, clientId=%s, consumerGroup=%s, "+
-			"would attempt to re-ack later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%w", clientId,
+			"would attempt to re-ack later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%v", clientId,
 			consumerGroup, attempt, messageId, dpq.mqstr, endpoints, err)
 		dpq.ackMessageLater(mv, 1+attempt, callback)
 		return
@@ -324,16 +353,49 @@ func (dpq *defaultProcessQueue) ackMessage0(mv *MessageView, attempt int, callba
 func (dpq *defaultProcessQueue) ackMessageLater(mv *MessageView, attempt int, callback func(error)) {
 	clientId := dpq.consumer.cli.clientID
 	messageId := mv.messageId
+	if attempt > MAX_ACK_MESSAGE_ATTEMPTS {
+		dpq.forgiveSettlement("ack message", attempt, messageId, callback)
+		return
+	}
 	time.AfterFunc(ACK_MESSAGE_FAILURE_BACKOFF_DELAY, func() {
 		defer func() {
 			if err := recover(); err != nil {
-				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message change invisible duration request, mq=%s, messageId=%s, "+
+				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message acknowledgement request, mq=%s, messageId=%s, "+
 					"clientId=%s", dpq.mqstr, messageId, clientId)
 				dpq.ackMessageLater(mv, 1+attempt, callback)
 			}
 		}()
+		if err := dpq.settlementRetryGuard("ack message", messageId); err != nil {
+			callback(err)
+			return
+		}
 		dpq.ackMessage0(mv, attempt, callback)
 	})
+}
+
+// forgiveSettlement reports the final give-up of a settlement retry chain; the
+// callback evicts the cached message so the queue cache does not leak.
+func (dpq *defaultProcessQueue) forgiveSettlement(operation string, attempt int, messageId string, callback func(error)) {
+	dpq.consumer.cli.log.Errorf("%s failed finally, run out of attempt times, forgive to retry, attempt=%d, messageId=%s, mq=%s, clientId=%s",
+		operation, attempt, messageId, dpq.mqstr, dpq.consumer.cli.clientID)
+	callback(&ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: operation + " gave up after retries"})
+}
+
+// settlementRetryGuard stops the scheduled settlement retries once the queue was
+// dropped or the consumer is no longer running; the returned error, if any, is
+// handed to the caller's callback so the cached message is still evicted.
+func (dpq *defaultProcessQueue) settlementRetryGuard(operation string, messageId string) error {
+	if dpq.dropped.Load() {
+		dpq.consumer.cli.log.Infof("Stop to retry %s because the process queue has been dropped, mq=%s, messageId=%s, clientId=%s",
+			operation, dpq.mqstr, messageId, dpq.consumer.cli.clientID)
+		return &ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: "process queue has been dropped"}
+	}
+	if !dpq.consumer.isRunning() {
+		dpq.consumer.cli.log.Infof("Stop to retry %s because the consumer is not running, mq=%s, messageId=%s, clientId=%s",
+			operation, dpq.mqstr, messageId, dpq.consumer.cli.clientID)
+		return &ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: "consumer is not running"}
+	}
+	return nil
 }
 
 func (dpq *defaultProcessQueue) getMessageQueue() *v2.MessageQueue {
@@ -494,12 +556,15 @@ func (dpq *defaultProcessQueue) getReceptionBatchSize() int32 {
 }
 
 func (dpq *defaultProcessQueue) onReceiveMessageException(t any, attemptId string) {
-	duration := RECEIVING_FLOW_CONTROL_BACKOFF_DELAY
+	// Flow control means the server asks the client to slow down, mirroring the
+	// Java client the retry after it is the short one, while every other failure
+	// waits a full second before polling again.
+	duration := RECEIVING_FAILURE_BACKOFF_DELAY
 	error, ok := t.(error)
 	if ok {
 		rpcError, ok := AsErrRpcStatus(error)
 		if ok && rpcError.GetCode() == int32(v2.Code_TOO_MANY_REQUESTS) {
-			duration = RECEIVING_FAILURE_BACKOFF_DELAY
+			duration = RECEIVING_FLOW_CONTROL_BACKOFF_DELAY
 		}
 	}
 	dpq.receiveMessageLater(duration, attemptId)
