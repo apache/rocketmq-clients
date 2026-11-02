@@ -19,6 +19,7 @@ package golang
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -69,6 +70,8 @@ type defaultPushConsumer struct {
 	consumptionErrorQuantity atomic.Int64
 
 	stopping                        atomic.Bool
+	receiveCtx                      context.Context
+	receiveCancel                   context.CancelFunc
 	inflightRequestCountInterceptor *defultInflightRequestCountInterceptor
 
 	pushConsumerExtension PushConsumerExtension
@@ -257,6 +260,9 @@ func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.R
 	}()
 	select {
 	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return nil, ctx.Err()
+		}
 		// timeout
 		return nil, fmt.Errorf("[error] CODE=DEADLINE_EXCEEDED")
 	case result := <-done:
@@ -353,6 +359,10 @@ var newPushConsumer = func(config *Config, opts ...PushConsumerOption) (*default
 		stopping:                        *atomic.NewBool(false),
 		inflightRequestCountInterceptor: NewDefultInflightRequestCountInterceptor(),
 	}
+	// In-flight long polling receive requests are canceled on GracefulStop, so
+	// the shutdown does not wait out the requestTimeout + longPollingTimeout of
+	// every hanging poll.
+	pc.receiveCtx, pc.receiveCancel = context.WithCancel(context.Background())
 	pc.pushConsumerExtension = pc
 	pc.cli.initTopics = make([]string, 0)
 	pcOpts.subscriptionExpressions.Range(func(key, value interface{}) bool {
@@ -495,7 +505,7 @@ func (pc *defaultPushConsumer) syncProcessQueue(topic string, assignments *[]*v2
 		}
 		optionalProcessQueue := pc.createProcessQueue(mqs, mq, filterExpression)
 		if optionalProcessQueue != nil {
-			pc.cli.log.Infof("Start to fetch message from remote, mq=%s, clientId={}", mqs, pc.cli.clientID)
+			pc.cli.log.Infof("Start to fetch message from remote, mq=%s, clientId=%s", mqs, pc.cli.clientID)
 			optionalProcessQueue.fetchMessageImmediately()
 		}
 	}
@@ -529,6 +539,9 @@ func (pc *defaultPushConsumer) dropProcessQueue(mqstr utils.MessageQueueStr) {
 func (pc *defaultPushConsumer) GracefulStop() error {
 	// step 1 and 2
 	pc.stopping.Store(true)
+	// Cancel the long polling receive requests that are in flight, so the wait
+	// below is not stretched by a poll hanging against a restarting proxy.
+	pc.receiveCancel()
 
 	// step 3
 	pc.cli.log.Infof("Waiting for the inflight receive requests to be finished, clientId=%s", pc.cli.clientID)

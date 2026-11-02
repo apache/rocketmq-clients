@@ -802,17 +802,26 @@ func (cli *defaultClient) notifyClientTermination() {
 		},
 	}
 	targets := cli.getTotalTargets()
+	// The notifications run concurrently: against a restarting proxy every
+	// target needs its full request timeout, and issuing them sequentially
+	// would stretch the shutdown by that timeout per route target.
+	var wg sync.WaitGroup
 	for _, target := range targets {
 		endpoints, _ := utils.ParseTarget(target)
 		if endpoints == nil {
 			continue
 		}
-		cli.log.Infof("start notifyClientTermination, endpoints=%s", utils.EndpointsToString(endpoints))
-		_, err := cli.clientManager.NotifyClientTermination(ctx, endpoints, request, cli.opts.timeout)
-		if err != nil {
-			cli.log.Errorf("failed to notify client termination, endpoints=%s, error=%v", utils.EndpointsToString(endpoints), err)
-		}
+		wg.Add(1)
+		go func(endpoints *v2.Endpoints) {
+			defer wg.Done()
+			cli.log.Infof("start notifyClientTermination, endpoints=%s", utils.EndpointsToString(endpoints))
+			_, err := cli.clientManager.NotifyClientTermination(ctx, endpoints, request, cli.opts.timeout)
+			if err != nil {
+				cli.log.Errorf("failed to notify client termination, endpoints=%s, error=%v", utils.EndpointsToString(endpoints), err)
+			}
+		}(endpoints)
 	}
+	wg.Wait()
 }
 
 func (cli *defaultClient) GracefulStop() error {

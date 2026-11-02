@@ -304,3 +304,83 @@ func TestForwardToDeadLetterQueueStopsWhenConsumerNotRunning(t *testing.T) {
 		t.Fatalf("expected the retry to be abandoned after the first attempt, got %d attempts", got)
 	}
 }
+
+// A sustained settlement failure must end in the give-up: the ack chain stops
+// after MAX_ACK_MESSAGE_ATTEMPTS attempts instead of retrying once a second
+// forever.
+func TestAckMessageRetriesAreCapped(t *testing.T) {
+	_, dpq, manager := newSettlementTestProcessQueue(t)
+	defer dpq.drop()
+
+	var calls atomic.Int32
+	manager.EXPECT().AckMessage(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, *v2.Endpoints, *v2.AckMessageRequest, time.Duration) (*v2.AckMessageResponse, error) {
+			calls.Add(1)
+			return nil, errors.New("rpc unavailable")
+		}).Times(MAX_ACK_MESSAGE_ATTEMPTS)
+
+	done := make(chan error, 1)
+	go func() {
+		dpq.ackMessage(testMessageView(), func(err error) { done <- err })
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected the callback to report the give-up")
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the callback was never invoked after the retry budget was exhausted")
+	}
+	if got := calls.Load(); got != MAX_ACK_MESSAGE_ATTEMPTS {
+		t.Fatalf("expected exactly %d attempts, got %d", MAX_ACK_MESSAGE_ATTEMPTS, got)
+	}
+}
+
+// hangUntilCanceledStream answers nothing: Recv blocks until the request
+// context is canceled, the way a long poll against a restarting proxy hangs.
+type hangUntilCanceledStream struct {
+	grpc.ClientStream
+	ctx context.Context
+}
+
+func (stream *hangUntilCanceledStream) Recv() (*v2.ReceiveMessageResponse, error) {
+	<-stream.ctx.Done()
+	return nil, stream.ctx.Err()
+}
+
+// A poll hanging against a restarting proxy must not stretch the shutdown by
+// requestTimeout + longPollingTimeout: GracefulStop cancels the in-flight
+// receive requests, so the wait drains at once.
+func TestGracefulStopCancelsInflightReceiveRequest(t *testing.T) {
+	pc, dpq, manager := newSettlementTestProcessQueue(t)
+
+	manager.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _ *v2.Endpoints, _ *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
+			return &hangUntilCanceledStream{ctx: ctx}, nil
+		}).AnyTimes()
+	manager.EXPECT().shutdown().AnyTimes()
+
+	dpq.receiveMessageImmediately()
+	deadline := time.Now().Add(5 * time.Second)
+	for pc.inflightRequestCountInterceptor.getInflightReceiveRequestCount() != 1 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := pc.inflightRequestCountInterceptor.getInflightReceiveRequestCount(); got != 1 {
+		t.Fatalf("expected one in-flight receive request, got %d", got)
+	}
+
+	stopped := make(chan error, 1)
+	go func() { stopped <- pc.GracefulStop() }()
+	select {
+	case err := <-stopped:
+		if err != nil {
+			t.Fatalf("GracefulStop failed: %v", err)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("GracefulStop did not finish in time; the hanging poll was not canceled and the shutdown " +
+			"waited out requestTimeout + longPollingTimeout")
+	}
+	if got := pc.inflightRequestCountInterceptor.getInflightReceiveRequestCount(); got != 0 {
+		t.Fatalf("inflight receive count is %d after GracefulStop; the hanging poll was not canceled", got)
+	}
+}
