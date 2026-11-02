@@ -18,8 +18,11 @@
 package golang
 
 import (
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/golang/mock/gomock"
 
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 )
@@ -274,5 +277,23 @@ func TestPredefinedConsumerResults(t *testing.T) {
 
 	if FAILURE.Type != ConsumerResultTypeFailure {
 		t.Errorf("FAILURE.Type = %v, want %v", FAILURE.Type, ConsumerResultTypeFailure)
+	}
+}
+
+func TestScanAssignmentsKeepsQueuesWhenScanFails(t *testing.T) {
+	pc, dpq, manager := newSettlementTestProcessQueue(t)
+	pc.processQueueTable.Store(dpq.mqstr, []interface{}{dpq.mq, dpq})
+	assignments := &[]*v2.Assignment{{MessageQueue: dpq.mq}}
+	pc.cacheAssignments.Store(MOCK_TOPIC, assignments)
+	manager.EXPECT().QueryAssignments(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, fmt.Errorf("proxy down")).AnyTimes()
+
+	pc.scanAssignments()
+
+	if _, ok := pc.processQueueTable.Load(dpq.mqstr); !ok {
+		t.Fatalf("process queue was dropped after a failed assignment scan; an RPC error must not be treated as empty assignments")
+	}
+	if cached, _ := pc.cacheAssignments.Load(MOCK_TOPIC); cached != assignments {
+		t.Fatalf("cached assignments were replaced after a failed scan")
 	}
 }
