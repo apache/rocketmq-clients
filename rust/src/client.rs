@@ -167,6 +167,17 @@ fn context_value(error: &ClientError, key: &str) -> String {
         .unwrap_or_else(|| error.message().to_string())
 }
 
+/// Log a successful heartbeat with the wording of Java's `ClientImpl#doHeartbeat`.
+///
+/// Deliberately at DEBUG where Java uses INFO: one line per session every 10s carries nothing
+/// a user needs, and failures are still logged at WARN.
+fn log_heartbeat_success(endpoints: &str, client_id: &str) {
+    debug!(
+        "Send heartbeat successfully, endpoints={}, clientId={}",
+        endpoints, client_id
+    );
+}
+
 /// Same content as Java's `Utilities#getOsDescription`: the OS name and version.
 fn os_description() -> String {
     let info = os_info::get();
@@ -437,11 +448,7 @@ impl Client {
                                 continue;
                             }
                             heartbeat_failures.remove(&peer);
-                            // Reference Java: ClientImpl#doHeartbeat logs every success at INFO.
-                            info!(
-                                "Send heartbeat successfully, endpoints={}, clientId={}",
-                                peer, client_id
-                            );
+                            log_heartbeat_success(&peer, &client_id);
                         }
                     },
                     _ = log_stats_interval.tick() => {
@@ -1013,8 +1020,9 @@ impl TopicRouteManager {
         {
             topics = self.route_table.lock().keys().cloned().collect();
         }
-        // Reference Java: ClientImpl#updateRouteCache logs every round at INFO.
-        info!(
+        // Deliberately at DEBUG where Java's `ClientImpl#updateRouteCache` uses INFO: it fires
+        // every 30s; a route that changed is logged at INFO below.
+        debug!(
             "Start to update route cache for a new round, clientId={}",
             self.client_id
         );
@@ -1100,20 +1108,25 @@ impl TopicRouteManager {
 
         // send result to all waiters
         if let Ok(route) = result {
-            // Reference Java: ClientImpl#fetchTopicRoute logs every successful fetch at INFO.
-            info!(
-                "Fetch topic route successfully, clientId={}, topic={}, topicRouteData={:?}",
-                self.client_id, topic, route.queue
-            );
             let route = Arc::new(route);
             let mut route_table_lock = self.route_table.lock();
 
             // if message queues in previous and new route are the same, just keep the previous.
             if let Some(RouteStatus::Found(prev)) = route_table_lock.get(topic) {
                 if prev.queue == route.queue {
+                    // Deliberately at DEBUG where Java's `ClientImpl#fetchTopicRoute` uses
+                    // INFO: an unchanged route would be logged in full every 30s.
+                    debug!(
+                        "Fetch topic route successfully, clientId={}, topic={}, topicRouteData={:?}",
+                        self.client_id, topic, route.queue
+                    );
                     return Ok(Arc::clone(prev));
                 }
             }
+            info!(
+                "Fetch topic route successfully, clientId={}, topic={}, topicRouteData={:?}",
+                self.client_id, topic, route.queue
+            );
 
             let prev =
                 route_table_lock.insert(topic.to_owned(), RouteStatus::Found(Arc::clone(&route)));
@@ -1701,6 +1714,54 @@ pub(crate) mod tests {
         let topic = topic.clone().unwrap();
         assert_eq!(topic.name, "DefaultCluster");
         assert_eq!(topic.resource_namespace, "default");
+    }
+
+    /// Deliberate difference from Java, which logs every successful heartbeat at INFO: one
+    /// line per session every 10s carries nothing a user needs.
+    #[test]
+    fn heartbeat_success_is_logged_at_debug() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        log_heartbeat_success("127.0.0.1:8081", "test_client");
+        assert!(logs.contains(
+            "DEBUG",
+            "Send heartbeat successfully, endpoints=127.0.0.1:8081, clientId=test_client"
+        ));
+        assert!(!logs.any_at("INFO"));
+    }
+
+    /// Deliberate difference from Java, which logs every fetch and every refresh round at
+    /// INFO: a route fetch is only logged at INFO when the route changed, otherwise the 30s
+    /// refresh floods the log with the full, unchanged route.
+    #[tokio::test]
+    async fn route_fetch_is_logged_at_info_only_when_the_route_changed() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let client = new_client_for_test();
+        let fetched = "Fetch topic route successfully, clientId=test_client, topic=DefaultCluster";
+
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_query_route()
+            .times(2)
+            .returning(|_| Box::pin(futures::future::ready(new_topic_route_response())));
+        client
+            .route_manager
+            .topic_route_inner(&mut mock, "DefaultCluster")
+            .await
+            .unwrap();
+        assert_eq!(1, logs.count("INFO", fetched));
+
+        // Refresh with the same route.
+        client
+            .route_manager
+            .sync_route_data(&mut mock)
+            .await
+            .unwrap();
+        assert_eq!(1, logs.count("INFO", fetched));
+        assert_eq!(1, logs.count("DEBUG", fetched));
+        assert!(logs.contains(
+            "DEBUG",
+            "Start to update route cache for a new round, clientId=test_client"
+        ));
+        assert!(!logs.contains("INFO", "Start to update route cache"));
     }
 
     #[tokio::test(flavor = "multi_thread")]
