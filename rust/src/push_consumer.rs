@@ -18,7 +18,8 @@
 use mockall::automock;
 use mockall_double::double;
 use parking_lot::{Mutex, RwLock};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::select;
@@ -28,6 +29,7 @@ use tokio_util::task::TaskTracker;
 
 #[double]
 use crate::client::Client;
+use crate::client::TopicRouteManager;
 use crate::conf::{BackOffRetryPolicy, ClientOption, PushConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, ConsumeResult, FilterExpression, MessageQueue};
@@ -46,12 +48,12 @@ use crate::util::{
     build_endpoints_by_message_queue, build_push_consumer_settings, handle_receive_message_status,
     handle_response_status,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 const OPERATION_NEW_PUSH_CONSUMER: &str = "push_consumer.new";
 const OPERATION_RECEIVE_MESSAGE: &str = "push_consumer.receive_message";
 const OPERATION_ACK_MESSAGE: &str = "push_consumer.ack_message";
-const OPERATION_START_PUSH_CONSUMER: &str = "push_consumer.start";
+const OPERATION_QUERY_ASSIGNMENT: &str = "push_consumer.query_assignment";
 const OPERATION_CHANGE_INVISIBLE_DURATION: &str = "push_consumer.change_invisible_duration";
 const OPERATION_FORWARD_TO_DEADLETTER_QUEUE: &str = "push_consumer.forward_to_deadletter_queue";
 
@@ -73,7 +75,111 @@ fn receive_failure_backoff_delay(error: &ClientError) -> Duration {
     }
 }
 
+/// The queues of an assignment, printed like Java's `MessageQueueImpl#toString` and sorted so
+/// that two logs of the same assignment read the same.
+fn display_queues(message_queues: &HashSet<MessageQueue>) -> Vec<String> {
+    let mut queues: Vec<String> = message_queues.iter().map(MessageQueue::display).collect();
+    queues.sort();
+    queues
+}
+
+/// Initial delay and period of the statistics log. Kept in line with the Java client
+/// (`ClientManagerImpl#LOG_STATS_INITIAL_DELAY` / `LOG_STATS_PERIOD`).
+const LOG_STATS_INITIAL_DELAY: Duration = Duration::from_secs(1);
+const LOG_STATS_PERIOD: Duration = Duration::from_secs(60);
+
 pub type MessageListener = Box<dyn Fn(&MessageView) -> ConsumeResult + Send + Sync>;
+
+/// Counters logged every [`LOG_STATS_PERIOD`], like Java's `PushConsumerImpl#doStats` and
+/// `ProcessQueueImpl#doStats`. Each counter is reset when it is logged.
+#[derive(Debug, Default)]
+struct ConsumptionStats {
+    reception_times: AtomicU64,
+    received_messages_quantity: AtomicU64,
+    consumption_ok_quantity: AtomicU64,
+    consumption_error_quantity: AtomicU64,
+}
+
+impl ConsumptionStats {
+    fn take(counter: &AtomicU64) -> u64 {
+        counter.swap(0, Ordering::Relaxed)
+    }
+}
+
+/// What the consumption logs of a message queue carry, so that they read like Java's
+/// `ProcessQueueImpl` logs (`clientId`, `consumerGroup`, `mq`), plus the statistics of the
+/// consumer and of the queue.
+#[derive(Debug, Clone, Default)]
+struct ConsumeLogContext {
+    client_id: String,
+    consumer_group: String,
+    mq: String,
+    consumer_stats: Arc<ConsumptionStats>,
+    queue_stats: Arc<ConsumptionStats>,
+}
+
+impl ConsumeLogContext {
+    fn new(client_id: String, consumer_group: String) -> Self {
+        Self {
+            client_id,
+            consumer_group,
+            ..Self::default()
+        }
+    }
+
+    /// Context of one message queue, sharing the consumer statistics.
+    fn for_queue(&self, message_queue: &MessageQueue) -> Self {
+        Self {
+            mq: message_queue.display(),
+            queue_stats: Arc::new(ConsumptionStats::default()),
+            ..self.clone()
+        }
+    }
+
+    fn on_reception(&self, received: usize) {
+        for stats in [&self.consumer_stats, &self.queue_stats] {
+            stats.reception_times.fetch_add(1, Ordering::Relaxed);
+            stats
+                .received_messages_quantity
+                .fetch_add(received as u64, Ordering::Relaxed);
+        }
+    }
+
+    fn on_consumption(&self, consume_result: &ConsumeResult) {
+        let counter = match consume_result {
+            ConsumeResult::SUCCESS => &self.consumer_stats.consumption_ok_quantity,
+            ConsumeResult::FAILURE => &self.consumer_stats.consumption_error_quantity,
+        };
+        counter.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Reference Java: `PushConsumerImpl#doStats`.
+    fn log_consumer_stats(&self) {
+        let stats = &self.consumer_stats;
+        info!(
+            "clientId={}, consumerGroup={}, receptionTimes={}, receivedMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}",
+            self.client_id,
+            self.consumer_group,
+            ConsumptionStats::take(&stats.reception_times),
+            ConsumptionStats::take(&stats.received_messages_quantity),
+            ConsumptionStats::take(&stats.consumption_ok_quantity),
+            ConsumptionStats::take(&stats.consumption_error_quantity)
+        );
+    }
+
+    /// Reference Java: `ProcessQueueImpl#doStats`. There is no local message cache here, so
+    /// the cached message count and bytes of Java are not reported.
+    fn log_queue_stats(&self) {
+        let stats = &self.queue_stats;
+        info!(
+            "Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}",
+            self.client_id,
+            self.mq,
+            ConsumptionStats::take(&stats.reception_times),
+            ConsumptionStats::take(&stats.received_messages_quantity)
+        );
+    }
+}
 
 /// Invoke the message listener, treating a panic as [`ConsumeResult::FAILURE`].
 ///
@@ -83,8 +189,14 @@ pub type MessageListener = Box<dyn Fn(&MessageView) -> ConsumeResult + Send + Sy
 /// through the consumer worker task and stop it for good.
 ///
 /// Panics cannot be caught when the binary is built with `panic = "abort"`.
-fn consume_message(message_listener: &MessageListener, message: &MessageView) -> ConsumeResult {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| message_listener(message))) {
+fn consume_message(
+    message_listener: &MessageListener,
+    message: &MessageView,
+    log_context: &ConsumeLogContext,
+) -> ConsumeResult {
+    let consume_result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        message_listener(message)
+    })) {
         Ok(consume_result) => consume_result,
         Err(panic) => {
             let reason = panic
@@ -93,14 +205,17 @@ fn consume_message(message_listener: &MessageListener, message: &MessageView) ->
                 .or_else(|| panic.downcast_ref::<String>().cloned())
                 .unwrap_or_else(|| "unknown panic payload".to_string());
             error!(
-                "message listener panicked while consuming message, treat it as failure, topic={}, message_id={}, reason={}",
-                message.topic(),
-                message.message_id(),
-                reason
-            );
+                    "Message listener raised an exception while consuming messages, clientId={}, mq={}, messageId={}, reason={}",
+                    log_context.client_id,
+                    log_context.mq,
+                    message.message_id(),
+                    reason
+                );
             ConsumeResult::FAILURE
         }
-    }
+    };
+    log_context.on_consumption(&consume_result);
+    consume_result
 }
 
 pub struct PushConsumer {
@@ -174,9 +289,76 @@ impl PushConsumer {
         self.client.check_started(operation)
     }
 
+    /// Reference Java: `PushConsumerImpl#startUp`.
     pub async fn start(&mut self) -> Result<(), ClientError> {
+        self.log_start(|consumer| Box::pin(consumer.start_inner()))
+            .await
+    }
+
+    /// Wrap a start routine with the startup logs of Java's `PushConsumerImpl#startUp`.
+    async fn log_start<F>(&mut self, start: F) -> Result<(), ClientError>
+    where
+        F: for<'a> FnOnce(
+            &'a mut Self,
+        ) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<(), ClientError>> + Send + 'a>,
+        >,
+    {
+        let client_type = self.client.get_client_type();
+        let client_id = self.client.client_id().to_string();
+        info!(
+            "Begin to start the rocketmq {}, clientId={}",
+            client_type, client_id
+        );
+        if let Err(error) = start(self).await {
+            error!(
+                "Exception raised while starting the rocketmq {}, clientId={}, error={}",
+                client_type, client_id, error
+            );
+            return Err(error);
+        }
+        info!(
+            "The rocketmq {} starts successfully, clientId={}",
+            client_type, client_id
+        );
+        Ok(())
+    }
+
+    fn new_log_context(&self) -> ConsumeLogContext {
+        ConsumeLogContext::new(
+            self.client.client_id().to_string(),
+            self.option.read().consumer_group().to_string(),
+        )
+    }
+
+    /// Log how the messages are consumed, like Java's `PushConsumerImpl#createConsumeService`.
+    fn log_consume_service(&self) {
+        let option = self.option.read();
+        let lite = matches!(self.client.get_client_type(), ClientType::LitePushConsumer);
+        let prefix = if lite { "Lite " } else { "" };
+        if option.fifo() {
+            info!(
+                "Create {}FIFO consume service, consumerGroup={}, clientId={}, enableFifoConsumeAccelerator={}",
+                prefix,
+                option.consumer_group(),
+                self.client.client_id(),
+                option.enable_fifo_consume_accelerator()
+            );
+        } else {
+            info!(
+                "Create {}standard consume service, consumerGroup={}, clientId={}",
+                prefix,
+                option.consumer_group(),
+                self.client.client_id()
+            );
+        }
+    }
+
+    async fn start_inner(&mut self) -> Result<(), ClientError> {
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
         self.client.start(telemetry_command_tx).await?;
+        let log_context = self.new_log_context();
+        self.log_consume_service();
         let option = Arc::clone(&self.option);
         let long_polling_timeout = self.client.long_polling_timeout_handle();
         let mut rpc_client = self.client.get_session().await?;
@@ -206,6 +388,12 @@ impl PushConsumer {
         task_tracker.spawn(async move {
             let mut scan_assignments_timer =
                 tokio::time::interval(std::time::Duration::from_secs(30));
+            let mut log_stats_timer = tokio::time::interval_at(
+                tokio::time::Instant::now() + LOG_STATS_INITIAL_DELAY,
+                LOG_STATS_PERIOD,
+            );
+            let assignments_cache: Mutex<HashMap<String, HashSet<MessageQueue>>> =
+                Mutex::new(HashMap::new());
             loop {
                 select! {
                     command = telemetry_command_rx.recv() => {
@@ -214,7 +402,7 @@ impl PushConsumer {
                                 // Apply what the server pushed, otherwise these settings are
                                 // silently dropped and the client keeps polling with the
                                 // configured values.
-                                Self::apply_settings(settings, &option, &long_polling_timeout);
+                                Self::apply_settings(settings, &option, &long_polling_timeout, &log_context.client_id);
                             }
                             let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
@@ -223,60 +411,25 @@ impl PushConsumer {
                         }
                     }
                     _ = scan_assignments_timer.tick() => {
-                        let option_retry_policy;
-                        {
-                            option_retry_policy = retry_policy.lock().clone();
-                        }
-                        if option_retry_policy.is_none() {
-                            warn!("retry policy is not set. skip scanning.");
-                            continue;
-                        }
-                        let retry_policy_inner = option_retry_policy.unwrap();
-                        let consumer_option;
-                        {
-                            consumer_option = option.read().clone();
-                        }
-                        let subscription_table = consumer_option.subscription_expressions();
-                        // query endpoints from topic route
-                        for (topic, filter_expression) in subscription_table.iter() {
-                            if let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) {
-                                let request = QueryAssignmentRequest {
-                                    topic: Some(Resource {
-                                        name: topic.to_string(),
-                                        resource_namespace: consumer_option.namespace().to_string(),
-                                    }),
-                                    group: Some(Resource {
-                                        name: consumer_option.consumer_group().to_string(),
-                                        resource_namespace: consumer_option.namespace().to_string(),
-                                    }),
-                                    endpoints: Some(endpoints.into_inner()),
-                                };
-                                let result = rpc_client.query_assignment(request).await;
-                                if let Ok(response) = result {
-                                    if handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
-                                            let result = Self::process_assignments(
-                                                &rpc_client,
-                                                &consumer_option,
-                                                filter_expression,
-                                                Arc::clone(&message_listener),
-                                                &mut actor_table,
-                                                response.assignments,
-                                                retry_policy_inner.clone(),
-                                            ).await;
-                                            if let Err(e) = result {
-                                                error!("process assignments failed: {:?}", e);
-                                            }
-                                    } else {
-                                        error!("query assignment failed, no status in response.");
-                                    }
-                                } else {
-                                    error!("query assignment failed: {:?}", result.unwrap_err());
-                                }
-                            }
+                        Self::scan_assignments(
+                            &mut rpc_client,
+                            &route_manager,
+                            &option,
+                            &retry_policy,
+                            &message_listener,
+                            &mut actor_table,
+                            &assignments_cache,
+                            &log_context,
+                        )
+                        .await;
+                    }
+                    _ = log_stats_timer.tick() => {
+                        log_context.log_consumer_stats();
+                        for actor in actor_table.values() {
+                            actor.log_stats();
                         }
                     }
                     _ = shutdown_token.cancelled() => {
-                        info!("shutdown {:?} actors", actor_table.len());
                         Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
                         break;
                     }
@@ -296,9 +449,21 @@ impl PushConsumer {
         &mut self,
         telemetry_command_tx: mpsc::Sender<pb::TelemetryCommand>,
     ) -> Result<(), ClientError> {
+        self.log_start(move |consumer| {
+            Box::pin(consumer.start_with_telemetry_inner(telemetry_command_tx))
+        })
+        .await
+    }
+
+    async fn start_with_telemetry_inner(
+        &mut self,
+        telemetry_command_tx: mpsc::Sender<pb::TelemetryCommand>,
+    ) -> Result<(), ClientError> {
         // Extract the command channel from TelemetryCommand
         let (command_tx, mut command_rx) = mpsc::channel(16);
         self.client.start(command_tx).await?;
+        let log_context = self.new_log_context();
+        self.log_consume_service();
         let option = Arc::clone(&self.option);
         let long_polling_timeout = self.client.long_polling_timeout_handle();
         let mut rpc_client = self.client.get_session().await?;
@@ -328,12 +493,18 @@ impl PushConsumer {
         task_tracker.spawn(async move {
             let mut scan_assignments_timer =
                 tokio::time::interval(std::time::Duration::from_secs(30));
+            let mut log_stats_timer = tokio::time::interval_at(
+                tokio::time::Instant::now() + LOG_STATS_INITIAL_DELAY,
+                LOG_STATS_PERIOD,
+            );
+            let assignments_cache: Mutex<HashMap<String, HashSet<MessageQueue>>> =
+                Mutex::new(HashMap::new());
             loop {
                 select! {
                     command = command_rx.recv() => {
                         if let Some(command) = command {
                             if let pb::telemetry_command::Command::Settings(ref settings) = command {
-                                Self::apply_settings(settings, &option, &long_polling_timeout);
+                                Self::apply_settings(settings, &option, &long_polling_timeout, &log_context.client_id);
                             }
                             let remote_backoff_policy = BackOffRetryPolicy::try_from(command.clone());
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
@@ -344,76 +515,39 @@ impl PushConsumer {
                                 ..pb::TelemetryCommand::default()
                             };
                             if let Err(e) = telemetry_command_tx.send(forwarded).await {
-                                warn!(
-                                    "failed to forward telemetry command, receiver dropped: {:?}",
-                                    e.0.command
+                                error!(
+                                    "[Bug] Failed to forward telemetry command, receiver dropped, clientId={}, command={:?}",
+                                    log_context.client_id, e.0.command
                                 );
                             }
                         }
                     }
                     _ = scan_assignments_timer.tick() => {
-                        let option_retry_policy;
-                        {
-                            option_retry_policy = retry_policy.lock().clone();
-                        }
-                        if option_retry_policy.is_none() {
-                            warn!("retry policy is not set. skip scanning.");
-                            continue;
-                        }
-                        let retry_policy_inner = option_retry_policy.unwrap();
-                        let consumer_option;
-                        {
-                            consumer_option = option.read().clone();
-                        }
-                        let subscription_table = consumer_option.subscription_expressions();
-                        // query endpoints from topic route
-                        for (topic, filter_expression) in subscription_table.iter() {
-                            if let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) {
-                                let request = QueryAssignmentRequest {
-                                    topic: Some(Resource {
-                                        name: topic.to_string(),
-                                        resource_namespace: consumer_option.namespace().to_string(),
-                                    }),
-                                    group: Some(Resource {
-                                        name: consumer_option.consumer_group().to_string(),
-                                        resource_namespace: consumer_option.namespace().to_string(),
-                                    }),
-                                    endpoints: Some(endpoints.into_inner()),
-                                };
-                                let result = rpc_client.query_assignment(request).await;
-                                if let Ok(response) = result {
-                                    if handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
-                                            let result = Self::process_assignments(
-                                                &rpc_client,
-                                                &consumer_option,
-                                                filter_expression,
-                                                Arc::clone(&message_listener),
-                                                &mut actor_table,
-                                                response.assignments,
-                                                retry_policy_inner.clone(),
-                                            ).await;
-                                            if let Err(e) = result {
-                                                error!("process assignments failed: {:?}", e);
-                                            }
-                                    } else {
-                                        error!("query assignment failed, no status in response.");
-                                    }
-                                } else {
-                                    error!("query assignment failed: {:?}", result.unwrap_err());
-                                }
-                            }
+                        Self::scan_assignments(
+                            &mut rpc_client,
+                            &route_manager,
+                            &option,
+                            &retry_policy,
+                            &message_listener,
+                            &mut actor_table,
+                            &assignments_cache,
+                            &log_context,
+                        )
+                        .await;
+                    }
+                    _ = log_stats_timer.tick() => {
+                        log_context.log_consumer_stats();
+                        for actor in actor_table.values() {
+                            actor.log_stats();
                         }
                     }
                     _ = shutdown_token.cancelled() => {
-                        info!("shutdown {:?} actors", actor_table.len());
                         Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
                         break;
                     }
                 }
             }
         });
-
-        info!("PushConsumer started with external telemetry");
         Ok(())
     }
 
@@ -431,11 +565,13 @@ impl PushConsumer {
         settings: &pb::Settings,
         option: &Arc<RwLock<PushConsumerOption>>,
         shared_long_polling_timeout: &SharedLongPollingTimeout,
+        client_id: &str,
     ) {
         let Some(pb::settings::PubSub::Subscription(ref subscription)) = settings.pub_sub else {
-            warn!(
-                "received settings that do not match the client type, pub_sub={:?}",
-                settings.pub_sub
+            // Reference Java: PushSubscriptionSettings#sync.
+            error!(
+                "[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={:?}, clientType=PUSH_CONSUMER",
+                client_id, settings.pub_sub
             );
             return;
         };
@@ -458,6 +594,127 @@ impl PushConsumer {
         }
     }
 
+    /// Query the assignments of every subscribed topic and sync the queue actors.
+    ///
+    /// Reference Java: `PushConsumerImpl#scanAssignments`.
+    #[allow(clippy::too_many_arguments)]
+    async fn scan_assignments(
+        rpc_client: &mut Session,
+        route_manager: &TopicRouteManager,
+        option: &Arc<RwLock<PushConsumerOption>>,
+        retry_policy: &Arc<Mutex<Option<BackOffRetryPolicy>>>,
+        message_listener: &Arc<MessageListener>,
+        actor_table: &mut HashMap<MessageQueue, MessageQueueActor>,
+        assignments_cache: &Mutex<HashMap<String, HashSet<MessageQueue>>>,
+        log_context: &ConsumeLogContext,
+    ) {
+        let client_id = &log_context.client_id;
+        let Some(retry_policy) = retry_policy.lock().clone() else {
+            // The retry policy comes with the first settings of the server, which usually
+            // arrive right after the first, immediate, scan. Java waits for them during the
+            // startup instead, so there is nothing to report.
+            debug!(
+                "Skip scanning the assignments because the settings have not been received from remote, clientId={}",
+                client_id
+            );
+            return;
+        };
+        debug!(
+            "Start to scan assignments periodically, clientId={}",
+            client_id
+        );
+        let consumer_option = option.read().clone();
+        for (topic, filter_expression) in consumer_option.subscription_expressions().iter() {
+            let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) else {
+                continue;
+            };
+            let request = QueryAssignmentRequest {
+                topic: Some(Resource {
+                    name: topic.to_string(),
+                    resource_namespace: consumer_option.namespace().to_string(),
+                }),
+                group: Some(Resource {
+                    name: consumer_option.consumer_group().to_string(),
+                    resource_namespace: consumer_option.namespace().to_string(),
+                }),
+                endpoints: Some(endpoints.into_inner()),
+            };
+            let result = rpc_client
+                .query_assignment(request)
+                .await
+                .and_then(|response| {
+                    handle_response_status(response.status, OPERATION_QUERY_ASSIGNMENT)
+                        .map(|_| response.assignments)
+                });
+            let assignments = match result {
+                Ok(assignments) => assignments,
+                Err(e) => {
+                    error!(
+                        "Exception raised while scanning the assignments, topic={}, clientId={}, error={}",
+                        topic, client_id, e
+                    );
+                    continue;
+                }
+            };
+            let latest: HashSet<MessageQueue> = assignments
+                .iter()
+                .filter_map(|assignment| assignment.message_queue.clone())
+                .filter_map(|mq| MessageQueue::from_pb_message_queue(mq).ok())
+                .collect();
+            let existed = assignments_cache.lock().get(topic).cloned();
+            let existed_empty = existed.as_ref().map_or(true, HashSet::is_empty);
+            if latest.is_empty() {
+                if existed_empty {
+                    info!(
+                        "Acquired empty assignments from remote, would scan later, topic={}, clientId={}",
+                        topic, client_id
+                    );
+                    continue;
+                }
+                info!(
+                    "Attention!!! acquired empty assignments from remote, but existed assignments is not empty, topic={}, clientId={}",
+                    topic, client_id
+                );
+            }
+            if existed.as_ref() != Some(&latest) {
+                info!(
+                    "Assignments of topic={} has changed, {:?} => {:?}, clientId={}",
+                    topic,
+                    existed.as_ref().map(display_queues),
+                    display_queues(&latest),
+                    client_id
+                );
+                assignments_cache.lock().insert(topic.clone(), latest);
+            } else {
+                debug!(
+                    "Assignments of topic={} remains the same, assignments={:?}, clientId={}",
+                    topic,
+                    display_queues(&latest),
+                    client_id
+                );
+            }
+            // Process queue may be dropped, need to be synchronized anyway.
+            if let Err(e) = Self::process_assignments(
+                &*rpc_client,
+                &consumer_option,
+                filter_expression,
+                Arc::clone(message_listener),
+                actor_table,
+                assignments,
+                retry_policy.clone(),
+                log_context,
+            )
+            .await
+            {
+                error!(
+                    "Exception raised while scanning the assignments, topic={}, clientId={}, error={}",
+                    topic, client_id, e
+                );
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
     async fn process_assignments(
         rpc_client: &Session,
         option: &PushConsumerOption,
@@ -466,6 +723,7 @@ impl PushConsumer {
         actor_table: &mut HashMap<MessageQueue, MessageQueueActor>,
         mut assignments: Vec<Assignment>,
         retry_policy: BackOffRetryPolicy,
+        log_context: &ConsumeLogContext,
     ) -> Result<(), ClientError> {
         let message_queues: Vec<MessageQueue> = assignments
             .iter_mut()
@@ -485,6 +743,13 @@ impl PushConsumer {
             }
         });
         // the remaining actors will be shutdown.
+        for message_queue in actor_table.keys() {
+            info!(
+                "Drop message queue according to the latest assignmentList, mq={}, clientId={}",
+                message_queue.display(),
+                log_context.client_id
+            );
+        }
         Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
 
         for mut actor in actors {
@@ -507,10 +772,23 @@ impl PushConsumer {
                 option,
                 Arc::clone(&message_listener),
                 retry_policy.clone(),
+                log_context.for_queue(&message_queue),
             );
-            let result = actor.start().await;
-            if result.is_ok() {
-                actor_table.insert(message_queue, actor);
+            match actor.start().await {
+                Ok(()) => {
+                    info!(
+                        "Start to fetch message from remote, mq={}, clientId={}",
+                        message_queue.display(),
+                        log_context.client_id
+                    );
+                    actor_table.insert(message_queue, actor);
+                }
+                Err(e) => error!(
+                    "Exception raised while starting to fetch message from remote, mq={}, clientId={}, error={}",
+                    message_queue.display(),
+                    log_context.client_id,
+                    e
+                ),
             }
         }
         Ok(())
@@ -524,10 +802,10 @@ impl PushConsumer {
         let task_tracker = TaskTracker::new();
         for actor in actors {
             task_tracker.spawn(async move {
-                let message_queue = actor.message_queue.clone();
+                let message_queue = actor.message_queue.display();
                 if let Err(e) = actor.shutdown().await {
                     error!(
-                        "failed to shutdown queue actor {:?}: {:?}",
+                        "[Bug] Failed to drop the process queue, mq={}, error={}",
                         message_queue, e
                     );
                 }
@@ -538,27 +816,39 @@ impl PushConsumer {
     }
 
     pub async fn shutdown(mut self) -> Result<(), ClientError> {
-        if let Some(shutdown_token) = self.shutdown_token.take() {
-            shutdown_token.cancel();
-        }
-        if let Some(task_tracker) = self.task_tracker.take() {
-            task_tracker.close();
-            task_tracker.wait().await;
-        }
-        self.client.shutdown().await?;
-        Ok(())
+        self.shutdown_ref().await
     }
 
     /// Shutdown without consuming self (for LitePushConsumer)
+    ///
+    /// Reference Java: `PushConsumerImpl#shutDown`.
     pub async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
+        let client_type = self.client.get_client_type();
+        let client_id = self.client.client_id().to_string();
+        info!(
+            "Begin to shutdown the rocketmq {}, clientId={}",
+            client_type, client_id
+        );
         if let Some(shutdown_token) = self.shutdown_token.take() {
             shutdown_token.cancel();
         }
         if let Some(task_tracker) = self.task_tracker.take() {
+            info!(
+                "Waiting for the inflight receive requests to be finished, clientId={}",
+                client_id
+            );
             task_tracker.close();
             task_tracker.wait().await;
+            info!(
+                "All inflight receive requests have been finished, clientId={}",
+                client_id
+            );
         }
         self.client.shutdown_ref().await?;
+        info!(
+            "Shutdown the rocketmq {} successfully, clientId={}",
+            client_type, client_id
+        );
         Ok(())
     }
 
@@ -710,12 +1000,14 @@ struct MessageQueueActor {
     option: PushConsumerOption,
     message_listener: Arc<MessageListener>,
     retry_policy: BackOffRetryPolicy,
+    log_context: ConsumeLogContext,
     shutdown_token: Option<CancellationToken>,
     task_tracker: Option<TaskTracker>,
 }
 
 #[automock]
 impl MessageQueueActor {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         rpc_client: Session,
         message_queue: MessageQueue,
@@ -723,6 +1015,7 @@ impl MessageQueueActor {
         option: PushConsumerOption,
         message_listener: Arc<MessageListener>,
         retry_policy: BackOffRetryPolicy,
+        log_context: ConsumeLogContext,
     ) -> Self {
         Self {
             rpc_client,
@@ -731,9 +1024,15 @@ impl MessageQueueActor {
             option,
             message_listener: Arc::clone(&message_listener),
             retry_policy,
+            log_context,
             shutdown_token: None,
             task_tracker: None,
         }
+    }
+
+    /// Reference Java: `ProcessQueueImpl#doStats`.
+    pub(crate) fn log_stats(&self) {
+        self.log_context.log_queue_stats();
     }
 
     // The following two methods won't affect the running actor in fact.
@@ -746,7 +1045,6 @@ impl MessageQueueActor {
     }
 
     pub(crate) async fn start(&mut self) -> Result<(), ClientError> {
-        debug!("start a new queue actor {:?}", self.message_queue);
         let shutdown_token = CancellationToken::new();
         self.shutdown_token = Some(shutdown_token.clone());
         let task_tracker = TaskTracker::new();
@@ -756,11 +1054,6 @@ impl MessageQueueActor {
         if self.option.fifo() {
             consumer_worker_count = 1;
         }
-        debug!(
-            "Start consumer workers, mq={:?}, workerCount={}",
-            self.message_queue, consumer_worker_count
-        );
-
         for _ in 0..consumer_worker_count {
             // create consumer worker
             let mut consumer_worker: ConsumerWorker;
@@ -768,11 +1061,13 @@ impl MessageQueueActor {
                 consumer_worker = ConsumerWorker::Fifo(FifoConsumerWorker::new(
                     self.rpc_client.shadow_session(),
                     Arc::clone(&self.message_listener),
+                    self.log_context.clone(),
                 ));
             } else {
                 consumer_worker = ConsumerWorker::Standard(StandardConsumerWorker::new(
                     self.rpc_client.shadow_session(),
                     Arc::clone(&self.message_listener),
+                    self.log_context.clone(),
                 ));
             }
             let mut ticker = tokio::time::interval(Duration::from_millis(1));
@@ -786,9 +1081,11 @@ impl MessageQueueActor {
                 self.option.get_consumer_group_resource(),
                 self.message_queue.topic.to_owned(),
                 false, // Default to false for now, will be set by LitePushConsumer
-            );
+            )
+            .with_log_context(self.log_context.clone());
             ack_processor.start().await?;
             let shutdown_token = shutdown_token.clone();
+            let log_context = self.log_context.clone();
             task_tracker.spawn(async move {
                 loop {
                     select! {
@@ -798,6 +1095,10 @@ impl MessageQueueActor {
                         // ProcessQueueImpl checking consumer.isRunning() before receiving.
                         biased;
                         _ = shutdown_token.cancelled() => {
+                            info!(
+                                "Stop to receive message because consumer is not running, mq={}, clientId={}",
+                                log_context.mq, log_context.client_id
+                            );
                             ack_processor.shutdown().await;
                             break;
                         }
@@ -806,7 +1107,22 @@ impl MessageQueueActor {
                             if let Err(e) = result {
                                 // Reference Java: ProcessQueueImpl.onReceiveMessageException()
                                 let delay = receive_failure_backoff_delay(&e);
-                                error!("receive messages error, retry after {:?}, mq={:?}: {:?}", delay, message_queue, e);
+                                error!(
+                                    "Exception raised during message reception, mq={}, endpoints={}, clientId={}, error={}",
+                                    log_context.mq,
+                                    message_queue
+                                        .broker
+                                        .endpoints
+                                        .clone()
+                                        .map(|endpoints| crate::model::common::Endpoints::from_pb_endpoints(endpoints).endpoint_url().to_string())
+                                        .unwrap_or_default(),
+                                    log_context.client_id,
+                                    e
+                                );
+                                info!(
+                                    "Try to receive message later, mq={}, delay={:?}, clientId={}",
+                                    log_context.mq, delay, log_context.client_id
+                                );
                                 select! {
                                     _ = tokio::time::sleep(delay) => {}
                                     _ = shutdown_token.cancelled() => {}
@@ -821,7 +1137,6 @@ impl MessageQueueActor {
     }
 
     pub(crate) async fn shutdown(mut self) -> Result<(), ClientError> {
-        debug!("shutdown queue actor {:?}", self.message_queue);
         if let Some(shutdown_token) = self.shutdown_token.take() {
             shutdown_token.cancel();
         }
@@ -877,13 +1192,19 @@ impl ConsumerWorker {
 struct StandardConsumerWorker {
     rpc_client: Session,
     message_listener: Arc<MessageListener>,
+    log_context: ConsumeLogContext,
 }
 
 impl StandardConsumerWorker {
-    fn new(rpc_client: Session, message_listener: Arc<MessageListener>) -> Self {
+    fn new(
+        rpc_client: Session,
+        message_listener: Arc<MessageListener>,
+        log_context: ConsumeLogContext,
+    ) -> Self {
         Self {
             rpc_client,
             message_listener,
+            log_context,
         }
     }
 
@@ -902,14 +1223,22 @@ impl StandardConsumerWorker {
             option,
         )
         .await?;
+        self.log_context.on_reception(messages.len());
         for message in messages {
             // Reference Java: `StandardConsumeService#consume` nacks a corrupted message
             // instead of passing it to the listener.
             if message.is_corrupted() {
                 error!(
-                    "Message is corrupted for standard consumption, prepare to discard it, topic={}, message_id={}",
-                    message.topic(),
-                    message.message_id()
+                    "Message is corrupted for standard consumption, prepare to discard it, mq={}, messageId={}, clientId={}",
+                    self.log_context.mq,
+                    message.message_id(),
+                    self.log_context.client_id
+                );
+                info!(
+                    "Discard message, mq={}, messageId={}, clientId={}",
+                    self.log_context.mq,
+                    message.message_id(),
+                    self.log_context.client_id
                 );
                 let delay = retry_policy.get_next_attempt_delay(message.delivery_attempt());
                 ack_processor
@@ -917,7 +1246,8 @@ impl StandardConsumerWorker {
                     .await;
                 continue;
             }
-            let consume_result = consume_message(&self.message_listener, &message);
+            let consume_result =
+                consume_message(&self.message_listener, &message, &self.log_context);
             match consume_result {
                 ConsumeResult::SUCCESS => {
                     ack_processor.ack_message(message).await;
@@ -938,13 +1268,19 @@ impl StandardConsumerWorker {
 struct FifoConsumerWorker {
     rpc_client: Session,
     message_listener: Arc<MessageListener>,
+    log_context: ConsumeLogContext,
 }
 
 impl FifoConsumerWorker {
-    fn new(rpc_client: Session, message_listener: Arc<MessageListener>) -> Self {
+    fn new(
+        rpc_client: Session,
+        message_listener: Arc<MessageListener>,
+        log_context: ConsumeLogContext,
+    ) -> Self {
         Self {
             rpc_client,
             message_listener,
+            log_context,
         }
     }
 
@@ -963,6 +1299,7 @@ impl FifoConsumerWorker {
             option,
         )
         .await?;
+        self.log_context.on_reception(messages.len());
 
         // If FIFO consume accelerator is enabled, consume messages in parallel by messageGroup
         if option.enable_fifo_consume_accelerator() && !messages.is_empty() {
@@ -1009,6 +1346,7 @@ impl FifoConsumerWorker {
             let message_listener = Arc::clone(&self.message_listener);
             let mut ack_processor_shadow = ack_processor.shadow_self();
             let retry_policy = retry_policy.clone();
+            let log_context = self.log_context.clone();
 
             let handle = tokio::spawn(async move {
                 // Within the same group, consume messages sequentially
@@ -1018,6 +1356,7 @@ impl FifoConsumerWorker {
                         &message_listener,
                         &mut ack_processor_shadow,
                         &retry_policy,
+                        &log_context,
                     )
                     .await;
                 }
@@ -1043,6 +1382,7 @@ impl FifoConsumerWorker {
             &self.message_listener,
             ack_processor,
             retry_policy,
+            &self.log_context,
         )
         .await;
     }
@@ -1058,15 +1398,23 @@ impl FifoConsumerWorker {
         message_listener: &Arc<MessageListener>,
         ack_processor: &mut AckEntryProcessor,
         retry_policy: &BackOffRetryPolicy,
+        log_context: &ConsumeLogContext,
     ) {
         let max_delivery_attempts = retry_policy.get_max_attempts();
         // Reference Java: `FifoConsumeService#getNextValidMessage` forwards a corrupted message
         // to the dead letter queue instead of passing it to the listener.
         if message.is_corrupted() {
             error!(
-                "Message is corrupted for FIFO consumption, prepare to discard it, topic={}, message_id={}",
-                message.topic(),
-                message.message_id()
+                "Message is corrupted for FIFO consumption, prepare to discard it, mq={}, messageId={}, clientId={}",
+                log_context.mq,
+                message.message_id(),
+                log_context.client_id
+            );
+            info!(
+                "Discard fifo message, mq={}, messageId={}, clientId={}",
+                log_context.mq,
+                message.message_id(),
+                log_context.client_id
             );
             let delivery_attempt = message.delivery_attempt();
             ack_processor
@@ -1075,7 +1423,7 @@ impl FifoConsumerWorker {
             return;
         }
         loop {
-            let consume_result = consume_message(message_listener, &message);
+            let consume_result = consume_message(message_listener, &message, log_context);
             match consume_result {
                 ConsumeResult::SUCCESS => {
                     ack_processor.ack_message(message).await;
@@ -1085,9 +1433,26 @@ impl FifoConsumerWorker {
                     let delivery_attempt = message.delivery_attempt();
                     if delivery_attempt < max_delivery_attempts {
                         let delay = retry_policy.get_next_attempt_delay(delivery_attempt);
-                        message.increment_and_get_delivery_attempt();
+                        let attempt = message.increment_and_get_delivery_attempt();
+                        debug!(
+                            "Prepare to redeliver the fifo message because of the consumption failure, maxAttempt={}, attempt={}, mq={}, messageId={}, nextAttemptDelay={:?}, clientId={}",
+                            max_delivery_attempts,
+                            attempt,
+                            log_context.mq,
+                            message.message_id(),
+                            delay,
+                            log_context.client_id
+                        );
                         tokio::time::sleep(delay).await;
                     } else {
+                        info!(
+                            "Failed to consume fifo message finally, run out of attempt times, maxAttempts={}, attempt={}, mq={}, messageId={}, clientId={}",
+                            max_delivery_attempts,
+                            delivery_attempt,
+                            log_context.mq,
+                            message.message_id(),
+                            log_context.client_id
+                        );
                         ack_processor
                             .forward_to_deadletter_queue(
                                 message,
@@ -1108,9 +1473,44 @@ struct AckEntryProcessor {
     consumer_group: Resource,
     topic: Resource,
     is_lite_consumer: bool, // Flag to indicate if this is a lite consumer
+    log_context: ConsumeLogContext,
     ack_entry_sender: Option<mpsc::Sender<AckEntryItem>>,
     shutdown_token: Option<CancellationToken>,
     task_tracker: Option<TaskTracker>,
+}
+
+/// What an ack, nack or DLQ request reports in the logs.
+#[derive(Clone, Copy)]
+enum AckAction {
+    Ack,
+    ChangeInvisibleDuration,
+    ForwardToDeadLetterQueue,
+}
+
+impl AckEntryItem {
+    fn action(&self) -> AckAction {
+        match self {
+            AckEntryItem::Ack(_) => AckAction::Ack,
+            AckEntryItem::Nack(_) => AckAction::ChangeInvisibleDuration,
+            AckEntryItem::Dlq(_) => AckAction::ForwardToDeadLetterQueue,
+        }
+    }
+
+    fn message(&self) -> &MessageView {
+        match self {
+            AckEntryItem::Ack(entry) => &entry.message,
+            AckEntryItem::Nack(entry) => &entry.message,
+            AckEntryItem::Dlq(entry) => &entry.message,
+        }
+    }
+
+    fn attempt(&self) -> usize {
+        match self {
+            AckEntryItem::Ack(entry) => entry.attempt,
+            AckEntryItem::Nack(entry) => entry.attempt,
+            AckEntryItem::Dlq(entry) => entry.attempt,
+        }
+    }
 }
 
 impl AckEntryProcessor {
@@ -1125,10 +1525,16 @@ impl AckEntryProcessor {
             consumer_group,
             topic,
             is_lite_consumer,
+            log_context: ConsumeLogContext::default(),
             ack_entry_sender: None,
             shutdown_token: None,
             task_tracker: None,
         }
+    }
+
+    fn with_log_context(mut self, log_context: ConsumeLogContext) -> Self {
+        self.log_context = log_context;
+        self
     }
 
     fn shadow_self(&self) -> Self {
@@ -1137,25 +1543,91 @@ impl AckEntryProcessor {
             consumer_group: self.consumer_group.clone(),
             topic: self.topic.clone(),
             is_lite_consumer: self.is_lite_consumer,
+            log_context: self.log_context.clone(),
             ack_entry_sender: None,
             shutdown_token: None,
             task_tracker: None,
         }
     }
 
+    /// Log the outcome of a request, with the wording of Java's `ProcessQueueImpl#ackMessage`,
+    /// `#changeInvisibleDuration` and `#forwardToDeadLetterQueue`. `attempt` starts at 1.
+    fn log_result(
+        &self,
+        action: AckAction,
+        message: &MessageView,
+        attempt: usize,
+        result: &Result<(), ClientError>,
+    ) {
+        let ctx = &self.log_context;
+        let endpoints = message.endpoints.endpoint_url();
+        let message_id = message.message_id();
+        match (action, result) {
+            (AckAction::Ack, Ok(())) if attempt > 1 => info!(
+                "Finally, ack message successfully, clientId={}, consumerGroup={}, attempt={}, messageId={}, mq={}, endpoints={}",
+                ctx.client_id, ctx.consumer_group, attempt, message_id, ctx.mq, endpoints
+            ),
+            (AckAction::Ack, Ok(())) => debug!(
+                "Ack message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, endpoints={}",
+                ctx.client_id, ctx.consumer_group, message_id, ctx.mq, endpoints
+            ),
+            (AckAction::Ack, Err(e)) => error!(
+                "Failed to ack message, would attempt to re-ack later, clientId={}, consumerGroup={}, attempt={}, messageId={}, mq={}, endpoints={}, error={}",
+                ctx.client_id, ctx.consumer_group, attempt, message_id, ctx.mq, endpoints, e
+            ),
+            (AckAction::ChangeInvisibleDuration, Ok(())) if attempt > 1 => info!(
+                "Finally, change invisible duration successfully, clientId={}, consumerGroup={} messageId={}, attempt={}, mq={}, endpoints={}",
+                ctx.client_id, ctx.consumer_group, message_id, attempt, ctx.mq, endpoints
+            ),
+            (AckAction::ChangeInvisibleDuration, Ok(())) => debug!(
+                "Change invisible duration successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, endpoints={}",
+                ctx.client_id, ctx.consumer_group, message_id, ctx.mq, endpoints
+            ),
+            (AckAction::ChangeInvisibleDuration, Err(e)) => error!(
+                "Failed to change invisible duration, would retry later, clientId={}, consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, error={}",
+                ctx.client_id, ctx.consumer_group, message_id, attempt, ctx.mq, endpoints, e
+            ),
+            (AckAction::ForwardToDeadLetterQueue, Ok(())) if attempt > 1 => info!(
+                "Re-forward message to dead letter queue successfully, clientId={}, consumerGroup={}, attempt={}, messageId={}, mq={}, endpoints={}",
+                ctx.client_id, ctx.consumer_group, attempt, message_id, ctx.mq, endpoints
+            ),
+            (AckAction::ForwardToDeadLetterQueue, Ok(())) => info!(
+                "Forward message to dead letter queue successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, endpoints={}",
+                ctx.client_id, ctx.consumer_group, message_id, ctx.mq, endpoints
+            ),
+            (AckAction::ForwardToDeadLetterQueue, Err(e)) => error!(
+                "Failed to forward message to dead letter queue, would attempt to re-forward later, clientId={}, consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, error={}",
+                ctx.client_id, ctx.consumer_group, message_id, attempt, ctx.mq, endpoints, e
+            ),
+        }
+    }
+
+    /// Queue a failed request so that it is retried later.
+    async fn retry_later(&self, item: AckEntryItem) {
+        let ctx = &self.log_context;
+        let message_id = item.message().message_id().to_string();
+        match self.ack_entry_sender.as_ref() {
+            Some(sender) => {
+                if sender.send(item).await.is_err() {
+                    error!(
+                        "[Bug] Failed to schedule message ack request, mq={}, messageId={}, clientId={}",
+                        ctx.mq, message_id, ctx.client_id
+                    );
+                }
+            }
+            None => error!(
+                "[Bug] Failed to schedule message ack request, mq={}, messageId={}, clientId={}",
+                ctx.mq, message_id, ctx.client_id
+            ),
+        }
+    }
+
     async fn ack_message(&mut self, message: MessageView) {
         let result = self.ack_message_inner(&message).await;
+        self.log_result(AckAction::Ack, &message, 1, &result);
         if result.is_err() {
-            if let Some(ack_entry_sender) = self.ack_entry_sender.as_ref() {
-                let send_result = ack_entry_sender
-                    .send(AckEntryItem::Ack(AckEntry::new(message)))
-                    .await;
-                if send_result.is_err() {
-                    error!("put ack entry to queue error {:?}", send_result.err());
-                }
-            } else {
-                error!("The ack entry sender is not set. Drop the ack message.");
-            }
+            self.retry_later(AckEntryItem::Ack(AckEntry::new(message)))
+                .await;
         }
     }
 
@@ -1167,20 +1639,13 @@ impl AckEntryProcessor {
         let result = self
             .change_invisible_duration_inner(&message, invisible_duration)
             .await;
+        self.log_result(AckAction::ChangeInvisibleDuration, &message, 1, &result);
         if result.is_err() {
-            if let Some(ack_entry_sender) = self.ack_entry_sender.as_ref() {
-                let send_result = ack_entry_sender
-                    .send(AckEntryItem::Nack(NackEntry::new(
-                        message,
-                        invisible_duration,
-                    )))
-                    .await;
-                if send_result.is_err() {
-                    error!("put nack entry to queue error {:?}", send_result.err());
-                }
-            } else {
-                error!("Drop the nack message due to ack entry sender is not set.")
-            }
+            self.retry_later(AckEntryItem::Nack(NackEntry::new(
+                message,
+                invisible_duration,
+            )))
+            .await;
         }
     }
 
@@ -1193,21 +1658,14 @@ impl AckEntryProcessor {
         let result = self
             .forward_to_deadletter_queue_inner(&message, delivery_attempt, max_delivery_attempts)
             .await;
+        self.log_result(AckAction::ForwardToDeadLetterQueue, &message, 1, &result);
         if result.is_err() {
-            if let Some(ack_entry_sender) = self.ack_entry_sender.as_ref() {
-                let send_result = ack_entry_sender
-                    .send(AckEntryItem::Dlq(DlqEntry::new(
-                        message,
-                        delivery_attempt,
-                        max_delivery_attempts,
-                    )))
-                    .await;
-                if send_result.is_err() {
-                    error!("put dlq entry to queue error {:?}", send_result.err());
-                }
-            } else {
-                error!("Drop the dlq message due to ack edntry sender is not set.");
-            }
+            self.retry_later(AckEntryItem::Dlq(DlqEntry::new(
+                message,
+                delivery_attempt,
+                max_delivery_attempts,
+            )))
+            .await;
         }
     }
 
@@ -1280,17 +1738,12 @@ impl AckEntryProcessor {
             loop {
                 select! {
                     _ = ack_ticker.tick() => {
-                        let result = processor.process_ack_entry_queue(&mut ack_entry_queue).await;
-                        if result.is_err() {
-                            error!("process ack entry queue failed: {:?}", result);
-                        }
+                        processor.process_ack_entry_queue(&mut ack_entry_queue).await;
                     }
                     Some(ack_entry) = ack_entry_receiver.recv() => {
                         ack_entry_queue.push_back(ack_entry);
-                        debug!("ack entry queue size: {}", ack_entry_queue.len());
                     }
                     _ = shutdown_token.cancelled() => {
-                        info!("need to process remaining {} entries on shutdown.", ack_entry_queue.len());
                         processor.flush_ack_entry_queue(&mut ack_entry_queue).await;
                         break;
                     }
@@ -1300,60 +1753,43 @@ impl AckEntryProcessor {
         Ok(())
     }
 
-    async fn process_ack_entry_queue(
-        &mut self,
-        ack_entry_queue: &mut VecDeque<AckEntryItem>,
-    ) -> Result<(), ClientError> {
-        if let Some(ack_entry_item) = ack_entry_queue.front_mut() {
-            let result = match ack_entry_item {
-                AckEntryItem::Ack(ack_entry) => self.ack_message_inner(&ack_entry.message).await,
-                AckEntryItem::Nack(nack_entry) => {
-                    self.change_invisible_duration_inner(
-                        &nack_entry.message,
-                        nack_entry.invisible_duration,
-                    )
+    async fn send_ack_entry(&mut self, item: &AckEntryItem) -> Result<(), ClientError> {
+        match item {
+            AckEntryItem::Ack(entry) => self.ack_message_inner(&entry.message).await,
+            AckEntryItem::Nack(entry) => {
+                self.change_invisible_duration_inner(&entry.message, entry.invisible_duration)
                     .await
-                }
-                AckEntryItem::Dlq(entry) => {
-                    self.forward_to_deadletter_queue_inner(
-                        &entry.message,
-                        entry.delivery_attempt,
-                        entry.max_delivery_attempt,
-                    )
-                    .await
-                }
-            };
-            if result.is_ok() {
-                ack_entry_queue.pop_front();
-            } else {
-                error!("ack message failed: {:?}, will deliver later.", result);
-                ack_entry_item.inc_attempt();
+            }
+            AckEntryItem::Dlq(entry) => {
+                self.forward_to_deadletter_queue_inner(
+                    &entry.message,
+                    entry.delivery_attempt,
+                    entry.max_delivery_attempt,
+                )
+                .await
             }
         }
-        Ok(())
+    }
+
+    /// Retry the first queued request. `attempt` of an entry counts its retries, the first
+    /// request being attempt 1, like Java.
+    async fn process_ack_entry_queue(&mut self, ack_entry_queue: &mut VecDeque<AckEntryItem>) {
+        let Some(mut item) = ack_entry_queue.pop_front() else {
+            return;
+        };
+        item.inc_attempt();
+        let result = self.send_ack_entry(&item).await;
+        self.log_result(item.action(), item.message(), item.attempt() + 1, &result);
+        if result.is_err() {
+            ack_entry_queue.push_front(item);
+        }
     }
 
     async fn flush_ack_entry_queue(&mut self, ack_entry_queue: &mut VecDeque<AckEntryItem>) {
-        for ack_entry_item in ack_entry_queue {
-            match ack_entry_item {
-                AckEntryItem::Ack(entry) => {
-                    let _ = self.ack_message_inner(&entry.message).await;
-                }
-                AckEntryItem::Nack(entry) => {
-                    let _ = self
-                        .change_invisible_duration_inner(&entry.message, entry.invisible_duration)
-                        .await;
-                }
-                AckEntryItem::Dlq(entry) => {
-                    let _ = self
-                        .forward_to_deadletter_queue_inner(
-                            &entry.message,
-                            entry.delivery_attempt,
-                            entry.max_delivery_attempt,
-                        )
-                        .await;
-                }
-            }
+        for mut item in ack_entry_queue.drain(..) {
+            item.inc_attempt();
+            let result = self.send_ack_entry(&item).await;
+            self.log_result(item.action(), item.message(), item.attempt() + 1, &result);
         }
     }
 
@@ -1381,18 +1817,15 @@ impl AckEntryProcessor {
             shutdown_token.cancel();
         }
         if let Some(task_tracker) = self.task_tracker.take() {
-            info!("waiting for task to complete");
             task_tracker.close();
             task_tracker.wait().await;
-            info!("task completed");
         }
-        info!("The ack entry processor shuts down completely.");
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize};
     use std::{str::FromStr, vec};
 
     use pb::{
@@ -1401,7 +1834,6 @@ mod tests {
         Status, SystemProperties,
     };
 
-    use crate::client::TopicRouteManager;
     use crate::model::common::{Endpoints, FilterType};
     use crate::{
         conf::{CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy},
@@ -1445,10 +1877,11 @@ mod tests {
     #[tokio::test]
     async fn test_push_consumer_start_shutdown() -> Result<(), ClientError> {
         let _m = crate::client::tests::MTX.lock();
+        let (logs, _guard) = crate::util::test_log::capture();
         let context = Client::new_context();
         let mut client = Client::default();
         client.expect_start().return_once(|_| Ok(()));
-        client.expect_shutdown().return_once(|| Ok(()));
+        client.expect_shutdown_ref().return_once(|| Ok(()));
         client
             .expect_long_polling_timeout_handle()
             .returning(|| Arc::new(RwLock::new(Duration::from_secs(40))));
@@ -1478,8 +1911,15 @@ mod tests {
             TopicRouteManager::new(
                 "".to_string(),
                 Endpoints::from_url("http://localhost:8081").unwrap(),
+                "test_client".to_string(),
             )
         });
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
+        client
+            .expect_get_client_type()
+            .returning(|| ClientType::PushConsumer);
         context.expect().return_once(|_, _| Ok(client));
         let mut push_consumer_option = PushConsumerOption::default();
         push_consumer_option.set_consumer_group("test_group");
@@ -1492,6 +1932,31 @@ mod tests {
         push_consumer.start().await?;
         push_consumer.shutdown().await?;
 
+        // Reference Java: PushConsumerImpl#startUp / #shutDown / #createConsumeService.
+        for (level, expected) in [
+            (
+                "INFO",
+                "Begin to start the rocketmq PUSH_CONSUMER, clientId=fake_id",
+            ),
+            (
+                "INFO",
+                "Create standard consume service, consumerGroup=test_group, clientId=fake_id",
+            ),
+            (
+                "INFO",
+                "The rocketmq PUSH_CONSUMER starts successfully, clientId=fake_id",
+            ),
+            (
+                "INFO",
+                "Begin to shutdown the rocketmq PUSH_CONSUMER, clientId=fake_id",
+            ),
+            (
+                "INFO",
+                "Shutdown the rocketmq PUSH_CONSUMER successfully, clientId=fake_id",
+            ),
+        ] {
+            assert!(logs.contains(level, expected), "missing log: {expected}");
+        }
         Ok(())
     }
 
@@ -1531,8 +1996,15 @@ mod tests {
                 TopicRouteManager::new(
                     "".to_string(),
                     Endpoints::from_url("http://localhost:8081").unwrap(),
+                    "test_client".to_string(),
                 )
             });
+            client
+                .expect_client_id()
+                .return_const("fake_id".to_string());
+            client
+                .expect_get_client_type()
+                .returning(|| ClientType::PushConsumer);
             let handle = Arc::clone(&shared_long_polling_timeout);
             client
                 .expect_long_polling_timeout_handle()
@@ -1640,8 +2112,15 @@ mod tests {
             TopicRouteManager::new(
                 "".to_string(),
                 Endpoints::from_url("http://localhost:8081").unwrap(),
+                "test_client".to_string(),
             )
         });
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
+        client
+            .expect_get_client_type()
+            .returning(|| ClientType::PushConsumer);
         client
             .expect_long_polling_timeout_handle()
             .returning(|| Arc::new(RwLock::new(Duration::from_secs(40))));
@@ -1733,7 +2212,7 @@ mod tests {
             }),
         }];
         let context = MockMessageQueueActor::new_context();
-        context.expect().returning(|_, _, _, _, _, _| {
+        context.expect().returning(|_, _, _, _, _, _, _| {
             let mut actor = MockMessageQueueActor::default();
             actor.expect_start().returning(|| Ok(()));
             return actor;
@@ -1746,6 +2225,7 @@ mod tests {
             &mut actor_table,
             assignments,
             retry_policy,
+            &ConsumeLogContext::default(),
         )
         .await?;
         assert!(actor_table.is_empty());
@@ -1802,6 +2282,7 @@ mod tests {
             &mut actor_table,
             assignments,
             retry_policy,
+            &ConsumeLogContext::default(),
         )
         .await?;
         assert_eq!(1, actor_table.len());
@@ -1880,6 +2361,7 @@ mod tests {
             &mut actor_table,
             assignments.clone(),
             retry_policy.clone(),
+            &ConsumeLogContext::default(),
         )
         .await?;
         let assignments2 = vec![Assignment {
@@ -1912,6 +2394,7 @@ mod tests {
             &mut actor_table,
             assignments2,
             retry_policy,
+            &ConsumeLogContext::default(),
         )
         .await?;
         assert_eq!(1, actor_table.len());
@@ -2002,6 +2485,7 @@ mod tests {
             option,
             Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
             retry_policy,
+            ConsumeLogContext::default(),
         );
         let result = actor.start().await;
         assert!(result.is_ok());
@@ -2056,6 +2540,7 @@ mod tests {
             option,
             Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
             BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default()),
+            ConsumeLogContext::default(),
         )
     }
 
@@ -2156,6 +2641,7 @@ mod tests {
             option,
             Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
             retry_policy,
+            ConsumeLogContext::default(),
         );
         let result = actor.start().await;
         assert!(result.is_ok());
@@ -2406,6 +2892,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_dlq_messages_failure_once() {
+        let (logs, _guard) = crate::util::test_log::capture();
         let mut rpc_client = Session::default();
         let mut mock = Session::default();
         mock.expect_forward_to_deadletter_queue()
@@ -2438,7 +2925,8 @@ mod tests {
             name: "test_topic".to_string(),
             resource_namespace: "".to_string(),
         };
-        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false);
+        let mut ack_processor = AckEntryProcessor::new(rpc_client, consumer_group, topic, false)
+            .with_log_context(test_log_context());
         let result = ack_processor.start().await;
         assert!(result.is_ok());
 
@@ -2456,6 +2944,15 @@ mod tests {
 
         tokio::time::sleep(Duration::from_millis(500)).await;
         ack_processor.shutdown().await;
+        // Reference Java: ProcessQueueImpl#forwardToDeadLetterQueue.
+        assert!(logs.contains(
+            "ERROR",
+            "Failed to forward message to dead letter queue, would attempt to re-forward later, clientId=fake_id, consumerGroup=test_group, messageId=, attempt=1, mq=broker-0.test_topic.0"
+        ));
+        assert!(logs.contains(
+            "INFO",
+            "Re-forward message to dead letter queue successfully, clientId=fake_id, consumerGroup=test_group, attempt=2"
+        ));
     }
 
     #[tokio::test]
@@ -2466,8 +2963,11 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker =
-            StandardConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            ConsumeLogContext::default(),
+        );
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -2557,8 +3057,11 @@ mod tests {
                     content: Some(Content::Message(new_message())),
                 }])
             });
-        let consumer_worker =
-            StandardConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            ConsumeLogContext::default(),
+        );
         let mut message_queue = new_message_queue();
         message_queue.topic.name = "rmq-xxx%test_topic".to_string();
         let mut option = PushConsumerOption::default();
@@ -2604,8 +3107,11 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker =
-            StandardConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::FAILURE)));
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(|_| ConsumeResult::FAILURE)),
+            ConsumeLogContext::default(),
+        );
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -2664,8 +3170,11 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker =
-            FifoConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
+        let consumer_worker = FifoConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            ConsumeLogContext::default(),
+        );
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -2719,8 +3228,11 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker =
-            FifoConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
+        let consumer_worker = FifoConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            ConsumeLogContext::default(),
+        );
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -2773,6 +3285,7 @@ mod tests {
                 receive_call_count.fetch_add(1, Ordering::Relaxed);
                 ConsumeResult::FAILURE
             })),
+            ConsumeLogContext::default(),
         );
         let consumer_group = Resource {
             name: "test_group".to_string(),
@@ -2833,6 +3346,7 @@ mod tests {
         let consumer_worker = StandardConsumerWorker::new(
             rpc_client,
             Arc::new(Box::new(|_| panic!("listener panic in test"))),
+            ConsumeLogContext::default(),
         );
         let consumer_group = Resource {
             name: "test_group".to_string(),
@@ -2902,6 +3416,7 @@ mod tests {
                 }
                 ConsumeResult::SUCCESS
             })),
+            ConsumeLogContext::default(),
         );
         let consumer_group = Resource {
             name: "test_group".to_string(),
@@ -2971,8 +3486,137 @@ mod tests {
                     ConsumeResult::SUCCESS
                 }
             })),
+            ConsumeLogContext::default(),
         );
         (worker, attempts)
+    }
+
+    /// Reference Java: `PushConsumerImpl#scanAssignments` / `#syncProcessQueue`.
+    #[tokio::test]
+    async fn test_scan_assignments_logs_like_java() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let queue = new_message_queue().to_pb_message_queue();
+        let responses = Arc::new(Mutex::new(VecDeque::from(vec![
+            vec![],
+            vec![Assignment {
+                message_queue: Some(queue.clone()),
+            }],
+            vec![Assignment {
+                message_queue: Some(queue.clone()),
+            }],
+            vec![],
+        ])));
+        let mut rpc_client = Session::default();
+        let pending = Arc::clone(&responses);
+        rpc_client.expect_query_assignment().returning(move |_| {
+            Ok(pb::QueryAssignmentResponse {
+                status: Some(Status {
+                    code: Code::Ok as i32,
+                    message: "".to_string(),
+                }),
+                assignments: pending.lock().pop_front().unwrap(),
+            })
+        });
+        // The queue actor started for the assignment receives with a session that never
+        // answers, which keeps it idle until it is dropped.
+        rpc_client.expect_shadow_session().returning(|| {
+            let mut session = Session::default();
+            session.expect_shadow_session().returning(|| {
+                let mut session = Session::default();
+                session
+                    .expect_receive_message()
+                    .returning(|_| Err(ClientError::new(ErrorKind::Server, "idle", "test")));
+                session.expect_shadow_session().returning(Session::default);
+                session
+            });
+            session
+        });
+        let route_manager = TopicRouteManager::new(
+            "".to_string(),
+            Endpoints::from_url("http://localhost:8081").unwrap(),
+            "fake_id".to_string(),
+        );
+        route_manager.insert_route_for_test("test_topic", vec![queue]);
+        let mut option = PushConsumerOption::default();
+        option.set_consumer_group("test_group");
+        option.subscribe("test_topic", FilterExpression::sub_all());
+        let option = Arc::new(RwLock::new(option));
+        let retry_policy = Arc::new(Mutex::new(Some(BackOffRetryPolicy::Exponential(
+            ExponentialBackOffRetryPolicy::default(),
+        ))));
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let mut actor_table = HashMap::new();
+        let cache = Mutex::new(HashMap::new());
+        let log_context = ConsumeLogContext::new("fake_id".to_string(), "test_group".to_string());
+        for _ in 0..4 {
+            PushConsumer::scan_assignments(
+                &mut rpc_client,
+                &route_manager,
+                &option,
+                &retry_policy,
+                &message_listener,
+                &mut actor_table,
+                &cache,
+                &log_context,
+            )
+            .await;
+        }
+
+        assert!(logs.contains(
+            "INFO",
+            "Acquired empty assignments from remote, would scan later, topic=test_topic, clientId=fake_id"
+        ));
+        assert!(logs.contains(
+            "INFO",
+            "Assignments of topic=test_topic has changed, None => [\"broker-0.test_topic.0\"], clientId=fake_id"
+        ));
+        assert!(logs.contains(
+            "INFO",
+            "Start to fetch message from remote, mq=broker-0.test_topic.0, clientId=fake_id"
+        ));
+        assert!(logs.contains("DEBUG", "Assignments of topic=test_topic remains the same"));
+        assert!(logs.contains(
+            "INFO",
+            "Attention!!! acquired empty assignments from remote, but existed assignments is not empty, topic=test_topic, clientId=fake_id"
+        ));
+        assert!(logs.contains(
+            "INFO",
+            "Drop message queue according to the latest assignmentList, mq=broker-0.test_topic.0, clientId=fake_id"
+        ));
+    }
+
+    /// Reference Java: `PushConsumerImpl#doStats` / `ProcessQueueImpl#doStats`.
+    #[test]
+    fn test_consumption_stats_are_logged_like_java_and_reset() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let consumer = ConsumeLogContext::new("fake_id".to_string(), "test_group".to_string());
+        let queue = consumer.for_queue(&new_message_queue());
+        queue.on_reception(3);
+        queue.on_consumption(&ConsumeResult::SUCCESS);
+        queue.on_consumption(&ConsumeResult::SUCCESS);
+        queue.on_consumption(&ConsumeResult::FAILURE);
+
+        consumer.log_consumer_stats();
+        queue.log_queue_stats();
+        consumer.log_consumer_stats();
+
+        assert!(logs.contains(
+            "INFO",
+            "clientId=fake_id, consumerGroup=test_group, receptionTimes=1, receivedMessagesQuantity=3, consumptionOkQuantity=2, consumptionErrorQuantity=1"
+        ));
+        assert!(logs.contains(
+            "INFO",
+            "Process queue stats: clientId=fake_id, mq=broker-0.test_topic.0, receptionTimes=1, receivedMessageQuantity=3"
+        ));
+        assert!(logs.contains(
+            "INFO",
+            "clientId=fake_id, consumerGroup=test_group, receptionTimes=0, receivedMessagesQuantity=0, consumptionOkQuantity=0, consumptionErrorQuantity=0"
+        ));
+    }
+
+    fn test_log_context() -> ConsumeLogContext {
+        ConsumeLogContext::new("fake_id".to_string(), "test_group".to_string())
+            .for_queue(&new_message_queue())
     }
 
     fn new_test_resources() -> (Resource, Resource) {
@@ -2994,14 +3638,17 @@ mod tests {
     // is forwarded to the DLQ with the current delivery attempt.
     #[tokio::test]
     async fn test_fifo_local_retry_increments_delivery_attempt_until_dlq() {
+        let (logs, _guard) = crate::util::test_log::capture();
         let mut rpc_client = Session::default();
         rpc_client.expect_receive_message().returning(|_| {
             Ok(vec![ReceiveMessageResponse {
                 content: Some(Content::Message(new_message_with_delivery_attempt(1))),
             }])
         });
-        let (consumer_worker, attempts) =
+        let (mut consumer_worker, attempts) =
             new_fifo_worker_recording_attempts(rpc_client, usize::MAX);
+        let log_context = test_log_context();
+        consumer_worker.log_context = log_context.clone();
         let (consumer_group, topic) = new_test_resources();
         let retry_policy = &BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
             pb::CustomizedBackoff {
@@ -3028,7 +3675,8 @@ mod tests {
                     }),
                 })
             });
-        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false)
+            .with_log_context(log_context.clone());
         let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
@@ -3040,6 +3688,30 @@ mod tests {
             .await;
         assert!(result.is_ok(), "{:?}", result);
         assert_eq!(vec![1, 2, 3, 4], *attempts.lock());
+        // Reference Java: ProcessQueueImpl#eraseFifoMessage / #forwardToDeadLetterQueue.
+        assert_eq!(
+            3,
+            logs.count(
+                "DEBUG",
+                "Prepare to redeliver the fifo message because of the consumption failure, maxAttempt=4"
+            )
+        );
+        assert!(logs.contains(
+            "INFO",
+            "Failed to consume fifo message finally, run out of attempt times, maxAttempts=4, attempt=4, mq=broker-0.test_topic.0"
+        ));
+        assert!(logs.contains(
+            "INFO",
+            "Forward message to dead letter queue successfully, clientId=fake_id, consumerGroup=test_group"
+        ));
+        // The listener failed 4 times, which the statistics of Java count.
+        assert_eq!(
+            4,
+            log_context
+                .consumer_stats
+                .consumption_error_quantity
+                .load(Ordering::Relaxed)
+        );
     }
 
     #[tokio::test]
@@ -3118,6 +3790,7 @@ mod tests {
                 recorded.lock().push(message.delivery_attempt());
                 ConsumeResult::FAILURE
             })),
+            ConsumeLogContext::default(),
         );
         let (consumer_group, topic) = new_test_resources();
         let retry_policy = &BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
@@ -3193,6 +3866,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_standard_consume_discards_corrupted_message() {
+        let (logs, _guard) = crate::util::test_log::capture();
         let mut rpc_client = Session::default();
         rpc_client.expect_receive_message().returning(|_| {
             Ok(vec![ReceiveMessageResponse {
@@ -3200,7 +3874,7 @@ mod tests {
             }])
         });
         let (listener_calls, listener) = new_listener_counter();
-        let consumer_worker = StandardConsumerWorker::new(rpc_client, listener);
+        let consumer_worker = StandardConsumerWorker::new(rpc_client, listener, test_log_context());
         let retry_policy = &BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::new(
             pb::ExponentialBackoff {
                 initial: Some(prost_types::Duration::from_str("1s").unwrap()),
@@ -3249,6 +3923,16 @@ mod tests {
             .await;
         assert!(result.is_ok(), "{:?}", result);
         assert_eq!(0, listener_calls.load(Ordering::Relaxed));
+        // Reference Java: StandardConsumeService#consume / ProcessQueueImpl#discardMessage.
+        assert!(logs.contains(
+            "ERROR",
+            "Message is corrupted for standard consumption, prepare to discard it, mq=broker-0.test_topic.0, messageId="
+        ));
+        assert!(logs.contains(
+            "INFO",
+            "Discard message, mq=broker-0.test_topic.0, messageId="
+        ));
+        assert!(logs.contains("INFO", "clientId=fake_id"));
     }
 
     #[tokio::test]
@@ -3260,7 +3944,8 @@ mod tests {
             }])
         });
         let (listener_calls, listener) = new_listener_counter();
-        let consumer_worker = FifoConsumerWorker::new(rpc_client, listener);
+        let consumer_worker =
+            FifoConsumerWorker::new(rpc_client, listener, ConsumeLogContext::default());
         let retry_policy = &BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
             pb::CustomizedBackoff {
                 next: vec![prost_types::Duration::from_str("0.01s").unwrap()],

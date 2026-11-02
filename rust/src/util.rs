@@ -41,6 +41,30 @@ pub(crate) static HOST_NAME: Lazy<String> = Lazy::new(|| match hostname::get() {
     Err(_) => "localhost".to_string(),
 });
 
+/// Log a telemetry command the client does not handle, with the wording of Java's `ClientImpl`
+/// (`onVerifyMessageCommand`, `onRecoverOrphanedTransactionCommand`,
+/// `onNotifyUnsubscribeLiteCommand`).
+pub(crate) fn log_ignored_command(command: &Command, client_id: &str) {
+    match command {
+        Command::VerifyMessageCommand(_) => tracing::warn!(
+            "Ignore verify message command from remote, which is not expected, clientId={}, command={:?}",
+            client_id, command
+        ),
+        Command::RecoverOrphanedTransactionCommand(_) => tracing::warn!(
+            "Ignore orphaned transaction recovery command from remote, which is not expected, clientId={}, command={:?}",
+            client_id, command
+        ),
+        Command::NotifyUnsubscribeLiteCommand(_) => tracing::warn!(
+            "Ignore unsubscribe lite topic command from remote, which is not expected, clientId={}, command={:?}",
+            client_id, command
+        ),
+        _ => tracing::warn!(
+            "Ignore unexpected command from remote, clientId={}, command={:?}",
+            client_id, command
+        ),
+    }
+}
+
 pub(crate) fn select_message_queue(route: Arc<Route>) -> MessageQueue {
     let i = route.index.fetch_add(1, Ordering::Relaxed);
     route.queue[i % route.queue.len()].clone()
@@ -391,11 +415,12 @@ pub fn handle_receive_message_status(
         Some(code) => code,
         None => {
             // Handle unrecognized status codes.
+            // Reference Java: StatusChecker#check.
             tracing::warn!(
-                "Unrecognized status code={}, statusMessage={}, operation={}",
+                "Unrecognized status code={}, statusMessage={}, clientVersion={}",
                 status.code,
                 status.message,
-                operation
+                SDK_VERSION
             );
             return Err(
                 ClientError::new(ErrorKind::Server, "unsupported status code", operation)
@@ -545,6 +570,14 @@ pub(crate) mod test_log {
         /// Whether any event at `level` was emitted.
         pub(crate) fn any_at(&self, level: &str) -> bool {
             self.contains(level, "")
+        }
+
+        /// Number of events at `level` that contain `needle`.
+        pub(crate) fn count(&self, level: &str, needle: &str) -> usize {
+            self.lines()
+                .iter()
+                .filter(|line| line.trim_start().starts_with(level) && line.contains(needle))
+                .count()
         }
     }
 

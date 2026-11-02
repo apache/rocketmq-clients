@@ -158,6 +158,9 @@ pub(crate) struct Session {
     /// `ClientSessionImpl#renewRequestObserver` of the Java client, which renews the stream
     /// as soon as it is observed dead.
     stream_closed_tx: Option<mpsc::Sender<String>>,
+    /// Whether the first `Settings` of this session has arrived, shared with every shadow
+    /// session and every stream of this session. Mirrors `ClientSessionImpl#settingsInitFuture`.
+    settings_initialized: Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// Origin the session activity timestamps are measured from.
@@ -168,18 +171,27 @@ fn now_millis() -> u64 {
     SESSION_ACTIVITY_ORIGIN.elapsed().as_millis() as u64
 }
 
-/// Log a command received from the server, with the same wording as Java's
+/// Log a command received from the server, with the same wording and levels as Java's
 /// `ClientSessionImpl#onNext`.
-///
-/// Settings are logged at `DEBUG` rather than Java's `INFO`: the server sends them back for
-/// every settings sync and every rebuilt stream, on every session, so they are the most
-/// frequent command by far and carry nothing a user needs to see.
-fn log_received_command(command: &Command, peer: &str, client_id: &str) {
+fn log_received_command(
+    command: &Command,
+    peer: &str,
+    client_id: &str,
+    settings_initialized: &std::sync::atomic::AtomicBool,
+) {
     match command {
-        Command::Settings(_) => debug!(
-            "Receive settings from remote, endpoints={}, clientId={}",
-            peer, client_id
-        ),
+        Command::Settings(_) => {
+            info!(
+                "Receive settings from remote, endpoints={}, clientId={}",
+                peer, client_id
+            );
+            if !settings_initialized.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                info!(
+                    "Init settings successfully, endpoints={}, clientId={}",
+                    peer, client_id
+                );
+            }
+        }
         Command::RecoverOrphanedTransactionCommand(_) => info!(
             "Receive orphaned transaction recovery command from remote, endpoints={}, clientId={}",
             peer, client_id
@@ -225,6 +237,7 @@ impl Session {
             last_activity_millis: Arc::clone(&self.last_activity_millis),
             long_polling_timeout: Arc::clone(&self.long_polling_timeout),
             stream_closed_tx: self.stream_closed_tx.clone(),
+            settings_initialized: Arc::clone(&self.settings_initialized),
         }
     }
 
@@ -266,7 +279,8 @@ impl Session {
 
         let stub = MessagingServiceClient::new(channel);
 
-        info!(
+        // Reference Java: ClientManagerImpl#getRpcClient creates the RPC client silently.
+        debug!(
             "Create session successfully, endpoints={}, clientId={}",
             peer, client_id
         );
@@ -282,6 +296,7 @@ impl Session {
             last_activity_millis: Arc::new(std::sync::atomic::AtomicU64::new(now_millis())),
             long_polling_timeout,
             stream_closed_tx: None,
+            settings_initialized: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         })
     }
 
@@ -408,7 +423,8 @@ impl Session {
 
         self.establish_telemetry_stream(settings).await?;
 
-        info!(
+        // Reference Java: ClientImpl#getClientSession opens the telemetry session silently.
+        debug!(
             "Start telemetry session successfully, endpoints={}, clientId={}",
             self.peer(),
             self.client_id
@@ -424,9 +440,9 @@ impl Session {
             // a `send` error means the receiver is already gone, which is fine.
             let _ = old_shutdown_tx.send(());
             info!(
-                "Release the previous telemetry stream, endpoints={}, clientId={}",
-                self.peer(),
-                self.client_id
+                "Telemetry stream is cancelled for reconnecting, clientId={}, endpoints={}",
+                self.client_id,
+                self.peer()
             );
         }
 
@@ -460,6 +476,7 @@ impl Session {
         let stream_closed_tx = self.stream_closed_tx.clone();
         let peer = self.peer().to_string();
         let client_id = self.client_id.clone();
+        let settings_initialized = Arc::clone(&self.settings_initialized);
         tokio::spawn(async move {
             let mut stream = response.into_inner();
             loop {
@@ -468,14 +485,19 @@ impl Session {
                         match message {
                             Ok(Some(item)) => {
                                 if let Some(command) = item.command {
-                                    log_received_command(&command, &peer, &client_id);
+                                    log_received_command(
+                                        &command,
+                                        &peer,
+                                        &client_id,
+                                        &settings_initialized,
+                                    );
                                     _ = telemetry_command_tx.send(command).await;
                                 }
                             }
                             Ok(None) => {
                                 info!(
-                                    "Receive completion for stream response observer, endpoints={}, clientId={}",
-                                    peer, client_id
+                                    "Receive completion for stream response observer, clientId={}, endpoints={}",
+                                    client_id, peer
                                 );
                                 if let Some(tx) = stream_closed_tx {
                                     // Tell the client layer so that it re-establishes the
@@ -487,8 +509,8 @@ impl Session {
                             }
                             Err(e) => {
                                 error!(
-                                    "Exception raised from stream response observer, endpoints={}, clientId={}, error={:?}",
-                                    peer, client_id, e
+                                    "Exception raised from stream response observer, clientId={}, endpoints={}, error={:?}",
+                                    client_id, peer, e
                                 );
                                 if let Some(tx) = stream_closed_tx {
                                     let _ = tx.send(peer.clone()).await;
@@ -498,7 +520,7 @@ impl Session {
                         }
                     }
                     _ = &mut shutdown_rx => {
-                        info!(
+                        debug!(
                             "Telemetry stream is released, endpoints={}, clientId={}",
                             peer, client_id
                         );
@@ -508,13 +530,16 @@ impl Session {
             }
             // telemetry tx will be dropped here
         });
-        debug!("start session success");
-
         Ok(())
     }
 
     pub(crate) fn shutdown(&mut self) {
         if let Some(tx) = self.shutdown_tx.take() {
+            info!(
+                "Begin to release client session, endpoints={}, clientId={}",
+                self.peer(),
+                self.client_id
+            );
             let _ = tx.send(());
         }
     }
@@ -539,11 +564,18 @@ impl Session {
         settings: TelemetryCommand,
     ) -> Result<(), ClientError> {
         info!(
-            "Try to renew telemetry stream, endpoints={}, clientId={}",
+            "Try to renew requestObserver, endpoints={}, clientId={}",
             self.peer(),
             self.client_id
         );
-        self.establish_telemetry_stream(settings).await
+        self.establish_telemetry_stream(settings).await?;
+        // The settings are the first command of the new stream.
+        info!(
+            "Sync setting to remote after requestObserver is renewed, endpoints={}, clientId={}",
+            self.peer(),
+            self.client_id
+        );
+        Ok(())
     }
 
     pub(crate) fn is_started(&self) -> bool {
@@ -594,7 +626,6 @@ impl Session {
         settings: TelemetryCommand,
     ) -> Result<(), ClientError> {
         if self.is_started() {
-            debug!("session is already started: {:?}", self.telemetry_tx);
             if let Some(tx) = self.telemetry_tx.as_ref() {
                 tx.send(settings).await.map_err(|e| {
                     ClientError::new(
@@ -607,12 +638,7 @@ impl Session {
             }
             Ok(())
         } else {
-            debug!("session is closed: {:?}", self.telemetry_tx);
             self.establish_telemetry_stream(settings).await?;
-            debug!(
-                "session is established, closed: {:?}",
-                self.telemetry_tx.as_ref().unwrap().is_closed()
-            );
             Ok(())
         }
     }
@@ -959,21 +985,42 @@ mod tests {
 
     generate!("apache.rocketmq.v2", RocketMQMockServer);
 
-    /// Every command received from the server is logged with its endpoints and client id, like
-    /// Java's `ClientSessionImpl#onNext`. Settings are sent back for every sync, so they are
-    /// logged at `DEBUG` only.
+    /// Every command received from the server is logged with the wording and level of Java's
+    /// `ClientSessionImpl#onNext`, and the first settings of a session also log
+    /// `Init settings successfully` once.
     #[test]
     fn received_telemetry_commands_are_logged_like_java() {
         let (logs, _guard) = crate::util::test_log::capture();
         let peer = "127.0.0.1:8081";
         let client_id = "test_client";
+        let initialized = std::sync::atomic::AtomicBool::new(false);
 
-        log_received_command(&Command::Settings(Default::default()), peer, client_id);
-        assert!(logs.contains(
-            "DEBUG",
-            "Receive settings from remote, endpoints=127.0.0.1:8081, clientId=test_client"
-        ));
-        assert!(!logs.any_at("INFO"));
+        log_received_command(
+            &Command::Settings(Default::default()),
+            peer,
+            client_id,
+            &initialized,
+        );
+        log_received_command(
+            &Command::Settings(Default::default()),
+            peer,
+            client_id,
+            &initialized,
+        );
+        assert_eq!(
+            logs.count(
+                "INFO",
+                "Receive settings from remote, endpoints=127.0.0.1:8081, clientId=test_client"
+            ),
+            2
+        );
+        assert_eq!(
+            logs.count(
+                "INFO",
+                "Init settings successfully, endpoints=127.0.0.1:8081, clientId=test_client"
+            ),
+            1
+        );
 
         let cases = [
             (
@@ -998,7 +1045,7 @@ mod tests {
             ),
         ];
         for (command, message) in cases {
-            log_received_command(&command, peer, client_id);
+            log_received_command(&command, peer, client_id, &initialized);
             assert!(
                 logs.contains(
                     "INFO",
@@ -1012,6 +1059,7 @@ mod tests {
             &Command::ThreadStackTrace(Default::default()),
             peer,
             client_id,
+            &initialized,
         );
         assert!(logs.contains(
             "WARN",

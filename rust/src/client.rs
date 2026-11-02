@@ -47,7 +47,7 @@ use crate::session::Session;
 use crate::session::{RPCClient, SharedLongPollingTimeout};
 use crate::util::{
     build_ack_message_entry, handle_receive_message_status, handle_response_status,
-    select_message_queue,
+    select_message_queue, SDK_VERSION,
 };
 
 #[derive(Debug)]
@@ -71,6 +71,8 @@ pub(crate) struct TopicRouteManager {
     route_table: Arc<Mutex<HashMap<String /* topic */, RouteStatus>>>,
     access_endpoints: Endpoints,
     namespace: String,
+    /// Only used in the logs.
+    client_id: String,
 }
 
 static CLIENT_ID_SEQUENCE: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
@@ -141,6 +143,36 @@ const SYNC_SETTINGS_PERIOD: std::time::Duration = std::time::Duration::from_secs
 /// sessions.
 const STREAM_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 
+/// Initial delay and period of the statistics log. Kept in line with the Java client
+/// (`ClientManagerImpl#LOG_STATS_INITIAL_DELAY` / `LOG_STATS_PERIOD`).
+const LOG_STATS_INITIAL_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
+const LOG_STATS_PERIOD: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Status code carried by an error built by `handle_response_status`, for the logs.
+fn status_code(error: &ClientError) -> String {
+    context_value(error, "code")
+}
+
+/// Status message carried by an error built by `handle_response_status`, for the logs.
+fn status_message(error: &ClientError) -> String {
+    context_value(error, "message")
+}
+
+fn context_value(error: &ClientError, key: &str) -> String {
+    error
+        .context()
+        .iter()
+        .find(|(k, _)| *k == key)
+        .map(|(_, v)| v.clone())
+        .unwrap_or_else(|| error.message().to_string())
+}
+
+/// Same content as Java's `Utilities#getOsDescription`: the OS name and version.
+fn os_description() -> String {
+    let info = os_info::get();
+    format!("{} {}", info.os_type(), info.version())
+}
+
 /// Interval of the periodic topic-route sync.
 ///
 /// Deliberately shorter than the 30s the Java client uses: when a broker endpoint drifts
@@ -162,8 +194,11 @@ impl Client {
         let long_polling_timeout = Arc::new(RwLock::new(*option.long_polling_timeout()));
         let session_manager =
             SessionManager::new(id.clone(), &option, Arc::clone(&long_polling_timeout));
-        let route_manager =
-            TopicRouteManager::new(option.get_namespace().to_string(), endpoints.clone());
+        let route_manager = TopicRouteManager::new(
+            option.get_namespace().to_string(),
+            endpoints.clone(),
+            id.clone(),
+        );
         Ok(Client {
             option,
             session_manager: Arc::new(session_manager),
@@ -274,6 +309,9 @@ impl Client {
         let namespace = self.option.namespace.to_string();
         let client_type = self.option.client_type.clone();
 
+        info!("Begin to start the rocketmq client, clientId={}", self.id);
+        info!("Begin to start the client manager, clientId={}", self.id);
+
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
 
@@ -303,9 +341,14 @@ impl Client {
 
         let settings = self.settings.clone();
         let client_id = self.id.clone();
+        let access_endpoints = self.access_endpoints.endpoint_url().to_string();
         tokio::spawn(async move {
             rpc_client.is_started();
             let mut heartbeat_interval = tokio::time::interval(HEART_BEAT_INTERVAL);
+            let mut log_stats_interval = tokio::time::interval_at(
+                Instant::now() + LOG_STATS_INITIAL_DELAY,
+                LOG_STATS_PERIOD,
+            );
             let mut sync_settings_interval = tokio::time::interval_at(
                 Instant::now() + SYNC_SETTINGS_DELAY,
                 SYNC_SETTINGS_PERIOD,
@@ -329,7 +372,7 @@ impl Client {
                         let sessions = session_manager.get_all_sessions().await;
                         if let Err(e) = sessions {
                             error!(
-                                "Exception raised during heartbeat, clientId={}, error={}",
+                                "[Bug] Exception raised while preparing heartbeat, clientId={}, error={}",
                                 client_id, e
                             );
                             continue;
@@ -350,6 +393,10 @@ impl Client {
                                 let failures = heartbeat_failures.entry(peer.clone()).or_insert(0);
                                 *failures += 1;
                                 if *failures >= HEART_BEAT_FAILURE_THRESHOLD {
+                                    warn!(
+                                        "Try to recover transport, endpoints={}, reason=heartbeat failure, clientId={}",
+                                        peer, client_id
+                                    );
                                     session_manager.evict_session(&peer).await;
                                     heartbeat_failures.remove(&peer);
                                 }
@@ -359,8 +406,11 @@ impl Client {
                                 handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
                             if let Err(e) = result {
                                 warn!(
-                                    "Failed to send heartbeat, endpoints={}, clientId={}, error={}",
-                                    peer, client_id, e
+                                    "Failed to send heartbeat, code={}, status message=[{}], endpoints={}, clientId={}",
+                                    status_code(&e),
+                                    status_message(&e),
+                                    peer,
+                                    client_id
                                 );
                                 heartbeat_failures.remove(&peer);
                                 // A business error such as `cannot find client` means the
@@ -368,23 +418,40 @@ impl Client {
                                 // failover moved the traffic to another instance. Rebuild
                                 // the telemetry stream: the telemetry RPC itself
                                 // re-registers the client with the new instance.
+                                warn!(
+                                    "Try to recover transport, endpoints={}, reason=heartbeat failure, statusCode={}, clientId={}",
+                                    peer,
+                                    status_code(&e),
+                                    client_id
+                                );
                                 match session_manager.reconnect_session(&peer, &settings).await {
                                     Ok(_) => {}
                                     Err(re) => {
-                                        error!(
-                                            "reconnect session after heartbeat error failed, peer={}, error={}",
-                                            peer, re
+                                        warn!(
+                                            "Failed to rebuild telemetry while recovering transport, endpoints={}, reason=heartbeat failure, clientId={}, error={}",
+                                            peer, client_id, re
                                         );
                                     }
                                 }
                                 continue;
                             }
                             heartbeat_failures.remove(&peer);
-                            debug!(
+                            // Reference Java: ClientImpl#doHeartbeat logs every success at INFO.
+                            info!(
                                 "Send heartbeat successfully, endpoints={}, clientId={}",
                                 peer, client_id
                             );
                         }
+                    },
+                    _ = log_stats_interval.tick() => {
+                        // Reference Java: ClientManagerImpl logs the statistics every 60s.
+                        info!(
+                            "Start to log statistics, clientVersion={}, clientEndpoints={}, os description=[{}], clientId={}",
+                            SDK_VERSION,
+                            access_endpoints,
+                            os_description(),
+                            client_id
+                        );
                     },
                     _ = sync_settings_interval.tick() => {
                         // Sync on the registered sessions, not on shadow copies: rebuilding a
@@ -403,10 +470,6 @@ impl Client {
                     peer = stream_closed_rx.recv() => {
                         match peer {
                             Some(peer) => {
-                                warn!(
-                                    "telemetry stream for peer {} was closed, scheduling reconnect",
-                                    peer
-                                );
                                 // Retry in the background: the first attempt follows the
                                 // initial back-off delay, then the delay doubles up to a
                                 // cap, so a permanently offline endpoint is not hammered
@@ -415,6 +478,7 @@ impl Client {
                                 // heartbeat and the next business traffic.
                                 let session_manager = session_manager.clone();
                                 let settings = settings.clone();
+                                let client_id = client_id.clone();
                                 tokio::spawn(async move {
                                     let mut delay = RECONNECT_BACKOFF_DELAY;
                                     for attempt in 1..=RECONNECT_MAX_ATTEMPTS {
@@ -424,9 +488,9 @@ impl Client {
                                             .await
                                         {
                                             Ok(true) => {
-                                                info!(
-                                                    "telemetry stream for peer {} re-established after {} attempt(s)",
-                                                    peer, attempt
+                                                debug!(
+                                                    "Renew requestObserver successfully, endpoints={}, attempt={}, clientId={}",
+                                                    peer, attempt, client_id
                                                 );
                                                 return;
                                             }
@@ -435,30 +499,33 @@ impl Client {
                                                 // endpoints configured); retrying without
                                                 // a session to rebuild on is pointless.
                                                 warn!(
-                                                    "session for peer {} could not be rebuilt, it will be recreated on the next access",
-                                                    peer
+                                                    "Failed to rebuild telemetry because client session does not exist, endpoints={}, clientId={}",
+                                                    peer, client_id
                                                 );
                                                 return;
                                             }
                                             Err(e) => {
-                                                error!(
-                                                    "reconnect to peer {} failed (attempt {}/{}): {}, next attempt in {:?}",
-                                                    peer, attempt, RECONNECT_MAX_ATTEMPTS, e, delay
-                                                );
                                                 delay = (delay * 2).min(RECONNECT_RETRY_MAX_DELAY);
+                                                error!(
+                                                    "Failed to renew requestObserver, attempt to renew later, endpoints={}, delay={:?}, clientId={}, error={}",
+                                                    peer, delay, client_id, e
+                                                );
                                             }
                                         }
                                     }
                                     error!(
-                                        "gave up reconnecting to peer {} after {} attempts; it will be rebuilt by the periodic stream check or the next traffic",
-                                        peer, RECONNECT_MAX_ATTEMPTS
+                                        "Give up renewing requestObserver, it will be renewed by the periodic stream check, endpoints={}, maxAttempts={}, clientId={}",
+                                        peer, RECONNECT_MAX_ATTEMPTS, client_id
                                     );
                                 });
                             }
                             None => {
                                 // Unreachable while the session manager is alive: it holds
                                 // a sender of this channel.
-                                error!("stream closed channel was closed unexpectedly");
+                                error!(
+                                    "[Bug] Stream closed channel was closed unexpectedly, clientId={}",
+                                    client_id
+                                );
                             }
                         }
                     },
@@ -481,6 +548,14 @@ impl Client {
                 client_id
             );
         });
+        info!(
+            "The client manager starts successfully, clientId={}",
+            self.id
+        );
+        info!(
+            "The rocketmq client starts successfully, clientId={}",
+            self.id
+        );
         Ok(())
     }
 
@@ -497,25 +572,16 @@ impl Client {
     }
 
     pub(crate) async fn shutdown(mut self) -> Result<(), ClientError> {
-        self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
-        let mut rpc_client = self.get_session().await?;
-        self.telemetry_command_tx = None;
-        if let Some(tx) = self.shutdown_tx.take() {
-            let _ = tx.send(());
-        }
-        let group = self.option.group.as_ref().map(|group| Resource {
-            name: group.to_string(),
-            resource_namespace: self.option.namespace.to_string(),
-        });
-        let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
-        handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
-        self.session_manager.shutdown().await;
-        Ok(())
+        self.shutdown_ref().await
     }
 
     /// Shutdown without consuming self (for internal use)
     pub(crate) async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
         self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
+        info!(
+            "Begin to shutdown the rocketmq client, clientId={}",
+            self.id
+        );
         let mut rpc_client = self.get_session().await?;
         self.telemetry_command_tx = None;
         if let Some(tx) = self.shutdown_tx.take() {
@@ -525,9 +591,25 @@ impl Client {
             name: group.to_string(),
             resource_namespace: self.option.namespace.to_string(),
         });
+        info!(
+            "Notify remote that client is terminated, clientId={}",
+            self.id
+        );
         let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
         handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
+        info!(
+            "Begin to release all telemetry sessions, clientId={}",
+            self.id
+        );
         self.session_manager.shutdown().await;
+        info!(
+            "Release all telemetry sessions successfully, clientId={}",
+            self.id
+        );
+        info!(
+            "Shutdown the rocketmq client successfully, clientId={}",
+            self.id
+        );
         Ok(())
     }
 
@@ -901,11 +983,24 @@ impl Client {
 }
 
 impl TopicRouteManager {
-    pub(crate) fn new(namespace: String, access_endpoints: Endpoints) -> Self {
+    /// Put a route into the cache, for the tests of the route users.
+    #[cfg(test)]
+    pub(crate) fn insert_route_for_test(&self, topic: &str, queue: Vec<MessageQueue>) {
+        self.route_table.lock().insert(
+            topic.to_string(),
+            RouteStatus::Found(Arc::new(Route {
+                index: AtomicUsize::new(0),
+                queue,
+            })),
+        );
+    }
+
+    pub(crate) fn new(namespace: String, access_endpoints: Endpoints, client_id: String) -> Self {
         Self {
             namespace,
             access_endpoints,
             route_table: Arc::new(Mutex::new(HashMap::new())),
+            client_id,
         }
     }
 
@@ -917,7 +1012,11 @@ impl TopicRouteManager {
         {
             topics = self.route_table.lock().keys().cloned().collect();
         }
-        debug!("sync topic route of topics {:?}", topics);
+        // Reference Java: ClientImpl#updateRouteCache logs every round at INFO.
+        info!(
+            "Start to update route cache for a new round, clientId={}",
+            self.client_id
+        );
         for topic in topics {
             self.topic_route_inner(rpc_client, &topic).await?;
         }
@@ -929,10 +1028,23 @@ impl TopicRouteManager {
         rpc_client: &mut T,
         topics: Vec<String>,
     ) -> Result<(), ClientError> {
-        debug!("sync topic route of topics {:?}.", topics);
-        for topic in topics {
-            self.topic_route_inner(rpc_client, topic.as_str()).await?;
+        info!(
+            "Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={:?}",
+            self.client_id, topics
+        );
+        for topic in topics.iter() {
+            if let Err(e) = self.topic_route_inner(rpc_client, topic.as_str()).await {
+                error!(
+                    "Fetch topics failed when client start, clientId={}, topics={:?}, error={}",
+                    self.client_id, topics, e
+                );
+                return Err(e);
+            }
         }
+        info!(
+            "Fetch topic route data from remote successfully during startup, clientId={}, topics={:?}",
+            self.client_id, topics
+        );
         Ok(())
     }
 
@@ -941,7 +1053,6 @@ impl TopicRouteManager {
         rpc_client: &mut T,
         topic: &str,
     ) -> Result<Arc<Route>, ClientError> {
-        debug!("query route for topic={}", topic);
         let rx = match self
             .route_table
             .lock()
@@ -988,7 +1099,11 @@ impl TopicRouteManager {
 
         // send result to all waiters
         if let Ok(route) = result {
-            debug!("query route for topic={} success: route={:?}", topic, route);
+            // Reference Java: ClientImpl#fetchTopicRoute logs every successful fetch at INFO.
+            info!(
+                "Fetch topic route successfully, clientId={}, topic={}, topicRouteData={:?}",
+                self.client_id, topic, route.queue
+            );
             let route = Arc::new(route);
             let mut route_table_lock = self.route_table.lock();
 
@@ -1001,7 +1116,6 @@ impl TopicRouteManager {
 
             let prev =
                 route_table_lock.insert(topic.to_owned(), RouteStatus::Found(Arc::clone(&route)));
-            info!("update route for topic={}", topic);
 
             if let Some(RouteStatus::Querying(Some(mut v))) = prev {
                 for item in v.drain(..) {
@@ -1011,7 +1125,10 @@ impl TopicRouteManager {
             Ok(route)
         } else {
             let err = result.unwrap_err();
-            warn!("query route for topic={} failed: error={}", topic, err);
+            error!(
+                "Failed to fetch topic route, clientId={}, topic={}, error={}",
+                self.client_id, topic, err
+            );
             let mut route_table_lock = self.route_table.lock();
             // keep the existing route if error occurs.
             if let Some(RouteStatus::Found(prev)) = route_table_lock.get(topic) {
@@ -1060,7 +1177,6 @@ impl TopicRouteManager {
     pub(crate) fn find_topic_route(&self, topic: &str) -> Option<Arc<Route>> {
         self.route_table.lock().get(topic).and_then(|route_status| {
             if let RouteStatus::Found(route) = route_status {
-                // debug!(self.logger, "get route for topic={} from cache", topic);
                 Some(Arc::clone(route))
             } else {
                 None
@@ -1187,7 +1303,10 @@ impl SessionManager {
         match session_map.remove(endpoint_url) {
             Some(mut session) => {
                 session.shutdown();
-                info!("evicted session for endpoint {}", endpoint_url);
+                info!(
+                    "Remove client session, clientId={}, endpoints={}",
+                    self.client_id, endpoint_url
+                );
                 true
             }
             None => false,
@@ -1292,12 +1411,15 @@ impl SessionManager {
             }
             match session.update_settings(settings.clone()).await {
                 Ok(()) => {
-                    debug!("sync settings success, peer = {}", endpoint_url);
+                    debug!(
+                        "Sync settings to remote successfully, endpoints={}, clientId={}",
+                        endpoint_url, self.client_id
+                    );
                 }
                 Err(e) => {
                     error!(
-                        "sync settings failed, peer = {}, error = {}",
-                        endpoint_url, e
+                        "Failed to telemeter settings, clientId={}, endpoints={}, error={}",
+                        self.client_id, endpoint_url, e
                     );
                     broken.push(endpoint_url.clone());
                 }
@@ -1306,9 +1428,9 @@ impl SessionManager {
         for endpoint_url in broken {
             if let Some(mut session) = session_map.remove(&endpoint_url) {
                 session.shutdown();
-                warn!(
-                    "evicted session after settings sync failure, peer = {}",
-                    endpoint_url
+                info!(
+                    "Remove client session, clientId={}, endpoints={}",
+                    self.client_id, endpoint_url
                 );
             }
         }
@@ -1336,8 +1458,19 @@ impl SessionManager {
             .collect();
         for url in stale {
             if let Some(mut session) = session_map.remove(&url) {
+                let idle_duration = session.idle_duration();
                 session.shutdown();
-                info!("evicted stale session for endpoint {}", url);
+                if idle_duration > SESSION_MAX_IDLE_DURATION {
+                    info!(
+                        "Rpc client has been idle for a long time, endpoints={}, idleDuration={:?}, rpcClientMaxIdleDuration={:?}, clientId={}",
+                        url, idle_duration, SESSION_MAX_IDLE_DURATION, self.client_id
+                    );
+                } else {
+                    info!(
+                        "Remove client session, clientId={}, endpoints={}",
+                        self.client_id, url
+                    );
+                }
             }
         }
     }
@@ -1382,6 +1515,7 @@ pub(crate) mod tests {
             route_table: Arc::new(Mutex::new(HashMap::new())),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
             namespace: "".to_string(),
+            client_id: "test_client".to_string(),
         }
     }
 

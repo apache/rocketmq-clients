@@ -41,7 +41,7 @@ use mockall_double::double;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 #[double]
 use crate::client::Client;
@@ -53,7 +53,7 @@ use crate::model::message::MessageView;
 use crate::model::offset_option::OffsetOption;
 use crate::pb;
 use crate::simple_consumer::SimpleConsumer;
-use crate::util::build_lite_simple_consumer_settings;
+use crate::util::{build_lite_simple_consumer_settings, log_ignored_command};
 
 const OPERATION_NEW_LITE_SIMPLE_CONSUMER: &str = "lite_simple_consumer.new";
 const OPERATION_LITE_SIMPLE_CONSUMER_RECEIVE: &str = "lite_simple_consumer.receive";
@@ -174,41 +174,16 @@ impl LiteSimpleConsumer {
     /// Reference Java: `LiteSimpleConsumerImpl#startUp()`
     pub async fn start(&mut self) -> Result<(), ClientError> {
         let client_id = self.lite_client.client_id().to_string();
-        info!(
-            "Begin to start the LiteSimpleConsumer, bindTopic={}, clientId={}",
-            self.bind_topic, client_id
-        );
-
         // Step 1: pre-fetch the route of the bind topic.
-        match self.lite_client.topic_route(&self.bind_topic, false).await {
-            Ok(route) => {
-                info!(
-                    "Pre-fetched route for bindTopic={}, message_queues={}",
-                    self.bind_topic,
-                    route.queue.len()
-                );
-            }
-            Err(e) => {
-                warn!(
-                    "Failed to pre-fetch route for bindTopic={}, error={:?}. Will retry later.",
-                    self.bind_topic, e
-                );
-            }
-        }
+        // The route fetch is logged by the route manager.
+        let _ = self.lite_client.topic_route(&self.bind_topic, false).await;
 
         // Step 2: start the underlying simple consumer (reference Java: super.startUp())
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
+        // The startup and its failure are logged by the inner simple consumer, like Java's
+        // `SimpleConsumerImpl#startUp`.
         if let Err(e) = self.inner.start_with_telemetry(telemetry_command_tx).await {
-            error!(
-                "Failed to start LiteSimpleConsumer inner, bindTopic={}, clientId={}, error={:?}",
-                self.bind_topic, client_id, e
-            );
-            if let Err(shutdown_err) = self.shutdown().await {
-                error!(
-                    "Failed to shutdown after start failure, clientId={}, error={:?}",
-                    client_id, shutdown_err
-                );
-            }
+            let _ = self.shutdown().await;
             return Err(ClientError::new(
                 ErrorKind::ClientInternal,
                 &format!("startUp err={:?}", e),
@@ -218,16 +193,14 @@ impl LiteSimpleConsumer {
 
         // Step 3: start the lite subscription manager (reference Java: liteSubscriptionManager.startUp())
         if let Err(e) = self.lite_subscription_manager.start().await {
+            // Reference Java: SimpleConsumerImpl#startUp.
             error!(
-                "Failed to start LiteSubscriptionManager, bindTopic={}, clientId={}, error={:?}",
-                self.bind_topic, client_id, e
+                "Failed to start the rocketmq {}, try to shutdown it, clientId={}, error={}",
+                ClientType::LiteSimpleConsumer,
+                client_id,
+                e
             );
-            if let Err(shutdown_err) = self.shutdown().await {
-                error!(
-                    "Failed to shutdown after start failure, clientId={}, error={:?}",
-                    client_id, shutdown_err
-                );
-            }
+            let _ = self.shutdown().await;
             return Err(ClientError::new(
                 ErrorKind::ClientInternal,
                 &format!("startUp err={:?}", e),
@@ -251,26 +224,13 @@ impl LiteSimpleConsumer {
                     command = telemetry_command_rx.recv() => {
                         match command {
                             Some(pb::telemetry_command::Command::NotifyUnsubscribeLiteCommand(ref cmd)) => {
-                                info!(
-                                    "Received unsubscribe notification for lite topic: {}, clientId={}",
-                                    cmd.lite_topic, client_id_clone
-                                );
                                 manager.on_notify_unsubscribe_lite_command(cmd.lite_topic.clone());
                             }
                             Some(pb::telemetry_command::Command::Settings(ref settings_cmd)) => {
-                                debug!(
-                                    "Received settings update from server, clientId={}",
-                                    client_id_clone
-                                );
                                 manager.sync_settings(settings_cmd);
                             }
-                            other => {
-                                debug!(
-                                    "Command {:?} cannot be handled in lite simple consumer, clientId={}",
-                                    other.is_some(),
-                                    client_id_clone
-                                );
-                            }
+                            Some(command) => log_ignored_command(&command, &client_id_clone),
+                            None => break,
                         }
                     }
                     _ = shutdown_token.cancelled() => {
@@ -278,18 +238,11 @@ impl LiteSimpleConsumer {
                     }
                 }
             }
-            info!(
+            debug!(
                 "LiteSimpleConsumer telemetry handler stopped, clientId={}",
                 client_id_clone
             );
         });
-
-        info!(
-            "The LiteSimpleConsumer starts successfully, bindTopic={}, consumerGroup={}, clientId={}",
-            self.bind_topic,
-            self.get_consumer_group(),
-            client_id
-        );
 
         // Step 5: wait (bounded) until the telemetry handler applied the server's initial
         // `Settings`, so that a `subscribe_lite` right after `start()` validates the lite topic
@@ -420,8 +373,6 @@ impl LiteSimpleConsumerTrait for LiteSimpleConsumer {
 
     /// Shutdown the consumer
     async fn shutdown(&mut self) -> Result<(), ClientError> {
-        info!("Shutting down LiteSimpleConsumer...");
-
         // Stop the periodic-sync scheduler first. It retains an `Arc<Client>` and the
         // subscription set; if it kept running, its next tick would call
         // `Client::get_session_for_lite_consumer()` — which deliberately bypasses the
@@ -438,9 +389,8 @@ impl LiteSimpleConsumerTrait for LiteSimpleConsumer {
             tracker.wait().await;
         }
 
+        // Logged by the inner simple consumer, like Java's `SimpleConsumerImpl#shutDown`.
         self.inner.shutdown_ref().await?;
-
-        info!("LiteSimpleConsumer shutdown successfully");
         Ok(())
     }
 }

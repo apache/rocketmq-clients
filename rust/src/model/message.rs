@@ -463,23 +463,19 @@ fn decode_body(
                 corrupted |= hex::encode_upper(sha1.as_ref()) != digest.checksum;
             }
             _ => error!(
-                "Unsupported message body digest algorithm, digest_type={}, topic={}, message_id={}",
+                "Unsupported message body digest algorithm, digestType={}, topic={}, messageId={}",
                 digest.r#type, topic, message_id
             ),
         }
     }
-    if corrupted {
-        error!(
-            "Message body digest mismatch, topic={}, message_id={}",
-            topic, message_id
-        );
-    }
+    // A digest mismatch is not logged here, like Java's `MessageViewImpl#fromProtobuf`: the
+    // consume service logs the corrupted message when it discards it.
     match pb::Encoding::from_i32(system_properties.body_encoding) {
         Some(pb::Encoding::Gzip) => match decompress(&body) {
             Ok(decompressed) => (decompressed, corrupted),
             Err(e) => {
                 error!(
-                    "Failed to uncompress message body, topic={}, message_id={}, error={}",
+                    "Failed to uncompress message body, topic={}, messageId={}, error={}",
                     topic, message_id, e
                 );
                 (body, true)
@@ -488,7 +484,7 @@ fn decode_body(
         Some(pb::Encoding::Identity) => (body, corrupted),
         _ => {
             error!(
-                "Unsupported message encoding algorithm, topic={}, message_id={}, body_encoding={}",
+                "Unsupported message encoding algorithm, topic={}, messageId={}, bodyEncoding={}",
                 topic, message_id, system_properties.body_encoding
             );
             (body, corrupted)

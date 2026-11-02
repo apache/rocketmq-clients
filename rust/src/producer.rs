@@ -24,7 +24,7 @@ use parking_lot::RwLock;
 use prost_types::Timestamp;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 #[double]
 use crate::client::Client;
@@ -45,7 +45,7 @@ use crate::pb::{
 use crate::session::RPCClient;
 use crate::util::{
     build_endpoints_by_message_queue, build_producer_settings, handle_response_status,
-    select_message_queue, select_message_queue_by_message_group, HOST_NAME,
+    log_ignored_command, select_message_queue, select_message_queue_by_message_group, HOST_NAME,
 };
 
 /// [`Producer`] is the core struct, to which application developers should turn, when publishing messages to RocketMQ proxy.
@@ -137,6 +137,26 @@ impl Producer {
 
     /// Start the producer
     pub async fn start(&mut self) -> Result<(), ClientError> {
+        let client_id = self.client.client_id().to_string();
+        info!(
+            "Begin to start the rocketmq producer, clientId={}",
+            client_id
+        );
+        if let Err(error) = self.start_inner().await {
+            error!(
+                "Failed to start the rocketmq producer, try to shutdown it, clientId={}, error={}",
+                client_id, error
+            );
+            return Err(error);
+        }
+        info!(
+            "The rocketmq producer starts successfully, clientId={}",
+            client_id
+        );
+        Ok(())
+    }
+
+    async fn start_inner(&mut self) -> Result<(), ClientError> {
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
         let telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command> =
             telemetry_command_tx;
@@ -157,7 +177,6 @@ impl Producer {
         let endpoints = self.client.get_endpoints();
         let producer_option = Arc::clone(&self.option);
         let client_id = self.client.client_id().to_string();
-        let task_client_id = client_id.clone();
         tokio::spawn(async move {
             loop {
                 select! {
@@ -165,30 +184,20 @@ impl Producer {
                         if let Some(command) = command {
                             match command {
                                 RecoverOrphanedTransactionCommand(command) => {
-                                    let result = Self::handle_recover_orphaned_transaction_command(
+                                    // Every failure is logged inside, like Java's
+                                    // ProducerImpl#onRecoverOrphanedTransactionCommand.
+                                    let _ = Self::handle_recover_orphaned_transaction_command(
                                             rpc_client.shadow_session(),
                                             command,
                                             &transaction_checker,
-                                            endpoints.clone()).await;
-                                    if let Err(error) = result {
-                                        error!(
-                                            "Exception raised while checking the transaction, clientId={}, error={:?}",
-                                            task_client_id, error
-                                        );
-                                    };
+                                            endpoints.clone(),
+                                            &client_id).await;
                                 }
                                 Settings(command) => {
-                                    // Reference Java: ClientImpl#onSettingsCommand applies the
-                                    // settings silently; the session already logs the receipt.
                                     let option = &mut producer_option.write();
-                                    Self::handle_settings_command(command, option);
+                                    Self::handle_settings_command(command, option, &client_id);
                                 }
-                                _ => {
-                                    warn!(
-                                        "Ignore unexpected command from remote, clientId={}, command={:?}",
-                                        task_client_id, command
-                                    );
-                                }
+                                _ => log_ignored_command(&command, &client_id),
                             }
                         }
                     }
@@ -198,10 +207,6 @@ impl Producer {
                 }
             }
         });
-        info!(
-            "The rocketmq producer starts successfully, clientId={}",
-            client_id
-        );
         Ok(())
     }
 
@@ -210,66 +215,82 @@ impl Producer {
         command: pb::RecoverOrphanedTransactionCommand,
         transaction_checker: &Option<Box<TransactionChecker>>,
         endpoints: Endpoints,
+        client_id: &str,
     ) -> Result<(), ClientError> {
         let transaction_id = command.transaction_id;
-        let message = command.message.clone().ok_or_else(|| {
-            ClientError::new(
-                ErrorKind::InvalidMessage,
-                "no message in command",
-                Self::OPERATION_END_TRANSACTION,
-            )
-        })?;
-        let message_id = message
-            .system_properties
+        let message_id = command
+            .message
             .as_ref()
+            .and_then(|message| message.system_properties.as_ref())
             .map(|props| props.message_id.clone())
-            .ok_or_else(|| {
-                ClientError::new(
-                    ErrorKind::InvalidMessage,
-                    "no message id exists",
-                    Self::OPERATION_END_TRANSACTION,
-                )
-            })?;
-        let topic = message.topic.clone().ok_or_else(|| {
-            ClientError::new(
-                ErrorKind::InvalidMessage,
-                "no topic exists in message",
-                Self::OPERATION_END_TRANSACTION,
-            )
-        })?;
-        if let Some(transaction_checker) = transaction_checker {
-            let resolution = transaction_checker(
-                transaction_id.clone(),
-                MessageView::from_pb_message(message, endpoints).ok_or(ClientError::new(
-                    ErrorKind::InvalidMessage,
-                    "error parsing from pb",
-                    Self::OPERATION_END_TRANSACTION,
-                ))?,
+            .unwrap_or_default();
+        let Some(transaction_checker) = transaction_checker else {
+            error!(
+                "No transaction checker registered, ignore it, messageId={}, transactionId={}, endpoints={}, clientId={}",
+                message_id, transaction_id, endpoints.endpoint_url(), client_id
             );
+            return Err(ClientError::new(
+                ErrorKind::Config,
+                "failed to get transaction checker",
+                Self::OPERATION_END_TRANSACTION,
+            ));
+        };
+        let decoded = command.message.and_then(|message| {
+            let topic = message.topic.clone()?;
+            message.system_properties.as_ref()?;
+            let view = MessageView::from_pb_message(message, endpoints.clone())?;
+            Some((topic, view))
+        });
+        let Some((topic, message_view)) = decoded else {
+            error!(
+                "[Bug] Failed to decode message during orphaned transaction message recovery, messageId={}, transactionId={}, endpoints={}, clientId={}",
+                message_id, transaction_id, endpoints.endpoint_url(), client_id
+            );
+            return Err(ClientError::new(
+                ErrorKind::InvalidMessage,
+                "error parsing from pb",
+                Self::OPERATION_END_TRANSACTION,
+            ));
+        };
+        let resolution = transaction_checker(transaction_id.clone(), message_view);
+        let result = async {
             let response = rpc_client
                 .end_transaction(EndTransactionRequest {
                     topic: Some(topic),
-                    message_id,
-                    transaction_id,
+                    message_id: message_id.clone(),
+                    transaction_id: transaction_id.clone(),
                     resolution: resolution as i32,
                     source: TransactionSource::SourceServerCheck as i32,
                     trace_context: "".to_string(),
                 })
                 .await?;
             handle_response_status(response.status, Self::OPERATION_END_TRANSACTION)
-        } else {
-            Err(ClientError::new(
-                ErrorKind::Config,
-                "failed to get transaction checker",
-                Self::OPERATION_END_TRANSACTION,
-            ))
         }
+        .await;
+        if let Err(error) = &result {
+            error!(
+                "Exception raised while ending the transaction, messageId={}, transactionId={}, endpoints={}, clientId={}, error={}",
+                message_id, transaction_id, endpoints.endpoint_url(), client_id, error
+            );
+        }
+        result
     }
 
-    fn handle_settings_command(settings: pb::Settings, option: &mut ProducerOption) {
-        if let Some(PubSub::Publishing(publishing)) = settings.pub_sub {
-            option.set_validate_message_type(publishing.validate_message_type);
-        };
+    fn handle_settings_command(
+        settings: pb::Settings,
+        option: &mut ProducerOption,
+        client_id: &str,
+    ) {
+        match settings.pub_sub {
+            Some(PubSub::Publishing(publishing)) => {
+                option.set_validate_message_type(publishing.validate_message_type);
+            }
+            // Reference Java: PublishingSettings#sync.
+            pub_sub => error!(
+                "[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={:?}, clientType=PRODUCER",
+                client_id, pub_sub
+            ),
+        }
     }
 
     async fn transform_messages_to_protobuf(
@@ -486,7 +507,27 @@ impl Producer {
         }
 
         let message_count = pb_messages.len();
-        let receipts = self.client.send_message(&endpoints, pb_messages).await?;
+        let message_ids: Vec<String> = pb_messages
+            .iter()
+            .filter_map(|message| message.system_properties.as_ref())
+            .map(|props| props.message_id.clone())
+            .collect();
+        let receipts = match self.client.send_message(&endpoints, pb_messages).await {
+            Ok(receipts) => receipts,
+            Err(error) => {
+                // Reference Java: ProducerImpl#send0. This client does not retry, so the
+                // first attempt is the last one.
+                error!(
+                    "Failed to send message(s) finally, run out of attempt times, maxAttempts=1, attempt=1, topic={}, messageId(s)={:?}, endpoints={}, clientId={}, error={}",
+                    topic,
+                    message_ids,
+                    endpoints.endpoint_url(),
+                    self.client.client_id(),
+                    error
+                );
+                return Err(error);
+            }
+        };
         // Reference Java: ProducerImpl#send0 fails the send when the receipt quantity differs
         // from the message quantity.
         if receipts.len() != message_count {
@@ -538,10 +579,20 @@ impl Producer {
     }
 
     pub async fn shutdown(mut self) -> Result<(), ClientError> {
+        let client_id = self.client.client_id().to_string();
+        info!(
+            "Begin to shutdown the rocketmq producer, clientId={}",
+            client_id
+        );
         if let Some(tx) = self.shutdown_tx.take() {
             let _ = tx.send(());
         }
-        self.client.shutdown().await
+        self.client.shutdown().await?;
+        info!(
+            "Shutdown the rocketmq producer successfully, clientId={}",
+            client_id
+        );
+        Ok(())
     }
 
     /// Recall a scheduled/delayed message before it is delivered.
@@ -734,6 +785,10 @@ mod tests {
         producer.start().await?;
         assert!(logs.contains(
             "INFO",
+            "Begin to start the rocketmq producer, clientId=fake_id"
+        ));
+        assert!(logs.contains(
+            "INFO",
             "The rocketmq producer starts successfully, clientId=fake_id"
         ));
 
@@ -746,6 +801,10 @@ mod tests {
             .await
             .unwrap();
         command_tx
+            .send(Settings(pb::Settings::default()))
+            .await
+            .unwrap();
+        command_tx
             .send(pb::telemetry_command::Command::VerifyMessageCommand(
                 pb::VerifyMessageCommand::default(),
             ))
@@ -753,13 +812,18 @@ mod tests {
             .unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
+        assert!(logs.contains(
+            "ERROR",
+            "[Bug] Issued settings not match with the client type, clientId=fake_id"
+        ));
+
         assert!(
             !logs.contains("INFO", "setting"),
             "applying settings must not log at INFO"
         );
         assert!(logs.contains(
             "WARN",
-            "Ignore unexpected command from remote, clientId=fake_id"
+            "Ignore verify message command from remote, which is not expected, clientId=fake_id"
         ));
         Ok(())
     }
@@ -1024,9 +1088,66 @@ mod tests {
             },
             &Some(Box::new(|_, _| TransactionResolution::COMMIT)),
             Endpoints::from_url("localhost:8081").unwrap(),
+            "fake_id",
         )
         .await;
         assert!(result.is_ok())
+    }
+
+    /// Reference Java: `ProducerImpl#onRecoverOrphanedTransactionCommand` logs each failure.
+    #[tokio::test]
+    async fn recover_orphaned_transaction_logs_failures_like_java() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let command = || pb::RecoverOrphanedTransactionCommand {
+            message: Some(pb::Message {
+                topic: Some(Resource::default()),
+                user_properties: Default::default(),
+                system_properties: Some(SystemProperties {
+                    message_id: "msg_id".to_string(),
+                    ..SystemProperties::default()
+                }),
+                body: vec![],
+            }),
+            transaction_id: "tx_id".to_string(),
+        };
+        let endpoints = Endpoints::from_url("localhost:8081").unwrap();
+
+        let result = Producer::handle_recover_orphaned_transaction_command(
+            MockRPCClient::new(),
+            command(),
+            &None,
+            endpoints.clone(),
+            "fake_id",
+        )
+        .await;
+        assert!(result.is_err());
+        assert!(logs.contains(
+            "ERROR",
+            "No transaction checker registered, ignore it, messageId=msg_id, transactionId=tx_id, endpoints=localhost:8081, clientId=fake_id"
+        ));
+
+        let mut mock = MockRPCClient::new();
+        mock.expect_end_transaction().return_once(|_| {
+            Box::pin(futures::future::ready(Ok(EndTransactionResponse {
+                status: Some(Status {
+                    code: Code::InternalServerError as i32,
+                    message: "boom".to_string(),
+                }),
+            })))
+        });
+        let result = Producer::handle_recover_orphaned_transaction_command(
+            mock,
+            command(),
+            &Some(Box::new(|_, _| TransactionResolution::COMMIT)),
+            endpoints,
+            "fake_id",
+        )
+        .await;
+        assert!(result.is_err());
+        assert!(logs.contains(
+            "ERROR",
+            "Exception raised while ending the transaction, messageId=msg_id, transactionId=tx_id, endpoints=localhost:8081, clientId=fake_id"
+        ));
     }
 
     fn new_route_accepting(message_type: MessageType) -> Arc<Route> {
@@ -1134,6 +1255,44 @@ mod tests {
         let receipt = producer.send(new_lite_message("lite_topic")).await?;
         assert_eq!(receipt.message_id(), "message_id");
         Ok(())
+    }
+
+    /// Reference Java: `ProducerImpl#send0` logs a send that failed for good.
+    #[tokio::test]
+    async fn producer_send_failure_is_logged_like_java() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let mut producer = new_producer_for_test();
+        producer
+            .client
+            .expect_topic_route()
+            .returning(|_, _| Ok(new_route_accepting(MessageType::NORMAL)));
+        producer
+            .client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
+        producer.client.expect_send_message().returning(|_, _| {
+            Err(ClientError::new(
+                ErrorKind::Server,
+                "server return an error",
+                "client.send_message",
+            ))
+        });
+
+        let result = producer
+            .send(
+                MessageBuilder::builder()
+                    .set_topic("test_topic")
+                    .set_body(b"body".to_vec())
+                    .build()
+                    .unwrap(),
+            )
+            .await;
+        assert!(result.is_err());
+        assert!(logs.contains(
+            "ERROR",
+            "Failed to send message(s) finally, run out of attempt times, maxAttempts=1, attempt=1, topic=test_topic"
+        ));
+        assert!(logs.contains("ERROR", "clientId=fake_id"));
     }
 
     #[tokio::test]
