@@ -22,7 +22,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::select;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Semaphore};
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
@@ -58,6 +58,16 @@ const OPERATION_FORWARD_TO_DEADLETTER_QUEUE: &str = "push_consumer.forward_to_de
 // Reference Java: ProcessQueueImpl.RECEIVING_FLOW_CONTROL_BACKOFF_DELAY / RECEIVING_FAILURE_BACKOFF_DELAY
 const RECEIVING_FLOW_CONTROL_BACKOFF_DELAY: Duration = Duration::from_millis(20);
 const RECEIVING_FAILURE_BACKOFF_DELAY: Duration = Duration::from_secs(1);
+
+/// Maximum number of acks / nacks an [`AckEntryProcessor`] sends concurrently in the background.
+///
+/// Once reached, the consumer worker waits before handing over the next one, so that a slow
+/// server slows consumption down instead of piling up requests. Twice the default receive batch
+/// size, so that a whole batch can be acked while the next one is consumed.
+const MAX_IN_FLIGHT_ACKS: usize = 64;
+
+/// Longest a standard consumer worker consumes messages without yielding the runtime thread.
+const MAX_CONSUME_WITHOUT_YIELD: Duration = Duration::from_millis(1);
 
 /// Delay before the next receive attempt after a failure.
 fn receive_failure_backoff_delay(error: &ClientError) -> Duration {
@@ -899,6 +909,7 @@ impl StandardConsumerWorker {
             option,
         )
         .await?;
+        let mut last_yield = std::time::Instant::now();
         for message in messages {
             // Reference Java: `StandardConsumeService#consume` nacks a corrupted message
             // instead of passing it to the listener.
@@ -910,21 +921,31 @@ impl StandardConsumerWorker {
                 );
                 let delay = retry_policy.get_next_attempt_delay(message.delivery_attempt());
                 ack_processor
-                    .change_invisible_duration(message, delay)
+                    .change_invisible_duration_in_background(message, delay)
                     .await;
                 continue;
             }
             let consume_result = consume_message(&self.message_listener, &message);
+            // Do not wait for the ack round trip before consuming the next message. Reference
+            // Java: ProcessQueueImpl#eraseMessage acks asynchronously.
             match consume_result {
                 ConsumeResult::SUCCESS => {
-                    ack_processor.ack_message(message).await;
+                    ack_processor.ack_message_in_background(message).await;
                 }
                 ConsumeResult::FAILURE => {
                     let delay = retry_policy.get_next_attempt_delay(message.delivery_attempt());
                     ack_processor
-                        .change_invisible_duration(message, delay)
+                        .change_invisible_duration_in_background(message, delay)
                         .await;
                 }
+            }
+            // Handing the ack over usually completes without waiting, so nothing else would let
+            // the other tasks of this runtime thread run until the whole batch is consumed. Only
+            // yield once the worker has held the thread for a while: yielding forces a poll of
+            // the I/O driver, which is too expensive to pay for every message.
+            if last_yield.elapsed() >= MAX_CONSUME_WITHOUT_YIELD {
+                tokio::task::yield_now().await;
+                last_yield = std::time::Instant::now();
             }
         }
 
@@ -1107,6 +1128,9 @@ struct AckEntryProcessor {
     ack_entry_sender: Option<mpsc::Sender<AckEntryItem>>,
     shutdown_token: Option<CancellationToken>,
     task_tracker: Option<TaskTracker>,
+    /// Acks / nacks sent in the background, see [`Self::ack_message_in_background`].
+    in_flight: TaskTracker,
+    in_flight_permits: Arc<Semaphore>,
 }
 
 impl AckEntryProcessor {
@@ -1124,6 +1148,8 @@ impl AckEntryProcessor {
             ack_entry_sender: None,
             shutdown_token: None,
             task_tracker: None,
+            in_flight: TaskTracker::new(),
+            in_flight_permits: Arc::new(Semaphore::new(MAX_IN_FLIGHT_ACKS)),
         }
     }
 
@@ -1136,7 +1162,59 @@ impl AckEntryProcessor {
             ack_entry_sender: None,
             shutdown_token: None,
             task_tracker: None,
+            in_flight: TaskTracker::new(),
+            in_flight_permits: Arc::new(Semaphore::new(MAX_IN_FLIGHT_ACKS)),
         }
+    }
+
+    /// A copy that sends requests on its own session and hands failed entries over to the
+    /// retry queue of `self`.
+    fn background_self(&self) -> Self {
+        let mut processor = self.shadow_self();
+        processor.ack_entry_sender = self.ack_entry_sender.clone();
+        processor
+    }
+
+    /// Run `request` on a copy of this processor in the background.
+    ///
+    /// Waits while [`MAX_IN_FLIGHT_ACKS`] requests are already in flight. [`Self::shutdown`]
+    /// waits for every background request before it stops the retry queue.
+    async fn spawn_in_background<F, Fut>(&self, request: F)
+    where
+        F: FnOnce(Self) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+    {
+        let permit = Arc::clone(&self.in_flight_permits)
+            .acquire_owned()
+            .await
+            .expect("the in-flight semaphore is never closed");
+        let processor = self.background_self();
+        self.in_flight.spawn(async move {
+            request(processor).await;
+            drop(permit);
+        });
+    }
+
+    /// Ack `message` without waiting for the server to answer.
+    async fn ack_message_in_background(&self, message: MessageView) {
+        self.spawn_in_background(|mut processor| async move {
+            processor.ack_message(message).await;
+        })
+        .await;
+    }
+
+    /// Change the invisible duration of `message` without waiting for the server to answer.
+    async fn change_invisible_duration_in_background(
+        &self,
+        message: MessageView,
+        invisible_duration: Duration,
+    ) {
+        self.spawn_in_background(move |mut processor| async move {
+            processor
+                .change_invisible_duration(message, invisible_duration)
+                .await;
+        })
+        .await;
     }
 
     async fn ack_message(&mut self, message: MessageView) {
@@ -1373,6 +1451,10 @@ impl AckEntryProcessor {
     }
 
     async fn shutdown(mut self) {
+        // Background requests may still hand failed entries over to the retry queue, so wait
+        // for them before the retry queue is flushed and stopped.
+        self.in_flight.close();
+        self.in_flight.wait().await;
         if let Some(shutdown_token) = self.shutdown_token.take() {
             shutdown_token.cancel();
         }
@@ -1957,6 +2039,193 @@ mod tests {
         }
     }
 
+    fn ok_ack_response() -> Result<AckMessageResponse, ClientError> {
+        Ok(AckMessageResponse {
+            status: Some(Status {
+                code: Code::Ok as i32,
+                message: "".to_string(),
+            }),
+            entries: vec![],
+        })
+    }
+
+    /// Acks and nacks sent by an [`AckEntryProcessor`], on any of its sessions.
+    #[derive(Default)]
+    struct RecordedRequests {
+        acks: Vec<AckMessageRequest>,
+        nacks: Vec<ChangeInvisibleDurationRequest>,
+    }
+
+    /// A session, and every shadow of it, that records the acks and nacks it sends.
+    ///
+    /// The worker sends them on shadows of the processor session in background tasks. A failed
+    /// mock expectation would only panic such a task, so tests assert on the recorded requests
+    /// instead.
+    fn recording_session(recorded: Arc<Mutex<RecordedRequests>>) -> Session {
+        let mut session = Session::default();
+        let acks = Arc::clone(&recorded);
+        session.expect_ack_message().returning(move |request| {
+            acks.lock().acks.push(request);
+            ok_ack_response()
+        });
+        let nacks = Arc::clone(&recorded);
+        session
+            .expect_change_invisible_duration()
+            .returning(move |request| {
+                nacks.lock().nacks.push(request);
+                Ok(ChangeInvisibleDurationResponse {
+                    status: Some(Status {
+                        code: Code::Ok as i32,
+                        message: "".to_string(),
+                    }),
+                    receipt_handle: "".to_string(),
+                })
+            });
+        session
+            .expect_shadow_session()
+            .returning(move || recording_session(Arc::clone(&recorded)));
+        session
+    }
+
+    /// A session, and every shadow of it, whose acks take `rtt` and are counted in `acked`.
+    fn new_session_with_slow_ack(rtt: Duration, acked: Arc<AtomicUsize>) -> Session {
+        let mut session = Session::default();
+        let counter = Arc::clone(&acked);
+        session.expect_ack_message().returning(move |_| {
+            std::thread::sleep(rtt);
+            counter.fetch_add(1, Ordering::SeqCst);
+            ok_ack_response()
+        });
+        session
+            .expect_shadow_session()
+            .returning(move || new_session_with_slow_ack(rtt, Arc::clone(&acked)));
+        session
+    }
+
+    // Reference Java: StandardConsumeService consumes every message on its own and
+    // ProcessQueueImpl#eraseMessage acks it asynchronously, so the ack round trip of one message
+    // does not delay the consumption of the next one.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_standard_consume_does_not_wait_for_ack_round_trip() {
+        const MESSAGES: usize = 10;
+        const ACK_RTT: Duration = Duration::from_millis(50);
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok((0..MESSAGES)
+                .map(|_| ReceiveMessageResponse {
+                    content: Some(Content::Message(new_message())),
+                })
+                .collect())
+        });
+        let consumed = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&consumed);
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(move |_| {
+                counter.fetch_add(1, Ordering::SeqCst);
+                ConsumeResult::SUCCESS
+            })),
+        );
+        let acked = Arc::new(AtomicUsize::new(0));
+        let session = new_session_with_slow_ack(ACK_RTT, Arc::clone(&acked));
+        let (consumer_group, topic) = new_test_resources();
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        ack_processor.start().await.unwrap();
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+
+        let started = std::time::Instant::now();
+        ConsumerWorker::Standard(consumer_worker)
+            .receive_messages(
+                &new_message_queue(),
+                &FilterExpression::sub_all(),
+                &option,
+                &mut ack_processor,
+                &retry_policy,
+            )
+            .await
+            .unwrap();
+        let elapsed = started.elapsed();
+        assert_eq!(MESSAGES, consumed.load(Ordering::SeqCst));
+        assert!(
+            elapsed < ACK_RTT * 3,
+            "consuming {} messages took {:?}, the worker waited for every ack round trip of {:?}",
+            MESSAGES,
+            elapsed,
+            ACK_RTT
+        );
+        // Every ack is still sent before the processor finishes shutting down.
+        ack_processor.shutdown().await;
+        assert_eq!(MESSAGES, acked.load(Ordering::SeqCst));
+    }
+
+    // Without the ack round trip the worker never waits on the network. It must still yield
+    // between messages, otherwise a slow listener holds the runtime thread for a whole batch.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_standard_consume_yields_between_messages() {
+        const MESSAGES: usize = 64;
+        const BLOCK: Duration = Duration::from_millis(5);
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok((0..MESSAGES)
+                .map(|_| ReceiveMessageResponse {
+                    content: Some(Content::Message(new_message())),
+                })
+                .collect())
+        });
+        let entered = Arc::new(AtomicBool::new(false));
+        let in_listener = Arc::clone(&entered);
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            Arc::new(Box::new(move |_| {
+                in_listener.store(true, Ordering::SeqCst);
+                std::thread::sleep(BLOCK);
+                ConsumeResult::SUCCESS
+            })),
+        );
+        let session = new_session_with_slow_ack(Duration::ZERO, Arc::new(AtomicUsize::new(0)));
+        let (consumer_group, topic) = new_test_resources();
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        ack_processor.start().await.unwrap();
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+        let consume = tokio::spawn(async move {
+            let result = ConsumerWorker::Standard(consumer_worker)
+                .receive_messages(
+                    &new_message_queue(),
+                    &FilterExpression::sub_all(),
+                    &option,
+                    &mut ack_processor,
+                    &retry_policy,
+                )
+                .await;
+            ack_processor.shutdown().await;
+            result
+        });
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !entered.load(Ordering::SeqCst) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the listener was not called"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let started = std::time::Instant::now();
+        let latency = tokio::spawn(async move { started.elapsed() })
+            .await
+            .unwrap();
+        assert!(
+            latency < BLOCK * 8,
+            "another task waited {:?}, the worker did not yield between messages",
+            latency
+        );
+        consume.await.unwrap().unwrap();
+    }
+
     fn new_message() -> pb::Message {
         pb::Message {
             topic: Some(Resource {
@@ -2482,20 +2751,13 @@ mod tests {
         ));
         let mut option = PushConsumerOption::default();
         option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
-        let mut session = Session::default();
-        session
-            .expect_shadow_session()
-            .returning(|| Session::default());
-        session.expect_ack_message().times(1).returning(|_| {
-            Ok(AckMessageResponse {
-                status: Some(Status {
-                    code: Code::Ok as i32,
-                    message: "".to_string(),
-                }),
-                entries: vec![],
-            })
-        });
-        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let requests = Arc::new(Mutex::new(RecordedRequests::default()));
+        let mut ack_processor = AckEntryProcessor::new(
+            recording_session(Arc::clone(&requests)),
+            consumer_group,
+            topic,
+            false,
+        );
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
         let result = ConsumerWorker::Standard(consumer_worker)
@@ -2508,6 +2770,11 @@ mod tests {
             )
             .await;
         assert!(result.is_ok(), "{:?}", result);
+        // Wait for the background requests before checking them.
+        ack_processor.shutdown().await;
+        let requests = requests.lock();
+        assert_eq!(1, requests.acks.len(), "acks");
+        assert_eq!(0, requests.nacks.len(), "nacks");
     }
 
     #[test]
@@ -2561,19 +2828,9 @@ mod tests {
         option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "tagA"));
         let retry_policy =
             &BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
-        let mut session = Session::default();
-        session.expect_shadow_session().returning(Session::default);
-        session.expect_ack_message().times(1).returning(|_| {
-            Ok(AckMessageResponse {
-                status: Some(Status {
-                    code: Code::Ok as i32,
-                    message: "".to_string(),
-                }),
-                entries: vec![],
-            })
-        });
+        let requests = Arc::new(Mutex::new(RecordedRequests::default()));
         let mut ack_processor = AckEntryProcessor::new(
-            session,
+            recording_session(Arc::clone(&requests)),
             option.get_consumer_group_resource(),
             message_queue.topic.clone(),
             false,
@@ -2590,6 +2847,9 @@ mod tests {
             .await;
         assert!(result.is_ok(), "{:?}", result);
         ack_processor.shutdown().await;
+        let requests = requests.lock();
+        assert_eq!(1, requests.acks.len(), "acks");
+        assert_eq!(0, requests.nacks.len(), "nacks");
     }
 
     #[tokio::test]
@@ -2620,24 +2880,13 @@ mod tests {
         ));
         let mut option = PushConsumerOption::default();
         option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
-        let mut session = Session::default();
-        session
-            .expect_shadow_session()
-            .returning(|| Session::default());
-        session.expect_ack_message().never();
-        session
-            .expect_change_invisible_duration()
-            .times(1)
-            .returning(|_| {
-                Ok(ChangeInvisibleDurationResponse {
-                    status: Some(Status {
-                        code: Code::Ok as i32,
-                        message: "".to_string(),
-                    }),
-                    receipt_handle: "".to_string(),
-                })
-            });
-        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let requests = Arc::new(Mutex::new(RecordedRequests::default()));
+        let mut ack_processor = AckEntryProcessor::new(
+            recording_session(Arc::clone(&requests)),
+            consumer_group,
+            topic,
+            false,
+        );
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
         let result = ConsumerWorker::Standard(consumer_worker)
@@ -2650,6 +2899,11 @@ mod tests {
             )
             .await;
         assert!(result.is_ok(), "{:?}", result);
+        // Wait for the background requests before checking them.
+        ack_processor.shutdown().await;
+        let requests = requests.lock();
+        assert_eq!(0, requests.acks.len(), "acks");
+        assert_eq!(1, requests.nacks.len(), "nacks");
     }
 
     #[tokio::test]
@@ -2799,24 +3053,13 @@ mod tests {
         ));
         let mut option = PushConsumerOption::default();
         option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
-        let mut session = Session::default();
-        session
-            .expect_shadow_session()
-            .returning(|| Session::default());
-        session.expect_ack_message().never();
-        session
-            .expect_change_invisible_duration()
-            .times(1)
-            .returning(|_| {
-                Ok(ChangeInvisibleDurationResponse {
-                    status: Some(Status {
-                        code: Code::Ok as i32,
-                        message: "".to_string(),
-                    }),
-                    receipt_handle: "".to_string(),
-                })
-            });
-        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let requests = Arc::new(Mutex::new(RecordedRequests::default()));
+        let mut ack_processor = AckEntryProcessor::new(
+            recording_session(Arc::clone(&requests)),
+            consumer_group,
+            topic,
+            false,
+        );
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
         let result = ConsumerWorker::Standard(consumer_worker)
@@ -2829,6 +3072,11 @@ mod tests {
             )
             .await;
         assert!(result.is_ok(), "{:?}", result);
+        // Wait for the background requests before checking them.
+        ack_processor.shutdown().await;
+        let requests = requests.lock();
+        assert_eq!(0, requests.acks.len(), "acks");
+        assert_eq!(1, requests.nacks.len(), "nacks");
     }
 
     #[tokio::test]
@@ -3078,32 +3326,13 @@ mod tests {
         ));
         let mut option = PushConsumerOption::default();
         option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
-        let mut session = Session::default();
-        session
-            .expect_shadow_session()
-            .returning(|| Session::default());
-        session.expect_ack_message().never();
-        session.expect_forward_to_deadletter_queue().never();
-        session
-            .expect_change_invisible_duration()
-            .withf(|request| {
-                request.invisible_duration
-                    == Some(prost_types::Duration {
-                        seconds: 7,
-                        nanos: 0,
-                    })
-            })
-            .times(1)
-            .returning(|_| {
-                Ok(ChangeInvisibleDurationResponse {
-                    status: Some(Status {
-                        code: Code::Ok as i32,
-                        message: "".to_string(),
-                    }),
-                    receipt_handle: "".to_string(),
-                })
-            });
-        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        let requests = Arc::new(Mutex::new(RecordedRequests::default()));
+        let mut ack_processor = AckEntryProcessor::new(
+            recording_session(Arc::clone(&requests)),
+            consumer_group,
+            topic,
+            false,
+        );
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
         let result = ConsumerWorker::Standard(consumer_worker)
@@ -3116,6 +3345,18 @@ mod tests {
             )
             .await;
         assert!(result.is_ok(), "{:?}", result);
+        // Wait for the background requests before checking them.
+        ack_processor.shutdown().await;
+        let requests = requests.lock();
+        assert_eq!(0, requests.acks.len(), "acks");
+        assert_eq!(1, requests.nacks.len(), "nacks");
+        assert_eq!(
+            Some(prost_types::Duration {
+                seconds: 7,
+                nanos: 0,
+            }),
+            requests.nacks[0].invisible_duration
+        );
         assert_eq!(vec![2], *attempts.lock());
     }
 
@@ -3158,23 +3399,9 @@ mod tests {
         ));
         let mut option = PushConsumerOption::default();
         option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
-        let mut session = Session::default();
-        session.expect_shadow_session().returning(Session::default);
-        session.expect_ack_message().never();
-        session
-            .expect_change_invisible_duration()
-            .times(1)
-            .returning(|_| {
-                Ok(ChangeInvisibleDurationResponse {
-                    status: Some(Status {
-                        code: Code::Ok as i32,
-                        message: "".to_string(),
-                    }),
-                    receipt_handle: "".to_string(),
-                })
-            });
+        let requests = Arc::new(Mutex::new(RecordedRequests::default()));
         let mut ack_processor = AckEntryProcessor::new(
-            session,
+            recording_session(Arc::clone(&requests)),
             Resource {
                 name: "test_group".to_string(),
                 resource_namespace: "".to_string(),
@@ -3195,6 +3422,11 @@ mod tests {
             )
             .await;
         assert!(result.is_ok(), "{:?}", result);
+        // Wait for the background requests before checking them.
+        ack_processor.shutdown().await;
+        let requests = requests.lock();
+        assert_eq!(0, requests.acks.len(), "acks");
+        assert_eq!(1, requests.nacks.len(), "nacks");
         assert_eq!(0, listener_calls.load(Ordering::Relaxed));
     }
 
