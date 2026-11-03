@@ -615,9 +615,58 @@ pub(crate) mod test_log {
         }
     }
 
+    /// Global subscriber of the tests: records nothing, and keeps every callsite at
+    /// `Interest::sometimes()`.
+    ///
+    /// `tracing` caches the interest of a callsite when it is first hit. With only scoped
+    /// subscribers, that interest comes from the thread that hits it first: a test thread
+    /// without [`capture`] caches `Interest::never()`, and the callsite is then disabled for
+    /// the capturing test too, which loses its event. Answering `sometimes` here makes every
+    /// event ask the subscriber of its own thread.
+    struct SometimesSubscriber;
+
+    impl tracing::Subscriber for SometimesSubscriber {
+        fn register_callsite(
+            &self,
+            _: &'static tracing::Metadata<'static>,
+        ) -> tracing::subscriber::Interest {
+            tracing::subscriber::Interest::sometimes()
+        }
+
+        fn max_level_hint(&self) -> Option<tracing::level_filters::LevelFilter> {
+            Some(tracing::level_filters::LevelFilter::TRACE)
+        }
+
+        fn enabled(&self, _: &tracing::Metadata<'_>) -> bool {
+            false
+        }
+
+        fn new_span(&self, _: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+            tracing::span::Id::from_u64(1)
+        }
+
+        fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
+
+        fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
+
+        fn event(&self, _: &tracing::Event<'_>) {}
+
+        fn enter(&self, _: &tracing::span::Id) {}
+
+        fn exit(&self, _: &tracing::span::Id) {}
+    }
+
+    static INSTALL_GLOBAL: std::sync::Once = std::sync::Once::new();
+
     /// Capture every event at `DEBUG` or above emitted on the current thread until the
     /// returned guard is dropped. Tasks spawned on a current-thread runtime are captured too.
     pub(crate) fn capture() -> (CapturedLogs, DefaultGuard) {
+        INSTALL_GLOBAL.call_once(|| {
+            tracing::subscriber::set_global_default(SometimesSubscriber)
+                .expect("no other global subscriber is set in the unit tests");
+            // Forget the interest cached before the subscriber was installed.
+            tracing::callsite::rebuild_interest_cache();
+        });
         let logs = CapturedLogs::default();
         let writer = logs.clone();
         let subscriber = tracing_subscriber::fmt()
