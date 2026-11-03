@@ -22,7 +22,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::select;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Semaphore};
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
@@ -103,9 +103,51 @@ fn consume_message(message_listener: &MessageListener, message: &MessageView) ->
     }
 }
 
+/// Runs the message listener of one consumer on the blocking thread pool of the runtime.
+///
+/// The listener is a synchronous callback that may block (database, HTTP, heavy computation).
+/// Running it on an async worker thread would hold up every other task of the runtime: the
+/// heartbeat, the telemetry stream, and the receive requests of every queue. At most
+/// `consumption_thread_count` messages are consumed at the same time, so the consumer uses a
+/// bounded number of the (shared) blocking threads whatever the number of queues. Reference
+/// Java: `PushConsumerImpl` runs the listener on a dedicated executor of
+/// `consumptionThreadCount` threads.
+struct ConsumptionExecutor {
+    message_listener: Arc<MessageListener>,
+    permits: Arc<Semaphore>,
+}
+
+impl ConsumptionExecutor {
+    fn new(message_listener: MessageListener, consumption_thread_count: usize) -> Self {
+        Self {
+            message_listener: Arc::new(message_listener),
+            permits: Arc::new(Semaphore::new(consumption_thread_count)),
+        }
+    }
+
+    /// Consume `message`, waiting while `consumption_thread_count` messages are being consumed.
+    ///
+    /// Returns the message back together with the consume result.
+    async fn consume(&self, message: MessageView) -> (MessageView, ConsumeResult) {
+        let permit = Arc::clone(&self.permits)
+            .acquire_owned()
+            .await
+            .expect("the consumption semaphore is never closed");
+        let message_listener = Arc::clone(&self.message_listener);
+        tokio::task::spawn_blocking(move || {
+            let consume_result = consume_message(&message_listener, &message);
+            drop(permit);
+            (message, consume_result)
+        })
+        .await
+        // `consume_message` catches the panics of the listener, so the blocking task cannot panic.
+        .expect("the consumption task never panics")
+    }
+}
+
 pub struct PushConsumer {
     client: Client,
-    message_listener: Arc<MessageListener>,
+    message_listener: Arc<ConsumptionExecutor>,
     option: Arc<RwLock<PushConsumerOption>>,
     shutdown_token: Option<CancellationToken>,
     task_tracker: Option<TaskTracker>,
@@ -131,6 +173,7 @@ impl PushConsumer {
                 OPERATION_NEW_PUSH_CONSUMER,
             ));
         }
+        Self::check_consumption_thread_count(&option)?;
         let client_option = ClientOption {
             client_type: ClientType::PushConsumer,
             group: Some(option.consumer_group().to_string()),
@@ -139,7 +182,10 @@ impl PushConsumer {
         let client = Client::new(client_option, build_push_consumer_settings(&option))?;
         Ok(Self {
             client,
-            message_listener: Arc::new(message_listener),
+            message_listener: Arc::new(ConsumptionExecutor::new(
+                message_listener,
+                option.consumption_thread_count(),
+            )),
             option: Arc::new(RwLock::new(option)),
             shutdown_token: None,
             task_tracker: None,
@@ -160,13 +206,28 @@ impl PushConsumer {
                 OPERATION_NEW_PUSH_CONSUMER,
             ));
         }
+        Self::check_consumption_thread_count(&option)?;
         Ok(Self {
             client,
-            message_listener: Arc::new(message_listener),
+            message_listener: Arc::new(ConsumptionExecutor::new(
+                message_listener,
+                option.consumption_thread_count(),
+            )),
             option: Arc::new(RwLock::new(option)),
             shutdown_token: None,
             task_tracker: None,
         })
+    }
+
+    fn check_consumption_thread_count(option: &PushConsumerOption) -> Result<(), ClientError> {
+        if option.consumption_thread_count() == 0 {
+            return Err(ClientError::new(
+                ErrorKind::Config,
+                "consumption thread count must be greater than 0.",
+                OPERATION_NEW_PUSH_CONSUMER,
+            ));
+        }
+        Ok(())
     }
 
     /// Check if the PushConsumer is started
@@ -462,7 +523,7 @@ impl PushConsumer {
         rpc_client: &Session,
         option: &PushConsumerOption,
         filter_expression: &FilterExpression,
-        message_listener: Arc<MessageListener>,
+        message_listener: Arc<ConsumptionExecutor>,
         actor_table: &mut HashMap<MessageQueue, MessageQueueActor>,
         mut assignments: Vec<Assignment>,
         retry_policy: BackOffRetryPolicy,
@@ -708,7 +769,7 @@ struct MessageQueueActor {
     // servers may return a decorated name such as "<instance>%<topic>".
     filter_expression: FilterExpression,
     option: PushConsumerOption,
-    message_listener: Arc<MessageListener>,
+    message_listener: Arc<ConsumptionExecutor>,
     retry_policy: BackOffRetryPolicy,
     shutdown_token: Option<CancellationToken>,
     task_tracker: Option<TaskTracker>,
@@ -721,7 +782,7 @@ impl MessageQueueActor {
         message_queue: MessageQueue,
         filter_expression: FilterExpression,
         option: PushConsumerOption,
-        message_listener: Arc<MessageListener>,
+        message_listener: Arc<ConsumptionExecutor>,
         retry_policy: BackOffRetryPolicy,
     ) -> Self {
         Self {
@@ -873,11 +934,11 @@ impl ConsumerWorker {
 
 struct StandardConsumerWorker {
     rpc_client: Session,
-    message_listener: Arc<MessageListener>,
+    message_listener: Arc<ConsumptionExecutor>,
 }
 
 impl StandardConsumerWorker {
-    fn new(rpc_client: Session, message_listener: Arc<MessageListener>) -> Self {
+    fn new(rpc_client: Session, message_listener: Arc<ConsumptionExecutor>) -> Self {
         Self {
             rpc_client,
             message_listener,
@@ -914,7 +975,7 @@ impl StandardConsumerWorker {
                     .await;
                 continue;
             }
-            let consume_result = consume_message(&self.message_listener, &message);
+            let (message, consume_result) = self.message_listener.consume(message).await;
             match consume_result {
                 ConsumeResult::SUCCESS => {
                     ack_processor.ack_message(message).await;
@@ -934,11 +995,11 @@ impl StandardConsumerWorker {
 
 struct FifoConsumerWorker {
     rpc_client: Session,
-    message_listener: Arc<MessageListener>,
+    message_listener: Arc<ConsumptionExecutor>,
 }
 
 impl FifoConsumerWorker {
-    fn new(rpc_client: Session, message_listener: Arc<MessageListener>) -> Self {
+    fn new(rpc_client: Session, message_listener: Arc<ConsumptionExecutor>) -> Self {
         Self {
             rpc_client,
             message_listener,
@@ -1051,7 +1112,7 @@ impl FifoConsumerWorker {
     /// max attempts. Then the message is forwarded to the DLQ with its current delivery attempt.
     async fn consume_message_sequentially_static(
         mut message: MessageView,
-        message_listener: &Arc<MessageListener>,
+        message_listener: &Arc<ConsumptionExecutor>,
         ack_processor: &mut AckEntryProcessor,
         retry_policy: &BackOffRetryPolicy,
     ) {
@@ -1071,7 +1132,8 @@ impl FifoConsumerWorker {
             return;
         }
         loop {
-            let consume_result = consume_message(message_listener, &message);
+            let consume_result;
+            (message, consume_result) = message_listener.consume(message).await;
             match consume_result {
                 ConsumeResult::SUCCESS => {
                     ack_processor.ack_message(message).await;
@@ -1406,6 +1468,14 @@ mod tests {
 
     use super::*;
 
+    /// A consumption executor with the default consumption thread count.
+    fn new_executor(message_listener: MessageListener) -> Arc<ConsumptionExecutor> {
+        Arc::new(ConsumptionExecutor::new(
+            message_listener,
+            PushConsumerOption::default().consumption_thread_count(),
+        ))
+    }
+
     #[test]
     fn test_new_push_consumer() {
         let _m = crate::client::tests::MTX.lock();
@@ -1715,7 +1785,7 @@ mod tests {
     async fn test_process_assignments_invalid_assignment() -> Result<(), ClientError> {
         let rpc_client = Session::default();
         let option = &PushConsumerOption::default();
-        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener = new_executor(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
         let retry_policy =
             BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
@@ -1751,7 +1821,7 @@ mod tests {
     #[tokio::test]
     async fn test_process_assignments() -> Result<(), ClientError> {
         let option = &PushConsumerOption::default();
-        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener = new_executor(Box::new(|_| ConsumeResult::SUCCESS));
 
         let mut rpc_client = Session::default();
 
@@ -1807,7 +1877,7 @@ mod tests {
     #[tokio::test]
     async fn test_process_assignments_two_queues() -> Result<(), ClientError> {
         let option = &PushConsumerOption::default();
-        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener = new_executor(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
         let retry_policy =
             BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
@@ -1904,7 +1974,7 @@ mod tests {
             &session,
             option,
             &FilterExpression::sub_all(),
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            new_executor(Box::new(|_| ConsumeResult::SUCCESS)),
             &mut actor_table,
             assignments2,
             retry_policy,
@@ -1957,6 +2027,140 @@ mod tests {
         }
     }
 
+    // Reference Java: PushConsumerImpl runs the listener on a dedicated consumption executor, so
+    // a blocking listener does not hold up the threads that serve the network and the timers.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_blocking_listener_does_not_starve_the_runtime() {
+        const BLOCK: Duration = Duration::from_millis(300);
+        let mut rpc_client = Session::default();
+        rpc_client.expect_receive_message().returning(|_| {
+            Ok(vec![ReceiveMessageResponse {
+                content: Some(Content::Message(new_message())),
+            }])
+        });
+        let entered = Arc::new(AtomicBool::new(false));
+        let in_listener = Arc::clone(&entered);
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            new_executor(Box::new(move |_| {
+                in_listener.store(true, Ordering::SeqCst);
+                // For example a synchronous database or HTTP call.
+                std::thread::sleep(BLOCK);
+                ConsumeResult::SUCCESS
+            })),
+        );
+        let mut session = Session::default();
+        session.expect_shadow_session().returning(Session::default);
+        session.expect_ack_message().returning(|_| {
+            Ok(AckMessageResponse {
+                status: Some(Status {
+                    code: Code::Ok as i32,
+                    message: "".to_string(),
+                }),
+                entries: vec![],
+            })
+        });
+        let (consumer_group, topic) = new_test_resources();
+        let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
+        ack_processor.start().await.unwrap();
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+        let consume = tokio::spawn(async move {
+            let result = ConsumerWorker::Standard(consumer_worker)
+                .receive_messages(
+                    &new_message_queue(),
+                    &FilterExpression::sub_all(),
+                    &option,
+                    &mut ack_processor,
+                    &retry_policy,
+                )
+                .await;
+            ack_processor.shutdown().await;
+            result
+        });
+        // Wait, without needing the runtime, until the listener is running.
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !entered.load(Ordering::SeqCst) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the listener was not called"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+
+        // Any other task, for example a heartbeat or the receive of another queue.
+        let started = std::time::Instant::now();
+        let latency = tokio::spawn(async move { started.elapsed() })
+            .await
+            .unwrap();
+        assert!(
+            latency < BLOCK / 3,
+            "another task waited {:?} for the blocking listener",
+            latency
+        );
+        consume.await.unwrap().unwrap();
+    }
+
+    // Reference Java: PushConsumerBuilder#setConsumptionThreadCount bounds the threads that run
+    // the listener of one consumer (default 20), whatever the number of queues and workers.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_listener_concurrency_is_bounded_by_consumption_thread_count() {
+        const THREADS: usize = 3;
+        const WORKERS: usize = 8;
+        let running = Arc::new(AtomicUsize::new(0));
+        let max_running = Arc::new(AtomicUsize::new(0));
+        let (now, max) = (Arc::clone(&running), Arc::clone(&max_running));
+        let executor = Arc::new(ConsumptionExecutor::new(
+            Box::new(move |_| {
+                let current = now.fetch_add(1, Ordering::SeqCst) + 1;
+                max.fetch_max(current, Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(20));
+                now.fetch_sub(1, Ordering::SeqCst);
+                ConsumeResult::SUCCESS
+            }),
+            THREADS,
+        ));
+        let mut workers = Vec::new();
+        for _ in 0..WORKERS {
+            let executor = Arc::clone(&executor);
+            workers.push(tokio::spawn(async move {
+                for _ in 0..5 {
+                    let message = MessageView::from_pb_message(
+                        new_message(),
+                        Endpoints::from_url("http://127.0.0.1:8080").unwrap(),
+                    )
+                    .unwrap();
+                    let (_, result) = executor.consume(message).await;
+                    assert!(matches!(result, ConsumeResult::SUCCESS));
+                }
+            }));
+        }
+        for worker in workers {
+            worker.await.unwrap();
+        }
+        assert_eq!(THREADS, max_running.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_push_consumer_rejects_zero_consumption_thread_count() {
+        let _m = crate::client::tests::MTX.lock();
+        let mut option = PushConsumerOption::default();
+        option.set_consumer_group("test_group");
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        option.set_consumption_thread_count(0);
+        let result = PushConsumer::new(
+            ClientOption::default(),
+            option,
+            Box::new(|_| ConsumeResult::SUCCESS),
+        );
+        let error = result
+            .err()
+            .expect("a zero consumption thread count must be rejected");
+        assert_eq!(ErrorKind::Config, error.kind);
+    }
+
     fn new_message() -> pb::Message {
         pb::Message {
             topic: Some(Resource {
@@ -1996,7 +2200,7 @@ mod tests {
             message_queue,
             FilterExpression::sub_all(),
             option,
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            new_executor(Box::new(|_| ConsumeResult::SUCCESS)),
             retry_policy,
         );
         let result = actor.start().await;
@@ -2050,7 +2254,7 @@ mod tests {
             message_queue,
             FilterExpression::sub_all(),
             option,
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            new_executor(Box::new(|_| ConsumeResult::SUCCESS)),
             BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default()),
         )
     }
@@ -2150,7 +2354,7 @@ mod tests {
             message_queue,
             FilterExpression::sub_all(),
             option,
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            new_executor(Box::new(|_| ConsumeResult::SUCCESS)),
             retry_policy,
         );
         let result = actor.start().await;
@@ -2462,8 +2666,10 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker =
-            StandardConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            new_executor(Box::new(|_| ConsumeResult::SUCCESS)),
+        );
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -2553,8 +2759,10 @@ mod tests {
                     content: Some(Content::Message(new_message())),
                 }])
             });
-        let consumer_worker =
-            StandardConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            new_executor(Box::new(|_| ConsumeResult::SUCCESS)),
+        );
         let mut message_queue = new_message_queue();
         message_queue.topic.name = "rmq-xxx%test_topic".to_string();
         let mut option = PushConsumerOption::default();
@@ -2600,8 +2808,10 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker =
-            StandardConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::FAILURE)));
+        let consumer_worker = StandardConsumerWorker::new(
+            rpc_client,
+            new_executor(Box::new(|_| ConsumeResult::FAILURE)),
+        );
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -2660,8 +2870,10 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let consumer_worker =
-            FifoConsumerWorker::new(rpc_client, Arc::new(Box::new(|_| ConsumeResult::SUCCESS)));
+        let consumer_worker = FifoConsumerWorker::new(
+            rpc_client,
+            new_executor(Box::new(|_| ConsumeResult::SUCCESS)),
+        );
         let consumer_group = Resource {
             name: "test_group".to_string(),
             resource_namespace: "".to_string(),
@@ -2716,7 +2928,7 @@ mod tests {
         let outer_call_counter = Arc::clone(&receive_call_count);
         let consumer_worker = FifoConsumerWorker::new(
             rpc_client,
-            Arc::new(Box::new(move |_| {
+            new_executor(Box::new(move |_| {
                 receive_call_count.fetch_add(1, Ordering::Relaxed);
                 ConsumeResult::FAILURE
             })),
@@ -2779,7 +2991,7 @@ mod tests {
         });
         let consumer_worker = StandardConsumerWorker::new(
             rpc_client,
-            Arc::new(Box::new(|_| panic!("listener panic in test"))),
+            new_executor(Box::new(|_| panic!("listener panic in test"))),
         );
         let consumer_group = Resource {
             name: "test_group".to_string(),
@@ -2843,7 +3055,7 @@ mod tests {
         let outer_call_counter = Arc::clone(&call_count);
         let consumer_worker = FifoConsumerWorker::new(
             rpc_client,
-            Arc::new(Box::new(move |_| {
+            new_executor(Box::new(move |_| {
                 if call_count.fetch_add(1, Ordering::Relaxed) == 0 {
                     panic!("listener panic in test");
                 }
@@ -2909,7 +3121,7 @@ mod tests {
         let recorded = Arc::clone(&attempts);
         let worker = FifoConsumerWorker::new(
             rpc_client,
-            Arc::new(Box::new(move |message: &MessageView| {
+            new_executor(Box::new(move |message: &MessageView| {
                 let mut recorded = recorded.lock();
                 recorded.push(message.delivery_attempt());
                 if recorded.len() <= failures {
@@ -3061,7 +3273,7 @@ mod tests {
         let recorded = Arc::clone(&attempts);
         let consumer_worker = StandardConsumerWorker::new(
             rpc_client,
-            Arc::new(Box::new(move |message: &MessageView| {
+            new_executor(Box::new(move |message: &MessageView| {
                 recorded.lock().push(message.delivery_attempt());
                 ConsumeResult::FAILURE
             })),
@@ -3128,10 +3340,10 @@ mod tests {
         message
     }
 
-    fn new_listener_counter() -> (Arc<AtomicUsize>, Arc<MessageListener>) {
+    fn new_listener_counter() -> (Arc<AtomicUsize>, Arc<ConsumptionExecutor>) {
         let count = Arc::new(AtomicUsize::new(0));
         let counter = Arc::clone(&count);
-        let listener: Arc<MessageListener> = Arc::new(Box::new(move |_| {
+        let listener = new_executor(Box::new(move |_| {
             counter.fetch_add(1, Ordering::Relaxed);
             ConsumeResult::SUCCESS
         }));

@@ -266,6 +266,7 @@ pub struct PushConsumerOption {
     enable_fifo_consume_accelerator: bool,
     batch_size: i32,
     consumer_worker_count_each_queue: usize,
+    consumption_thread_count: usize,
 }
 
 impl Default for PushConsumerOption {
@@ -280,6 +281,7 @@ impl Default for PushConsumerOption {
             enable_fifo_consume_accelerator: false,
             batch_size: 32,
             consumer_worker_count_each_queue: 4,
+            consumption_thread_count: 20,
         }
     }
 }
@@ -376,6 +378,20 @@ impl PushConsumerOption {
 
     pub fn set_consumer_worker_count_each_queue(&mut self, count: usize) {
         self.consumer_worker_count_each_queue = count;
+    }
+
+    /// Maximum number of messages the listener consumes at the same time, 20 by default.
+    pub fn consumption_thread_count(&self) -> usize {
+        self.consumption_thread_count
+    }
+
+    /// Set the maximum number of messages the listener consumes at the same time.
+    ///
+    /// The listener runs on the blocking thread pool of the Tokio runtime, so this also bounds
+    /// the number of those threads the consumer uses, whatever the number of assigned queues.
+    /// Must be greater than 0. Reference Java: `PushConsumerBuilder#setConsumptionThreadCount`.
+    pub fn set_consumption_thread_count(&mut self, count: usize) {
+        self.consumption_thread_count = count;
     }
 }
 
@@ -546,6 +562,15 @@ mod tests {
         let mut option = PushConsumerOption::default();
         option.subscribe("topic", FilterExpression::new(FilterType::Tag, "*"));
         assert!(option.subscription_expressions().contains_key("topic"));
+    }
+
+    #[test]
+    fn conf_push_consumer_option_consumption_thread_count() {
+        let mut option = PushConsumerOption::default();
+        // Same default as Java PushConsumerBuilderImpl.
+        assert_eq!(20, option.consumption_thread_count());
+        option.set_consumption_thread_count(4);
+        assert_eq!(4, option.consumption_thread_count());
     }
 
     #[test]
