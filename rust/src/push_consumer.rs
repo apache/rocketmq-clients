@@ -203,6 +203,9 @@ impl PushConsumer {
         let task_tracker = TaskTracker::new();
         self.task_tracker = Some(task_tracker.clone());
 
+        // Removed queue actors that are still shutting down; the consumer task waits for them
+        // before it completes, so that `shutdown` still waits for every in-flight request.
+        let dropped_actors = TaskTracker::new();
         task_tracker.spawn(async move {
             let mut scan_assignments_timer =
                 tokio::time::interval(std::time::Duration::from_secs(30));
@@ -263,8 +266,17 @@ impl PushConsumer {
                                                 response.assignments,
                                                 retry_policy_inner.clone(),
                                             ).await;
-                                            if let Err(e) = result {
-                                                error!("process assignments failed: {:?}", e);
+                                            match result {
+                                                // Shut the removed queues down in the background, so that
+                                                // neither the newly assigned queues nor the telemetry loop wait
+                                                // for their long polling. Reference Java:
+                                                // `PushConsumerImpl#dropProcessQueue` only marks the process
+                                                // queue as dropped.
+                                                Ok(removed) if !removed.is_empty() => {
+                                                    dropped_actors.spawn(Self::shutdown_actors(removed));
+                                                }
+                                                Ok(_) => {}
+                                                Err(e) => error!("process assignments failed: {:?}", e),
                                             }
                                     } else {
                                         error!("query assignment failed, no status in response.");
@@ -278,6 +290,8 @@ impl PushConsumer {
                     _ = shutdown_token.cancelled() => {
                         info!("shutdown {:?} actors", actor_table.len());
                         Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
+                        dropped_actors.close();
+                        dropped_actors.wait().await;
                         break;
                     }
                 }
@@ -325,6 +339,9 @@ impl PushConsumer {
         let task_tracker = TaskTracker::new();
         self.task_tracker = Some(task_tracker.clone());
 
+        // Removed queue actors that are still shutting down; the consumer task waits for them
+        // before it completes, so that `shutdown` still waits for every in-flight request.
+        let dropped_actors = TaskTracker::new();
         task_tracker.spawn(async move {
             let mut scan_assignments_timer =
                 tokio::time::interval(std::time::Duration::from_secs(30));
@@ -392,8 +409,17 @@ impl PushConsumer {
                                                 response.assignments,
                                                 retry_policy_inner.clone(),
                                             ).await;
-                                            if let Err(e) = result {
-                                                error!("process assignments failed: {:?}", e);
+                                            match result {
+                                                // Shut the removed queues down in the background, so that
+                                                // neither the newly assigned queues nor the telemetry loop wait
+                                                // for their long polling. Reference Java:
+                                                // `PushConsumerImpl#dropProcessQueue` only marks the process
+                                                // queue as dropped.
+                                                Ok(removed) if !removed.is_empty() => {
+                                                    dropped_actors.spawn(Self::shutdown_actors(removed));
+                                                }
+                                                Ok(_) => {}
+                                                Err(e) => error!("process assignments failed: {:?}", e),
                                             }
                                     } else {
                                         error!("query assignment failed, no status in response.");
@@ -407,6 +433,8 @@ impl PushConsumer {
                     _ = shutdown_token.cancelled() => {
                         info!("shutdown {:?} actors", actor_table.len());
                         Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
+                        dropped_actors.close();
+                        dropped_actors.wait().await;
                         break;
                     }
                 }
@@ -466,7 +494,7 @@ impl PushConsumer {
         actor_table: &mut HashMap<MessageQueue, MessageQueueActor>,
         mut assignments: Vec<Assignment>,
         retry_policy: BackOffRetryPolicy,
-    ) -> Result<(), ClientError> {
+    ) -> Result<Vec<MessageQueueActor>, ClientError> {
         let message_queues: Vec<MessageQueue> = assignments
             .iter_mut()
             .filter_map(|assignment| {
@@ -484,8 +512,10 @@ impl PushConsumer {
                 actors.push(actor);
             }
         });
-        // the remaining actors will be shutdown.
-        Self::shutdown_actors(actor_table.drain().map(|(_, actor)| actor)).await;
+        // The remaining actors are no longer assigned. They are handed back to the caller instead
+        // of being shut down here: shutting an actor down waits for its in-flight long polling
+        // request, which must not delay the newly assigned queues.
+        let removed: Vec<MessageQueueActor> = actor_table.drain().map(|(_, actor)| actor).collect();
 
         for mut actor in actors {
             let option = option.clone();
@@ -513,7 +543,7 @@ impl PushConsumer {
                 actor_table.insert(message_queue, actor);
             }
         }
-        Ok(())
+        Ok(removed)
     }
 
     /// Shut the actors down concurrently.
@@ -1900,7 +1930,7 @@ mod tests {
                 accept_message_types: vec![],
             }),
         }];
-        PushConsumer::process_assignments(
+        let removed = PushConsumer::process_assignments(
             &session,
             option,
             &FilterExpression::sub_all(),
@@ -1910,6 +1940,10 @@ mod tests {
             retry_policy,
         )
         .await?;
+        // The actor of queue 1 is handed back to be shut down by the caller.
+        assert_eq!(1, removed.len());
+        assert_eq!(1, removed[0].message_queue.id);
+        PushConsumer::shutdown_actors(removed).await;
         assert_eq!(1, actor_table.len());
         assert!(actor_table.contains_key(&MessageQueue {
             id: 0,
@@ -1932,6 +1966,87 @@ mod tests {
             accept_message_types: vec![],
         }));
         Ok(())
+    }
+
+    // Reference Java: PushConsumerImpl#dropProcessQueue only marks the process queue as dropped,
+    // and a new process queue fetches messages immediately; neither waits for the in-flight long
+    // polling request of the dropped queue.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+    async fn test_process_assignments_does_not_wait_for_removed_queue_long_polling() {
+        let poll = Duration::from_millis(800);
+        let old_calls = Arc::new(AtomicUsize::new(0));
+        let shutting_down = Arc::new(AtomicBool::new(false));
+        let late_calls = Arc::new(AtomicUsize::new(0));
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        option.set_consumer_worker_count_each_queue(1);
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+
+        // Queue 0 is assigned and its worker is inside a long polling request.
+        let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
+        let old_session = new_session_with_long_polling(
+            poll,
+            Arc::clone(&old_calls),
+            Arc::clone(&shutting_down),
+            Arc::clone(&late_calls),
+        );
+        let mut old_actor = new_actor_with_long_polling(0, 1, old_session);
+        old_actor.start().await.unwrap();
+        actor_table.insert(old_actor.message_queue.clone(), old_actor);
+        wait_for_calls(&old_calls, 1).await;
+
+        // The server now assigns queue 1 instead of queue 0.
+        let new_calls = Arc::new(AtomicUsize::new(0));
+        let mut rpc_client = Session::default();
+        let counter = Arc::clone(&new_calls);
+        rpc_client.expect_shadow_session().returning(move || {
+            new_session_with_long_polling(
+                Duration::from_millis(10),
+                Arc::clone(&counter),
+                Arc::new(AtomicBool::new(false)),
+                Arc::new(AtomicUsize::new(0)),
+            )
+        });
+        let mut new_queue = new_message_queue();
+        new_queue.id = 1;
+        shutting_down.store(true, Ordering::SeqCst);
+        let started = std::time::Instant::now();
+        let removed = PushConsumer::process_assignments(
+            &rpc_client,
+            &option,
+            &FilterExpression::sub_all(),
+            message_listener,
+            &mut actor_table,
+            vec![Assignment {
+                message_queue: Some(new_queue.to_pb_message_queue()),
+            }],
+            retry_policy,
+        )
+        .await
+        .unwrap();
+        let elapsed = started.elapsed();
+        let dropped_actors = TaskTracker::new();
+        dropped_actors.spawn(PushConsumer::shutdown_actors(removed));
+
+        assert!(
+            elapsed < poll / 4,
+            "rebalancing took {:?}, it must not wait for the {:?} long polling of the removed queue",
+            elapsed,
+            poll
+        );
+        assert_eq!(1, actor_table.len());
+        assert!(actor_table.contains_key(&new_queue));
+        wait_for_calls(&new_calls, 1).await;
+
+        // The removed queue is shut down in the background, and issues no further receive.
+        dropped_actors.close();
+        tokio::time::timeout(poll * 3, dropped_actors.wait())
+            .await
+            .expect("the removed actor must finish shutting down");
+        assert_eq!(0, late_calls.load(Ordering::SeqCst));
+        PushConsumer::shutdown_actors(actor_table.into_values()).await;
     }
 
     fn new_message_queue() -> MessageQueue {
