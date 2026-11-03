@@ -184,14 +184,15 @@ fn os_description() -> String {
     format!("{} {}", info.os_type(), info.version())
 }
 
-/// Initial delay and period of the periodic topic-route sync. Kept in line with the Java
-/// client, which schedules `ClientImpl#updateRouteCache` with a 10s delay and a 30s period.
+/// Interval of the periodic topic-route sync.
 ///
-/// When a broker endpoint drifts (failover, migration), the client keeps sending to the
-/// stale endpoints until the route is refreshed, so this period bounds that window, as in
-/// Java.
-const ROUTE_SYNC_DELAY: std::time::Duration = std::time::Duration::from_secs(10);
-const ROUTE_SYNC_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
+/// Deliberately shorter than the 30s the Java client uses: when a broker endpoint drifts
+/// (failover, migration), the client keeps sending to the stale, dead endpoints until the
+/// route data is refreshed, and this timer — not the telemetry reconnect — decides how long
+/// that window lasts. 10s halves-to-thirds the measured 13-29s interruption of the 30s
+/// variant (#1404). An unchanged route is only logged at DEBUG, so the shorter period does
+/// not add INFO lines.
+const ROUTE_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
 
 #[automock]
 impl Client {
@@ -368,8 +369,7 @@ impl Client {
                 Instant::now() + STREAM_CHECK_INTERVAL,
                 STREAM_CHECK_INTERVAL,
             );
-            let mut sync_route_timer =
-                tokio::time::interval_at(Instant::now() + ROUTE_SYNC_DELAY, ROUTE_SYNC_PERIOD);
+            let mut sync_route_timer = tokio::time::interval(ROUTE_SYNC_INTERVAL);
             let mut session_cleanup_timer = tokio::time::interval_at(
                 Instant::now() + SESSION_CLEANUP_INTERVAL,
                 SESSION_CLEANUP_INTERVAL,
@@ -2462,9 +2462,8 @@ pub(crate) mod tests {
         assert_eq!(SYNC_SETTINGS_DELAY, std::time::Duration::from_secs(1));
         assert_eq!(SYNC_SETTINGS_PERIOD, std::time::Duration::from_secs(5 * 60));
         assert_eq!(STREAM_CHECK_INTERVAL, std::time::Duration::from_secs(30));
-        // Reference Java: ClientImpl#startUp schedules updateRouteCache with (10, 30, SECONDS).
-        assert_eq!(ROUTE_SYNC_DELAY, std::time::Duration::from_secs(10));
-        assert_eq!(ROUTE_SYNC_PERIOD, std::time::Duration::from_secs(30));
+        // Deliberately shorter than Java's 30s, see `ROUTE_SYNC_INTERVAL`.
+        assert_eq!(ROUTE_SYNC_INTERVAL, std::time::Duration::from_secs(10));
     }
 
     #[tokio::test]
