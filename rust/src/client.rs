@@ -1054,11 +1054,26 @@ fn random_index() -> usize {
     (RandomState::new().build_hasher().finish() % i32::MAX as u64) as usize
 }
 
+/// A registered session.
+///
+/// Every session has its own lock, so that the network I/O done on one session (rebuilding its
+/// telemetry stream, pushing settings) only waits for that session.
+type SessionSlot = Arc<tokio::sync::Mutex<Session>>;
+
 #[derive(Debug)]
 pub(crate) struct SessionManager {
     client_id: String,
     option: ClientOption,
-    session_map: tokio::sync::Mutex<HashMap<String, Session>>,
+    /// Registered sessions by endpoint URL.
+    ///
+    /// The lock is synchronous and never held across an `.await`, so that a slow or unreachable
+    /// endpoint cannot stall the requests to every other endpoint. Reference Java:
+    /// `ClientManagerImpl#getRpcClient` looks clients up under a read lock, and nothing blocking
+    /// runs under the write lock.
+    session_map: Mutex<HashMap<String, SessionSlot>>,
+    /// One lock per endpoint whose session is being created, so that concurrent callers create
+    /// it once instead of connecting several times.
+    creating: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
     /// Long-polling timeout shared with every session, see [`SharedLongPollingTimeout`].
     long_polling_timeout: SharedLongPollingTimeout,
     /// Sender of the channel stream-end notifications are sent through; handed to every
@@ -1076,11 +1091,11 @@ impl SessionManager {
         option: &ClientOption,
         long_polling_timeout: SharedLongPollingTimeout,
     ) -> Self {
-        let session_map = tokio::sync::Mutex::new(HashMap::new());
         SessionManager {
             client_id,
             option: option.clone(),
-            session_map,
+            session_map: Mutex::new(HashMap::new()),
+            creating: Mutex::new(HashMap::new()),
             long_polling_timeout,
             stream_closed_tx: Mutex::new(None),
             telemetry_command_tx: Mutex::new(None),
@@ -1103,38 +1118,101 @@ impl SessionManager {
         *self.telemetry_command_tx.lock() = Some(tx);
     }
 
+    fn find_slot(&self, endpoint_url: &str) -> Option<SessionSlot> {
+        self.session_map.lock().get(endpoint_url).cloned()
+    }
+
+    fn snapshot_slots(&self) -> Vec<(String, SessionSlot)> {
+        self.session_map
+            .lock()
+            .iter()
+            .map(|(url, slot)| (url.clone(), Arc::clone(slot)))
+            .collect()
+    }
+
+    /// Remove the session registered under `endpoint_url` if it is still `slot`.
+    fn remove_slot(&self, endpoint_url: &str, slot: &SessionSlot) -> bool {
+        let mut session_map = self.session_map.lock();
+        match session_map.get(endpoint_url) {
+            Some(current) if Arc::ptr_eq(current, slot) => {
+                session_map.remove(endpoint_url);
+                true
+            }
+            _ => false,
+        }
+    }
+
     pub(crate) async fn get_or_create_session(
         &self,
         endpoints: &Endpoints,
         settings: TelemetryCommand,
         telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command>,
     ) -> Result<Session, ClientError> {
-        let mut session_map = self.session_map.lock().await;
-        let endpoint_url = endpoints.endpoint_url().to_string();
-        if session_map.contains_key(&endpoint_url) {
-            Ok(session_map.get(&endpoint_url).unwrap().shadow_session())
-        } else {
-            let mut session = Session::new(
-                endpoints,
-                self.client_id.clone(),
-                &self.option,
-                Arc::clone(&self.long_polling_timeout),
-            )
-            .await?;
-            if let Some(tx) = self.stream_closed_tx.lock().clone() {
-                session.set_stream_closed_tx(tx);
-            }
-            session.start(settings, telemetry_command_tx).await?;
-            let shadow_session = session.shadow_session();
-            session_map.insert(endpoint_url.clone(), session);
-            Ok(shadow_session)
+        let endpoint_url = endpoints.endpoint_url();
+        if let Some(slot) = self.find_slot(endpoint_url) {
+            return Ok(slot.lock().await.shadow_session());
         }
+
+        // Only the callers of this very endpoint wait for it to be created.
+        let creation_lock = Arc::clone(
+            self.creating
+                .lock()
+                .entry(endpoint_url.to_string())
+                .or_default(),
+        );
+        let _creating = creation_lock.lock().await;
+        let result = self
+            .create_session(endpoints, settings, telemetry_command_tx)
+            .await;
+        {
+            // Keep the creation lock registered while other callers still wait on it, so that a
+            // caller arriving now (after a failed attempt) queues behind them instead of creating
+            // the same session concurrently.
+            let mut creating = self.creating.lock();
+            if creating.get(endpoint_url).is_some_and(|lock| {
+                Arc::ptr_eq(lock, &creation_lock) && Arc::strong_count(&creation_lock) <= 2
+            }) {
+                creating.remove(endpoint_url);
+            }
+        }
+        result
     }
+
+    /// Create and register the session of `endpoints`, unless another caller registered it
+    /// meanwhile. Must be called with the creation lock of the endpoint held.
+    async fn create_session(
+        &self,
+        endpoints: &Endpoints,
+        settings: TelemetryCommand,
+        telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command>,
+    ) -> Result<Session, ClientError> {
+        let endpoint_url = endpoints.endpoint_url();
+        if let Some(slot) = self.find_slot(endpoint_url) {
+            return Ok(slot.lock().await.shadow_session());
+        }
+        let mut session = Session::new(
+            endpoints,
+            self.client_id.clone(),
+            &self.option,
+            Arc::clone(&self.long_polling_timeout),
+        )
+        .await?;
+        if let Some(tx) = self.stream_closed_tx.lock().clone() {
+            session.set_stream_closed_tx(tx);
+        }
+        session.start(settings, telemetry_command_tx).await?;
+        let shadow_session = session.shadow_session();
+        self.session_map.lock().insert(
+            endpoint_url.to_string(),
+            Arc::new(tokio::sync::Mutex::new(session)),
+        );
+        Ok(shadow_session)
+    }
+
     pub(crate) async fn get_all_sessions(&self) -> Result<Vec<Session>, ClientError> {
-        let session_map = self.session_map.lock().await;
         let mut sessions = Vec::new();
-        for session in session_map.values() {
-            sessions.push(session.shadow_session());
+        for (_, slot) in self.snapshot_slots() {
+            sessions.push(slot.lock().await.shadow_session());
         }
         Ok(sessions)
     }
@@ -1148,10 +1226,10 @@ impl SessionManager {
     ///
     /// Mirrors `ClientImpl#removeClientSession` of the Java client.
     pub(crate) async fn evict_session(&self, endpoint_url: &str) -> bool {
-        let mut session_map = self.session_map.lock().await;
-        match session_map.remove(endpoint_url) {
-            Some(mut session) => {
-                session.shutdown();
+        let removed = self.session_map.lock().remove(endpoint_url);
+        match removed {
+            Some(slot) => {
+                slot.lock().await.shutdown();
                 info!("evicted session for endpoint {}", endpoint_url);
                 true
             }
@@ -1165,10 +1243,10 @@ impl SessionManager {
     /// answers, which is what recovers from a failover or rolling deployment where the
     /// server no longer knows this client (`cannot find client`, `settings is null`).
     ///
-    /// The session is taken out of the map for the duration of the RPC so that other
-    /// callers are not blocked on the network round trip. On failure it is put back so
-    /// that the reconnect retry loop keeps driving recovery on the same session even when
-    /// the client is idle.
+    /// Only the session of `endpoint_url` is locked for the duration of the RPC, so callers of
+    /// the other endpoints are not blocked on the network round trip. On failure the session
+    /// stays registered so that the reconnect retry loop keeps driving recovery on the same
+    /// session even when the client is idle.
     ///
     /// Returns `Ok(true)` when the stream of `endpoint_url` was re-established. A session
     /// that is missing from the map (evicted or reaped meanwhile) is rebuilt against that
@@ -1180,14 +1258,7 @@ impl SessionManager {
         endpoint_url: &str,
         settings: &TelemetryCommand,
     ) -> Result<bool, ClientError> {
-        // Take the session out of the map and release the lock before any await: the
-        // rebuild path below calls get_or_create_session, which locks the same map again
-        // (tokio::sync::Mutex is not reentrant).
-        let session_opt = {
-            let mut session_map = self.session_map.lock().await;
-            session_map.remove(endpoint_url)
-        };
-        let Some(mut session) = session_opt else {
+        let Some(slot) = self.find_slot(endpoint_url) else {
             // The session was evicted or reaped meanwhile. Rebuild it against the very
             // endpoint that was asked for: rebuilding the access session instead would
             // leave this peer without a stream while still reporting `Ok(true)`, which
@@ -1204,25 +1275,11 @@ impl SessionManager {
                 .await
                 .map(|_| true);
         };
-        match session.reconnect(settings.clone()).await {
-            Ok(()) => {
-                self.session_map
-                    .lock()
-                    .await
-                    .insert(endpoint_url.to_string(), session);
-                Ok(true)
-            }
-            Err(e) => {
-                // Keep the session registered so that the reconnect retry loop keeps
-                // retrying on it; dropping it here would leave an idle client without any
-                // driver to re-establish the stream until the next traffic arrives.
-                self.session_map
-                    .lock()
-                    .await
-                    .insert(endpoint_url.to_string(), session);
-                Err(e)
-            }
-        }
+        // On failure the session stays registered so that the reconnect retry loop keeps
+        // retrying on it; dropping it here would leave an idle client without any driver to
+        // re-establish the stream until the next traffic arrives.
+        let mut session = slot.lock().await;
+        session.reconnect(settings.clone()).await.map(|_| true)
     }
 
     /// Push the client settings to every session that currently holds a telemetry stream.
@@ -1236,10 +1293,13 @@ impl SessionManager {
     ///
     /// Sessions whose stream cannot be restored are evicted so that `session_map` shrinks
     /// instead of accumulating dead endpoints.
+    ///
+    /// The session map itself is not locked while a session talks to its server, so a slow
+    /// endpoint does not stall the requests to the other endpoints. Reference Java:
+    /// `ClientImpl#syncSettings` writes to each session without holding the session table lock.
     pub(crate) async fn sync_settings(&self, settings: &TelemetryCommand) {
-        let mut session_map = self.session_map.lock().await;
-        let mut broken: Vec<String> = Vec::new();
-        for (endpoint_url, session) in session_map.iter_mut() {
+        for (endpoint_url, slot) in self.snapshot_slots() {
+            let mut session = slot.lock().await;
             match session.update_settings(settings.clone()).await {
                 Ok(()) => {
                     debug!("sync settings success, peer = {}", endpoint_url);
@@ -1249,17 +1309,14 @@ impl SessionManager {
                         "sync settings failed, peer = {}, error = {}",
                         endpoint_url, e
                     );
-                    broken.push(endpoint_url.clone());
+                    if self.remove_slot(&endpoint_url, &slot) {
+                        session.shutdown();
+                        warn!(
+                            "evicted session after settings sync failure, peer = {}",
+                            endpoint_url
+                        );
+                    }
                 }
-            }
-        }
-        for endpoint_url in broken {
-            if let Some(mut session) = session_map.remove(&endpoint_url) {
-                session.shutdown();
-                warn!(
-                    "evicted session after settings sync failure, peer = {}",
-                    endpoint_url
-                );
             }
         }
     }
@@ -1276,16 +1333,11 @@ impl SessionManager {
     ///
     /// Every dropped session is torn down so that the next access rebuilds it.
     pub(crate) async fn clear_dead_and_idle_sessions(&self) {
-        let mut session_map = self.session_map.lock().await;
-        let stale: Vec<String> = session_map
-            .iter()
-            .filter(|(_, session)| {
-                !session.is_healthy() || session.idle_duration() > SESSION_MAX_IDLE_DURATION
-            })
-            .map(|(url, _)| url.clone())
-            .collect();
-        for url in stale {
-            if let Some(mut session) = session_map.remove(&url) {
+        for (url, slot) in self.snapshot_slots() {
+            let mut session = slot.lock().await;
+            let stale =
+                !session.is_healthy() || session.idle_duration() > SESSION_MAX_IDLE_DURATION;
+            if stale && self.remove_slot(&url, &slot) {
                 session.shutdown();
                 info!("evicted stale session for endpoint {}", url);
             }
@@ -1293,11 +1345,15 @@ impl SessionManager {
     }
 
     pub(crate) async fn shutdown(&self) {
-        let mut session_map = self.session_map.lock().await;
-        for session in session_map.values_mut() {
-            session.shutdown();
+        let slots: Vec<SessionSlot> = self
+            .session_map
+            .lock()
+            .drain()
+            .map(|(_, slot)| slot)
+            .collect();
+        for slot in slots {
+            slot.lock().await.shutdown();
         }
-        session_map.clear();
     }
 }
 
@@ -1344,6 +1400,28 @@ pub(crate) mod tests {
             },
             Arc::new(RwLock::new(std::time::Duration::from_secs(40))),
         )
+    }
+
+    fn insert_session(session_manager: &SessionManager, endpoint_url: &str, session: Session) {
+        session_manager.session_map.lock().insert(
+            endpoint_url.to_string(),
+            Arc::new(tokio::sync::Mutex::new(session)),
+        );
+    }
+
+    /// Registers sessions like `HashMap::insert` on the session map.
+    struct SessionInserter<'a>(&'a SessionManager);
+
+    impl SessionInserter<'_> {
+        fn insert(&mut self, endpoint_url: String, session: Session) {
+            insert_session(self.0, &endpoint_url, session);
+        }
+    }
+
+    fn session_urls(session_manager: &SessionManager) -> Vec<String> {
+        let mut urls: Vec<String> = session_manager.session_map.lock().keys().cloned().collect();
+        urls.sort();
+        urls
     }
 
     fn mock_session(started: bool) -> Session {
@@ -2064,14 +2142,10 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn test_evict_session() {
         let session_manager = new_session_manager();
-        session_manager
-            .session_map
-            .lock()
-            .await
-            .insert("endpoint_a".to_string(), mock_session(true));
+        insert_session(&session_manager, "endpoint_a", mock_session(true));
 
         assert!(session_manager.evict_session("endpoint_a").await);
-        assert!(session_manager.session_map.lock().await.is_empty());
+        assert!(session_urls(&session_manager).is_empty());
 
         // Evicting an unknown endpoint is a no-op.
         assert!(!session_manager.evict_session("endpoint_a").await);
@@ -2081,7 +2155,7 @@ pub(crate) mod tests {
     async fn test_clear_dead_and_idle_sessions() {
         let session_manager = new_session_manager();
         {
-            let mut session_map = session_manager.session_map.lock().await;
+            let mut session_map = SessionInserter(&session_manager);
             // Healthy session: kept.
             session_map.insert("healthy".to_string(), mock_session(true));
             // Lost its telemetry stream: dropped.
@@ -2090,16 +2164,14 @@ pub(crate) mod tests {
 
         session_manager.clear_dead_and_idle_sessions().await;
 
-        let session_map = session_manager.session_map.lock().await;
-        assert_eq!(session_map.len(), 1);
-        assert!(session_map.contains_key("healthy"));
+        assert_eq!(vec!["healthy".to_string()], session_urls(&session_manager));
     }
 
     #[tokio::test]
     async fn test_clear_idle_sessions() {
         let session_manager = new_session_manager();
         {
-            let mut session_map = session_manager.session_map.lock().await;
+            let mut session_map = SessionInserter(&session_manager);
             let mut session = MockSession::default();
             session.expect_is_started().return_const(true);
             session.expect_is_healthy().return_const(true);
@@ -2112,7 +2184,7 @@ pub(crate) mod tests {
 
         session_manager.clear_dead_and_idle_sessions().await;
 
-        assert!(session_manager.session_map.lock().await.is_empty());
+        assert!(session_urls(&session_manager).is_empty());
     }
 
     #[tokio::test]
@@ -2120,7 +2192,7 @@ pub(crate) mod tests {
         let session_manager = new_session_manager();
         let rebuilt = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         {
-            let mut session_map = session_manager.session_map.lock().await;
+            let mut session_map = SessionInserter(&session_manager);
             let mut session = MockSession::default();
             // The stream is gone, so the settings sync must re-establish it...
             session.expect_is_started().return_const(false);
@@ -2146,14 +2218,14 @@ pub(crate) mod tests {
             "settings sync should rebuild the stream of the registered session once"
         );
         // A session whose stream was restored successfully stays registered.
-        assert_eq!(session_manager.session_map.lock().await.len(), 1);
+        assert_eq!(session_urls(&session_manager).len(), 1);
     }
 
     #[tokio::test]
     async fn test_sync_settings_evicts_unrecoverable_session() {
         let session_manager = new_session_manager();
         {
-            let mut session_map = session_manager.session_map.lock().await;
+            let mut session_map = SessionInserter(&session_manager);
             let mut session = MockSession::default();
             session.expect_is_started().return_const(false);
             session.expect_is_healthy().return_const(false);
@@ -2173,7 +2245,7 @@ pub(crate) mod tests {
             .await;
 
         // A dead endpoint must not be kept around: it would fail again on every cycle.
-        assert!(session_manager.session_map.lock().await.is_empty());
+        assert!(session_urls(&session_manager).is_empty());
     }
 
     #[tokio::test]
@@ -2181,7 +2253,7 @@ pub(crate) mod tests {
         let session_manager = new_session_manager();
         let reconnected = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         {
-            let mut session_map = session_manager.session_map.lock().await;
+            let mut session_map = SessionInserter(&session_manager);
             let mut session = MockSession::default();
             let counter = Arc::clone(&reconnected);
             session.expect_reconnect().returning(move |_| {
@@ -2202,7 +2274,7 @@ pub(crate) mod tests {
             1,
             "reconnect should re-establish the stream of the registered session"
         );
-        assert_eq!(session_manager.session_map.lock().await.len(), 1);
+        assert_eq!(session_urls(&session_manager).len(), 1);
         assert!(
             session_manager
                 .reconnect_session("endpoint_a", &TelemetryCommand::default())
@@ -2216,7 +2288,7 @@ pub(crate) mod tests {
     async fn test_reconnect_session_keeps_session_that_cannot_be_restored() {
         let session_manager = new_session_manager();
         {
-            let mut session_map = session_manager.session_map.lock().await;
+            let mut session_map = SessionInserter(&session_manager);
             let mut session = MockSession::default();
             session.expect_reconnect().returning(|_| {
                 Err(ClientError::new(
@@ -2236,7 +2308,7 @@ pub(crate) mod tests {
         // The session must stay registered: the reconnect retry loop keeps driving
         // recovery on it, which is the only driver an idle client has while the server is
         // unavailable.
-        assert_eq!(session_manager.session_map.lock().await.len(), 1);
+        assert_eq!(session_urls(&session_manager).len(), 1);
     }
 
     #[tokio::test]
@@ -2276,17 +2348,173 @@ pub(crate) mod tests {
             "the rebuilt peer stream must be reported as restored"
         );
         assert_eq!(created.lock().as_slice(), &[peer.to_string()]);
-        let keys: Vec<String> = session_manager
-            .session_map
-            .lock()
-            .await
-            .keys()
-            .cloned()
-            .collect();
+        let keys: Vec<String> = session_urls(&session_manager);
         assert_eq!(
             keys,
             vec![peer.to_string()],
             "the session must be registered under the reconnected peer"
         );
+    }
+
+    fn new_session_context_with_slow_endpoint(
+        slow_url: &'static str,
+        delay: std::time::Duration,
+    ) -> impl Drop {
+        let context = MockSession::new_context();
+        context.expect().returning(move |endpoints, _, _, _| {
+            if endpoints.endpoint_url() == slow_url {
+                // Stands in for connecting to an unreachable broker (connect timeout).
+                std::thread::sleep(delay);
+            }
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session.expect_set_stream_closed_tx().returning(|_| ());
+            session
+                .expect_shadow_session()
+                .returning(MockSession::default);
+            Ok(session)
+        });
+        context
+    }
+
+    // Reference Java: ClientManagerImpl#getRpcClient looks sessions up under a read lock, and
+    // nothing blocking runs under the write lock (the channel connects lazily).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_creating_a_slow_session_does_not_block_other_endpoints() {
+        let _m = MTX.lock();
+        let delay = std::time::Duration::from_millis(500);
+        let _context = new_session_context_with_slow_endpoint("10.0.0.99:8081", delay);
+        let session_manager = Arc::new(new_session_manager());
+        let (tx, _rx) = mpsc::channel(16);
+        let healthy = Endpoints::from_url("127.0.0.1:8081").unwrap();
+        session_manager
+            .get_or_create_session(&healthy, TelemetryCommand::default(), tx.clone())
+            .await
+            .unwrap();
+
+        let (manager, slow_tx) = (Arc::clone(&session_manager), tx.clone());
+        let slow = tokio::spawn(async move {
+            let unreachable = Endpoints::from_url("10.0.0.99:8081").unwrap();
+            manager
+                .get_or_create_session(&unreachable, TelemetryCommand::default(), slow_tx)
+                .await
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        let started = std::time::Instant::now();
+        session_manager
+            .get_or_create_session(&healthy, TelemetryCommand::default(), tx)
+            .await
+            .unwrap();
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed < std::time::Duration::from_millis(100),
+            "looking up an existing session waited {:?} for another endpoint to connect",
+            elapsed
+        );
+        slow.await.unwrap().unwrap();
+        assert_eq!(
+            vec!["10.0.0.99:8081".to_string(), "127.0.0.1:8081".to_string()],
+            session_urls(&session_manager)
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_concurrent_creation_of_the_same_session_connects_once() {
+        let _m = MTX.lock();
+        let created = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&created);
+        let context = MockSession::new_context();
+        context.expect().returning(move |_, _, _, _| {
+            counter.fetch_add(1, Ordering::SeqCst);
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session.expect_set_stream_closed_tx().returning(|_| ());
+            session
+                .expect_shadow_session()
+                .returning(MockSession::default);
+            Ok(session)
+        });
+        let session_manager = Arc::new(new_session_manager());
+        let mut handles = Vec::new();
+        for _ in 0..4 {
+            let manager = Arc::clone(&session_manager);
+            handles.push(tokio::spawn(async move {
+                let (tx, _rx) = mpsc::channel(16);
+                let endpoints = Endpoints::from_url("127.0.0.1:8081").unwrap();
+                manager
+                    .get_or_create_session(&endpoints, TelemetryCommand::default(), tx)
+                    .await
+            }));
+        }
+        for handle in handles {
+            handle.await.unwrap().unwrap();
+        }
+        assert_eq!(1, created.load(Ordering::SeqCst));
+        assert_eq!(
+            vec!["127.0.0.1:8081".to_string()],
+            session_urls(&session_manager)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_failed_session_creation_is_not_registered() {
+        let _m = MTX.lock();
+        let context = MockSession::new_context();
+        context.expect().returning(|_, _, _, _| {
+            Err(ClientError::new(ErrorKind::Connect, "unreachable", "test"))
+        });
+        let session_manager = new_session_manager();
+        let (tx, _rx) = mpsc::channel(16);
+        let endpoints = Endpoints::from_url("127.0.0.1:8081").unwrap();
+        assert!(session_manager
+            .get_or_create_session(&endpoints, TelemetryCommand::default(), tx)
+            .await
+            .is_err());
+        assert!(session_urls(&session_manager).is_empty());
+        assert!(session_manager.get_all_sessions().await.unwrap().is_empty());
+    }
+
+    // Reference Java: ClientImpl#syncSettings writes to each session without holding the session
+    // table lock.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_sync_settings_does_not_block_other_endpoints() {
+        let _m = MTX.lock();
+        let delay = std::time::Duration::from_millis(500);
+        let session_manager = Arc::new(new_session_manager());
+        let mut slow = MockSession::default();
+        // For example the telemetry stream is broken and update_settings re-establishes it.
+        slow.expect_update_settings().returning(move |_| {
+            std::thread::sleep(delay);
+            Ok(())
+        });
+        insert_session(&session_manager, "10.0.0.99:8081", slow);
+        let mut healthy = MockSession::default();
+        healthy.expect_update_settings().returning(|_| Ok(()));
+        healthy
+            .expect_shadow_session()
+            .returning(MockSession::default);
+        insert_session(&session_manager, "127.0.0.1:8081", healthy);
+
+        let manager = Arc::clone(&session_manager);
+        let sync =
+            tokio::spawn(async move { manager.sync_settings(&TelemetryCommand::default()).await });
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        let (tx, _rx) = mpsc::channel(16);
+        let healthy = Endpoints::from_url("127.0.0.1:8081").unwrap();
+        let started = std::time::Instant::now();
+        session_manager
+            .get_or_create_session(&healthy, TelemetryCommand::default(), tx)
+            .await
+            .unwrap();
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed < std::time::Duration::from_millis(100),
+            "looking up a session waited {:?} for the settings sync of another endpoint",
+            elapsed
+        );
+        sync.await.unwrap();
     }
 }
