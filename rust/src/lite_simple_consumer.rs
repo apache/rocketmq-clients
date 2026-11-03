@@ -53,7 +53,9 @@ use crate::model::message::MessageView;
 use crate::model::offset_option::OffsetOption;
 use crate::pb;
 use crate::simple_consumer::SimpleConsumer;
-use crate::util::{build_lite_simple_consumer_settings, log_ignored_command};
+use crate::util::{
+    build_lite_simple_consumer_settings, log_cleanup_after_failed_start, log_ignored_command,
+};
 
 const OPERATION_NEW_LITE_SIMPLE_CONSUMER: &str = "lite_simple_consumer.new";
 const OPERATION_LITE_SIMPLE_CONSUMER_RECEIVE: &str = "lite_simple_consumer.receive";
@@ -183,7 +185,13 @@ impl LiteSimpleConsumer {
         // The startup and its failure are logged by the inner simple consumer, like Java's
         // `SimpleConsumerImpl#startUp`.
         if let Err(e) = self.inner.start_with_telemetry(telemetry_command_tx).await {
-            let _ = self.shutdown().await;
+            // The inner consumer may already have shut its client down, which is expected;
+            // any other cleanup failure is reported.
+            log_cleanup_after_failed_start(
+                self.shutdown().await,
+                &ClientType::LiteSimpleConsumer.to_string(),
+                &client_id,
+            );
             return Err(ClientError::new(
                 ErrorKind::ClientInternal,
                 &format!("startUp err={:?}", e),
@@ -200,7 +208,13 @@ impl LiteSimpleConsumer {
                 client_id,
                 e
             );
-            let _ = self.shutdown().await;
+            // The inner consumer may already have shut its client down, which is expected;
+            // any other cleanup failure is reported.
+            log_cleanup_after_failed_start(
+                self.shutdown().await,
+                &ClientType::LiteSimpleConsumer.to_string(),
+                &client_id,
+            );
             return Err(ClientError::new(
                 ErrorKind::ClientInternal,
                 &format!("startUp err={:?}", e),

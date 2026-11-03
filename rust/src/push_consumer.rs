@@ -46,7 +46,7 @@ use crate::session::Session;
 use crate::session::{RPCClient, SharedLongPollingTimeout};
 use crate::util::{
     build_endpoints_by_message_queue, build_push_consumer_settings, handle_receive_message_status,
-    handle_response_status,
+    handle_response_status, log_cleanup_after_failed_start,
 };
 use tracing::{debug, error, info};
 
@@ -315,6 +315,20 @@ impl PushConsumer {
                 "Exception raised while starting the rocketmq {}, clientId={}, error={}",
                 client_type, client_id, error
             );
+            // Reference Java: PushConsumerImpl#startUp calls shutDown(), so that the scheduler
+            // and the sessions the client started do not keep running.
+            if let Some(shutdown_token) = self.shutdown_token.take() {
+                shutdown_token.cancel();
+            }
+            if let Some(task_tracker) = self.task_tracker.take() {
+                task_tracker.close();
+                task_tracker.wait().await;
+            }
+            log_cleanup_after_failed_start(
+                self.client.shutdown_ref().await,
+                &client_type.to_string(),
+                &client_id,
+            );
             return Err(error);
         }
         info!(
@@ -358,6 +372,7 @@ impl PushConsumer {
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
         self.client.start(telemetry_command_tx).await?;
         let log_context = self.new_log_context();
+        let client_type = self.client.get_client_type();
         self.log_consume_service();
         let option = Arc::clone(&self.option);
         let long_polling_timeout = self.client.long_polling_timeout_handle();
@@ -402,7 +417,7 @@ impl PushConsumer {
                                 // Apply what the server pushed, otherwise these settings are
                                 // silently dropped and the client keeps polling with the
                                 // configured values.
-                                Self::apply_settings(settings, &option, &long_polling_timeout, &log_context.client_id);
+                                Self::apply_settings(settings, &option, &long_polling_timeout, &log_context.client_id, &client_type);
                             }
                             let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
@@ -463,6 +478,7 @@ impl PushConsumer {
         let (command_tx, mut command_rx) = mpsc::channel(16);
         self.client.start(command_tx).await?;
         let log_context = self.new_log_context();
+        let client_type = self.client.get_client_type();
         self.log_consume_service();
         let option = Arc::clone(&self.option);
         let long_polling_timeout = self.client.long_polling_timeout_handle();
@@ -504,7 +520,7 @@ impl PushConsumer {
                     command = command_rx.recv() => {
                         if let Some(command) = command {
                             if let pb::telemetry_command::Command::Settings(ref settings) = command {
-                                Self::apply_settings(settings, &option, &long_polling_timeout, &log_context.client_id);
+                                Self::apply_settings(settings, &option, &long_polling_timeout, &log_context.client_id, &client_type);
                             }
                             let remote_backoff_policy = BackOffRetryPolicy::try_from(command.clone());
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
@@ -566,12 +582,13 @@ impl PushConsumer {
         option: &Arc<RwLock<PushConsumerOption>>,
         shared_long_polling_timeout: &SharedLongPollingTimeout,
         client_id: &str,
+        client_type: &ClientType,
     ) {
         let Some(pb::settings::PubSub::Subscription(ref subscription)) = settings.pub_sub else {
             // Reference Java: PushSubscriptionSettings#sync.
             error!(
-                "[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={:?}, clientType=PUSH_CONSUMER",
-                client_id, settings.pub_sub
+                "[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={:?}, clientType={}",
+                client_id, settings.pub_sub, client_type
             );
             return;
         };
@@ -1872,6 +1889,86 @@ mod tests {
             Box::new(|_| ConsumeResult::SUCCESS),
         );
         assert!(result3.is_ok());
+    }
+
+    /// Reference Java: `PushSubscriptionSettings#sync` reports settings of another client type
+    /// with the type of the consumer, which is `LITE_PUSH_CONSUMER` for a lite consumer.
+    #[test]
+    fn test_settings_mismatch_reports_the_client_type() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let option = Arc::new(RwLock::new(PushConsumerOption::default()));
+        let long_polling_timeout = Arc::new(RwLock::new(Duration::from_secs(30)));
+        for client_type in [ClientType::PushConsumer, ClientType::LitePushConsumer] {
+            PushConsumer::apply_settings(
+                &pb::Settings::default(),
+                &option,
+                &long_polling_timeout,
+                "fake_id",
+                &client_type,
+            );
+        }
+        for client_type in ["PUSH_CONSUMER", "LITE_PUSH_CONSUMER"] {
+            assert!(
+                logs.contains(
+                    "ERROR",
+                    &format!(
+                        "[Bug] Issued settings not match with the client type, clientId=fake_id, pubSubCase=None, clientType={client_type}"
+                    )
+                ),
+                "missing log for {client_type}"
+            );
+        }
+    }
+
+    /// Reference Java: `PushConsumerImpl#startUp` shuts the consumer down when the startup
+    /// fails, so that the scheduler and the sessions started by the client do not leak.
+    #[tokio::test]
+    async fn test_push_consumer_start_failure_shuts_down_client() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        // The mocked `Client::new` is only needed while constructing, so the lock is
+        // released before the first await.
+        let _m = crate::client::tests::MTX.lock();
+        let context = Client::new_context();
+        let mut client = Client::default();
+        client.expect_start().times(1).return_once(|_| Ok(()));
+        client.expect_get_session().returning(|| {
+            Err(ClientError::new(
+                ErrorKind::ServerUnavailable,
+                "server unavailable",
+                "client.get_session",
+            ))
+        });
+        client.expect_shutdown_ref().times(1).return_once(|| Ok(()));
+        client
+            .expect_long_polling_timeout_handle()
+            .returning(|| Arc::new(RwLock::new(Duration::from_secs(40))));
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
+        client
+            .expect_get_client_type()
+            .returning(|| ClientType::PushConsumer);
+        context.expect().return_once(|_, _| Ok(client));
+        let mut option = PushConsumerOption::default();
+        option.set_consumer_group("test_group");
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut push_consumer = PushConsumer::new(
+            ClientOption::default(),
+            option,
+            Box::new(|_| ConsumeResult::SUCCESS),
+        )
+        .unwrap();
+        drop(context);
+        drop(_m);
+
+        let error = push_consumer.start().await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::ServerUnavailable);
+        assert!(push_consumer.shutdown_token.is_none());
+        assert!(push_consumer.task_tracker.is_none());
+        assert!(logs.contains(
+            "ERROR",
+            "Exception raised while starting the rocketmq PUSH_CONSUMER, clientId=fake_id"
+        ));
     }
 
     #[tokio::test]
@@ -3251,9 +3348,7 @@ mod tests {
         option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
         option.set_enable_fifo_consume_accelerator(true);
         let mut session = Session::default();
-        session
-            .expect_shadow_session()
-            .returning(|| Session::default());
+        session.expect_shadow_session().returning(Session::default);
         let mut ack_processor = AckEntryProcessor::new(session, consumer_group, topic, false);
         let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(

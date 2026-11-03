@@ -32,8 +32,9 @@ use crate::model::message::{AckMessageEntry, MessageView};
 use crate::pb::telemetry_command::Command;
 use crate::session::SharedLongPollingTimeout;
 use crate::util::{
-    build_endpoints_by_message_queue, build_simple_consumer_settings, log_ignored_command,
-    prune_lite_route, select_readable_message_queue,
+    build_endpoints_by_message_queue, build_simple_consumer_settings,
+    log_cleanup_after_failed_start, log_ignored_command, prune_lite_route,
+    select_readable_message_queue,
 };
 
 /// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
@@ -163,6 +164,13 @@ impl SimpleConsumer {
                 "Failed to start the rocketmq {}, try to shutdown it, clientId={}, error={}",
                 client_type, client_id, error
             );
+            // Reference Java: SimpleConsumerImpl#startUp calls shutDown() when any startup step
+            // fails, so that the scheduler and the sessions the client started do not leak.
+            log_cleanup_after_failed_start(
+                self.client.shutdown_ref().await,
+                &client_type.to_string(),
+                &client_id,
+            );
             return Err(error);
         }
         info!(
@@ -186,19 +194,7 @@ impl SimpleConsumer {
         self.client.start(telemetry_command_tx).await?;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
-                if let Err(error) = self.client.topic_route(topic, true).await {
-                    // Reference Java: SimpleConsumerImpl#startUp shuts the client down when any
-                    // startup step fails.
-                    if let Err(shutdown_error) = self.client.shutdown_ref().await {
-                        error!(
-                            "Failed to shutdown the rocketmq {} after a failed start, clientId={}, error={}",
-                            self.client.get_client_type(),
-                            self.client.client_id(),
-                            shutdown_error
-                        );
-                    }
-                    return Err(error);
-                }
+                self.client.topic_route(topic, true).await?;
             }
         }
         Ok(())
@@ -533,9 +529,11 @@ mod tests {
         });
         let mut option = SimpleConsumerOption::default();
         option.set_consumer_group("test_group");
-        SimpleConsumer::new(option, ClientOption::default())?
-            .start()
-            .await?;
+        let mut simple_consumer = SimpleConsumer::new(option, ClientOption::default())?;
+        // The mocked `Client::new` is only needed while constructing.
+        drop(ctx);
+        drop(_m);
+        simple_consumer.start().await?;
 
         assert!(logs.contains(
             "INFO",
@@ -916,5 +914,81 @@ mod tests {
         let result = simple_consumer.start().await;
         assert!(result.is_err());
         assert!(simple_consumer.shutdown_tx.is_none());
+    }
+
+    /// A start rejected before the client is started has nothing to clean up: the cleanup's
+    /// `ClientIsNotRunning` is tolerated, and the original error is returned.
+    #[tokio::test]
+    async fn start_failure_before_client_start_tolerates_cleanup() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let mut client = Client::default();
+        client.expect_start().never();
+        client.expect_shutdown_ref().times(1).returning(|| {
+            Err(ClientError::new(
+                ErrorKind::ClientIsNotRunning,
+                "client is not started",
+                "client.shutdown",
+            ))
+        });
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
+        client
+            .expect_get_client_type()
+            .returning(|| ClientType::SimpleConsumer);
+        // No consumer group: the start is rejected before the client is started.
+        let mut simple_consumer = new_simple_consumer(client);
+
+        let error = simple_consumer.start().await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Config);
+        assert!(logs.contains(
+            "ERROR",
+            "Failed to start the rocketmq SIMPLE_CONSUMER, try to shutdown it, clientId=fake_id"
+        ));
+        assert!(!logs.contains("ERROR", "after a failed start"));
+    }
+
+    /// A cleanup that fails for another reason is reported, since that is what an operator
+    /// needs to see.
+    #[tokio::test]
+    async fn failed_cleanup_after_failed_start_is_logged() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let mut client = Client::default();
+        client.expect_start().times(1).returning(|_| Ok(()));
+        client.expect_topic_route().times(1).returning(|_, _| {
+            Err(ClientError::new(
+                ErrorKind::Server,
+                "topic not found",
+                "client.query_route",
+            ))
+        });
+        client.expect_shutdown_ref().times(1).returning(|| {
+            Err(ClientError::new(
+                ErrorKind::ServerUnavailable,
+                "server unavailable",
+                "client.shutdown",
+            ))
+        });
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
+        client
+            .expect_get_client_type()
+            .returning(|| ClientType::SimpleConsumer);
+        let mut option = SimpleConsumerOption::default();
+        option.set_consumer_group("test_group");
+        option.set_topics(vec!["test_topic"]);
+        let mut simple_consumer = SimpleConsumer {
+            option,
+            client,
+            shutdown_tx: None,
+        };
+
+        let error = simple_consumer.start().await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Server);
+        assert!(logs.contains(
+            "ERROR",
+            "Failed to shutdown the rocketmq SIMPLE_CONSUMER after a failed start, clientId=fake_id"
+        ));
     }
 }

@@ -48,7 +48,7 @@ use crate::model::common::ClientType;
 use crate::model::offset_option::OffsetOption;
 use crate::pb;
 use crate::push_consumer::{MessageListener, PushConsumer};
-use crate::util::build_push_consumer_settings;
+use crate::util::{build_push_consumer_settings, log_cleanup_after_failed_start};
 
 const OPERATION_NEW_LITE_PUSH_CONSUMER: &str = "lite_push_consumer.new";
 
@@ -231,7 +231,13 @@ impl LitePushConsumer {
         // `PushConsumerImpl#startUp`.
         if let Err(e) = self.inner.start_with_telemetry(telemetry_command_tx).await {
             // Reference Java: startUp() calls shutDown() on failure
-            let _ = self.shutdown().await;
+            // The inner consumer may already have shut its client down, which is expected;
+            // any other cleanup failure is reported.
+            log_cleanup_after_failed_start(
+                self.shutdown().await,
+                &ClientType::LitePushConsumer.to_string(),
+                &client_id,
+            );
             return Err(ClientError::new(
                 ErrorKind::ClientInternal,
                 &format!("startUp err={:?}", e),
@@ -317,7 +323,13 @@ impl LitePushConsumer {
                 client_id,
                 e
             );
-            let _ = self.shutdown().await;
+            // The inner consumer may already have shut its client down, which is expected;
+            // any other cleanup failure is reported.
+            log_cleanup_after_failed_start(
+                self.shutdown().await,
+                &ClientType::LitePushConsumer.to_string(),
+                &client_id,
+            );
             return Err(ClientError::new(
                 ErrorKind::ClientInternal,
                 &format!("startUp err={:?}", e),

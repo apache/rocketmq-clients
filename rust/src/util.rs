@@ -41,6 +41,29 @@ pub(crate) static HOST_NAME: Lazy<String> = Lazy::new(|| match hostname::get() {
     Err(_) => "localhost".to_string(),
 });
 
+/// Report the outcome of the cleanup that follows a failed start.
+///
+/// Reference Java: `ProducerImpl#startUp`, `SimpleConsumerImpl#startUp` and
+/// `PushConsumerImpl#startUp` shut the client down when the startup fails. A start that failed
+/// before the client itself was started leaves nothing to clean up, so the resulting
+/// `ClientIsNotRunning` is expected and not reported.
+pub(crate) fn log_cleanup_after_failed_start(
+    result: Result<(), ClientError>,
+    client_type: &str,
+    client_id: &str,
+) {
+    match result {
+        Ok(()) => {}
+        Err(e) if e.kind == ErrorKind::ClientIsNotRunning => {}
+        Err(e) => tracing::error!(
+            "Failed to shutdown the rocketmq {} after a failed start, clientId={}, error={}",
+            client_type,
+            client_id,
+            e
+        ),
+    }
+}
+
 /// Log a telemetry command the client does not handle, with the wording of Java's `ClientImpl`
 /// (`onVerifyMessageCommand`, `onRecoverOrphanedTransactionCommand`,
 /// `onNotifyUnsubscribeLiteCommand`).
@@ -618,6 +641,37 @@ mod tests {
     use crate::pb::{Broker, MessageQueue};
 
     use super::*;
+
+    /// The cleanup after a failed start reports every failure but `ClientIsNotRunning`, which
+    /// only means the client never got started (or the inner consumer already shut it down).
+    #[test]
+    fn cleanup_after_failed_start_reports_only_real_failures() {
+        let (logs, _guard) = test_log::capture();
+        let failed = "Failed to shutdown the rocketmq LITE_PUSH_CONSUMER after a failed start, clientId=fake_id";
+
+        log_cleanup_after_failed_start(Ok(()), "LITE_PUSH_CONSUMER", "fake_id");
+        log_cleanup_after_failed_start(
+            Err(ClientError::new(
+                ErrorKind::ClientIsNotRunning,
+                "client is not started",
+                "client.shutdown",
+            )),
+            "LITE_PUSH_CONSUMER",
+            "fake_id",
+        );
+        assert!(!logs.any_at("ERROR"));
+
+        log_cleanup_after_failed_start(
+            Err(ClientError::new(
+                ErrorKind::ServerUnavailable,
+                "server unavailable",
+                "client.shutdown",
+            )),
+            "LITE_PUSH_CONSUMER",
+            "fake_id",
+        );
+        assert!(logs.contains("ERROR", failed));
+    }
 
     fn build_route() -> Arc<Route> {
         let message_queue_1 = MessageQueue {

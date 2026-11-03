@@ -45,7 +45,8 @@ use crate::pb::{
 use crate::session::RPCClient;
 use crate::util::{
     build_endpoints_by_message_queue, build_producer_settings, handle_response_status,
-    log_ignored_command, select_message_queue, select_message_queue_by_message_group, HOST_NAME,
+    log_cleanup_after_failed_start, log_ignored_command, select_message_queue,
+    select_message_queue_by_message_group, HOST_NAME,
 };
 
 /// [`Producer`] is the core struct, to which application developers should turn, when publishing messages to RocketMQ proxy.
@@ -146,6 +147,16 @@ impl Producer {
             error!(
                 "Failed to start the rocketmq producer, try to shutdown it, clientId={}, error={}",
                 client_id, error
+            );
+            // Reference Java: ProducerImpl#startUp calls shutDown(), so that the scheduler and
+            // the sessions the client started do not keep running.
+            if let Some(tx) = self.shutdown_tx.take() {
+                let _ = tx.send(());
+            }
+            log_cleanup_after_failed_start(
+                self.client.shutdown_ref().await,
+                "producer",
+                &client_id,
             );
             return Err(error);
         }
@@ -754,6 +765,87 @@ mod tests {
         Ok(())
     }
 
+    /// Reference Java: `ProducerImpl#startUp` shuts the producer down when the startup fails,
+    /// so that the scheduler and the sessions started by the client do not leak.
+    #[tokio::test]
+    async fn producer_start_failure_shuts_down_client() {
+        let (logs, _guard) = crate::util::test_log::capture();
+
+        // The mocked `Client::new` is only needed while constructing, so the lock is
+        // released before the first await.
+        let mut producer = {
+            let _m = crate::client::tests::MTX.lock();
+            let ctx = Client::new_context();
+            ctx.expect().return_once(|_, _| {
+                let mut client = Client::default();
+                client.expect_start().times(1).returning(|_| Ok(()));
+                client.expect_topic_route().times(1).returning(|_, _| {
+                    Err(ClientError::new(
+                        ErrorKind::Server,
+                        "topic not found",
+                        "client.query_route",
+                    ))
+                });
+                client.expect_shutdown_ref().times(1).returning(|| Ok(()));
+                client
+                    .expect_client_id()
+                    .return_const("fake_id".to_string());
+                Ok(client)
+            });
+            let mut producer_option = ProducerOption::default();
+            producer_option.set_topics(vec!["test_topic".to_string()]);
+            Producer::new(producer_option, ClientOption::default()).unwrap()
+        };
+
+        assert!(producer.start().await.is_err());
+        assert!(producer.shutdown_tx.is_none());
+        assert!(logs.contains(
+            "ERROR",
+            "Failed to start the rocketmq producer, try to shutdown it, clientId=fake_id"
+        ));
+    }
+
+    /// A start that failed before the client was started has nothing to clean up: the
+    /// `ClientIsNotRunning` of the cleanup is not a failure worth reporting.
+    #[tokio::test]
+    async fn producer_start_failure_before_client_start_tolerates_cleanup() {
+        let (logs, _guard) = crate::util::test_log::capture();
+
+        // The mocked `Client::new` is only needed while constructing, so the lock is
+        // released before the first await.
+        let _m = crate::client::tests::MTX.lock();
+        let ctx = Client::new_context();
+        ctx.expect().return_once(|_, _| {
+            let mut client = Client::default();
+            client.expect_start().times(1).returning(|_| {
+                Err(ClientError::new(
+                    ErrorKind::Connect,
+                    "failed to connect",
+                    "client.start",
+                ))
+            });
+            client.expect_shutdown_ref().times(1).returning(|| {
+                Err(ClientError::new(
+                    ErrorKind::ClientIsNotRunning,
+                    "client is not started",
+                    "client.shutdown",
+                ))
+            });
+            client
+                .expect_client_id()
+                .return_const("fake_id".to_string());
+            Ok(client)
+        });
+        let mut producer =
+            Producer::new(ProducerOption::default(), ClientOption::default()).unwrap();
+        drop(ctx);
+        drop(_m);
+
+        let error = producer.start().await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Connect);
+        assert!(!logs.contains("ERROR", "after a failed start"));
+    }
+
     /// The server pushes the settings on every periodic sync, so applying them must not log at
     /// `INFO`: Java's `ClientImpl#onSettingsCommand` logs nothing either. Commands the producer
     /// does not handle are reported like Java's `ClientImpl` does.
@@ -782,6 +874,9 @@ mod tests {
             Ok(client)
         });
         let mut producer = Producer::new(ProducerOption::default(), ClientOption::default())?;
+        // The mocked `Client::new` is only needed while constructing.
+        drop(ctx);
+        drop(_m);
         producer.start().await?;
         assert!(logs.contains(
             "INFO",

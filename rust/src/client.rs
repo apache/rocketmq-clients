@@ -584,27 +584,29 @@ impl Client {
     }
 
     /// Shutdown without consuming self (for internal use)
+    ///
+    /// Reference Java: `ClientImpl#shutDown`. A failure to notify the termination is logged and
+    /// does not stop the shutdown, so the scheduler and the sessions are always released.
     pub(crate) async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
         self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
         info!(
             "Begin to shutdown the rocketmq client, clientId={}",
             self.id
         );
-        let mut rpc_client = self.get_session().await?;
-        self.telemetry_command_tx = None;
-        if let Some(tx) = self.shutdown_tx.take() {
-            let _ = tx.send(());
-        }
-        let group = self.option.group.as_ref().map(|group| Resource {
-            name: group.to_string(),
-            resource_namespace: self.option.namespace.to_string(),
-        });
         info!(
             "Notify remote that client is terminated, clientId={}",
             self.id
         );
-        let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
-        handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
+        if let Err(e) = self.notify_client_termination().await {
+            error!(
+                "Failed to notify remote that client is terminated, clientId={}, error={}",
+                self.id, e
+            );
+        }
+        self.telemetry_command_tx = None;
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
         info!(
             "Begin to release all telemetry sessions, clientId={}",
             self.id
@@ -619,6 +621,18 @@ impl Client {
             self.id
         );
         Ok(())
+    }
+
+    async fn notify_client_termination(&self) -> Result<(), ClientError> {
+        let mut rpc_client = self.get_session().await?;
+        let group = self.option.group.as_ref().map(|group| Resource {
+            name: group.to_string(),
+            resource_namespace: self.option.namespace.to_string(),
+        });
+        let response = rpc_client
+            .notify_shutdown(NotifyClientTerminationRequest { group })
+            .await?;
+        handle_response_status(response.status, OPERATION_CLIENT_SHUTDOWN)
     }
 
     pub(crate) fn client_id(&self) -> &str {
@@ -1629,6 +1643,55 @@ pub(crate) mod tests {
             .get_session_with_endpoints(&Endpoints::from_url("localhost:8081").unwrap())
             .await;
         assert!(result.is_ok());
+    }
+
+    /// Reference Java: `ClientImpl#shutDown` releases the sessions and stops the scheduler even
+    /// when notifying the termination fails, which only logs the failure.
+    #[tokio::test]
+    async fn shutdown_releases_resources_when_notify_termination_fails() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let released = Arc::new(AtomicUsize::new(0));
+        let _m = MTX.lock();
+        let context = MockSession::new_context();
+        let counter = Arc::clone(&released);
+        context.expect().returning(move |_, _, _, _| {
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session.expect_set_stream_closed_tx().returning(|_| ());
+            session.expect_shadow_session().returning(|| {
+                let mut shadow = MockSession::default();
+                shadow.expect_notify_shutdown().returning(|_| {
+                    Err(ClientError::new(
+                        ErrorKind::ServerUnavailable,
+                        "server unavailable",
+                        "test.notify_shutdown",
+                    ))
+                });
+                shadow
+            });
+            let counter = Arc::clone(&counter);
+            session.expect_shutdown().returning(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+            });
+            Ok(session)
+        });
+        let mut client = new_client_with_session_manager(new_session_manager());
+        let (tx, _rx) = mpsc::channel(16);
+        client.start(tx).await.unwrap();
+        // The mocked `Session::new` is only needed while the session is created.
+        drop(context);
+        drop(_m);
+
+        let result = client.shutdown_ref().await;
+
+        assert!(result.is_ok(), "{:?}", result);
+        assert!(!client.is_started());
+        assert_eq!(1, released.load(Ordering::SeqCst));
+        assert!(client.session_manager.session_map.lock().await.is_empty());
+        assert!(logs.contains(
+            "ERROR",
+            "Failed to notify remote that client is terminated, clientId="
+        ));
     }
 
     // Reference Java: a client whose startup failed is not running (Guava `Service` state FAILED).
