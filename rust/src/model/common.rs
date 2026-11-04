@@ -40,6 +40,21 @@ pub(crate) enum ClientType {
     LiteSimpleConsumer = 6,
 }
 
+/// Printed like Java's `ClientType` enum, so that the client logs read the same.
+impl std::fmt::Display for ClientType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            ClientType::Producer => "PRODUCER",
+            ClientType::PushConsumer => "PUSH_CONSUMER",
+            ClientType::SimpleConsumer => "SIMPLE_CONSUMER",
+            ClientType::PullConsumer => "PULL_CONSUMER",
+            ClientType::LitePushConsumer => "LITE_PUSH_CONSUMER",
+            ClientType::LiteSimpleConsumer => "LITE_SIMPLE_CONSUMER",
+        };
+        f.write_str(name)
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Route {
     pub(crate) index: AtomicUsize,
@@ -357,6 +372,19 @@ impl MessageQueue {
         ))
     }
 
+    /// Printed like Java's `MessageQueueImpl#toString`: `<broker>.<topic>.<queueId>`.
+    pub(crate) fn display(&self) -> String {
+        let topic = if self.topic.resource_namespace.is_empty() {
+            self.topic.name.clone()
+        } else {
+            format!(
+                "Resource{{name={}, namespace={}}}",
+                self.topic.name, self.topic.resource_namespace
+            )
+        };
+        format!("{}.{}.{}", self.broker.name, topic, self.id)
+    }
+
     pub(crate) fn to_pb_message_queue(&self) -> pb::MessageQueue {
         pb::MessageQueue {
             id: self.id,
@@ -374,6 +402,43 @@ mod tests {
     use crate::model::common::Endpoints;
     use crate::pb;
     use crate::pb::{Address, AddressScheme};
+
+    #[test]
+    fn client_type_and_message_queue_are_printed_like_java() {
+        use crate::model::common::{ClientType, MessageQueue};
+
+        assert_eq!(ClientType::Producer.to_string(), "PRODUCER");
+        assert_eq!(ClientType::PushConsumer.to_string(), "PUSH_CONSUMER");
+        assert_eq!(ClientType::SimpleConsumer.to_string(), "SIMPLE_CONSUMER");
+        assert_eq!(
+            ClientType::LitePushConsumer.to_string(),
+            "LITE_PUSH_CONSUMER"
+        );
+        assert_eq!(
+            ClientType::LiteSimpleConsumer.to_string(),
+            "LITE_SIMPLE_CONSUMER"
+        );
+
+        let mut mq = MessageQueue {
+            id: 3,
+            topic: pb::Resource {
+                name: "topic".to_string(),
+                resource_namespace: "".to_string(),
+            },
+            broker: pb::Broker {
+                name: "broker-a".to_string(),
+                ..Default::default()
+            },
+            accept_message_types: vec![],
+            permission: 0,
+        };
+        assert_eq!(mq.display(), "broker-a.topic.3");
+        mq.topic.resource_namespace = "ns".to_string();
+        assert_eq!(
+            mq.display(),
+            "broker-a.Resource{name=topic, namespace=ns}.3"
+        );
+    }
 
     #[test]
     fn parse_domain_endpoint_url() {

@@ -26,7 +26,7 @@ use parking_lot::Mutex;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info};
 
 #[double]
 use crate::client::Client;
@@ -91,7 +91,16 @@ impl LiteSubscriptionManager {
 
     /// Start the subscription manager - sync all subscriptions after startup
     pub async fn start(&self) -> Result<(), ClientError> {
-        self.sync_all_lite_subscription().await?;
+        // Unlike Java's `LiteSubscriptionManager#startUp`, which only logs the failure, the
+        // startup fails, so only the wording is shared.
+        if let Err(e) = self.sync_all_lite_subscription().await {
+            error!(
+                "Schedule syncAllLiteSubscription error, clientId={}, error={}",
+                self.client.client_id(),
+                e
+            );
+            return Err(e);
+        }
 
         // Replace any scheduler left over from a previous start.
         self.stop_scheduler().await;
@@ -109,7 +118,11 @@ impl LiteSubscriptionManager {
                 tokio::select! {
                     _ = interval.tick() => {
                         if let Err(e) = manager.sync_all_lite_subscription().await {
-                            error!("Schedule syncAllLiteSubscription error: {:?}", e);
+                            error!(
+                                "Schedule syncAllLiteSubscription error, clientId={}, error={}",
+                                manager.client.client_id(),
+                                e
+                            );
                         }
                     }
                     _ = task_token.cancelled() => {
@@ -117,7 +130,7 @@ impl LiteSubscriptionManager {
                     }
                 }
             }
-            info!("LiteSubscriptionManager periodic sync scheduler stopped");
+            debug!("LiteSubscriptionManager periodic sync scheduler stopped");
         });
 
         *self.scheduler_token.lock() = Some(token);
@@ -139,7 +152,11 @@ impl LiteSubscriptionManager {
         let handle = self.scheduler_handle.lock().take();
         if let Some(handle) = handle {
             if let Err(e) = handle.await {
-                warn!("Failed to join the periodic-sync scheduler: {:?}", e);
+                error!(
+                    "[Bug] Failed to join the periodic-sync scheduler, clientId={}, error={:?}",
+                    self.client.client_id(),
+                    e
+                );
             }
         }
     }
@@ -195,11 +212,11 @@ impl LiteSubscriptionManager {
         if let Some(pb::settings::PubSub::Subscription(subscription)) = &settings.pub_sub {
             if let Some(quota) = subscription.lite_subscription_quota {
                 *self.lite_subscription_quota.lock() = quota;
-                info!("Updated lite subscription quota to {}", quota);
+                debug!("Updated lite subscription quota to {}", quota);
             }
             if let Some(max_size) = subscription.max_lite_topic_size {
                 *self.max_lite_topic_size.lock() = max_size;
-                info!("Updated max lite topic size to {}", max_size);
+                debug!("Updated max lite topic size to {}", max_size);
             }
         }
     }
@@ -241,12 +258,17 @@ impl LiteSubscriptionManager {
 
         // Sync subscription to server using PartialAdd action
         // This adds the new lite topic to the existing set on the server
-        self.sync_lite_subscription(
-            LiteSubscriptionAction::PartialAdd,
-            vec![lite_topic.clone()],
-            offset_option,
-        )
-        .await?;
+        if let Err(e) = self
+            .sync_lite_subscription(
+                LiteSubscriptionAction::PartialAdd,
+                vec![lite_topic.clone()],
+                offset_option,
+            )
+            .await
+        {
+            error!("Failed to subscribeLite {}, error={}", lite_topic, e);
+            return Err(e);
+        }
 
         // Add to local set after successful sync
         self.lite_topic_set.lock().insert(lite_topic.clone());
@@ -275,12 +297,17 @@ impl LiteSubscriptionManager {
         }
 
         // Sync unsubscription to server
-        self.sync_lite_subscription(
-            LiteSubscriptionAction::PartialRemove,
-            vec![lite_topic.clone()],
-            None,
-        )
-        .await?;
+        if let Err(e) = self
+            .sync_lite_subscription(
+                LiteSubscriptionAction::PartialRemove,
+                vec![lite_topic.clone()],
+                None,
+            )
+            .await
+        {
+            error!("Failed to unsubscribeLite {}, error={}", lite_topic, e);
+            return Err(e);
+        }
 
         // Remove from local set
         self.lite_topic_set.lock().remove(&lite_topic);
@@ -312,16 +339,8 @@ impl LiteSubscriptionManager {
             return Ok(());
         }
 
-        match self
-            .sync_lite_subscription(LiteSubscriptionAction::CompleteAdd, topics, None)
+        self.sync_lite_subscription(LiteSubscriptionAction::CompleteAdd, topics, None)
             .await
-        {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                error!("Failed to sync all lite subscriptions: {:?}", e);
-                Err(e)
-            }
-        }
     }
 
     /// Sync lite subscription to server
@@ -528,7 +547,11 @@ mod tests {
                     ))
                 });
         }
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
         let client = Arc::new(client);
+        let (logs, _guard) = crate::util::test_log::capture();
 
         let mut manager = LiteSubscriptionManager::new(
             client,
@@ -555,6 +578,11 @@ mod tests {
             calls_before_stop >= 1,
             "the scheduler should keep issuing syncs while running"
         );
+        // Reference Java: LiteSubscriptionManager#syncAllLiteSubscription.
+        assert!(logs.contains(
+            "ERROR",
+            "Schedule syncAllLiteSubscription error, clientId=fake_id"
+        ));
 
         manager.stop_scheduler().await;
 
@@ -671,6 +699,21 @@ mod tests {
         );
         assert_eq!(2000, *manager.lite_subscription_quota.lock());
         assert_eq!(128, *manager.max_lite_topic_size.lock());
+    }
+
+    /// The server pushes the settings on every periodic sync, so applying them must not log at
+    /// `INFO`: Java's `LiteSubscriptionManager#sync` logs nothing.
+    #[tokio::test]
+    async fn test_sync_settings_does_not_log_at_info() {
+        let manager = LiteSubscriptionManager::new(
+            create_test_client(),
+            "bind_topic".to_string(),
+            "namespace".to_string(),
+            "group".to_string(),
+        );
+        let (logs, _guard) = crate::util::test_log::capture();
+        manager.sync_settings(&subscription_settings(2000, 128));
+        assert!(!logs.any_at("INFO"));
     }
 
     #[tokio::test]

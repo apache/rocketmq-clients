@@ -38,7 +38,7 @@ use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error};
 
 use crate::client::Client;
 use crate::conf::{ClientOption, PushConsumerOption};
@@ -48,7 +48,7 @@ use crate::model::common::ClientType;
 use crate::model::offset_option::OffsetOption;
 use crate::pb;
 use crate::push_consumer::{MessageListener, PushConsumer};
-use crate::util::build_push_consumer_settings;
+use crate::util::{build_push_consumer_settings, log_cleanup_after_failed_start};
 
 const OPERATION_NEW_LITE_PUSH_CONSUMER: &str = "lite_push_consumer.new";
 
@@ -217,50 +217,27 @@ impl LitePushConsumer {
             .lite_subscription_manager
             .get_bind_topic_name()
             .to_string();
-        let consumer_group = self
-            .lite_subscription_manager
-            .get_consumer_group_name()
-            .to_string();
         let client_id = self.lite_client.client_id().to_string();
-
-        info!(
-            "Begin to start the LitePushConsumer, bindTopic={}, consumerGroup={}, clientId={}",
-            bind_topic, consumer_group, client_id
-        );
 
         // Step 1: Pre-fetch bindTopic route (reference Java: fetchTopicRoute during ClientImpl.startUp())
         // This is done early to validate the bind topic exists before starting consumption
-        match self.lite_client.topic_route(&bind_topic, false).await {
-            Ok(route) => {
-                info!(
-                    "Pre-fetched route for bindTopic={}, message_queues={}",
-                    bind_topic,
-                    route.queue.len()
-                );
-            }
-            Err(e) => {
-                warn!(
-                    "Failed to pre-fetch route for bindTopic={}, error={:?}. Will retry later.",
-                    bind_topic, e
-                );
-            }
-        }
+        // The route fetch is logged by the route manager.
+        let _ = self.lite_client.topic_route(&bind_topic, false).await;
 
         // Step 2: Start inner PushConsumer (reference Java: super.startUp())
         // This starts the client, establishes telemetry, fetches topic routes, and sets up assignment scanning
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
+        // The startup and its failure are logged by the inner push consumer, like Java's
+        // `PushConsumerImpl#startUp`.
         if let Err(e) = self.inner.start_with_telemetry(telemetry_command_tx).await {
-            error!(
-                "Failed to start LitePushConsumer inner, bindTopic={}, clientId={}, error={:?}",
-                bind_topic, client_id, e
-            );
             // Reference Java: startUp() calls shutDown() on failure
-            if let Err(shutdown_err) = self.shutdown().await {
-                error!(
-                    "Failed to shutdown after start failure, clientId={}, error={:?}",
-                    client_id, shutdown_err
-                );
-            }
+            // The inner consumer may already have shut its client down, which is expected;
+            // any other cleanup failure is reported.
+            log_cleanup_after_failed_start(
+                self.shutdown().await,
+                &ClientType::LitePushConsumer.to_string(),
+                &client_id,
+            );
             return Err(ClientError::new(
                 ErrorKind::ClientInternal,
                 &format!("startUp err={:?}", e),
@@ -288,10 +265,6 @@ impl LitePushConsumer {
                             if let Some(pb::telemetry_command::Command::NotifyUnsubscribeLiteCommand(ref cmd)) =
                                 command.command
                             {
-                                info!(
-                                    "Received unsubscribe notification for lite topic: {}, clientId={}",
-                                    cmd.lite_topic, client_id_clone
-                                );
                                 manager.on_notify_unsubscribe_lite_command(cmd.lite_topic.clone());
                             }
 
@@ -300,10 +273,6 @@ impl LitePushConsumer {
                             if let Some(pb::telemetry_command::Command::Settings(ref settings_cmd)) =
                                 command.command
                             {
-                                debug!(
-                                    "Received settings update from server, clientId={}",
-                                    client_id_clone
-                                );
                                 // LiteSubscriptionManager.sync_settings() handles quota and max_topic_size
                                 // Reference Java: liteSubscriptionManager.sync(settings)
                                 manager.sync_settings(settings_cmd);
@@ -318,7 +287,7 @@ impl LitePushConsumer {
                     }
                 }
             }
-            info!(
+            debug!(
                 "LitePushConsumer telemetry handler stopped, clientId={}",
                 client_id_clone
             );
@@ -347,16 +316,20 @@ impl LitePushConsumer {
             ))
         };
         if let Err(e) = start_result {
+            // Reference Java: PushConsumerImpl#startUp.
             error!(
-                "Failed to start LiteSubscriptionManager, bindTopic={}, clientId={}, error={:?}",
-                bind_topic, client_id, e
+                "Exception raised while starting the rocketmq {}, clientId={}, error={}",
+                ClientType::LitePushConsumer,
+                client_id,
+                e
             );
-            if let Err(shutdown_err) = self.shutdown().await {
-                error!(
-                    "Failed to shutdown after start failure, clientId={}, error={:?}",
-                    client_id, shutdown_err
-                );
-            }
+            // The inner consumer may already have shut its client down, which is expected;
+            // any other cleanup failure is reported.
+            log_cleanup_after_failed_start(
+                self.shutdown().await,
+                &ClientType::LitePushConsumer.to_string(),
+                &client_id,
+            );
             return Err(ClientError::new(
                 ErrorKind::ClientInternal,
                 &format!("startUp err={:?}", e),
@@ -364,10 +337,6 @@ impl LitePushConsumer {
             ));
         }
 
-        info!(
-            "The LitePushConsumer starts successfully, bindTopic={}, consumerGroup={}, clientId={}",
-            bind_topic, consumer_group, client_id
-        );
         Ok(())
     }
 }
@@ -440,8 +409,6 @@ impl LitePushConsumerTrait for LitePushConsumer {
     ///
     /// Reference Java: PushConsumerImpl.close() -> this.stopAsync().awaitTerminated()
     async fn shutdown(&mut self) -> Result<(), ClientError> {
-        info!("Shutting down LitePushConsumer...");
-
         // Stop the periodic-sync scheduler first. It retains an `Arc<Client>` and the
         // subscription set; if it kept running, its next tick would call
         // `Client::get_session_for_lite_consumer()` — which deliberately bypasses the
@@ -458,9 +425,8 @@ impl LitePushConsumerTrait for LitePushConsumer {
             tracker.wait().await;
         }
 
+        // Logged by the inner push consumer, like Java's `PushConsumerImpl#shutDown`.
         self.inner.shutdown_ref().await?;
-
-        info!("LitePushConsumer shutdown successfully");
         Ok(())
     }
 }

@@ -47,7 +47,7 @@ use crate::session::Session;
 use crate::session::{RPCClient, SharedLongPollingTimeout};
 use crate::util::{
     build_ack_message_entry, handle_receive_message_status, handle_response_status,
-    select_message_queue,
+    select_message_queue, SDK_VERSION,
 };
 
 #[derive(Debug)]
@@ -71,6 +71,8 @@ pub(crate) struct TopicRouteManager {
     route_table: Arc<Mutex<HashMap<String /* topic */, RouteStatus>>>,
     access_endpoints: Endpoints,
     namespace: String,
+    /// Only used in the logs.
+    client_id: String,
 }
 
 static CLIENT_ID_SEQUENCE: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
@@ -119,9 +121,68 @@ const RECONNECT_RETRY_MAX_DELAY: std::time::Duration = std::time::Duration::from
 
 /// Number of reconnect attempts after a stream-close notification before giving up on the
 /// peer (about two minutes in total with the doubling back-off). After that the endpoint is
-/// considered gone for now: recovery is left to the periodic settings sync, the heartbeat
+/// considered gone for now: recovery is left to the periodic stream check, the heartbeat
 /// and the next business traffic, so a permanently offline endpoint is not probed forever.
 const RECONNECT_MAX_ATTEMPTS: u32 = 8;
+
+/// Initial delay and period of the settings sync. Kept in line with the Java client
+/// (`ClientManagerImpl#SYNC_SETTINGS_DELAY` / `SYNC_SETTINGS_PERIOD`).
+///
+/// The server answers every sync with a `Settings` command on each session, so syncing more
+/// often only adds traffic and log lines: a change pushed by the server reaches the client
+/// through the telemetry stream anyway.
+const SYNC_SETTINGS_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
+const SYNC_SETTINGS_PERIOD: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+
+/// Period of the check that rebuilds broken telemetry streams.
+///
+/// It used to be a side effect of the 30s settings sync. The Java client does not need it,
+/// because `ClientSessionImpl#renewRequestObserver` keeps retrying every second until the
+/// stream is back. The reconnect loop here gives up after [`RECONNECT_MAX_ATTEMPTS`], so this
+/// check keeps an endpoint recoverable after that, without pushing settings to the healthy
+/// sessions.
+const STREAM_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Initial delay and period of the statistics log. Kept in line with the Java client
+/// (`ClientManagerImpl#LOG_STATS_INITIAL_DELAY` / `LOG_STATS_PERIOD`).
+const LOG_STATS_INITIAL_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
+const LOG_STATS_PERIOD: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Status code carried by an error built by `handle_response_status`, for the logs.
+fn status_code(error: &ClientError) -> String {
+    context_value(error, "code")
+}
+
+/// Status message carried by an error built by `handle_response_status`, for the logs.
+fn status_message(error: &ClientError) -> String {
+    context_value(error, "message")
+}
+
+fn context_value(error: &ClientError, key: &str) -> String {
+    error
+        .context()
+        .iter()
+        .find(|(k, _)| *k == key)
+        .map(|(_, v)| v.clone())
+        .unwrap_or_else(|| error.message().to_string())
+}
+
+/// Log a successful heartbeat with the wording of Java's `ClientImpl#doHeartbeat`.
+///
+/// Deliberately at DEBUG where Java uses INFO: one line per session every 10s carries nothing
+/// a user needs, and failures are still logged at WARN.
+fn log_heartbeat_success(endpoints: &str, client_id: &str) {
+    debug!(
+        "Send heartbeat successfully, endpoints={}, clientId={}",
+        endpoints, client_id
+    );
+}
+
+/// Same content as Java's `Utilities#getOsDescription`: the OS name and version.
+fn os_description() -> String {
+    let info = os_info::get();
+    format!("{} {}", info.os_type(), info.version())
+}
 
 /// Interval of the periodic topic-route sync.
 ///
@@ -129,7 +190,8 @@ const RECONNECT_MAX_ATTEMPTS: u32 = 8;
 /// (failover, migration), the client keeps sending to the stale, dead endpoints until the
 /// route data is refreshed, and this timer — not the telemetry reconnect — decides how long
 /// that window lasts. 10s halves-to-thirds the measured 13-29s interruption of the 30s
-/// variant.
+/// variant (#1404). An unchanged route is only logged at DEBUG, so the shorter period does
+/// not add INFO lines.
 const ROUTE_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
 
 #[automock]
@@ -144,8 +206,11 @@ impl Client {
         let long_polling_timeout = Arc::new(RwLock::new(*option.long_polling_timeout()));
         let session_manager =
             SessionManager::new(id.clone(), &option, Arc::clone(&long_polling_timeout));
-        let route_manager =
-            TopicRouteManager::new(option.get_namespace().to_string(), endpoints.clone());
+        let route_manager = TopicRouteManager::new(
+            option.get_namespace().to_string(),
+            endpoints.clone(),
+            id.clone(),
+        );
         Ok(Client {
             option,
             session_manager: Arc::new(session_manager),
@@ -256,6 +321,9 @@ impl Client {
         let namespace = self.option.namespace.to_string();
         let client_type = self.option.client_type.clone();
 
+        info!("Begin to start the rocketmq client, clientId={}", self.id);
+        info!("Begin to start the client manager, clientId={}", self.id);
+
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
 
@@ -284,12 +352,23 @@ impl Client {
         let route_manager = self.route_manager.clone();
 
         let settings = self.settings.clone();
+        let client_id = self.id.clone();
+        let access_endpoints = self.access_endpoints.endpoint_url().to_string();
         tokio::spawn(async move {
             rpc_client.is_started();
             let mut heartbeat_interval = tokio::time::interval(HEART_BEAT_INTERVAL);
-            let seconds_30 = std::time::Duration::from_secs(30);
-            let mut sync_settings_interval =
-                tokio::time::interval_at(Instant::now() + seconds_30, seconds_30);
+            let mut log_stats_interval = tokio::time::interval_at(
+                Instant::now() + LOG_STATS_INITIAL_DELAY,
+                LOG_STATS_PERIOD,
+            );
+            let mut sync_settings_interval = tokio::time::interval_at(
+                Instant::now() + SYNC_SETTINGS_DELAY,
+                SYNC_SETTINGS_PERIOD,
+            );
+            let mut stream_check_interval = tokio::time::interval_at(
+                Instant::now() + STREAM_CHECK_INTERVAL,
+                STREAM_CHECK_INTERVAL,
+            );
             let mut sync_route_timer = tokio::time::interval(ROUTE_SYNC_INTERVAL);
             let mut session_cleanup_timer = tokio::time::interval_at(
                 Instant::now() + SESSION_CLEANUP_INTERVAL,
@@ -305,8 +384,8 @@ impl Client {
                         let sessions = session_manager.get_all_sessions().await;
                         if let Err(e) = sessions {
                             error!(
-                                "send heartbeat failed: failed to get sessions: {}",
-                                e
+                                "[Bug] Exception raised while preparing heartbeat, clientId={}, error={}",
+                                client_id, e
                             );
                             continue;
                         }
@@ -315,9 +394,9 @@ impl Client {
                             let peer = session.peer().to_string();
                             let response = Self::heart_beat_inner(session, &group, &namespace, &client_type).await;
                             if let Err(e) = response {
-                                error!(
-                                    "send heartbeat failed: failed to send heartbeat rpc: {}",
-                                    e
+                                warn!(
+                                    "Failed to send heartbeat, endpoints={}, clientId={}, error={}",
+                                    peer, client_id, e
                                 );
                                 // The endpoint did not answer at all. Evict it only after
                                 // the failure threshold is reached so that the next access
@@ -326,6 +405,10 @@ impl Client {
                                 let failures = heartbeat_failures.entry(peer.clone()).or_insert(0);
                                 *failures += 1;
                                 if *failures >= HEART_BEAT_FAILURE_THRESHOLD {
+                                    warn!(
+                                        "Try to recover transport, endpoints={}, reason=heartbeat failure, clientId={}",
+                                        peer, client_id
+                                    );
                                     session_manager.evict_session(&peer).await;
                                     heartbeat_failures.remove(&peer);
                                 }
@@ -334,9 +417,12 @@ impl Client {
                             let result =
                                 handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
                             if let Err(e) = result {
-                                error!(
-                                    "send heartbeat failed: server return error: {}",
-                                    e
+                                warn!(
+                                    "Failed to send heartbeat, code={}, status message=[{}], endpoints={}, clientId={}",
+                                    status_code(&e),
+                                    status_message(&e),
+                                    peer,
+                                    client_id
                                 );
                                 heartbeat_failures.remove(&peer);
                                 // A business error such as `cannot find client` means the
@@ -344,26 +430,45 @@ impl Client {
                                 // failover moved the traffic to another instance. Rebuild
                                 // the telemetry stream: the telemetry RPC itself
                                 // re-registers the client with the new instance.
+                                warn!(
+                                    "Try to recover transport, endpoints={}, reason=heartbeat failure, statusCode={}, clientId={}",
+                                    peer,
+                                    status_code(&e),
+                                    client_id
+                                );
                                 match session_manager.reconnect_session(&peer, &settings).await {
                                     Ok(_) => {}
                                     Err(re) => {
-                                        error!(
-                                            "reconnect session after heartbeat error failed, peer={}, error={}",
-                                            peer, re
+                                        warn!(
+                                            "Failed to rebuild telemetry while recovering transport, endpoints={}, reason=heartbeat failure, clientId={}, error={}",
+                                            peer, client_id, re
                                         );
                                     }
                                 }
                                 continue;
                             }
                             heartbeat_failures.remove(&peer);
-                            debug!("send heartbeat to server success, peer={}",peer);
+                            log_heartbeat_success(&peer, &client_id);
                         }
+                    },
+                    _ = log_stats_interval.tick() => {
+                        // Reference Java: ClientManagerImpl logs the statistics every 60s.
+                        info!(
+                            "Start to log statistics, clientVersion={}, clientEndpoints={}, os description=[{}], clientId={}",
+                            SDK_VERSION,
+                            access_endpoints,
+                            os_description(),
+                            client_id
+                        );
                     },
                     _ = sync_settings_interval.tick() => {
                         // Sync on the registered sessions, not on shadow copies: rebuilding a
                         // stream on a throw-away copy loses it immediately, which is what left
                         // the client with a new one-off stream on every cycle.
                         session_manager.sync_settings(&settings).await;
+                    },
+                    _ = stream_check_interval.tick() => {
+                        session_manager.recover_broken_streams(&settings).await;
                     },
                     _ = session_cleanup_timer.tick() => {
                         // Keep the session map from growing without bound: drop sessions whose
@@ -373,18 +478,15 @@ impl Client {
                     peer = stream_closed_rx.recv() => {
                         match peer {
                             Some(peer) => {
-                                warn!(
-                                    "telemetry stream for peer {} was closed, scheduling reconnect",
-                                    peer
-                                );
                                 // Retry in the background: the first attempt follows the
                                 // initial back-off delay, then the delay doubles up to a
                                 // cap, so a permanently offline endpoint is not hammered
                                 // once a second. After the attempt budget is exhausted the
-                                // endpoint is left to the periodic settings sync, the
+                                // endpoint is left to the periodic stream check, the
                                 // heartbeat and the next business traffic.
                                 let session_manager = session_manager.clone();
                                 let settings = settings.clone();
+                                let client_id = client_id.clone();
                                 tokio::spawn(async move {
                                     let mut delay = RECONNECT_BACKOFF_DELAY;
                                     for attempt in 1..=RECONNECT_MAX_ATTEMPTS {
@@ -394,9 +496,9 @@ impl Client {
                                             .await
                                         {
                                             Ok(true) => {
-                                                info!(
-                                                    "telemetry stream for peer {} re-established after {} attempt(s)",
-                                                    peer, attempt
+                                                debug!(
+                                                    "Renew requestObserver successfully, endpoints={}, attempt={}, clientId={}",
+                                                    peer, attempt, client_id
                                                 );
                                                 return;
                                             }
@@ -405,47 +507,63 @@ impl Client {
                                                 // endpoints configured); retrying without
                                                 // a session to rebuild on is pointless.
                                                 warn!(
-                                                    "session for peer {} could not be rebuilt, it will be recreated on the next access",
-                                                    peer
+                                                    "Failed to rebuild telemetry because client session does not exist, endpoints={}, clientId={}",
+                                                    peer, client_id
                                                 );
                                                 return;
                                             }
                                             Err(e) => {
-                                                error!(
-                                                    "reconnect to peer {} failed (attempt {}/{}): {}, next attempt in {:?}",
-                                                    peer, attempt, RECONNECT_MAX_ATTEMPTS, e, delay
-                                                );
                                                 delay = (delay * 2).min(RECONNECT_RETRY_MAX_DELAY);
+                                                error!(
+                                                    "Failed to renew requestObserver, attempt to renew later, endpoints={}, delay={:?}, clientId={}, error={}",
+                                                    peer, delay, client_id, e
+                                                );
                                             }
                                         }
                                     }
                                     error!(
-                                        "gave up reconnecting to peer {} after {} attempts; it will be rebuilt by the periodic settings sync or the next traffic",
-                                        peer, RECONNECT_MAX_ATTEMPTS
+                                        "Give up renewing requestObserver, it will be renewed by the periodic stream check, endpoints={}, maxAttempts={}, clientId={}",
+                                        peer, RECONNECT_MAX_ATTEMPTS, client_id
                                     );
                                 });
                             }
                             None => {
                                 // Unreachable while the session manager is alive: it holds
                                 // a sender of this channel.
-                                error!("stream closed channel was closed unexpectedly");
+                                error!(
+                                    "[Bug] Stream closed channel was closed unexpectedly, clientId={}",
+                                    client_id
+                                );
                             }
                         }
                     },
                     _ = sync_route_timer.tick() => {
                         let result = route_manager.sync_route_data(&mut rpc_client).await;
                         if let Err(e) = result {
-                            error!("sync route failed: {}", e);
+                            error!(
+                                "Exception raised while updating topic route cache, clientId={}, error={}",
+                                client_id, e
+                            );
                         }
                     },
                     _ = &mut shutdown_rx => {
-                        info!("receive shutdown signal, stop heartbeat and telemetry tasks.");
                         break;
                     }
                 }
             }
-            info!("heartbeat and telemetry task were stopped");
+            info!(
+                "Shutdown the client scheduler successfully, clientId={}",
+                client_id
+            );
         });
+        info!(
+            "The client manager starts successfully, clientId={}",
+            self.id
+        );
+        info!(
+            "The rocketmq client starts successfully, clientId={}",
+            self.id
+        );
         Ok(())
     }
 
@@ -462,38 +580,59 @@ impl Client {
     }
 
     pub(crate) async fn shutdown(mut self) -> Result<(), ClientError> {
-        self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
-        let mut rpc_client = self.get_session().await?;
-        self.telemetry_command_tx = None;
-        if let Some(tx) = self.shutdown_tx.take() {
-            let _ = tx.send(());
-        }
-        let group = self.option.group.as_ref().map(|group| Resource {
-            name: group.to_string(),
-            resource_namespace: self.option.namespace.to_string(),
-        });
-        let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
-        handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
-        self.session_manager.shutdown().await;
-        Ok(())
+        self.shutdown_ref().await
     }
 
     /// Shutdown without consuming self (for internal use)
+    ///
+    /// Reference Java: `ClientImpl#shutDown`. A failure to notify the termination is logged and
+    /// does not stop the shutdown, so the scheduler and the sessions are always released.
     pub(crate) async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
         self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
-        let mut rpc_client = self.get_session().await?;
+        info!(
+            "Begin to shutdown the rocketmq client, clientId={}",
+            self.id
+        );
+        info!(
+            "Notify remote that client is terminated, clientId={}",
+            self.id
+        );
+        if let Err(e) = self.notify_client_termination().await {
+            error!(
+                "Failed to notify remote that client is terminated, clientId={}, error={}",
+                self.id, e
+            );
+        }
         self.telemetry_command_tx = None;
         if let Some(tx) = self.shutdown_tx.take() {
             let _ = tx.send(());
         }
+        info!(
+            "Begin to release all telemetry sessions, clientId={}",
+            self.id
+        );
+        self.session_manager.shutdown().await;
+        info!(
+            "Release all telemetry sessions successfully, clientId={}",
+            self.id
+        );
+        info!(
+            "Shutdown the rocketmq client successfully, clientId={}",
+            self.id
+        );
+        Ok(())
+    }
+
+    async fn notify_client_termination(&self) -> Result<(), ClientError> {
+        let mut rpc_client = self.get_session().await?;
         let group = self.option.group.as_ref().map(|group| Resource {
             name: group.to_string(),
             resource_namespace: self.option.namespace.to_string(),
         });
-        let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
-        handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
-        self.session_manager.shutdown().await;
-        Ok(())
+        let response = rpc_client
+            .notify_shutdown(NotifyClientTerminationRequest { group })
+            .await?;
+        handle_response_status(response.status, OPERATION_CLIENT_SHUTDOWN)
     }
 
     pub(crate) fn client_id(&self) -> &str {
@@ -866,11 +1005,24 @@ impl Client {
 }
 
 impl TopicRouteManager {
-    pub(crate) fn new(namespace: String, access_endpoints: Endpoints) -> Self {
+    /// Put a route into the cache, for the tests of the route users.
+    #[cfg(test)]
+    pub(crate) fn insert_route_for_test(&self, topic: &str, queue: Vec<MessageQueue>) {
+        self.route_table.lock().insert(
+            topic.to_string(),
+            RouteStatus::Found(Arc::new(Route {
+                index: AtomicUsize::new(0),
+                queue,
+            })),
+        );
+    }
+
+    pub(crate) fn new(namespace: String, access_endpoints: Endpoints, client_id: String) -> Self {
         Self {
             namespace,
             access_endpoints,
             route_table: Arc::new(Mutex::new(HashMap::new())),
+            client_id,
         }
     }
 
@@ -882,7 +1034,12 @@ impl TopicRouteManager {
         {
             topics = self.route_table.lock().keys().cloned().collect();
         }
-        debug!("sync topic route of topics {:?}", topics);
+        // Deliberately at DEBUG where Java's `ClientImpl#updateRouteCache` uses INFO: it fires
+        // every 30s; a route that changed is logged at INFO below.
+        debug!(
+            "Start to update route cache for a new round, clientId={}",
+            self.client_id
+        );
         for topic in topics {
             self.topic_route_inner(rpc_client, &topic).await?;
         }
@@ -894,10 +1051,23 @@ impl TopicRouteManager {
         rpc_client: &mut T,
         topics: Vec<String>,
     ) -> Result<(), ClientError> {
-        debug!("sync topic route of topics {:?}.", topics);
-        for topic in topics {
-            self.topic_route_inner(rpc_client, topic.as_str()).await?;
+        info!(
+            "Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={:?}",
+            self.client_id, topics
+        );
+        for topic in topics.iter() {
+            if let Err(e) = self.topic_route_inner(rpc_client, topic.as_str()).await {
+                error!(
+                    "Fetch topics failed when client start, clientId={}, topics={:?}, error={}",
+                    self.client_id, topics, e
+                );
+                return Err(e);
+            }
         }
+        info!(
+            "Fetch topic route data from remote successfully during startup, clientId={}, topics={:?}",
+            self.client_id, topics
+        );
         Ok(())
     }
 
@@ -906,7 +1076,6 @@ impl TopicRouteManager {
         rpc_client: &mut T,
         topic: &str,
     ) -> Result<Arc<Route>, ClientError> {
-        debug!("query route for topic={}", topic);
         let rx = match self
             .route_table
             .lock()
@@ -953,20 +1122,28 @@ impl TopicRouteManager {
 
         // send result to all waiters
         if let Ok(route) = result {
-            debug!("query route for topic={} success: route={:?}", topic, route);
             let route = Arc::new(route);
             let mut route_table_lock = self.route_table.lock();
 
             // if message queues in previous and new route are the same, just keep the previous.
             if let Some(RouteStatus::Found(prev)) = route_table_lock.get(topic) {
                 if prev.queue == route.queue {
+                    // Deliberately at DEBUG where Java's `ClientImpl#fetchTopicRoute` uses
+                    // INFO: an unchanged route would be logged in full every 30s.
+                    debug!(
+                        "Fetch topic route successfully, clientId={}, topic={}, topicRouteData={:?}",
+                        self.client_id, topic, route.queue
+                    );
                     return Ok(Arc::clone(prev));
                 }
             }
+            info!(
+                "Fetch topic route successfully, clientId={}, topic={}, topicRouteData={:?}",
+                self.client_id, topic, route.queue
+            );
 
             let prev =
                 route_table_lock.insert(topic.to_owned(), RouteStatus::Found(Arc::clone(&route)));
-            info!("update route for topic={}", topic);
 
             if let Some(RouteStatus::Querying(Some(mut v))) = prev {
                 for item in v.drain(..) {
@@ -976,7 +1153,10 @@ impl TopicRouteManager {
             Ok(route)
         } else {
             let err = result.unwrap_err();
-            warn!("query route for topic={} failed: error={}", topic, err);
+            error!(
+                "Failed to fetch topic route, clientId={}, topic={}, error={}",
+                self.client_id, topic, err
+            );
             let mut route_table_lock = self.route_table.lock();
             // keep the existing route if error occurs.
             if let Some(RouteStatus::Found(prev)) = route_table_lock.get(topic) {
@@ -1025,7 +1205,6 @@ impl TopicRouteManager {
     pub(crate) fn find_topic_route(&self, topic: &str) -> Option<Arc<Route>> {
         self.route_table.lock().get(topic).and_then(|route_status| {
             if let RouteStatus::Found(route) = route_status {
-                // debug!(self.logger, "get route for topic={} from cache", topic);
                 Some(Arc::clone(route))
             } else {
                 None
@@ -1152,7 +1331,10 @@ impl SessionManager {
         match session_map.remove(endpoint_url) {
             Some(mut session) => {
                 session.shutdown();
-                info!("evicted session for endpoint {}", endpoint_url);
+                info!(
+                    "Remove client session, clientId={}, endpoints={}",
+                    self.client_id, endpoint_url
+                );
                 true
             }
             None => false,
@@ -1237,17 +1419,35 @@ impl SessionManager {
     /// Sessions whose stream cannot be restored are evicted so that `session_map` shrinks
     /// instead of accumulating dead endpoints.
     pub(crate) async fn sync_settings(&self, settings: &TelemetryCommand) {
+        self.update_settings_of_sessions(settings, false).await;
+    }
+
+    /// Rebuild the telemetry stream of every session that lost it, and leave the healthy
+    /// sessions alone.
+    ///
+    /// Sessions whose stream cannot be restored are evicted, like in [`Self::sync_settings`].
+    pub(crate) async fn recover_broken_streams(&self, settings: &TelemetryCommand) {
+        self.update_settings_of_sessions(settings, true).await;
+    }
+
+    async fn update_settings_of_sessions(&self, settings: &TelemetryCommand, broken_only: bool) {
         let mut session_map = self.session_map.lock().await;
         let mut broken: Vec<String> = Vec::new();
         for (endpoint_url, session) in session_map.iter_mut() {
+            if broken_only && session.is_started() {
+                continue;
+            }
             match session.update_settings(settings.clone()).await {
                 Ok(()) => {
-                    debug!("sync settings success, peer = {}", endpoint_url);
+                    debug!(
+                        "Sync settings to remote successfully, endpoints={}, clientId={}",
+                        endpoint_url, self.client_id
+                    );
                 }
                 Err(e) => {
                     error!(
-                        "sync settings failed, peer = {}, error = {}",
-                        endpoint_url, e
+                        "Failed to telemeter settings, clientId={}, endpoints={}, error={}",
+                        self.client_id, endpoint_url, e
                     );
                     broken.push(endpoint_url.clone());
                 }
@@ -1256,9 +1456,9 @@ impl SessionManager {
         for endpoint_url in broken {
             if let Some(mut session) = session_map.remove(&endpoint_url) {
                 session.shutdown();
-                warn!(
-                    "evicted session after settings sync failure, peer = {}",
-                    endpoint_url
+                info!(
+                    "Remove client session, clientId={}, endpoints={}",
+                    self.client_id, endpoint_url
                 );
             }
         }
@@ -1286,8 +1486,19 @@ impl SessionManager {
             .collect();
         for url in stale {
             if let Some(mut session) = session_map.remove(&url) {
+                let idle_duration = session.idle_duration();
                 session.shutdown();
-                info!("evicted stale session for endpoint {}", url);
+                if idle_duration > SESSION_MAX_IDLE_DURATION {
+                    info!(
+                        "Rpc client has been idle for a long time, endpoints={}, idleDuration={:?}, rpcClientMaxIdleDuration={:?}, clientId={}",
+                        url, idle_duration, SESSION_MAX_IDLE_DURATION, self.client_id
+                    );
+                } else {
+                    info!(
+                        "Remove client session, clientId={}, endpoints={}",
+                        self.client_id, url
+                    );
+                }
             }
         }
     }
@@ -1332,6 +1543,7 @@ pub(crate) mod tests {
             route_table: Arc::new(Mutex::new(HashMap::new())),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
             namespace: "".to_string(),
+            client_id: "test_client".to_string(),
         }
     }
 
@@ -1433,6 +1645,55 @@ pub(crate) mod tests {
         assert!(result.is_ok());
     }
 
+    /// Reference Java: `ClientImpl#shutDown` releases the sessions and stops the scheduler even
+    /// when notifying the termination fails, which only logs the failure.
+    #[tokio::test]
+    async fn shutdown_releases_resources_when_notify_termination_fails() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let released = Arc::new(AtomicUsize::new(0));
+        let _m = MTX.lock();
+        let context = MockSession::new_context();
+        let counter = Arc::clone(&released);
+        context.expect().returning(move |_, _, _, _| {
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session.expect_set_stream_closed_tx().returning(|_| ());
+            session.expect_shadow_session().returning(|| {
+                let mut shadow = MockSession::default();
+                shadow.expect_notify_shutdown().returning(|_| {
+                    Err(ClientError::new(
+                        ErrorKind::ServerUnavailable,
+                        "server unavailable",
+                        "test.notify_shutdown",
+                    ))
+                });
+                shadow
+            });
+            let counter = Arc::clone(&counter);
+            session.expect_shutdown().returning(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+            });
+            Ok(session)
+        });
+        let mut client = new_client_with_session_manager(new_session_manager());
+        let (tx, _rx) = mpsc::channel(16);
+        client.start(tx).await.unwrap();
+        // The mocked `Session::new` is only needed while the session is created.
+        drop(context);
+        drop(_m);
+
+        let result = client.shutdown_ref().await;
+
+        assert!(result.is_ok(), "{:?}", result);
+        assert!(!client.is_started());
+        assert_eq!(1, released.load(Ordering::SeqCst));
+        assert!(client.session_manager.session_map.lock().await.is_empty());
+        assert!(logs.contains(
+            "ERROR",
+            "Failed to notify remote that client is terminated, clientId="
+        ));
+    }
+
     // Reference Java: a client whose startup failed is not running (Guava `Service` state FAILED).
     #[tokio::test]
     async fn client_start_failure_leaves_client_not_started() {
@@ -1516,6 +1777,54 @@ pub(crate) mod tests {
         let topic = topic.clone().unwrap();
         assert_eq!(topic.name, "DefaultCluster");
         assert_eq!(topic.resource_namespace, "default");
+    }
+
+    /// Deliberate difference from Java, which logs every successful heartbeat at INFO: one
+    /// line per session every 10s carries nothing a user needs.
+    #[test]
+    fn heartbeat_success_is_logged_at_debug() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        log_heartbeat_success("127.0.0.1:8081", "test_client");
+        assert!(logs.contains(
+            "DEBUG",
+            "Send heartbeat successfully, endpoints=127.0.0.1:8081, clientId=test_client"
+        ));
+        assert!(!logs.any_at("INFO"));
+    }
+
+    /// Deliberate difference from Java, which logs every fetch and every refresh round at
+    /// INFO: a route fetch is only logged at INFO when the route changed, otherwise the 30s
+    /// refresh floods the log with the full, unchanged route.
+    #[tokio::test]
+    async fn route_fetch_is_logged_at_info_only_when_the_route_changed() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let client = new_client_for_test();
+        let fetched = "Fetch topic route successfully, clientId=test_client, topic=DefaultCluster";
+
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_query_route()
+            .times(2)
+            .returning(|_| Box::pin(futures::future::ready(new_topic_route_response())));
+        client
+            .route_manager
+            .topic_route_inner(&mut mock, "DefaultCluster")
+            .await
+            .unwrap();
+        assert_eq!(1, logs.count("INFO", fetched));
+
+        // Refresh with the same route.
+        client
+            .route_manager
+            .sync_route_data(&mut mock)
+            .await
+            .unwrap();
+        assert_eq!(1, logs.count("INFO", fetched));
+        assert_eq!(1, logs.count("DEBUG", fetched));
+        assert!(logs.contains(
+            "DEBUG",
+            "Start to update route cache for a new round, clientId=test_client"
+        ));
+        assert!(!logs.contains("INFO", "Start to update route cache"));
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -2147,6 +2456,77 @@ pub(crate) mod tests {
         );
         // A session whose stream was restored successfully stays registered.
         assert_eq!(session_manager.session_map.lock().await.len(), 1);
+    }
+
+    /// The stream check runs much more often than the settings sync, so it must only rebuild
+    /// broken streams: pushing settings to healthy sessions is the job of the settings sync,
+    /// which runs as rarely as Java's `ClientManagerImpl#SYNC_SETTINGS_PERIOD`.
+    #[tokio::test]
+    async fn test_recover_broken_streams_skips_healthy_sessions() {
+        let session_manager = new_session_manager();
+        let rebuilt = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        {
+            let mut session_map = session_manager.session_map.lock().await;
+            let mut healthy = MockSession::default();
+            healthy.expect_is_started().return_const(true);
+            healthy.expect_update_settings().never();
+            session_map.insert("healthy".to_string(), healthy);
+
+            let mut broken = MockSession::default();
+            broken.expect_is_started().return_const(false);
+            let counter = Arc::clone(&rebuilt);
+            broken
+                .expect_update_settings()
+                .times(1)
+                .returning(move |_| {
+                    counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    Ok(())
+                });
+            session_map.insert("broken".to_string(), broken);
+        }
+
+        session_manager
+            .recover_broken_streams(&TelemetryCommand::default())
+            .await;
+
+        assert_eq!(rebuilt.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(session_manager.session_map.lock().await.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_recover_broken_streams_evicts_unrecoverable_session() {
+        let session_manager = new_session_manager();
+        {
+            let mut session_map = session_manager.session_map.lock().await;
+            let mut session = MockSession::default();
+            session.expect_is_started().return_const(false);
+            session.expect_update_settings().returning(|_| {
+                Err(ClientError::new(
+                    ErrorKind::ServerUnavailable,
+                    "server unavailable",
+                    "test.recover_broken_streams",
+                ))
+            });
+            session.expect_shutdown().returning(|| ());
+            session_map.insert("endpoint_a".to_string(), session);
+        }
+
+        session_manager
+            .recover_broken_streams(&TelemetryCommand::default())
+            .await;
+
+        assert!(session_manager.session_map.lock().await.is_empty());
+    }
+
+    /// Keep the settings sync on Java's schedule, and the stream check on the cadence the
+    /// recovery used to rely on.
+    #[test]
+    fn settings_sync_and_stream_check_intervals() {
+        assert_eq!(SYNC_SETTINGS_DELAY, std::time::Duration::from_secs(1));
+        assert_eq!(SYNC_SETTINGS_PERIOD, std::time::Duration::from_secs(5 * 60));
+        assert_eq!(STREAM_CHECK_INTERVAL, std::time::Duration::from_secs(30));
+        // Deliberately shorter than Java's 30s, see `ROUTE_SYNC_INTERVAL`.
+        assert_eq!(ROUTE_SYNC_INTERVAL, std::time::Duration::from_secs(10));
     }
 
     #[tokio::test]

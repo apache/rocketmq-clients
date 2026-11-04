@@ -21,7 +21,7 @@ use std::time::Duration;
 use mockall_double::double;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{info, warn};
+use tracing::{error, info};
 
 #[double]
 use crate::client::Client;
@@ -32,7 +32,8 @@ use crate::model::message::{AckMessageEntry, MessageView};
 use crate::pb::telemetry_command::Command;
 use crate::session::SharedLongPollingTimeout;
 use crate::util::{
-    build_endpoints_by_message_queue, build_simple_consumer_settings, prune_lite_route,
+    build_endpoints_by_message_queue, build_simple_consumer_settings,
+    log_cleanup_after_failed_start, log_ignored_command, prune_lite_route,
     select_readable_message_queue,
 };
 
@@ -129,8 +130,57 @@ impl SimpleConsumer {
         self.client.check_started(operation)
     }
 
+    /// Check that the consumer is running before `action`, logging like Java's
+    /// `SimpleConsumerImpl` (`Unable to <action> because <clientType> is not running`).
+    fn check_running(&self, action: &str, operation: &'static str) -> Result<(), ClientError> {
+        // `Result::inspect_err` needs Rust 1.76, above the MSRV.
+        let result = self.client.check_started(operation);
+        if result.is_err() {
+            error!(
+                "Unable to {} because {} is not running, state=NOT_RUNNING, clientId={}",
+                action,
+                self.client.get_client_type(),
+                self.client.client_id()
+            );
+        }
+        result
+    }
+
     /// Start the simple consumer, forwarding server telemetry commands to `telemetry_command_tx`.
+    ///
+    /// Logs the startup like Java's `SimpleConsumerImpl#startUp`.
     pub(crate) async fn start_with_telemetry(
+        &mut self,
+        telemetry_command_tx: mpsc::Sender<crate::pb::telemetry_command::Command>,
+    ) -> Result<(), ClientError> {
+        let client_type = self.client.get_client_type();
+        let client_id = self.client.client_id().to_string();
+        info!(
+            "Begin to start the rocketmq {}, clientId={}",
+            client_type, client_id
+        );
+        if let Err(error) = self.start_with_telemetry_inner(telemetry_command_tx).await {
+            error!(
+                "Failed to start the rocketmq {}, try to shutdown it, clientId={}, error={}",
+                client_type, client_id, error
+            );
+            // Reference Java: SimpleConsumerImpl#startUp calls shutDown() when any startup step
+            // fails, so that the scheduler and the sessions the client started do not leak.
+            log_cleanup_after_failed_start(
+                self.client.shutdown_ref().await,
+                &client_type.to_string(),
+                &client_id,
+            );
+            return Err(error);
+        }
+        info!(
+            "The rocketmq {} starts successfully, clientId={}",
+            client_type, client_id
+        );
+        Ok(())
+    }
+
+    async fn start_with_telemetry_inner(
         &mut self,
         telemetry_command_tx: mpsc::Sender<crate::pb::telemetry_command::Command>,
     ) -> Result<(), ClientError> {
@@ -144,23 +194,9 @@ impl SimpleConsumer {
         self.client.start(telemetry_command_tx).await?;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
-                if let Err(error) = self.client.topic_route(topic, true).await {
-                    // Reference Java: SimpleConsumerImpl#startUp shuts the client down when any
-                    // startup step fails.
-                    if let Err(shutdown_error) = self.client.shutdown_ref().await {
-                        warn!(
-                            "failed to shut down simple consumer after a failed start: {}",
-                            shutdown_error
-                        );
-                    }
-                    return Err(error);
-                }
+                self.client.topic_route(topic, true).await?;
             }
         }
-        info!(
-            "start simple consumer success, client_id: {}",
-            self.client.client_id()
-        );
         Ok(())
     }
 
@@ -171,17 +207,22 @@ impl SimpleConsumer {
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
         let long_polling_timeout = self.client.long_polling_timeout_handle();
+        let client_id = self.client.client_id().to_string();
+        let client_type = self.client.get_client_type();
         tokio::spawn(async move {
             loop {
                 select! {
                     command = telemetry_command_rx.recv() => {
                         match command {
                             Some(Command::Settings(settings)) => {
-                                Self::apply_server_settings(&settings, &long_polling_timeout);
+                                Self::apply_server_settings(
+                                    &settings,
+                                    &long_polling_timeout,
+                                    &client_id,
+                                    &client_type,
+                                );
                             }
-                            Some(command) => {
-                                warn!("command {:?} cannot be handled in simple consumer.", command);
-                            }
+                            Some(command) => log_ignored_command(&command, &client_id),
                             // The client was dropped; there is nothing left to handle.
                             None => break,
                         }
@@ -193,18 +234,11 @@ impl SimpleConsumer {
                 }
             }
         });
-        info!(
-            "start simple consumer success, client_id: {}",
-            self.client.client_id()
-        );
         Ok(())
     }
 
-    pub async fn shutdown(self) -> Result<(), ClientError> {
-        if let Some(shutdown_tx) = self.shutdown_tx {
-            let _ = shutdown_tx.send(());
-        };
-        self.client.shutdown().await
+    pub async fn shutdown(mut self) -> Result<(), ClientError> {
+        self.shutdown_ref().await
     }
 
     /// Apply the settings pushed by the server.
@@ -215,30 +249,43 @@ impl SimpleConsumer {
     fn apply_server_settings(
         settings: &crate::pb::Settings,
         long_polling_timeout: &SharedLongPollingTimeout,
+        client_id: &str,
+        client_type: &ClientType,
     ) {
-        if let Some(crate::pb::settings::PubSub::Subscription(ref subscription)) = settings.pub_sub
-        {
-            if let Some(ref timeout) = subscription.long_polling_timeout {
-                let seconds = timeout.seconds;
-                let nanos = timeout.nanos;
-                if seconds > 0 || nanos > 0 {
-                    let timeout = Duration::new(seconds as u64, nanos as u32);
-                    *long_polling_timeout.write() = timeout;
-                    info!(
-                        "simple consumer applied server-pushed long_polling_timeout: {:?}",
-                        timeout
-                    );
-                }
+        let Some(crate::pb::settings::PubSub::Subscription(ref subscription)) = settings.pub_sub
+        else {
+            error!(
+                "[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={:?}, clientType={}",
+                client_id, settings.pub_sub, client_type
+            );
+            return;
+        };
+        if let Some(ref timeout) = subscription.long_polling_timeout {
+            let seconds = timeout.seconds;
+            let nanos = timeout.nanos;
+            if seconds > 0 || nanos > 0 {
+                *long_polling_timeout.write() = Duration::new(seconds as u64, nanos as u32);
             }
         }
     }
 
     /// Same as [`SimpleConsumer::shutdown`] but takes a mutable reference.
     pub(crate) async fn shutdown_ref(&mut self) -> Result<(), ClientError> {
+        let client_type = self.client.get_client_type();
+        let client_id = self.client.client_id().to_string();
+        info!(
+            "Begin to shutdown the rocketmq {}, clientId={}",
+            client_type, client_id
+        );
         if let Some(shutdown_tx) = self.shutdown_tx.take() {
             let _ = shutdown_tx.send(());
         };
-        self.client.shutdown_ref().await
+        self.client.shutdown_ref().await?;
+        info!(
+            "Shutdown the rocketmq {} successfully, clientId={}",
+            client_type, client_id
+        );
+        Ok(())
     }
 
     /// receive messages from the specified topic
@@ -310,7 +357,7 @@ impl SimpleConsumer {
         invisible_duration: Duration,
         lite: bool,
     ) -> Result<Vec<MessageView>, ClientError> {
-        self.client.check_started(Self::OPERATION_RECEIVE_MESSAGE)?;
+        self.check_running("receive message", Self::OPERATION_RECEIVE_MESSAGE)?;
         // Reference Java: `SimpleConsumerImpl#receive0` rejects a non-positive maxMessageNum.
         if batch_size <= 0 {
             return Err(ClientError::new(
@@ -361,7 +408,7 @@ impl SimpleConsumer {
         &self,
         ack_entry: &(impl AckMessageEntry + 'static),
     ) -> Result<(), ClientError> {
-        self.client.check_started(Self::OPERATION_ACK_MESSAGE)?;
+        self.check_running("ack message", Self::OPERATION_ACK_MESSAGE)?;
         self.client.ack_message(ack_entry).await?;
         Ok(())
     }
@@ -381,16 +428,29 @@ impl SimpleConsumer {
         ack_entry: &(impl AckMessageEntry + 'static),
         invisible_duration: Duration,
     ) -> Result<String, ClientError> {
-        self.client
-            .check_started(Self::OPERATION_CHANGE_INVISIBLE_DURATION)?;
+        self.check_running(
+            "change invisible duration",
+            Self::OPERATION_CHANGE_INVISIBLE_DURATION,
+        )?;
         let invisible_duration = Self::to_pb_invisible_duration(
             invisible_duration,
             Self::OPERATION_CHANGE_INVISIBLE_DURATION,
         )?;
-        let receipt_handle = self
+        let result = self
             .client
             .change_invisible_duration(ack_entry, invisible_duration)
-            .await?;
+            .await;
+        if let Err(e) = &result {
+            // Reference Java: ConsumerImpl#changeInvisibleDuration.
+            error!(
+                "Exception raised while changing message invisible duration, messageId={}, endpoints={}, clientId={}, error={}",
+                ack_entry.message_id(),
+                ack_entry.endpoints().endpoint_url(),
+                self.client.client_id(),
+                e
+            );
+        }
+        let receipt_handle = result?;
         // The server invalidates the old receipt handle. Refresh it in the message view, so that
         // a later ack or change of the same view takes effect.
         // Reference Java: `SimpleConsumerImpl#changeInvisibleDuration0`.
@@ -432,6 +492,9 @@ mod tests {
             client
                 .expect_client_id()
                 .return_const("fake_id".to_string());
+            client
+                .expect_get_client_type()
+                .returning(|| ClientType::SimpleConsumer);
             Ok(client)
         });
         let mut option = SimpleConsumerOption::default();
@@ -441,6 +504,86 @@ mod tests {
             .start()
             .await?;
         Ok(())
+    }
+
+    /// Startup is logged once, with Java's wording (`SimpleConsumerImpl#startUp`).
+    #[tokio::test]
+    async fn simple_consumer_start_logs_once() -> Result<(), ClientError> {
+        let _m = crate::client::tests::MTX.lock();
+        let (logs, _guard) = crate::util::test_log::capture();
+
+        let ctx = Client::new_context();
+        ctx.expect().return_once(|_, _| {
+            let mut client = Client::default();
+            client.expect_start().returning(|_| Ok(()));
+            client
+                .expect_get_client_type()
+                .returning(|| ClientType::SimpleConsumer);
+            client
+                .expect_long_polling_timeout_handle()
+                .returning(|| Arc::new(parking_lot::RwLock::new(Duration::from_secs(40))));
+            client
+                .expect_client_id()
+                .return_const("fake_id".to_string());
+            Ok(client)
+        });
+        let mut option = SimpleConsumerOption::default();
+        option.set_consumer_group("test_group");
+        let mut simple_consumer = SimpleConsumer::new(option, ClientOption::default())?;
+        // The mocked `Client::new` is only needed while constructing.
+        drop(ctx);
+        drop(_m);
+        simple_consumer.start().await?;
+
+        assert!(logs.contains(
+            "INFO",
+            "Begin to start the rocketmq SIMPLE_CONSUMER, clientId=fake_id"
+        ));
+        let started = "The rocketmq SIMPLE_CONSUMER starts successfully, clientId=fake_id";
+        assert_eq!(logs.count("INFO", started), 1);
+        Ok(())
+    }
+
+    /// Java's `SimpleSubscriptionSettings#sync` applies the settings silently and reports
+    /// settings of another client type as a bug.
+    #[test]
+    fn apply_server_settings_logs_like_java() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let long_polling_timeout = Arc::new(parking_lot::RwLock::new(Duration::from_secs(30)));
+        let settings = crate::pb::Settings {
+            pub_sub: Some(crate::pb::settings::PubSub::Subscription(
+                crate::pb::Subscription {
+                    long_polling_timeout: Some(prost_types::Duration {
+                        seconds: 20,
+                        nanos: 0,
+                    }),
+                    ..Default::default()
+                },
+            )),
+            ..Default::default()
+        };
+
+        SimpleConsumer::apply_server_settings(
+            &settings,
+            &long_polling_timeout,
+            "fake_id",
+            &ClientType::SimpleConsumer,
+        );
+
+        assert_eq!(*long_polling_timeout.read(), Duration::from_secs(20));
+        assert!(!logs.any_at("INFO"));
+        assert!(!logs.any_at("ERROR"));
+
+        SimpleConsumer::apply_server_settings(
+            &crate::pb::Settings::default(),
+            &long_polling_timeout,
+            "fake_id",
+            &ClientType::SimpleConsumer,
+        );
+        assert!(logs.contains(
+            "ERROR",
+            "[Bug] Issued settings not match with the client type, clientId=fake_id, pubSubCase=None, clientType=SIMPLE_CONSUMER"
+        ));
     }
 
     #[tokio::test]
@@ -637,8 +780,12 @@ mod tests {
 
     #[tokio::test]
     async fn failed_change_invisible_duration_keeps_receipt_handle() {
+        let (logs, _guard) = crate::util::test_log::capture();
         let mut client = Client::default();
         client.expect_check_started().returning(|_| Ok(()));
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
         client
             .expect_change_invisible_duration()
             .times(1)
@@ -657,6 +804,11 @@ mod tests {
             .await;
         assert!(result.is_err());
         assert_eq!(message.receipt_handle(), "handle-1");
+        // Reference Java: ConsumerImpl#changeInvisibleDuration.
+        assert!(logs.contains(
+            "ERROR",
+            "Exception raised while changing message invisible duration, messageId=, endpoints=localhost:8081, clientId=fake_id"
+        ));
     }
 
     fn assert_not_running<T: std::fmt::Debug>(result: Result<T, ClientError>, operation: &str) {
@@ -669,7 +821,14 @@ mod tests {
     // IllegalStateException("Simple consumer is not running now") before any RPC.
     #[tokio::test]
     async fn operations_fail_when_not_started() {
+        let (logs, _guard) = crate::util::test_log::capture();
         let mut client = Client::default();
+        client
+            .expect_get_client_type()
+            .returning(|| ClientType::SimpleConsumer);
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
         client.expect_check_started().returning(|operation| {
             Err(ClientError::new(
                 ErrorKind::ClientIsNotRunning,
@@ -705,6 +864,22 @@ mod tests {
                 .await,
             "simple_consumer.change_invisible_duration",
         );
+        // Reference Java: SimpleConsumerImpl#receive0 / ack0 / changeInvisibleDuration0.
+        for action in [
+            "receive message",
+            "ack message",
+            "change invisible duration",
+        ] {
+            assert!(
+                logs.contains(
+                    "ERROR",
+                    &format!(
+                        "Unable to {action} because SIMPLE_CONSUMER is not running, state=NOT_RUNNING, clientId=fake_id"
+                    )
+                ),
+                "missing log for {action}"
+            );
+        }
     }
 
     // Reference Java: SimpleConsumerImpl#startUp calls shutDown() when any startup step fails.
@@ -727,6 +902,9 @@ mod tests {
             client
                 .expect_client_id()
                 .return_const("fake_id".to_string());
+            client
+                .expect_get_client_type()
+                .returning(|| ClientType::SimpleConsumer);
             Ok(client)
         });
         let mut option = SimpleConsumerOption::default();
@@ -736,5 +914,81 @@ mod tests {
         let result = simple_consumer.start().await;
         assert!(result.is_err());
         assert!(simple_consumer.shutdown_tx.is_none());
+    }
+
+    /// A start rejected before the client is started has nothing to clean up: the cleanup's
+    /// `ClientIsNotRunning` is tolerated, and the original error is returned.
+    #[tokio::test]
+    async fn start_failure_before_client_start_tolerates_cleanup() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let mut client = Client::default();
+        client.expect_start().never();
+        client.expect_shutdown_ref().times(1).returning(|| {
+            Err(ClientError::new(
+                ErrorKind::ClientIsNotRunning,
+                "client is not started",
+                "client.shutdown",
+            ))
+        });
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
+        client
+            .expect_get_client_type()
+            .returning(|| ClientType::SimpleConsumer);
+        // No consumer group: the start is rejected before the client is started.
+        let mut simple_consumer = new_simple_consumer(client);
+
+        let error = simple_consumer.start().await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Config);
+        assert!(logs.contains(
+            "ERROR",
+            "Failed to start the rocketmq SIMPLE_CONSUMER, try to shutdown it, clientId=fake_id"
+        ));
+        assert!(!logs.contains("ERROR", "after a failed start"));
+    }
+
+    /// A cleanup that fails for another reason is reported, since that is what an operator
+    /// needs to see.
+    #[tokio::test]
+    async fn failed_cleanup_after_failed_start_is_logged() {
+        let (logs, _guard) = crate::util::test_log::capture();
+        let mut client = Client::default();
+        client.expect_start().times(1).returning(|_| Ok(()));
+        client.expect_topic_route().times(1).returning(|_, _| {
+            Err(ClientError::new(
+                ErrorKind::Server,
+                "topic not found",
+                "client.query_route",
+            ))
+        });
+        client.expect_shutdown_ref().times(1).returning(|| {
+            Err(ClientError::new(
+                ErrorKind::ServerUnavailable,
+                "server unavailable",
+                "client.shutdown",
+            ))
+        });
+        client
+            .expect_client_id()
+            .return_const("fake_id".to_string());
+        client
+            .expect_get_client_type()
+            .returning(|| ClientType::SimpleConsumer);
+        let mut option = SimpleConsumerOption::default();
+        option.set_consumer_group("test_group");
+        option.set_topics(vec!["test_topic"]);
+        let mut simple_consumer = SimpleConsumer {
+            option,
+            client,
+            shutdown_tx: None,
+        };
+
+        let error = simple_consumer.start().await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Server);
+        assert!(logs.contains(
+            "ERROR",
+            "Failed to shutdown the rocketmq SIMPLE_CONSUMER after a failed start, clientId=fake_id"
+        ));
     }
 }

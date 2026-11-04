@@ -41,6 +41,53 @@ pub(crate) static HOST_NAME: Lazy<String> = Lazy::new(|| match hostname::get() {
     Err(_) => "localhost".to_string(),
 });
 
+/// Report the outcome of the cleanup that follows a failed start.
+///
+/// Reference Java: `ProducerImpl#startUp`, `SimpleConsumerImpl#startUp` and
+/// `PushConsumerImpl#startUp` shut the client down when the startup fails. A start that failed
+/// before the client itself was started leaves nothing to clean up, so the resulting
+/// `ClientIsNotRunning` is expected and not reported.
+pub(crate) fn log_cleanup_after_failed_start(
+    result: Result<(), ClientError>,
+    client_type: &str,
+    client_id: &str,
+) {
+    match result {
+        Ok(()) => {}
+        Err(e) if e.kind == ErrorKind::ClientIsNotRunning => {}
+        Err(e) => tracing::error!(
+            "Failed to shutdown the rocketmq {} after a failed start, clientId={}, error={}",
+            client_type,
+            client_id,
+            e
+        ),
+    }
+}
+
+/// Log a telemetry command the client does not handle, with the wording of Java's `ClientImpl`
+/// (`onVerifyMessageCommand`, `onRecoverOrphanedTransactionCommand`,
+/// `onNotifyUnsubscribeLiteCommand`).
+pub(crate) fn log_ignored_command(command: &Command, client_id: &str) {
+    match command {
+        Command::VerifyMessageCommand(_) => tracing::warn!(
+            "Ignore verify message command from remote, which is not expected, clientId={}, command={:?}",
+            client_id, command
+        ),
+        Command::RecoverOrphanedTransactionCommand(_) => tracing::warn!(
+            "Ignore orphaned transaction recovery command from remote, which is not expected, clientId={}, command={:?}",
+            client_id, command
+        ),
+        Command::NotifyUnsubscribeLiteCommand(_) => tracing::warn!(
+            "Ignore unsubscribe lite topic command from remote, which is not expected, clientId={}, command={:?}",
+            client_id, command
+        ),
+        _ => tracing::warn!(
+            "Ignore unexpected command from remote, clientId={}, command={:?}",
+            client_id, command
+        ),
+    }
+}
+
 pub(crate) fn select_message_queue(route: Arc<Route>) -> MessageQueue {
     let i = route.index.fetch_add(1, Ordering::Relaxed);
     route.queue[i % route.queue.len()].clone()
@@ -391,11 +438,12 @@ pub fn handle_receive_message_status(
         Some(code) => code,
         None => {
             // Handle unrecognized status codes.
+            // Reference Java: StatusChecker#check.
             tracing::warn!(
-                "Unrecognized status code={}, statusMessage={}, operation={}",
+                "Unrecognized status code={}, statusMessage={}, clientVersion={}",
                 status.code,
                 status.message,
-                operation
+                SDK_VERSION
             );
             return Err(
                 ClientError::new(ErrorKind::Server, "unsupported status code", operation)
@@ -514,6 +562,124 @@ pub fn handle_receive_message_status(
     }
 }
 
+/// Capture the log events emitted by the code under test, so that tests can assert on the
+/// level and the content of what the client logs.
+#[cfg(test)]
+pub(crate) mod test_log {
+    use std::io::Write;
+    use std::sync::{Arc, Mutex};
+
+    use tracing::subscriber::DefaultGuard;
+
+    #[derive(Clone, Default)]
+    pub(crate) struct CapturedLogs(Arc<Mutex<Vec<u8>>>);
+
+    impl CapturedLogs {
+        fn lines(&self) -> Vec<String> {
+            String::from_utf8_lossy(&self.0.lock().unwrap())
+                .lines()
+                .map(str::to_owned)
+                .collect()
+        }
+
+        /// Whether an event at `level` (`"DEBUG"`, `"INFO"`, `"WARN"`, `"ERROR"`) contains
+        /// `needle`.
+        pub(crate) fn contains(&self, level: &str, needle: &str) -> bool {
+            self.lines()
+                .iter()
+                .any(|line| line.trim_start().starts_with(level) && line.contains(needle))
+        }
+
+        /// Whether any event at `level` was emitted.
+        pub(crate) fn any_at(&self, level: &str) -> bool {
+            self.contains(level, "")
+        }
+
+        /// Number of events at `level` that contain `needle`.
+        pub(crate) fn count(&self, level: &str, needle: &str) -> usize {
+            self.lines()
+                .iter()
+                .filter(|line| line.trim_start().starts_with(level) && line.contains(needle))
+                .count()
+        }
+    }
+
+    impl Write for CapturedLogs {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// Global subscriber of the tests: records nothing, and keeps every callsite at
+    /// `Interest::sometimes()`.
+    ///
+    /// `tracing` caches the interest of a callsite when it is first hit. With only scoped
+    /// subscribers, that interest comes from the thread that hits it first: a test thread
+    /// without [`capture`] caches `Interest::never()`, and the callsite is then disabled for
+    /// the capturing test too, which loses its event. Answering `sometimes` here makes every
+    /// event ask the subscriber of its own thread.
+    struct SometimesSubscriber;
+
+    impl tracing::Subscriber for SometimesSubscriber {
+        fn register_callsite(
+            &self,
+            _: &'static tracing::Metadata<'static>,
+        ) -> tracing::subscriber::Interest {
+            tracing::subscriber::Interest::sometimes()
+        }
+
+        fn max_level_hint(&self) -> Option<tracing::level_filters::LevelFilter> {
+            Some(tracing::level_filters::LevelFilter::TRACE)
+        }
+
+        fn enabled(&self, _: &tracing::Metadata<'_>) -> bool {
+            false
+        }
+
+        fn new_span(&self, _: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+            tracing::span::Id::from_u64(1)
+        }
+
+        fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
+
+        fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
+
+        fn event(&self, _: &tracing::Event<'_>) {}
+
+        fn enter(&self, _: &tracing::span::Id) {}
+
+        fn exit(&self, _: &tracing::span::Id) {}
+    }
+
+    static INSTALL_GLOBAL: std::sync::Once = std::sync::Once::new();
+
+    /// Capture every event at `DEBUG` or above emitted on the current thread until the
+    /// returned guard is dropped. Tasks spawned on a current-thread runtime are captured too.
+    pub(crate) fn capture() -> (CapturedLogs, DefaultGuard) {
+        INSTALL_GLOBAL.call_once(|| {
+            tracing::subscriber::set_global_default(SometimesSubscriber)
+                .expect("no other global subscriber is set in the unit tests");
+            // Forget the interest cached before the subscriber was installed.
+            tracing::callsite::rebuild_interest_cache();
+        });
+        let logs = CapturedLogs::default();
+        let writer = logs.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .with_ansi(false)
+            .without_time()
+            .with_target(false)
+            .with_writer(move || writer.clone())
+            .finish();
+        (logs, tracing::subscriber::set_default(subscriber))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::AtomicUsize;
@@ -524,6 +690,37 @@ mod tests {
     use crate::pb::{Broker, MessageQueue};
 
     use super::*;
+
+    /// The cleanup after a failed start reports every failure but `ClientIsNotRunning`, which
+    /// only means the client never got started (or the inner consumer already shut it down).
+    #[test]
+    fn cleanup_after_failed_start_reports_only_real_failures() {
+        let (logs, _guard) = test_log::capture();
+        let failed = "Failed to shutdown the rocketmq LITE_PUSH_CONSUMER after a failed start, clientId=fake_id";
+
+        log_cleanup_after_failed_start(Ok(()), "LITE_PUSH_CONSUMER", "fake_id");
+        log_cleanup_after_failed_start(
+            Err(ClientError::new(
+                ErrorKind::ClientIsNotRunning,
+                "client is not started",
+                "client.shutdown",
+            )),
+            "LITE_PUSH_CONSUMER",
+            "fake_id",
+        );
+        assert!(!logs.any_at("ERROR"));
+
+        log_cleanup_after_failed_start(
+            Err(ClientError::new(
+                ErrorKind::ServerUnavailable,
+                "server unavailable",
+                "client.shutdown",
+            )),
+            "LITE_PUSH_CONSUMER",
+            "fake_id",
+        );
+        assert!(logs.contains("ERROR", failed));
+    }
 
     fn build_route() -> Arc<Route> {
         let message_queue_1 = MessageQueue {
