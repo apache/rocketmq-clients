@@ -41,6 +41,14 @@ class ReceiveMessageRequest extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>bool auto_renew = 6;</code>
      */
     protected $auto_renew = false;
+    /**
+     * Generated from protobuf field <code>optional .google.protobuf.Duration long_polling_timeout = 7;</code>
+     */
+    protected $long_polling_timeout = null;
+    /**
+     * Generated from protobuf field <code>optional string attempt_id = 8;</code>
+     */
+    protected $attempt_id = null;
 
     /**
      * Constructor.
@@ -56,6 +64,8 @@ class ReceiveMessageRequest extends \Google\Protobuf\Internal\Message
      *           Required if client type is simple consumer.
      *     @type bool $auto_renew
      *           For message auto renew and clean
+     *     @type \Google\Protobuf\Duration $long_polling_timeout
+     *     @type string $attempt_id
      * }
      */
     public function __construct($data = NULL) {
@@ -239,6 +249,70 @@ class ReceiveMessageRequest extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkBool($var);
         $this->auto_renew = $var;
+
+        return $this;
+    }
+
+    /**
+     * Generated from protobuf field <code>optional .google.protobuf.Duration long_polling_timeout = 7;</code>
+     * @return \Google\Protobuf\Duration|null
+     */
+    public function getLongPollingTimeout()
+    {
+        return $this->long_polling_timeout;
+    }
+
+    public function hasLongPollingTimeout()
+    {
+        return isset($this->long_polling_timeout);
+    }
+
+    public function clearLongPollingTimeout()
+    {
+        unset($this->long_polling_timeout);
+    }
+
+    /**
+     * Generated from protobuf field <code>optional .google.protobuf.Duration long_polling_timeout = 7;</code>
+     * @param \Google\Protobuf\Duration $var
+     * @return $this
+     */
+    public function setLongPollingTimeout($var)
+    {
+        GPBUtil::checkMessage($var, \Google\Protobuf\Duration::class);
+        $this->long_polling_timeout = $var;
+
+        return $this;
+    }
+
+    /**
+     * Generated from protobuf field <code>optional string attempt_id = 8;</code>
+     * @return string
+     */
+    public function getAttemptId()
+    {
+        return isset($this->attempt_id) ? $this->attempt_id : '';
+    }
+
+    public function hasAttemptId()
+    {
+        return isset($this->attempt_id);
+    }
+
+    public function clearAttemptId()
+    {
+        unset($this->attempt_id);
+    }
+
+    /**
+     * Generated from protobuf field <code>optional string attempt_id = 8;</code>
+     * @param string $var
+     * @return $this
+     */
+    public function setAttemptId($var)
+    {
+        GPBUtil::checkString($var, True);
+        $this->attempt_id = $var;
 
         return $this;
     }

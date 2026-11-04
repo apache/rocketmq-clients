@@ -39,6 +39,16 @@ class ChangeInvisibleDurationRequest extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>string message_id = 5;</code>
      */
     protected $message_id = '';
+    /**
+     * Generated from protobuf field <code>optional string lite_topic = 6;</code>
+     */
+    protected $lite_topic = null;
+    /**
+     * If true, server will not increment the retry times for this message
+     *
+     * Generated from protobuf field <code>optional bool suspend = 7;</code>
+     */
+    protected $suspend = null;
 
     /**
      * Constructor.
@@ -54,6 +64,9 @@ class ChangeInvisibleDurationRequest extends \Google\Protobuf\Internal\Message
      *           New invisible duration
      *     @type string $message_id
      *           For message tracing
+     *     @type string $lite_topic
+     *     @type bool $suspend
+     *           If true, server will not increment the retry times for this message
      * }
      */
     public function __construct($data = NULL) {
@@ -209,6 +222,74 @@ class ChangeInvisibleDurationRequest extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkString($var, True);
         $this->message_id = $var;
+
+        return $this;
+    }
+
+    /**
+     * Generated from protobuf field <code>optional string lite_topic = 6;</code>
+     * @return string
+     */
+    public function getLiteTopic()
+    {
+        return isset($this->lite_topic) ? $this->lite_topic : '';
+    }
+
+    public function hasLiteTopic()
+    {
+        return isset($this->lite_topic);
+    }
+
+    public function clearLiteTopic()
+    {
+        unset($this->lite_topic);
+    }
+
+    /**
+     * Generated from protobuf field <code>optional string lite_topic = 6;</code>
+     * @param string $var
+     * @return $this
+     */
+    public function setLiteTopic($var)
+    {
+        GPBUtil::checkString($var, True);
+        $this->lite_topic = $var;
+
+        return $this;
+    }
+
+    /**
+     * If true, server will not increment the retry times for this message
+     *
+     * Generated from protobuf field <code>optional bool suspend = 7;</code>
+     * @return bool
+     */
+    public function getSuspend()
+    {
+        return isset($this->suspend) ? $this->suspend : false;
+    }
+
+    public function hasSuspend()
+    {
+        return isset($this->suspend);
+    }
+
+    public function clearSuspend()
+    {
+        unset($this->suspend);
+    }
+
+    /**
+     * If true, server will not increment the retry times for this message
+     *
+     * Generated from protobuf field <code>optional bool suspend = 7;</code>
+     * @param bool $var
+     * @return $this
+     */
+    public function setSuspend($var)
+    {
+        GPBUtil::checkBool($var);
+        $this->suspend = $var;
 
         return $this;
     }
