@@ -26,12 +26,12 @@ export class PublishingLoadBalancer {
 
   constructor(topicRouteData: TopicRouteData, index?: number) {
     this.#messageQueues = topicRouteData.messageQueues.filter(mq => {
-      return mq.queueId === MASTER_BROKER_ID && (mq.permission === Permission.WRITE || mq.permission === Permission.READ_WRITE);
+      return mq.broker.id === MASTER_BROKER_ID && (mq.permission === Permission.WRITE || mq.permission === Permission.READ_WRITE);
     });
-    this.#index = index === undefined ? randomInt(this.#messageQueues.length) : index;
     if (this.#messageQueues.length === 0) {
       throw new Error(`No writable message queue found, topicRouteData=${JSON.stringify(topicRouteData)}`);
     }
+    this.#index = index === undefined ? randomInt(this.#messageQueues.length) : index;
   }
 
   update(topicRouteData: TopicRouteData) {
