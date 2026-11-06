@@ -33,6 +33,9 @@ public class ClientConfiguration {
     private final Duration requestTimeout;
     private final boolean sslEnabled;
     private final boolean virtualThreadsEnabled;
+    private final Integer schedulerThreadCount;
+    private final Integer asyncWorkerThreadCount;
+    private final Integer callbackThreadCount;
     private final String namespace;
     private final int maxStartupAttempts;
     private final Map<String, String> clientProperties;
@@ -43,13 +46,17 @@ public class ClientConfiguration {
      */
     ClientConfiguration(String endpoints, SessionCredentialsProvider sessionCredentialsProvider,
         Duration requestTimeout, boolean sslEnabled, boolean virtualThreadsEnabled, String namespace,
-        int maxStartupAttempts,
+        int maxStartupAttempts, Integer schedulerThreadCount, Integer asyncWorkerThreadCount,
+        Integer callbackThreadCount,
         Map<String, String> clientProperties) {
         this.endpoints = endpoints;
         this.sessionCredentialsProvider = sessionCredentialsProvider;
         this.requestTimeout = requestTimeout;
         this.sslEnabled = sslEnabled;
         this.virtualThreadsEnabled = virtualThreadsEnabled;
+        this.schedulerThreadCount = schedulerThreadCount;
+        this.asyncWorkerThreadCount = asyncWorkerThreadCount;
+        this.callbackThreadCount = callbackThreadCount;
         this.namespace = namespace;
         this.maxStartupAttempts = maxStartupAttempts;
         this.clientProperties = Collections.unmodifiableMap(new LinkedHashMap<>(clientProperties));
@@ -78,6 +85,27 @@ public class ClientConfiguration {
     @Beta
     public boolean isVirtualThreadsEnabled() {
         return virtualThreadsEnabled;
+    }
+
+    /**
+     * @return the configured scheduler thread count, or empty to use the number of available processors.
+     */
+    public Optional<Integer> getSchedulerThreadCount() {
+        return Optional.ofNullable(schedulerThreadCount);
+    }
+
+    /**
+     * @return the configured platform async worker thread count, or empty to use the number of available processors.
+     */
+    public Optional<Integer> getAsyncWorkerThreadCount() {
+        return Optional.ofNullable(asyncWorkerThreadCount);
+    }
+
+    /**
+     * @return the configured platform callback thread count, or empty to use the number of available processors.
+     */
+    public Optional<Integer> getCallbackThreadCount() {
+        return Optional.ofNullable(callbackThreadCount);
     }
 
     public String getNamespace() {

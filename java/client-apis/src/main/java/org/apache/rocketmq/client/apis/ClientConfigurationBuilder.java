@@ -45,6 +45,9 @@ public class ClientConfigurationBuilder {
     private Duration requestTimeout = Duration.ofSeconds(3);
     private boolean sslEnabled = true;
     private boolean virtualThreadsEnabled = false;
+    private Integer schedulerThreadCount;
+    private Integer asyncWorkerThreadCount;
+    private Integer callbackThreadCount;
     private String namespace = "";
     private int maxStartupAttempts = 3;
     private final Map<String, String> clientProperties = new LinkedHashMap<>();
@@ -112,6 +115,51 @@ public class ClientConfigurationBuilder {
     @Beta
     public ClientConfigurationBuilder enableVirtualThreads(boolean virtualThreadsEnabled) {
         this.virtualThreadsEnabled = virtualThreadsEnabled;
+        return this;
+    }
+
+    /**
+     * Configure the number of platform threads used for scheduled client tasks.
+     *
+     * <p>The default is the number of available processors. This setting also applies when virtual threads are enabled.
+     * Each client owns its scheduler; the value is fixed when the client is created.
+     *
+     * @param schedulerThreadCount positive number of scheduler threads.
+     * @return the client configuration builder instance.
+     */
+    public ClientConfigurationBuilder setSchedulerThreadCount(int schedulerThreadCount) {
+        checkArgument(schedulerThreadCount > 0, "schedulerThreadCount should be positive");
+        this.schedulerThreadCount = schedulerThreadCount;
+        return this;
+    }
+
+    /**
+     * Configure the number of platform threads used to handle asynchronous RPC responses.
+     *
+     * <p>The default is the number of available processors. This setting applies when virtual threads are disabled or
+     * unavailable. Each client owns its executor; the value is fixed when the client is created.
+     *
+     * @param asyncWorkerThreadCount positive number of async worker threads.
+     * @return the client configuration builder instance.
+     */
+    public ClientConfigurationBuilder setAsyncWorkerThreadCount(int asyncWorkerThreadCount) {
+        checkArgument(asyncWorkerThreadCount > 0, "asyncWorkerThreadCount should be positive");
+        this.asyncWorkerThreadCount = asyncWorkerThreadCount;
+        return this;
+    }
+
+    /**
+     * Configure the number of platform threads used to execute client callbacks.
+     *
+     * <p>The default is the number of available processors. This setting applies when virtual threads are disabled or
+     * unavailable. Each client owns its executor; the value is fixed when the client is created.
+     *
+     * @param callbackThreadCount positive number of callback threads.
+     * @return the client configuration builder instance.
+     */
+    public ClientConfigurationBuilder setCallbackThreadCount(int callbackThreadCount) {
+        checkArgument(callbackThreadCount > 0, "callbackThreadCount should be positive");
+        this.callbackThreadCount = callbackThreadCount;
         return this;
     }
 
@@ -202,7 +250,8 @@ public class ClientConfigurationBuilder {
         // Keep build() defensive for maps supplied through setClientProperties or future builder paths.
         validateClientProperties(clientProperties);
         return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled,
-            virtualThreadsEnabled, namespace, maxStartupAttempts, clientProperties);
+            virtualThreadsEnabled, namespace, maxStartupAttempts, schedulerThreadCount, asyncWorkerThreadCount,
+            callbackThreadCount, clientProperties);
     }
 
     private static void validateClientProperties(Map<String, String> properties) {
