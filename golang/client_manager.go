@@ -26,6 +26,7 @@ import (
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
@@ -121,6 +122,7 @@ type defaultClientManager struct {
 	// same-address guard while an earlier candidate or Close is still running.
 	rpcClientJobs    map[string]*rpcClientJob
 	rpcClientFactory func(string, ...RpcClientOption) (RpcClient, error)
+	grpcLogger       *zap.Logger
 	clientTable      sync.Map
 	ctx              context.Context
 	cancel           context.CancelFunc
@@ -466,7 +468,11 @@ func (cm *defaultClientManager) runRpcJob(job *rpcClientJob) {
 	if recreator, ok := entry.rpc.(rpcClientRecreator); recovery && ok {
 		candidate, err = recreator.recreate(job.ctx)
 	} else {
-		candidate, err = cm.rpcClientFactory(entry.target, rpcClientContextOption{ctx: job.ctx})
+		opts := []RpcClientOption{rpcClientContextOption{ctx: job.ctx}}
+		if cm.grpcLogger != nil {
+			opts = append(opts, WithRpcClientConnOption(WithZapLogger(cm.grpcLogger)))
+		}
+		candidate, err = cm.rpcClientFactory(entry.target, opts...)
 	}
 	if err == nil && candidate == nil {
 		err = errors.New("rocketmq: RPC factory returned no client")
