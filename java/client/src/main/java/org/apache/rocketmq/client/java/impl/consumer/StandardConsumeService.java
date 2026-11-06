@@ -21,9 +21,11 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.rocketmq.client.apis.consumer.AsyncMessageListener;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
@@ -42,29 +44,48 @@ public class StandardConsumeService extends ConsumeService {
         super(clientId, consumerGroup, messageListener, consumptionExecutor, messageInterceptor, scheduler);
     }
 
+    public StandardConsumeService(ClientId clientId, String consumerGroup, AsyncMessageListener messageListener,
+        ExecutorService consumptionExecutor, MessageInterceptor messageInterceptor,
+        ScheduledExecutorService scheduler, int maxConcurrentConsumptions) {
+        super(clientId, consumerGroup, messageListener, consumptionExecutor, messageInterceptor, scheduler,
+            maxConcurrentConsumptions);
+    }
+
     @Override
     public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
-        for (MessageViewImpl messageView : messageViews) {
-            // Discard corrupted message.
-            if (messageView.isCorrupted()) {
-                log.error("Message is corrupted for standard consumption, prepare to discard it, mq={}, "
-                    + "messageId={}, clientId={}", pq.getMessageQueue(), messageView.getMessageId(), clientId);
-                pq.discardMessage(messageView);
-                continue;
-            }
-            final ListenableFuture<ConsumeResult> future = consume(messageView);
-            Futures.addCallback(future, new FutureCallback<ConsumeResult>() {
-                @Override
-                public void onSuccess(ConsumeResult consumeResult) {
-                    pq.eraseMessage(messageView, consumeResult);
+        // A batch remains registered while result callbacks are attached, even for immediately completed stages.
+        SettableFuture<Void> batch = SettableFuture.create();
+        trackCompletion(batch);
+        try {
+            for (MessageViewImpl messageView : messageViews) {
+                if (messageView.isCorrupted()) {
+                    log.error("Message is corrupted for standard consumption, prepare to discard it, mq={}, "
+                        + "messageId={}, clientId={}", pq.getMessageQueue(), messageView.getMessageId(), clientId);
+                    pq.discardMessage(messageView);
+                    continue;
                 }
+                final ListenableFuture<ConsumeResult> future = consume(messageView);
+                Futures.addCallback(future, new FutureCallback<ConsumeResult>() {
+                    @Override
+                    public void onSuccess(ConsumeResult consumeResult) {
+                        if (isAsyncConsumption()) {
+                            trackCompletion(pq.eraseMessageAsync(messageView, consumeResult));
+                        } else {
+                            pq.eraseMessage(messageView, consumeResult);
+                        }
+                    }
 
-                @Override
-                public void onFailure(Throwable t) {
-                    // Should never reach here.
-                    log.error("[Bug] Exception raised in consumption callback, clientId={}", clientId, t);
-                }
-            }, MoreExecutors.directExecutor());
+                    @Override
+                    public void onFailure(Throwable t) {
+                        log.error("Exception raised in consumption callback, clientId={}", clientId, t);
+                        if (isAsyncConsumption()) {
+                            trackCompletion(pq.eraseMessageAsync(messageView, ConsumeResult.FAILURE));
+                        }
+                    }
+                }, MoreExecutors.directExecutor());
+            }
+        } finally {
+            batch.set(null);
         }
     }
 }

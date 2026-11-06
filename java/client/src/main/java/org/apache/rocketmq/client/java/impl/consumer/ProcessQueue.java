@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
@@ -99,6 +100,18 @@ public interface ProcessQueue {
      * @param consumeResult consume result.
      */
     void eraseMessage(MessageViewImpl messageView, ConsumeResult consumeResult);
+
+    /**
+     * Erase a standard message and expose completion of its acknowledgement or retry operation.
+     *
+     * @param messageView message to erase.
+     * @param consumeResult processing result.
+     * @return completion of the terminal operation.
+     */
+    default ListenableFuture<Void> eraseMessageAsync(MessageViewImpl messageView, ConsumeResult consumeResult) {
+        eraseMessage(messageView, consumeResult);
+        return Futures.immediateVoidFuture();
+    }
 
     /**
      * Erase message(FIFO-consume-mode) which have been consumed properly.

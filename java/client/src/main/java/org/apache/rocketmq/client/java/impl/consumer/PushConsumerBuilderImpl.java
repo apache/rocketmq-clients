@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.consumer.AsyncMessageListener;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
@@ -38,6 +39,7 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     private String consumerGroup = null;
     private Map<String, FilterExpression> subscriptionExpressions = new ConcurrentHashMap<>();
     private MessageListener messageListener = null;
+    private AsyncMessageListener asyncMessageListener = null;
 
     /**
      * The number of cached messages should not be set too high, as the consumption
@@ -88,6 +90,14 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     @Override
     public PushConsumerBuilder setMessageListener(MessageListener messageListener) {
         this.messageListener = checkNotNull(messageListener, "messageListener should not be null");
+        this.asyncMessageListener = null;
+        return this;
+    }
+
+    @Override
+    public PushConsumerBuilder setAsyncMessageListener(AsyncMessageListener messageListener) {
+        this.asyncMessageListener = checkNotNull(messageListener, "asyncMessageListener should not be null");
+        this.messageListener = null;
         return this;
     }
 
@@ -145,10 +155,12 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     public PushConsumer build() throws ClientException {
         checkNotNull(clientConfiguration, "clientConfiguration has not been set yet");
         checkNotNull(consumerGroup, "consumerGroup has not been set yet");
-        checkNotNull(messageListener, "messageListener has not been set yet");
+        checkNotNull(null != asyncMessageListener ? asyncMessageListener : messageListener,
+            "messageListener or asyncMessageListener has not been set yet");
         checkArgument(!subscriptionExpressions.isEmpty(), "subscriptionExpressions have not been set yet");
         final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, consumerGroup,
-            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
+            subscriptionExpressions, messageListener, asyncMessageListener, maxCacheMessageCount,
+            maxCacheMessageSizeInBytes,
             consumptionThreadCount, enableFifoConsumeAccelerator, enableMessageInterceptorFiltering);
         pushConsumer.startAsync().awaitRunning();
         return pushConsumer;

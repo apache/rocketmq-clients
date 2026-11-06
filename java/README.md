@@ -80,6 +80,46 @@ implementation 'org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.vers
 More code examples are provided [example](./client/src/main/java/org/apache/rocketmq/client/java/example) to assist you
 in working with various clients and different message types.
 
+## Asynchronous Push Consumption
+
+Use `setAsyncMessageListener` when processing finishes outside the listener invocation. Return a
+`CompletionStage<ConsumeResult>` which represents the actual processing outcome:
+
+```java
+PushConsumer consumer = provider.newPushConsumerBuilder()
+    .setClientConfiguration(configuration)
+    .setConsumerGroup(consumerGroup)
+    .setSubscriptionExpressions(subscriptions)
+    .setConsumptionThreadCount(20)
+    .setAsyncMessageListener(message ->
+        CompletableFuture.supplyAsync(() -> process(message), applicationExecutor))
+    .build();
+```
+
+The last synchronous or asynchronous listener setter takes precedence. An outstanding processing stage retains a
+consumption concurrency slot, but does not occupy a client worker thread. SUCCESS starts acknowledgement only after
+processing finishes; exceptions, cancellation and null stages/results trigger the existing failure path. Completing the
+stage reports processing completion, not receipt of a server acknowledgement. Consumption hooks and metrics also follow
+the eventual processing result. FIFO messages retain the existing ordering through processing and acknowledgement.
+
+Push receive requests retain the existing server-side auto-renew protocol and its server-configured duration limits.
+No additional client-side renewal loop is introduced. Messages continue to count towards the local cache limits while
+processing or confirmation is pending, and applications must still handle duplicate deliveries idempotently.
+
+`consumer.close()` drains processing stages and their terminal operations before shutting down client executors. Returned
+stages must eventually finish; keep the application executor available until the consumer closes. See
+[AsyncPushConsumerExample](client/src/main/java/org/apache/rocketmq/client/java/example/AsyncPushConsumerExample.java).
+
+Local cache limits and consumption concurrency can be updated on the same instance:
+
+```java
+consumer.updateRuntimeTuning(4096, 64 * 1024 * 1024, 40);
+```
+
+All three values must be positive. A lower cache limit governs subsequent receiving without discarding cached messages.
+A lower concurrency limit allows existing tasks to finish and postpones new work until the active count is below that
+limit. The same method supports synchronous, asynchronous and virtual-thread consumption.
+
 ## Logging System
 
 We picked [Logback](https://logback.qos.ch/) and shaded it into the client implementation to guarantee that logging is reliably persistent. Because RocketMQ utilizes a distinct configuration file, you shouldn't be concerned that the Logback configuration file will clash with yours.

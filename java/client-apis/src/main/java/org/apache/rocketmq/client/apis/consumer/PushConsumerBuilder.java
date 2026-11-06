@@ -58,6 +58,19 @@ public interface PushConsumerBuilder {
     PushConsumerBuilder setMessageListener(MessageListener listener);
 
     /**
+     * Register a listener which reports message processing completion asynchronously.
+     *
+     * <p>This replaces a previously configured synchronous listener. Conversely, calling
+     * {@link #setMessageListener(MessageListener)} replaces an asynchronous listener.
+     *
+     * @param listener asynchronous message listener.
+     * @return the consumer builder instance.
+     */
+    default PushConsumerBuilder setAsyncMessageListener(AsyncMessageListener listener) {
+        throw new UnsupportedOperationException("Asynchronous message listeners are not supported");
+    }
+
+    /**
      * Set the maximum number of messages cached locally.
      *
      * @param count message count.
@@ -74,9 +87,12 @@ public interface PushConsumerBuilder {
     PushConsumerBuilder setMaxCacheMessageSizeInBytes(int bytes);
 
     /**
-     * Set the consumption thread count in parallel.
+     * Set the consumption concurrency.
      *
-     * @param count thread count.
+     * <p>For synchronous listeners this bounds parallel listener calls. For asynchronous listeners it bounds messages
+     * whose processing stages have not yet completed, without keeping a worker thread occupied while waiting.
+     *
+     * @param count positive consumption concurrency.
      * @return the consumer builder instance.
      */
     PushConsumerBuilder setConsumptionThreadCount(int count);
