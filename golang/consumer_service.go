@@ -214,8 +214,9 @@ func (fcs *fifoConsumeService) consumeIteratively(pq ProcessQueue, messageViewsP
 			sugarBaseLogger.Errorf("[Bug] Exception raised in consumption callback, clientId=%s", fcs.clientId)
 			return
 		}
-		pq.eraseFifoMessage(mv, result)
-		fcs.consumeIteratively(pq, messageViewsPtr, ptr+1)
+		pq.eraseFifoMessage(mv, result, func() {
+			fcs.consumeIteratively(pq, messageViewsPtr, ptr+1)
+		})
 	})
 }
 
@@ -272,24 +273,29 @@ func (lcs *liteFifoConsumeService) consumeIteratively(pq ProcessQueue, messageVi
 			sugarBaseLogger.Errorf("[Bug] Exception raised in consumption callback, clientId=%s", lcs.clientId)
 			return
 		}
-		pq.eraseFifoMessage(mv, result)
-		if result.Type == ConsumerResultTypeSuspend {
-			// Suspend all messages with the same liteTopic in this batch
-			newMsgList := make([]*MessageView, 0)
-			for i := ptr + 1; i < len(messageViews); i++ {
-				msgView := messageViews[i]
-				if msgView.GetLiteTopic() == mv.GetLiteTopic() {
-					pq.eraseFifoMessage(msgView, result)
-				} else {
-					newMsgList = append(newMsgList, msgView)
-				}
+		if result.Type != ConsumerResultTypeSuspend {
+			pq.eraseFifoMessage(mv, result, func() {
+				lcs.consumeIteratively(pq, messageViewsPtr, ptr+1)
+			})
+			return
+		}
+		// Suspend all messages with the same liteTopic in this batch, and continue
+		// with the messages of other liteTopics once this message is suspended.
+		sameLiteTopic := make([]*MessageView, 0)
+		newMsgList := make([]*MessageView, 0)
+		for i := ptr + 1; i < len(messageViews); i++ {
+			msgView := messageViews[i]
+			if msgView.GetLiteTopic() == mv.GetLiteTopic() {
+				sameLiteTopic = append(sameLiteTopic, msgView)
+			} else {
+				newMsgList = append(newMsgList, msgView)
 			}
-			// Continue processing remaining messages with different liteTopic
-			if len(newMsgList) > 0 {
-				lcs.consumeIteratively(pq, &newMsgList, 0)
-			}
-		} else {
-			lcs.consumeIteratively(pq, messageViewsPtr, ptr+1)
+		}
+		pq.eraseFifoMessage(mv, result, func() {
+			lcs.consumeIteratively(pq, &newMsgList, 0)
+		})
+		for _, msgView := range sameLiteTopic {
+			pq.eraseFifoMessage(msgView, result, func() {})
 		}
 	})
 }
