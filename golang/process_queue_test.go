@@ -124,3 +124,95 @@ func TestProcessQueueEmptyLongPollingBalancesInflightReceiveCount(t *testing.T) 
 			"wait out requestTimeout + longPollingTimeout before giving up", count, receptions.Load())
 	}
 }
+
+// newCancellationTestProcessQueue builds a push consumer whose RPCs are served by
+// a mock client manager, plus one process queue to drive the settlement chains
+// (ack, change invisible duration, forward to DLQ) against it.
+func newCancellationTestProcessQueue(t *testing.T) (*defaultPushConsumer, *defaultProcessQueue, *MockClientManager) {
+	t.Helper()
+	consumer, err := NewPushConsumer(&Config{
+		Endpoint:      fakeAddress,
+		ConsumerGroup: MOCK_GROUP,
+		Credentials:   &credentials.SessionCredentials{},
+	},
+		WithPushSubscriptionExpressions(map[string]*FilterExpression{MOCK_TOPIC: SUB_ALL}),
+		WithPushMessageListener(&FuncMessageListener{
+			Consume: func(*MessageView) ConsumerResult { return SUCCESS },
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pc := consumer.(*defaultPushConsumer)
+	manager := NewMockClientManager(gomock.NewController(t))
+	pc.cli.clientManager = manager
+	pc.cli.log = zap.NewNop().Sugar()
+	pc.cli.inited.Store(true)
+
+	mq := &v2.MessageQueue{
+		Topic:              &v2.Resource{Name: MOCK_TOPIC},
+		Id:                 0,
+		Broker:             &v2.Broker{Name: "broker", Endpoints: fakeEndpoints()},
+		AcceptMessageTypes: []v2.MessageType{v2.MessageType_NORMAL},
+	}
+	return pc, newDefaultProcessQueue(pc, utils.ParseMessageQueue2Str(mq), mq, SUB_ALL), manager
+}
+
+func testMessageView() *MessageView {
+	return &MessageView{
+		messageId:     "message-1",
+		topic:         MOCK_TOPIC,
+		body:          []byte("body"),
+		endpoints:     fakeEndpoints(),
+		ReceiptHandle: "receipt-handle-0",
+	}
+}
+
+// hangUntilCanceledStream answers nothing: Recv blocks until the request
+// context is canceled, the way a long poll against a restarting proxy hangs.
+type hangUntilCanceledStream struct {
+	grpc.ClientStream
+	ctx context.Context
+}
+
+func (stream *hangUntilCanceledStream) Recv() (*v2.ReceiveMessageResponse, error) {
+	<-stream.ctx.Done()
+	return nil, stream.ctx.Err()
+}
+
+// A poll hanging against a restarting proxy must not stretch the shutdown by
+// requestTimeout + longPollingTimeout: GracefulStop cancels the in-flight
+// receive requests, so the wait drains at once.
+func TestGracefulStopCancelsInflightReceiveRequest(t *testing.T) {
+	pc, dpq, manager := newCancellationTestProcessQueue(t)
+
+	manager.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _ *v2.Endpoints, _ *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
+			return &hangUntilCanceledStream{ctx: ctx}, nil
+		}).AnyTimes()
+	manager.EXPECT().shutdown().AnyTimes()
+
+	dpq.receiveMessageImmediately()
+	deadline := time.Now().Add(5 * time.Second)
+	for pc.inflightRequestCountInterceptor.getInflightReceiveRequestCount() != 1 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := pc.inflightRequestCountInterceptor.getInflightReceiveRequestCount(); got != 1 {
+		t.Fatalf("expected one in-flight receive request, got %d", got)
+	}
+
+	stopped := make(chan error, 1)
+	go func() { stopped <- pc.GracefulStop() }()
+	select {
+	case err := <-stopped:
+		if err != nil {
+			t.Fatalf("GracefulStop failed: %v", err)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("GracefulStop did not finish in time; the hanging poll was not canceled and the shutdown " +
+			"waited out requestTimeout + longPollingTimeout")
+	}
+	if got := pc.inflightRequestCountInterceptor.getInflightReceiveRequestCount(); got != 0 {
+		t.Fatalf("inflight receive count is %d after GracefulStop; the hanging poll was not canceled", got)
+	}
+}

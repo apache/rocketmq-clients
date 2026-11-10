@@ -19,6 +19,7 @@ package golang
 
 import (
 	"context"
+	"errors"
 	"math"
 	"time"
 
@@ -450,7 +451,7 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 
 	timeout := longPollingTimeout + dpq.consumer.cli.opts.timeout
 	go func() {
-		mvs, err := dpq.consumer.receiveMessage(context.TODO(), request, dpq.mq, timeout)
+		mvs, err := dpq.consumer.receiveMessage(dpq.consumer.receiveCtx, request, dpq.mq, timeout)
 		duration := time.Since(startTime)
 		if err == nil {
 			messageCommons := make([]*MessageCommon, 0, len(mvs))
@@ -459,26 +460,35 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 			}
 			dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, messageCommons, duration, MessageHookPointsStatus_OK)
 			dpq.onReceiveMessageResult(mvs)
+			return
+		}
+		nextAttemptId := ""
+		if status.Code(err) == codes.DeadlineExceeded {
+			nextAttemptId = request.GetAttemptId()
+		}
+		rpcErr, isRpcErr := AsErrRpcStatus(err)
+		isNoNewMessage := isRpcErr && rpcErr.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND)
+		// An empty long polling result is still a completed reception, so it has
+		// to close the hook opened before the request was sent.
+		hookStatus := MessageHookPointsStatus_OK
+		if isNoNewMessage {
+			dpq.consumer.cli.log.Debugf("No new message, mq=%s, endpoints=%v, clientId=%s",
+				dpq.mqstr, endpoints, clientId)
+		} else if errors.Is(err, context.Canceled) {
+			hookStatus = MessageHookPointsStatus_ERROR
+			// Cancellation only happens while the consumer is stopping and the
+			// queue will not receive again, so neither log it as a reception
+			// failure nor schedule another receive for it.
+			dpq.consumer.cli.log.Infof("Receive request was canceled, mq=%s, endpoints=%v, attemptId=%s, clientId=%s",
+				dpq.mqstr, endpoints, request.GetAttemptId(), clientId)
 		} else {
-			nextAttemptId := ""
-			if status.Code(err) == codes.DeadlineExceeded {
-				nextAttemptId = request.GetAttemptId()
-			}
-			rpcErr, isRpcErr := AsErrRpcStatus(err)
-			isNoNewMessage := isRpcErr && rpcErr.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND)
-			// An empty long polling result is still a completed reception, so it has
-			// to close the hook opened before the request was sent.
-			hookStatus := MessageHookPointsStatus_OK
-			if isNoNewMessage {
-				dpq.consumer.cli.log.Debugf("No new message, mq=%s, endpoints=%v, clientId=%s",
-					dpq.mqstr, endpoints, clientId)
-			} else {
-				hookStatus = MessageHookPointsStatus_ERROR
-				dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%s, "+
-					"nextAttemptId=%s, clientId=%s, err=%v", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
-					clientId, err)
-			}
-			dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, hookStatus)
+			hookStatus = MessageHookPointsStatus_ERROR
+			dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%s, "+
+				"nextAttemptId=%s, clientId=%s, err=%v", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
+				clientId, err)
+		}
+		dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, hookStatus)
+		if !errors.Is(err, context.Canceled) {
 			dpq.onReceiveMessageException(err, nextAttemptId)
 		}
 	}()
