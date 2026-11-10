@@ -24,6 +24,25 @@ Otherwise, to install the `golang` package, run the following command:
 go get -u github.com/apache/rocketmq-clients/golang/v5
 ```
 
+### Running Examples
+
+The producer and consumer examples read authentication credentials from environment variables:
+
+| Variable | Description |
+| --- | --- |
+| `ROCKETMQ_ACCESS_KEY` | Access key for broker authentication. |
+| `ROCKETMQ_SECRET_KEY` | Secret key for broker authentication. |
+
+Set both variables in your runtime environment before running an example against a broker with authentication enabled. Keep real credentials out of source files and version control.
+
+Unset variables are read as empty strings. For brokers that do not require authentication, these variables can remain unset.
+
+Configure the endpoint, topic, and consumer group in the example as needed, then run it from the `golang` directory. For example:
+
+```sh
+go run ./example/producer/normal
+```
+
 ## Development
 
 ### Protocol Buffers Generation

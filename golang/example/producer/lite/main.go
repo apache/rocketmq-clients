@@ -30,10 +30,8 @@ import (
 )
 
 const (
-	Topic     = "victory_lite_topic001"
-	Endpoint  = "11.167.131.190:8081"
-	AccessKey = "xxxxxx"
-	SecretKey = "xxxxxx"
+	Topic    = "victory_lite_topic001"
+	Endpoint = "11.167.131.190:8081"
 )
 
 func main() {
@@ -44,8 +42,8 @@ func main() {
 	producer, err := rmq_client.NewProducer(&rmq_client.Config{
 		Endpoint: Endpoint,
 		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
+			AccessKey:    os.Getenv("ROCKETMQ_ACCESS_KEY"),
+			AccessSecret: os.Getenv("ROCKETMQ_SECRET_KEY"),
 		},
 	},
 		rmq_client.WithTopics(Topic),

@@ -29,10 +29,8 @@ import (
 )
 
 const (
-	Topic     = "topic-delay-new"
-	Endpoint  = "127.0.0.1:8080"
-	AccessKey = ""
-	SecretKey = ""
+	Topic    = "topic-delay-new"
+	Endpoint = "127.0.0.1:8080"
 )
 
 func main() {
@@ -43,8 +41,8 @@ func main() {
 	producer, err := rmq_client.NewProducer(&rmq_client.Config{
 		Endpoint: Endpoint,
 		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
+			AccessKey:    os.Getenv("ROCKETMQ_ACCESS_KEY"),
+			AccessSecret: os.Getenv("ROCKETMQ_SECRET_KEY"),
 		},
 	},
 		rmq_client.WithTopics(Topic),

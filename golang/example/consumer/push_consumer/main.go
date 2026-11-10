@@ -31,8 +31,6 @@ const (
 	ConsumerGroup = "victory_lite_group001"
 	Topic         = "victory_lite_topic001"
 	Endpoint      = "11.167.131.190:8081"
-	AccessKey     = "xxxxxx"
-	SecretKey     = "xxxxxx"
 	NameSpace     = "xxxxxx"
 )
 
@@ -50,8 +48,8 @@ func main() {
 		Endpoint:      Endpoint,
 		ConsumerGroup: ConsumerGroup,
 		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
+			AccessKey:    os.Getenv("ROCKETMQ_ACCESS_KEY"),
+			AccessSecret: os.Getenv("ROCKETMQ_SECRET_KEY"),
 		},
 		NameSpace: NameSpace,
 	},

@@ -32,8 +32,6 @@ const (
 	Topic         = "xxxxxx"
 	ConsumerGroup = "xxxxxx"
 	Endpoint      = "xxxxxx"
-	AccessKey     = "xxxxxx"
-	SecretKey     = "xxxxxx"
 )
 
 var (
@@ -55,8 +53,8 @@ func main() {
 		Endpoint:      Endpoint,
 		ConsumerGroup: ConsumerGroup,
 		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
+			AccessKey:    os.Getenv("ROCKETMQ_ACCESS_KEY"),
+			AccessSecret: os.Getenv("ROCKETMQ_SECRET_KEY"),
 		},
 	},
 		rmq_client.WithSimpleAwaitDuration(awaitDuration),
