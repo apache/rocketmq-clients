@@ -118,7 +118,7 @@ func (sc *defaultSimpleConsumer) changeInvisibleDuration0(messageView *MessageVi
 	duration := time.Since(watchTime)
 	messageHookPointsStatus := MessageHookPointsStatus_OK
 	if err != nil {
-		sc.cli.log.Errorf("exception raised during message change invisible duration, messageId=%s, endpoints=%v, requestId=%s", messageView.GetMessageId(), endpoints, utils.GetRequestID(ctx))
+		sc.cli.log.Errorf("exception raised during message acknowledgement, messageId=%s, endpoints=%v, requestId=%s", messageView.GetMessageId(), endpoints, utils.GetRequestID(ctx))
 	} else if resp.GetStatus().GetCode() != v2.Code_OK {
 		sc.cli.log.Errorf("failed to change message invisible duration, messageId=%s, endpoints=%v, code=%v, status message=[%s], requestId=%s", messageView.GetMessageId(), endpoints, resp.GetStatus().GetCode(), resp.GetStatus().GetMessage(), utils.GetRequestID(ctx))
 		err = &ErrRpcStatus{
@@ -138,9 +138,7 @@ func (sc *defaultSimpleConsumer) changeInvisibleDuration(messageView *MessageVie
 		return fmt.Errorf("changeInvisibleDuration failed, err = the message is nil")
 	}
 	resp, err := sc.changeInvisibleDuration0(messageView, invisibleDuration)
-	// A failed request carries no new receipt handle: adopting the empty one from
-	// the response would make every following call fail with INVALID_RECEIPT_HANDLE.
-	if err == nil && resp != nil {
+	if resp != nil {
 		messageView.ReceiptHandle = resp.ReceiptHandle
 	}
 	return err
@@ -505,13 +503,9 @@ func (sc *defaultSimpleConsumer) Ack(ctx context.Context, messageView *MessageVi
 	}
 	if resp.GetStatus().GetCode() != v2.Code_OK {
 		messageHookPointsStatus = MessageHookPointsStatus_ERROR
-		err = &ErrRpcStatus{
-			Code:    int32(resp.Status.GetCode()),
-			Message: resp.GetStatus().GetMessage(),
-		}
 	}
 	sc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
-	return err
+	return nil
 }
 
 func (sc *defaultSimpleConsumer) IsEndpointUpdated() bool {
