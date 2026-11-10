@@ -29,6 +29,9 @@ export class TelemetrySession {
   #isRefreshing = false;
   #released = false;
   #reconnectTimer?: NodeJS.Timeout;
+  // Consecutive failed reconnect attempts, driving the exponential backoff
+  // delay; reset once the stream is proven alive by inbound data.
+  #reconnectAttempts = 0;
 
   constructor(baseClient: BaseClient, endpoints: Endpoints, logger: ILogger) {
     this.#endpoints = endpoints;
@@ -93,6 +96,9 @@ export class TelemetrySession {
     } catch (err) {
       this.#logger.error('Failed to refresh telemetry session, endpoints=%s, clientId=%s, error=%s',
         this.#endpoints, this.#baseClient.clientId, err);
+      // The stream is gone and the renewal failed; keep retrying in the
+      // background instead of leaving the session permanently dead.
+      this.#scheduleRenewStream();
     } finally {
       this.#isRefreshing = false;
     }
@@ -119,6 +125,8 @@ export class TelemetrySession {
   }
 
   #onData(command: TelemetryCommand) {
+    // Inbound data proves the stream is alive: reset the reconnect backoff.
+    this.#reconnectAttempts = 0;
     const endpoints = this.#endpoints;
     const clientId = this.#baseClient.clientId;
     const commandCase = command.getCommandCase();
@@ -169,21 +177,35 @@ export class TelemetrySession {
   }
 
   /**
-   * Schedule a telemetry stream renewal. The timer is tracked so that it can
-   * be cancelled on release(), and a pending timer doubles as a guard to
-   * prevent error/end events from scheduling duplicate reconnects.
+   * Schedule a telemetry stream renewal with exponential backoff (1s, 2s,
+   * 4s, ... capped at 60s). The timer is tracked so that it can be cancelled
+   * on release(), and a pending timer doubles as a guard to prevent
+   * error/end events from scheduling duplicate reconnects.
    */
   #scheduleRenewStream() {
     if (this.#released || this.#reconnectTimer) {
       return;
     }
+    const delay = Math.min(1000 * 2 ** this.#reconnectAttempts, 60000);
+    this.#reconnectAttempts++;
     this.#reconnectTimer = setTimeout(() => {
       this.#reconnectTimer = undefined;
       if (this.#released) {
         return;
       }
-      this.#renewStream(false);
-    }, 1000);
+      try {
+        this.#renewStream(false);
+      } catch (err) {
+        // Never rethrow here: an exception escaping a timer callback becomes
+        // an uncaughtException, and without this catch a single transient
+        // stream-creation failure would permanently end the reconnect loop
+        // and the session would never be able to re-register settings.
+        this.#logger.error('Failed to renew telemetry stream, will retry, endpoints=%s, clientId=%s, attempt=%d, error=%s',
+          this.#endpoints, this.#baseClient.clientId, this.#reconnectAttempts,
+          err instanceof Error ? err.message : String(err));
+        this.#scheduleRenewStream();
+      }
+    }, delay);
   }
 
   #onError(err: Error) {
