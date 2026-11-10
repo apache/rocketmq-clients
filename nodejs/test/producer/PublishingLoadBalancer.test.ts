@@ -37,8 +37,7 @@ import {
 } from '../../proto/apache/rocketmq/v2/definition_pb';
 
 describe('takeMessageQueueByMessageGroup floorMod semantics (C-1)', () => {
-  // One queue (queueId=0, the writable master queue) per broker across queueCount brokers,
-  // since PublishingLoadBalancer only keeps queues with queueId === MASTER_BROKER_ID (0).
+  // One writable master queue per broker across queueCount brokers.
   // The returned queue is identified by its broker endpoints port (10911 + expected index).
   function buildLoadBalancer(queueCount: number): PublishingLoadBalancer {
     const pbs: MessageQueuePB[] = [];
@@ -89,5 +88,60 @@ describe('takeMessageQueueByMessageGroup floorMod semantics (C-1)', () => {
     const signedHash = BigInt.asIntN(64, calculateStringSipHash24(negativeGroup!));
     const expectedIndex = Number(((signedHash % 4n) + 4n) % 4n);
     assert.strictEqual(mq.broker.endpoints.facade, '127.0.0.1:' + (10911 + expectedIndex));
+  });
+});
+
+describe('PublishingLoadBalancer keeps the writable queues of master brokers', () => {
+  // The proxy lists the queues of every broker (master and slaves) and numbers them
+  // read-only first, then write-only, then read-write.
+  function routeOf(...queues: [ brokerId: number, queueId: number, permission: Permission ][]) {
+    return new TopicRouteData(queues.map(([ brokerId, queueId, permission ]) => {
+      const endpointsPb = new EndpointsPB();
+      endpointsPb.setScheme(AddressScheme.IPV4);
+      endpointsPb.addAddresses().setHost('127.0.0.1').setPort(8081 + brokerId);
+      const brokerPb = new BrokerPB();
+      brokerPb.setName('broker-a');
+      brokerPb.setId(brokerId);
+      brokerPb.setEndpoints(endpointsPb);
+      const mqPb = new MessageQueuePB();
+      mqPb.setId(queueId);
+      mqPb.setTopic(new ResourcePB().setName('topic'));
+      mqPb.setBroker(brokerPb);
+      mqPb.setPermission(permission);
+      return mqPb;
+    }));
+  }
+
+  function pickedQueues(loadBalancer: PublishingLoadBalancer, times: number) {
+    const picked = new Set<string>();
+    for (let i = 0; i < times; i++) {
+      for (const mq of loadBalancer.takeMessageQueues(new Map(), 1)) {
+        picked.add(mq.broker.id + '/' + mq.queueId);
+      }
+    }
+    return Array.from(picked).sort();
+  }
+
+  it('should select writable queues whatever their queue id', () => {
+    // readQueueNums=4, writeQueueNums=2: queues 0 and 1 are read-only.
+    const loadBalancer = new PublishingLoadBalancer(routeOf(
+      [ 0, 0, Permission.READ ], [ 0, 1, Permission.READ ],
+      [ 0, 2, Permission.READ_WRITE ], [ 0, 3, Permission.READ_WRITE ],
+    ));
+    assert.deepStrictEqual(pickedQueues(loadBalancer, 8), [ '0/2', '0/3' ]);
+  });
+
+  it('should not select queues of slave brokers', () => {
+    const loadBalancer = new PublishingLoadBalancer(routeOf(
+      [ 0, 0, Permission.READ_WRITE ], [ 0, 1, Permission.READ_WRITE ],
+      [ 1, 0, Permission.READ_WRITE ], [ 1, 1, Permission.READ_WRITE ],
+    ));
+    assert.deepStrictEqual(pickedQueues(loadBalancer, 8), [ '0/0', '0/1' ]);
+  });
+
+  it('should reject a route without writable master queue', () => {
+    assert.throws(() => new PublishingLoadBalancer(routeOf(
+      [ 0, 0, Permission.READ ], [ 1, 0, Permission.READ_WRITE ],
+    )), /No writable message queue found/);
   });
 });
