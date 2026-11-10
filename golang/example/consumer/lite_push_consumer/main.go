@@ -30,9 +30,6 @@ import (
 const (
 	ConsumerGroup = "victory_lite_group001"
 	Topic         = "victory_lite_topic001"
-	Endpoint      = "11.167.131.190:8081"
-	AccessKey     = "xxxxxx"
-	SecretKey     = "xxxxxx"
 	NameSpace     = ""
 )
 
@@ -42,17 +39,19 @@ var (
 )
 
 func main() {
+	endpoint := os.Getenv("ROCKETMQ_ENDPOINT")
+
 	// log to console
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
 	rmq_client.EnableSsl = false
 	// In most case, you don't need to create many consumers, singleton pattern is more recommended.
 	pushConsumer, err := rmq_client.NewLitePushConsumer(&rmq_client.Config{
-		Endpoint:      Endpoint,
+		Endpoint:      endpoint,
 		ConsumerGroup: ConsumerGroup,
 		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
+			AccessKey:    os.Getenv("ROCKETMQ_ACCESS_KEY"),
+			AccessSecret: os.Getenv("ROCKETMQ_SECRET_KEY"),
 		},
 		NameSpace: NameSpace,
 	},

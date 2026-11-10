@@ -32,9 +32,6 @@ const (
 	ConsumerGroup = "xxxxxx"
 	BindTopic     = "xxxxxx"
 	LiteTopic     = "xxxxxx"
-	Endpoint      = "xxxxxx"
-	AccessKey     = "xxxxxx"
-	SecretKey     = "xxxxxx"
 	NameSpace     = ""
 )
 
@@ -48,16 +45,18 @@ var (
 )
 
 func main() {
+	endpoint := os.Getenv("ROCKETMQ_ENDPOINT")
+
 	// log to console
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
 	// In most case, you don't need to create many consumers, singleton pattern is more recommended.
 	liteSimpleConsumer, err := rmq_client.NewLiteSimpleConsumer(&rmq_client.Config{
-		Endpoint:      Endpoint,
+		Endpoint:      endpoint,
 		ConsumerGroup: ConsumerGroup,
 		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
+			AccessKey:    os.Getenv("ROCKETMQ_ACCESS_KEY"),
+			AccessSecret: os.Getenv("ROCKETMQ_SECRET_KEY"),
 		},
 		NameSpace: NameSpace,
 	},

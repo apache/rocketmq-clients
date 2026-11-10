@@ -28,23 +28,20 @@ import (
 	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 )
 
-const (
-	Topic     = "topic-delay-new"
-	Endpoint  = "127.0.0.1:8080"
-	AccessKey = ""
-	SecretKey = ""
-)
+const Topic = "topic-delay-new"
 
 func main() {
+	endpoint := os.Getenv("ROCKETMQ_ENDPOINT")
+
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
 
 	// In most case, you don't need to create many producers, singleton pattern is more recommended.
 	producer, err := rmq_client.NewProducer(&rmq_client.Config{
-		Endpoint: Endpoint,
+		Endpoint: endpoint,
 		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
+			AccessKey:    os.Getenv("ROCKETMQ_ACCESS_KEY"),
+			AccessSecret: os.Getenv("ROCKETMQ_SECRET_KEY"),
 		},
 	},
 		rmq_client.WithTopics(Topic),
@@ -63,7 +60,7 @@ func main() {
 
 	fmt.Println("========== Delay Message Recall Example ==========")
 	fmt.Printf("Topic: %s\n", Topic)
-	fmt.Printf("Endpoint: %s\n\n", Endpoint)
+	fmt.Printf("Endpoint: %s\n\n", endpoint)
 
 	// Send delay messages with recall capability
 	fmt.Println("Sending delay messages that can be recalled...")
