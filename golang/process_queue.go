@@ -50,6 +50,15 @@ const (
 	RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL        time.Duration = time.Second
 )
 
+// Max attempts of the settlement chains (ack, change invisible duration, forward
+// to DLQ) before the message is given up; every retry waits for the chain's
+// failure back-off delay, so a message is retried for a few seconds at most.
+const (
+	MAX_ACK_MESSAGE_ATTEMPTS               = 3
+	MAX_CHANGE_INVISIBLE_DURATION_ATTEMPTS = 3
+	MAX_FORWARD_MESSAGE_TO_DLQ_ATTEMPTS    = 3
+)
+
 type defaultProcessQueue struct {
 	consumer         *defaultPushConsumer
 	dropped          atomic.Bool
@@ -173,14 +182,22 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueue0(mv *MessageView, attem
 func (dpq *defaultProcessQueue) forwardToDeadLetterQueueLater(mv *MessageView, attempt int, callback func(error)) {
 	clientId := dpq.consumer.cli.clientID
 	messageId := mv.messageId
-	time.AfterFunc(ACK_MESSAGE_FAILURE_BACKOFF_DELAY, func() {
+	if attempt > MAX_FORWARD_MESSAGE_TO_DLQ_ATTEMPTS {
+		dpq.forgiveSettlement("forward message to dead letter queue", attempt, messageId, callback)
+		return
+	}
+	time.AfterFunc(FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY, func() {
 		defer func() {
 			if err := recover(); err != nil {
-				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message change invisible duration request, mq=%s, messageId=%s, "+
+				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message forward to dead letter queue request, mq=%s, messageId=%s, "+
 					"clientId=%s", dpq.mqstr, messageId, clientId)
 				dpq.forwardToDeadLetterQueueLater(mv, 1+attempt, callback)
 			}
 		}()
+		if err := dpq.settlementRetryGuard("forward message to dead letter queue", messageId); err != nil {
+			callback(err)
+			return
+		}
 		dpq.forwardToDeadLetterQueue0(mv, attempt, callback)
 	})
 }
@@ -257,6 +274,10 @@ func (dpq *defaultProcessQueue) changeInvisibleDuration(mv *MessageView, duratio
 func (dpq *defaultProcessQueue) changeInvisibleDurationLater(mv *MessageView, duration time.Duration, attempt int, callback func(error)) {
 	clientId := dpq.consumer.cli.clientID
 	messageId := mv.messageId
+	if attempt > MAX_CHANGE_INVISIBLE_DURATION_ATTEMPTS {
+		dpq.forgiveSettlement("change invisible duration", attempt, messageId, callback)
+		return
+	}
 	time.AfterFunc(CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY, func() {
 		defer func() {
 			if err := recover(); err != nil {
@@ -265,6 +286,10 @@ func (dpq *defaultProcessQueue) changeInvisibleDurationLater(mv *MessageView, du
 				dpq.changeInvisibleDurationLater(mv, duration, 1+attempt, callback)
 			}
 		}()
+		if err := dpq.settlementRetryGuard("change invisible duration", messageId); err != nil {
+			callback(err)
+			return
+		}
 		dpq.changeInvisibleDuration(mv, duration, attempt, callback)
 	})
 }
@@ -324,16 +349,49 @@ func (dpq *defaultProcessQueue) ackMessage0(mv *MessageView, attempt int, callba
 func (dpq *defaultProcessQueue) ackMessageLater(mv *MessageView, attempt int, callback func(error)) {
 	clientId := dpq.consumer.cli.clientID
 	messageId := mv.messageId
+	if attempt > MAX_ACK_MESSAGE_ATTEMPTS {
+		dpq.forgiveSettlement("ack message", attempt, messageId, callback)
+		return
+	}
 	time.AfterFunc(ACK_MESSAGE_FAILURE_BACKOFF_DELAY, func() {
 		defer func() {
 			if err := recover(); err != nil {
-				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message change invisible duration request, mq=%s, messageId=%s, "+
+				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message acknowledgement request, mq=%s, messageId=%s, "+
 					"clientId=%s", dpq.mqstr, messageId, clientId)
 				dpq.ackMessageLater(mv, 1+attempt, callback)
 			}
 		}()
+		if err := dpq.settlementRetryGuard("ack message", messageId); err != nil {
+			callback(err)
+			return
+		}
 		dpq.ackMessage0(mv, attempt, callback)
 	})
+}
+
+// forgiveSettlement reports the final give-up of a settlement retry chain; the
+// callback evicts the cached message so the queue cache does not leak.
+func (dpq *defaultProcessQueue) forgiveSettlement(operation string, attempt int, messageId string, callback func(error)) {
+	dpq.consumer.cli.log.Errorf("%s failed finally, run out of attempt times, forgive to retry, attempt=%d, messageId=%s, mq=%s, clientId=%s",
+		operation, attempt, messageId, dpq.mqstr, dpq.consumer.cli.clientID)
+	callback(&ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: operation + " gave up after retries"})
+}
+
+// settlementRetryGuard stops the scheduled settlement retries once the queue was
+// dropped or the consumer is no longer running; the returned error, if any, is
+// handed to the caller's callback so the cached message is still evicted.
+func (dpq *defaultProcessQueue) settlementRetryGuard(operation string, messageId string) error {
+	if dpq.dropped.Load() {
+		dpq.consumer.cli.log.Infof("Stop to retry %s because the process queue has been dropped, mq=%s, messageId=%s, clientId=%s",
+			operation, dpq.mqstr, messageId, dpq.consumer.cli.clientID)
+		return &ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: "process queue has been dropped"}
+	}
+	if !dpq.consumer.isRunning() {
+		dpq.consumer.cli.log.Infof("Stop to retry %s because the consumer is not running, mq=%s, messageId=%s, clientId=%s",
+			operation, dpq.mqstr, messageId, dpq.consumer.cli.clientID)
+		return &ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: "consumer is not running"}
+	}
+	return nil
 }
 
 func (dpq *defaultProcessQueue) getMessageQueue() *v2.MessageQueue {
