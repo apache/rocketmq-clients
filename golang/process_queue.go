@@ -85,7 +85,7 @@ func (dpq *defaultProcessQueue) eraseFifoMessage(mv *MessageView, result Consume
 		nextAttemptDelay := utils.GetNextAttemptDelay(retryPolicy, int(attempt))
 		mv.deliveryAttempt += 1
 		attempt = mv.deliveryAttempt
-		dpq.consumer.cli.log.Debugf("Prepare to redeliver the fifo message because of the consumption failure, maxAttempt={},"+
+		dpq.consumer.cli.log.Debugf("Prepare to redeliver the fifo message because of the consumption failure, maxAttempt=%d,"+
 			" attempt=%d, mq=%s, messageId=%s, nextAttemptDelay=%v, clientId=%s", maxAttempts, attempt, dpq.mqstr,
 			messageId, nextAttemptDelay, clientId)
 		service.consumeWithDuration(mv, nextAttemptDelay, func(result0 ConsumerResult, err0 error) {
@@ -283,7 +283,7 @@ func (dpq *defaultProcessQueue) ackMessage0(mv *MessageView, attempt int, callba
 	resp, err := dpq.consumer.ack0(ctx, mv)
 	if err != nil {
 		dpq.consumer.cli.log.Errorf("Exception raised while acknowledging message, clientId=%s, consumerGroup=%s, "+
-			"would attempt to re-ack later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%w", clientId,
+			"would attempt to re-ack later, attempt=%d, messageId=%s, mq=%s, endpoints=%v, err=%v", clientId,
 			consumerGroup, attempt, messageId, dpq.mqstr, endpoints, err)
 		dpq.ackMessageLater(mv, 1+attempt, callback)
 		return
@@ -312,7 +312,7 @@ func (dpq *defaultProcessQueue) ackMessage0(mv *MessageView, attempt int, callba
 	// Log retries.
 	if attempt > 1 {
 		dpq.consumer.cli.log.Infof("Finally, ack message successfully, clientId=%s, consumerGroup=%s "+
-			"messageId={}, attempt={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
+			"messageId=%s, attempt=%d, mq=%s, endpoints=%v, requestId=%s", clientId, consumerGroup,
 			messageId, attempt, dpq.mqstr, endpoints, requestId)
 		return
 	}
@@ -410,7 +410,7 @@ func (dpq *defaultProcessQueue) isCacheFull() bool {
 	cacheMessageBytesThresholdPerQueue := int64(dpq.consumer.cacheMessageBytesThresholdPerQueue())
 	actualCachedMessagesBytes := dpq.cachedMessagesBytes.Load()
 	if cacheMessageBytesThresholdPerQueue <= actualCachedMessagesBytes {
-		dpq.consumer.cli.log.Warnf("Process queue total cached messages memory exceeds the threshold, threshold={} bytes, actual={} bytes, mq={}, clientId={}",
+		dpq.consumer.cli.log.Warnf("Process queue total cached messages memory exceeds the threshold, threshold=%d bytes, actual=%d bytes, mq=%s, clientId=%s",
 			cacheMessageBytesThresholdPerQueue, actualCachedMessagesBytes, dpq.mqstr, clientId)
 		dpq.cacheFullNanoTime.Store(time.Now().UnixNano())
 		return true
