@@ -148,6 +148,15 @@ func (dpq *defaultProcessQueue) forwardToDeadLetterQueue0(mv *MessageView, attem
 	requestId := utils.GetRequestID(ctx)
 	status := resp.GetStatus()
 	code := status.GetCode()
+	if code == v2.Code_INVALID_RECEIPT_HANDLE {
+		// The receipt handle has expired, no retry can ever succeed.
+		dpq.consumer.cli.log.Errorf("Failed to forward message to dead letter queue due to the invalid receipt handle, forgive to retry, "+
+			"clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, "+
+			"requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
+			endpoints, requestId, status.GetMessage())
+		callback(&ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: code.String()})
+		return
+	}
 	// Log failure and retry later.
 	if code != v2.Code_OK {
 		dpq.consumer.cli.log.Errorf("Failed to forward message to dead letter queue, would attempt to re-forward later, "+
@@ -215,6 +224,17 @@ func (dpq *defaultProcessQueue) changeInvisibleDuration(mv *MessageView, duratio
 
 	ctx := context.Background()
 	resp, err := dpq.consumer.changeInvisibleDuration0(ctx, mv, duration)
+	// changeInvisibleDuration0 converts a non-OK status into an error, so a
+	// server-side INVALID_RECEIPT_HANDLE (40013) arrives through err, not
+	// through a response status. Forgive it at once: an expired handle can
+	// never succeed on a retry.
+	if rpcErr, ok := AsErrRpcStatus(err); ok && rpcErr.GetCode() == int32(v2.Code_INVALID_RECEIPT_HANDLE) {
+		dpq.consumer.cli.log.Errorf("Failed to change invisible duration due to the invalid receipt handle, forgive to retry, "+
+			"clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, status message=[%s]",
+			clientId, consumerGroup, messageId, attempt, dpq.mqstr, endpoints, rpcErr.GetMessage())
+		callback(&ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: v2.Code_INVALID_RECEIPT_HANDLE.String()})
+		return
+	}
 	if err != nil {
 		dpq.consumer.cli.log.Errorf("Exception raised while changing invisible duration, would retry later, clientId=%s, consumerGroup=%s, messageId=%s, mq=%s, endpoints=%v, err=%w",
 			clientId, consumerGroup, messageId, dpq.mqstr, endpoints, err)
@@ -224,14 +244,6 @@ func (dpq *defaultProcessQueue) changeInvisibleDuration(mv *MessageView, duratio
 	requestId := utils.GetRequestID(ctx)
 	status := resp.GetStatus()
 	code := status.GetCode()
-	if code == v2.Code_INVALID_RECEIPT_HANDLE {
-		dpq.consumer.cli.log.Errorf("Failed to change invisible duration due to the invalid receipt handle, forgive to retry, "+
-			"clientId=%s, consumerGroup=%s, messageId=%s, attempt=%d, mq=%s, endpoints=%v, "+
-			"requestId=%s, status message=[%s]", clientId, consumerGroup, messageId, attempt, dpq.mqstr,
-			endpoints, requestId, status.GetMessage())
-		callback(&ErrRpcStatus{Code: int32(v2.Code_BAD_REQUEST), Message: code.String()})
-		return
-	}
 	// Log failure and retry later.
 	if code != v2.Code_OK {
 		dpq.consumer.cli.log.Errorf("Failed to change invisible duration, would retry later, "+
