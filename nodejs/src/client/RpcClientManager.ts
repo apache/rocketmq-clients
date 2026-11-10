@@ -44,6 +44,10 @@ export class RpcClientManager {
   #baseClient: BaseClient;
   #logger: ILogger;
   #clearIdleRpcClientsTimer: NodeJS.Timeout;
+  // Terminal state set by close(): afterwards no RPC client may be recreated,
+  // otherwise residual callbacks (e.g. a receive loop that escaped shutdown)
+  // would lazily rebuild gRPC channels and keep hitting the remote.
+  #closed = false;
 
   constructor(baseClient: BaseClient, logger: ILogger) {
     this.#baseClient = baseClient;
@@ -70,6 +74,9 @@ export class RpcClientManager {
   }
 
   #getRpcClient(endpoints: Endpoints) {
+    if (this.#closed) {
+      throw new Error(`RpcClientManager is already closed, will not re-establish connection, endpoints=${endpoints.facade}, clientId=${this.#baseClient.clientId}`);
+    }
     const facade = endpoints.facade;
     let rpcClient = this.#rpcClients.get(facade);
     if (!rpcClient) {
@@ -95,6 +102,9 @@ export class RpcClientManager {
   }
 
   close() {
+    // Mark closed first so no RPC client can be lazily recreated afterwards
+    this.#closed = true;
+
     // Clear idle check timer first
     if (this.#clearIdleRpcClientsTimer) {
       clearInterval(this.#clearIdleRpcClientsTimer);
