@@ -430,8 +430,13 @@ func (pc *defaultPushConsumer) scanAssignments() {
 		filterExpression := value.(*FilterExpression)
 		newest, err := pc.cli.queryAssignments(context.TODO(), topic, pc.groupName, pc.cli.opts.timeout)
 		if err != nil {
-			pc.cli.log.Errorf("Exception raised while scanning the assignments, topic=%s, clientId=%s, err=%v",
+			// A failed scan does not mean the server has no assignments: syncing the
+			// nil result here would drop every working process queue and stall
+			// consumption for the whole outage. Keep the current assignments until
+			// the next successful scan.
+			pc.cli.log.Errorf("Exception raised while scanning the assignments, keep current assignments, topic=%s, clientId=%s, err=%v",
 				topic, pc.cli.clientID, err)
+			return true
 		}
 		val, _ := pc.cacheAssignments.Load(topic)
 		var existed *[]*v2.Assignment
