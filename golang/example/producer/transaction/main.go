@@ -29,18 +29,17 @@ import (
 	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 )
 
-const (
-	Topic    = "xxxxxx"
-	Endpoint = "xxxxxx"
-)
+const Topic = "xxxxxx"
 
 func main() {
+	endpoint := os.Getenv("ROCKETMQ_ENDPOINT")
+
 	// log to console
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
 	// In most case, you don't need to create many producers, singleton pattern is more recommended.
 	producer, err := rmq_client.NewProducer(&rmq_client.Config{
-		Endpoint: Endpoint,
+		Endpoint: endpoint,
 		Credentials: &credentials.SessionCredentials{
 			AccessKey:    os.Getenv("ROCKETMQ_ACCESS_KEY"),
 			AccessSecret: os.Getenv("ROCKETMQ_SECRET_KEY"),
