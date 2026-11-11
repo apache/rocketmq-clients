@@ -17,11 +17,19 @@
 
 package golang
 
-import "github.com/apache/rocketmq-clients/golang/v5/credentials"
+import (
+	"github.com/apache/rocketmq-clients/golang/v5/credentials"
+	"go.uber.org/zap"
+)
 
 type Config struct {
 	Endpoint      string `validate:"required"`
 	NameSpace     string
 	ConsumerGroup string
 	Credentials   *credentials.SessionCredentials `validate:"required"`
+
+	// GRPCLogger logs gRPC calls. If nil, the default logger is used.
+	// Use zap.NewNop() to disable gRPC call logging.
+	// The caller owns the logger and is responsible for syncing it.
+	GRPCLogger *zap.Logger
 }
