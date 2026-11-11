@@ -83,6 +83,10 @@ export class PushConsumer extends Consumer {
   #consumeService!: ConsumeService;
   #scanAssignmentTimer?: NodeJS.Timeout;
   #inflightReceiveRequestCount = 0;
+  // Set as the very first action of shutdown() so late callbacks (e.g. an
+  // assignment scan RPC in flight that settles after shutdown) can no longer
+  // create process queues and resurrect the receive loop.
+  #shuttingDown = false;
 
   constructor(options: PushConsumerOptions) {
     options.topics = Array.from(options.subscriptions.keys());
@@ -151,6 +155,7 @@ export class PushConsumer extends Consumer {
 
   async shutdown() {
     this.logger.info('Begin to shutdown the rocketmq push consumer, clientId=%s', this.clientId);
+    this.#shuttingDown = true;
     // Stop scanning assignments
     if (this.#scanAssignmentTimer) {
       clearInterval(this.#scanAssignmentTimer);
@@ -538,6 +543,15 @@ export class PushConsumer extends Consumer {
   }
 
   #syncProcessQueue(topic: string, assignments: Assignments, filterExpression: FilterExpression) {
+    // An assignment scan RPC in flight when shutdown() started may settle
+    // after the process queue table has been dropped and cleared; creating
+    // queues there would resurrect an immortal receive loop with no lifecycle
+    // components left running.
+    if (this.#shuttingDown) {
+      this.logger.info('Ignore assignment sync because shutdown is in progress, topic=%s, clientId=%s',
+        topic, this.clientId);
+      return;
+    }
     const latestMqKeys = new Set<string>();
     for (const assignment of assignments.getAssignmentList()) {
       latestMqKeys.add(this.#mqKey(assignment.messageQueue));
@@ -612,6 +626,11 @@ export class PushConsumer extends Consumer {
    */
   protected createVirtualProcessQueueForLite(topic: string, filterExpression: FilterExpression) {
     // Validate parameters
+    if (this.#shuttingDown) {
+      this.logger.info('Ignore virtual process queue creation because shutdown is in progress, topic=%s, clientId=%s',
+        topic, this.clientId);
+      return;
+    }
     if (!topic || topic.trim().length === 0) {
       throw new Error('topic should not be blank');
     }
