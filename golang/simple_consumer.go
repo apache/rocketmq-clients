@@ -138,7 +138,9 @@ func (sc *defaultSimpleConsumer) changeInvisibleDuration(messageView *MessageVie
 		return fmt.Errorf("changeInvisibleDuration failed, err = the message is nil")
 	}
 	resp, err := sc.changeInvisibleDuration0(messageView, invisibleDuration)
-	if resp != nil {
+	// A failed request carries no new receipt handle: adopting the empty one from
+	// the response would make every following call fail with INVALID_RECEIPT_HANDLE.
+	if err == nil && resp != nil {
 		messageView.ReceiptHandle = resp.ReceiptHandle
 	}
 	return err
@@ -503,9 +505,13 @@ func (sc *defaultSimpleConsumer) Ack(ctx context.Context, messageView *MessageVi
 	}
 	if resp.GetStatus().GetCode() != v2.Code_OK {
 		messageHookPointsStatus = MessageHookPointsStatus_ERROR
+		err = &ErrRpcStatus{
+			Code:    int32(resp.Status.GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
 	}
 	sc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
-	return nil
+	return err
 }
 
 func (sc *defaultSimpleConsumer) IsEndpointUpdated() bool {
