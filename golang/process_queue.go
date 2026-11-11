@@ -41,11 +41,15 @@ type ProcessQueue interface {
 	eraseFifoMessage(*MessageView, ConsumerResult)
 }
 
+// Consecutive reception failures after which the failure is logged again at
+// WARN level; in between, retries are only logged at DEBUG, so a sustained
+// outage does not produce one ERROR per second per queue.
+const RECEPTION_FAILURE_LOG_PERIOD = 30
+
 const (
 	FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY time.Duration = time.Second
 	ACK_MESSAGE_FAILURE_BACKOFF_DELAY                 time.Duration = time.Second
 	CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY   time.Duration = time.Second
-	RECEIVING_FLOW_CONTROL_BACKOFF_DELAY              time.Duration = time.Millisecond * 20
 	RECEIVING_FAILURE_BACKOFF_DELAY                   time.Duration = time.Second
 	RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL        time.Duration = time.Second
 )
@@ -63,6 +67,8 @@ type defaultProcessQueue struct {
 	receivedMessagesQuantity atomic.Int64
 	activityNanoTime         atomic.Int64
 	cacheFullNanoTime        atomic.Int64
+
+	consecutiveReceptionFailures atomic.Int64
 }
 
 func (dpq *defaultProcessQueue) discardFifoMessage(mv *MessageView) {
@@ -445,7 +451,7 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 	defer func() {
 		if err := recover(); err != nil {
 			dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, clientId=%s, err=%v", dpq.mqstr, clientId, err)
-			dpq.onReceiveMessageException(err, attemptId)
+			dpq.onReceiveMessageException(attemptId)
 		}
 	}()
 
@@ -465,34 +471,52 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 		mvs, err := dpq.consumer.receiveMessage(context.TODO(), request, dpq.mq, timeout)
 		duration := time.Since(startTime)
 		if err == nil {
+			dpq.consecutiveReceptionFailures.Store(0)
 			messageCommons := make([]*MessageCommon, 0, len(mvs))
 			for _, mv := range mvs {
 				messageCommons = append(messageCommons, mv.GetMessageCommon())
 			}
 			dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, messageCommons, duration, MessageHookPointsStatus_OK)
 			dpq.onReceiveMessageResult(mvs)
+			return
+		}
+		nextAttemptId := ""
+		if status.Code(err) == codes.DeadlineExceeded {
+			nextAttemptId = request.GetAttemptId()
+		}
+		rpcErr, isRpcErr := AsErrRpcStatus(err)
+		isNoNewMessage := isRpcErr && rpcErr.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND)
+		// An empty long polling result is still a completed reception, so it has
+		// to close the hook opened before the request was sent.
+		hookStatus := MessageHookPointsStatus_OK
+		if isNoNewMessage {
+			dpq.consecutiveReceptionFailures.Store(0)
+			dpq.consumer.cli.log.Debugf("No new message, mq=%s, endpoints=%v, clientId=%s",
+				dpq.mqstr, endpoints, clientId)
 		} else {
-			nextAttemptId := ""
-			if status.Code(err) == codes.DeadlineExceeded {
-				nextAttemptId = request.GetAttemptId()
-			}
-			rpcErr, isRpcErr := AsErrRpcStatus(err)
-			isNoNewMessage := isRpcErr && rpcErr.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND)
-			// An empty long polling result is still a completed reception, so it has
-			// to close the hook opened before the request was sent.
-			hookStatus := MessageHookPointsStatus_OK
-			if isNoNewMessage {
-				dpq.consumer.cli.log.Debugf("No new message, mq=%s, endpoints=%v, clientId=%s",
-					dpq.mqstr, endpoints, clientId)
-			} else {
-				hookStatus = MessageHookPointsStatus_ERROR
+			hookStatus = MessageHookPointsStatus_ERROR
+			// Reception retries forever by design, so a sustained outage must not
+			// produce one ERROR per second per queue: only the first failure and
+			// every RECEPTION_FAILURE_LOG_PERIOD-th consecutive one are logged at
+			// ERROR/WARN, the retries in between stay at DEBUG.
+			failures := dpq.consecutiveReceptionFailures.Add(1)
+			switch {
+			case failures == 1:
 				dpq.consumer.cli.log.Errorf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%s, "+
 					"nextAttemptId=%s, clientId=%s, err=%v", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
 					clientId, err)
+			case failures%RECEPTION_FAILURE_LOG_PERIOD == 0:
+				dpq.consumer.cli.log.Warnf("Message reception keeps failing, consecutiveFailures=%d, mq=%s, endpoints=%v, "+
+					"attemptId=%s, nextAttemptId=%s, clientId=%s, err=%v", failures, dpq.mqstr, endpoints,
+					request.GetAttemptId(), nextAttemptId, clientId, err)
+			default:
+				dpq.consumer.cli.log.Debugf("Exception raised during message reception, mq=%s, endpoints=%v, attemptId=%s, "+
+					"nextAttemptId=%s, clientId=%s, err=%v", dpq.mqstr, endpoints, request.GetAttemptId(), nextAttemptId,
+					clientId, err)
 			}
-			dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, hookStatus)
-			dpq.onReceiveMessageException(err, nextAttemptId)
 		}
+		dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, make([]*MessageCommon, 0), duration, hookStatus)
+		dpq.onReceiveMessageException(nextAttemptId)
 	}()
 	dpq.receptionTimes.Inc()
 	dpq.consumer.receptionTimes.Inc()
@@ -505,16 +529,11 @@ func (dpq *defaultProcessQueue) getReceptionBatchSize() int32 {
 	return int32(math.Min(bufferSize, float64(dpq.consumer.pcSettings.receiveBatchSize)))
 }
 
-func (dpq *defaultProcessQueue) onReceiveMessageException(t any, attemptId string) {
-	duration := RECEIVING_FLOW_CONTROL_BACKOFF_DELAY
-	error, ok := t.(error)
-	if ok {
-		rpcError, ok := AsErrRpcStatus(error)
-		if ok && rpcError.GetCode() == int32(v2.Code_TOO_MANY_REQUESTS) {
-			duration = RECEIVING_FAILURE_BACKOFF_DELAY
-		}
-	}
-	dpq.receiveMessageLater(duration, attemptId)
+func (dpq *defaultProcessQueue) onReceiveMessageException(attemptId string) {
+	// A short flow-control back-off would hammer an overloaded proxy at dozens of
+	// polls per second, so every reception failure waits a full second before
+	// polling again.
+	dpq.receiveMessageLater(RECEIVING_FAILURE_BACKOFF_DELAY, attemptId)
 }
 
 func (dpq *defaultProcessQueue) receiveMessageLater(duration time.Duration, attemptId string) {
@@ -522,10 +541,10 @@ func (dpq *defaultProcessQueue) receiveMessageLater(duration time.Duration, atte
 		defer func() {
 			if err := recover(); err != nil {
 				dpq.consumer.cli.log.Errorf("[Bug] Failed to schedule message receiving request, mq=%s, clientId=%s, err=%v", dpq.mqstr, dpq.consumer.cli.clientID, err)
-				dpq.onReceiveMessageException(err, attemptId)
+				dpq.onReceiveMessageException(attemptId)
 			}
 		}()
-		dpq.consumer.cli.log.Infof("Try to receive message later, mq=%s, delay=%v, clientId=%s", dpq.mqstr, duration, dpq.consumer.cli.clientID)
+		dpq.consumer.cli.log.Debugf("Try to receive message later, mq=%s, delay=%v, clientId=%s", dpq.mqstr, duration, dpq.consumer.cli.clientID)
 		dpq.receiveMessageWithAttemptId(attemptId)
 	})
 }
