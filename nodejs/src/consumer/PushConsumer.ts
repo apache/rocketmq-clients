@@ -140,6 +140,16 @@ export class PushConsumer extends Consumer {
         clearInterval(this.#scanAssignmentTimer);
         this.#scanAssignmentTimer = undefined;
       }
+      // Full shutdown before rethrowing, mirroring Java PushConsumerImpl#startUp
+      // (`shutDown(); throw t;`), so a failed startup never leaves base-client
+      // timers or telemetry sessions behind. Idempotent when super.startup()
+      // already cleaned up after its own failure.
+      try {
+        await this.shutdown();
+      } catch (cleanupError) {
+        this.logger.warn('Failed to clean up after the startup failure, clientId=%s, error=%s',
+          this.clientId, cleanupError instanceof Error ? cleanupError.message : String(cleanupError));
+      }
       throw err;
     }
   }

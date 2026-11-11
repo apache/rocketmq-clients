@@ -63,6 +63,12 @@ const debug = debuglog('rocketmq-client-nodejs:client:BaseClient');
 const HEARTBEAT_TRANSPORT_RECOVERY_THRESHOLD = 2;
 // Minimum interval between transport-recovery attempts per endpoints
 const TRANSPORT_RECOVERY_COOLDOWN = 30 * 1000;
+// Default bound for waiting the server-pushed Settings command during startup.
+// Java's startUp does not wait for settings at all; Node keeps the wait so
+// consumers see server-provided settings before startup() resolves, but the
+// wait must be bounded so a silent remote makes startup() reject (notifying
+// the caller) instead of hanging forever.
+const DEFAULT_FIRST_SETTINGS_TIMEOUT = 30 * 1000;
 
 export interface BaseClientOptions {
   sslEnabled?: boolean;
@@ -102,6 +108,10 @@ export abstract class BaseClient {
   protected readonly endpoints: Endpoints;
   protected readonly isolated = new Map<string, Endpoints>();
   protected readonly requestTimeout: number;
+  // Internal-only bound for the startup wait on the first server-pushed
+  // Settings command. Deliberately NOT part of BaseClientOptions so the
+  // public API surface stays unchanged; tests may override it via a cast.
+  private firstSettingsTimeoutMs = DEFAULT_FIRST_SETTINGS_TIMEOUT;
   protected readonly topics = new Set<string>();
   protected readonly topicRouteCache = new Map<string, TopicRouteData>();
   // In-flight route query futures to avoid duplicate queries for the same topic
@@ -190,6 +200,17 @@ export abstract class BaseClient {
       const err = new Error(`Startup the rocketmq client failed, clientId=${this.clientId}, error=${e}`);
       this.logger.error(err);
       err.cause = e;
+      // Release everything acquired by the failed startup before surfacing
+      // the error, mirroring Java PushConsumerImpl#startUp which calls
+      // shutDown() before rethrowing. Otherwise the route/settings/heartbeat
+      // timers and telemetry sessions keep running on an instance whose
+      // startup() rejected and which the caller is about to abandon.
+      try {
+        await this.shutdown();
+      } catch (cleanupError) {
+        this.logger.warn('Failed to clean up after the startup failure, clientId=%s, error=%s',
+          this.clientId, cleanupError instanceof Error ? cleanupError.message : String(cleanupError));
+      }
       throw err;
     }
     this.logger.info('Startup the rocketmq client successfully, clientId=%s', this.clientId);
@@ -283,8 +304,9 @@ export abstract class BaseClient {
       // doStats()
 
       if (firstSettingsPromise) {
-        this.logger.info('Waiting for first onSettingsCommand, clientId=%s', this.clientId);
-        await firstSettingsPromise;
+        this.logger.info('Waiting for first onSettingsCommand, clientId=%s, timeout=%dms',
+          this.clientId, this.firstSettingsTimeoutMs);
+        await this.#awaitFirstSettings(firstSettingsPromise);
         this.logger.info('Received first onSettingsCommand, clientId=%s', this.clientId);
       }
       this.#running = true;
@@ -299,6 +321,28 @@ export abstract class BaseClient {
 
   isRunning(): boolean {
     return this.#running;
+  }
+
+  /**
+   * Bound the wait for the first server-pushed Settings command so a silent
+   * remote makes startup() reject with a clear error instead of hanging
+   * forever; the rejection also triggers the startup cleanup path.
+   */
+  async #awaitFirstSettings(firstSettingsPromise: Promise<void>): Promise<void> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(
+          `Timed out waiting for the first settings command within ${this.firstSettingsTimeoutMs}ms, ` +
+          `clientId=${this.clientId}`,
+        )), this.firstSettingsTimeoutMs);
+      });
+      await Promise.race([ firstSettingsPromise, timeoutPromise ]);
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
   }
 
   protected sleep(ms: number): Promise<void> {
