@@ -134,7 +134,7 @@ func (pc *defaultPushConsumer) changeInvisibleDuration0(context context.Context,
 	duration := time.Since(watchTime)
 	messageHookPointsStatus := MessageHookPointsStatus_OK
 	if err != nil {
-		pc.cli.log.Errorf("exception raised during message acknowledgement, messageId=%s, endpoints=%v, requestId=%s", messageView.GetMessageId(), endpoints, utils.GetRequestID(ctx))
+		pc.cli.log.Errorf("exception raised during message change invisible duration, messageId=%s, endpoints=%v, requestId=%s", messageView.GetMessageId(), endpoints, utils.GetRequestID(ctx))
 	} else if resp.GetStatus().GetCode() != v2.Code_OK {
 		pc.cli.log.Errorf("failed to change message invisible duration, messageId=%s, endpoints=%v, code=%v, status message=[%s], requestId=%s", messageView.GetMessageId(), endpoints, resp.GetStatus().GetCode(), resp.GetStatus().GetMessage(), utils.GetRequestID(ctx))
 		err = &ErrRpcStatus{
@@ -443,7 +443,7 @@ func (pc *defaultPushConsumer) scanAssignments() {
 				pc.cli.log.Infof("Acquired empty assignments from remote, would scan later, topic=%s, clientId=%s", topic, pc.cli.clientID)
 				return true
 			}
-			pc.cli.log.Infof("Attention!!! acquired empty assignments from remote, but existed assignments is not empty, topic=%s, clientId=%d",
+			pc.cli.log.Infof("Attention!!! acquired empty assignments from remote, but existed assignments is not empty, topic=%s, clientId=%s",
 				topic, pc.cli.clientID)
 		}
 		if !utils.CompareAssignments(newest, existed) {
@@ -495,7 +495,7 @@ func (pc *defaultPushConsumer) syncProcessQueue(topic string, assignments *[]*v2
 		}
 		optionalProcessQueue := pc.createProcessQueue(mqs, mq, filterExpression)
 		if optionalProcessQueue != nil {
-			pc.cli.log.Infof("Start to fetch message from remote, mq=%s, clientId={}", mqs, pc.cli.clientID)
+			pc.cli.log.Infof("Start to fetch message from remote, mq=%s, clientId=%s", mqs, pc.cli.clientID)
 			optionalProcessQueue.fetchMessageImmediately()
 		}
 	}
