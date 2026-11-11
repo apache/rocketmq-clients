@@ -297,7 +297,7 @@ export abstract class BaseClient {
 
       // heartbeat every 10s
       this.#timers.push(setInterval(async () => {
-        this.#doHeartbeat();
+        this.doHeartbeat();
       }, 10000));
 
       // doStats every 60s
@@ -389,7 +389,13 @@ export abstract class BaseClient {
     setImmediate(() => this.logger.close && this.logger.close());
   }
 
-  async #doHeartbeat() {
+  /**
+   * Send one heartbeat round to every route endpoint, mirroring Java
+   * ClientImpl#doHeartbeat. TypeScript-private (not #private) so regression
+   * tests can invoke it through a cast; it stays invisible on the public API
+   * surface (.d.ts exposes it as private and subclasses cannot access it).
+   */
+  private async doHeartbeat() {
     try {
       const request = this.wrapHeartbeatRequest();
       const endpointsList = this.getTotalRouteEndpoints();
@@ -399,7 +405,13 @@ export abstract class BaseClient {
       }
       for (const endpoints of endpointsList) {
         try {
-          await this.rpcClientManager.heartbeat(endpoints, request, this.requestTimeout);
+          const response = await this.rpcClientManager.heartbeat(endpoints, request, this.requestTimeout);
+          // Business-level errors (e.g. UNRECOGNIZED_CLIENT_TYPE when the
+          // remote no longer holds this client's settings) arrive as normal
+          // gRPC responses; without this check the client stays blind to
+          // settings loss and never re-registers. Mirrors Java
+          // ClientImpl#doHeartbeat which checks the response status.
+          StatusChecker.check(response.getStatus()?.toObject());
           // Heartbeat succeeded: the remote is reachable again, so rejoin any
           // isolated endpoints (mirrors Java ClientImpl#doHeartbeat).
           if (this.isolated.delete(endpoints.facade)) {

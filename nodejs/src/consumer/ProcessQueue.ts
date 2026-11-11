@@ -121,6 +121,9 @@ export class ProcessQueue {
   }
 
   fetchMessageImmediately(): void {
+    if (this.#dropped || this.#aborted) {
+      return;
+    }
     (this.#consumer as any).logger?.info('ProcessQueue.fetchMessageImmediately called, mq=%s@%s@%d',
       this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId);
     this.#receiveMessageImmediately();
@@ -134,9 +137,13 @@ export class ProcessQueue {
   }
 
   #receiveMessageLater(delay: number, attemptId?: string): void {
-    if (this.#aborted) return;
+    if (this.#dropped || this.#aborted) {
+      return;
+    }
     setTimeout(() => {
-      if (this.#aborted) return;
+      if (this.#dropped || this.#aborted) {
+        return;
+      }
       this.#receiveMessage(attemptId);
     }, delay);
   }
@@ -161,7 +168,9 @@ export class ProcessQueue {
   }
 
   #receiveMessageImmediately(attemptId?: string): void {
-    if (this.#aborted) return;
+    if (this.#dropped || this.#aborted) {
+      return;
+    }
     // Apply backpressure: when every consumption permit is in use (i.e. the
     // maximum number of messages is in-flight), stop fetching until messages are
     // settled and permits are released. Mirrors Java's tryAcquirePermit gate.

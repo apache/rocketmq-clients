@@ -32,14 +32,22 @@
 import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { EventEmitter } from 'node:events';
+import { format } from 'node:util';
 import {
+  AddressScheme,
+  Broker as BrokerPB,
   ClientType,
   Code,
+  Endpoints as EndpointsPB,
+  MessageQueue as MessageQueuePB,
+  Permission,
+  Resource,
   Settings as SettingsPB,
   Status,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
   HeartbeatRequest,
+  HeartbeatResponse,
   NotifyClientTerminationRequest,
   QueryRouteResponse,
 } from '../../proto/apache/rocketmq/v2/service_pb';
@@ -87,6 +95,31 @@ class TestClient extends BaseClient {
       await sleep(delayMs);
       const response = new QueryRouteResponse();
       response.setStatus(new Status().setCode(Code.OK));
+      return response;
+    };
+  }
+
+  /** Test hook: route query returning one real message queue, so the route
+   * cache yields a heartbeat target endpoint. */
+  mockQueryRouteWithQueue(delayMs: number) {
+    const self = this as unknown as { rpcClientManager: Record<string, unknown> };
+    self.rpcClientManager.queryRoute = async () => {
+      await sleep(delayMs);
+      const endpointsPb = new EndpointsPB();
+      endpointsPb.setScheme(AddressScheme.IPV4);
+      endpointsPb.addAddresses().setHost('127.0.0.1').setPort(8081);
+      const brokerPb = new BrokerPB();
+      brokerPb.setName('broker-a');
+      brokerPb.setId(0);
+      brokerPb.setEndpoints(endpointsPb);
+      const mqPb = new MessageQueuePB();
+      mqPb.setId(0);
+      mqPb.setTopic(new Resource().setName('topic-A'));
+      mqPb.setBroker(brokerPb);
+      mqPb.setPermission(Permission.READ_WRITE);
+      const response = new QueryRouteResponse();
+      response.setStatus(new Status().setCode(Code.OK));
+      response.addMessageQueues(mqPb);
       return response;
     };
   }
@@ -154,6 +187,82 @@ describe('BaseClient startup first-settings promise', () => {
     } finally {
       process.off('unhandledRejection', onUnhandled);
     }
+  });
+});
+
+describe('BaseClient heartbeat response status check', () => {
+  function makeFakeStream() {
+    const stream: any = new EventEmitter();
+    stream.writes = [] as unknown[];
+    stream.write = (command: unknown) => {
+      stream.writes.push(command);
+      return true;
+    };
+    stream.end = () => undefined;
+    return stream;
+  }
+
+  it('treats an error status in the heartbeat response as a failure and rebuilds transport', async () => {
+    const warnings: string[] = [];
+    const logger: any = {
+      info: () => undefined,
+      warn: (...args: unknown[]) => { warnings.push(format(...args as [ string ])); },
+      error: () => undefined,
+      debug: () => undefined,
+    };
+    const client = new TestClient({
+      endpoints: '127.0.0.1:8081',
+      namespace: 'test-namespace',
+      topics: [ 'topic-A' ],
+      logger,
+    });
+
+    // Replace the real RPC manager (closing it first to stop its idle-check
+    // timer) with a fake whose heartbeat returns UNRECOGNIZED_CLIENT_TYPE —
+    // the signal a proxy sends when it no longer holds the client's settings.
+    (client as any).rpcClientManager.close();
+    const streams: any[] = [];
+    let evictCount = 0;
+    (client as any).rpcClientManager = {
+      queryRoute: async () => {
+        throw new Error('use mockQueryRouteWithQueue');
+      },
+      heartbeat: async () => new HeartbeatResponse()
+        .setStatus(new Status().setCode(Code.UNRECOGNIZED_CLIENT_TYPE).setMessage('client type unrecognized')),
+      telemetry: () => {
+        const stream = makeFakeStream();
+        streams.push(stream);
+        return stream;
+      },
+      evict: () => { evictCount++; },
+      notifyClientTermination: async () => ({}),
+      close: () => undefined,
+    };
+    client.mockQueryRouteWithQueue(10);
+
+    const startupPromise = client.startup();
+    await sleep(20);
+    client.onSettingsCommand(client.getEndpoints(), new SettingsPB());
+    await startupPromise;
+    // The route fetch opened one telemetry session and synced settings to it.
+    assert.strictEqual(streams.length, 1);
+
+    // Heartbeat round 1: the error status must be treated as a failure
+    // (pre-fix the response was discarded and this counted as a success).
+    await (client as any).doHeartbeat();
+    assert.ok(warnings.some(w => w.includes('Heartbeat failed') && w.includes('client type unrecognized')),
+      'an error status in the heartbeat response must be logged as a failure');
+    assert.strictEqual(evictCount, 0, 'first failure is below the recovery threshold');
+
+    // Heartbeat round 2: consecutive failures reach the threshold and trigger
+    // transport recovery — evict the channel and rebuild telemetry so the
+    // settings get re-registered.
+    await (client as any).doHeartbeat();
+    assert.strictEqual(evictCount, 1, 'transport recovery must evict the stale rpc client');
+    assert.strictEqual(streams.length, 2, 'telemetry session must be rebuilt');
+    assert.ok(streams[1].writes.length >= 1, 'settings must be re-synced on the rebuilt stream');
+
+    await client.shutdown();
   });
 });
 
