@@ -601,16 +601,17 @@ func (pc *defaultPushConsumer) Ack(ctx context.Context, messageView *MessageView
 	duration := time.Since(watchTime)
 
 	messageHookPointsStatus := MessageHookPointsStatus_OK
-	if err != nil {
-		messageHookPointsStatus = MessageHookPointsStatus_ERROR
-		pc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
-		return err
+	if err == nil && resp.GetStatus().GetCode() != v2.Code_OK {
+		err = &ErrRpcStatus{
+			Code:    int32(resp.GetStatus().GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
 	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
+	if err != nil {
 		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 	}
 	pc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
-	return nil
+	return err
 }
 
 func (pc *defaultPushConsumer) ack0(ctx context.Context, messageView *MessageView) (*v2.AckMessageResponse, error) {
