@@ -93,7 +93,7 @@ public interface PushConsumer extends Closeable {
      *
      * <p>Nothing occurs if the specified topic does not exist in subscription expressions of the push consumer.
      *
-     * @param topic the topic to remove the subscription.
+     * @param topic the topic to remove from the subscription.
      * @return push consumer instance.
      */
     PushConsumer unsubscribe(String topic) throws ClientException;
