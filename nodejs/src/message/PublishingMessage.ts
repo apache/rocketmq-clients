@@ -40,7 +40,7 @@ export class PublishingMessage extends Message {
     // Generate message id.
     this.messageId = MessageIdFactory.create().toString();
     // Normal message.
-    if (!this.messageGroup && !this.liteTopic && !this.deliveryTimestamp && !this.priority && !txEnabled) {
+    if (!this.messageGroup && !this.liteTopic && !this.deliveryTimestamp && this.priority === undefined && !txEnabled) {
       this.messageType = MessageType.NORMAL;
       return;
     }
@@ -60,13 +60,13 @@ export class PublishingMessage extends Message {
       return;
     }
     // Priority message.
-    if (this.priority && !txEnabled) {
+    if (this.priority !== undefined && !txEnabled) {
       this.messageType = MessageType.PRIORITY;
       return;
     }
     // Transaction message.
     if (!this.messageGroup &&
-        !this.liteTopic && !this.deliveryTimestamp && !this.priority && txEnabled) {
+        !this.liteTopic && !this.deliveryTimestamp && this.priority === undefined && txEnabled) {
       this.messageType = MessageType.TRANSACTION;
       return;
     }

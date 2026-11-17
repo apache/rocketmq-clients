@@ -22,6 +22,8 @@
 import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { Message } from '../../src/message/Message';
+import { PublishingMessage } from '../../src/message/PublishingMessage';
+import { MessageType } from '../../proto/apache/rocketmq/v2/definition_pb';
 
 describe('Priority Message', () => {
   const fakeTopic = 'test-topic';
@@ -96,5 +98,17 @@ describe('Priority Message', () => {
     });
 
     assert.strictEqual(message.priority, 100);
+  });
+
+  it('should classify priority = 0 as a priority message', () => {
+    const settings = { maxBodySizeBytes: 1024 } as any;
+    const options = { topic: fakeTopic, body: fakeBody };
+    for (const priority of [ 0, 5 ]) {
+      assert.strictEqual(new PublishingMessage({ ...options, priority }, settings, false).messageType,
+        MessageType.PRIORITY);
+    }
+    assert.strictEqual(new PublishingMessage(options, settings, false).messageType, MessageType.NORMAL);
+    assert.throws(() => new PublishingMessage({ ...options, priority: 0 }, settings, true),
+      /Transactional message should not set/);
   });
 });

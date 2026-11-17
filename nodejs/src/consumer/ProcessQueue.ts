@@ -323,6 +323,11 @@ export class ProcessQueue {
     if (!messageView) {
       return;
     }
+    if (this.#aborted) {
+      // Once aborted, skip local retries and settlement RPCs, but still release the cache permit.
+      this.#evictCache(messageView);
+      return;
+    }
     consumeResult = this.#convertSuspendResultIfNeeded(consumeResult);
     this.#statsConsumptionResult(consumeResult);
     const retryPolicy = this.#consumer.getRetryPolicy();

@@ -21,13 +21,15 @@ import { ConsumeTask } from './ConsumeTask';
 import { MessageListener } from './MessageListener';
 import type { ProcessQueue } from './ProcessQueue';
 
+type ResolveConsumeResult = (result: ConsumeResult) => void;
+
 export abstract class ConsumeService {
   protected readonly clientId: string;
   readonly #messageListener: MessageListener;
   readonly #messageInterceptor?: MessageInterceptor;
   readonly #consumerGroup?: string;
   #aborted = false;
-  #pendingTimers: Set<NodeJS.Timeout> = new Set();
+  #pendingTimers = new Map<NodeJS.Timeout, ResolveConsumeResult>();
 
   constructor(clientId: string, messageListener: MessageListener,
     messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
@@ -58,7 +60,7 @@ export abstract class ConsumeService {
         const result = await this.#executeTask(task);
         resolve(result);
       }, delay);
-      this.#pendingTimers.add(timer);
+      this.#pendingTimers.set(timer, resolve);
     });
   }
 
@@ -71,8 +73,10 @@ export abstract class ConsumeService {
   }
   abort() {
     this.#aborted = true;
-    for (const timer of this.#pendingTimers) {
+    for (const [ timer, resolve ] of this.#pendingTimers) {
       clearTimeout(timer);
+      // Settle the waiter as well, otherwise the caller would hang forever.
+      resolve(ConsumeResult.FAILURE);
     }
     this.#pendingTimers.clear();
   }
