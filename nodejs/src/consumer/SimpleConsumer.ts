@@ -59,6 +59,12 @@ export class SimpleConsumer extends Consumer {
   #topicIndex = RANDOM_INDEX;
 
   constructor(options: SimpleConsumerOptions) {
+    if (options.awaitDuration !== undefined && (!Number.isFinite(options.awaitDuration) || options.awaitDuration <= 0)) {
+      throw new TypeError('awaitDuration should be positive');
+    }
+    if (!(options.subscriptions instanceof Map) || options.subscriptions.size === 0) {
+      throw new TypeError('subscriptions must be a non-empty Map');
+    }
     options.topics = Array.from(options.subscriptions.keys());
     super(options);
     for (const [ topic, filter ] of options.subscriptions.entries()) {

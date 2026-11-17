@@ -156,6 +156,17 @@ export abstract class BaseClient {
       }
     }
 
+    if (options.topics !== undefined) {
+      if (!Array.isArray(options.topics)) {
+        throw new TypeError('topics must be an array');
+      }
+      for (const topic of options.topics) {
+        if (typeof topic !== 'string' || topic.trim().length === 0) {
+          throw new TypeError('topic must be a non-empty string');
+        }
+      }
+    }
+
     this.logger = options.logger ?? getDefaultLogger();
     this.sslEnabled = options.sslEnabled === true;
     this.endpoints = new Endpoints(options.endpoints);
@@ -173,9 +184,7 @@ export abstract class BaseClient {
       new MessageMeterInterceptor(this.clientMeterManager, this.clientId, () => this.getConsumerGroup()));
     if (options.topics) {
       for (const topic of options.topics) {
-        if (topic && topic.trim().length > 0) {
-          this.topics.add(topic);
-        }
+        this.topics.add(topic);
       }
     }
     // Register message interceptors provided by the user (allowed before startup only).
