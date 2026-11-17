@@ -32,8 +32,28 @@ from rocketmq.v5.exception import BadRequestException, IllegalArgumentException
 from rocketmq.v5.log import logger
 from rocketmq.v5.model.assignment import Assignments
 from rocketmq.v5.model.process_queue import ProcessQueue
-from rocketmq.v5.model.retry_policy import CustomizedBackoffRetryPolicy
+from rocketmq.v5.model.retry_policy import (CustomizedBackoffRetryPolicy,
+                                             ExponentialBackoffRetryPolicy)
 from rocketmq.v5.util import ConcurrentMap, MessagingResultChecker
+
+
+def _create_backoff_policy(settings, default_max_attempts):
+    """Create the backoff retry policy from server-issued settings.
+
+    Honors both the ``exponential_backoff`` and ``customized_backoff``
+    strategies issued by the proxy, mirroring the Java client
+    (PushSubscriptionSettings switching over RetryPolicy.strategyCase). When
+    no strategy is present (e.g. settings not synced yet), fall back to a
+    default customized backoff policy instead of failing.
+    """
+    strategy = None
+    if settings is not None and settings.HasField("backoff_policy"):
+        strategy = settings.backoff_policy.WhichOneof("strategy")
+    if strategy == "exponential_backoff":
+        return ExponentialBackoffRetryPolicy(settings.backoff_policy, default_max_attempts)
+    if strategy == "customized_backoff":
+        return CustomizedBackoffRetryPolicy(settings.backoff_policy, default_max_attempts)
+    return CustomizedBackoffRetryPolicy(None, default_max_attempts)
 
 
 class PushConsumer(Consumer):
@@ -51,6 +71,12 @@ class PushConsumer(Consumer):
     ACK_MESSAGE_FAILURE_BACKOFF_DELAY = 1
     DEFAULT_CONSUME_ATTEMPTS = 17
     RECEIVE_RETRY_DELAY = 1
+    # Upper bound for in-thread ack/nack retries. Java schedules the
+    # change-invisible-duration retry without a hard cap but always evicts the
+    # message from the cache afterwards (ProcessQueueImpl#changeInvisibleDuration);
+    # here the retries are bounded and the message is evicted on give-up so a
+    # permanent failure cannot spin a consumption thread or stall a FIFO queue.
+    MAX_ACK_OR_NACK_ATTEMPTS = 3
 
     def __init__(
         self,
@@ -177,11 +203,7 @@ class PushConsumer(Consumer):
         self.__consumption.shutdown()
 
     def __configure_consumer_consumption(self, settings):
-        use_customized_backoff = settings.backoff_policy.WhichOneof("strategy") == "customized_backoff"
-        if use_customized_backoff:
-            backoff_policy = CustomizedBackoffRetryPolicy(settings.backoff_policy, PushConsumer.DEFAULT_CONSUME_ATTEMPTS)
-        else:
-            backoff_policy = CustomizedBackoffRetryPolicy(None, PushConsumer.DEFAULT_CONSUME_ATTEMPTS)
+        backoff_policy = _create_backoff_policy(settings, PushConsumer.DEFAULT_CONSUME_ATTEMPTS)
 
         if not self.__consumption:
             self.__fifo = settings.subscription.fifo
@@ -195,7 +217,7 @@ class PushConsumer(Consumer):
                                                      self.client_id, backoff_policy)
             logger.info(f"configure {self} consumption success, fifo: {self.__fifo}")
         else:
-            if use_customized_backoff and self.__consumption.backoff_policy != backoff_policy:
+            if self.__consumption.backoff_policy != backoff_policy:
                 self.__consumption.backoff_policy = backoff_policy
 
     # assignment #
@@ -327,13 +349,18 @@ class PushConsumer(Consumer):
         else:
             self.__ack_or_nack(consume_result, message, message_queue, process_queue, fifo=True)
 
-    def __ack_or_nack(self, consume_result, message, message_queue, process_queue, fifo=False):
+    def __ack_or_nack(self, consume_result, message, message_queue, process_queue, fifo=False, attempt=1):
         # in consume thread
         try:
             if consume_result == ConsumeResult.SUCCESS:
                 self._ack(message)
             else:
-                delivery_attempt = message.delivery_attempt
+                # The proxy may omit delivery_attempt (proto3 scalar defaults to
+                # 0 / unset); treat it as the first attempt, otherwise the
+                # backoff policy would fail its attempt-must-be-positive check
+                # and the nack would spin forever (Java reads the same field
+                # with a primitive int default in ProcessQueueImpl#nackMessage).
+                delivery_attempt = message.delivery_attempt if message.delivery_attempt else 1
                 if self.__consumption.backoff_policy:
                     invisible_duration = self.__consumption.backoff_policy.get_next_attempt_delay(delivery_attempt)
                 else:
@@ -348,15 +375,24 @@ class PushConsumer(Consumer):
                 if process_queue:
                     process_queue.evict_message(message)
                 return
+            if attempt >= PushConsumer.MAX_ACK_OR_NACK_ATTEMPTS:
+                logger.error(
+                    f"{self} failed to ack or nack message after {attempt} attempts, give up retrying, "
+                    f"topic: {message.topic}, message_id: {message.message_id}"
+                )
+                if process_queue:
+                    process_queue.evict_message(message)
+                return
             if not fifo:
-                self.__execute_ack_or_nack_later(consume_result, message, message_queue, process_queue)
+                self.__execute_ack_or_nack_later(consume_result, message, message_queue, process_queue, attempt)
             else:
                 time.sleep(PushConsumer.ACK_MESSAGE_FAILURE_BACKOFF_DELAY)
-                self.__ack_or_nack(consume_result, message, message_queue, process_queue, fifo=True)
+                self.__ack_or_nack(consume_result, message, message_queue, process_queue, fifo=True,
+                                   attempt=attempt + 1)
 
-    def __execute_ack_or_nack_later(self, consume_result, message, message_queue, process_queue):
+    def __execute_ack_or_nack_later(self, consume_result, message, message_queue, process_queue, attempt=1):
         time.sleep(PushConsumer.ACK_MESSAGE_FAILURE_BACKOFF_DELAY)
-        self.__ack_or_nack(consume_result, message, message_queue, process_queue)
+        self.__ack_or_nack(consume_result, message, message_queue, process_queue, attempt=attempt + 1)
 
     # forward to dead letter queue
 
@@ -380,7 +416,10 @@ class PushConsumer(Consumer):
         req.topic.resource_namespace = self.client_configuration.namespace
         req.receipt_handle = message.receipt_handle
         req.message_id = message.message_id
-        req.delivery_attempt = message.delivery_attempt
+        # delivery_attempt may be unset (None) when the server omitted it;
+        # assign 0 (i.e. leave unset) instead of raising a TypeError, matching
+        # the Java client which copies a primitive int default.
+        req.delivery_attempt = message.delivery_attempt if message.delivery_attempt else 0
         req.max_delivery_attempts = self.__consumption.backoff_policy.max_attempts
         if self.is_lite_consumer():
             req.lite_topic = message.lite_topic
