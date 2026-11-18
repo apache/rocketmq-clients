@@ -627,9 +627,13 @@ export class PushConsumer extends Consumer {
     if (this.#processQueueTable.has(mqKey)) {
       return null;
     }
-    const processQueue = new ProcessQueue(this, mq, filterExpression);
+    const processQueue = new ProcessQueue(this, mq, filterExpression, this.#processQueueContext());
     this.#processQueueTable.set(mqKey, { mq, pq: processQueue });
     return processQueue;
+  }
+
+  #processQueueContext() {
+    return { logger: this.logger, clientId: this.clientId, liteConsumer: this.isLiteConsumer() };
   }
 
   /**
@@ -678,7 +682,7 @@ export class PushConsumer extends Consumer {
       return;
     }
 
-    const processQueue = new ProcessQueue(this, virtualMq, filterExpression);
+    const processQueue = new ProcessQueue(this, virtualMq, filterExpression, this.#processQueueContext());
     this.#processQueueTable.set(mqKey, { mq: virtualMq, pq: processQueue });
 
     this.logger.info('Created virtual process queue for Lite consumer, mq=%s, clientId=%s',
