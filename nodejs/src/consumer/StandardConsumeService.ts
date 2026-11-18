@@ -18,6 +18,7 @@
 import { MessageView } from '../message';
 import { MessageInterceptor } from '../hook';
 import { ConsumeService } from './ConsumeService';
+import { ConsumeResult } from './ConsumeResult';
 import { MessageListener } from './MessageListener';
 import type { ProcessQueue } from './ProcessQueue';
 import { getDefaultLogger } from '../client';
@@ -50,9 +51,17 @@ export class StandardConsumeService extends ConsumeService {
           pq.eraseMessage(messageView, result);
         })
         .catch(err => {
-          this.logger.error('Message consumption failed, messageId=%s, error=%s',
+          // consumeMessage never rejects, so this is a settlement that threw synchronously.
+          // Nack the message so it still leaves the cache and releases its permit; otherwise
+          // it would hold the permit until shutdown times out waiting for it.
+          this.logger.error('Failed to settle the consumed message, nack it instead, messageId=%s, error=%s',
             messageView.messageId, err);
-          // Should never reach here.
+          try {
+            pq.eraseMessage(messageView, ConsumeResult.FAILURE);
+          } catch (e) {
+            this.logger.error('Failed to nack the message after the settlement failure, messageId=%s, error=%s',
+              messageView.messageId, e);
+          }
         });
     }
   }

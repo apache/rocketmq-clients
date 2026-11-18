@@ -24,6 +24,7 @@ import { ConsumeResult, ConsumeResultSuspend } from './ConsumeResult';
 import { FilterExpression } from './FilterExpression';
 import type { PushConsumer } from './PushConsumer';
 import { Semaphore } from '../util/Semaphore';
+import { ILogger, getDefaultLogger } from '../client/Logger';
 
 const ACK_MESSAGE_FAILURE_BACKOFF_DELAY = 1000;
 const CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY = 1000;
@@ -36,6 +37,9 @@ const RECEIVING_BACKOFF_DELAY_WHEN_PERMITS_EXHAUSTED = 20;
 
 export class ProcessQueue {
   readonly #consumer: PushConsumer;
+  readonly #logger: ILogger;
+  readonly #clientId: string;
+  readonly #liteConsumer: boolean;
   #dropped = false;
   readonly #mq: MessageQueue;
   readonly #filterExpression: FilterExpression;
@@ -47,11 +51,29 @@ export class ProcessQueue {
   // Bounds in-flight messages per queue; mirrors Java ProcessQueueImpl permits.
   readonly #semaphore: Semaphore;
 
-  constructor(consumer: PushConsumer, mq: MessageQueue, filterExpression: FilterExpression) {
+  // `context` carries the logger and identity of the owning consumer. PushConsumer always passes it;
+  // when omitted they are read from the consumer so existing three-argument calls keep working.
+  constructor(consumer: PushConsumer, mq: MessageQueue, filterExpression: FilterExpression,
+    context?: { logger: ILogger; clientId: string; liteConsumer: boolean }) {
+    context = context ?? ProcessQueue.#contextOf(consumer);
     this.#consumer = consumer;
+    this.#logger = context.logger;
+    this.#clientId = context.clientId;
+    this.#liteConsumer = context.liteConsumer;
     this.#mq = mq;
     this.#filterExpression = filterExpression;
     this.#semaphore = new Semaphore(consumer.getPushConsumerSettings().getConsumeConcurrentlyMax());
+  }
+
+  static #contextOf(consumer: PushConsumer) {
+    // logger and isLiteConsumer() are protected on the consumer; this is the only place
+    // that reads them, for callers constructing a process queue without a context.
+    const legacy = consumer as unknown as { logger?: ILogger; isLiteConsumer?: () => boolean };
+    return {
+      logger: legacy.logger ?? getDefaultLogger(),
+      clientId: consumer.clientId,
+      liteConsumer: legacy.isLiteConsumer?.() ?? false,
+    };
   }
 
   getMessageQueue(): MessageQueue {
@@ -124,7 +146,7 @@ export class ProcessQueue {
     if (this.#dropped || this.#aborted) {
       return;
     }
-    (this.#consumer as any).logger?.info('ProcessQueue.fetchMessageImmediately called, mq=%s@%s@%d',
+    this.#logger.info('ProcessQueue.fetchMessageImmediately called, mq=%s@%s@%d',
       this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId);
     this.#receiveMessageImmediately();
   }
@@ -187,24 +209,24 @@ export class ProcessQueue {
       );
       this.#activityTime = Date.now();
 
-      (this.#consumer as any).logger?.debug?.('Start to receive message, mq=%s@%s@%d, batchSize=%d, attemptId=%s',
+      this.#logger.debug?.('Start to receive message, mq=%s@%s@%d, batchSize=%d, attemptId=%s',
         this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, batchSize, attemptId);
 
       this.#consumer.receiveMessage(request, this.#mq, longPollingTimeout)
         .then(messages => {
           if (messages.length > 0) {
-            (this.#consumer as any).logger?.debug?.('Received messages, count=%d, mq=%s@%s@%d',
+            this.#logger.debug?.('Received messages, count=%d, mq=%s@%s@%d',
               messages.length, this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId);
           }
           this.#onReceiveMessageResult(messages);
         })
         .catch(err => {
-          (this.#consumer as any).logger?.error('Failed to receive message, mq=%s@%s@%d, error=%s',
+          this.#logger.error('Failed to receive message, mq=%s@%s@%d, error=%s',
             this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, err);
           this.onReceiveMessageException(err, attemptId);
         });
     } catch (err) {
-      (this.#consumer as any).logger?.error('Exception in receiveMessage, mq=%s@%s@%d, error=%s',
+      this.#logger.error('Exception in receiveMessage, mq=%s@%s@%d, error=%s',
         this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, err);
       this.onReceiveMessageException(err as Error, attemptId);
     }
@@ -266,7 +288,7 @@ export class ProcessQueue {
         await this.#ackMessageLater(messageView, attempt + 1);
       }
     } catch (err) {
-      (this.#consumer as any).logger?.warn(
+      this.#logger.warn(
         'Failed to ack message, attempt=%d, messageId=%s, error=%s',
         attempt, messageView.messageId, err,
       );
@@ -304,7 +326,7 @@ export class ProcessQueue {
         await this.#changeInvisibleDurationLater(messageView, duration, attempt + 1);
       }
     } catch (err) {
-      (this.#consumer as any).logger?.warn(
+      this.#logger.warn(
         'Failed to change invisible duration, attempt=%d, duration=%dms, messageId=%s, error=%s',
         attempt, duration, messageView.messageId, err,
       );
@@ -334,13 +356,13 @@ export class ProcessQueue {
     const maxAttempts = retryPolicy?.getMaxAttempts() ?? 1;
     const attempt = messageView.deliveryAttempt ?? 1;
     const messageId = messageView.messageId;
-    const clientId = (this.#consumer as any).clientId;
+    const clientId = this.#clientId;
 
     if (consumeResult === ConsumeResult.FAILURE && attempt < maxAttempts) {
       const nextAttemptDelay = retryPolicy?.getNextAttemptDelay(attempt) ?? 0;
       // Increment delivery attempt before redelivering
       messageView.incrementAndGetDeliveryAttempt();
-      (this.#consumer as any).logger?.debug(
+      this.#logger.debug?.(
         'Prepare to redeliver the fifo message because of the consumption failure, maxAttempts=%d, '
         + 'attempt=%d, mq=%s, messageId=%s, nextAttemptDelay=%d, clientId=%s',
         maxAttempts, messageView.deliveryAttempt, this.#mq, messageId, nextAttemptDelay, clientId,
@@ -355,14 +377,14 @@ export class ProcessQueue {
       await this.#ackMessage(messageView);
     } else if (consumeResult instanceof ConsumeResultSuspend) {
       const suspendTimeMs = consumeResult.suspendTimeMs;
-      (this.#consumer as any).logger?.info(
+      this.#logger.info(
         'Suspend consumption, consumerGroup=%s, topic=%s, liteTopic=%s, messageId=%s, result=%s',
         this.#consumer.getConsumerGroup(), messageView.topic, messageView.liteTopic ?? '',
         messageId, consumeResult,
       );
       await this.#changeInvisibleDuration(messageView, suspendTimeMs);
     } else {
-      (this.#consumer as any).logger?.info(
+      this.#logger.info(
         'Failed to consume fifo message finally, run out of attempt times, maxAttempts=%d, attempt=%d, '
         + 'mq=%s, messageId=%s, clientId=%s',
         maxAttempts, attempt, this.#mq, messageId, clientId,
@@ -429,8 +451,8 @@ export class ProcessQueue {
 
   #convertSuspendResultIfNeeded(consumeResult: ConsumeResult): ConsumeResult {
     if (consumeResult instanceof ConsumeResultSuspend) {
-      if (!(this.#consumer as any).isLiteConsumer?.()) {
-        (this.#consumer as any).logger?.warn(
+      if (!this.#liteConsumer) {
+        this.#logger.warn(
           'Only LitePushConsumer support ConsumeResultSuspend! Convert to ConsumeResult.FAILURE, '
           + 'consumerGroup=%s, consumerType=%s',
           this.#consumer.getConsumerGroup(), this.#consumer.constructor.name,

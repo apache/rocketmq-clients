@@ -20,12 +20,17 @@
  */
 
 import * as assert from 'node:assert';
+import * as sinon from 'sinon';
 import { FifoConsumeService } from '../../src/consumer/FifoConsumeService';
 import { MessageListener } from '../../src/consumer/MessageListener';
 import { ConsumeResult } from '../../src/consumer/ConsumeResult';
 import type { MessageView } from '../../src/message';
+import { deferred } from '../support/fakes';
+import { buildMessageView, createProcessQueueHarness, flushPromises } from './processQueueHarness';
 
 describe('FifoConsumeService', () => {
+  afterEach(() => sinon.restore());
+
   it('should support enableFifoConsumeAccelerator option', () => {
     const messageListener: MessageListener = {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -45,5 +50,73 @@ describe('FifoConsumeService', () => {
     // Create without specifying (default to false)
     const serviceDefault = new FifoConsumeService('test-client', messageListener);
     assert.ok(serviceDefault, 'Should create service with default accelerator setting');
+  });
+
+  it('redelivers a failed message locally until maxAttempts and then forwards it to the DLQ', async () => {
+    const h = createProcessQueueHarness({ maxAttempts: 3 });
+    const consume = sinon.stub().resolves(ConsumeResult.FAILURE);
+    const service = new FifoConsumeService('client-a', { consume });
+    h.setConsumeService(service);
+    const message = buildMessageView({ deliveryAttempt: 1 });
+    h.pq.cacheMessages([ message ]);
+
+    service.consume(h.pq, [ message ]);
+    await flushPromises();
+
+    sinon.assert.calledThrice(consume);
+    assert.strictEqual(message.deliveryAttempt, 3);
+    sinon.assert.calledOnce(h.consumer.forwardMessageToDeadLetterQueueViaRpc);
+    sinon.assert.notCalled(h.consumer.ackMessageViaRpc);
+    sinon.assert.notCalled(h.consumer.changeInvisibleDurationViaRpc);
+    assert.strictEqual(h.pq.cachedMessagesCount(), 0);
+  });
+
+  for (const accelerator of [ true, false ]) {
+    it(`consumes message groups ${accelerator ? 'in parallel' : 'serially'} when the accelerator is ${accelerator ? 'on' : 'off'}`, async () => {
+      const h = createProcessQueueHarness();
+      const started: string[] = [];
+      const results = new Map<string, ReturnType<typeof deferred<ConsumeResult>>>();
+      const service = new FifoConsumeService('client-a', {
+        consume(messageView) {
+          started.push(messageView.messageId);
+          const result = deferred<ConsumeResult>();
+          results.set(messageView.messageId, result);
+          return result.promise;
+        },
+      }, accelerator);
+      h.setConsumeService(service);
+      const messages = [
+        buildMessageView({ messageId: 'g1-a', messageGroup: 'g1' }),
+        buildMessageView({ messageId: 'g1-b', messageGroup: 'g1' }),
+        buildMessageView({ messageId: 'g2-a', messageGroup: 'g2' }),
+      ];
+      h.pq.cacheMessages(messages);
+
+      service.consume(h.pq, messages);
+      await flushPromises();
+      assert.deepStrictEqual(started, accelerator ? [ 'g1-a', 'g2-a' ] : [ 'g1-a' ]);
+
+      results.get('g1-a')!.resolve(ConsumeResult.SUCCESS);
+      await flushPromises();
+      assert.deepStrictEqual(started, accelerator ? [ 'g1-a', 'g2-a', 'g1-b' ] : [ 'g1-a', 'g1-b' ]);
+    });
+  }
+
+  it('discards a corrupted message to the DLQ without blocking the next one', async () => {
+    const h = createProcessQueueHarness();
+    const consume = sinon.stub().resolves(ConsumeResult.SUCCESS);
+    const service = new FifoConsumeService('client-a', { consume });
+    h.setConsumeService(service);
+    const corrupted = buildMessageView({ messageId: 'corrupted', checksum: 'invalid' });
+    const valid = buildMessageView({ messageId: 'valid' });
+    h.pq.cacheMessages([ corrupted, valid ]);
+
+    service.consume(h.pq, [ corrupted, valid ]);
+    await flushPromises();
+
+    sinon.assert.calledOnceWithExactly(consume, valid);
+    sinon.assert.calledOnce(h.consumer.forwardMessageToDeadLetterQueueViaRpc);
+    sinon.assert.calledOnce(h.consumer.ackMessageViaRpc);
+    assert.strictEqual(h.pq.cachedMessagesCount(), 0);
   });
 });
