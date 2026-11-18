@@ -466,9 +466,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::model::common::{FilterType, Route};
-    use crate::pb::{
-        AckMessageResultEntry, Broker, Endpoints, Message, MessageQueue, Resource, SystemProperties,
-    };
+    use crate::pb::{Broker, Endpoints, Message, MessageQueue, Resource, SystemProperties};
 
     use super::*;
 
@@ -624,7 +622,7 @@ mod tests {
         });
         client
             .expect_ack_message()
-            .returning(|_: &MessageView| Ok(AckMessageResultEntry::default()));
+            .returning(|_: &MessageView| Ok(()));
         let simple_consumer = SimpleConsumer {
             option: SimpleConsumerOption::default(),
             client,
@@ -761,7 +759,7 @@ mod tests {
             .expect_ack_message()
             .times(1)
             .withf(|message: &MessageView| message.receipt_handle() == "handle-3")
-            .returning(|_: &MessageView| Ok(AckMessageResultEntry::default()));
+            .returning(|_: &MessageView| Ok(()));
         let simple_consumer = new_simple_consumer(client);
 
         let message = new_message_view("handle-1");
