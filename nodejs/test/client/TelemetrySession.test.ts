@@ -28,10 +28,16 @@
 
 import * as assert from 'node:assert';
 import { EventEmitter } from 'node:events';
+import * as sinon from 'sinon';
+import { Metadata, Server, ServerCredentials, ServerDuplexStream, status as GrpcStatus } from '@grpc/grpc-js';
 import { TelemetrySession } from '../../src/client/TelemetrySession';
+import { RpcClient } from '../../src/client/RpcClient';
+import { MessagingServiceService } from '../../proto/apache/rocketmq/v2/service_grpc_pb';
 import { TelemetryCommand } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../../src/route';
 import { ILogger } from '../../src/client/Logger';
+import { createSilentLogger, FakeTelemetryStream } from '../support/fakes';
+import { buildSettings } from '../support/protobuf';
 
 function makeFakeStream() {
   const stream: any = new EventEmitter();
@@ -131,5 +137,145 @@ describe('TelemetrySession reconnect', () => {
     assert.ok(harness.streams[1].writes.includes(harness.settingsCommand),
       'settings must be synced on the refreshed stream');
     session.release();
+  });
+
+  it('keeps the reconnect backoff at 1s while the stream keeps delivering data before failing', async () => {
+    const clock = sinon.useFakeTimers();
+    try {
+      const streams: FakeTelemetryStream[] = [];
+      const baseClient: any = {
+        clientId: 'test-client',
+        settingsCommand: () => new TelemetryCommand(),
+        onSettingsCommand: () => undefined,
+        createTelemetryStream: () => {
+          const stream = new FakeTelemetryStream();
+          streams.push(stream);
+          return stream.asGrpcStream();
+        },
+      };
+      const session = new TelemetrySession(baseClient, new Endpoints('127.0.0.1:8081'), createSilentLogger());
+      for (let round = 1; round <= 3; round++) {
+        streams[round - 1].receive(new TelemetryCommand().setSettings(buildSettings()));
+        streams[round - 1].fail(new Error('stream broken'));
+        await clock.tickAsync(999);
+        assert.strictEqual(streams.length, round, 'reconnect must not happen before the 1s backoff');
+        await clock.tickAsync(1);
+        assert.strictEqual(streams.length, round + 1, 'reconnect must happen after the 1s backoff');
+      }
+      session.release();
+    } finally {
+      clock.restore();
+    }
+  });
+});
+
+describe('TelemetrySession released stream', () => {
+  function makeClient(streams: FakeTelemetryStream[], overrides: Record<string, unknown> = {}) {
+    return {
+      clientId: 'test-client',
+      settingsCommand: () => new TelemetryCommand(),
+      createTelemetryStream: () => {
+        const stream = new FakeTelemetryStream();
+        streams.push(stream);
+        return stream.asGrpcStream();
+      },
+      ...overrides,
+    } as any;
+  }
+
+  it('drops writes after release instead of raising an unhandled stream error', async () => {
+    const streams: FakeTelemetryStream[] = [];
+    const logger = createSilentLogger();
+    const session = new TelemetrySession(makeClient(streams), new Endpoints('127.0.0.1:8081'), logger);
+    session.release();
+    session.syncSettings();
+    session.write(new TelemetryCommand());
+    await sleep(20);
+    assert.strictEqual(streams.length, 1, 'a released session must not reopen a stream');
+    assert.deepStrictEqual(streams[0].writes, [], 'nothing may reach the ended stream');
+    sinon.assert.called(logger.warn);
+  });
+
+  it('drops writes during the reconnect backoff instead of writing to the ended stream', async () => {
+    const clock = sinon.useFakeTimers();
+    try {
+      const streams: FakeTelemetryStream[] = [];
+      const session = new TelemetrySession(makeClient(streams), new Endpoints('127.0.0.1:8081'), createSilentLogger());
+      streams[0].fail(new Error('stream broken'));
+      session.write(new TelemetryCommand());
+      await clock.tickAsync(0);
+      assert.deepStrictEqual(streams[0].writes, [], 'the ended stream must not receive writes');
+      await clock.tickAsync(1000);
+      assert.strictEqual(streams.length, 2, 'reconnect must still happen after the dropped write');
+      assert.strictEqual(streams[1].writes.length, 1, 'settings must be synced on the renewed stream');
+      session.release();
+    } finally {
+      clock.restore();
+    }
+  });
+
+  it('logs instead of throwing when a command handler fails', () => {
+    const streams: FakeTelemetryStream[] = [];
+    const logger = createSilentLogger();
+    const client = makeClient(streams, {
+      onSettingsCommand: () => {
+        throw new Error('handler failure');
+      },
+    });
+    const session = new TelemetrySession(client, new Endpoints('127.0.0.1:8081'), logger);
+    assert.doesNotThrow(() => streams[0].receive(new TelemetryCommand().setSettings(buildSettings())));
+    sinon.assert.calledWithMatch(logger.error, /\[Bug\]/);
+    session.release();
+  });
+
+  describe('with a real gRPC stream', () => {
+    let server: Server;
+    let port: number;
+
+    before(async () => {
+      server = new Server();
+      server.addService(MessagingServiceService, {
+        telemetry(call: ServerDuplexStream<TelemetryCommand, TelemetryCommand>) {
+          call.on('data', () => undefined);
+          // Answer the client half-close with a non-OK status, as a remote
+          // that is going away would.
+          call.on('end', () => call.emit('error', { code: GrpcStatus.UNAVAILABLE, details: 'remote is going away' }));
+        },
+      } as any);
+      port = await new Promise<number>((resolve, reject) => {
+        server.bindAsync('127.0.0.1:0', ServerCredentials.createInsecure(), (err, boundPort) => {
+          if (err) return reject(err);
+          resolve(boundPort);
+        });
+      });
+    });
+
+    after(() => {
+      server.forceShutdown();
+    });
+
+    it('swallows the remote error status that arrives after release', async () => {
+      const endpoints = new Endpoints(`127.0.0.1:${port}`);
+      const rpcClient = new RpcClient(endpoints, false);
+      const uncaught: unknown[] = [];
+      const listeners = process.listeners('uncaughtException');
+      process.removeAllListeners('uncaughtException');
+      process.on('uncaughtException', err => uncaught.push(err));
+      try {
+        const client = makeClient([], { createTelemetryStream: () => rpcClient.telemetry(new Metadata()) });
+        const session = new TelemetrySession(client, endpoints, createSilentLogger());
+        session.syncSettings();
+        await sleep(100);
+        session.release();
+        await sleep(200);
+      } finally {
+        process.removeAllListeners('uncaughtException');
+        for (const listener of listeners) {
+          process.on('uncaughtException', listener);
+        }
+        rpcClient.close();
+      }
+      assert.deepStrictEqual(uncaught, [], 'a status error after release must not become an uncaught exception');
+    });
   });
 });

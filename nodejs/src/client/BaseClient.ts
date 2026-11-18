@@ -253,12 +253,14 @@ export abstract class BaseClient {
     try {
       // Fetch topic route with retry mechanism (align with Java client)
       const maxAttempts = 3;
+      let fetched = false;
       let lastError: Error | undefined;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           await this.updateRoutes();
           this.logger.info('Fetch topic route successfully during startup, clientId=%s, attempt=%d',
             this.clientId, attempt);
+          fetched = true;
           break;
         } catch (e) {
           lastError = e as Error;
@@ -279,7 +281,9 @@ export abstract class BaseClient {
         }
       }
 
-      if (lastError && !this.topicRouteCache.size) {
+      // Every topic must be routable, mirroring Java ClientImpl#startUp which fails
+      // after the last attempt even if some topics were fetched successfully.
+      if (!fetched) {
         throw new Error(`Failed to fetch topic routes after ${maxAttempts} attempts`, { cause: lastError });
       }
 
@@ -661,13 +665,31 @@ export abstract class BaseClient {
 
   /**
    * Notify remote that current client is prepared to be terminated.
+   *
+   * Best-effort like Java ClientImpl#notifyClientTermination: a failing or
+   * unreachable endpoint is only logged, so shutdown always goes on to
+   * release the telemetry sessions, RPC channels and meters.
    */
   async #notifyClientTermination() {
     this.logger.info('Notify remote that client is terminated, clientId=%s', this.clientId);
-    const request = this.wrapNotifyClientTerminationRequest();
-    for (const endpoints of this.getTotalRouteEndpoints()) {
-      await this.rpcClientManager.notifyClientTermination(endpoints, request, this.requestTimeout);
+    let request: NotifyClientTerminationRequest;
+    try {
+      request = this.wrapNotifyClientTerminationRequest();
+    } catch (e) {
+      this.logger.error('[Bug] Failed to wrap notify client termination request, clientId=%s, error=%s',
+        this.clientId, e instanceof Error ? e.message : String(e));
+      return;
     }
+    const endpointsList = this.getTotalRouteEndpoints();
+    const results = await Promise.allSettled(endpointsList.map(endpoints =>
+      this.rpcClientManager.notifyClientTermination(endpoints, request, this.requestTimeout)));
+    results.forEach((result, i) => {
+      if (result.status === 'rejected') {
+        const e = result.reason;
+        this.logger.warn('Failed to notify remote that client is terminated, clientId=%s, endpoints=%s, error=%s',
+          this.clientId, endpointsList[i].facade, e instanceof Error ? e.message : String(e));
+      }
+    });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -790,9 +812,12 @@ export abstract class BaseClient {
    * before the client is running, mirroring Java ClientImpl#addMessageInterceptor.
    */
   addMessageInterceptor(messageInterceptor: MessageInterceptor) {
-    if (!this.isRunning()) {
-      this.#compositedMessageInterceptor.addInterceptor(messageInterceptor);
+    if (this.isRunning()) {
+      this.logger.warn('Message interceptor can only be added before the client is running, ignore it, clientId=%s',
+        this.clientId);
+      return;
     }
+    this.#compositedMessageInterceptor.addInterceptor(messageInterceptor);
   }
 
   /**
