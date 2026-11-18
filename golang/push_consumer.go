@@ -27,7 +27,6 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/google/uuid"
@@ -70,6 +69,11 @@ type defaultPushConsumer struct {
 
 	stopping                        atomic.Bool
 	inflightRequestCountInterceptor *defultInflightRequestCountInterceptor
+
+	assignmentScanMu     sync.Mutex
+	assignmentScanCtx    context.Context
+	assignmentScanCancel context.CancelFunc
+	assignmentScanDone   chan struct{}
 
 	pushConsumerExtension PushConsumerExtension
 }
@@ -385,6 +389,7 @@ var newPushConsumer = func(config *Config, opts ...PushConsumerOption) (*default
 	pc.cli.settings = pc.pcSettings
 	pc.cli.clientImpl = pc
 	pc.cli.registerMessageInterceptor(pc.inflightRequestCountInterceptor)
+	pc.assignmentScanCtx, pc.assignmentScanCancel = context.WithCancel(pc.cli.ctx)
 	return pc, nil
 }
 
@@ -406,11 +411,7 @@ func (pc *defaultPushConsumer) Start() error {
 	}
 
 	if err == nil {
-		go func() {
-			time.Sleep(time.Second)
-			pc.scanAssignments()
-			ticker.Tick(pc.scanAssignments, 5*time.Second, pc.cli.done)
-		}()
+		pc.startAssignmentScan(time.Second, 5*time.Second)
 		return nil
 	}
 	err2 := pc.GracefulStop()
@@ -420,18 +421,74 @@ func (pc *defaultPushConsumer) Start() error {
 	return err
 }
 
+func (pc *defaultPushConsumer) startAssignmentScan(initialDelay, interval time.Duration) {
+	pc.assignmentScanMu.Lock()
+	defer pc.assignmentScanMu.Unlock()
+	if pc.stopping.Load() || pc.assignmentScanDone != nil {
+		return
+	}
+	done := make(chan struct{})
+	pc.assignmentScanDone = done
+	go func() {
+		defer close(done)
+		timer := time.NewTimer(initialDelay)
+		defer timer.Stop()
+		select {
+		case <-pc.assignmentScanCtx.Done():
+			return
+		case <-timer.C:
+		}
+		pc.scanAssignments()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-pc.assignmentScanCtx.Done():
+				return
+			case <-ticker.C:
+				pc.scanAssignments()
+			}
+		}
+	}()
+}
+
+func (pc *defaultPushConsumer) stopAssignmentScan() {
+	// Serialize stopping with registration and assignment application.
+	pc.assignmentScanMu.Lock()
+	pc.stopping.Store(true)
+	pc.assignmentScanCancel()
+	done := pc.assignmentScanDone
+	pc.assignmentScanMu.Unlock()
+	if done != nil {
+		<-done
+	}
+}
+
 func (pc *defaultPushConsumer) scanAssignments() {
-	// When stopping in progress, return directly
-	if pc.stopping.Load() {
+	ctx := pc.assignmentScanCtx
+	if pc.stopping.Load() || ctx.Err() != nil {
 		return
 	}
 	pc.subscriptionExpressions.Range(func(key, value interface{}) bool {
+		if pc.stopping.Load() || ctx.Err() != nil {
+			return false
+		}
 		topic := key.(string)
 		filterExpression := value.(*FilterExpression)
-		newest, err := pc.cli.queryAssignments(context.TODO(), topic, pc.groupName, pc.cli.opts.timeout)
+		newest, err := pc.cli.queryAssignments(ctx, topic, pc.groupName, pc.cli.opts.timeout)
 		if err != nil {
+			if ctx.Err() != nil {
+				return false
+			}
 			pc.cli.log.Errorf("Exception raised while scanning the assignments, topic=%s, clientId=%s, err=%v",
 				topic, pc.cli.clientID, err)
+			return true
+		}
+		pc.assignmentScanMu.Lock()
+		defer pc.assignmentScanMu.Unlock()
+		// Ignore even a successful response if shutdown won the race.
+		if pc.stopping.Load() || ctx.Err() != nil {
+			return false
 		}
 		val, _ := pc.cacheAssignments.Load(topic)
 		var existed *[]*v2.Assignment
@@ -520,7 +577,7 @@ func (pc *defaultPushConsumer) dropProcessQueue(mqstr utils.MessageQueueStr) {
 /**
  * PushConsumerImpl shutdown order
  * 1. when begin shutdown, do not send any new receive request
- * 2. cancel scanAssignmentsFuture, do not create new processQueue
+ * 2. cancel and join the assignment scanner, do not create new processQueue
  * 3. waiting all inflight receive request finished or timeout
  * 4. shutdown consumptionExecutor and waiting all message consumption finished
  * 5. sleep 1s to ack message async
@@ -528,7 +585,7 @@ func (pc *defaultPushConsumer) dropProcessQueue(mqstr utils.MessageQueueStr) {
  */
 func (pc *defaultPushConsumer) GracefulStop() error {
 	// step 1 and 2
-	pc.stopping.Store(true)
+	pc.stopAssignmentScan()
 
 	// step 3
 	pc.cli.log.Infof("Waiting for the inflight receive requests to be finished, clientId=%s", pc.cli.clientID)
