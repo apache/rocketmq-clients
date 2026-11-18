@@ -89,6 +89,12 @@ export class PushConsumer extends Consumer {
   #shuttingDown = false;
 
   constructor(options: PushConsumerOptions) {
+    if (!options.messageListener || typeof options.messageListener.consume !== 'function') {
+      throw new TypeError('messageListener must provide a consume function');
+    }
+    if (!(options.subscriptions instanceof Map) || options.subscriptions.size === 0) {
+      throw new TypeError('subscriptions must be a non-empty Map');
+    }
     options.topics = Array.from(options.subscriptions.keys());
     super(options);
 

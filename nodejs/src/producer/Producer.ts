@@ -69,7 +69,10 @@ export class Producer extends BaseClient {
   #publishingRouteDataCache = new Map<string, PublishingLoadBalancer>();
 
   constructor(options: ProducerOptions) {
-    if (!options.topics && options.topic) {
+    if (options.maxAttempts !== undefined && (!Number.isInteger(options.maxAttempts) || options.maxAttempts <= 0)) {
+      throw new TypeError('maxAttempts should be a positive integer');
+    }
+    if (options.topics === undefined && options.topic !== undefined) {
       options.topics = Array.isArray(options.topic) ? options.topic : [ options.topic ];
     }
     super(options);

@@ -40,6 +40,29 @@ export class Message {
   liteTopic?: string;
 
   constructor(options: MessageOptions) {
+    if (options.keys !== undefined) {
+      if (!Array.isArray(options.keys)) {
+        throw new TypeError('keys must be an array');
+      }
+      for (const key of options.keys) {
+        if (typeof key !== 'string' || key.trim().length === 0) {
+          throw new TypeError('key should not be blank');
+        }
+      }
+    }
+    if (options.properties !== undefined) {
+      if (!(options.properties instanceof Map)) {
+        throw new TypeError('properties must be a Map');
+      }
+      for (const [ key, value ] of options.properties) {
+        if (typeof key !== 'string' || key.trim().length === 0) {
+          throw new TypeError('property key should not be blank');
+        }
+        if (typeof value !== 'string' || value.trim().length === 0) {
+          throw new TypeError('property value should not be blank');
+        }
+      }
+    }
     let finalDeliveryTimestamp = options.deliveryTimestamp;
     if (options.delay && !finalDeliveryTimestamp) {
       finalDeliveryTimestamp = new Date(Date.now() + options.delay);
