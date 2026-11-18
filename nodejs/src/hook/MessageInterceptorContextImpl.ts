@@ -35,7 +35,10 @@ export class MessageInterceptorContextImpl implements MessageInterceptorContext 
     attributes?: Map<AttributeKey<any>, Attribute<any>>) {
     this.#messageHookPoints = messageHookPoints;
     this.#status = status;
-    this.#attributes = new Map(attributes ?? []);
+    this.#attributes = new Map();
+    for (const [ key, value ] of attributes ?? []) {
+      this.putAttribute(key, value);
+    }
   }
 
   /**
@@ -55,11 +58,23 @@ export class MessageInterceptorContextImpl implements MessageInterceptorContext 
   }
 
   putAttribute<T>(key: AttributeKey<T>, value: Attribute<T>) {
-    this.#attributes.set(key, value);
+    // Java AttributeKey 按名称比较；保留公开的 Map<AttributeKey, Attribute> 形态。
+    const existing = this.findKey(key);
+    this.#attributes.set(existing ?? key, value);
   }
 
   getAttribute<T>(key: AttributeKey<T>): Attribute<T> | undefined {
-    return this.#attributes.get(key) as Attribute<T> | undefined;
+    const existing = this.findKey(key);
+    return existing ? this.#attributes.get(existing) as Attribute<T> | undefined : undefined;
+  }
+
+  private findKey<T>(key: AttributeKey<T>): AttributeKey<T> | undefined {
+    for (const candidate of this.#attributes.keys()) {
+      if (candidate.name === key.name) {
+        return candidate;
+      }
+    }
+    return undefined;
   }
 
   getAttributes(): Map<AttributeKey<any>, Attribute<any>> {

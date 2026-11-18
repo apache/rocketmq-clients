@@ -19,11 +19,13 @@ import { Attributes, Meter } from '@opentelemetry/api';
 import {
   MeterProvider as SdkMeterProvider,
   PeriodicExportingMetricReader,
+  ResourceMetrics,
   View,
 } from '@opentelemetry/sdk-metrics';
 import { Resource } from '@opentelemetry/resources';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-grpc';
 import { ChannelCredentials, Metadata } from '@grpc/grpc-js';
+import { isIPv6 } from 'node:net';
 import { ILogger } from '../client/Logger';
 import { ClientMeter } from './ClientMeter';
 import { GaugeObserver } from './GaugeObserver';
@@ -34,6 +36,73 @@ import { Metric } from './Metric';
 const METRIC_EXPORTER_RPC_TIMEOUT = 5000;
 const METRIC_READER_INTERVAL = 60000;
 const METRIC_INSTRUMENTATION_NAME = 'org.apache.rocketmq.message';
+
+type ExportCallback = Parameters<OTLPMetricExporter['export']>[1];
+type ExportResult = Parameters<ExportCallback>[0];
+
+// OTel 0.57.2 接受 Metadata 实例并在首次导出时缓存它。每轮使用独立 exporter，
+// 重新签名且导出后关闭 channel；继承其 aggregation/temporality 选择以保持配置兼容。
+class SignedMetricExporter extends OTLPMetricExporter {
+  private readonly pending = new Set<Promise<void>>();
+  private closed = false;
+
+  constructor(private readonly urls: string[], private readonly metadataProvider: () => Metadata) {
+    super({ url: urls[0], credentials: ChannelCredentials.createInsecure() });
+  }
+
+  override export(metrics: ResourceMetrics, callback: ExportCallback): void {
+    if (this.closed) {
+      callback({ code: 1, error: new Error('Metric exporter is shut down') });
+      return;
+    }
+    const completion = this.exportOnce(metrics).then(callback, error => {
+      callback({ code: 1, error: error instanceof Error ? error : new Error(String(error)) });
+    });
+    this.pending.add(completion);
+    void completion.then(() => this.pending.delete(completion), () => this.pending.delete(completion));
+  }
+
+  private async exportOnce(metrics: ResourceMetrics): Promise<ExportResult> {
+    const deadline = Date.now() + METRIC_EXPORTER_RPC_TIMEOUT;
+    const start = Math.floor(Math.random() * this.urls.length);
+    let result: ExportResult = { code: 1, error: new Error('No metric endpoint is available') };
+    // 地址随机起点和故障回退对应 Java 的多地址 resolver；所有尝试共享总超时。
+    for (let index = 0; index < this.urls.length; index++) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        break;
+      }
+      let exporter: OTLPMetricExporter | undefined;
+      try {
+        exporter = new OTLPMetricExporter({
+          url: this.urls[(start + index) % this.urls.length],
+          credentials: ChannelCredentials.createInsecure(),
+          timeoutMillis: Math.max(1, Math.floor(remaining / (this.urls.length - index))),
+          metadata: this.metadataProvider(),
+        });
+        result = await new Promise<ExportResult>(resolve => exporter!.export(metrics, resolve));
+      } catch (error) {
+        result = { code: 1, error: error instanceof Error ? error : new Error(String(error)) };
+      } finally {
+        await exporter?.shutdown();
+      }
+      if (result.code === 0) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  override async forceFlush(): Promise<void> {
+    await Promise.all(this.pending);
+  }
+
+  override async shutdown(): Promise<void> {
+    this.closed = true;
+    await this.forceFlush();
+    await super.shutdown();
+  }
+}
 
 /**
  * Owns the OpenTelemetry metric pipeline for a single client. On every settings
@@ -48,6 +117,8 @@ export class ClientMeterManager {
   private readonly logger: ILogger;
   private clientMeter: ClientMeter;
   private gaugeObserver: GaugeObserver = EmptyGaugeObserver.EMPTY;
+  private pending: Promise<void> = Promise.resolve();
+  private shutdownPromise?: Promise<void>;
 
   constructor(clientId: string, metadataProvider: () => Metadata, logger: ILogger) {
     this.clientId = clientId;
@@ -68,11 +139,30 @@ export class ClientMeterManager {
     return this.clientMeter.enabled;
   }
 
-  async shutdown() {
-    await this.clientMeter.shutdown();
+  shutdown(): Promise<void> {
+    this.shutdownPromise ??= this.enqueue(async () => {
+      const meter = this.clientMeter;
+      this.clientMeter = ClientMeter.disabledInstance();
+      await meter.shutdown();
+    });
+    return this.shutdownPromise;
   }
 
-  async reset(metric: Metric): Promise<void> {
+  reset(metric: Metric): Promise<void> {
+    if (this.shutdownPromise) {
+      return this.shutdownPromise;
+    }
+    return this.enqueue(() => this.resetMeter(metric));
+  }
+
+  // settings 调用方不 await reset；队列保证 off/on 和 shutdown 按调用顺序完成。
+  private enqueue(operation: () => Promise<void>): Promise<void> {
+    const result = this.pending.then(operation);
+    this.pending = result.catch(() => undefined);
+    return result;
+  }
+
+  private async resetMeter(metric: Metric): Promise<void> {
     try {
       if (this.clientMeter.satisfy(metric)) {
         this.logger.info('Metric settings is satisfied by the current message meter, metric=%j, clientId=%s',
@@ -86,22 +176,14 @@ export class ClientMeterManager {
         return;
       }
       const endpoints = metric.endpoints;
-      // Use the first address as the OTLP/gRPC target. The exporter's URL is
-      // normalized to "host:port" internally, which gRPC-js resolves through
-      // its default DNS resolver (a single IP works fine; the custom `ip`
-      // resolver is used for the primary RPC channels).
-      const address = endpoints.addressesList[0];
-      const url = `http://${address.host}:${address.port}`;
-      const exporter = new OTLPMetricExporter({
-        url,
-        credentials: ChannelCredentials.createInsecure(),
-        timeoutMillis: METRIC_EXPORTER_RPC_TIMEOUT,
-        // Per-request signing mirrors the Java client's AuthInterceptor. The
-        // d.ts types this field as `Metadata`, but the runtime (and the
-        // exporter's own merge logic in otlp-grpc-exporter-base) expects a
-        // function returning freshly-signed Metadata.
-        metadata: (() => this.metadataProvider()) as unknown as Metadata,
+      const urls = endpoints.addressesList.map(address => {
+        const host = isIPv6(address.host) ? `[${address.host}]` : address.host;
+        return `http://${host}:${address.port}`;
       });
+      if (urls.length === 0) {
+        throw new Error('Metric endpoints must contain at least one address');
+      }
+      const exporter = new SignedMetricExporter(urls, this.metadataProvider);
 
       const reader = new PeriodicExportingMetricReader({
         exporter,
