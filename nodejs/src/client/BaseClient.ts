@@ -18,6 +18,7 @@
 import { debuglog } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { Metadata } from '@grpc/grpc-js';
+import { getRequestId } from '../util/rpcContext';
 import {
   Settings as SettingsPB,
   Status,
@@ -421,7 +422,7 @@ export abstract class BaseClient {
           // gRPC responses; without this check the client stays blind to
           // settings loss and never re-registers. Mirrors Java
           // ClientImpl#doHeartbeat which checks the response status.
-          StatusChecker.check(response.getStatus()?.toObject());
+          StatusChecker.check(response.getStatus()?.toObject(), getRequestId(response));
           // Heartbeat succeeded: the remote is reachable again, so rejoin any
           // isolated endpoints (mirrors Java ClientImpl#doHeartbeat).
           if (this.isolated.delete(endpoints.facade)) {
@@ -552,7 +553,7 @@ export abstract class BaseClient {
 
     try {
       const response = await this.rpcClientManager.queryRoute(this.endpoints, req, this.requestTimeout);
-      StatusChecker.check(response.getStatus()?.toObject());
+      StatusChecker.check(response.getStatus()?.toObject(), getRequestId(response));
       const topicRouteData = new TopicRouteData(response.getMessageQueuesList());
       const newEndpoints = this.findNewRouteEndpoints(topicRouteData.getTotalEndpoints());
       for (const endpoints of newEndpoints) {
@@ -699,7 +700,7 @@ export abstract class BaseClient {
 
   onUnknownCommand(endpoints: Endpoints, status: Status.AsObject) {
     try {
-      StatusChecker.check(status);
+      StatusChecker.check(status, getRequestId(status));
     } catch (err) {
       this.logger.error('Get error status from telemetry session, status=%j, endpoints=%j, clientId=%s',
         status, endpoints, this.clientId);

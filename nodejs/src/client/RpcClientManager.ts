@@ -29,6 +29,7 @@ import {
   SyncLiteSubscriptionRequest,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../route';
+import { withRequestId } from '../util/rpcContext';
 import { ILogger } from './Logger';
 import { RpcClient } from './RpcClient';
 import type { BaseClient } from './BaseClient';
@@ -128,37 +129,37 @@ export class RpcClientManager {
   async queryRoute(endpoints: Endpoints, request: QueryRouteRequest, duration: number) {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.queryRoute(request, metadata, duration);
+    return withRequestId(await rpcClient.queryRoute(request, metadata, duration), metadata);
   }
 
   async heartbeat(endpoints: Endpoints, request: HeartbeatRequest, duration: number) {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.heartbeat(request, metadata, duration);
+    return withRequestId(await rpcClient.heartbeat(request, metadata, duration), metadata);
   }
 
   async sendMessage(endpoints: Endpoints, request: SendMessageRequest, duration: number) {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.sendMessage(request, metadata, duration);
+    return withRequestId(await rpcClient.sendMessage(request, metadata, duration), metadata);
   }
 
   async queryAssignment(endpoints: Endpoints, request: QueryAssignmentRequest, duration: number) {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.queryAssignment(request, metadata, duration);
+    return withRequestId(await rpcClient.queryAssignment(request, metadata, duration), metadata);
   }
 
   async receiveMessage(endpoints: Endpoints, request: ReceiveMessageRequest, duration: number) {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.receiveMessage(request, metadata, duration);
+    return withRequestId(await rpcClient.receiveMessage(request, metadata, duration), metadata);
   }
 
   async ackMessage(endpoints: Endpoints, request: AckMessageRequest, duration: number) {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.ackMessage(request, metadata, duration);
+    return withRequestId(await rpcClient.ackMessage(request, metadata, duration), metadata);
   }
 
   async forwardMessageToDeadLetterQueue(endpoints: Endpoints, request: ForwardMessageToDeadLetterQueueRequest,
@@ -195,18 +196,18 @@ export class RpcClientManager {
   async endTransaction(endpoints: Endpoints, request: EndTransactionRequest, duration: number) {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.endTransaction(request, metadata, duration);
+    return withRequestId(await rpcClient.endTransaction(request, metadata, duration), metadata);
   }
 
   telemetry(endpoints: Endpoints, metadata: Metadata) {
     const rpcClient = this.#getRpcClient(endpoints);
-    return rpcClient.telemetry(metadata);
+    return withRequestId(rpcClient.telemetry(metadata), metadata);
   }
 
   async changeInvisibleDuration(endpoints: Endpoints, request: ChangeInvisibleDurationRequest, duration: number) {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.changeInvisibleDuration(request, metadata, duration);
+    return withRequestId(await rpcClient.changeInvisibleDuration(request, metadata, duration), metadata);
   }
 
   async notifyClientTermination(endpoints: Endpoints, request: NotifyClientTerminationRequest, duration: number) {
@@ -218,7 +219,7 @@ export class RpcClientManager {
   async recallMessage(endpoints: Endpoints, request: RecallMessageRequest, duration: number) {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.recallMessage(request, metadata, duration);
+    return withRequestId(await rpcClient.recallMessage(request, metadata, duration), metadata);
   }
 
   async syncLiteSubscription(endpoints: Endpoints, request: SyncLiteSubscriptionRequest, duration: number) {

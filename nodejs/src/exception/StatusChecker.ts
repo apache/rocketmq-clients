@@ -33,7 +33,9 @@ import { UnsupportedException } from './UnsupportedException';
 
 export class StatusChecker {
   static check(status?: Status.AsObject, requestId?: string) {
-    if (!status) return;
+    if (!status) {
+      throw new InternalErrorException(Code.INTERNAL_SERVER_ERROR, 'status was not set by server', requestId);
+    }
     switch (status.code) {
       case Code.OK:
       case Code.MULTIPLE_RESULTS:
@@ -66,7 +68,6 @@ export class StatusChecker {
       case Code.FORBIDDEN:
         throw new ForbiddenException(status.code, status.message, requestId);
       case Code.MESSAGE_NOT_FOUND:
-        return;
       case Code.NOT_FOUND:
       case Code.TOPIC_NOT_FOUND:
       case Code.CONSUMER_GROUP_NOT_FOUND:

@@ -45,13 +45,16 @@ export function sign(accessSecret: string, dateTime: string) {
 }
 
 export function createDuration(ms: number) {
+  if (!Number.isFinite(ms) || Math.abs(ms) > 315576000000000) {
+    throw new RangeError('duration must be finite and within the protobuf Duration range');
+  }
   // Duration.seconds is a protobuf int64 field, so it must be an integer;
   // the remainder is carried by nanos. Non-integer seconds would fail
   // serialization with 'Assertion failed'.
-  const nanos = Math.floor(ms % 1000 * 1000000);
+  const nanos = Math.sign(ms) * Math.floor(Math.abs(ms % 1000) * 1000000);
   return new Duration()
-    .setSeconds(Math.floor(ms / 1000))
-    .setNanos(nanos);
+    .setSeconds(Math.trunc(ms / 1000) || 0)
+    .setNanos(nanos || 0);
 }
 
 export function createResource(name: string) {

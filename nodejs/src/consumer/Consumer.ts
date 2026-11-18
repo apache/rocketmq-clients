@@ -25,6 +25,8 @@ import { ClientType } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { MessageView } from '../message';
 import { MessageQueue } from '../route';
 import { StatusChecker } from '../exception';
+import { checkReceiveStatus } from '../exception/receiveStatus';
+import { getRequestId } from '../util/rpcContext';
 import { BaseClient, BaseClientOptions } from '../client';
 import { createDuration, createResource } from '../util';
 import {
@@ -95,7 +97,7 @@ export abstract class Consumer extends BaseClient {
         }
       }
 
-      StatusChecker.check(status);
+      checkReceiveStatus(status, getRequestId(responses));
 
       if (messageList.length > 0) {
         this.logger.debug?.('Received %d messages successfully, topic=%s, endpoints=%s, clientId=%s',
@@ -133,7 +135,7 @@ export abstract class Consumer extends BaseClient {
       const res = await this.rpcClientManager.ackMessage(endpoints, request, this.requestTimeout);
       const response = res.toObject();
       hookStatus = response.status?.code === Code.OK ? MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
-      StatusChecker.check(response.status);
+      StatusChecker.check(response.status, getRequestId(res));
       this.doAfter(MessageInterceptorContextImpl.withStatus(context, hookStatus), generalMessages);
       return response.entriesList;
     } catch (err) {
@@ -162,7 +164,7 @@ export abstract class Consumer extends BaseClient {
       const res = await this.rpcClientManager.changeInvisibleDuration(messageView.endpoints, request, this.requestTimeout);
       const response = res.toObject();
       hookStatus = response.status?.code === Code.OK ? MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
-      StatusChecker.check(response.status);
+      StatusChecker.check(response.status, getRequestId(res));
       this.doAfter(MessageInterceptorContextImpl.withStatus(context, hookStatus), generalMessages);
       return response.receiptHandle;
     } catch (err) {

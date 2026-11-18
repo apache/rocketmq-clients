@@ -131,10 +131,11 @@ describe('Endpoints parsing', () => {
   });
 
   it('should strip http(s) prefixes and parse multiple endpoints', () => {
-    const endpoints = new Endpoints('http://127.0.0.1:10911;https://example.com:8080');
+    const endpoints = new Endpoints('http://127.0.0.1:10911;https://127.0.0.2:8080');
     assert.strictEqual(endpoints.addressesList.length, 2);
     assert.deepStrictEqual(endpoints.addressesList[0], { host: '127.0.0.1', port: 10911 });
-    assert.deepStrictEqual(endpoints.addressesList[1], { host: 'example.com', port: 8080 });
+    assert.deepStrictEqual(endpoints.addressesList[1], { host: '127.0.0.2', port: 8080 });
+    assert.throws(() => new Endpoints('http://127.0.0.1:10911;https://example.com:8080'), TypeError);
   });
 });
 

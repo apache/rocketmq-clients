@@ -19,6 +19,7 @@ import { Code } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { SendMessageResponse } from '../../proto/apache/rocketmq/v2/service_pb';
 import { MessageQueue } from '../route';
 import { StatusChecker } from '../exception';
+import { getRequestId } from '../util/rpcContext';
 
 export class SendReceipt {
   readonly messageId: string;
@@ -48,7 +49,7 @@ export class SendReceipt {
     // Filter abnormal status.
     const abnormalStatus = responseObj.entriesList.map(e => e.status).find(s => s?.code !== Code.OK);
     const status = abnormalStatus ?? responseObj.status;
-    StatusChecker.check(status);
+    StatusChecker.check(status, getRequestId(response));
     const sendReceipts: SendReceipt[] = [];
     for (const entry of responseObj.entriesList) {
       const messageId = entry.messageId;

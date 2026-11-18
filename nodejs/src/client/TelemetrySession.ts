@@ -18,6 +18,7 @@
 import { ClientDuplexStream } from '@grpc/grpc-js';
 import { TelemetryCommand } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../route';
+import { getRequestId, setRequestId } from '../util/rpcContext';
 import type { BaseClient } from './BaseClient';
 import { ILogger } from './Logger';
 
@@ -204,6 +205,7 @@ export class TelemetrySession {
         this.#logger.warn('Receive unrecognized command from remote, endpoints=%s, commandCase=%j, command=%j, clientId=%s',
           endpoints, commandCase, commandObj, clientId);
         // should telemetry session start fail
+        if (commandObj.status) setRequestId(commandObj.status, getRequestId(this.#stream));
         this.#baseClient.onUnknownCommand(endpoints, commandObj.status!);
       }
     }
