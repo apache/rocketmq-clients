@@ -19,7 +19,9 @@ package golang
 
 import (
 	"context"
+	"errors"
 	"io"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -122,6 +124,139 @@ func TestProcessQueueEmptyLongPollingBalancesInflightReceiveCount(t *testing.T) 
 		t.Fatalf("inflight receive count is %d after %d completed receptions of an idle queue; "+
 			"an empty long polling result never closed the hook it opened, so GracefulStop would "+
 			"wait out requestTimeout + longPollingTimeout before giving up", count, receptions.Load())
+	}
+}
+
+// scriptedReceiveStream replays the canned responses of one reception, then EOF.
+type scriptedReceiveStream struct {
+	grpc.ClientStream
+	responses []*v2.ReceiveMessageResponse
+}
+
+func (stream *scriptedReceiveStream) Recv() (*v2.ReceiveMessageResponse, error) {
+	if len(stream.responses) == 0 {
+		return nil, io.EOF
+	}
+	resp := stream.responses[0]
+	stream.responses = stream.responses[1:]
+	return resp, nil
+}
+
+type discardConsumeService struct{}
+
+func (discardConsumeService) consume(ProcessQueue, []*MessageView) {}
+
+func (discardConsumeService) consumeWithDuration(*MessageView, time.Duration, func(ConsumerResult, error)) {
+}
+
+func (discardConsumeService) Shutdown() error { return nil }
+
+func receiveStatusResponse(code v2.Code) *v2.ReceiveMessageResponse {
+	return &v2.ReceiveMessageResponse{
+		Content: &v2.ReceiveMessageResponse_Status{Status: &v2.Status{Code: code, Message: code.String()}},
+	}
+}
+
+// A failed reception may have been served by the server with only the response
+// lost, so the queue keeps resending the same attempt id until messages arrive,
+// and starts a new attempt only after that.
+func TestProcessQueueKeepsAttemptIdUntilMessagesAreReceived(t *testing.T) {
+	consumer, err := NewPushConsumer(&Config{
+		Endpoint:      fakeAddress,
+		ConsumerGroup: MOCK_GROUP,
+		Credentials:   &credentials.SessionCredentials{},
+	},
+		WithPushSubscriptionExpressions(map[string]*FilterExpression{MOCK_TOPIC: SUB_ALL}),
+		WithPushMessageListener(&FuncMessageListener{
+			Consume: func(*MessageView) ConsumerResult { return SUCCESS },
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pc := consumer.(*defaultPushConsumer)
+	manager := NewMockClientManager(gomock.NewController(t))
+	pc.cli.clientManager = manager
+	pc.cli.log = zap.NewNop().Sugar()
+	pc.cli.inited.Store(true)
+	pc.consumerService = discardConsumeService{}
+
+	message := &v2.Message{
+		Topic: &v2.Resource{Name: MOCK_TOPIC},
+		SystemProperties: &v2.SystemProperties{
+			MessageId:    "message-1",
+			BodyEncoding: v2.Encoding_IDENTITY,
+		},
+		Body: []byte("body"),
+	}
+	var mu sync.Mutex
+	var attemptIds []string
+	manager.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
+			mu.Lock()
+			attemptIds = append(attemptIds, request.GetAttemptId())
+			reception := len(attemptIds)
+			mu.Unlock()
+			switch reception {
+			case 1:
+				return nil, errors.New("connection reset")
+			case 3:
+				return &scriptedReceiveStream{responses: []*v2.ReceiveMessageResponse{
+					{Content: &v2.ReceiveMessageResponse_Message{Message: message}},
+					receiveStatusResponse(v2.Code_OK),
+				}}, nil
+			default:
+				return &scriptedReceiveStream{responses: []*v2.ReceiveMessageResponse{
+					receiveStatusResponse(v2.Code_MESSAGE_NOT_FOUND),
+				}}, nil
+			}
+		}).AnyTimes()
+
+	mq := &v2.MessageQueue{
+		Topic:              &v2.Resource{Name: MOCK_TOPIC},
+		Id:                 0,
+		Broker:             &v2.Broker{Name: "broker", Endpoints: fakeEndpoints()},
+		AcceptMessageTypes: []v2.MessageType{v2.MessageType_NORMAL},
+	}
+	dpq, ok := pc.createProcessQueue(utils.ParseMessageQueue2Str(mq), mq, SUB_ALL).(*defaultProcessQueue)
+	if !ok {
+		t.Fatal("process queue was not created")
+	}
+	defer dpq.drop()
+
+	dpq.receiveMessageImmediately()
+
+	const wanted = 5
+	var ids []string
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		ids = append([]string(nil), attemptIds...)
+		mu.Unlock()
+		if len(ids) >= wanted {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	dpq.drop()
+	if len(ids) < wanted {
+		t.Fatalf("expected at least %d receptions, got %d", wanted, len(ids))
+	}
+
+	if ids[0] == "" {
+		t.Fatal("expected the reception to carry an attempt id")
+	}
+	if ids[1] != ids[0] {
+		t.Errorf("expected the retry after a failed reception to reuse attempt id %s, got %s", ids[0], ids[1])
+	}
+	if ids[2] != ids[1] {
+		t.Errorf("expected the reception after an empty result to reuse attempt id %s, got %s", ids[1], ids[2])
+	}
+	if ids[3] == ids[2] {
+		t.Errorf("expected a new attempt id after messages were received, got %s again", ids[3])
+	}
+	if ids[4] != ids[3] {
+		t.Errorf("expected the reception after an empty result to reuse attempt id %s, got %s", ids[3], ids[4])
 	}
 }
 

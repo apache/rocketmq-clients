@@ -26,8 +26,6 @@ import (
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type ProcessQueue interface {
@@ -453,6 +451,8 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 	batchSize := dpq.getReceptionBatchSize()
 	longPollingTimeout := dpq.consumer.pcSettings.longPollingTimeout
 	request := dpq.consumer.pushConsumerExtension.WrapReceiveMessageRequest(int(batchSize), dpq.mq, dpq.filterExpression, longPollingTimeout)
+	// The process queue owns the attempt id, so a retry carries the same id the server may already have served.
+	request.AttemptId = &attemptId
 
 	startTime := time.Now()
 	dpq.activityNanoTime.Store(startTime.UnixNano())
@@ -470,12 +470,11 @@ func (dpq *defaultProcessQueue) receiveMessageImmediatelyWithAttemptId(attemptId
 				messageCommons = append(messageCommons, mv.GetMessageCommon())
 			}
 			dpq.consumer.cli.doAfter(MessageHookPoints_RECEIVE, messageCommons, duration, MessageHookPointsStatus_OK)
-			dpq.onReceiveMessageResult(mvs)
+			dpq.onReceiveMessageResult(mvs, request.GetAttemptId())
 		} else {
-			nextAttemptId := ""
-			if status.Code(err) == codes.DeadlineExceeded {
-				nextAttemptId = request.GetAttemptId()
-			}
+			// Keep the attempt id until messages are received, since the server may have
+			// served this attempt even though its response never reached the client.
+			nextAttemptId := request.GetAttemptId()
 			rpcErr, isRpcErr := AsErrRpcStatus(err)
 			isNoNewMessage := isRpcErr && rpcErr.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND)
 			// An empty long polling result is still a completed reception, so it has
@@ -530,15 +529,17 @@ func (dpq *defaultProcessQueue) receiveMessageLater(duration time.Duration, atte
 	})
 }
 
-func (dpq *defaultProcessQueue) onReceiveMessageResult(mvs []*MessageView) {
+func (dpq *defaultProcessQueue) onReceiveMessageResult(mvs []*MessageView, attemptId string) {
 	mvslen := int64(len(mvs))
 	if mvslen != 0 {
 		dpq.cacheMessages(mvs)
 		dpq.receivedMessagesQuantity.Add(mvslen)
 		dpq.consumer.receivedMessagesQuantity.Add(mvslen)
 		dpq.consumer.consumerService.consume(dpq, mvs)
+		dpq.receiveMessage()
+		return
 	}
-	dpq.receiveMessage()
+	dpq.receiveMessageWithAttemptId(attemptId)
 }
 
 func (dpq *defaultProcessQueue) cacheMessages(mvs []*MessageView) {
