@@ -21,6 +21,7 @@
 
 import * as assert from 'node:assert';
 import { OffsetOption, OffsetType } from '../../src/consumer/OffsetOption';
+import { OffsetOption as ProtoOffsetOption } from '../../proto/apache/rocketmq/v2/definition_pb';
 
 describe('OffsetOption', () => {
   describe('Predefined constants', () => {
@@ -99,6 +100,68 @@ describe('OffsetOption', () => {
       assert.throws(() => {
         OffsetOption.ofTimestamp(-1);
       }, /timestamp must be greater than or equal to 0/);
+    });
+  });
+
+  describe('协议与数值边界', () => {
+    it('三种 policy 都使用对应的 oneof 字段', () => {
+      for (const [ option, value ] of [
+        [ OffsetOption.LAST_OFFSET, 0 ], [ OffsetOption.MIN_OFFSET, 1 ], [ OffsetOption.MAX_OFFSET, 2 ],
+      ] as const) {
+        const proto = option.toProtobuf();
+        assert.strictEqual(proto.getOffsetTypeCase(), ProtoOffsetOption.OffsetTypeCase.POLICY);
+        assert.strictEqual(proto.getPolicy(), value);
+      }
+    });
+
+    const factories = [
+      { name: 'offset', create: OffsetOption.ofOffset, type: OffsetType.OFFSET,
+        protoCase: ProtoOffsetOption.OffsetTypeCase.OFFSET, read: (p: ProtoOffsetOption) => p.getOffset() },
+      { name: 'tailN', create: OffsetOption.ofTailN, type: OffsetType.TAIL_N,
+        protoCase: ProtoOffsetOption.OffsetTypeCase.TAIL_N, read: (p: ProtoOffsetOption) => p.getTailN() },
+      { name: 'timestamp', create: OffsetOption.ofTimestamp, type: OffsetType.TIMESTAMP,
+        protoCase: ProtoOffsetOption.OffsetTypeCase.TIMESTAMP, read: (p: ProtoOffsetOption) => p.getTimestamp() },
+    ];
+    for (const { name, create, type, protoCase, read } of factories) {
+      it(`${name} 接受非负安全整数 number 和 bigint 并保留协议字段`, () => {
+        for (const value of [ 0, 1, Number.MAX_SAFE_INTEGER - 1, Number.MAX_SAFE_INTEGER ]) {
+          for (const input of [ value, BigInt(value) ]) {
+            const option = create(input);
+            assert.strictEqual(option.getType(), type);
+            assert.strictEqual(option.getValue(), BigInt(value));
+            const proto = option.toProtobuf();
+            assert.strictEqual(proto.getOffsetTypeCase(), protoCase);
+            assert.strictEqual(read(proto), value);
+          }
+        }
+      });
+
+      it(`${name} 在工厂调用时拒绝不安全 number、NaN、无限值和小数`, () => {
+        for (const value of [ Number.MAX_SAFE_INTEGER + 1, Number.MAX_SAFE_INTEGER + 2,
+          Number.MIN_SAFE_INTEGER - 1, NaN, Infinity, -Infinity, 0.5 ]) {
+          assert.throws(() => create(value), RangeError);
+        }
+      });
+
+      it(`${name} 保留负数校验和超大 bigint 的延迟序列化校验`, () => {
+        for (const value of [ -1, BigInt(-1) ]) {
+          assert.throws(() => create(value), new RegExp(`${name} must be greater than or equal to 0`));
+        }
+        const value = BigInt(Number.MAX_SAFE_INTEGER) + BigInt(1);
+        const option = create(value);
+        assert.strictEqual(option.getValue(), value);
+        assert.throws(() => option.toProtobuf(), /out of safe number range/);
+      });
+    }
+
+    it('equals 比较类型和值；hashCode 对相等对象稳定', () => {
+      const option = OffsetOption.ofOffset(1);
+      assert.ok(option.equals(option));
+      assert.ok(option.equals(OffsetOption.ofOffset(BigInt(1))));
+      assert.ok(!option.equals(OffsetOption.ofOffset(2)));
+      assert.ok(!option.equals(OffsetOption.ofTailN(1)));
+      assert.ok(!option.equals(null as unknown as OffsetOption));
+      assert.strictEqual(option.hashCode(), OffsetOption.ofOffset(BigInt(1)).hashCode());
     });
   });
 

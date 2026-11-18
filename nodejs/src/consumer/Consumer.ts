@@ -72,7 +72,7 @@ export abstract class Consumer extends BaseClient {
 
     try {
       this.logger.debug?.('Receiving messages from broker, topic=%s, endpoints=%s, batchSize=%d, clientId=%s',
-        request.getMessageQueue()?.getTopic()?.getName(), endpoints, request.getBatchSize(), (this as any).clientId);
+        request.getMessageQueue()?.getTopic()?.getName(), endpoints, request.getBatchSize(), this.clientId);
 
       const responses = await this.rpcClientManager.receiveMessage(endpoints, request, timeout);
       const messageList: Message[] = [];
@@ -90,8 +90,8 @@ export abstract class Consumer extends BaseClient {
             transportDeliveryTimestamp = response.getDeliveryTimestamp()?.toDate();
             break;
           default:
-            // this.logger.warn("[Bug] Not recognized content for receive message response, mq={}, " +
-            //                 "clientId={}, response={}", mq, clientId, response);
+            this.logger.warn('Not recognized content for receive message response, mq=%s, clientId=%s, response=%j',
+              mq, this.clientId, response.toObject());
         }
       }
 
@@ -99,7 +99,7 @@ export abstract class Consumer extends BaseClient {
 
       if (messageList.length > 0) {
         this.logger.debug?.('Received %d messages successfully, topic=%s, endpoints=%s, clientId=%s',
-          messageList.length, request.getMessageQueue()?.getTopic()?.getName(), endpoints, (this as any).clientId);
+          messageList.length, request.getMessageQueue()?.getTopic()?.getName(), endpoints, this.clientId);
       }
 
       const messages = messageList.map(message => new MessageView(message, mq, transportDeliveryTimestamp));
@@ -107,7 +107,7 @@ export abstract class Consumer extends BaseClient {
       return messages;
     } catch (err) {
       this.logger.error('Failed to receive messages, topic=%s, endpoints=%s, clientId=%s, error=%s',
-        request.getMessageQueue()?.getTopic()?.getName(), endpoints, (this as any).clientId, err);
+        request.getMessageQueue()?.getTopic()?.getName(), endpoints, this.clientId, err);
       this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), []);
       throw err;
     }
@@ -131,7 +131,6 @@ export abstract class Consumer extends BaseClient {
     let hookStatus = MessageHookPointsStatus.OK;
     try {
       const res = await this.rpcClientManager.ackMessage(endpoints, request, this.requestTimeout);
-      // FIXME: handle fail ack
       const response = res.toObject();
       hookStatus = response.status?.code === Code.OK ? MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
       StatusChecker.check(response.status);
@@ -241,7 +240,7 @@ export abstract class Consumer extends BaseClient {
    * @return true if this is a LITE_PUSH_CONSUMER or LITE_SIMPLE_CONSUMER
    */
   protected isLiteConsumer(): boolean {
-    const clientType = (this as any).getClientType?.();
+    const clientType = this.getClientType();
     return clientType === ClientType.LITE_PUSH_CONSUMER || clientType === ClientType.LITE_SIMPLE_CONSUMER;
   }
 }

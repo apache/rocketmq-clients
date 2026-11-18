@@ -63,6 +63,13 @@ export class OffsetOption {
     this.value = value;
   }
 
+  private static toBigInt(value: number | bigint, name: string): bigint {
+    if (typeof value === 'number' && !Number.isSafeInteger(value)) {
+      throw new RangeError(`${name} must be a safe integer when provided as number`);
+    }
+    return typeof value === 'number' ? BigInt(value) : value;
+  }
+
   /**
    * Create an OffsetOption from a specific offset.
    *
@@ -71,7 +78,7 @@ export class OffsetOption {
    * @throws Error if offset is negative
    */
   static ofOffset(offset: number | bigint): OffsetOption {
-    const value = typeof offset === 'number' ? BigInt(offset) : offset;
+    const value = OffsetOption.toBigInt(offset, 'offset');
     if (value < BigInt(0)) {
       throw new Error('offset must be greater than or equal to 0');
     }
@@ -86,7 +93,7 @@ export class OffsetOption {
    * @throws Error if tailN is negative
    */
   static ofTailN(tailN: number | bigint): OffsetOption {
-    const value = typeof tailN === 'number' ? BigInt(tailN) : tailN;
+    const value = OffsetOption.toBigInt(tailN, 'tailN');
     if (value < BigInt(0)) {
       throw new Error('tailN must be greater than or equal to 0');
     }
@@ -101,7 +108,7 @@ export class OffsetOption {
    * @throws Error if timestamp is negative
    */
   static ofTimestamp(timestamp: number | bigint): OffsetOption {
-    const value = typeof timestamp === 'number' ? BigInt(timestamp) : timestamp;
+    const value = OffsetOption.toBigInt(timestamp, 'timestamp');
     if (value < BigInt(0)) {
       throw new Error('timestamp must be greater than or equal to 0');
     }
