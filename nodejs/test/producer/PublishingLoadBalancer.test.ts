@@ -22,7 +22,6 @@
  * routed to different queues than the Java client.
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { PublishingLoadBalancer } from '../../src/producer';
 import { TopicRouteData } from '../../src/route';

@@ -20,7 +20,6 @@
  * LiteSubscriptionManager. No broker required.
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import {
   Broker as BrokerPB,

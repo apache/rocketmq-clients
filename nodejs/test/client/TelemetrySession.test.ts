@@ -26,7 +26,6 @@
  * exponential backoff until release().
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { EventEmitter } from 'node:events';
 import { TelemetrySession } from '../../src/client/TelemetrySession';

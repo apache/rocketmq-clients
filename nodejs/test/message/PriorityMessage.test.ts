@@ -19,7 +19,6 @@
  * Test for Priority Message
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { Message } from '../../src/message/Message';
 import { PublishingMessage } from '../../src/message/PublishingMessage';

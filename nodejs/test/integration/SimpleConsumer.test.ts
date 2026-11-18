@@ -21,9 +21,9 @@ import {
   SimpleConsumer, FilterExpression,
   Producer,
 } from '../../src';
-import { topics, endpoints, sessionCredentials, namespace } from '../helper';
+import { topics, endpoints, sessionCredentials, namespace, describeIntegration } from '../helper';
 
-describe('test/consumer/SimpleConsumer.test.ts', () => {
+describeIntegration('test/integration/SimpleConsumer.test.ts', () => {
   let producer: Producer | null = null;
   let simpleConsumer: SimpleConsumer | null = null;
   afterEach(async () => {

@@ -26,7 +26,6 @@
  *  - PushConsumer settlement hooks (K-4)
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { Endpoints } from '../src/route';
 import { Producer } from '../src/producer';

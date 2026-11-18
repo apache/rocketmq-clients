@@ -24,7 +24,6 @@
  *    LITE_SUBSCRIPTION_QUOTA_EXCEEDED)
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import {

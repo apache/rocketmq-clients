@@ -33,7 +33,6 @@
  * test asserts the late assignment can no longer resurrect the loop.
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { EventEmitter } from 'node:events';
 import { PushConsumer } from '../../src/consumer/PushConsumer';
@@ -86,7 +85,7 @@ describe('PushConsumer shutdown vs in-flight assignment scan race', () => {
       namespace: '',
       consumerGroup: 'cg-race',
       subscriptions: new Map([[ 'topic-a', new FilterExpression('*') ]]),
-      messageListener: async () => 0 as never,
+      messageListener: { consume: async () => 0 as never },
     } as never);
 
     let receiveCalls = 0;

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { Semaphore } from '../../src/util/Semaphore';
 
