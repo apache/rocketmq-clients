@@ -27,10 +27,14 @@ export interface ILogger {
   close?(...args: any[]): void;
 }
 
+let defaultLogger: EggLogger | undefined;
+
 export function getDefaultLogger() {
-  const file = path.join(homedir(), 'logs/rocketmq/rocketmq_client_nodejs.log');
-  return new EggLogger({
-    file,
-    level: 'INFO',
-  });
+  if (!defaultLogger) {
+    const file = path.join(homedir(), 'logs/rocketmq/rocketmq_client_nodejs.log');
+    // The shared logger is never closed, so disable buffering: its flush interval
+    // would keep the process alive and buffered lines would be lost on exit.
+    defaultLogger = new EggLogger({ file, level: 'INFO', buffer: false });
+  }
+  return defaultLogger;
 }
