@@ -457,15 +457,31 @@ impl Session {
         })?;
 
         let mut request = tonic::Request::new(ReceiverStream::new(rx));
+        // No `grpc-timeout` here: it would end the long-lived stream. Bound only the wait for
+        // the response headers instead, otherwise a peer that accepts the connection but never
+        // answers (and still acks HTTP/2 pings) keeps the caller, and the session map lock it
+        // holds, waiting forever.
         self.sign_without_timeout(request.metadata_mut());
-        let response = self.stub.telemetry(request).await.map_err(|e| {
-            ClientError::new(
-                ErrorKind::ClientInternal,
-                "send rpc telemetry failed",
-                OPERATION_START,
-            )
-            .set_source(e)
-        })?;
+        let timeout = *self.option.timeout();
+        let response = tokio::time::timeout(timeout, self.stub.telemetry(request))
+            .await
+            .map_err(|_| {
+                ClientError::new(
+                    ErrorKind::ClientInternal,
+                    "rpc telemetry timed out",
+                    OPERATION_START,
+                )
+                .with_context("peer", self.peer())
+                .with_context("timeout", format!("{timeout:?}"))
+            })?
+            .map_err(|e| {
+                ClientError::new(
+                    ErrorKind::ClientInternal,
+                    "send rpc telemetry failed",
+                    OPERATION_START,
+                )
+                .set_source(e)
+            })?;
 
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
 
@@ -1138,5 +1154,144 @@ mod tests {
             std::time::Duration::from_secs(13),
             "the deadline must follow the shared long_polling_timeout"
         );
+    }
+
+    /// A gRPC peer that completes the HTTP/2 handshake and answers keep-alive pings, but
+    /// never sends the response headers of any call (`answer_headers = false`), or sends
+    /// them and then keeps the response stream open forever (`answer_headers = true`).
+    ///
+    /// Like a real server, it ends a call that carries a deadline (`grpc-timeout`); it does
+    /// so right away instead of waiting for the deadline to expire.
+    async fn start_silent_server(answer_headers: bool) -> std::net::SocketAddr {
+        use ::tonic::codegen::{http, BoxFuture, Bytes, Service};
+        use std::pin::Pin;
+        use std::task::{Context, Poll};
+
+        /// A response body that never yields a frame nor ends.
+        struct OpenBody;
+        impl ::tonic::codegen::Body for OpenBody {
+            type Data = Bytes;
+            type Error = ::tonic::Status;
+            fn poll_data(
+                self: Pin<&mut Self>,
+                _: &mut Context<'_>,
+            ) -> Poll<Option<Result<Bytes, ::tonic::Status>>> {
+                Poll::Pending
+            }
+            fn poll_trailers(
+                self: Pin<&mut Self>,
+                _: &mut Context<'_>,
+            ) -> Poll<Result<Option<http::HeaderMap>, ::tonic::Status>> {
+                Poll::Pending
+            }
+        }
+
+        #[derive(Clone)]
+        struct Silent {
+            answer_headers: bool,
+        }
+        impl ::tonic::server::NamedService for Silent {
+            const NAME: &'static str = "apache.rocketmq.v2.MessagingService";
+        }
+        impl<B> Service<http::Request<B>> for Silent {
+            type Response = http::Response<::tonic::body::BoxBody>;
+            type Error = std::convert::Infallible;
+            type Future = BoxFuture<Self::Response, Self::Error>;
+            fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+                Poll::Ready(Ok(()))
+            }
+            fn call(&mut self, request: http::Request<B>) -> Self::Future {
+                if !self.answer_headers {
+                    return Box::pin(std::future::pending());
+                }
+                if request.headers().contains_key("grpc-timeout") {
+                    let response = http::Response::builder()
+                        .status(200)
+                        .header("content-type", "application/grpc")
+                        .header("grpc-status", "4")
+                        .body(::tonic::codegen::empty_body())
+                        .unwrap();
+                    return Box::pin(async move { Ok(response) });
+                }
+                let response = http::Response::builder()
+                    .status(200)
+                    .header("content-type", "application/grpc")
+                    .body(::tonic::codegen::Body::boxed_unsync(OpenBody))
+                    .unwrap();
+                Box::pin(async move { Ok(response) })
+            }
+        }
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let incoming = futures::stream::unfold(listener, |listener| async move {
+            let accepted = listener.accept().await.map(|(stream, _)| stream);
+            Some((accepted, listener))
+        });
+        tokio::spawn(
+            ::tonic::transport::Server::builder()
+                .add_service(Silent { answer_headers })
+                .serve_with_incoming(incoming),
+        );
+        addr
+    }
+
+    async fn session_to(addr: std::net::SocketAddr, timeout: std::time::Duration) -> Session {
+        let mut option = ClientOption::default();
+        option.set_timeout(timeout);
+        Session::new(
+            &Endpoints::from_url(&addr.to_string()).unwrap(),
+            "test_client".to_string(),
+            &option,
+            Arc::new(parking_lot::RwLock::new(std::time::Duration::from_secs(40))),
+        )
+        .await
+        .unwrap()
+    }
+
+    /// An endpoint that accepts the connection but never answers the telemetry call must
+    /// not keep `start` pending past `ClientOption::timeout` (#1478). HTTP/2 keep-alive
+    /// does not help here, since the peer answers pings.
+    #[tokio::test]
+    async fn session_start_fails_within_timeout_when_telemetry_is_never_answered() {
+        let timeout = std::time::Duration::from_millis(500);
+        let mut session = session_to(start_silent_server(false).await, timeout).await;
+        let (telemetry_command_tx, _telemetry_command_rx) = mpsc::channel(16);
+
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            session.start(TelemetryCommand::default(), telemetry_command_tx),
+        )
+        .await
+        .expect("session.start must give up after ClientOption::timeout");
+
+        let error = result.expect_err("an unanswered telemetry call must fail");
+        assert_eq!(error.kind, ErrorKind::ClientInternal);
+        assert_eq!(error.operation, OPERATION_START);
+        assert!(!session.is_started());
+    }
+
+    /// The bound only covers opening the telemetry stream: once the server answered, the
+    /// long-lived stream must outlive `ClientOption::timeout`.
+    #[tokio::test]
+    async fn telemetry_stream_outlives_timeout_once_answered() {
+        let timeout = std::time::Duration::from_millis(300);
+        let mut session = session_to(start_silent_server(true).await, timeout).await;
+        let (stream_closed_tx, mut stream_closed_rx) = mpsc::channel(1);
+        session.set_stream_closed_tx(stream_closed_tx);
+        let (telemetry_command_tx, _telemetry_command_rx) = mpsc::channel(16);
+
+        session
+            .start(TelemetryCommand::default(), telemetry_command_tx)
+            .await
+            .unwrap();
+
+        assert!(
+            tokio::time::timeout(timeout * 4, stream_closed_rx.recv())
+                .await
+                .is_err(),
+            "the telemetry stream must not be closed by ClientOption::timeout"
+        );
+        assert!(session.is_started());
     }
 }
