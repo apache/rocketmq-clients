@@ -48,6 +48,7 @@ import { PublishingLoadBalancer } from './PublishingLoadBalancer';
 import { SendReceipt } from './SendReceipt';
 import { Transaction } from './Transaction';
 import { createResource } from '../util';
+import { getRequestId } from '../util/rpcContext';
 import { RecallReceipt } from './RecallReceipt';
 import { RecallMessageRequest } from '../../proto/apache/rocketmq/v2/service_pb';
 import {
@@ -133,7 +134,7 @@ export class Producer extends BaseClient {
       const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
       const statusObj = response.getStatus()?.toObject();
       const hookStatus = statusObj?.code === Code.OK ? MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
-      StatusChecker.check(statusObj);
+      StatusChecker.check(statusObj, getRequestId(response));
       this.doAfter(MessageInterceptorContextImpl.withStatus(context, hookStatus), generalMessages);
 
       this.logger.debug?.('End transaction successfully, messageId=%s, transactionId=%s, resolution=%s, source=%s, clientId=%s',

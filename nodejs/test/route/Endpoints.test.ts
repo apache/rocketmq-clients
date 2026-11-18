@@ -36,6 +36,51 @@ function endpointsFromPb(scheme: AddressScheme, host: string, port: number): End
   return new Endpoints(pb.toObject());
 }
 
+describe('Endpoints 表驱动解析与往返', () => {
+  const cases = [
+    [ '127.0.0.1', AddressScheme.IPV4, 'ip:127.0.0.1:80' ],
+    [ 'http://127.0.0.1:1', AddressScheme.IPV4, 'ip:127.0.0.1:1' ],
+    [ 'https://example.com', AddressScheme.DOMAIN_NAME, 'dns:example.com:80' ],
+    [ 'example.com:65535', AddressScheme.DOMAIN_NAME, 'dns:example.com:65535' ],
+    [ '::1', AddressScheme.IPV6, 'ip:[::1]:80' ],
+    [ '[::1]', AddressScheme.IPV6, 'ip:[::1]:80' ],
+    [ '[::1]:8081', AddressScheme.IPV6, 'ip:[::1]:8081' ],
+    [ '[::1]:8081;[::2]:8082', AddressScheme.IPV6, 'ip:[::1]:8081,[::2]:8082' ],
+    [ ' example.com:80 ; example.org:81 ', AddressScheme.DOMAIN_NAME, 'dns:example.com:80,example.org:81' ],
+  ] as const;
+  for (const [ input, scheme, target ] of cases) {
+    it(`${input} 保留合法解析和 protobuf 往返`, () => {
+      const endpoints = new Endpoints(input);
+      assert.strictEqual(endpoints.scheme, scheme);
+      assert.strictEqual(endpoints.getGrpcTarget(), target);
+      const copy = new Endpoints(EndpointsPB.deserializeBinary(endpoints.toProtobuf().serializeBinary()).toObject());
+      assert.ok(endpoints.equals(copy));
+      assert.ok(endpoints.equals(endpoints));
+      assert.strictEqual(copy.hashCode(), endpoints.hashCode());
+      assert.strictEqual(copy.toString(), endpoints.facade);
+      assert.strictEqual(copy.getGrpcTarget(), target);
+    });
+  }
+
+  for (const input of [
+    '', 'host:', 'host:abc', 'host:80abc', 'host:0', 'host:-1', 'host:65536', 'host:1.5',
+    '[::1]:0', '[::1]:65536', '[::1', '[bad]:80', '::gg', '[::1]:abc',
+    '127.0.0.1;example.com', 'example.com;127.0.0.1', '127.0.0.1;::1', '::1;127.0.0.1',
+  ]) {
+    it(`${input} 在构造时抛 TypeError`, () => {
+      assert.throws(() => new Endpoints(input), TypeError);
+    });
+  }
+
+  it('scheme、地址和顺序差异影响 equals', () => {
+    const endpoints = new Endpoints('127.0.0.1:80;127.0.0.2:81');
+    assert.strictEqual(endpoints.equals(undefined as unknown as Endpoints), false);
+    assert.strictEqual(endpoints.equals(new Endpoints('127.0.0.1:80')), false);
+    assert.strictEqual(endpoints.equals(new Endpoints('127.0.0.2:81;127.0.0.1:80')), false);
+    assert.strictEqual(endpoints.equals(new Endpoints({ scheme: AddressScheme.DOMAIN_NAME, addressesList: endpoints.addressesList })), false);
+  });
+});
+
 describe('Endpoints.getGrpcTarget with resolver scheme (custom ip resolver)', () => {
   it('should prefix ip: scheme for IPv4 addresses', () => {
     assert.strictEqual(new Endpoints('127.0.0.1:10911').getGrpcTarget(), 'ip:127.0.0.1:10911');

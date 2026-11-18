@@ -29,6 +29,7 @@ import { MessageView } from '../message';
 import { Broker, MessageQueue, TopicRouteData } from '../route';
 import { MessageQueue as MessageQueuePB, Broker as BrokerPB } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { StatusChecker } from '../exception';
+import { getRequestId } from '../util/rpcContext';
 import { RetryPolicy } from '../retry';
 import { createDuration, createResource } from '../util';
 import { Consumer, ConsumerOptions } from './Consumer';
@@ -547,7 +548,7 @@ export class PushConsumer extends Consumer {
     if (!status) {
       throw new Error('Missing status in query assignment response');
     }
-    StatusChecker.check(status.toObject());
+    StatusChecker.check(status.toObject(), getRequestId(response));
 
     const assignmentList = response.getAssignmentsList().map(assignment => {
       const mqPb = assignment.getMessageQueue()!;

@@ -40,7 +40,7 @@ export class MessageQueue {
   toProtobuf() {
     const messageQueue = new MessageQueuePB();
     messageQueue.setId(this.queueId);
-    messageQueue.setTopic(createResource(this.topic.name));
+    messageQueue.setTopic(createResource(this.topic.name).setResourceNamespace(this.topic.resourceNamespace));
     messageQueue.setBroker(this.broker.toProtobuf());
     messageQueue.setPermission(this.permission);
     messageQueue.setAcceptMessageTypesList(this.acceptMessageTypesList);
@@ -52,6 +52,7 @@ export class MessageQueue {
     if (!other) return false;
     return this.queueId === other.queueId &&
       this.topic.name === other.topic.name &&
+      this.topic.resourceNamespace === other.topic.resourceNamespace &&
       this.broker.equals(other.broker) &&
       this.permission === other.permission;
   }
@@ -62,6 +63,10 @@ export class MessageQueue {
     hash = (hash * 31 + this.queueId) | 0;
     // eslint-disable-next-line no-bitwise
     hash = (hash * 31 + hashCodeOfString(this.topic.name)) | 0;
+    if (this.topic.resourceNamespace) {
+      // eslint-disable-next-line no-bitwise
+      hash = (hash * 31 + hashCodeOfString(this.topic.resourceNamespace)) | 0;
+    }
     // eslint-disable-next-line no-bitwise
     hash = (hash * 31 + this.broker.hashCode()) | 0;
     // eslint-disable-next-line no-bitwise

@@ -69,6 +69,30 @@ describe('Semaphore (consumption permit primitive)', () => {
     assert.strictEqual(s.availablePermits, 0);
   });
 
+  it('release 可以超过初值，不设置隐含上限', async () => {
+    const s = new Semaphore(1);
+    s.release();
+    s.release();
+    assert.strictEqual(s.availablePermits, 3);
+    await s.acquire();
+    assert.strictEqual(s.availablePermits, 2);
+  });
+
+  it('逐次唤醒 FIFO 等待者，尚未分配的等待者不提前执行', async () => {
+    const s = new Semaphore(0);
+    const order: number[] = [];
+    const first = s.acquire().then(() => order.push(1));
+    const second = s.acquire().then(() => order.push(2));
+    s.release();
+    await first;
+    assert.deepStrictEqual(order, [ 1 ]);
+    assert.strictEqual(s.tryAcquire(), false);
+    s.release();
+    await second;
+    assert.deepStrictEqual(order, [ 1, 2 ]);
+    assert.strictEqual(s.availablePermits, 0);
+  });
+
   it('release hands the permit to a waiter without incrementing the pool', () => {
     const s = new Semaphore(0);
     const p = s.acquire();

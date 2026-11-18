@@ -49,7 +49,8 @@ export class Endpoints {
             throw new TypeError(`Invalid IPv6 endpoint: ${endpoint}`);
           }
           host = match[1];
-          port = match[2] ? parseInt(match[2], 10) : DEFAULT_PORT;
+          if (!isIPv6(host)) throw new TypeError(`Invalid IPv6 endpoint: ${endpoint}`);
+          port = match[2] ? Number(match[2]) : DEFAULT_PORT;
         } else if (isIPv6(candidate)) {
           // Bare IPv6 address without brackets, e.g. ::1
           host = candidate;
@@ -59,19 +60,26 @@ export class Endpoints {
           const index = candidate.lastIndexOf(':');
           if (index > 0) {
             host = candidate.substring(0, index);
-            port = parseInt(candidate.substring(index + 1), 10) || DEFAULT_PORT;
+            const portText = candidate.substring(index + 1);
+            if (!/^\d+$/.test(portText)) throw new TypeError(`Invalid endpoint port: ${endpoint}`);
+            port = Number(portText);
           } else {
             host = candidate;
             port = DEFAULT_PORT;
           }
         }
-        if (isIPv4(host)) {
-          this.scheme = AddressScheme.IPV4;
-        } else if (isIPv6(host)) {
-          this.scheme = AddressScheme.IPV6;
-        } else {
-          this.scheme = AddressScheme.DOMAIN_NAME;
+        if (!host || (host.includes(':') && !isIPv6(host))) {
+          throw new TypeError(`Invalid endpoint host: ${endpoint}`);
         }
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+          throw new TypeError(`Invalid endpoint port: ${endpoint}`);
+        }
+        const scheme = isIPv4(host) ? AddressScheme.IPV4
+          : isIPv6(host) ? AddressScheme.IPV6 : AddressScheme.DOMAIN_NAME;
+        if (this.addressesList.length > 0 && this.scheme !== scheme) {
+          throw new TypeError('Mixed address schemes are not supported');
+        }
+        this.scheme = scheme;
         this.addressesList.push({ host, port });
       }
     } else {

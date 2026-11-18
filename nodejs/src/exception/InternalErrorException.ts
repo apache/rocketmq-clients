@@ -18,11 +18,13 @@
 import { ClientException } from './ClientException';
 
 export class InternalErrorException extends ClientException {
+  readonly retryable = true;
+
   constructor(code: number, message: string, requestId?: string) {
     super(code, message, requestId);
     this.name = 'InternalErrorException';
     // Mark this as a potentially retryable error (temporary server-side issue)
-    (this as any).retryable = true;
+    // retryable 由类字段显式声明。
   }
 
   /**
