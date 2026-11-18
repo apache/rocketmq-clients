@@ -59,6 +59,9 @@ export class RpcClientManager {
     this.#clearIdleRpcClientsTimer = setInterval(() => {
       this.#clearIdleRpcClients();
     }, RPC_CLIENT_IDLE_CHECK_PERIOD);
+    // Housekeeping only: a client that is constructed but never started must
+    // not keep the process alive.
+    this.#clearIdleRpcClientsTimer.unref();
   }
 
   #clearIdleRpcClients() {
@@ -67,7 +70,7 @@ export class RpcClientManager {
       if (idleDuration > RPC_CLIENT_MAX_IDLE_DURATION) {
         rpcClient.close();
         this.#rpcClients.delete(facade);
-        this.#logger.info('[RpcClientManager] Rpc client has been idle for a long time, endpoints=%s, idleDuration=%s, clientId=%s',
+        this.#logger.info('[RpcClientManager] Rpc client has been idle for a long time, endpoints=%s, idleDuration=%dms, maxIdleDuration=%dms, clientId=%s',
           facade, idleDuration, RPC_CLIENT_MAX_IDLE_DURATION, this.#baseClient.clientId);
       }
     }

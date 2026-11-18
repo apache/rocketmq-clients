@@ -25,7 +25,8 @@ export class TelemetrySession {
   #endpoints: Endpoints;
   #baseClient: BaseClient;
   #logger: ILogger;
-  #stream: ClientDuplexStream<TelemetryCommand, TelemetryCommand>;
+  // Live stream, or undefined while closed (released or awaiting reconnect).
+  #stream?: ClientDuplexStream<TelemetryCommand, TelemetryCommand>;
   #isRefreshing = false;
   #released = false;
   #reconnectTimer?: NodeJS.Timeout;
@@ -57,9 +58,17 @@ export class TelemetrySession {
   }
 
   #closeStream() {
+    const stream = this.#stream;
+    if (!stream) {
+      return;
+    }
+    this.#stream = undefined;
     try {
-      this.#stream.end();
-      this.#stream.removeAllListeners();
+      stream.removeAllListeners();
+      // The remote may still finish the call with a non-OK status after the
+      // half-close; an 'error' event without any listener would crash the process.
+      stream.on('error', () => undefined);
+      stream.end();
     } catch (e) {
       this.#logger.warn('Failed to release telemetry session gracefully, endpoints=%s, clientId=%s, error=%s',
         this.#endpoints, this.#baseClient.clientId, e instanceof Error ? e.message : String(e));
@@ -67,7 +76,19 @@ export class TelemetrySession {
   }
 
   write(command: TelemetryCommand) {
-    this.#stream.write(command);
+    const stream = this.#stream;
+    if (!stream) {
+      // Released, or waiting for reconnect: the renewed stream syncs settings itself.
+      this.#logger.warn('Telemetry stream is not available, drop the command, endpoints=%s, clientId=%s, released=%s',
+        this.#endpoints, this.#baseClient.clientId, this.#released);
+      return;
+    }
+    try {
+      stream.write(command);
+    } catch (e) {
+      this.#logger.error('Failed to write telemetry command, endpoints=%s, clientId=%s, error=%s',
+        this.#endpoints, this.#baseClient.clientId, e instanceof Error ? e.message : String(e));
+    }
   }
 
   syncSettings() {
@@ -108,10 +129,11 @@ export class TelemetrySession {
     try {
       this.#logger.debug?.('Creating telemetry stream, endpoints=%s, clientId=%s, inited=%s',
         this.#endpoints, this.#baseClient.clientId, inited);
-      this.#stream = this.#baseClient.createTelemetryStream(this.#endpoints);
-      this.#stream.on('data', this.#onData.bind(this));
-      this.#stream.once('error', this.#onError.bind(this));
-      this.#stream.once('end', this.#onEnd.bind(this));
+      const stream = this.#baseClient.createTelemetryStream(this.#endpoints);
+      stream.on('data', this.#onData.bind(this));
+      stream.once('error', this.#onError.bind(this));
+      stream.once('end', this.#onEnd.bind(this));
+      this.#stream = stream;
       if (!inited) {
         this.#logger.info('Syncing settings to new stream, endpoints=%s, clientId=%s',
           this.#endpoints, this.#baseClient.clientId);
@@ -127,6 +149,17 @@ export class TelemetrySession {
   #onData(command: TelemetryCommand) {
     // Inbound data proves the stream is alive: reset the reconnect backoff.
     this.#reconnectAttempts = 0;
+    try {
+      this.#dispatch(command);
+    } catch (e) {
+      // Mirrors Java ClientSessionImpl#onNext: a failing handler must not
+      // escape the stream callback as an uncaughtException.
+      this.#logger.error('[Bug] Unexpected exception raised while receiving command from remote, endpoints=%s, clientId=%s, error=%s',
+        this.#endpoints, this.#baseClient.clientId, e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  #dispatch(command: TelemetryCommand) {
     const endpoints = this.#endpoints;
     const clientId = this.#baseClient.clientId;
     const commandCase = command.getCommandCase();

@@ -16,6 +16,8 @@
  */
 
 import { strict as assert } from 'node:assert';
+import { Readable } from 'node:stream';
+import * as sinon from 'sinon';
 import {
   Server,
   ServerCredentials,
@@ -24,7 +26,7 @@ import {
   sendUnaryData,
   Metadata,
 } from '@grpc/grpc-js';
-import { MessagingServiceService } from '../../proto/apache/rocketmq/v2/service_grpc_pb';
+import { MessagingServiceClient, MessagingServiceService } from '../../proto/apache/rocketmq/v2/service_grpc_pb';
 import { TelemetryCommand, HeartbeatRequest, HeartbeatResponse } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Code, Status } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { RpcClient } from '../../src/client/RpcClient';
@@ -146,5 +148,75 @@ describe('test/client/RpcClient.test.ts', () => {
       stream.destroy();
       client.close();
     }
+  });
+});
+
+describe('RpcClient call options', () => {
+  const unaryMethods = [
+    'queryRoute', 'heartbeat', 'sendMessage', 'queryAssignment', 'ackMessage',
+    'forwardMessageToDeadLetterQueue', 'updateOffset', 'getOffset', 'queryOffset',
+    'endTransaction', 'notifyClientTermination', 'changeInvisibleDuration',
+    'recallMessage', 'syncLiteSubscription',
+  ] as const;
+  const streamingMethods = [ 'receiveMessage', 'pullMessage' ] as const;
+  const current = {} as { clock: sinon.SinonFakeTimers; client: RpcClient };
+
+  beforeEach(() => {
+    current.clock = sinon.useFakeTimers({ now: 1000000 });
+    current.client = new RpcClient(new Endpoints('127.0.0.1:8081'), false);
+  });
+
+  afterEach(() => {
+    current.client.close();
+    current.clock.restore();
+    sinon.restore();
+  });
+
+  function callOf(method: string) {
+    return (current.client as any)[method].bind(current.client);
+  }
+
+  for (const method of unaryMethods) {
+    it(`${method} sets the deadline and passes the response and the error through`, async () => {
+      const response = { method };
+      const failure = new Error(`${method} failed`);
+      const stub = sinon.stub(MessagingServiceClient.prototype, method as never) as sinon.SinonStub;
+      stub.onFirstCall().callsFake((_req, _md, _options, callback) => callback(null, response));
+      stub.onSecondCall().callsFake((_req, _md, _options, callback) => callback(failure));
+      const call = callOf(method);
+
+      assert.strictEqual(await call({}, new Metadata(), 3000), response);
+      assert.deepStrictEqual(stub.firstCall.args[2], { deadline: 1000000 + 3000 });
+      await assert.rejects(call({}, new Metadata(), 5000), err => err === failure);
+      assert.deepStrictEqual(stub.secondCall.args[2], { deadline: 1000000 + 5000 });
+    });
+  }
+
+  for (const method of streamingMethods) {
+    it(`${method} sets the deadline, collects every response and passes the error through`, async () => {
+      const failure = new Error(`${method} failed`);
+      const stub = sinon.stub(MessagingServiceClient.prototype, method as never) as sinon.SinonStub;
+      stub.onFirstCall().returns(Readable.from([ 'r1', 'r2' ]));
+      stub.onSecondCall().returns(new Readable({
+        objectMode: true,
+        read() {
+          this.destroy(failure);
+        },
+      }));
+      const call = callOf(method);
+
+      assert.deepStrictEqual(await call({}, new Metadata(), 3000), [ 'r1', 'r2' ]);
+      assert.deepStrictEqual(stub.firstCall.args[2], { deadline: 1000000 + 3000 });
+      await assert.rejects(call({}, new Metadata(), 3000), err => err === failure);
+    });
+  }
+
+  it('tracks the idle duration from the last call', async () => {
+    const stub = sinon.stub(MessagingServiceClient.prototype, 'heartbeat' as never) as sinon.SinonStub;
+    stub.callsFake((_req, _md, _options, callback) => callback(null, {}));
+    current.clock.tick(5000);
+    assert.strictEqual(current.client.idleDuration(), 5000);
+    await current.client.heartbeat(new HeartbeatRequest(), new Metadata(), 3000);
+    assert.strictEqual(current.client.idleDuration(), 0);
   });
 });
