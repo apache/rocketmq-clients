@@ -24,7 +24,7 @@ import {
 import { Endpoints } from '../route';
 import { ILogger } from '../client/Logger';
 import { RpcClientManager } from '../client/RpcClientManager';
-import { ClientException } from '../exception';
+import { ClientException, LiteSubscriptionQuotaExceededException } from '../exception';
 import { Resource } from '../route/Resource';
 import { OffsetOption } from './OffsetOption';
 
@@ -84,6 +84,9 @@ export class LiteSubscriptionManager {
    * Start periodic sync of lite subscriptions.
    */
   public startUp() {
+    if (this.syncTimer) {
+      return;
+    }
     // syncAll after startup for subscribeLite("*")
     this.syncAllLiteSubscription();
     this.syncTimer = setInterval(
@@ -152,7 +155,7 @@ export class LiteSubscriptionManager {
   ): Promise<void> {
     // Check if consumer is running
     if (!this.host.isRunning()) {
-      throw new ClientException(500, 'Consumer is not running');
+      throw new Error('Consumer is not running');
     }
 
     // Already subscribed
@@ -197,7 +200,7 @@ export class LiteSubscriptionManager {
   public async unsubscribeLite(liteTopic: string): Promise<void> {
     // Check if consumer is running
     if (!this.host.isRunning()) {
-      throw new ClientException(500, 'Consumer is not running');
+      throw new Error('Consumer is not running');
     }
 
     // Not subscribed
@@ -363,8 +366,9 @@ export class LiteSubscriptionManager {
    */
   private checkLiteSubscriptionQuota(delta: number) {
     if (this.liteTopicSet.size + delta > this.liteSubscriptionQuota) {
-      throw new ClientException(
-        429,
+      throw new LiteSubscriptionQuotaExceededException(
+        Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED,
+        null,
         `Lite subscription quota exceeded ${this.liteSubscriptionQuota}`,
       );
     }
