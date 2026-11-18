@@ -46,6 +46,11 @@ export interface SimpleConsumerOptions extends ConsumerOptions {
   awaitDuration?: number;
   /**
    * max retry attempts for temporary errors (e.g., internal server error), default is 3
+   * 包含首次请求，必须为正安全整数；设为 1 时不重试。
+   * 与 Java 的单次 receive 不同，Node 保留已有重试配置。
+   * 路由就绪后的 RPC 等待及退避预算最多为
+   * maxRetryAttempts * (requestTimeout + awaitDuration) + (maxRetryAttempts - 1) * 1000ms，
+   * 不包含路由查询、消息解码、hook 和事件循环调度耗时。
    */
   maxRetryAttempts?: number;
 }
@@ -64,6 +69,10 @@ export class SimpleConsumer extends Consumer {
     }
     if (!(options.subscriptions instanceof Map) || options.subscriptions.size === 0) {
       throw new TypeError('subscriptions must be a non-empty Map');
+    }
+    if (options.maxRetryAttempts !== undefined &&
+      (!Number.isSafeInteger(options.maxRetryAttempts) || options.maxRetryAttempts <= 0)) {
+      throw new TypeError('maxRetryAttempts must be a positive safe integer');
     }
     options.topics = Array.from(options.subscriptions.keys());
     super(options);
@@ -158,31 +167,18 @@ export class SimpleConsumer extends Consumer {
     const request = this.wrapReceiveMessageRequest(maxMessageNum, mq, filterExpression,
       invisibleDuration, this.#awaitDuration);
 
-    // Retry logic for temporary errors
-    let lastError: Error | undefined;
-    for (let attempt = 1; attempt <= this.#maxRetryAttempts; attempt++) {
+    for (let attempt = 1; ; attempt++) {
       try {
         return await this.receiveMessage(request, mq, this.#awaitDuration);
       } catch (err) {
-        lastError = err as Error;
-
-        // Only retry on internal server errors (temporary errors)
-        if (err instanceof InternalErrorException) {
-          if (attempt < this.#maxRetryAttempts) {
-            this.logger.warn('Received temporary error from server, will retry after %dms, attempt=%d/%d, topic=%s, clientId=%s, error=%s',
-              RETRY_DELAY_MS, attempt, this.#maxRetryAttempts, topic, this.clientId, err.message);
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-            continue;
-          }
+        if (!(err instanceof InternalErrorException) || attempt >= this.#maxRetryAttempts) {
+          throw err;
         }
-
-        // For non-retryable errors or max attempts reached, throw immediately
-        throw err;
+        this.logger.warn('Received temporary error from server, will retry after %dms, attempt=%d/%d, topic=%s, clientId=%s, error=%s',
+          RETRY_DELAY_MS, attempt, this.#maxRetryAttempts, topic, this.clientId, err.message);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
       }
     }
-
-    // This should never be reached, but just in case
-    throw lastError;
   }
 
   async ack(message: MessageView) {
@@ -197,8 +193,13 @@ export class SimpleConsumer extends Consumer {
       throw new Error('Simple consumer is not running, cannot change invisible duration');
     }
     const response = await this.invisibleDuration(message, invisibleDuration);
-    // Refresh receipt handle manually
-    (message as any).receiptHandle = response;
+    this.#refreshReceiptHandle(message, response);
+  }
+
+  #refreshReceiptHandle(message: MessageView, receiptHandle: string) {
+    // receiptHandle 对调用方只读，SDK 在成功续期后内部更新；保留 MessageView 的公开签名。
+    const mutableMessage = message as { receiptHandle: string };
+    mutableMessage.receiptHandle = receiptHandle;
   }
 
   #nextTopic() {
