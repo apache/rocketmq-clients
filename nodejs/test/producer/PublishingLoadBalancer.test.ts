@@ -24,7 +24,7 @@
 
 import * as assert from 'node:assert';
 import { PublishingLoadBalancer } from '../../src/producer';
-import { TopicRouteData } from '../../src/route';
+import { Endpoints, MessageQueue, TopicRouteData } from '../../src/route';
 import { calculateStringSipHash24 } from '../../src/util';
 import {
   MessageQueue as MessageQueuePB,
@@ -34,10 +34,10 @@ import {
   Permission,
   AddressScheme,
 } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { buildRoute } from '../support/protobuf';
 
 describe('takeMessageQueueByMessageGroup floorMod semantics (C-1)', () => {
-  // One queue (queueId=0, the writable master queue) per broker across queueCount brokers,
-  // since PublishingLoadBalancer only keeps queues with queueId === MASTER_BROKER_ID (0).
+  // One writable master queue per broker across queueCount brokers.
   // The returned queue is identified by its broker endpoints port (10911 + expected index).
   function buildLoadBalancer(queueCount: number): PublishingLoadBalancer {
     const pbs: MessageQueuePB[] = [];
@@ -88,5 +88,112 @@ describe('takeMessageQueueByMessageGroup floorMod semantics (C-1)', () => {
     const signedHash = BigInt.asIntN(64, calculateStringSipHash24(negativeGroup!));
     const expectedIndex = Number(((signedHash % 4n) + 4n) % 4n);
     assert.strictEqual(mq.broker.endpoints.facade, '127.0.0.1:' + (10911 + expectedIndex));
+  });
+});
+
+describe('PublishingLoadBalancer queue selection', () => {
+  const TWO_BROKERS = [
+    { name: 'broker-a', endpoints: '127.0.0.1:8081' },
+    { name: 'broker-b', endpoints: '127.0.0.1:8082' },
+  ];
+
+  function queuePB(brokerName: string, brokerId: number, port: number, queueId: number, permission: Permission) {
+    return new MessageQueuePB().setId(queueId)
+      .setTopic(new ResourcePB().setName('test-topic'))
+      .setBroker(new BrokerPB().setName(brokerName).setId(brokerId)
+        .setEndpoints(new Endpoints(`127.0.0.1:${port}`).toProtobuf()))
+      .setPermission(permission);
+  }
+
+  function key(mq: MessageQueue) {
+    return `${mq.broker.name}#${mq.broker.id}#${mq.queueId}`;
+  }
+
+  function rotate(loadBalancer: PublishingLoadBalancer, times: number) {
+    const picked = new Set<string>();
+    for (let i = 0; i < times; i++) {
+      picked.add(key(loadBalancer.takeMessageQueues(new Map(), 1)[0]));
+    }
+    return picked;
+  }
+
+  it('rotates over every writable queue of every master broker', () => {
+    const loadBalancer = new PublishingLoadBalancer(buildRoute({ brokers: TWO_BROKERS, queuesPerBroker: 4 }), 0);
+    const picked = rotate(loadBalancer, 8);
+    assert.strictEqual(picked.size, 8, `only picked ${JSON.stringify([ ...picked ])}`);
+  });
+
+  it('spreads FIFO message groups over every master queue', () => {
+    const loadBalancer = new PublishingLoadBalancer(buildRoute({ brokers: TWO_BROKERS, queuesPerBroker: 4 }));
+    const picked = new Set<string>();
+    for (let i = 0; i < 200; i++) {
+      picked.add(key(loadBalancer.takeMessageQueueByMessageGroup(`group-${i}`)));
+    }
+    assert.strictEqual(picked.size, 8, `only picked ${JSON.stringify([ ...picked ])}`);
+  });
+
+  it('excludes queues of slave brokers by broker id', () => {
+    const loadBalancer = new PublishingLoadBalancer(buildRoute({
+      queuesPerBroker: 2,
+      brokers: [
+        { name: 'broker-a', id: 0, endpoints: '127.0.0.1:8081' },
+        { name: 'broker-a', id: 1, endpoints: '127.0.0.1:8082' },
+      ],
+    }), 0);
+    assert.deepStrictEqual([ ...rotate(loadBalancer, 4) ].sort(), [ 'broker-a#0#0', 'broker-a#0#1' ]);
+  });
+
+  it('keeps only writable queues', () => {
+    const loadBalancer = new PublishingLoadBalancer(new TopicRouteData([
+      queuePB('broker-a', 0, 8081, 0, Permission.READ),
+      queuePB('broker-a', 0, 8081, 1, Permission.WRITE),
+      queuePB('broker-a', 0, 8081, 2, Permission.READ_WRITE),
+      queuePB('broker-a', 0, 8081, 3, Permission.NONE),
+    ]), 0);
+    assert.deepStrictEqual([ ...rotate(loadBalancer, 4) ].sort(), [ 'broker-a#0#1', 'broker-a#0#2' ]);
+  });
+
+  it('throws when no writable master queue exists', () => {
+    assert.throws(() => new PublishingLoadBalancer(buildRoute({ permission: Permission.READ })), /No writable message queue found/);
+    assert.throws(() => new PublishingLoadBalancer(buildRoute({ brokerId: 1 })), /No writable message queue found/);
+    assert.throws(() => new PublishingLoadBalancer(buildRoute({ brokers: [] })), /No writable message queue found/);
+  });
+
+  it('takes one queue per broker and skips isolated endpoints', () => {
+    const brokers = [ ...TWO_BROKERS, { name: 'broker-c', endpoints: '127.0.0.1:8083' }];
+    const loadBalancer = new PublishingLoadBalancer(buildRoute({ brokers, queuesPerBroker: 2 }), 0);
+    const candidates = loadBalancer.takeMessageQueues(new Map(), 3);
+    assert.deepStrictEqual(candidates.map(mq => mq.broker.name).sort(), [ 'broker-a', 'broker-b', 'broker-c' ]);
+
+    const isolated = new Map([[ '127.0.0.1:8082', new Endpoints('127.0.0.1:8082') ]]);
+    const healthy = loadBalancer.takeMessageQueues(isolated, 3);
+    assert.deepStrictEqual(healthy.map(mq => mq.broker.name).sort(), [ 'broker-a', 'broker-c' ]);
+  });
+
+  it('falls back to isolated endpoints when every endpoint is isolated', () => {
+    const loadBalancer = new PublishingLoadBalancer(buildRoute({ brokers: TWO_BROKERS }), 0);
+    const isolated = new Map(TWO_BROKERS.map(b => [ b.endpoints, new Endpoints(b.endpoints) ]));
+    const candidates = loadBalancer.takeMessageQueues(isolated, 2);
+    assert.deepStrictEqual(candidates.map(mq => mq.broker.name).sort(), [ 'broker-a', 'broker-b' ]);
+  });
+
+  it('keeps the rotation position across route updates', () => {
+    const route = buildRoute({ brokers: TWO_BROKERS, queuesPerBroker: 2 });
+    const loadBalancer = new PublishingLoadBalancer(route, 0);
+    loadBalancer.takeMessageQueues(new Map(), 1);
+    const updated = loadBalancer.update(route);
+    const expected = new PublishingLoadBalancer(route, 1).takeMessageQueues(new Map(), 1)[0];
+    assert.ok(updated.takeMessageQueues(new Map(), 1)[0].equals(expected));
+    assert.ok(updated.equals(loadBalancer));
+  });
+
+  it('routes the same message group to the same queue', () => {
+    const route = buildRoute({ brokers: TWO_BROKERS, queuesPerBroker: 4 });
+    const loadBalancer = new PublishingLoadBalancer(route);
+    const first = loadBalancer.takeMessageQueueByMessageGroup('order-1');
+    for (let i = 0; i < 10; i++) {
+      assert.ok(loadBalancer.takeMessageQueueByMessageGroup('order-1').equals(first));
+    }
+    assert.ok(loadBalancer.update(route).takeMessageQueueByMessageGroup('order-1').equals(first));
   });
 });

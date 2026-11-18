@@ -68,13 +68,12 @@ export class Message {
       finalDeliveryTimestamp = new Date(Date.now() + options.delay);
     }
 
-    const hasPriority = options.priority !== undefined;
     const hasLiteTopic = options.liteTopic !== undefined;
     const hasTimedDelivery = finalDeliveryTimestamp !== undefined;
     const hasGroup = options.messageGroup !== undefined;
 
-    if (hasPriority) {
-      if (options.priority === undefined || options.priority < 0) {
+    if (options.priority !== undefined) {
+      if (options.priority < 0) {
         throw new Error('priority must be greater than or equal to 0');
       }
       if (hasTimedDelivery || hasGroup || hasLiteTopic) {

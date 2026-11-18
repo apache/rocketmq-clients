@@ -51,6 +51,7 @@ export class MessageView {
     const digestType = bodyDigest.type;
     const checksum = bodyDigest.checksum;
     let expectedChecksum = '';
+    let corrupted = false;
     let bodyBytes = Buffer.from(message.getBody_asU8());
     switch (digestType) {
       case DigestType.CRC32:
@@ -67,11 +68,18 @@ export class MessageView {
         //             digestType, topic, messageId);
     }
     if (expectedChecksum && expectedChecksum !== checksum) {
-      this.corrupted = true;
+      corrupted = true;
     }
     if (systemProperties.getBodyEncoding() === Encoding.GZIP) {
-      bodyBytes = gunzipSync(bodyBytes);
+      try {
+        bodyBytes = gunzipSync(bodyBytes);
+      } catch {
+        // Keep the raw body and let the consumer discard the message, as Java MessageViewImpl#fromProtobuf does,
+        // instead of failing the whole received batch.
+        corrupted = true;
+      }
     }
+    this.corrupted = corrupted;
 
     for (const [ key, value ] of message.getUserPropertiesMap().entries()) {
       this.properties.set(key, value);
