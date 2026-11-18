@@ -496,16 +496,17 @@ func (sc *defaultSimpleConsumer) Ack(ctx context.Context, messageView *MessageVi
 	resp, err := sc.cli.clientManager.AckMessage(ctx, endpoints, request, sc.cli.opts.timeout)
 	messageHookPointsStatus := MessageHookPointsStatus_OK
 	duration := time.Since(watchTime)
-	if err != nil {
-		messageHookPointsStatus = MessageHookPointsStatus_ERROR
-		sc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
-		return err
+	if err == nil && resp.GetStatus().GetCode() != v2.Code_OK {
+		err = &ErrRpcStatus{
+			Code:    int32(resp.GetStatus().GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
 	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
+	if err != nil {
 		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 	}
 	sc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
-	return nil
+	return err
 }
 
 func (sc *defaultSimpleConsumer) IsEndpointUpdated() bool {
