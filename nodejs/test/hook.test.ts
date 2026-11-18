@@ -27,6 +27,7 @@
  */
 
 import * as assert from 'node:assert';
+import * as sinon from 'sinon';
 import { Endpoints } from '../src/route';
 import { Producer } from '../src/producer';
 import {
@@ -450,6 +451,8 @@ describe('PushConsumer settlement hooks vs Java (K-4)', () => {
 });
 
 describe('Message interceptor chain (J-3)', () => {
+  afterEach(() => sinon.restore());
+
   it('should run doBefore in order and doAfter in reverse order', () => {
     const calls: string[] = [];
     const mk = (name: string): MessageInterceptor => ({
@@ -466,6 +469,7 @@ describe('Message interceptor chain (J-3)', () => {
   });
 
   it('should not break the pipeline when an interceptor throws', () => {
+    const log = sinon.stub(console, 'error');
     const calls: string[] = [];
     const composited = new CompositedMessageInterceptor([
       { doBefore: () => { calls.push('before-throwing'); }, doAfter: () => { calls.push('after-throwing'); } },
@@ -476,6 +480,11 @@ describe('Message interceptor chain (J-3)', () => {
     composited.doBefore(context, []);
     composited.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), []);
     assert.deepStrictEqual(calls, [ 'before-throwing', 'before-ok', 'after-ok', 'after-throwing' ]);
+    sinon.assert.calledTwice(log);
+    assert.match(String(log.firstCall.args[0]), /before hook point/);
+    assert.match(String(log.secondCall.args[0]), /after hook point/);
+    assert.ok(log.firstCall.args[2] instanceof Error);
+    assert.ok(log.secondCall.args[2] instanceof Error);
   });
 
   it('should carry attributes between doBefore and doAfter', () => {
@@ -532,5 +541,102 @@ describe('Message interceptor chain (J-3)', () => {
     assert.strictEqual(interceptor.getInflightReceiveRequestCount(), 2);
     composited.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.OK), []);
     assert.strictEqual(interceptor.getInflightReceiveRequestCount(), 1);
+    composited.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), []);
+    assert.strictEqual(interceptor.getInflightReceiveRequestCount(), 0);
+  });
+
+  it('should run interceptors added after construction', () => {
+    const before = sinon.spy();
+    const after = sinon.spy();
+    const composited = new CompositedMessageInterceptor();
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+    composited.doBefore(context, []);
+    composited.doAfter(context, []);
+    assert.strictEqual(composited.size, 0);
+    composited.addInterceptor({ doBefore: before, doAfter: after });
+    composited.doBefore(context, []);
+    composited.doAfter(context, []);
+    assert.strictEqual(composited.size, 1);
+    sinon.assert.calledOnce(before);
+    sinon.assert.calledOnce(after);
+  });
+
+  it('should keep original attributes and the result status throughout the chain', () => {
+    const key = AttributeKey.create<string>('original');
+    const before = sinon.spy(context => assert.strictEqual(context.getAttribute(key)?.get(), 'value'));
+    const after = sinon.spy(context => {
+      assert.strictEqual(context.getAttribute(key)?.get(), 'value');
+      assert.strictEqual(context.getStatus(), MessageHookPointsStatus.ERROR);
+    });
+    const composited = new CompositedMessageInterceptor([{ doBefore: before, doAfter: after }]);
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+    context.putAttribute(key, Attribute.create('value'));
+    composited.doBefore(context, []);
+    composited.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), []);
+    sinon.assert.calledOnce(before);
+    sinon.assert.calledOnce(after);
+    // 拦截器会隔离异常，必须在链外确认回调中的断言没有抛出。
+    assert.strictEqual(before.threw(), false);
+    assert.strictEqual(after.threw(), false);
+  });
+
+  it('should only count RECEIVE requests', () => {
+    const interceptor = new InflightRequestCountInterceptor();
+    for (const point of Object.values(MessageHookPoints)) {
+      const context = new MessageInterceptorContextImpl(point);
+      interceptor.doBefore(context, []);
+      assert.strictEqual(interceptor.getInflightReceiveRequestCount(), point === MessageHookPoints.RECEIVE ? 1 : 0);
+      interceptor.doAfter(context, []);
+      assert.strictEqual(interceptor.getInflightReceiveRequestCount(), 0);
+    }
+  });
+});
+
+describe('MessageInterceptorContextImpl attributes', () => {
+  it('should retain attributes when deriving a context with status', () => {
+    const key = AttributeKey.create<string>('key');
+    const attribute = Attribute.create('value');
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.RECEIVE);
+    context.putAttribute(key, attribute);
+    const derived = MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.OK);
+    assert.strictEqual(derived.getAttribute(key), attribute);
+    assert.strictEqual(derived.getMessageHookPoints(), MessageHookPoints.RECEIVE);
+    assert.strictEqual(derived.getStatus(), MessageHookPointsStatus.OK);
+    assert.strictEqual(context.getStatus(), undefined);
+    derived.putAttribute(key, Attribute.create('new-value'));
+    // Node 保留现有快照语义，派生 context 的修改不反向改变原 context。
+    assert.strictEqual(context.getAttribute(key)?.get(), 'value');
+  });
+
+  it('should overwrite attributes with the same key name like Java', () => {
+    const first = AttributeKey.create<string>('key');
+    const second = new AttributeKey<string>('key');
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+    context.putAttribute(first, Attribute.create('first'));
+    context.putAttribute(second, Attribute.create('second'));
+    assert.strictEqual(context.getAttribute(first)?.get(), 'second');
+    assert.strictEqual(context.getAttribute(second)?.get(), 'second');
+    assert.strictEqual(context.getAttributes().size, 1);
+    assert.strictEqual(first.toString(), 'AttributeKey(key)');
+  });
+
+  it('should normalize same-name keys passed to the constructor', () => {
+    const first = AttributeKey.create<number>('key');
+    const second = AttributeKey.create<number>('key');
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND, undefined,
+      new Map([[ first, Attribute.create(1) ], [ second, Attribute.create(2) ]]));
+    assert.strictEqual(context.getAttribute(first)?.get(), 2);
+    assert.strictEqual(context.getAttributes().size, 1);
+  });
+
+  it('should isolate attributes with different names', () => {
+    const first = AttributeKey.create<number>('first');
+    const second = AttributeKey.create<number>('second');
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+    context.putAttribute(first, Attribute.create(1));
+    context.putAttribute(second, Attribute.create(2));
+    assert.strictEqual(context.getAttribute(first)?.get(), 1);
+    assert.strictEqual(context.getAttribute(second)?.get(), 2);
+    assert.strictEqual(context.getAttribute(AttributeKey.create<number>('absent')), undefined);
   });
 });
