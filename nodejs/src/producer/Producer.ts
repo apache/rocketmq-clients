@@ -39,7 +39,7 @@ import {
 import {
   ExponentialBackoffRetryPolicy,
 } from '../retry';
-import { StatusChecker, TooManyRequestsException } from '../exception';
+import { InternalErrorException, NotFoundException, StatusChecker, TooManyRequestsException } from '../exception';
 import { BaseClient, BaseClientOptions, Settings } from '../client';
 import { PublishingMessage, MessageOptions, MessageView, Message } from '../message';
 import { PublishingSettings } from './PublishingSettings';
@@ -107,7 +107,7 @@ export class Producer extends BaseClient {
       this.logger.error('Unable to begin a transaction because producer is not running, clientId=%s', this.clientId);
       throw new Error('Producer is not running now');
     }
-    return new Transaction(this);
+    return new Transaction(this, this.logger);
   }
 
   async endTransaction(endpoints: Endpoints, message: Message, messageId: string,
@@ -146,8 +146,13 @@ export class Producer extends BaseClient {
 
   async onRecoverOrphanedTransactionCommand(endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {
     const transactionId = command.getTransactionId();
-    const messagePB = command.getMessage()!;
-    const messageId = messagePB.getSystemProperties()!.getMessageId();
+    const messagePB = command.getMessage();
+    const messageId = messagePB?.getSystemProperties()?.getMessageId();
+    if (!messagePB) {
+      this.logger.error('[Bug] Orphaned transaction message is absent, ignore it, transactionId=%s, endpoints=%s, clientId=%s',
+        transactionId, endpoints, this.clientId);
+      return;
+    }
     if (!this.#checker) {
       this.logger.error('No transaction checker registered, ignore it, messageId=%s, transactionId=%s, endpoints=%s, clientId=%s',
         messageId, transactionId, endpoints, this.clientId);
@@ -168,7 +173,7 @@ export class Producer extends BaseClient {
         return;
       }
       // Use SOURCE_SERVER_CHECK for transaction recovery
-      await this.endTransaction(endpoints, messageView, messageId, transactionId, resolution,
+      await this.endTransaction(endpoints, messageView, messageView.messageId, transactionId, resolution,
         TransactionSource.SOURCE_SERVER_CHECK);
       this.logger.info('Recover orphaned transaction message success, transactionId=%s, resolution=%s, messageId=%s, clientId=%s',
         transactionId, resolution, messageId, this.clientId);
@@ -325,12 +330,6 @@ export class Producer extends BaseClient {
           maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         throw err;
       }
-      // No more attempts for transactional message
-      if (messageType === MessageType.TRANSACTION) {
-        this.logger.error('Failed to send transactional message finally, maxAttempts=%d, attempt=%d, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
-          maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
-        throw err;
-      }
       // Try next attempt
       const nextAttempt = 1 + attempt;
       // Retry immediately if the request is not throttled
@@ -346,6 +345,11 @@ export class Producer extends BaseClient {
       return this.#send0(topic, messageType, candidates, messages, nextAttempt);
     }
 
+    // Should never reach here.
+    if (sendReceipts.length !== messages.length) {
+      throw new InternalErrorException(Code.INTERNAL_ERROR, '[Bug] due to an unknown reason from remote, received ' +
+        `send receipt's quantity ${sendReceipts.length} is not equal to sent message's quantity ${messages.length}`);
+    }
     // Resend message(s) successfully
     if (attempt > 1) {
       const messageIds = sendReceipts.map(r => r.messageId);
@@ -365,9 +369,22 @@ export class Producer extends BaseClient {
     let loadBalancer = this.#publishingRouteDataCache.get(topic);
     if (!loadBalancer) {
       const topicRouteData = await this.getRouteData(topic);
-      loadBalancer = this.#updatePublishingLoadBalancer(topic, topicRouteData);
+      // A fresh route fetch has already built the load balancer in onTopicRouteDataUpdate.
+      loadBalancer = this.#publishingRouteDataCache.get(topic) ??
+        this.#updatePublishingLoadBalancer(topic, topicRouteData);
     }
     return loadBalancer;
+  }
+
+  protected onTopicRouteDataUpdate(topic: string, topicRouteData: TopicRouteData) {
+    try {
+      this.#updatePublishingLoadBalancer(topic, topicRouteData);
+    } catch (err) {
+      // Keep the previous load balancer so that a route without writable queues fails neither the route refresh
+      // of other topics nor the startup; sending to such a topic still fails when no load balancer exists.
+      this.logger.error('Failed to update publishing load balancer, topic=%s, clientId=%s, error=%s',
+        topic, this.clientId, err);
+    }
   }
 
   #updatePublishingLoadBalancer(topic: string, topicRouteData: TopicRouteData) {
@@ -400,6 +417,7 @@ export class Producer extends BaseClient {
    * @param recallHandle - A unique handle to identify the message to recall (obtained from SendReceipt).
    * @return Promise resolving to RecallReceipt containing the recalled message ID.
    * @throws Error if producer is not running or recall handle is invalid.
+   * @throws ClientException subclass mapped from the response status if the remote fails to recall the message.
    */
   async recallMessage(topic: string, recallHandle: string): Promise<RecallReceipt> {
     if (!this.isRunning()) {
@@ -430,13 +448,11 @@ export class Producer extends BaseClient {
     if (!status) {
       throw new Error('Recall message response status is null');
     }
-
-    // Check status code
-    const statusCode = status.getCode();
-    if (statusCode !== Code.OK) {
-      const errorMessage = status.getMessage() || 'Unknown error';
-      throw new Error(`Failed to recall message: ${errorMessage} (code: ${statusCode})`);
+    // StatusChecker treats MESSAGE_NOT_FOUND as success for receiving; recalling surfaces it as Java does.
+    if (status.getCode() === Code.MESSAGE_NOT_FOUND) {
+      throw new NotFoundException(status.getCode(), status.getMessage());
     }
+    StatusChecker.check(status.toObject());
 
     const messageId = response.getMessageId();
     const receipt = new RecallReceipt(messageId);

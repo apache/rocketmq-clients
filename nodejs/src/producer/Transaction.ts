@@ -16,6 +16,7 @@
  */
 
 import { TransactionResolution } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { getDefaultLogger, ILogger } from '../client';
 import { MessageOptions, PublishingMessage } from '../message';
 import type { Producer } from './Producer';
 import { SendReceipt } from './SendReceipt';
@@ -23,11 +24,13 @@ import { SendReceipt } from './SendReceipt';
 export class Transaction {
   static readonly MAX_MESSAGE_NUM = 1;
   readonly #producer: Producer;
+  readonly #logger: ILogger;
   readonly #messageMap = new Map<string, PublishingMessage>();
   readonly #messageSendReceiptMap = new Map<string, SendReceipt>();
 
-  constructor(producer: Producer) {
+  constructor(producer: Producer, logger: ILogger = getDefaultLogger()) {
     this.#producer = producer;
+    this.#logger = logger;
   }
 
   tryAddMessage(message: MessageOptions) {
@@ -51,9 +54,8 @@ export class Transaction {
       throw new TypeError('Transactional message has not been sent yet');
     }
 
-    const logger = (this.#producer as any).logger;
-    logger.info('Begin to commit transaction, messageCount=%d, clientId=%s',
-      this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
+    this.#logger.info('Begin to commit transaction, messageCount=%d, clientId=%s',
+      this.#messageSendReceiptMap.size, this.#producer.clientId);
 
     for (const [ messageId, sendReceipt ] of this.#messageSendReceiptMap.entries()) {
       const publishingMessage = this.#messageMap.get(messageId)!;
@@ -61,8 +63,8 @@ export class Transaction {
         sendReceipt.messageId, sendReceipt.transactionId, TransactionResolution.COMMIT);
     }
 
-    logger.debug('Commit transaction successfully, messageCount=%d, clientId=%s',
-      this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
+    this.#logger.debug?.('Commit transaction successfully, messageCount=%d, clientId=%s',
+      this.#messageSendReceiptMap.size, this.#producer.clientId);
   }
 
   async rollback() {
@@ -70,9 +72,8 @@ export class Transaction {
       throw new TypeError('Transactional message has not been sent yet');
     }
 
-    const logger = (this.#producer as any).logger;
-    logger.debug('Begin to rollback transaction, messageCount=%d, clientId=%s',
-      this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
+    this.#logger.debug?.('Begin to rollback transaction, messageCount=%d, clientId=%s',
+      this.#messageSendReceiptMap.size, this.#producer.clientId);
 
     for (const [ messageId, sendReceipt ] of this.#messageSendReceiptMap.entries()) {
       const publishingMessage = this.#messageMap.get(messageId)!;
@@ -80,7 +81,7 @@ export class Transaction {
         sendReceipt.messageId, sendReceipt.transactionId, TransactionResolution.ROLLBACK);
     }
 
-    logger.debug('Rollback transaction successfully, messageCount=%d, clientId=%s',
-      this.#messageSendReceiptMap.size, (this.#producer as any).clientId);
+    this.#logger.debug?.('Rollback transaction successfully, messageCount=%d, clientId=%s',
+      this.#messageSendReceiptMap.size, this.#producer.clientId);
   }
 }
