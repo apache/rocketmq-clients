@@ -6,12 +6,12 @@ require (
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
-	github.com/klauspost/compress v1.18.0
+	github.com/klauspost/compress v1.18.7
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pierrec/lz4 v2.6.1+incompatible
-	github.com/prashantv/gostub v1.1.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.27.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250422160041-2d3770c4ea7f
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 // google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107
@@ -29,7 +29,6 @@ require (
 	golang.org/x/sync v0.13.0 // indirect
 	google.golang.org/api v0.230.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250422160041-2d3770c4ea7f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250422160041-2d3770c4ea7f // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
