@@ -205,7 +205,9 @@ class Producer(Client):
 
         Supports both normal messages and transactional half-messages.
         Automatically retries on failure based on the configured backoff policy
-        (default: 3 attempts with exponential backoff).
+        (default: 3 attempts; throttled requests, i.e. TOO_MANY_REQUESTS, are
+        retried after a backoff delay while other failures are retried
+        immediately, mirroring the Java client).
 
         Args:
             message: The message to send. Body, topic, and optional properties
@@ -259,7 +261,8 @@ class Producer(Client):
 
         The returned ``concurrent.futures.Future`` will be resolved with a
         :class:`SendReceipt` on success, or an exception on failure.
-        Retry is handled internally via the backoff policy.
+        Failed sends are retried up to the policy's max attempts; throttled
+        requests (TOO_MANY_REQUESTS) are retried after a backoff delay.
 
         Args:
             message: The message to send.
@@ -562,7 +565,12 @@ class Producer(Client):
                 self.client_metrics.send_after(send_metric_context, False)
                 raise retry_exception_future.exception()
 
-            # resend message
+            # Resend message. Throttled requests wait for the next backoff
+            # delay; everything else is resent immediately (Java ProducerImpl
+            # schedules the retry with getNextAttemptDelay only for
+            # TooManyRequestsException).
+            if isinstance(e, TooManyRequestsException):
+                time.sleep(self.__backoff_policy.get_next_attempt_delay(attempt))
             topic_queue = self.__select_send_queue(message)
             return self.__send(message, topic_queue, attempt)
 
@@ -619,9 +627,21 @@ class Producer(Client):
                     )
                 )
                 return
-            # resend message
+            # Resend message. Throttled requests wait for the next backoff
+            # delay (scheduled on a daemon timer so the callback thread is not
+            # blocked); everything else is resent immediately, matching the
+            # Java ProducerImpl retry behavior.
             topic_queue = self.__select_send_queue(message)
-            self.__send_async(message, topic_queue, attempt, ret_future)
+            if isinstance(e, TooManyRequestsException):
+                delay = self.__backoff_policy.get_next_attempt_delay(attempt)
+                timer = threading.Timer(
+                    delay, self.__send_async,
+                    args=(message, topic_queue, attempt, ret_future),
+                )
+                timer.daemon = True
+                timer.start()
+            else:
+                self.__send_async(message, topic_queue, attempt, ret_future)
 
     def __handle_send_result(self, send_message_future, topic_queue):
         res = send_message_future.result()
@@ -636,26 +656,19 @@ class Producer(Client):
         )
 
     def __check_send_retry_condition(self, message, topic_queue, attempt, e):
-        end_retry = False
+        # TOO_MANY_REQUESTS is retryable: the Java client resends non-throttled
+        # failures immediately and waits for the next backoff delay only for
+        # throttled ones (ProducerImpl#onSendExceptionFutureCallback: "Retry
+        # immediately if the request is not throttled"), so it is not treated
+        # as a terminal failure here.
         if attempt > self.__backoff_policy.max_attempts:
             logger.error(
                 f"{self} failed to send message to {topic_queue.endpoints}, because of run out of attempt times, topic:{message.topic}, message_id:{message.message_id},  message_type:{message.message_type}, attempt:{attempt}"
             )
-            end_retry = True
-
-        # end retry if system busy
-        if isinstance(e, TooManyRequestsException):
-            logger.error(
-                f"{self} failed to send message to {topic_queue.endpoints}, because of to too many requests, topic:{message.topic},  message_type:{message.message_type}, message_id:{message.message_id}, attempt:{attempt}"
-            )
-            end_retry = True
-
-        if end_retry:
             send_exception_future = Future()
             send_exception_future.set_exception(e)
             return send_exception_future
-        else:
-            return None
+        return None
 
     def __wrap_sending_message(self, message, is_transaction):
         message.message_id = MessageIdCodec().next_message_id()
