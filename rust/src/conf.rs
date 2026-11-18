@@ -353,7 +353,8 @@ impl PushConsumerOption {
     }
 
     /// Enable or disable FIFO consume accelerator.
-    /// If enabled, the consumer will consume messages in parallel by messageGroup,
+    /// If enabled, the consumer will consume messages in parallel by messageGroup (by lite topic
+    /// for the messages of a `LitePushConsumer`),
     /// it may increase the probability of repeatedly consuming the same message.
     pub fn set_enable_fifo_consume_accelerator(&mut self, enable: bool) {
         self.enable_fifo_consume_accelerator = enable;
