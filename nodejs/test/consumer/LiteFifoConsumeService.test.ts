@@ -19,7 +19,6 @@
  * Test for Lite FIFO Consume Service
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { LiteFifoConsumeService } from '../../src/consumer/LiteFifoConsumeService';
 import { MessageListener } from '../../src/consumer/MessageListener';

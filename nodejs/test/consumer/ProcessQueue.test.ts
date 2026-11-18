@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { ProcessQueue } from '../../src/consumer/ProcessQueue';
 import { FilterExpression } from '../../src/consumer/FilterExpression';

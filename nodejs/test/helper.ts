@@ -17,6 +17,7 @@
 
 import { SessionCredentials } from '../src/client';
 
+export const describeIntegration = process.env.ROCKETMQ_NODEJS_CLIENT_ENDPOINTS?.trim() ? describe : describe.skip;
 export const endpoints = process.env.ROCKETMQ_NODEJS_CLIENT_ENDPOINTS ?? 'localhost:8081';
 export const namespace = process.env.ROCKETMQ_NODEJS_CLIENT_NAMESPACE ?? '';
 export const topics = {

@@ -19,8 +19,9 @@
  * Test for LitePushConsumerBuilder
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
+import * as sinon from 'sinon';
+import { LitePushConsumerImpl } from '../../src/consumer/LitePushConsumerImpl';
 import { LitePushConsumerBuilder } from '../../src';
 import { BaseClientOptions } from '../../src/client';
 import { ConsumeResult } from '../../src';
@@ -186,11 +187,16 @@ describe('LitePushConsumerBuilder', () => {
       builder.setMessageListener(createMockMessageListener());
       builder.bindTopic('test-topic');
 
-      // Should reject because startup() requires a real RocketMQ server connection
-      await assert.rejects(
-        () => builder.build(),
-        /Failed to start|Connection|ECONNREFUSED|timeout|Timeout|Error/,
-      );
+      const startup = sinon.stub(LitePushConsumerImpl.prototype, 'startup').resolves();
+      try {
+        const consumer = await builder.build();
+        assert.ok(consumer instanceof LitePushConsumerImpl);
+        consumer.getRpcClientManager().close();
+        sinon.assert.calledOnce(startup);
+        assert.strictEqual(startup.firstCall.thisValue, consumer);
+      } finally {
+        startup.restore();
+      }
     });
 
     it('should throw error when consumerGroup not set', async () => {
@@ -220,18 +226,24 @@ describe('LitePushConsumerBuilder', () => {
       await assert.rejects(() => builder.build(), /bindTopic has not been set yet/);
     });
 
-    it('should throw connection error when all params set but no server', async () => {
+    it('should propagate a startup error without connecting to a server', async () => {
       const builder = new LitePushConsumerBuilder();
       builder.setClientConfiguration(createMockClientConfig());
       builder.setConsumerGroup('test-group');
       builder.setMessageListener(createMockMessageListener());
       builder.bindTopic('test-topic');
 
-      // Should reject because startup() requires a real RocketMQ server connection
-      await assert.rejects(
-        () => builder.build(),
-        /Failed to start|Connection|ECONNREFUSED|timeout|Timeout|Error/,
-      );
+      const failure = new Error('startup failed');
+      const startup = sinon.stub(LitePushConsumerImpl.prototype, 'startup').callsFake(async function(this: LitePushConsumerImpl) {
+        this.getRpcClientManager().close();
+        throw failure;
+      });
+      try {
+        await assert.rejects(() => builder.build(), error => error === failure);
+        sinon.assert.calledOnce(startup);
+      } finally {
+        startup.restore();
+      }
     });
   });
 });

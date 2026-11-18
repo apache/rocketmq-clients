@@ -19,7 +19,6 @@
  * Test for FIFO Consume Accelerator
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { FifoConsumeService } from '../../src/consumer/FifoConsumeService';
 import { MessageListener } from '../../src/consumer/MessageListener';

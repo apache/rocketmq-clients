@@ -19,7 +19,6 @@
  * Test for LiteSubscriptionQuotaExceededException
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { LiteSubscriptionQuotaExceededException } from '../../src/exception/LiteSubscriptionQuotaExceededException';
 

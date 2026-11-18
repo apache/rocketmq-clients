@@ -25,7 +25,6 @@
  *  - PushConsumerGaugeObserver aggregation of cached message count/bytes
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { Metadata } from '@grpc/grpc-js';
 import { Attributes } from '@opentelemetry/api';

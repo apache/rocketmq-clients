@@ -28,17 +28,16 @@
  * enableMultiDispatch=true so lite messages reach the LMQ queues.
  */
 
-import { describe, it, afterEach } from 'node:test';
 import * as assert from 'node:assert';
 import { Producer } from '../../src';
 import { LiteSimpleConsumerImpl } from '../../src/consumer/LiteSimpleConsumerImpl';
 import { OffsetOption } from '../../src/consumer/OffsetOption';
-import { endpoints, namespace } from '../helper';
+import { endpoints, namespace, describeIntegration } from '../helper';
 
 const BIND_TOPIC = process.env.ROCKETMQ_NODEJS_CLIENT_LITE_TOPIC ?? 'lite-parent-topic';
 const CONSUMER_GROUP = process.env.ROCKETMQ_NODEJS_CLIENT_LITE_GROUP ?? 'nodejs-lite-unittest-group';
 
-describe('test/consumer/LiteSimpleConsumer.integration.test.ts', () => {
+describeIntegration('test/integration/LiteSimpleConsumer.test.ts', () => {
   let producer: Producer | null = null;
   let consumer: LiteSimpleConsumerImpl | null = null;
 

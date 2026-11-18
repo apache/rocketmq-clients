@@ -23,4 +23,12 @@ jobs:
 
       - name: Build
         working-directory: ./nodejs
-        run: npm i && npm run init && npm run build && npm pack
+        run: npm ci && npm run build && npm pack
+
+      - name: Lint
+        working-directory: ./nodejs
+        run: npm run lint
+
+      - name: Unit tests and coverage
+        working-directory: ./nodejs
+        run: npm run cov

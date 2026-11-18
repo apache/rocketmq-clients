@@ -19,7 +19,6 @@
  * Test for OffsetOption
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { OffsetOption, OffsetType } from '../../src/consumer/OffsetOption';
 

@@ -29,7 +29,6 @@
  *    the route/settings/heartbeat timers.
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { EventEmitter } from 'node:events';
 import { format } from 'node:util';

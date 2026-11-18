@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { Endpoints } from '../../src/route';
 import { IpResolver } from '../../src/route/IpNameResolver';

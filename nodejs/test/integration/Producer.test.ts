@@ -19,9 +19,9 @@ import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { NotFoundException, Producer, SimpleConsumer } from '../../src';
 import { TransactionResolution } from '../../proto/apache/rocketmq/v2/definition_pb';
-import { topics, endpoints, sessionCredentials, consumerGroup, namespace } from '../helper';
+import { topics, endpoints, sessionCredentials, consumerGroup, namespace, describeIntegration } from '../helper';
 
-describe('test/producer/Producer.test.ts', () => {
+describeIntegration('test/integration/Producer.test.ts', () => {
   let producer: Producer | null = null;
   let simpleConsumer: SimpleConsumer | null = null;
   afterEach(async () => {

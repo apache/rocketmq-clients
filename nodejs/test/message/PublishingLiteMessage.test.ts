@@ -19,7 +19,6 @@
  * Test for Publishing Lite Message
  */
 
-import { describe, it } from 'node:test';
 import * as assert from 'node:assert';
 import { Message } from '../../src/message/Message';
 

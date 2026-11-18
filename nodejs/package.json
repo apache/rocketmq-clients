@@ -11,8 +11,9 @@
   ],
   "scripts": {
     "init": "npm run build:grpc",
-    "test": "egg-bin test",
-    "cov": "egg-bin cov",
+    "test": "egg-bin test \"test/**/*.test.ts\" \"!test/integration/**\"",
+    "test:integration": "egg-bin test \"test/integration/**/*.test.ts\"",
+    "cov": "egg-bin cov \"test/**/*.test.ts\" \"!test/integration/**\"",
     "lint": "eslint src test",
     "build:grpc": "scripts/build-grpc.sh",
     "clean": "rm -rf dist *.d.ts",
@@ -40,11 +41,13 @@
     "@types/google-protobuf": "^3.15.6",
     "@types/mocha": "^10.0.1",
     "@types/node": "^20.5.7",
+    "@types/sinon": "^17.0.4",
     "egg-bin": "^6.4.2",
     "eslint": "^8.48.0",
     "eslint-config-egg": "^12.2.1",
     "grpc_tools_node_protoc_ts": "^5.3.3",
     "grpc-tools": "^1.12.4",
+    "sinon": "^17.0.1",
     "typescript": "^5.2.2"
   },
   "dependencies": {
