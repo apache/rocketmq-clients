@@ -24,7 +24,8 @@ import { ILogger } from '../client/Logger';
 import { RpcClientManager } from '../client/RpcClientManager';
 import { SimpleConsumer, SimpleConsumerOptions } from './SimpleConsumer';
 import { FilterExpression } from './FilterExpression';
-import { LiteSubscriptionManager, LiteSubscriptionHost } from './LiteSubscriptionManager';
+import { LiteSubscriptionHost } from './LiteSubscriptionManager';
+import { LiteConsumerSupport } from './LiteConsumerSupport';
 import { OffsetOption } from './OffsetOption';
 import { LiteSimpleConsumer, LiteSimpleConsumerOptions } from './LiteSimpleConsumer';
 
@@ -51,7 +52,7 @@ export function firstReadableMasterQueue(topicRouteData: TopicRouteData): TopicR
 export class LiteSimpleConsumerImpl extends SimpleConsumer
   implements LiteSimpleConsumer, LiteSubscriptionHost {
   readonly #bindTopic: Resource;
-  readonly #liteSubscriptionManager: LiteSubscriptionManager;
+  readonly #liteSubscriptionManager: LiteConsumerSupport;
 
   constructor(options: LiteSimpleConsumerOptions) {
     if (!options.bindTopic || options.bindTopic.trim().length === 0) {
@@ -68,7 +69,7 @@ export class LiteSimpleConsumerImpl extends SimpleConsumer
 
     this.#bindTopic = new Resource(options.namespace, options.bindTopic);
     const groupResource = new Resource(options.namespace, options.consumerGroup);
-    this.#liteSubscriptionManager = new LiteSubscriptionManager(this, this.#bindTopic, groupResource);
+    this.#liteSubscriptionManager = new LiteConsumerSupport(this, this.#bindTopic, groupResource);
   }
 
   /**
@@ -91,8 +92,7 @@ export class LiteSimpleConsumerImpl extends SimpleConsumer
    * manager. It must be called before the consumer can receive messages.</p>
    */
   async startup() {
-    await super.startup();
-    this.#liteSubscriptionManager.startUp();
+    await this.#liteSubscriptionManager.startConsumer(() => super.startup());
   }
 
   /**
@@ -102,8 +102,7 @@ export class LiteSimpleConsumerImpl extends SimpleConsumer
    * and stopping the lite subscription manager.</p>
    */
   async shutdown() {
-    this.#liteSubscriptionManager.shutdown();
-    await super.shutdown();
+    await this.#liteSubscriptionManager.shutdownConsumer(() => super.shutdown());
   }
 
   async subscribeLite(liteTopic: string): Promise<void>;
@@ -118,10 +117,7 @@ export class LiteSimpleConsumerImpl extends SimpleConsumer
   async subscribeLite(liteTopic: string, offsetOption: OffsetOption): Promise<void>;
 
   async subscribeLite(liteTopic: string, offsetOption?: OffsetOption): Promise<void> {
-    if (!liteTopic || liteTopic.trim().length === 0) {
-      throw new Error('liteTopic should not be blank');
-    }
-    await this.#liteSubscriptionManager.subscribeLite(liteTopic, offsetOption ?? null);
+    await this.#liteSubscriptionManager.subscribeLite(liteTopic, offsetOption);
   }
 
   /**
@@ -130,9 +126,6 @@ export class LiteSimpleConsumerImpl extends SimpleConsumer
    * @param liteTopic - The name of the lite topic to unsubscribe from
    */
   async unsubscribeLite(liteTopic: string): Promise<void> {
-    if (!liteTopic || liteTopic.trim().length === 0) {
-      throw new Error('liteTopic should not be blank');
-    }
     await this.#liteSubscriptionManager.unsubscribeLite(liteTopic);
   }
 

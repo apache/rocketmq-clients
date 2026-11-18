@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-import { ClientType } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { ClientType, Settings as SettingsPB } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { NotifyUnsubscribeLiteCommand } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Resource } from '../route/Resource';
 import { Endpoints, TopicRouteData } from '../route';
 import { PushConsumer, PushConsumerOptions } from './PushConsumer';
 import { LitePushConsumer } from './LitePushConsumer';
 import { OffsetOption } from './OffsetOption';
-import { LiteSubscriptionManager } from './LiteSubscriptionManager';
+import { LiteConsumerSupport } from './LiteConsumerSupport';
 import { FilterExpression } from './FilterExpression';
 import { LiteFifoConsumeService } from './LiteFifoConsumeService';
 import { LiteStandardConsumeService } from './LiteStandardConsumeService';
@@ -52,7 +52,7 @@ export interface LitePushConsumerOptions extends PushConsumerOptions {
  * because it uses the assignment-based message delivery mechanism managed by the server.</p>
  */
 export class LitePushConsumerImpl extends PushConsumer implements LitePushConsumer {
-  private readonly liteSubscriptionManager: LiteSubscriptionManager;
+  private readonly liteSubscriptionManager: LiteConsumerSupport;
   private readonly bindTopic: Resource;
   readonly #messageListener: MessageListener;
   readonly #enableFifoConsumeAccelerator: boolean;
@@ -73,7 +73,7 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
     this.bindTopic = new Resource(options.namespace, options.bindTopic);
 
     const groupResource = new Resource(options.namespace, options.consumerGroup);
-    this.liteSubscriptionManager = new LiteSubscriptionManager(
+    this.liteSubscriptionManager = new LiteConsumerSupport(
       this,
       this.bindTopic,
       groupResource,
@@ -112,13 +112,11 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
   }
 
   /**
-   * Override to disable standard assignment scanning for lite consumers.
-   * LitePushConsumer uses Lite Subscription mechanism instead of assignments.
+   * 路由更新不直接创建队列；Lite Push 由父类 assignment 扫描维护 ProcessQueue。
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected onTopicRouteDataUpdate(_topic: string, _topicRouteData: TopicRouteData) {
-    // Lite consumers do not use standard assignment mechanism
-    // They rely on LiteSubscriptionManager for message delivery
+    // LiteSubscriptionManager 维护订阅，服务端 assignment 决定接收队列。
   }
 
   /**
@@ -128,8 +126,7 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    * It must be called before the consumer can receive messages.</p>
    */
   async startup() {
-    await super.startup();
-    this.liteSubscriptionManager.startUp();
+    await this.liteSubscriptionManager.startConsumer(() => super.startup());
   }
 
   /**
@@ -139,8 +136,7 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    * and stopping the lite subscription manager.</p>
    */
   async shutdown() {
-    this.liteSubscriptionManager.shutdown();
-    await super.shutdown();
+    await this.liteSubscriptionManager.shutdownConsumer(() => super.shutdown());
   }
 
   /**
@@ -168,10 +164,7 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
   async subscribeLite(liteTopic: string, offsetOption: OffsetOption): Promise<void>;
 
   async subscribeLite(liteTopic: string, offsetOption?: OffsetOption): Promise<void> {
-    if (!liteTopic || liteTopic.trim().length === 0) {
-      throw new Error('liteTopic should not be blank');
-    }
-    await this.liteSubscriptionManager.subscribeLite(liteTopic, offsetOption ?? null);
+    await this.liteSubscriptionManager.subscribeLite(liteTopic, offsetOption);
   }
 
   /**
@@ -183,9 +176,6 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    * @param liteTopic - The name of the lite topic to unsubscribe from
    */
   async unsubscribeLite(liteTopic: string): Promise<void> {
-    if (!liteTopic || liteTopic.trim().length === 0) {
-      throw new Error('liteTopic should not be blank');
-    }
     await this.liteSubscriptionManager.unsubscribeLite(liteTopic);
   }
 
@@ -237,7 +227,10 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    * @param endpoints - The server endpoints
    * @param settings - The settings configuration
    */
-  onSettingsCommand(endpoints: any, settings: any) {
+  onSettingsCommand(endpoints: Endpoints, settings: SettingsPB): void;
+  // 保留已暴露的宽类型重载，处理逻辑使用与父类一致的协议类型。
+  onSettingsCommand(endpoints: any, settings: any): void;
+  onSettingsCommand(endpoints: Endpoints, settings: SettingsPB): void {
     super.onSettingsCommand(endpoints, settings);
     this.liteSubscriptionManager.sync(settings);
   }
