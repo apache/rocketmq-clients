@@ -40,8 +40,8 @@ const METRIC_INSTRUMENTATION_NAME = 'org.apache.rocketmq.message';
 type ExportCallback = Parameters<OTLPMetricExporter['export']>[1];
 type ExportResult = Parameters<ExportCallback>[0];
 
-// OTel 0.57.2 接受 Metadata 实例并在首次导出时缓存它。每轮使用独立 exporter，
-// 重新签名且导出后关闭 channel；继承其 aggregation/temporality 选择以保持配置兼容。
+// OTel 0.57.2 accepts a Metadata instance and caches it on the first export. Use a fresh exporter
+// per round to refresh signatures and close its channel afterward; inherit aggregation/temporality choices.
 class SignedMetricExporter extends OTLPMetricExporter {
   private readonly pending = new Set<Promise<void>>();
   private closed = false;
@@ -66,7 +66,7 @@ class SignedMetricExporter extends OTLPMetricExporter {
     const deadline = Date.now() + METRIC_EXPORTER_RPC_TIMEOUT;
     const start = Math.floor(Math.random() * this.urls.length);
     let result: ExportResult = { code: 1, error: new Error('No metric endpoint is available') };
-    // 地址随机起点和故障回退对应 Java 的多地址 resolver；所有尝试共享总超时。
+    // Randomize the starting address and fail over as Java's multi-address resolver does; all attempts share one timeout.
     for (let index = 0; index < this.urls.length; index++) {
       const remaining = deadline - Date.now();
       if (remaining <= 0) {
@@ -155,7 +155,7 @@ export class ClientMeterManager {
     return this.enqueue(() => this.resetMeter(metric));
   }
 
-  // settings 调用方不 await reset；队列保证 off/on 和 shutdown 按调用顺序完成。
+  // Settings handlers do not await reset; serialize disable/enable and shutdown in invocation order.
   private enqueue(operation: () => Promise<void>): Promise<void> {
     const result = this.pending.then(operation);
     this.pending = result.catch(() => undefined);

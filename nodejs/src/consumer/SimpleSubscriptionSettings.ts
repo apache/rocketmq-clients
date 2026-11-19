@@ -39,12 +39,12 @@ export class SimpleSubscriptionSettings extends Settings {
 
   toProtobuf(): SettingsPB {
     const subscription = new Subscription()
-      .setGroup(createResource(this.group))
+      .setGroup(createResource(this.group, this.namespace))
       .setLongPollingTimeout(createDuration(this.longPollingTimeout));
 
     for (const [ topic, filterExpression ] of this.subscriptionExpressions.entries()) {
       subscription.addSubscriptions()
-        .setTopic(createResource(topic))
+        .setTopic(createResource(topic, this.namespace))
         .setExpression(filterExpression.toProtobuf());
     }
     return new SettingsPB()

@@ -32,8 +32,11 @@ import {
   TooManyRequestsException,
   UnsupportedException,
 } from '../../src/exception';
-import { Producer, RecallReceipt } from '../../src/producer';
+import { Producer, RecallReceipt, MESSAGE_TYPE_CONTEXT_KEY, SEND_EXCEPTION_CONTEXT_KEY, SEND_RECEIPTS_CONTEXT_KEY } from '../../src/producer';
+import { AttributeKey, MessageHookPoints, MessageHookPointsStatus, MessageInterceptorContext } from '../../src/hook';
 import { Endpoints } from '../../src/route';
+import { PublishingMessage } from '../../src/message';
+import { setRequestId } from '../../src/util/rpcContext';
 import { createSilentLogger } from '../support/fakes';
 import { buildMessagePB, buildRoute, buildSettings, buildStatus } from '../support/protobuf';
 import { BROKERS, routeResponse, sendResponse, startProducer, TOPIC } from './harness';
@@ -145,16 +148,75 @@ describe('Producer', () => {
     });
 
     it('fails without retrying when the receipt count does not match the message count', async () => {
-      const { producer, rpc } = await start();
+      const afterContexts: MessageInterceptorContext[] = [];
+      const { producer, rpc } = await start({ messageInterceptor: {
+        doBefore: () => undefined,
+        doAfter: context => { afterContexts.push(context); },
+      } });
       rpc.sendMessage.resolves(sendResponse([]));
+      let failure: Error | undefined;
 
       await assert.rejects(producer.send(message()), (err: Error) => {
         assert.ok(err instanceof InternalErrorException);
         assert.match(err.message, /received send receipt's quantity 0 is not equal to sent message's quantity 1/);
+        failure = err;
         return true;
       });
       sinon.assert.calledOnce(rpc.sendMessage);
       assert.equal(isolatedOf(producer).size, 0);
+      const sends = afterContexts.filter(context => context.getMessageHookPoints() === MessageHookPoints.SEND);
+      assert.equal(sends.length, 1);
+      assert.equal(sends[0].getStatus(), MessageHookPointsStatus.ERROR);
+      assert.equal(sends[0].getAttribute(AttributeKey.create('messageType'))?.get(), MessageType.NORMAL);
+      assert.equal(sends[0].getAttribute(AttributeKey.create('sendException'))?.get(), failure);
+      assert.equal(sends[0].getAttribute(AttributeKey.create('sendReceipts')), undefined);
+    });
+
+    it('runs the SEND hook once per attempt with the type, exception and receipts, as Java does', async () => {
+      const contexts: Array<[ 'before' | 'after', MessageInterceptorContext ]> = [];
+      const interceptor = {
+        doBefore: (context: MessageInterceptorContext) => {
+          contexts.push([ 'before', context ]);
+        },
+        doAfter: (context: MessageInterceptorContext) => {
+          contexts.push([ 'after', context ]);
+        },
+      };
+      const { producer, rpc } = await start({ messageInterceptor: interceptor });
+      const failure = new Error('network failure');
+      rpc.sendMessage.onFirstCall().rejects(failure);
+      rpc.sendMessage.onSecondCall().resolves(sendResponse([{ messageId: 'id-2' }]));
+
+      const receipt = await producer.send(message());
+
+      const sends = contexts.filter(([ , context ]) => context.getMessageHookPoints() === MessageHookPoints.SEND);
+      assert.deepEqual(sends.map(([ phase, context ]) => [ phase, context.getStatus() ]), [
+        [ 'before', undefined ],
+        [ 'after', MessageHookPointsStatus.ERROR ],
+        [ 'before', undefined ],
+        [ 'after', MessageHookPointsStatus.OK ],
+      ]);
+      for (const [ , context ] of sends) {
+        assert.equal(context.getAttribute(MESSAGE_TYPE_CONTEXT_KEY)?.get(), MessageType.NORMAL);
+        // Create keys from Java's literal names to verify cross-language compatibility rather than constant self-consistency.
+        assert.equal(context.getAttribute(AttributeKey.create('messageType'))?.get(), MessageType.NORMAL);
+      }
+      assert.equal(sends[1][1].getAttribute(SEND_EXCEPTION_CONTEXT_KEY)?.get(), failure);
+      assert.deepEqual(sends[3][1].getAttribute(SEND_RECEIPTS_CONTEXT_KEY)?.get(), [ receipt ]);
+      assert.equal(sends[1][1].getAttribute(AttributeKey.create('sendException'))?.get(), failure);
+      assert.deepEqual(sends[3][1].getAttribute(AttributeKey.create('sendReceipts'))?.get(), [ receipt ]);
+      assert.equal(sends[3][1].getAttribute(AttributeKey.create('sendException')), undefined);
+    });
+
+    it('carries the namespace on the route query', async () => {
+      const { producer, rpc } = await start({ namespace: 'ns' });
+      rpc.sendMessage.resolves(sendResponse());
+
+      await producer.send(message());
+
+      const topic = rpc.queryRoute.firstCall.args[1].getTopic()!;
+      assert.equal(topic.getName(), TOPIC);
+      assert.equal(topic.getResourceNamespace(), 'ns');
     });
 
     it('sends a FIFO message to the queue selected by its message group', async () => {
@@ -190,6 +252,46 @@ describe('Producer', () => {
       }
       assert.equal(picked.size, 12);
     });
+  });
+
+  describe('事务消息跨 hook 身份回归', () => {
+    for (const action of [ 'commit', 'rollback' ] as const) {
+      it(`${action} 与发送重试使用同一条事务消息和 messageId`, async () => {
+        const observed: Array<{ point: MessageHookPoints; message: PublishingMessage }> = [];
+        const { producer, rpc } = await start({
+          checker: { check: async () => TransactionResolution.COMMIT },
+          messageInterceptor: {
+            doBefore: (context, messages) => {
+              observed.push({ point: context.getMessageHookPoints(), message: messages[0] as PublishingMessage });
+            },
+            doAfter: () => undefined,
+          },
+        });
+        rpc.sendMessage.onFirstCall().rejects(new Error('network failure'));
+        rpc.sendMessage.callsFake(async (_endpoints, request) => {
+          const id = request.getMessagesList()[0].getSystemProperties()!.getMessageId();
+          return sendResponse([{ messageId: id, transactionId: 'tx-regression' }]);
+        });
+        rpc.endTransaction.resolves(new EndTransactionResponse().setStatus(buildStatus()));
+        const transaction = producer.beginTransaction();
+        const receipt = await producer.send(message(), transaction);
+        await transaction[action]();
+
+        const sends = observed.filter(event => event.point === MessageHookPoints.SEND);
+        const ending = observed.find(event => event.point === (action === 'commit'
+          ? MessageHookPoints.COMMIT_TRANSACTION : MessageHookPoints.ROLLBACK_TRANSACTION))!;
+        assert.equal(ending.message.messageId, receipt.messageId);
+        assert.equal(ending.message, sends[0].message);
+        assert.equal(sends.length, 2);
+        assert.equal(sends[0].message, sends[1].message);
+        for (const call of rpc.sendMessage.getCalls()) {
+          assert.equal(call.args[1].getMessagesList()[0].getSystemProperties()!.getMessageId(), receipt.messageId);
+          assert.equal(call.args[1].getMessagesList()[0].getSystemProperties()!.getMessageType(), MessageType.TRANSACTION);
+        }
+        assert.equal(rpc.endTransaction.firstCall.args[1].getMessageId(), receipt.messageId);
+        assert.equal(rpc.endTransaction.firstCall.args[1].getTransactionId(), 'tx-regression');
+      });
+    }
   });
 
   describe('route update', () => {
@@ -278,6 +380,25 @@ describe('Producer', () => {
     it('rejects when the producer is not running', async () => {
       producer = new Producer({ endpoints: '127.0.0.1:8080', namespace: '', logger: createSilentLogger() });
       await assert.rejects(producer.recallMessage(TOPIC, 'handle-1'), /Producer is not running now/);
+    });
+
+    it('carries the request id of the response in the typed exception', async () => {
+      const { producer, rpc } = await start();
+      rpc.recallMessage.resolves(setRequestId(
+        new RecallMessageResponse().setStatus(buildStatus(Code.MESSAGE_NOT_FOUND, 'recall failed')), 'request-1'));
+
+      await assert.rejects(producer.recallMessage(TOPIC, 'handle-1'), (err: Error) => {
+        assert.ok(err instanceof NotFoundException);
+        assert.match(err.message, /request-id=request-1/);
+        return true;
+      });
+    });
+
+    it('rejects with InternalErrorException when the response has no status', async () => {
+      const { producer, rpc } = await start();
+      rpc.recallMessage.resolves(new RecallMessageResponse());
+
+      await assert.rejects(producer.recallMessage(TOPIC, 'handle-1'), InternalErrorException);
     });
 
     it('rejects a blank topic or an empty recall handle', async () => {

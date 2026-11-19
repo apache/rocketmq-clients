@@ -24,8 +24,9 @@ import {
 import { Endpoints } from '../route';
 import { ILogger } from '../client/Logger';
 import { RpcClientManager } from '../client/RpcClientManager';
-import { ClientException, LiteSubscriptionQuotaExceededException } from '../exception';
+import { ClientException, LiteSubscriptionQuotaExceededException, StatusChecker } from '../exception';
 import { Resource } from '../route/Resource';
+import { getRequestId } from '../util/rpcContext';
 import { OffsetOption } from './OffsetOption';
 
 const SYNC_LITE_SUBSCRIPTION_INTERVAL = 30000; // 30 seconds
@@ -294,15 +295,8 @@ export class LiteSubscriptionManager {
       await Promise.all(endpointsList.map(async endpoints => {
         const response: SyncLiteSubscriptionResponse = await this.host.getRpcClientManager()
           .syncLiteSubscription(endpoints, request, this.host.getRequestTimeout());
-
-        // Handle response status
-        const status = response.getStatus();
-        if (status && status.getCode() !== Code.OK) {
-          throw new ClientException(
-            status.getCode(),
-            `Failed to sync lite subscription to endpoints=${endpoints.facade}: ${status.getMessage()}`,
-          );
-        }
+        // Map the status to typed exceptions (e.g. LiteSubscriptionQuotaExceededException), as Java does.
+        StatusChecker.check(response.getStatus()?.toObject(), getRequestId(response));
       }));
 
       if (logger.info) {

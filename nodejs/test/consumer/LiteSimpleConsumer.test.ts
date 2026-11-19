@@ -48,6 +48,8 @@ import {
   LiteSubscriptionHost,
 } from '../../src/consumer/LiteSubscriptionManager';
 import { OffsetOption } from '../../src/consumer/OffsetOption';
+import { InternalErrorException, LiteSubscriptionQuotaExceededException } from '../../src/exception';
+import { setRequestId } from '../../src/util/rpcContext';
 
 const ENDPOINTS = '127.0.0.1:8081';
 
@@ -341,8 +343,47 @@ describe('test/consumer/LiteSimpleConsumer.test.ts', () => {
 
       await assert.rejects(async () => {
         await manager.subscribeLite('lite-topic-1');
-      }, /Failed to sync lite subscription/);
+      }, InternalErrorException);
       // Failed sync must not pollute the local set
+      assert.strictEqual(manager.getLiteTopicSet().size, 0);
+    });
+
+    it('should map the sync status to typed exceptions with the request id, as Java does', async () => {
+      const host = new FakeHost();
+      const manager = new LiteSubscriptionManager(
+        host,
+        new Resource('', bindTopic),
+        new Resource('', 'lite-unittest-group'),
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (host as any).getRpcClientManager = () => ({
+        syncLiteSubscription: async () => setRequestId(new SyncLiteSubscriptionResponse().setStatus(
+          new Status().setCode(Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED).setMessage('quota exceeded'),
+        ), 'request-1'),
+      });
+
+      await assert.rejects(manager.subscribeLite('lite-topic-1'), (err: Error) => {
+        assert.ok(err instanceof LiteSubscriptionQuotaExceededException);
+        assert.strictEqual((err as LiteSubscriptionQuotaExceededException).code, Code.LITE_SUBSCRIPTION_QUOTA_EXCEEDED);
+        assert.match(err.message, /request-id=request-1/);
+        return true;
+      });
+      assert.strictEqual(manager.getLiteTopicSet().size, 0);
+    });
+
+    it('should fail subscription when the sync response has no status', async () => {
+      const host = new FakeHost();
+      const manager = new LiteSubscriptionManager(
+        host,
+        new Resource('', bindTopic),
+        new Resource('', 'lite-unittest-group'),
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (host as any).getRpcClientManager = () => ({
+        syncLiteSubscription: async () => new SyncLiteSubscriptionResponse(),
+      });
+
+      await assert.rejects(manager.subscribeLite('lite-topic-1'), InternalErrorException);
       assert.strictEqual(manager.getLiteTopicSet().size, 0);
     });
 

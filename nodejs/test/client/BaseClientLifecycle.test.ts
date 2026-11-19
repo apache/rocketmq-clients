@@ -276,6 +276,26 @@ describe('BaseClient lifecycle', () => {
       sinon.assert.notCalled(harness.rpc.heartbeat);
     });
 
+    it('心跳并发回归：首端点未响应时也向其余端点发送', async () => {
+      const harness = createHarness({ topics: [ 'topic-a' ] });
+      harness.rpc.queryRoute.resolves(routeResponse(BROKER_A, BROKER_B));
+      await startClient(harness, clock);
+      const held = deferred<HeartbeatResponse>();
+      harness.rpc.heartbeat.callsFake(async endpoints => (endpoints.facade === BROKER_A
+        ? held.promise : heartbeatResponse()));
+      const round = harness.client.heartbeat();
+      await clock.tickAsync(0);
+      const targetsBeforeResponse = harness.rpc.heartbeat.getCalls().map(call => call.args[0].facade);
+      held.resolve(heartbeatResponse(Code.INTERNAL_SERVER_ERROR));
+      await round;
+      await harness.client.shutdown();
+
+      assert.deepStrictEqual(targetsBeforeResponse, [ BROKER_A, BROKER_B ]);
+      sinon.assert.calledWithMatch(harness.logger.warn, /Heartbeat failed for endpoints=%s/, BROKER_A);
+      sinon.assert.calledTwice(harness.rpc.heartbeat);
+      assert.strictEqual(clock.countTimers(), 0);
+    });
+
     it('resets the failure count after a successful heartbeat', async () => {
       const harness = await startedHarness();
       harness.rpc.heartbeat.onCall(0).resolves(heartbeatResponse(Code.INTERNAL_SERVER_ERROR));

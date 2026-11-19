@@ -39,9 +39,9 @@ export class LiteFifoConsumeService extends FifoConsumeService {
   readonly #logger: ILogger;
 
   constructor(clientId: string, messageListener: MessageListener, enableFifoConsumeAccelerator?: boolean,
-    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
-    super(clientId, messageListener, enableFifoConsumeAccelerator, messageInterceptor, consumerGroup);
-    this.#logger = getDefaultLogger();
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string, logger?: ILogger) {
+    super(clientId, messageListener, enableFifoConsumeAccelerator, messageInterceptor, consumerGroup, logger);
+    this.#logger = logger ?? getDefaultLogger();
   }
 
   /**

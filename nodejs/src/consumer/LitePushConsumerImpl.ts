@@ -96,10 +96,10 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
         this.consumerGroup, this.clientId, this.#enableFifoConsumeAccelerator,
       );
       return new LiteFifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator,
-        this, this.consumerGroup);
+        this, this.consumerGroup, this.logger);
     }
     this.logger.info('Create lite standard consume service, consumerGroup=%s, clientId=%s', this.consumerGroup, this.clientId);
-    return new LiteStandardConsumeService(this.clientId, this.#messageListener, this, this.consumerGroup);
+    return new LiteStandardConsumeService(this.clientId, this.#messageListener, this, this.consumerGroup, this.logger);
   }
 
   /**
@@ -112,11 +112,11 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
   }
 
   /**
-   * 路由更新不直接创建队列；Lite Push 由父类 assignment 扫描维护 ProcessQueue。
+   * Route updates do not create queues; Lite Push uses the parent's assignment scans to maintain ProcessQueues.
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected onTopicRouteDataUpdate(_topic: string, _topicRouteData: TopicRouteData) {
-    // LiteSubscriptionManager 维护订阅，服务端 assignment 决定接收队列。
+    // LiteSubscriptionManager maintains subscriptions; server assignments determine receive queues.
   }
 
   /**
@@ -228,7 +228,7 @@ export class LitePushConsumerImpl extends PushConsumer implements LitePushConsum
    * @param settings - The settings configuration
    */
   onSettingsCommand(endpoints: Endpoints, settings: SettingsPB): void;
-  // 保留已暴露的宽类型重载，处理逻辑使用与父类一致的协议类型。
+  // Preserve the public broad overload; implement handling with the same protocol types as the parent.
   onSettingsCommand(endpoints: any, settings: any): void;
   onSettingsCommand(endpoints: Endpoints, settings: SettingsPB): void {
     super.onSettingsCommand(endpoints, settings);

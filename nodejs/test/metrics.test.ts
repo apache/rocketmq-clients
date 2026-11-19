@@ -31,6 +31,10 @@ import { Metadata } from '@grpc/grpc-js';
 import { Attributes, Meter } from '@opentelemetry/api';
 import { ExplicitBucketHistogramAggregation, InstrumentType, MeterProvider as SdkMeterProvider } from '@opentelemetry/sdk-metrics';
 import { Endpoints } from '../src/route';
+import { MessageView } from '../src/message';
+import { ConsumeTask } from '../src/consumer/ConsumeTask';
+import { ConsumeResult } from '../src/consumer/ConsumeResult';
+import { buildMessagePB, buildRoute } from './support/protobuf';
 import {
   Endpoints as EndpointsPB,
   AddressScheme,
@@ -52,6 +56,7 @@ import {
 import { InvocationStatus } from '../src/metrics/InvocationStatus';
 import { MetricLabels } from '../src/metrics/MetricLabels';
 import {
+  CompositedMessageInterceptor,
   MessageHookPoints,
   MessageHookPointsStatus,
   MessageInterceptorContextImpl,
@@ -402,6 +407,35 @@ describe('MessageMeterInterceptor exact recording', () => {
           attributes: { topic: 'TopicA', client_id: 'client-1', consumer_group: 'group-1' }, value: 100 },
         { histogramEnum: HistogramEnum.PROCESS_TIME,
           attributes: { topic: 'TopicA', client_id: 'client-1', consumer_group: 'group-1', invocation_status: label }, value: 20 },
+      ]);
+    });
+  });
+
+  [ false, true ].forEach(failed => {
+    it(`真实消息消费${failed ? '异常' : '成功'}时记录等待与处理时间`, async () => {
+      const recorder = new RecordingMeterManager();
+      const meterInterceptor = new MessageMeterInterceptor(asManager(recorder), 'client-1', () => 'group-1');
+      const interceptor = new CompositedMessageInterceptor([ meterInterceptor ], silentLogger);
+      const message = new MessageView(buildMessagePB({ topic: 'TopicA' }), buildRoute({ topic: 'TopicA' }).messageQueues[0]);
+      clock.tick(100);
+      const task = new ConsumeTask('client-1', {
+        consume: async () => {
+          clock.tick(20);
+          if (failed) throw new Error('消费失败');
+          return ConsumeResult.SUCCESS;
+        },
+      }, message, interceptor, 'group-1');
+
+      const result = await task.call();
+
+      // Assert outside hooks so interceptor exception isolation cannot swallow assertion failures.
+      assert.strictEqual(result, failed ? ConsumeResult.FAILURE : ConsumeResult.SUCCESS);
+      assert.deepStrictEqual(recorder.records, [
+        { histogramEnum: HistogramEnum.AWAIT_TIME,
+          attributes: { topic: 'TopicA', client_id: 'client-1', consumer_group: 'group-1' }, value: 100 },
+        { histogramEnum: HistogramEnum.PROCESS_TIME,
+          attributes: { topic: 'TopicA', client_id: 'client-1', consumer_group: 'group-1',
+            invocation_status: failed ? 'failure' : 'success' }, value: 20 },
       ]);
     });
   });

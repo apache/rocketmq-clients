@@ -64,8 +64,6 @@ export class PublishingSettings extends Settings {
 
   sync(settings: SettingsPB): void {
     if (settings.getPubSubCase() !== SettingsPB.PubSubCase.PUBLISHING) {
-      // log.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
-      //       + "clientType={}", clientId, pubSubCase, clientType);
       return;
     }
     const backoffPolicy = settings.getBackoffPolicy()!;

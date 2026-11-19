@@ -21,7 +21,7 @@ import * as exceptions from '../../src/exception';
 import { checkReceiveStatus } from '../../src/exception/receiveStatus';
 import { buildStatus } from '../support/protobuf';
 
-// 每组与同基点 Java StatusChecker 的映射对应，未映射枚举显式进入 default。
+// Each group matches Java StatusChecker at the same baseline; unmapped enum values explicitly reach the default branch.
 const groups = [
   [ exceptions.BadRequestException, [
     Code.BAD_REQUEST, Code.ILLEGAL_ACCESS_POINT, Code.ILLEGAL_TOPIC, Code.ILLEGAL_CONSUMER_GROUP,

@@ -28,10 +28,10 @@ import { ConsumeResult } from './ConsumeResult';
 import { MessageListener } from './MessageListener';
 
 // Context keys exposed to interceptors, mirroring the Java ConsumeTask keys.
-export const REMOTE_ADDR_CONTEXT_KEY = AttributeKey.create<string>('remote_address');
-export const MESSAGE_VIEW_CONTEXT_KEY = AttributeKey.create<MessageView>('message_view');
-export const CONSUMER_GROUP_CONTEXT_KEY = AttributeKey.create<string>('consumer_group');
-export const CONSUME_ERROR_CONTEXT_KEY = AttributeKey.create<unknown>('consume_error');
+export const REMOTE_ADDR_CONTEXT_KEY = AttributeKey.create<string>('remoteAddr');
+export const MESSAGE_VIEW_CONTEXT_KEY = AttributeKey.create<MessageView>('messageView');
+export const CONSUMER_GROUP_CONTEXT_KEY = AttributeKey.create<string>('consumerGroup');
+export const CONSUME_ERROR_CONTEXT_KEY = AttributeKey.create<unknown>('consumeError');
 
 export class ConsumeTask {
   readonly #messageListener: MessageListener;

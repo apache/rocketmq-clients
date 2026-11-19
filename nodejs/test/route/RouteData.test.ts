@@ -19,6 +19,7 @@ import { strict as assert } from 'node:assert';
 import { MessageType, Permission, MessageQueue as MessageQueuePB } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { Broker, Endpoints, MessageQueue, Resource, TopicRouteData } from '../../src/route';
 import { buildRoute } from '../support/protobuf';
+import { NotFoundException } from '../../src/exception';
 
 describe('Route 数据模型与 namespace', () => {
   for (const namespace of [ '', 'tenant-a', '中文租户' ]) {
@@ -92,6 +93,30 @@ describe('Route 数据模型与 namespace', () => {
       change(other);
       assert.equal(broker.equals(other), false);
     }
+  });
+
+  it('分配查询轮转回归：跳过非 master 和 NONE 并循环使用合法端点', () => {
+    const route = buildRoute({ brokers: [
+      { name: 'slave', id: 1, endpoints: '127.0.0.1:80' },
+      { name: 'none', endpoints: '127.0.0.2:80' },
+      { name: 'a', endpoints: '127.0.0.3:80' },
+      { name: 'b', endpoints: '127.0.0.4:80' },
+    ] });
+    route.messageQueues[1].permission = Permission.NONE;
+    const endpoints = Array.from({ length: 8 }, () => route.pickEndpointsToQueryAssignments().facade);
+    assert.deepEqual(new Set(endpoints), new Set([ '127.0.0.3:80', '127.0.0.4:80' ]));
+    for (let i = 1; i < endpoints.length; i++) assert.notEqual(endpoints[i], endpoints[i - 1]);
+  });
+
+  it('分配查询轮转回归：没有合法端点时抛 NotFoundException', () => {
+    for (const route of [ new TopicRouteData([]), buildRoute({ brokerId: 1 }), buildRoute({ permission: Permission.NONE }) ]) {
+      assert.throws(() => route.pickEndpointsToQueryAssignments(), NotFoundException);
+    }
+  });
+
+  it('分配查询保持 Java 对 WRITE 权限 master 的兼容性', () => {
+    const route = buildRoute({ permission: Permission.WRITE });
+    assert.equal(route.pickEndpointsToQueryAssignments(), route.messageQueues[0].broker.endpoints);
   });
 
   it('TopicRouteData 去重 endpoint、保留队列顺序和 equals/hashCode', () => {

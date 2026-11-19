@@ -17,6 +17,7 @@
 
 import { strict as assert } from 'node:assert';
 import { gzipSync } from 'node:zlib';
+import * as sinon from 'sinon';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { DigestType, Encoding } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { MessageView } from '../../src/message';
@@ -25,6 +26,21 @@ import { buildMessagePB, buildRoute } from '../support/protobuf';
 
 describe('MessageView', () => {
   const mq = buildRoute({ brokers: [{ name: 'broker-a', endpoints: '127.0.0.1:8081' }] }).messageQueues[0];
+
+  it('记录每个实例的本地解码时间，缺省队列时同样有效', () => {
+    const clock = sinon.useFakeTimers({ now: 1000, toFake: [ 'Date' ] });
+    try {
+      const first = new MessageView(buildMessagePB(), mq);
+      assert.ok(first.decodeTimestamp instanceof Date);
+      assert.equal(first.decodeTimestamp.getTime(), 1000);
+      clock.tick(7);
+      const second = new MessageView(buildMessagePB());
+      assert.equal(second.decodeTimestamp.getTime(), 1007);
+      assert.equal(first.decodeTimestamp.getTime(), 1000);
+    } finally {
+      clock.restore();
+    }
+  });
 
   for (const [ name, digestType ] of [[ 'CRC32', DigestType.CRC32 ], [ 'MD5', DigestType.MD5 ], [ 'SHA1', DigestType.SHA1 ]] as const) {
     it(`marks the message corrupted when the ${name} checksum mismatches`, () => {

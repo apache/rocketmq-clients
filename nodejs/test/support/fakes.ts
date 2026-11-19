@@ -43,7 +43,7 @@ export function createSilentLogger() {
   } satisfies ILogger;
 }
 
-// 不运行构造函数，避免真实 channel 和空闲回收定时器；应答通过 resolves/rejects/callsFake 设置。
+// Skip construction to avoid real channels and idle timers; configure responses with resolves/rejects/callsFake.
 export function createFakeRpcClientManager(): sinon.SinonStubbedInstance<RpcClientManager> {
   const fake = sinon.createStubInstance(RpcClientManager);
   const asyncMethods = [
@@ -59,7 +59,7 @@ export function createFakeRpcClientManager(): sinon.SinonStubbedInstance<RpcClie
   return fake;
 }
 
-// 仅注入尚未 startup 的测试客户端；先关闭构造时创建的 manager，避免遗留真实定时器。
+// Inject only before startup; close the original manager first to avoid retaining real timers.
 export function installFakeRpcClientManager(client: BaseClient, fake = createFakeRpcClientManager()) {
   if (client.isRunning()) {
     throw new Error('只能向尚未启动的客户端注入 RPC 替身');
@@ -77,7 +77,7 @@ export class FakeTelemetryStream extends Duplex {
   }
 
   _read(): void {
-    // 服务端响应由测试显式发送。
+    // Tests explicitly send server responses.
   }
 
   _write(command: TelemetryCommand, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
@@ -101,7 +101,7 @@ export class FakeTelemetryStream extends Duplex {
     this.destroy();
   }
 
-  // 只模拟 telemetry 使用的流接口，不提供真实 gRPC metadata/status。
+  // Simulate only the telemetry stream interface, without real gRPC metadata/status.
   asGrpcStream(): ClientDuplexStream<TelemetryCommand, TelemetryCommand> {
     return this as unknown as ClientDuplexStream<TelemetryCommand, TelemetryCommand>;
   }

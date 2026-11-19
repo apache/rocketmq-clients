@@ -70,7 +70,7 @@ for (const kind of [ 'push', 'simple' ] as const) {
       rpc.telemetry.callsFake(() => {
         const stream = new FakeTelemetryStream();
         streams.push(stream);
-        // 等 telemetry 挂好监听，再模拟服务端下发首次 settings。
+        // Wait for telemetry listeners to attach before simulating the first server settings.
         Promise.resolve().then(() => stream.receive(new TelemetryCommand().setSettings(buildSettings({
           clientType: kind === 'push' ? ClientType.LITE_PUSH_CONSUMER : ClientType.LITE_SIMPLE_CONSUMER,
           subscription: new Subscription().setLiteSubscriptionQuota(3).setMaxLiteTopicSize(8),

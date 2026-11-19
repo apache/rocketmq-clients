@@ -57,8 +57,8 @@ export function createDuration(ms: number) {
     .setNanos(nanos || 0);
 }
 
-export function createResource(name: string) {
-  return new Resource().setName(name);
+export function createResource(name: string, namespace = '') {
+  return new Resource().setResourceNamespace(namespace).setName(name);
 }
 
 export function crc32CheckSum(bytes: Buffer) {

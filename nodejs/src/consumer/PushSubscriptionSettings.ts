@@ -86,11 +86,11 @@ export class PushSubscriptionSettings extends Settings {
 
   toProtobuf(): SettingsPB {
     const subscription = new Subscription()
-      .setGroup(createResource(this.#group));
+      .setGroup(createResource(this.#group, this.namespace));
 
     for (const [ topic, filterExpression ] of this.#subscriptionExpressions.entries()) {
       subscription.addSubscriptions()
-        .setTopic(createResource(topic))
+        .setTopic(createResource(topic, this.namespace))
         .setExpression(filterExpression.toProtobuf());
     }
 

@@ -21,15 +21,15 @@ import { ConsumeService } from './ConsumeService';
 import { ConsumeResult } from './ConsumeResult';
 import { MessageListener } from './MessageListener';
 import type { ProcessQueue } from './ProcessQueue';
-import { getDefaultLogger } from '../client';
+import { ILogger, getDefaultLogger } from '../client/Logger';
 
 export class StandardConsumeService extends ConsumeService {
-  private readonly logger = getDefaultLogger();
+  private readonly logger: ILogger;
 
-  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor(clientId: string, messageListener: MessageListener,
-    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string, logger?: ILogger) {
     super(clientId, messageListener, messageInterceptor, consumerGroup);
+    this.logger = logger ?? getDefaultLogger();
   }
 
   consume(pq: ProcessQueue, messageViews: MessageView[]): void {

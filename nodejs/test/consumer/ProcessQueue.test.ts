@@ -23,6 +23,8 @@ import { ConsumeResult, ConsumeResultSuspend } from '../../src/consumer/ConsumeR
 import type { ConsumeService } from '../../src/consumer/ConsumeService';
 import { TooManyRequestsException } from '../../src/exception';
 import { Code } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { setRequestId } from '../../src/util/rpcContext';
+import { ForwardMessageToDeadLetterQueueResponse } from '../../proto/apache/rocketmq/v2/service_pb';
 import { deferred } from '../support/fakes';
 import { buildRoute } from '../support/protobuf';
 import {
@@ -128,6 +130,42 @@ describe('ProcessQueue receive loop', () => {
     assert.strictEqual(h.pq.cachedMessageBytes(), message.body.length);
     sinon.assert.calledOnceWithExactly(consume, h.pq, [ message ]);
     sinon.assert.calledTwice(h.consumer.receiveMessage);
+  });
+
+  it('关闭边界回归：abort 后的接收成功不再缓存或消费', async () => {
+    const h = createProcessQueueHarness();
+    const consume = sinon.stub();
+    h.setConsumeService({ consume } as unknown as ConsumeService);
+    const held = deferred<ReturnType<typeof buildMessageView>[]>();
+    h.consumer.receiveMessage.returns(held.promise);
+    h.pq.fetchMessageImmediately();
+    h.pq.abort();
+    held.resolve([ buildMessageView() ]);
+    await flushPromises();
+
+    sinon.assert.notCalled(consume);
+    assert.strictEqual(h.pq.cachedMessagesCount(), 0);
+    assert.strictEqual(h.pq.isDrained(), true);
+    assert.strictEqual(clock.countTimers(), 0);
+  });
+
+  it('drop 时的在途接收和缓存全部结算后才标记为 drained', async () => {
+    const h = createProcessQueueHarness();
+    const consume = sinon.stub();
+    h.setConsumeService({ consume } as unknown as ConsumeService);
+    const held = deferred<ReturnType<typeof buildMessageView>[]>();
+    h.consumer.receiveMessage.returns(held.promise);
+    h.pq.fetchMessageImmediately();
+    h.pq.drop();
+    assert.strictEqual(h.pq.isDrained(), false);
+    const message = buildMessageView();
+    held.resolve([ message ]);
+    await flushPromises();
+    assert.strictEqual(h.pq.isDrained(), false);
+    sinon.assert.calledOnce(consume);
+    h.pq.eraseMessage(message, ConsumeResult.SUCCESS);
+    await flushPromises();
+    assert.strictEqual(h.pq.isDrained(), true);
   });
 
   it('bounds the batch size by the remaining permits', async () => {
@@ -287,6 +325,47 @@ describe('ProcessQueue settlement', () => {
     assert.strictEqual(h.pq.cachedMessagesCount(), 0);
   });
 
+  ([ 'ack', 'nack', 'DLQ' ] as const).forEach(operation => {
+    it(`结算日志回归：${operation} 非 OK 状态记录 code、requestId 和 message`, async () => {
+      const h = createProcessQueueHarness();
+      const response = setRequestId(ackResponse(Code.INTERNAL_SERVER_ERROR), 'settle-request');
+      response.getStatus()!.setMessage('remote failure');
+      const rpc = operation === 'ack' ? h.consumer.ackMessageViaRpc
+        : operation === 'nack' ? h.consumer.changeInvisibleDurationViaRpc : h.consumer.forwardMessageToDeadLetterQueueViaRpc;
+      rpc.onFirstCall().resolves(response);
+      const message = buildMessageView();
+      h.pq.cacheMessages([ message ]);
+      if (operation === 'DLQ') h.pq.discardFifoMessage(message);
+      else h.pq.eraseMessage(message, operation === 'ack' ? ConsumeResult.SUCCESS : ConsumeResult.FAILURE);
+      await flushPromises();
+      const logged = h.logger.error.getCalls().map(call => call.args);
+      await clock.tickAsync(1000);
+
+      assert.strictEqual(logged.length, 1);
+      assert.strictEqual(logged[0][4], Code.INTERNAL_SERVER_ERROR);
+      assert.strictEqual(logged[0][5], 'settle-request');
+      assert.strictEqual(logged[0][6], 'remote failure');
+      sinon.assert.calledTwice(rpc);
+      assert.strictEqual(h.pq.cachedMessagesCount(), 0);
+    });
+
+    it(`关闭边界回归：abort 后 ${operation} 不发首轮 RPC 并释放缓存`, async () => {
+      const h = createProcessQueueHarness();
+      const message = buildMessageView();
+      h.pq.cacheMessages([ message ]);
+      h.pq.abort();
+      if (operation === 'DLQ') h.pq.discardFifoMessage(message);
+      else h.pq.eraseMessage(message, operation === 'ack' ? ConsumeResult.SUCCESS : ConsumeResult.FAILURE);
+      await flushPromises();
+
+      sinon.assert.notCalled(h.consumer.ackMessageViaRpc);
+      sinon.assert.notCalled(h.consumer.changeInvisibleDurationViaRpc);
+      sinon.assert.notCalled(h.consumer.forwardMessageToDeadLetterQueueViaRpc);
+      assert.strictEqual(h.pq.cachedMessagesCount(), 0);
+      assert.strictEqual(clock.countTimers(), 0);
+    });
+  });
+
   it('retries a failed ack at a fixed interval until it succeeds', async () => {
     const h = createProcessQueueHarness();
     h.consumer.ackMessageViaRpc.onFirstCall().rejects(new Error('network'));
@@ -336,6 +415,23 @@ describe('ProcessQueue settlement', () => {
 
     sinon.assert.calledOnce(h.consumer.ackMessageViaRpc);
     assert.strictEqual(h.pq.cachedMessagesCount(), 0);
+  });
+
+  it('retries forwarding to DLQ when the response has no status, as Java does', async () => {
+    const h = createProcessQueueHarness({ consumeConcurrentlyMax: 1 });
+    h.consumer.forwardMessageToDeadLetterQueueViaRpc.onFirstCall().resolves(new ForwardMessageToDeadLetterQueueResponse());
+    const message = buildMessageView();
+    h.pq.cacheMessages([ message ]);
+
+    h.pq.discardFifoMessage(message);
+    await flushPromises();
+    sinon.assert.calledOnce(h.consumer.forwardMessageToDeadLetterQueueViaRpc);
+    assert.strictEqual(h.pq.cachedMessagesCount(), 1);
+    await clock.tickAsync(1000);
+
+    sinon.assert.calledTwice(h.consumer.forwardMessageToDeadLetterQueueViaRpc);
+    assert.strictEqual(h.pq.cachedMessagesCount(), 0);
+    assert.strictEqual(h.pq.availablePermits(), 1);
   });
 
   it('releases the permit only once when a message is settled twice', async () => {
