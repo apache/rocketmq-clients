@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import type { ILogger } from '../client/Logger';
 import { Attribute } from './Attribute';
 import { AttributeKey } from './AttributeKey';
 import { MessageHookPointsStatus } from './MessageHookPointsStatus';
@@ -33,9 +34,11 @@ const INTERCEPTOR_ATTRIBUTES_KEY = AttributeKey
  */
 export class CompositedMessageInterceptor implements MessageInterceptor {
   readonly #interceptors: MessageInterceptor[] = [];
+  readonly #logger?: ILogger;
 
-  constructor(interceptors: MessageInterceptor[] = []) {
+  constructor(interceptors: MessageInterceptor[] = [], logger?: ILogger) {
     this.#interceptors.push(...interceptors);
+    this.#logger = logger;
   }
 
   addInterceptor(interceptor: MessageInterceptor) {
@@ -58,9 +61,10 @@ export class CompositedMessageInterceptor implements MessageInterceptor {
       try {
         this.#interceptors[index].doBefore(context, messages);
       } catch (t) {
-        // Interceptors must never break the message pipeline.
+        // Interceptors must never break the message pipeline. Standalone instances without
+        // a client logger fall back to the console.
         // eslint-disable-next-line no-console
-        console.error(
+        (this.#logger ?? console).error(
           '[CompositedMessageInterceptor] Exception raised while handling messages before hook point=%s, error=%s',
           context0.getMessageHookPoints(), t);
       }
@@ -83,7 +87,7 @@ export class CompositedMessageInterceptor implements MessageInterceptor {
         this.#interceptors[index].doAfter(context, messages);
       } catch (t) {
         // eslint-disable-next-line no-console
-        console.error(
+        (this.#logger ?? console).error(
           '[CompositedMessageInterceptor] Exception raised while handling messages after hook point=%s, error=%s',
           context0.getMessageHookPoints(), t);
       }

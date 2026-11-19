@@ -81,8 +81,20 @@ export class RpcClient {
     return this.#client;
   }
 
-  #getDeadline(duration: number) {
-    return Date.now() + duration;
+  // Shared unary-call plumbing: refresh activity, apply the deadline and settle
+  // the promise from the gRPC callback, mirroring the per-method wrappers before.
+  #unary<Req, Res>(duration: number,
+    call: (request: Req, metadata: Metadata, options: { deadline: number },
+      callback: (e: Error | null, res: Res) => void) => void,
+    request: Req, metadata: Metadata): Promise<Res> {
+    this.#activityTime = Date.now();
+    const deadline = Date.now() + duration;
+    return new Promise<Res>((resolve, reject) => {
+      call(request, metadata, { deadline }, (e, res) => {
+        if (e) return reject(e);
+        resolve(res);
+      });
+    });
   }
 
   idleDuration() {
@@ -100,54 +112,25 @@ export class RpcClient {
    * @param metadata gRPC request header metadata.
    * @param duration request max duration in milliseconds.
    */
-  async queryRoute(request: QueryRouteRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<QueryRouteResponse>((resolve, reject) => {
-      client.queryRoute(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async queryRoute(request: QueryRouteRequest, metadata: Metadata, duration: number): Promise<QueryRouteResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.queryRoute(req, md, opts, cb), request, metadata);
   }
 
-  async heartbeat(request: HeartbeatRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<HeartbeatResponse>((resolve, reject) => {
-      client.heartbeat(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async heartbeat(request: HeartbeatRequest, metadata: Metadata, duration: number): Promise<HeartbeatResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.heartbeat(req, md, opts, cb), request, metadata);
   }
 
-  async sendMessage(request: SendMessageRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<SendMessageResponse>((resolve, reject) => {
-      client.sendMessage(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async sendMessage(request: SendMessageRequest, metadata: Metadata, duration: number): Promise<SendMessageResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.sendMessage(req, md, opts, cb), request, metadata);
   }
 
-  async queryAssignment(request: QueryAssignmentRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<QueryAssignmentResponse>((resolve, reject) => {
-      client.queryAssignment(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async queryAssignment(request: QueryAssignmentRequest, metadata: Metadata, duration: number): Promise<QueryAssignmentResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.queryAssignment(req, md, opts, cb), request, metadata);
   }
 
   async receiveMessage(request: ReceiveMessageRequest, metadata: Metadata, duration: number) {
     const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    const readable = client.receiveMessage(request, metadata, { deadline });
+    const readable = client.receiveMessage(request, metadata, { deadline: Date.now() + duration });
     const responses: ReceiveMessageResponse[] = [];
     for await (const res of readable) {
       responses.push(res);
@@ -155,33 +138,19 @@ export class RpcClient {
     return responses;
   }
 
-  async ackMessage(request: AckMessageRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<AckMessageResponse>((resolve, reject) => {
-      client.ackMessage(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async ackMessage(request: AckMessageRequest, metadata: Metadata, duration: number): Promise<AckMessageResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.ackMessage(req, md, opts, cb), request, metadata);
   }
 
   async forwardMessageToDeadLetterQueue(request: ForwardMessageToDeadLetterQueueRequest,
-    metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<ForwardMessageToDeadLetterQueueResponse>((resolve, reject) => {
-      client.forwardMessageToDeadLetterQueue(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+    metadata: Metadata, duration: number): Promise<ForwardMessageToDeadLetterQueueResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.forwardMessageToDeadLetterQueue(req, md, opts, cb),
+      request, metadata);
   }
 
   async pullMessage(request: PullMessageRequest, metadata: Metadata, duration: number) {
     const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    const readable = client.pullMessage(request, metadata, { deadline });
+    const readable = client.pullMessage(request, metadata, { deadline: Date.now() + duration });
     const responses: PullMessageResponse[] = [];
     for await (const res of readable) {
       responses.push(res);
@@ -189,48 +158,20 @@ export class RpcClient {
     return responses;
   }
 
-  async updateOffset(request: UpdateOffsetRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<UpdateOffsetResponse>((resolve, reject) => {
-      client.updateOffset(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async updateOffset(request: UpdateOffsetRequest, metadata: Metadata, duration: number): Promise<UpdateOffsetResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.updateOffset(req, md, opts, cb), request, metadata);
   }
 
-  async getOffset(request: GetOffsetRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<GetOffsetResponse>((resolve, reject) => {
-      client.getOffset(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async getOffset(request: GetOffsetRequest, metadata: Metadata, duration: number): Promise<GetOffsetResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.getOffset(req, md, opts, cb), request, metadata);
   }
 
-  async queryOffset(request: QueryOffsetRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<QueryOffsetResponse>((resolve, reject) => {
-      client.queryOffset(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async queryOffset(request: QueryOffsetRequest, metadata: Metadata, duration: number): Promise<QueryOffsetResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.queryOffset(req, md, opts, cb), request, metadata);
   }
 
-  async endTransaction(request: EndTransactionRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<EndTransactionResponse>((resolve, reject) => {
-      client.endTransaction(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async endTransaction(request: EndTransactionRequest, metadata: Metadata, duration: number): Promise<EndTransactionResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.endTransaction(req, md, opts, cb), request, metadata);
   }
 
   telemetry(metadata: Metadata) {
@@ -238,47 +179,22 @@ export class RpcClient {
     return client.telemetry(metadata);
   }
 
-  async notifyClientTermination(request: NotifyClientTerminationRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<NotifyClientTerminationResponse>((resolve, reject) => {
-      client.notifyClientTermination(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async notifyClientTermination(request: NotifyClientTerminationRequest, metadata: Metadata, duration: number): Promise<NotifyClientTerminationResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.notifyClientTermination(req, md, opts, cb),
+      request, metadata);
   }
 
-  async changeInvisibleDuration(request: ChangeInvisibleDurationRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<ChangeInvisibleDurationResponse>((resolve, reject) => {
-      client.changeInvisibleDuration(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async changeInvisibleDuration(request: ChangeInvisibleDurationRequest, metadata: Metadata, duration: number): Promise<ChangeInvisibleDurationResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.changeInvisibleDuration(req, md, opts, cb),
+      request, metadata);
   }
 
-  async recallMessage(request: RecallMessageRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<RecallMessageResponse>((resolve, reject) => {
-      client.recallMessage(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async recallMessage(request: RecallMessageRequest, metadata: Metadata, duration: number): Promise<RecallMessageResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.recallMessage(req, md, opts, cb), request, metadata);
   }
 
-  async syncLiteSubscription(request: SyncLiteSubscriptionRequest, metadata: Metadata, duration: number) {
-    const client = this.#getAndActivityRpcClient();
-    const deadline = this.#getDeadline(duration);
-    return new Promise<SyncLiteSubscriptionResponse>((resolve, reject) => {
-      client.syncLiteSubscription(request, metadata, { deadline }, (e, res) => {
-        if (e) return reject(e);
-        resolve(res);
-      });
-    });
+  async syncLiteSubscription(request: SyncLiteSubscriptionRequest, metadata: Metadata, duration: number): Promise<SyncLiteSubscriptionResponse> {
+    return this.#unary(duration, (req, md, opts, cb) => this.#client.syncLiteSubscription(req, md, opts, cb),
+      request, metadata);
   }
 }

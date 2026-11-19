@@ -80,7 +80,7 @@ describe('test/util/index.test.ts', () => {
     for (const [ value, hashCode, javaSipHash ] of vectors) {
       it(`${value} 的 UTF-16 hashCode 与 SipHash 字节对齐 Java`, () => {
         assert.equal(hashCodeOfString(value), hashCode);
-        // Node 公开结果为摘要字节的无符号大端值；Java asLong 为小端有符号值。
+        // Node exposes an unsigned big-endian digest value; Java's asLong uses signed little-endian order.
         const bytes = Buffer.alloc(8);
         bytes.writeBigUInt64BE(calculateStringSipHash24(value));
         assert.equal(bytes.readBigInt64LE(), javaSipHash);
@@ -110,6 +110,7 @@ describe('test/util/index.test.ts', () => {
       try {
         assert.equal(getRequestDateTime(), '20261118T123456Z');
         assert.deepEqual(createResource('test-topic').toObject(), { name: 'test-topic', resourceNamespace: '' });
+        assert.deepEqual(createResource('test-topic', 'ns').toObject(), { name: 'test-topic', resourceNamespace: 'ns' });
       } finally {
         clock.restore();
       }

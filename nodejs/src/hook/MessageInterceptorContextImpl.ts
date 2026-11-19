@@ -58,7 +58,7 @@ export class MessageInterceptorContextImpl implements MessageInterceptorContext 
   }
 
   putAttribute<T>(key: AttributeKey<T>, value: Attribute<T>) {
-    // Java AttributeKey 按名称比较；保留公开的 Map<AttributeKey, Attribute> 形态。
+    // Java compares AttributeKeys by name; preserve the public Map<AttributeKey, Attribute> representation.
     const existing = this.findKey(key);
     this.#attributes.set(existing ?? key, value);
   }

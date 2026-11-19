@@ -17,8 +17,9 @@
 
 import * as assert from 'node:assert';
 import * as sinon from 'sinon';
-import { Assignment as AssignmentPB } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { Assignment as AssignmentPB, ClientType, Permission, Subscription } from '../../proto/apache/rocketmq/v2/definition_pb';
 import {
+  HeartbeatResponse,
   NotifyClientTerminationResponse,
   QueryAssignmentResponse,
   QueryRouteResponse,
@@ -28,8 +29,9 @@ import { ConsumeResult } from '../../src/consumer/ConsumeResult';
 import type { ConsumeService } from '../../src/consumer/ConsumeService';
 import { PushConsumer } from '../../src/consumer/PushConsumer';
 import { createSilentLogger, deferred, FakeTelemetryStream, installFakeRpcClientManager } from '../support/fakes';
-import { buildRoute, buildStatus } from '../support/protobuf';
-import { flushPromises, useFakeTimers } from './processQueueHarness';
+import { buildMessagePB, buildRoute, buildSettings, buildStatus } from '../support/protobuf';
+import { createDuration } from '../../src/util';
+import { ackResponse, buildMessageView, flushPromises, forwardToDLQResponse, useFakeTimers } from './processQueueHarness';
 
 const route = buildRoute({ topic: 'topic-a', queuesPerBroker: 3 });
 
@@ -50,16 +52,18 @@ describe('PushConsumer assignment scanning', () => {
   let logger: ReturnType<typeof createSilentLogger>;
   let receiveGate: ReturnType<typeof deferred<ReceiveMessageResponse[]>>;
   let shutdown: boolean;
+  let listener: sinon.SinonStub;
 
   beforeEach(() => {
     clock = useFakeTimers();
     logger = createSilentLogger();
+    listener = sinon.stub().resolves(ConsumeResult.SUCCESS);
     consumer = new PushConsumer({
       endpoints: '127.0.0.1:8081',
       namespace: '',
       consumerGroup: 'group-a',
       subscriptions: new Map([[ 'topic-a', '*' ]]),
-      messageListener: { consume: async () => ConsumeResult.SUCCESS },
+      messageListener: { consume: listener },
       logger,
     });
     rpc = installFakeRpcClientManager(consumer);
@@ -157,6 +161,146 @@ describe('PushConsumer assignment scanning', () => {
 
     assert.deepStrictEqual(consumer.processQueues(), before);
     sinon.assert.calledWithMatch(logger.error, /Exception raised while scanning the assignments, topic=%s/);
+  });
+
+  it('分配查询轮转回归：真实扫描轮转可用 master 端点', async () => {
+    const selectionRoute = buildRoute({ topic: 'topic-a', brokers: [
+      { name: 'slave', id: 1, endpoints: '127.0.0.1:8082' },
+      { name: 'none', endpoints: '127.0.0.1:8083' },
+      { name: 'master-a', endpoints: '127.0.0.1:8084' },
+      { name: 'master-b', endpoints: '127.0.0.1:8085' },
+    ] });
+    selectionRoute.messageQueues[1].permission = Permission.NONE;
+    rpc.queryRoute.resolves(new QueryRouteResponse().setStatus(buildStatus())
+      .setMessageQueuesList(selectionRoute.messageQueues.map(mq => mq.toProtobuf())));
+    rpc.queryAssignment.resolves(assignmentResponse([]));
+    await startScanning();
+    await clock.tickAsync(15000);
+    const targets = rpc.queryAssignment.getCalls().map(call => call.args[0].facade);
+    assert.deepStrictEqual(new Set(targets), new Set([ '127.0.0.1:8084', '127.0.0.1:8085' ]));
+  });
+
+  ([ 'ackMessage', 'changeInvisibleDuration', 'forwardMessageToDeadLetterQueue' ] as const).forEach(operation => {
+    it(`移出队列关闭回归：${operation} 重试随 shutdown 终止`, async () => {
+      await startScanning();
+      const pq = consumer.processQueues()[0];
+      rpc[operation].rejects(new Error('connection unavailable'));
+      const message = buildMessageView();
+      pq.cacheMessages([ message ]);
+      if (operation === 'forwardMessageToDeadLetterQueue') pq.discardFifoMessage(message);
+      else pq.eraseMessage(message, operation === 'ackMessage' ? ConsumeResult.SUCCESS : ConsumeResult.FAILURE);
+      rpc.queryAssignment.resolves(assignmentResponse([]));
+      await clock.tickAsync(5000);
+      assert.strictEqual(consumer.processQueues().length, 0);
+      shutdown = true;
+      const closing = consumer.shutdown();
+      receiveGate.resolve([ new ReceiveMessageResponse().setStatus(buildStatus()) ]);
+      await clock.tickAsync(35000);
+      await closing;
+      const calls = rpc[operation].callCount;
+      await clock.tickAsync(5000);
+      try {
+        assert.strictEqual(rpc[operation].callCount, calls);
+        assert.strictEqual(pq.cachedMessagesCount(), 0);
+        assert.strictEqual(clock.countTimers(), 0);
+      } finally {
+        pq.abort();
+        await clock.tickAsync(1000);
+      }
+    });
+  });
+
+  it('移出队列关闭回归：等待 dropped 队列正常结算后再关闭 RPC', async () => {
+    await startScanning();
+    const pq = consumer.processQueues()[0];
+    const message = buildMessageView();
+    pq.cacheMessages([ message ]);
+    rpc.ackMessage.resolves(ackResponse());
+    rpc.queryAssignment.resolves(assignmentResponse([]));
+    await clock.tickAsync(5000);
+    shutdown = true;
+    const closing = consumer.shutdown();
+    receiveGate.resolve([ new ReceiveMessageResponse().setStatus(buildStatus()) ]);
+    await clock.tickAsync(1500);
+    const closedBeforeSettlement = rpc.close.called;
+    pq.eraseMessage(message, ConsumeResult.SUCCESS);
+    await clock.tickAsync(2000);
+    await closing;
+
+    assert.strictEqual(closedBeforeSettlement, false);
+    assert.strictEqual(pq.cachedMessagesCount(), 0);
+    sinon.assert.calledOnce(rpc.ackMessage);
+    sinon.assert.calledOnce(rpc.close);
+  });
+
+  it('移出队列关闭回归：drop 时缓存为空的在途 receive 仍由 shutdown 管理', async () => {
+    await startScanning();
+    const queues = consumer.processQueues();
+    const service = consumer.getConsumeService();
+    (service.consume as sinon.SinonStub).callsFake((pq, messages) => {
+      for (const message of messages) pq.eraseMessage(message, ConsumeResult.SUCCESS);
+    });
+    rpc.ackMessage.rejects(new Error('connection unavailable'));
+    rpc.queryAssignment.resolves(assignmentResponse([]));
+    await clock.tickAsync(5000);
+    assert.ok(queues.every(pq => pq.cachedMessagesCount() === 0));
+    shutdown = true;
+    const closing = consumer.shutdown();
+    receiveGate.resolve([
+      new ReceiveMessageResponse().setMessage(buildMessagePB()),
+      new ReceiveMessageResponse().setStatus(buildStatus()),
+    ]);
+    await clock.tickAsync(35000);
+    await closing;
+    const calls = rpc.ackMessage.callCount;
+    await clock.tickAsync(5000);
+    try {
+      assert.strictEqual(rpc.ackMessage.callCount, calls);
+      assert.ok(queues.every(pq => pq.cachedMessagesCount() === 0));
+      assert.strictEqual(clock.countTimers(), 0);
+    } finally {
+      queues.forEach(pq => pq.abort());
+      await clock.tickAsync(1000);
+    }
+  });
+
+  it('移出队列关闭回归：FIFO 本地重试等待被取消时不误投 DLQ', async () => {
+    (consumer.getConsumeService as sinon.SinonStub).restore();
+    listener.resolves(ConsumeResult.FAILURE);
+    rpc.queryAssignment.resolves(assignmentResponse([ 0 ]));
+    rpc.receiveMessage.onFirstCall().resolves([
+      new ReceiveMessageResponse().setMessage(buildMessagePB()),
+      new ReceiveMessageResponse().setStatus(buildStatus()),
+    ]);
+    rpc.forwardMessageToDeadLetterQueue.resolves(forwardToDLQResponse());
+    rpc.heartbeat.resolves(new HeartbeatResponse().setStatus(buildStatus()));
+    const startup = consumer.startup();
+    await flushPromises();
+    const settings = buildSettings({ clientType: ClientType.PUSH_CONSUMER,
+      subscription: new Subscription().setFifo(true).setReceiveBatchSize(32) });
+    settings.getBackoffPolicy()!.getExponentialBackoff()!
+      .setInitial(createDuration(60000)).setMax(createDuration(60000));
+    consumer.onSettingsCommand(consumer.getEndpoints(), settings);
+    await startup;
+    await clock.tickAsync(1000);
+    const pq = consumer.processQueues()[0];
+    assert.strictEqual(pq.cachedMessagesCount(), 1);
+    rpc.queryAssignment.resolves(assignmentResponse([]));
+    await clock.tickAsync(5000);
+    shutdown = true;
+    const closing = consumer.shutdown();
+    receiveGate.resolve([ new ReceiveMessageResponse().setStatus(buildStatus()) ]);
+    await clock.tickAsync(35000);
+    await closing;
+    try {
+      sinon.assert.notCalled(rpc.forwardMessageToDeadLetterQueue);
+      sinon.assert.calledOnce(listener);
+      assert.strictEqual(pq.cachedMessagesCount(), 0);
+      assert.strictEqual(clock.countTimers(), 0);
+    } finally {
+      pq.abort();
+      await clock.tickAsync(1000);
+    }
   });
 
   it('stops scanning and creates no process queue after shutdown', async () => {

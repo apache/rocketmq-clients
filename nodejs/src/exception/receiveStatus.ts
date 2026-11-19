@@ -18,7 +18,7 @@
 import { Code, Status } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { StatusChecker } from './StatusChecker';
 
-// 仅拉取消息允许空结果；不改变已公开的 StatusChecker.check 签名。
+// Allow empty results only for receive operations without changing the public StatusChecker.check signature.
 export function checkReceiveStatus(status?: Status.AsObject, requestId?: string) {
   if (status?.code === Code.MESSAGE_NOT_FOUND) return;
   StatusChecker.check(status, requestId);

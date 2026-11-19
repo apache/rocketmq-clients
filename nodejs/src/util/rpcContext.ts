@@ -17,7 +17,7 @@
 
 import type { Metadata } from '@grpc/grpc-js';
 
-// 按响应对象关联请求，避免并发 RPC 串号；不改写 protobuf 或公开返回类型。
+// Associate request IDs with response objects to avoid mixing concurrent RPCs without changing protobufs or public return types.
 const requestIds = new WeakMap<object, string>();
 
 export function setRequestId<T extends object>(response: T, requestId?: string): T {

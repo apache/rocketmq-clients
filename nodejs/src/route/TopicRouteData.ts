@@ -15,12 +15,17 @@
  * limitations under the License.
  */
 
-import { MessageQueue as MessageQueuePB } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { randomInt } from 'node:crypto';
+import { Code, MessageQueue as MessageQueuePB, Permission } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { NotFoundException } from '../exception/NotFoundException';
+import { MASTER_BROKER_ID } from '../util';
 import { Endpoints } from './Endpoints';
 import { MessageQueue } from './MessageQueue';
 
 export class TopicRouteData {
   readonly messageQueues: MessageQueue[] = [];
+  // Randomize the round-robin starting point to spread initial assignment queries across clients.
+  #index = randomInt(0, 2 ** 31 - 1);
 
   constructor(messageQueues: MessageQueuePB[]) {
     for (const mq of messageQueues) {
@@ -34,6 +39,22 @@ export class TopicRouteData {
       endpointsMap.set(mq.broker.endpoints.facade, mq.broker.endpoints);
     }
     return Array.from(endpointsMap.values());
+  }
+
+  /**
+   * Rotate across master endpoints with non-NONE permissions, matching Java's selection rules.
+   */
+  pickEndpointsToQueryAssignments(): Endpoints {
+    const size = this.messageQueues.length;
+    for (let i = 0; i < size; i++) {
+      const mq = this.messageQueues[this.#index % size];
+      this.#index = (this.#index + 1) % size;
+      if (mq.broker.id !== MASTER_BROKER_ID || mq.permission === Permission.NONE) {
+        continue;
+      }
+      return mq.broker.endpoints;
+    }
+    throw new NotFoundException(Code.NOT_FOUND, 'Failed to pick endpoints to query assignment');
   }
 
   /**

@@ -37,7 +37,11 @@ import {
   FilterExpression,
   ProcessQueue,
 } from '../src/consumer';
-import { Message } from '../src/message';
+import { Message, MessageView } from '../src/message';
+import {
+  ConsumeTask, REMOTE_ADDR_CONTEXT_KEY, MESSAGE_VIEW_CONTEXT_KEY,
+  CONSUMER_GROUP_CONTEXT_KEY, CONSUME_ERROR_CONTEXT_KEY,
+} from '../src/consumer/ConsumeTask';
 import { Settings } from '../src/client';
 import {
   Attribute,
@@ -47,6 +51,7 @@ import {
   MessageHookPoints,
   MessageHookPointsStatus,
   MessageInterceptor,
+  MessageInterceptorContext,
   MessageInterceptorContextImpl,
 } from '../src/hook';
 import { Code, TransactionResolution } from '../proto/apache/rocketmq/v2/definition_pb';
@@ -57,6 +62,8 @@ import {
   ReceiveMessageRequest,
   ReceiveMessageResponse,
 } from '../proto/apache/rocketmq/v2/service_pb';
+import { createSilentLogger } from './support/fakes';
+import { buildMessagePB, buildRoute } from './support/protobuf';
 
 function statusOf(code: Code): Status.AsObject {
   return { code, message: 'mock message', requestId: '' } as unknown as Status.AsObject;
@@ -487,6 +494,35 @@ describe('Message interceptor chain (J-3)', () => {
     assert.ok(log.secondCall.args[2] instanceof Error);
   });
 
+  it('logs interceptor exceptions with the given logger instead of the console', () => {
+    const consoleError = sinon.stub(console, 'error');
+    const logger = createSilentLogger();
+    const composited = new CompositedMessageInterceptor([
+      { doBefore: () => { throw new Error('boom'); }, doAfter: () => { throw new Error('boom'); } },
+    ], logger);
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+    composited.doBefore(context, []);
+    composited.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), []);
+    sinon.assert.notCalled(consoleError);
+    sinon.assert.calledTwice(logger.error);
+    assert.match(String(logger.error.firstCall.args[0]), /before hook point/);
+    assert.match(String(logger.error.secondCall.args[0]), /after hook point/);
+  });
+
+  it('routes interceptor exceptions of a client to the client logger', () => {
+    const consoleError = sinon.stub(console, 'error');
+    const logger = createSilentLogger();
+    const producer = new Producer({ endpoints: '127.0.0.1:8081', namespace: '', logger,
+      messageInterceptor: { doBefore: () => { throw new Error('boom'); }, doAfter: () => undefined } });
+    try {
+      producer.doBefore(new MessageInterceptorContextImpl(MessageHookPoints.SEND), []);
+      sinon.assert.notCalled(consoleError);
+      sinon.assert.calledWithMatch(logger.error, /CompositedMessageInterceptor.*before hook point/);
+    } finally {
+      producer.getRpcClientManager().close();
+    }
+  });
+
   it('should carry attributes between doBefore and doAfter', () => {
     const key = AttributeKey.create<string>('k');
     let seen: string | undefined;
@@ -575,7 +611,7 @@ describe('Message interceptor chain (J-3)', () => {
     composited.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), []);
     sinon.assert.calledOnce(before);
     sinon.assert.calledOnce(after);
-    // 拦截器会隔离异常，必须在链外确认回调中的断言没有抛出。
+    // Interceptors isolate exceptions, so verify outside the chain that callback assertions did not throw.
     assert.strictEqual(before.threw(), false);
     assert.strictEqual(after.threw(), false);
   });
@@ -592,6 +628,52 @@ describe('Message interceptor chain (J-3)', () => {
   });
 });
 
+describe('ConsumeTask Java 属性名称', () => {
+  it('导出 key 的名称与 Java 一致', () => {
+    assert.deepStrictEqual([
+      REMOTE_ADDR_CONTEXT_KEY.name, MESSAGE_VIEW_CONTEXT_KEY.name,
+      CONSUMER_GROUP_CONTEXT_KEY.name, CONSUME_ERROR_CONTEXT_KEY.name,
+    ], [ 'remoteAddr', 'messageView', 'consumerGroup', 'consumeError' ]);
+  });
+
+  [ false, true ].forEach(failed => {
+    it(`消费${failed ? '异常' : '成功'}时可用 Java 名称读取上下文`, async () => {
+      const message = new MessageView(buildMessagePB(), buildRoute().messageQueues[0]);
+      const error = new Error('消费失败');
+      const beforeContexts: MessageInterceptorContext[] = [];
+      const afterContexts: MessageInterceptorContext[] = [];
+      const logger = createSilentLogger();
+      const interceptor = new CompositedMessageInterceptor([{
+        doBefore: context => { beforeContexts.push(context); },
+        doAfter: context => { afterContexts.push(context); },
+      }], logger);
+      const task = new ConsumeTask('client-1', {
+        consume: async () => {
+          if (failed) throw error;
+          return ConsumeResult.SUCCESS;
+        },
+      }, message, interceptor, 'group-1');
+
+      const result = await task.call();
+
+      // Read independently created keys outside hooks so exception isolation cannot swallow assertion failures.
+      assert.strictEqual(result, failed ? ConsumeResult.FAILURE : ConsumeResult.SUCCESS);
+      assert.strictEqual(beforeContexts.length, 1);
+      assert.strictEqual(afterContexts.length, 1);
+      for (const context of [ beforeContexts[0], afterContexts[0] ]) {
+        assert.strictEqual(context.getAttribute(AttributeKey.create('messageView'))?.get(), message);
+        assert.strictEqual(context.getAttribute(AttributeKey.create('consumerGroup'))?.get(), 'group-1');
+        assert.strictEqual(context.getAttribute(AttributeKey.create('message_view')), undefined);
+        assert.strictEqual(context.getAttribute(AttributeKey.create('consumer_group')), undefined);
+      }
+      assert.strictEqual(afterContexts[0].getStatus(), failed ? MessageHookPointsStatus.ERROR : MessageHookPointsStatus.OK);
+      assert.strictEqual(afterContexts[0].getAttribute(AttributeKey.create('consumeError'))?.get(), failed ? error : undefined);
+      assert.strictEqual(afterContexts[0].getAttribute(AttributeKey.create('consume_error')), undefined);
+      sinon.assert.notCalled(logger.error);
+    });
+  });
+});
+
 describe('MessageInterceptorContextImpl attributes', () => {
   it('should retain attributes when deriving a context with status', () => {
     const key = AttributeKey.create<string>('key');
@@ -604,7 +686,7 @@ describe('MessageInterceptorContextImpl attributes', () => {
     assert.strictEqual(derived.getStatus(), MessageHookPointsStatus.OK);
     assert.strictEqual(context.getStatus(), undefined);
     derived.putAttribute(key, Attribute.create('new-value'));
-    // Node 保留现有快照语义，派生 context 的修改不反向改变原 context。
+    // Preserve Node's snapshot semantics: modifying a derived context does not change the original.
     assert.strictEqual(context.getAttribute(key)?.get(), 'value');
   });
 

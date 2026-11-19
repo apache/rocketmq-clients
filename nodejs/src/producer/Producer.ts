@@ -39,7 +39,7 @@ import {
 import {
   ExponentialBackoffRetryPolicy,
 } from '../retry';
-import { InternalErrorException, NotFoundException, StatusChecker, TooManyRequestsException } from '../exception';
+import { InternalErrorException, StatusChecker, TooManyRequestsException } from '../exception';
 import { BaseClient, BaseClientOptions, Settings } from '../client';
 import { PublishingMessage, MessageOptions, MessageView, Message } from '../message';
 import { PublishingSettings } from './PublishingSettings';
@@ -52,11 +52,18 @@ import { getRequestId } from '../util/rpcContext';
 import { RecallReceipt } from './RecallReceipt';
 import { RecallMessageRequest } from '../../proto/apache/rocketmq/v2/service_pb';
 import {
+  Attribute,
+  AttributeKey,
   GeneralMessage,
   MessageHookPoints,
   MessageHookPointsStatus,
   MessageInterceptorContextImpl,
 } from '../hook';
+
+// Context keys exposed to SEND interceptors, mirroring the Java ProducerImpl keys.
+export const MESSAGE_TYPE_CONTEXT_KEY = AttributeKey.create<MessageType>('messageType');
+export const SEND_RECEIPTS_CONTEXT_KEY = AttributeKey.create<SendReceipt[]>('sendReceipts');
+export const SEND_EXCEPTION_CONTEXT_KEY = AttributeKey.create<unknown>('sendException');
 
 export interface ProducerOptions extends BaseClientOptions {
   topic?: string | string[];
@@ -209,14 +216,17 @@ export class Producer extends BaseClient {
 
   async send(message: MessageOptions, transaction?: Transaction) {
     if (!transaction) {
-      const sendReceipts = await this.#send([ message ], false);
+      this.#checkRunning();
+      const sendReceipts = await this.#send([ new PublishingMessage(message, this.#publishingSettings, false) ]);
       return sendReceipts[0];
     }
 
     // Send transactional message
     try {
+      // Send the transaction's message instance so SEND and COMMIT/ROLLBACK hooks observe the same messageId.
       const publishingMessage = transaction.tryAddMessage(message);
-      const sendReceipts = await this.#send([ message ], true);
+      this.#checkRunning();
+      const sendReceipts = await this.#send([ publishingMessage ]);
       const sendReceipt = sendReceipts[0];
       transaction.tryAddReceipt(publishingMessage, sendReceipt);
       return sendReceipt;
@@ -226,19 +236,16 @@ export class Producer extends BaseClient {
     }
   }
 
-  async #send(messages: MessageOptions[], txEnabled: boolean) {
+  #checkRunning() {
     // Check producer status before message publishing
     if (!this.isRunning()) {
       this.logger.error('Unable to send message because producer is not running, clientId=%s', this.clientId);
       throw new Error('Producer is not running now');
     }
+  }
 
-    const pubMessages: PublishingMessage[] = [];
-    const topics = new Set<string>();
-    for (const message of messages) {
-      pubMessages.push(new PublishingMessage(message, this.#publishingSettings, txEnabled));
-      topics.add(message.topic);
-    }
+  async #send(pubMessages: PublishingMessage[]) {
+    const topics = new Set(pubMessages.map(m => m.topic));
     if (topics.size > 1) {
       throw new TypeError(`Messages to send have different topics=${JSON.stringify(Array.from(topics))}`);
     }
@@ -270,18 +277,7 @@ export class Producer extends BaseClient {
     // Prepare the candidate message queue(s) for retry-sending in advance.
     const candidates = messageGroup ? [ loadBalancer.takeMessageQueueByMessageGroup(messageGroup) ] :
       this.#takeMessageQueues(loadBalancer);
-    // SEND hook point, mirroring Java ProducerImpl#send.
-    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
-    const generalMessages = pubMessages as unknown as GeneralMessage[];
-    this.doBefore(context, generalMessages);
-    try {
-      const receipts = await this.#send0(topic, messageType, candidates, pubMessages, 1);
-      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.OK), generalMessages);
-      return receipts;
-    } catch (err) {
-      this.doAfter(MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR), generalMessages);
-      throw err;
-    }
+    return await this.#send0(topic, messageType, candidates, pubMessages, 1);
   }
 
   #wrapSendMessageRequest(pubMessages: PublishingMessage[], mq: MessageQueue) {
@@ -317,11 +313,19 @@ export class Producer extends BaseClient {
     const endpoints = mq.broker.endpoints;
     const maxAttempts = this.#getRetryPolicy().getMaxAttempts();
     const request = this.#wrapSendMessageRequest(messages, mq);
+    // SEND hook point per attempt, mirroring Java ProducerImpl#send0.
+    const generalMessages = messages as unknown as GeneralMessage[];
+    const context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
+    context.putAttribute(MESSAGE_TYPE_CONTEXT_KEY, Attribute.create(messageType));
+    this.doBefore(context, generalMessages);
     let sendReceipts: SendReceipt[] = [];
     try {
       const response = await this.rpcClientManager.sendMessage(endpoints, request, this.requestTimeout);
       sendReceipts = SendReceipt.processResponseInvocation(mq, response);
     } catch (err) {
+      const context0 = MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR);
+      context0.putAttribute(SEND_EXCEPTION_CONTEXT_KEY, Attribute.create(err));
+      this.doAfter(context0, generalMessages);
       const messageIds = messages.map(m => m.messageId);
       // Isolate endpoints because of sending failure
       this.#isolate(endpoints);
@@ -348,9 +352,16 @@ export class Producer extends BaseClient {
 
     // Should never reach here.
     if (sendReceipts.length !== messages.length) {
-      throw new InternalErrorException(Code.INTERNAL_ERROR, '[Bug] due to an unknown reason from remote, received ' +
+      const err = new InternalErrorException(Code.INTERNAL_ERROR, '[Bug] due to an unknown reason from remote, received ' +
         `send receipt's quantity ${sendReceipts.length} is not equal to sent message's quantity ${messages.length}`);
+      const context0 = MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.ERROR);
+      context0.putAttribute(SEND_EXCEPTION_CONTEXT_KEY, Attribute.create(err));
+      this.doAfter(context0, generalMessages);
+      throw err;
     }
+    const context0 = MessageInterceptorContextImpl.withStatus(context, MessageHookPointsStatus.OK);
+    context0.putAttribute(SEND_RECEIPTS_CONTEXT_KEY, Attribute.create(sendReceipts));
+    this.doAfter(context0, generalMessages);
     // Resend message(s) successfully
     if (attempt > 1) {
       const messageIds = sendReceipts.map(r => r.messageId);
@@ -445,15 +456,9 @@ export class Producer extends BaseClient {
       .setRecallHandle(recallHandle);
 
     const response = await this.rpcClientManager.recallMessage(this.endpoints, request, this.requestTimeout);
-    const status = response.getStatus();
-    if (!status) {
-      throw new Error('Recall message response status is null');
-    }
-    // StatusChecker treats MESSAGE_NOT_FOUND as success for receiving; recalling surfaces it as Java does.
-    if (status.getCode() === Code.MESSAGE_NOT_FOUND) {
-      throw new NotFoundException(status.getCode(), status.getMessage());
-    }
-    StatusChecker.check(status.toObject());
+    // StatusChecker surfaces a missing status as InternalErrorException and MESSAGE_NOT_FOUND as
+    // NotFoundException, as Java does.
+    StatusChecker.check(response.getStatus()?.toObject(), getRequestId(response));
 
     const messageId = response.getMessageId();
     const receipt = new RecallReceipt(messageId);

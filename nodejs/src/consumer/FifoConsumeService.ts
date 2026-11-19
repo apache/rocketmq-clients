@@ -27,10 +27,10 @@ export class FifoConsumeService extends ConsumeService {
   readonly #logger: ILogger;
 
   constructor(clientId: string, messageListener: MessageListener, enableFifoConsumeAccelerator?: boolean,
-    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string, logger?: ILogger) {
     super(clientId, messageListener, messageInterceptor, consumerGroup);
     this.#enableFifoConsumeAccelerator = enableFifoConsumeAccelerator ?? false;
-    this.#logger = getDefaultLogger();
+    this.#logger = logger ?? getDefaultLogger();
   }
 
   consume(pq: ProcessQueue, messageViews: MessageView[]): void {
