@@ -46,11 +46,11 @@ export interface SimpleConsumerOptions extends ConsumerOptions {
   awaitDuration?: number;
   /**
    * max retry attempts for temporary errors (e.g., internal server error), default is 3
-   * 包含首次请求，必须为正安全整数；设为 1 时不重试。
-   * 与 Java 的单次 receive 不同，Node 保留已有重试配置。
-   * 路由就绪后的 RPC 等待及退避预算最多为
-   * maxRetryAttempts * (requestTimeout + awaitDuration) + (maxRetryAttempts - 1) * 1000ms，
-   * 不包含路由查询、消息解码、hook 和事件循环调度耗时。
+   * Includes the initial request and must be a positive safe integer; 1 disables retries.
+   * Unlike Java's single receive attempt, Node retains its existing retry configuration.
+   * Once routing is ready, the maximum RPC wait and backoff budget is
+   * maxRetryAttempts * (requestTimeout + awaitDuration) + (maxRetryAttempts - 1) * 1000ms,
+   * excluding route queries, message decoding, hooks, and event-loop scheduling.
    */
   maxRetryAttempts?: number;
 }
@@ -107,12 +107,12 @@ export class SimpleConsumer extends Consumer {
   protected wrapHeartbeatRequest() {
     return new HeartbeatRequest()
       .setClientType(this.getClientType())
-      .setGroup(createResource(this.consumerGroup));
+      .setGroup(createResource(this.consumerGroup, this.namespace));
   }
 
   protected wrapNotifyClientTerminationRequest() {
     return new NotifyClientTerminationRequest()
-      .setGroup(createResource(this.consumerGroup));
+      .setGroup(createResource(this.consumerGroup, this.namespace));
   }
 
   protected onTopicRouteDataUpdate(topic: string, topicRouteData: TopicRouteData) {
@@ -197,7 +197,7 @@ export class SimpleConsumer extends Consumer {
   }
 
   #refreshReceiptHandle(message: MessageView, receiptHandle: string) {
-    // receiptHandle 对调用方只读，SDK 在成功续期后内部更新；保留 MessageView 的公开签名。
+    // Update the caller-readonly receiptHandle after successful renewal without changing MessageView's public signature.
     const mutableMessage = message as { receiptHandle: string };
     mutableMessage.receiptHandle = receiptHandle;
   }

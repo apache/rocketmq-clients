@@ -120,7 +120,7 @@ export abstract class BaseClient {
   protected readonly logger: ILogger;
   protected readonly rpcClientManager: RpcClientManager;
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
-  readonly #compositedMessageInterceptor = new CompositedMessageInterceptor();
+  readonly #compositedMessageInterceptor: CompositedMessageInterceptor;
   protected readonly clientMeterManager: ClientMeterManager;
   #startupResolve?: () => void;
   #startupReject?: (err: Error) => void;
@@ -169,6 +169,7 @@ export abstract class BaseClient {
     }
 
     this.logger = options.logger ?? getDefaultLogger();
+    this.#compositedMessageInterceptor = new CompositedMessageInterceptor([], this.logger);
     this.sslEnabled = options.sslEnabled === true;
     this.endpoints = new Endpoints(options.endpoints);
     this.namespace = options.namespace ?? '';
@@ -314,9 +315,6 @@ export abstract class BaseClient {
         this.doHeartbeat();
       }, 10000));
 
-      // doStats every 60s
-      // doStats()
-
       if (firstSettingsPromise) {
         this.logger.info('Waiting for first onSettingsCommand, clientId=%s, timeout=%dms',
           this.clientId, this.firstSettingsTimeoutMs);
@@ -414,32 +412,35 @@ export abstract class BaseClient {
         debug('No endpoints available for heartbeat, clientId=%s', this.clientId);
         return;
       }
-      for (const endpoints of endpointsList) {
-        try {
-          const response = await this.rpcClientManager.heartbeat(endpoints, request, this.requestTimeout);
-          // Business-level errors (e.g. UNRECOGNIZED_CLIENT_TYPE when the
-          // remote no longer holds this client's settings) arrive as normal
-          // gRPC responses; without this check the client stays blind to
-          // settings loss and never re-registers. Mirrors Java
-          // ClientImpl#doHeartbeat which checks the response status.
-          StatusChecker.check(response.getStatus()?.toObject(), getRequestId(response));
-          // Heartbeat succeeded: the remote is reachable again, so rejoin any
-          // isolated endpoints (mirrors Java ClientImpl#doHeartbeat).
-          if (this.isolated.delete(endpoints.facade)) {
-            this.logger.info('Isolated endpoints rejoined after successful heartbeat, endpoints=%s, clientId=%s',
-              endpoints.facade, this.clientId);
-          }
-          this.#heartbeatFailureCounts.delete(endpoints.facade);
-        } catch (e) {
-          // Log but don't throw - heartbeat is best-effort
-          this.logger.warn('Heartbeat failed for endpoints=%s, clientId=%s, error=%s',
-            endpoints.facade, this.clientId, e instanceof Error ? e.message : String(e));
-          this.#onHeartbeatFailure(endpoints);
-        }
-      }
+      // Send heartbeats concurrently so a slow endpoint does not block the others.
+      await Promise.all(endpointsList.map(endpoints => this.#heartbeat(endpoints, request)));
     } catch (e) {
       this.logger.error('Unexpected error in heartbeat, clientId=%s, error=%s',
         this.clientId, e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async #heartbeat(endpoints: Endpoints, request: HeartbeatRequest) {
+    try {
+      const response = await this.rpcClientManager.heartbeat(endpoints, request, this.requestTimeout);
+      // Business-level errors (e.g. UNRECOGNIZED_CLIENT_TYPE when the
+      // remote no longer holds this client's settings) arrive as normal
+      // gRPC responses; without this check the client stays blind to
+      // settings loss and never re-registers. Mirrors Java
+      // ClientImpl#doHeartbeat which checks the response status.
+      StatusChecker.check(response.getStatus()?.toObject(), getRequestId(response));
+      // Heartbeat succeeded: the remote is reachable again, so rejoin any
+      // isolated endpoints (mirrors Java ClientImpl#doHeartbeat).
+      if (this.isolated.delete(endpoints.facade)) {
+        this.logger.info('Isolated endpoints rejoined after successful heartbeat, endpoints=%s, clientId=%s',
+          endpoints.facade, this.clientId);
+      }
+      this.#heartbeatFailureCounts.delete(endpoints.facade);
+    } catch (e) {
+      // Log but don't throw - heartbeat is best-effort
+      this.logger.warn('Heartbeat failed for endpoints=%s, clientId=%s, error=%s',
+        endpoints.facade, this.clientId, e instanceof Error ? e.message : String(e));
+      this.#onHeartbeatFailure(endpoints);
     }
   }
 
@@ -548,7 +549,7 @@ export abstract class BaseClient {
 
   async #fetchTopicRoute(topic: string) {
     const req = new QueryRouteRequest();
-    req.setTopic(createResource(topic));
+    req.setTopic(createResource(topic, this.namespace));
     req.setEndpoints(this.endpoints.toProtobuf());
 
     try {

@@ -16,10 +16,11 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { Code } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { Code, Status } from '../../proto/apache/rocketmq/v2/definition_pb';
 import { MessageView } from '../message';
 import { MessageQueue } from '../route';
 import { TooManyRequestsException } from '../exception';
+import { getRequestId } from '../util/rpcContext';
 import { ConsumeResult, ConsumeResultSuspend } from './ConsumeResult';
 import { FilterExpression } from './FilterExpression';
 import type { PushConsumer } from './PushConsumer';
@@ -48,6 +49,7 @@ export class ProcessQueue {
   #activityTime = Date.now();
   #cacheFullTime = 0;
   #aborted = false;
+  #inflightReceives = 0;
   // Bounds in-flight messages per queue; mirrors Java ProcessQueueImpl permits.
   readonly #semaphore: Semaphore;
 
@@ -212,19 +214,21 @@ export class ProcessQueue {
       this.#logger.debug?.('Start to receive message, mq=%s@%s@%d, batchSize=%d, attemptId=%s',
         this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, batchSize, attemptId);
 
-      this.#consumer.receiveMessage(request, this.#mq, longPollingTimeout)
-        .then(messages => {
-          if (messages.length > 0) {
-            this.#logger.debug?.('Received messages, count=%d, mq=%s@%s@%d',
-              messages.length, this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId);
-          }
-          this.#onReceiveMessageResult(messages);
-        })
+      const receiving = this.#consumer.receiveMessage(request, this.#mq, longPollingTimeout);
+      this.#inflightReceives++;
+      receiving.then(messages => {
+        if (messages.length > 0) {
+          this.#logger.debug?.('Received messages, count=%d, mq=%s@%s@%d',
+            messages.length, this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId);
+        }
+        this.#onReceiveMessageResult(messages);
+      })
         .catch(err => {
           this.#logger.error('Failed to receive message, mq=%s@%s@%d, error=%s',
             this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, err);
           this.onReceiveMessageException(err, attemptId);
-        });
+        })
+        .finally(() => { this.#inflightReceives--; });
     } catch (err) {
       this.#logger.error('Exception in receiveMessage, mq=%s@%s@%d, error=%s',
         this.#mq.topic.name, this.#mq.broker.name, this.#mq.queueId, err);
@@ -233,6 +237,8 @@ export class ProcessQueue {
   }
 
   #onReceiveMessageResult(messages: MessageView[]): void {
+    // Continue processing fetched messages after drop; after abort, leave them for server redelivery.
+    if (this.#aborted) return;
     if (messages.length > 0) {
       this.cacheMessages(messages);
       this.#consumer.getConsumeService().consume(this, messages);
@@ -271,36 +277,51 @@ export class ProcessQueue {
     });
   }
 
-  async #ackMessage(messageView: MessageView, attempt = 1): Promise<void> {
-    try {
-      const endpoints = messageView.endpoints;
-      const response = await this.#consumer.ackMessageViaRpc(
-        endpoints,
-        this.#consumer.wrapAckMessageRequest(messageView),
-        this.#consumer.requestTimeoutValue,
-        messageView,
-      );
-      const status = response.getStatus()?.toObject();
-      if (status?.code === Code.INVALID_RECEIPT_HANDLE) {
-        return; // Forgive to retry
+  // Log settlement failures and retry at fixed intervals; do not send initial or retry RPCs after abort.
+  // forgiveInvalidReceiptHandle stops retrying on INVALID_RECEIPT_HANDLE (ack and
+  // change invisible duration only; Java has no such branch for DLQ forwarding).
+  async #settleWithRetry(messageView: MessageView, operation: string,
+    rpc: () => Promise<{ getStatus(): { toObject(): Status.AsObject } | undefined }>,
+    backoffDelay: number, forgiveInvalidReceiptHandle: boolean): Promise<void> {
+    let attempt = 1;
+    while (!this.#aborted) {
+      try {
+        const response = await rpc();
+        const status = response.getStatus()?.toObject();
+        if (status?.code === Code.OK) {
+          return;
+        }
+        const requestId = getRequestId(response);
+        if (forgiveInvalidReceiptHandle && status?.code === Code.INVALID_RECEIPT_HANDLE) {
+          this.#logger.error(
+            'Failed to %s due to the invalid receipt handle, forgive to retry, attempt=%d, messageId=%s, '
+            + 'requestId=%s, status message=[%s]',
+            operation, attempt, messageView.messageId, requestId, status.message,
+          );
+          return;
+        }
+        this.#logger.error(
+          'Failed to %s, would retry later, attempt=%d, messageId=%s, code=%s, requestId=%s, status message=[%s]',
+          operation, attempt, messageView.messageId, status?.code, requestId, status?.message,
+        );
+      } catch (err) {
+        this.#logger.warn(
+          'Failed to %s, attempt=%d, messageId=%s, error=%s',
+          operation, attempt, messageView.messageId, err,
+        );
       }
-      if (status?.code !== Code.OK) {
-        await this.#ackMessageLater(messageView, attempt + 1);
-      }
-    } catch (err) {
-      this.#logger.warn(
-        'Failed to ack message, attempt=%d, messageId=%s, error=%s',
-        attempt, messageView.messageId, err,
-      );
-      await this.#ackMessageLater(messageView, attempt + 1);
+      attempt++;
+      if (this.#aborted) return;
+      await new Promise<void>(resolve => setTimeout(resolve, backoffDelay));
+      if (this.#aborted) return;
     }
   }
 
-  async #ackMessageLater(messageView: MessageView, attempt: number): Promise<void> {
-    if (this.#aborted) return;
-    await new Promise<void>(resolve => setTimeout(resolve, ACK_MESSAGE_FAILURE_BACKOFF_DELAY));
-    if (this.#aborted) return;
-    await this.#ackMessage(messageView, attempt);
+  async #ackMessage(messageView: MessageView): Promise<void> {
+    await this.#settleWithRetry(messageView, 'ack message',
+      () => this.#consumer.ackMessageViaRpc(messageView.endpoints,
+        this.#consumer.wrapAckMessageRequest(messageView), this.#consumer.requestTimeoutValue, messageView),
+      ACK_MESSAGE_FAILURE_BACKOFF_DELAY, true);
   }
 
   async #nackMessage(messageView: MessageView): Promise<void> {
@@ -309,36 +330,12 @@ export class ProcessQueue {
     await this.#changeInvisibleDuration(messageView, delay);
   }
 
-  async #changeInvisibleDuration(messageView: MessageView, duration: number, attempt = 1): Promise<void> {
-    try {
-      const endpoints = messageView.endpoints;
-      const response = await this.#consumer.changeInvisibleDurationViaRpc(
-        endpoints,
+  async #changeInvisibleDuration(messageView: MessageView, duration: number): Promise<void> {
+    await this.#settleWithRetry(messageView, 'change invisible duration',
+      () => this.#consumer.changeInvisibleDurationViaRpc(messageView.endpoints,
         this.#consumer.wrapChangeInvisibleDurationRequest(messageView, duration),
-        this.#consumer.requestTimeoutValue,
-        messageView,
-      );
-      const status = response.getStatus()?.toObject();
-      if (status?.code === Code.INVALID_RECEIPT_HANDLE) {
-        return; // Forgive to retry
-      }
-      if (status?.code !== Code.OK) {
-        await this.#changeInvisibleDurationLater(messageView, duration, attempt + 1);
-      }
-    } catch (err) {
-      this.#logger.warn(
-        'Failed to change invisible duration, attempt=%d, duration=%dms, messageId=%s, error=%s',
-        attempt, duration, messageView.messageId, err,
-      );
-      await this.#changeInvisibleDurationLater(messageView, duration, attempt + 1);
-    }
-  }
-
-  async #changeInvisibleDurationLater(messageView: MessageView, duration: number, attempt: number): Promise<void> {
-    if (this.#aborted) return;
-    await new Promise<void>(resolve => setTimeout(resolve, CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY));
-    if (this.#aborted) return;
-    await this.#changeInvisibleDuration(messageView, duration, attempt);
+        this.#consumer.requestTimeoutValue, messageView),
+      CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY, true);
   }
 
   async eraseFifoMessage(messageView: MessageView, consumeResult: ConsumeResult): Promise<void> {
@@ -394,36 +391,13 @@ export class ProcessQueue {
     this.#evictCache(messageView);
   }
 
-  async #forwardToDeadLetterQueue(messageView: MessageView, attempt = 1): Promise<void> {
-    try {
-      const endpoints = messageView.endpoints;
-      const response = await this.#consumer.forwardMessageToDeadLetterQueueViaRpc(
-        endpoints,
+  async #forwardToDeadLetterQueue(messageView: MessageView): Promise<void> {
+    // A missing status is not OK either and is retried, mirroring Java ProcessQueueImpl.
+    await this.#settleWithRetry(messageView, 'forward message to dead letter queue',
+      () => this.#consumer.forwardMessageToDeadLetterQueueViaRpc(messageView.endpoints,
         this.#consumer.wrapForwardMessageToDeadLetterQueueRequest(messageView),
-        this.#consumer.requestTimeoutValue,
-        messageView,
-      );
-      const status = response.getStatus();
-      if (!status) {
-        throw new Error('Missing status in forward to dead letter queue response');
-      }
-      const statusObj = status.toObject();
-      if (statusObj.code !== Code.OK) {
-        await this.#forwardToDeadLetterQueueLater(messageView, attempt + 1);
-      }
-    } catch (err) {
-      if ((err as Error).message === 'Missing status in forward to dead letter queue response') {
-        throw err; // Re-throw critical error
-      }
-      await this.#forwardToDeadLetterQueueLater(messageView, attempt + 1);
-    }
-  }
-
-  async #forwardToDeadLetterQueueLater(messageView: MessageView, attempt: number): Promise<void> {
-    if (this.#aborted) return;
-    await new Promise<void>(resolve => setTimeout(resolve, FORWARD_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY));
-    if (this.#aborted) return;
-    await this.#forwardToDeadLetterQueue(messageView, attempt);
+        this.#consumer.requestTimeoutValue, messageView),
+      FORWARD_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY, false);
   }
 
   discardMessage(messageView: MessageView): void {
@@ -477,6 +451,11 @@ export class ProcessQueue {
 
   cachedMessageBytes(): number {
     return this.#cachedMessagesBytes;
+  }
+
+  // Release a removed queue only after receive callbacks finish and all cached messages are settled.
+  isDrained(): boolean {
+    return this.#inflightReceives === 0 && this.#cachedMessages.length === 0;
   }
 
   abort(): void {

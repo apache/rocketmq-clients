@@ -33,9 +33,9 @@ export class LiteStandardConsumeService extends ConsumeService {
   readonly #logger: ILogger;
 
   constructor(clientId: string, messageListener: MessageListener,
-    messageInterceptor?: MessageInterceptor, consumerGroup?: string) {
+    messageInterceptor?: MessageInterceptor, consumerGroup?: string, logger?: ILogger) {
     super(clientId, messageListener, messageInterceptor, consumerGroup);
-    this.#logger = getDefaultLogger();
+    this.#logger = logger ?? getDefaultLogger();
   }
 
   consume(pq: ProcessQueue, messageViews: MessageView[]): void {

@@ -79,6 +79,8 @@ export class PushConsumer extends Consumer {
   readonly #maxCacheMessageSizeInBytes: number;
   readonly #enableFifoConsumeAccelerator: boolean;
   readonly #processQueueTable = new Map<string /* mq key */, { mq: MessageQueue; pq: ProcessQueue }>();
+  // Retain queues removed by rebalance or expiry until receives and settlements finish; drain and abort them on shutdown.
+  readonly #droppedProcessQueues = new Set<ProcessQueue>();
   readonly #metrics = new ConsumeMetrics();
   readonly #inflightRequestCountInterceptor: InflightRequestCountInterceptor;
   #consumeService!: ConsumeService;
@@ -194,10 +196,11 @@ export class PushConsumer extends Consumer {
     // Reserve a short buffer for the ack/changeInvisibleDuration callbacks to be sent
     await this.sleep(1000);
     // Abort process queues and consume service, no more messages will be received or consumed
-    for (const { pq } of this.#processQueueTable.values()) {
+    for (const pq of this.#settlingProcessQueues()) {
       pq.abort();
     }
     this.#processQueueTable.clear();
+    this.#droppedProcessQueues.clear();
     if (this.#consumeService) {
       this.logger.info('Shutting down consume service, clientId=%s', this.clientId);
       this.#consumeService.abort();
@@ -216,10 +219,10 @@ export class PushConsumer extends Consumer {
     const maxWaitingTime = this.requestTimeoutValue
       + this.getPushConsumerSettings().getLongPollingTimeout();
     const endTime = Date.now() + maxWaitingTime;
-    while ([ ...this.#processQueueTable.values() ].some(({ pq }) => pq.cachedMessagesCount() > 0)) {
+    while (this.#settlingProcessQueues().some(pq => pq.cachedMessagesCount() > 0)) {
       if (Date.now() > endTime) {
-        const remaining = [ ...this.#processQueueTable.values() ]
-          .reduce((count, { pq }) => count + pq.cachedMessagesCount(), 0);
+        const remaining = this.#settlingProcessQueues()
+          .reduce((count, pq) => count + pq.cachedMessagesCount(), 0);
         this.logger.warn('Timeout waiting for the cached messages to be consumed, clientId=%s, '
           + 'remainingCachedMessages=%d', this.clientId, remaining);
         return;
@@ -259,12 +262,12 @@ export class PushConsumer extends Consumer {
   protected wrapHeartbeatRequest() {
     return new HeartbeatRequest()
       .setClientType(this.getClientType())
-      .setGroup(createResource(this.consumerGroup));
+      .setGroup(createResource(this.consumerGroup, this.namespace));
   }
 
   protected wrapNotifyClientTerminationRequest() {
     return new NotifyClientTerminationRequest()
-      .setGroup(createResource(this.consumerGroup));
+      .setGroup(createResource(this.consumerGroup, this.namespace));
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -285,9 +288,9 @@ export class PushConsumer extends Consumer {
     // composited interceptor chain), mirroring Java PushConsumerImpl.
     if (this.#pushSubscriptionSettings.isFifo()) {
       return new FifoConsumeService(this.clientId, this.#messageListener, this.#enableFifoConsumeAccelerator,
-        this, this.consumerGroup);
+        this, this.consumerGroup, this.logger);
     }
-    return new StandardConsumeService(this.clientId, this.#messageListener, this, this.consumerGroup);
+    return new StandardConsumeService(this.clientId, this.#messageListener, this, this.consumerGroup, this.logger);
   }
 
   async subscribe(topic: string, filterExpression: FilterExpression) {
@@ -385,7 +388,7 @@ export class PushConsumer extends Consumer {
     attemptId?: string,
   ) {
     const request = new ReceiveMessageRequest()
-      .setGroup(createResource(this.consumerGroup))
+      .setGroup(createResource(this.consumerGroup, this.namespace))
       .setMessageQueue(mq.toProtobuf())
       .setFilterExpression(filterExpression.toProtobuf())
       .setLongPollingTimeout(createDuration(longPollingTimeout))
@@ -408,8 +411,8 @@ export class PushConsumer extends Consumer {
 
   wrapAckMessageRequest(messageView: MessageView) {
     const request = new AckMessageRequest()
-      .setGroup(createResource(this.consumerGroup))
-      .setTopic(createResource(messageView.topic));
+      .setGroup(createResource(this.consumerGroup, this.namespace))
+      .setTopic(createResource(messageView.topic, this.namespace));
     const entry = request.addEntries()
       .setMessageId(messageView.messageId)
       .setReceiptHandle(messageView.receiptHandle);
@@ -424,8 +427,8 @@ export class PushConsumer extends Consumer {
 
   wrapChangeInvisibleDurationRequest(messageView: MessageView, invisibleDuration: number) {
     const request = new ChangeInvisibleDurationRequest()
-      .setGroup(createResource(this.consumerGroup))
-      .setTopic(createResource(messageView.topic))
+      .setGroup(createResource(this.consumerGroup, this.namespace))
+      .setTopic(createResource(messageView.topic, this.namespace))
       .setReceiptHandle(messageView.receiptHandle)
       .setInvisibleDuration(createDuration(invisibleDuration))
       .setMessageId(messageView.messageId);
@@ -442,8 +445,8 @@ export class PushConsumer extends Consumer {
   wrapForwardMessageToDeadLetterQueueRequest(messageView: MessageView) {
     const retryPolicy = this.getRetryPolicy();
     const request = new ForwardMessageToDeadLetterQueueRequest()
-      .setGroup(createResource(this.consumerGroup))
-      .setTopic(createResource(messageView.topic))
+      .setGroup(createResource(this.consumerGroup, this.namespace))
+      .setTopic(createResource(messageView.topic, this.namespace))
       .setReceiptHandle(messageView.receiptHandle)
       .setMessageId(messageView.messageId)
       .setDeliveryAttempt(messageView.deliveryAttempt ?? 0)
@@ -487,6 +490,7 @@ export class PushConsumer extends Consumer {
 
   #scanAssignments() {
     try {
+      this.#pruneDroppedProcessQueues();
       this.logger.debug?.('Scanning assignments, clientId=%s, subscriptionCount=%d',
         this.clientId, this.#subscriptionExpressions.size);
       for (const [ topic, filterExpression ] of this.#subscriptionExpressions) {
@@ -530,15 +534,11 @@ export class PushConsumer extends Consumer {
 
   async #queryAssignment(topic: string): Promise<Assignments> {
     const topicRouteData = await this.getRouteData(topic);
-    const endpointsList = topicRouteData.getTotalEndpoints();
-    if (endpointsList.length === 0) {
-      throw new Error(`No endpoints available for topic=${topic}`);
-    }
-    const endpoints = endpointsList[0];
+    const endpoints = topicRouteData.pickEndpointsToQueryAssignments();
 
     const request = new QueryAssignmentRequest()
-      .setTopic(createResource(topic))
-      .setGroup(createResource(this.consumerGroup))
+      .setTopic(createResource(topic, this.namespace))
+      .setGroup(createResource(this.consumerGroup, this.namespace))
       .setEndpoints(this.endpoints.toProtobuf());
 
     const response = await this.rpcClientManager.queryAssignment(
@@ -620,7 +620,24 @@ export class PushConsumer extends Consumer {
     if (entry) {
       entry.pq.drop();
       this.#processQueueTable.delete(mqKey);
+      this.#pruneDroppedProcessQueues();
+      this.#droppedProcessQueues.add(entry.pq);
     }
+  }
+
+  #pruneDroppedProcessQueues() {
+    for (const pq of this.#droppedProcessQueues) {
+      if (pq.isDrained()) {
+        pq.abort();
+        this.#droppedProcessQueues.delete(pq);
+      }
+    }
+  }
+
+  // Include removed queues that still have in-flight receives or cached messages.
+  #settlingProcessQueues(): ProcessQueue[] {
+    this.#pruneDroppedProcessQueues();
+    return [ ...this.processQueues(), ...this.#droppedProcessQueues ];
   }
 
   #createProcessQueue(mq: MessageQueue, filterExpression: FilterExpression): ProcessQueue | null {
@@ -669,7 +686,7 @@ export class PushConsumer extends Consumer {
     // Create a virtual message queue with queueId=-1
     const virtualMqPb = new MessageQueuePB();
     virtualMqPb.setId(-1); // Virtual queue ID for Lite consumer
-    virtualMqPb.setTopic(createResource(topic));
+    virtualMqPb.setTopic(createResource(topic, this.namespace));
     virtualMqPb.setBroker(broker.toProtobuf());
     virtualMqPb.setPermission(Permission.READ);
     virtualMqPb.setAcceptMessageTypesList([ MessageType.LITE ]);

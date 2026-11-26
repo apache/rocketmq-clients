@@ -30,7 +30,7 @@ import { HistogramEnum } from '../../src/metrics/HistogramEnum';
 import { Metric } from '../../src/metrics/Metric';
 import { createSilentLogger, deferred } from '../support/fakes';
 
-// 生命周期用例替换 exporter；地址仅用作配置哨兵，不连接网络。
+// Lifecycle tests replace the exporter; this address is a configuration sentinel, not a network target.
 const CLOSED_PORT = 65535;
 const OTLP_METRICS_EXPORT_PATH = '/opentelemetry.proto.collector.metrics.v1.MetricsService/Export';
 
@@ -63,7 +63,7 @@ async function startCollector(host = '127.0.0.1') {
   server.addService(service, {
     Export: (call: any, callback: any) => {
       received.push(call.metadata);
-      // 空字节即合法的 ExportMetricsServiceResponse。
+      // An empty payload is a valid ExportMetricsServiceResponse.
       callback(null, Buffer.alloc(0));
     },
   });
@@ -132,7 +132,7 @@ describe('ClientMeterManager lifecycle', () => {
     const manager = new ClientMeterManager('client-1', () => new Metadata(), createSilentLogger());
     manager.setGaugeObserver(observer);
     await manager.reset(metricOf(true));
-    // shutdown 会先 forceFlush，触发一次采集。
+    // Shutdown calls forceFlush first, triggering one collection.
     await manager.shutdown();
     const getValues = observer.getValues as sinon.SinonStub;
     sinon.assert.calledWith(getValues, GaugeEnum.CONSUMER_CACHED_MESSAGES);
@@ -154,7 +154,7 @@ describe('ClientMeterManager lifecycle', () => {
           await realShutdown();
         });
 
-        // 调用方（BaseClient#onSettingsCommand）不 await reset，两次 settings 可能交错。
+        // BaseClient#onSettingsCommand does not await reset, so consecutive settings updates can interleave.
         const off = manager.reset(metricOf(false));
         await entered.promise;
         const on = manager.reset(metricOf(true, nextPort));
@@ -192,7 +192,7 @@ describe('ClientMeterManager lifecycle', () => {
     await Promise.all([ off, on, closing ]);
 
     assert.equal(manager.isEnabled(), false);
-    // 两个 provider 都被 shutdown；包括 shutdown 调用时尚未开始的开启型 reset。
+    // Both providers shut down, including one enabled by a reset that had not started when shutdown was called.
     assert.equal(providerShutdown.callCount, 2);
   });
 
@@ -273,7 +273,7 @@ describe('ClientMeterManager OTLP export', () => {
     try {
       await manager.reset(metricOf(true, collector.port));
       manager.record(HistogramEnum.SEND_COST_TIME, { topic: 'TopicA' }, 3);
-      // shutdown 会先 forceFlush，把已记录的指标导出一次。
+      // Shutdown calls forceFlush first to export the recorded metrics.
       await manager.shutdown();
       assert.equal(collector.received.length, 1, 'expected one Export call at the collector');
       assert.deepEqual(collector.received[0].get('x-mq-client-id'), [ 'client-export' ]);
@@ -303,7 +303,7 @@ describe('ClientMeterManager OTLP export', () => {
       await manager.shutdown();
       assert.deepEqual(collector.received.map(metadata => metadata.get('x-mq-date-time')), [[ '1' ], [ '2' ], [ '3' ]]);
       sinon.assert.calledThrice(metadataProvider);
-      // 三个单轮 exporter，另加仅负责 aggregation 配置的 wrapper。
+      // Three per-round exporters plus the wrapper that supplies aggregation configuration.
       assert.equal(exporterShutdown.callCount, 4);
     } finally {
       await manager.shutdown();

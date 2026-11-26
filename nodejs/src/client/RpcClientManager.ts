@@ -18,15 +18,37 @@
 import { Metadata } from '@grpc/grpc-js';
 import {
   AckMessageRequest,
+  AckMessageResponse,
   ChangeInvisibleDurationRequest,
+  ChangeInvisibleDurationResponse,
   EndTransactionRequest,
+  EndTransactionResponse,
   ForwardMessageToDeadLetterQueueRequest,
+  ForwardMessageToDeadLetterQueueResponse,
   GetOffsetRequest,
-  HeartbeatRequest, NotifyClientTerminationRequest, PullMessageRequest,
-  QueryAssignmentRequest, QueryOffsetRequest, QueryRouteRequest,
-  ReceiveMessageRequest, SendMessageRequest, UpdateOffsetRequest,
+  GetOffsetResponse,
+  HeartbeatRequest,
+  HeartbeatResponse,
+  NotifyClientTerminationRequest,
+  NotifyClientTerminationResponse,
+  PullMessageRequest,
+  PullMessageResponse,
+  QueryAssignmentRequest,
+  QueryAssignmentResponse,
+  QueryOffsetRequest,
+  QueryOffsetResponse,
+  QueryRouteRequest,
+  QueryRouteResponse,
+  ReceiveMessageRequest,
+  ReceiveMessageResponse,
+  SendMessageRequest,
+  SendMessageResponse,
+  UpdateOffsetRequest,
+  UpdateOffsetResponse,
   RecallMessageRequest,
+  RecallMessageResponse,
   SyncLiteSubscriptionRequest,
+  SyncLiteSubscriptionResponse,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../route';
 import { withRequestId } from '../util/rpcContext';
@@ -126,77 +148,69 @@ export class RpcClientManager {
     this.#rpcClients.clear();
   }
 
-  async queryRoute(endpoints: Endpoints, request: QueryRouteRequest, duration: number) {
+  // Shared plumbing for unary calls: resolve the channel, build request metadata
+  // and associate the response with its request id.
+  async #call<T extends object>(endpoints: Endpoints,
+    invoke: (rpcClient: RpcClient, metadata: Metadata) => Promise<T>): Promise<T> {
     const rpcClient = this.#getRpcClient(endpoints);
     const metadata = this.#baseClient.getRequestMetadata();
-    return withRequestId(await rpcClient.queryRoute(request, metadata, duration), metadata);
+    return withRequestId(await invoke(rpcClient, metadata), metadata);
+  }
+
+  async queryRoute(endpoints: Endpoints, request: QueryRouteRequest, duration: number) {
+    return this.#call<QueryRouteResponse>(endpoints, (client, metadata) => client.queryRoute(request, metadata, duration));
   }
 
   async heartbeat(endpoints: Endpoints, request: HeartbeatRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return withRequestId(await rpcClient.heartbeat(request, metadata, duration), metadata);
+    return this.#call<HeartbeatResponse>(endpoints, (client, metadata) => client.heartbeat(request, metadata, duration));
   }
 
   async sendMessage(endpoints: Endpoints, request: SendMessageRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return withRequestId(await rpcClient.sendMessage(request, metadata, duration), metadata);
+    return this.#call<SendMessageResponse>(endpoints, (client, metadata) => client.sendMessage(request, metadata, duration));
   }
 
   async queryAssignment(endpoints: Endpoints, request: QueryAssignmentRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return withRequestId(await rpcClient.queryAssignment(request, metadata, duration), metadata);
+    return this.#call<QueryAssignmentResponse>(endpoints,
+      (client, metadata) => client.queryAssignment(request, metadata, duration));
   }
 
   async receiveMessage(endpoints: Endpoints, request: ReceiveMessageRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return withRequestId(await rpcClient.receiveMessage(request, metadata, duration), metadata);
+    return this.#call<ReceiveMessageResponse[]>(endpoints,
+      (client, metadata) => client.receiveMessage(request, metadata, duration));
   }
 
   async ackMessage(endpoints: Endpoints, request: AckMessageRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return withRequestId(await rpcClient.ackMessage(request, metadata, duration), metadata);
+    return this.#call<AckMessageResponse>(endpoints, (client, metadata) => client.ackMessage(request, metadata, duration));
   }
 
   async forwardMessageToDeadLetterQueue(endpoints: Endpoints, request: ForwardMessageToDeadLetterQueueRequest,
     duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.forwardMessageToDeadLetterQueue(request, metadata, duration);
+    return this.#call<ForwardMessageToDeadLetterQueueResponse>(endpoints,
+      (client, metadata) => client.forwardMessageToDeadLetterQueue(request, metadata, duration));
   }
 
   async pullMessage(endpoints: Endpoints, request: PullMessageRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.pullMessage(request, metadata, duration);
+    return this.#call<PullMessageResponse[]>(endpoints,
+      (client, metadata) => client.pullMessage(request, metadata, duration));
   }
 
   async updateOffset(endpoints: Endpoints, request: UpdateOffsetRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.updateOffset(request, metadata, duration);
+    return this.#call<UpdateOffsetResponse>(endpoints,
+      (client, metadata) => client.updateOffset(request, metadata, duration));
   }
 
   async getOffset(endpoints: Endpoints, request: GetOffsetRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.getOffset(request, metadata, duration);
+    return this.#call<GetOffsetResponse>(endpoints, (client, metadata) => client.getOffset(request, metadata, duration));
   }
 
   async queryOffset(endpoints: Endpoints, request: QueryOffsetRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.queryOffset(request, metadata, duration);
+    return this.#call<QueryOffsetResponse>(endpoints,
+      (client, metadata) => client.queryOffset(request, metadata, duration));
   }
 
   async endTransaction(endpoints: Endpoints, request: EndTransactionRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return withRequestId(await rpcClient.endTransaction(request, metadata, duration), metadata);
+    return this.#call<EndTransactionResponse>(endpoints,
+      (client, metadata) => client.endTransaction(request, metadata, duration));
   }
 
   telemetry(endpoints: Endpoints, metadata: Metadata) {
@@ -205,26 +219,22 @@ export class RpcClientManager {
   }
 
   async changeInvisibleDuration(endpoints: Endpoints, request: ChangeInvisibleDurationRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return withRequestId(await rpcClient.changeInvisibleDuration(request, metadata, duration), metadata);
+    return this.#call<ChangeInvisibleDurationResponse>(endpoints,
+      (client, metadata) => client.changeInvisibleDuration(request, metadata, duration));
   }
 
   async notifyClientTermination(endpoints: Endpoints, request: NotifyClientTerminationRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.notifyClientTermination(request, metadata, duration);
+    return this.#call<NotifyClientTerminationResponse>(endpoints,
+      (client, metadata) => client.notifyClientTermination(request, metadata, duration));
   }
 
   async recallMessage(endpoints: Endpoints, request: RecallMessageRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return withRequestId(await rpcClient.recallMessage(request, metadata, duration), metadata);
+    return this.#call<RecallMessageResponse>(endpoints,
+      (client, metadata) => client.recallMessage(request, metadata, duration));
   }
 
   async syncLiteSubscription(endpoints: Endpoints, request: SyncLiteSubscriptionRequest, duration: number) {
-    const rpcClient = this.#getRpcClient(endpoints);
-    const metadata = this.#baseClient.getRequestMetadata();
-    return await rpcClient.syncLiteSubscription(request, metadata, duration);
+    return this.#call<SyncLiteSubscriptionResponse>(endpoints,
+      (client, metadata) => client.syncLiteSubscription(request, metadata, duration));
   }
 }

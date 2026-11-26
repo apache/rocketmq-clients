@@ -52,7 +52,7 @@ export abstract class Consumer extends BaseClient {
   protected wrapReceiveMessageRequest(batchSize: number, mq: MessageQueue,
     filterExpression: FilterExpression, invisibleDuration: number, longPollingTimeout: number) {
     return new ReceiveMessageRequest()
-      .setGroup(createResource(this.consumerGroup))
+      .setGroup(createResource(this.consumerGroup, this.namespace))
       .setMessageQueue(mq.toProtobuf())
       .setFilterExpression(filterExpression.toProtobuf())
       .setLongPollingTimeout(createDuration(longPollingTimeout))
@@ -118,8 +118,8 @@ export abstract class Consumer extends BaseClient {
   protected async ackMessage(messageView: MessageView) {
     const endpoints = messageView.endpoints;
     const request = new AckMessageRequest()
-      .setGroup(createResource(this.consumerGroup))
-      .setTopic(createResource(messageView.topic));
+      .setGroup(createResource(this.consumerGroup, this.namespace))
+      .setTopic(createResource(messageView.topic, this.namespace));
     const entry = request.addEntries()
       .setMessageId(messageView.messageId)
       .setReceiptHandle(messageView.receiptHandle);
@@ -146,8 +146,8 @@ export abstract class Consumer extends BaseClient {
 
   protected async invisibleDuration(messageView: MessageView, invisibleDuration: number) {
     const request = new ChangeInvisibleDurationRequest()
-      .setGroup(createResource(this.consumerGroup))
-      .setTopic(createResource(messageView.topic))
+      .setGroup(createResource(this.consumerGroup, this.namespace))
+      .setTopic(createResource(messageView.topic, this.namespace))
       .setReceiptHandle(messageView.receiptHandle)
       .setInvisibleDuration(createDuration(invisibleDuration))
       .setMessageId(messageView.messageId);

@@ -64,8 +64,7 @@ export class MessageView {
         expectedChecksum = sha1CheckSum(bodyBytes);
         break;
       default:
-        // log.error("Unsupported message body digest algorithm, digestType={}, topic={}, messageId={}",
-        //             digestType, topic, messageId);
+        break;
     }
     if (expectedChecksum && expectedChecksum !== checksum) {
       corrupted = true;
@@ -102,6 +101,8 @@ export class MessageView {
       this.endpoints = messageQueue.broker.endpoints;
     }
     this.body = bodyBytes;
+    // Record the local decode completion time for consumption wait and processing latency metrics.
+    this.decodeTimestamp = new Date();
   }
 
   /**

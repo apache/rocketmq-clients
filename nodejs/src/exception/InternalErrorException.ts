@@ -24,7 +24,7 @@ export class InternalErrorException extends ClientException {
     super(code, message, requestId);
     this.name = 'InternalErrorException';
     // Mark this as a potentially retryable error (temporary server-side issue)
-    // retryable 由类字段显式声明。
+    // The class field explicitly declares retryable.
   }
 
   /**

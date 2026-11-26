@@ -18,8 +18,8 @@
 import { LiteSubscriptionManager } from './LiteSubscriptionManager';
 import { OffsetOption } from './OffsetOption';
 
-// 两种 Lite 消费者共用生命周期顺序与入口校验；父类操作由调用方传入。
-// 不从 consumer/index.ts 导出，已有 Impl 和 manager 的公开入口保持不变。
+// Both Lite consumers share lifecycle ordering and entry validation; callers supply parent operations.
+// Keep this helper out of consumer/index.ts exports and preserve existing Impl and manager entry points.
 export class LiteConsumerSupport extends LiteSubscriptionManager {
   async startConsumer(startParent: () => Promise<void>): Promise<void> {
     await startParent();

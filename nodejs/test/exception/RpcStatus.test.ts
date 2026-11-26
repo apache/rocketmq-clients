@@ -76,7 +76,7 @@ describe('RPC 异常 requestId 与 receive 限定', () => {
     clients = [ consumer ];
   });
   afterEach(() => {
-    // 未启动客户端，meter 保持 disabled；关闭唯一创建的 RPC channel 与空闲定时器。
+    // Unstarted clients keep metrics disabled; close their RPC channel and idle timer.
     for (const client of clients) client.getRpcClientManager().close();
     sinon.restore();
     clock.restore();
@@ -190,6 +190,28 @@ describe('RPC 异常 requestId 与 receive 限定', () => {
     });
     await assert.rejects(() => producer.endTransaction(endpoints, new Message({ topic: 'test-topic', body: Buffer.from('body') }),
       'message-id', 'transaction-id', TransactionResolution.COMMIT), error => matchesRequest(error, requestId));
+  });
+
+  ([
+    'forwardMessageToDeadLetterQueue', 'pullMessage', 'updateOffset', 'getOffset', 'queryOffset',
+    'notifyClientTermination', 'syncLiteSubscription',
+  ] as const).forEach(method => {
+    it(`${method} 响应关联本次 metadata ID`, async () => {
+      let requestId = '';
+      const response = {};
+      const rpcClient = RpcClient.prototype as unknown as Record<typeof method,
+      (request: unknown, metadata: Metadata, duration: number) => Promise<object>>;
+      sinon.stub(rpcClient, method).callsFake(async (_req: unknown, metadata: Metadata) => {
+        requestId = String(metadata.get('x-mq-request-id')[0]);
+        return response;
+      });
+      const manager = consumer.getRpcClientManager() as unknown as Record<typeof method,
+      (endpoints: Endpoints, request: unknown, duration: number) => Promise<object>>;
+      const result = await manager[method](endpoints, {}, 3000);
+      assert.equal(result, response);
+      assert.match(requestId, /^[a-f0-9-]{36}$/);
+      assert.equal(getRequestId(result), requestId);
+    });
   });
 
   it('heartbeat 记录的错误带本次 ID', async () => {
