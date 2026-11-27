@@ -4,11 +4,14 @@ on:
 jobs:
   cmake-build:
     name: "CMake ${{ matrix.os }}"
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, macos-latest, windows-2022]
+        include:
+          - os: macos-latest
+            runner: macos-15
     steps:
       - uses: actions/checkout@v3
         with:
@@ -20,7 +23,12 @@ jobs:
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install openssl zlib
+        run: |
+          brew install zlib
+          # gRPC 1.46.3 cannot compile against OpenSSL 3.x/4.x (const-correctness
+          # API changes). Use the OpenSSL 1.1 pre-installed on the macos-15 image
+          # for both gRPC and the SDK so they link a single, compatible OpenSSL.
+          echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1)" >> "$GITHUB_ENV"
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
@@ -31,7 +39,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ runner.temp }}/grpc-install
-          key: grpc-1.46.3-${{ matrix.os }}
+          key: grpc-1.46.3-${{ matrix.runner || matrix.os }}
 
       - name: Build gRPC from source
         if: steps.cache-grpc.outputs.cache-hit != 'true'
