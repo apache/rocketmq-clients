@@ -45,6 +45,7 @@ FifoProducerBuilder& FifoProducerBuilder::withConfiguration(Configuration config
   producer_impl_->withCredentialsProvider(configuration.credentialsProvider());
   producer_impl_->withRequestTimeout(configuration.requestTimeout());
   producer_impl_->withSsl(configuration.withSsl());
+  producer_impl_->withResourceNamespace(configuration.resourceNamespace());
   return *this;
 }
 
