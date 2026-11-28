@@ -205,3 +205,26 @@ class Misc:
             Current time as milliseconds since epoch.
         """
         return time.time_ns() // 1_000_000
+
+    @staticmethod
+    def fill_proto_duration(duration, seconds):
+        """Fill a protobuf ``Duration`` from a seconds value.
+
+        Accepts ``int`` or ``float`` seconds. Sub-second precision of float
+        input is preserved by populating the ``nanos`` field, because protobuf
+        int64 fields reject float assignment (the exponential backoff policy
+        returns fractional seconds, and callers may pass fractional invisible
+        durations).
+
+        Args:
+            duration: Protobuf ``Duration`` message, filled in place.
+            seconds: Seconds (``int``/``float``), or ``None`` to leave it untouched.
+        """
+        if seconds is None:
+            return
+        if isinstance(seconds, float):
+            total_nanos = int(round(seconds * 1_000_000_000))
+            duration.seconds = total_nanos // 1_000_000_000
+            duration.nanos = total_nanos % 1_000_000_000
+        else:
+            duration.seconds = int(seconds)

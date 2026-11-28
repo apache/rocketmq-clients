@@ -276,9 +276,9 @@ class Consumer(Client):
             req.filter_expression.expression = filter_expression.expression
         req.batch_size = max_message_num
         if invisible_duration:
-            req.invisible_duration.seconds = invisible_duration
+            Misc.fill_proto_duration(req.invisible_duration, invisible_duration)
         if long_polling_timeout:
-            req.long_polling_timeout.seconds = long_polling_timeout
+            Misc.fill_proto_duration(req.long_polling_timeout, long_polling_timeout)
         if attempt_id:
             req.attempt_id = attempt_id
         req.auto_renew = auto_renew
@@ -406,7 +406,7 @@ class Consumer(Client):
         req.group.name = self._consumer_group
         req.group.resource_namespace = self.client_configuration.namespace
         req.receipt_handle = message.receipt_handle
-        req.invisible_duration.seconds = invisible_duration
+        Misc.fill_proto_duration(req.invisible_duration, invisible_duration)
         req.message_id = message.message_id
         if self.is_lite_consumer():
             req.lite_topic = message.lite_topic

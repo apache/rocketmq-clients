@@ -66,6 +66,10 @@ class CustomizedBackoffRetryPolicy(RetryPolicy):
             self.__durations = list()
 
     def __eq__(self, other):
+        if not isinstance(other, CustomizedBackoffRetryPolicy):
+            # Let Python fall back to identity comparison for other types
+            # instead of raising AttributeError on missing attributes.
+            return NotImplemented
         return self.max_attempts == other.max_attempts and self.__durations == other.__durations
 
     def get_next_attempt_delay(self, attempt):
@@ -81,7 +85,7 @@ class CustomizedBackoffRetryPolicy(RetryPolicy):
         Raises:
             IllegalArgumentException: If ``attempt`` is not positive.
         """
-        if attempt < 0:
+        if attempt <= 0:
             raise IllegalArgumentException("attempt must be positive")
         size = len(self.__durations)
         if size > 0:
@@ -121,6 +125,10 @@ class ExponentialBackoffRetryPolicy(RetryPolicy):
             self.__multiplier = None
 
     def __eq__(self, other):
+        if not isinstance(other, ExponentialBackoffRetryPolicy):
+            # Let Python fall back to identity comparison for other types
+            # instead of raising AttributeError on missing attributes.
+            return NotImplemented
         return self.max_attempts == other.max_attempts and self.initial_backoff == other.initial_backoff and self.max_backoff == other.max_backoff and self.multiplier == other.multiplier
 
     def get_next_attempt_delay(self, attempt):
@@ -135,9 +143,13 @@ class ExponentialBackoffRetryPolicy(RetryPolicy):
         Raises:
             IllegalArgumentException: If ``attempt`` is not positive.
         """
-        if attempt < 0:
+        if attempt <= 0:
             raise IllegalArgumentException("attempt must be positive")
-        if self.__initial_backoff and self.__max_backoff and self.__multiplier:
+        # Compare with `is not None` (instead of truthiness) so that a zero
+        # initial/max backoff stays effective, e.g. a "retry immediately"
+        # policy as in Java ExponentialBackoffRetryPolicy#immediatelyRetryPolicy.
+        if (self.__initial_backoff is not None and self.__max_backoff is not None
+                and self.__multiplier is not None):
             exp_backoff_nanos = self.__initial_backoff * (self.__multiplier ** (attempt - 1))
             delay_nanos = int(min(exp_backoff_nanos, self.__max_backoff))
             if delay_nanos <= 0:
